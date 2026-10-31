@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import { doorIndex } from '../../src/house/editor/model';
-import { architects, openHouse, press, talkTo, type MenuState } from './house';
-import { blueprints, ed, firstArchitect, needOf, openEditorFast, setForm } from './houseEditor';
+import { architects, menuState, openHouse, press, putTansu, talkTo, tansuHas, type HouseIssue, type MenuState, type Pos3 } from './house';
+import { blueprints, clickDisabled, ed, editorUiIssues, firstArchitect, needHeadIssues, needOf, openEditorFast, setForm } from './houseEditor';
 import { LONGEST_NAME, standAt, type CellInfo, type HouseForm, type Pt } from './houseBuilt';
 
 /**
@@ -227,27 +227,71 @@ export async function addBlueprint(page: Page, form: HouseForm): Promise<number>
   return bps[bps.length - 1]!.number;
 }
 
+/** 材料の 置き場: もちもの（bag）と 置いた たんす（at）の 中の 数。数えるのは 材料の 種類〔items〕だけ */
+export interface Stock {
+  /** 置いた たんすの 場所 */
+  at: Pos3;
+  bag: Record<string, number>;
+  tansu: Record<string, number>;
+}
+
+/** たんすを 置く 場所（足もとから）。建築士さんの 東 12 マスの 場所〔layYard〕とは はんたいがわの 西に 置く */
+const STOCK_TANSU = { dx: -12, dz: 4 } as const;
+
+/** いまの もちもの・たんす（at）の 中の items の 数 */
+export async function stockNow(page: Page, at: Pos3, items: string[]): Promise<Stock> {
+  const bag: Record<string, number> = {};
+  const tansu: Record<string, number> = {};
+  for (const item of items) {
+    bag[item] = await page.evaluate((i) => (window as any).__rikkun.inventory.count(i) as number, item);
+    tansu[item] = await tansuHas(page, at, item);
+  }
+  return { at, bag, tansu };
+}
+
 /**
- * せっけいず slot の 材料（need() の need）を ちょうど くらに あずける（extra は その 分 ふやす）。
- * 持ち物に 足してから あずける ので、せっけいずなどは へらない。あずけた あとの くらを 返す。
+ * せっけいず slot の 材料（need() の need）を ちょうど そろえる（extra は その 分 ふやす）。
+ * 1E: 材料は もちもの＋近くの たんす。where 'split'〔はじめ〕＝ 半分〔切り上げ〕を たんす・のこりを もちもの、'bag' ＝ ぜんぶ もちもの、'tansu' ＝ ぜんぶ たんす。
+ * 近くの たんすを 1 つ 足もとの 西に 置く（置いた 場所は 返す Stock の at）。持ち物に 足す ので、せっけいずなどは へらない。そろえた あとの 数を 返す。
  */
-export async function stockKura(page: Page, slot: number, extra: Record<string, number> = {}): Promise<Record<string, number>> {
+export async function stockMaterials(
+  page: Page,
+  slot: number,
+  extra: Record<string, number> = {},
+  where: 'split' | 'bag' | 'tansu' = 'split',
+): Promise<Stock> {
   const rows = await needOf(page, slot);
   expect(rows.length, `need(${slot}) に 行が ある`).toBeGreaterThan(0);
+  const toBag: Record<string, number> = {};
+  const toTansu: Record<string, number> = {};
+  const items: string[] = [];
   for (const r of rows) {
     const n = r.need + (extra[r.item] ?? 0);
+    items.push(r.item);
     if (n <= 0) continue;
-    const moved = await page.evaluate(
-      ({ item, n }) => {
-        const h = (window as any).__rikkun;
-        h.inventory.add(item, n);
-        return h.house.deposit(item, n) as number;
-      },
-      { item: r.item, n },
-    );
-    expect(moved, `${r.item} を ${n} こ くらに あずけた`).toBe(n);
+    const t = where === 'bag' ? 0 : where === 'tansu' ? n : Math.ceil(n / 2);
+    if (t > 0) toTansu[r.item] = t;
+    if (n - t > 0) toBag[r.item] = n - t;
   }
-  return page.evaluate(() => (window as any).__rikkun.house.kura() as Record<string, number>);
+  await page.evaluate((toBag) => {
+    const h = (window as any).__rikkun;
+    for (const [item, n] of Object.entries(toBag) as [string, number][]) h.inventory.add(item, n);
+    h.step(1);
+  }, toBag);
+  const at = await putTansu(page, STOCK_TANSU.dx, STOCK_TANSU.dz, toTansu);
+  return stockNow(page, at, items);
+}
+
+/** 建てる 前の 数 before から、need の 分だけ たんす〔近い 順。ここでは 1 つ〕→ もちもの の 順に へらした あとの 数（AC20b） */
+export function afterBuild(before: Stock, needs: Array<{ item: string; need: number }>): Stock {
+  const bag = { ...before.bag };
+  const tansu = { ...before.tansu };
+  for (const r of needs) {
+    const fromTansu = Math.min(tansu[r.item] ?? 0, r.need);
+    tansu[r.item] = (tansu[r.item] ?? 0) - fromTansu;
+    bag[r.item] = (bag[r.item] ?? 0) - (r.need - fromTansu);
+  }
+  return { at: before.at, bag, tansu };
 }
 
 // ---------------------------------------------------------------- 建築中の 見張り
@@ -433,7 +477,7 @@ export async function tryEditSite(
 
 // ---------------------------------------------------------------- UI 検査の 画面（e2e/ui-gate.spec.ts）
 
-export type SiteScreen = 'pick' | 'sky' | 'confirm';
+export type SiteScreen = 'pick' | 'sky' | 'confirm' | 'need';
 
 /** 一覧を 6 行より 長く する せっけいずの 数（6 行を こえたら スクロール。§3.2） */
 const GATE_PLANS = 7;
@@ -441,6 +485,13 @@ const GATE_PLANS = 7;
 export const PICK_ROOTS = ['[data-testid="house-pick"]', '[data-testid="house-bubble"]'];
 export const SKY_ROOTS = ['[data-testid="house-sky"]', '[data-testid="house-bubble"]'];
 export const SKY_CONFIRM_ROOTS = ['[data-testid="house-confirm"]'];
+/** 一覧の たりない カードを 押して 開く ひつような もの（けんちく がわ。エディター がわの 同じ 画面は houseEditor.ts の NEED_ROOTS） */
+export const SITE_NEED_ROOTS = ['[data-testid="house-need"]', '[data-testid="house-bubble"]'];
+
+/** けんちく がわの ひつような もの（AC35c）: 字・ボタンの 大きさ（`editorUiIssues`）と、列の 見出し「ひつよう」「ある」「たりない」・材料の 名前の ふりがな（`needHeadIssues`） */
+export async function siteNeedIssues(page: Page): Promise<HouseIssue[]> {
+  return [...(await editorUiIssues(page, SITE_NEED_ROOTS)), ...(await needHeadIssues(page))];
+}
 
 /**
  * UI 検査の 画面を 出す: いちばん 長い 名前の せっけいずを 何まいか 作り、
@@ -456,7 +507,7 @@ export async function openSiteScreen(page: Page, kind: SiteScreen): Promise<void
       await addBlueprint(page, {
         w: 5,
         d: 5,
-        windows: i % 2,
+        windows: kind === 'need' ? 1 : i % 2, // need ＝ 窓 1（かみも いる）の 1 まい
         front: LONGEST_NAME.front,
         back: LONGEST_NAME.back,
         furniture: [
@@ -467,7 +518,24 @@ export async function openSiteScreen(page: Page, kind: SiteScreen): Promise<void
     );
   }
   const bps = await blueprints(page);
-  await stockKura(page, bps[0]!.slot); // 窓 0 の 4 まい（0・2・4・6 まい目）は 同じ 材料 なので まとめて そろう。窓 1 の 3 まいは かみが たりない
+  // 1E: かみは もちものの 数も 材料に 数える。せっけいずを 作った あまりの かみを すてて から（窓 1 の 3 まいは かみが たりない まま に する）
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    const n = h.inventory.count('paper') as number;
+    if (n > 0) h.inventory.remove('paper', n);
+    h.step(1);
+  });
+  if (kind === 'need') {
+    // 近くの たんすに 材料の 一部〔き 10・いし 5〕だけ → たりない カード。押すと ひつような もの（「ある」の 列に 数が 入る）
+    await putTansu(page, STOCK_TANSU.dx, STOCK_TANSU.dz, { log: 10, stone: 5 });
+    await talkTo(page, first.id, 'hook');
+    const m = await press(page, 'build');
+    expect(m.page, 'けんちくを はじめる の 一覧').toBe('pick');
+    await clickDisabled(page, `pick-${bps[0]!.slot}`); // 材料が たりない うすい カード（aria-disabled）を 本物の マウスで 1 回
+    expect((await menuState(page)).page, '押すと ひつような もの').toBe('need');
+    return;
+  }
+  await stockMaterials(page, bps[0]!.slot); // 窓 0 の 4 まい（0・2・4・6 まい目）は 同じ 材料 なので まとめて そろう。窓 1 の 3 まいは かみが たりない
   if (kind === 'pick') {
     await talkTo(page, first.id, 'hook');
     const m = await press(page, 'build');

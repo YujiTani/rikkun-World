@@ -1,12 +1,12 @@
 import { toBlueprint, parseBlueprint, blueprintName, type Blueprint } from './editor/blueprint';
 import { cloneState, emptyState, parseState, type EditorState } from './editor/model';
-import { Kura } from './kura';
+import { LegacyKura } from './legacyKura';
 import type { HouseRecord } from './talk';
 
 /**
- * 建築士さん・くら・エディターの 保存（HOUSE-1A の AC32・AC33、HOUSE-1B の AC32b）。セーブの `house` に 入る。
- * 形: { v: 2, kura: { id: 数 }, first: { x, z } | null, toolsGiven, fudeGiven, draft, blueprints, next }
- *   kura        … あずけた 材料（建築士さん どうしで 共有）
+ * 建築士さん・エディターの 保存（HOUSE-1A の AC32・AC33、HOUSE-1B の AC32b、HOUSE-1E の AC32d）。セーブの `house` に 入る。
+ * 形: { v: 2, kura?: { id: 数 }, first: { x, z } | null, toolsGiven, fudeGiven, draft, blueprints, next }
+ *   kura        … 前の セーブ〔1D まで〕の くらの 物のうち、まだ かえして いない 分（1E: くらは ない。かえす 物が なければ キーごと 書かない。`legacyKura.ts`）
  *   first       … 最初の 1 人の 場所（決まったら 動かさない。null = まだ 決まって いない → 置き方の 関数が 決める）
  *   toolsGiven  … はじめての あいさつ（みずもり・どうづき）を したか
  *   fudeGiven   … はじめの ふでを わたしたか（1B から。#339 より 前の セーブは false → 次に 話した とき 1 本。AC46）
@@ -14,11 +14,11 @@ import type { HouseRecord } from './talk';
  *   blueprints  … これまで 作った せっけいずの 中身（番号つき。持ち物の せっけいずの マスは 番号だけ 持つ）
  *   next        … 次の せっけいずの 番号（1, 2, 3 …。すてても こわしても もどらない）
  * もどす／すすむの 記録・見本の 向き・家具の えらびは 入れない（開きなおすと 空）。
- * 古い セーブ（キーなし・v1）・こわれた データは 初期の まま（くら 空・最初の 1 人は 決まった 場所に 出る・道具は まだ・作りかけは まっさら・番号 1）。
+ * 古い セーブ（キーなし・v1）・こわれた データは 初期の まま（かえす 物なし・最初の 1 人は 決まった 場所に 出る・道具は まだ・作りかけは まっさら・番号 1）。
  */
 export interface HouseSave {
   v: 2;
-  kura: Record<string, number>;
+  kura?: Record<string, number>;
   first: { x: number; z: number } | null;
   toolsGiven: boolean;
   fudeGiven: boolean;
@@ -30,7 +30,8 @@ export interface HouseSave {
 const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
 
 export class HouseState {
-  readonly kura = new Kura();
+  /** 前の セーブの くらの 物の うち まだ かえして いない 分（建築士さんに 話した とき もちものへ もどす。1E） */
+  readonly legacy = new LegacyKura();
   /** 話す 流れ（HouseTalk）と 建築士さんの 置き場所（ArchitectManager）が 同じ 物を 読み書きする */
   readonly record: HouseRecord = { toolsGiven: false, fudeGiven: false, first: null };
   /** エディターの 作りかけ（EditorController が 中身を 入れかえる） */
@@ -58,9 +59,10 @@ export class HouseState {
 
   serialize(): HouseSave {
     const f = this.record.first;
+    const kura = this.legacy.serialize();
     return {
       v: 2,
-      kura: this.kura.serialize(),
+      ...(kura ? { kura } : {}),
       first: f ? { x: f.x, z: f.z } : null,
       toolsGiven: this.record.toolsGiven,
       fudeGiven: this.record.fudeGiven,
@@ -79,11 +81,11 @@ export class HouseState {
     this.plans.clear();
     this.next = 1;
     if (typeof data !== 'object' || data === null || Array.isArray(data)) {
-      this.kura.restore(null);
+      this.legacy.restore(null);
       return;
     }
     const d = data as Record<string, unknown>;
-    this.kura.restore(d.kura);
+    this.legacy.restore(d.kura);
     const f = d.first as { x?: unknown; z?: unknown } | null | undefined;
     if (typeof f === 'object' && f !== null && finite(f.x) && finite(f.z)) this.record.first = { x: Math.floor(f.x), z: Math.floor(f.z) };
     this.record.toolsGiven = d.toolsGiven === true;

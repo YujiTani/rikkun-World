@@ -210,7 +210,7 @@ test.describe('HOUSE-1B PR-2 見本を まわす', () => {
     // ---- 見本を 押すと 置いた 家具の えらびは はずれる（AC57）
     expect(await edit(page, { op: 'place', kind: 'futon', x: 1, z: 1 }), 'ふとんを 置く').toBe(true);
     expect(await edit(page, { op: 'select', x: 1, z: 1 }), 'ふとんを えらぶ').toBe(true);
-    expect((await ed(page)).selected, 'えらんだ').toEqual({ x: 1, z: 1 });
+    expect((await ed(page)).selected, 'えらんだ').toEqual({ i: 0, x: 1, z: 1 });
     await previewDrag(page, 10, 0);
     expect((await ed(page)).selected, '見本を 押すと 置いた 家具の えらびは はずれる').toBeNull();
   });
@@ -420,7 +420,7 @@ test.describe('HOUSE-1B PR-2 見本を まわす', () => {
     await press(page, 'next');
     expect(await edit(page, { op: 'place', kind: 'futon', x: 1, z: 1 }), 'ふとんを 置く').toBe(true);
     expect(await edit(page, { op: 'select', x: 1, z: 1 }), 'ふとんを えらぶ').toBe(true);
-    expect((await ed(page)).selected).toEqual({ x: 1, z: 1 });
+    expect((await ed(page)).selected).toEqual({ i: 0, x: 1, z: 1 });
     const box2 = await previewBox(page);
     await page.mouse.move(box2.x + box2.width / 2, box2.y + box2.height / 2);
     await page.mouse.down();
@@ -428,7 +428,7 @@ test.describe('HOUSE-1B PR-2 見本を まわす', () => {
     await stepUi(page, 1);
     const e2 = await ed(page);
     expect(e2.selected, '見本を 押すと 置いた 家具の えらびは はずれる').toBeNull();
-    expect(e2.furniture, '見本を 押しても 家具は ふえも へりも しない').toEqual([{ kind: 'futon', x: 1, z: 1, rot: 0 }]);
+    expect(e2.furniture, '見本を 押しても 家具は ふえも へりも しない').toEqual([{ kind: 'futon', x: 1, z: 1, rot: 0, origin: { x: 1, z: 1 }, bad: null }]);
   });
 
   test.describe('devicePixelRatio 2', () => {

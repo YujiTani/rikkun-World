@@ -1,9 +1,10 @@
 // HOUSE-1B ② なか の 画面（左 ＝ 上から 見た 方眼〔かべは 帯〕、右（パネルに しない）＝ 屋根なしの 見本・家具の ボタン〔1 行 ⌈しゅるい ÷ 2⌉ こ。13 種は 上 7・下 6〕・えらんだ 名前・あかり）。
 // 仕様 §3.2 の ② なか。置ける 所は 白、置けない 所は 赤（家具の 形が 色づく）。戸の 前の 1 マスは 足あと。
-// 置いた 家具を 押す と、その 家具の すぐ そば（下、はみ出す ときは 上）に ［とる］［↻］［↺］が 出る。家具を まわすと ついて いく。
+// 1E: 方眼の 中の マスなら どこでも 置ける（置けない 所の 家具は 赤。重なりは あとから 置いた 方が 上）。はみ出した 所は 方眼の はこ（かべの 帯 こみ）で 切る。
+// 置いた 家具を 押す と、その 家具の すぐ そば（上、入らなければ 下）に ［とる］［↻］［↺］が 出る。家具を まわすと ついて いく。
 import type { EditorController } from '../../house/editor/controller';
 import { FURN_ORDER, FURNITURE, K_LANTERN, paletteColumns, type FurnKind } from '../../house/editor/furniture';
-import { doorIndex, doorInside, footprint, placeProblem, windowCells } from '../../house/editor/model';
+import { doorIndex, doorInside, footprint, furnitureProblems, placeProblem, topLeftOf, windowCells } from '../../house/editor/model';
 import { DOOR_WALL, type Wall } from '../../house/editor/tuning';
 import type { Preview3D } from '../../house/preview/preview';
 import { btn, el, markSel, type BtnOpts, type TileUrls } from './dom';
@@ -11,9 +12,9 @@ import type { PressFx } from './feedback';
 import { ICONS } from './icons';
 import { DOOR_MARK_H, doorMark, shojiMark } from './marks';
 import type { StepPanel } from './soto';
+import { clusterPlace } from './clusterPlace';
 import { BAND_PX, CLUSTER } from './tuning';
 
-const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
 export class NakaPanel implements StepPanel {
   readonly el: HTMLElement = el('section', 'ed-stepview ed-stepview--naka');
@@ -34,11 +35,14 @@ export class NakaPanel implements StepPanel {
   private hover: { x: number; z: number } | null = null;
   private lastCount = 0;
   private lastFlash = 0;
+  /** 前に そばの ボタンを 出した 家具の 番号（かわったら すべらせず すぐ うつす） */
+  private clusterFor: number | null = null;
   private iconsReady = false;
 
   constructor(private readonly ctl: EditorController, private readonly preview: () => Preview3D, private readonly tiles: TileUrls, fx: PressFx, press: BtnOpts['onPress']) {
     this.view.dataset.testid = 'editor-preview';
     this.grid.dataset.testid = 'editor-grid';
+    this.ghost.dataset.testid = 'editor-ghost';
     this.ghost.alt = '';
     this.ghost.hidden = true;
     const left = el('div', 'ed-colL ed-colL--naka');
@@ -255,7 +259,8 @@ export class NakaPanel implements StepPanel {
     parts.push(this.place(dm, door.x + 2, door.y, dw, DOOR_MARK_H));
     const lamp = this.place(el('div', 'ed-mark ed-mark--lamp', ICONS.lantern), B + ((w - 1) / 2) * c, B + ((d - 1) / 2) * c, c, c);
     lamp.dataset.testid = 'editor-lamp-mark';
-    parts.push(lamp, this.place(this.layer, B, B, w * c, d * c));
+    // 家具の 層は かべの 帯 こみの はこ ぜんぶ（はみ出した 赤い 家具は 帯の 上まで 描き、はこの 外は 切る。1E）
+    parts.push(lamp, this.place(this.layer, 0, 0, W, H));
     this.grid.replaceChildren(...parts, this.cluster);
   }
 
@@ -266,75 +271,98 @@ export class NakaPanel implements StepPanel {
     if (key === this.layerKey) return;
     this.layerKey = key;
     this.layer.replaceChildren();
+    const B = BAND_PX;
+    const bads = furnitureProblems(s);
+    const flash = ctl.flash;
     s.furniture.forEach((p, i) => {
       const [fw, fd] = footprint(p.kind, p.rot);
-      const img = this.place(el('div', 'ed-furn'), p.x * cell, p.z * cell, fw * cell, fd * cell);
-      img.style.backgroundImage = `url(${this.preview().furnitureImage(p.kind, p.rot, 'top').normal})`;
+      const art = this.preview().furnitureImage(p.kind, p.rot, 'top');
+      const bad = bads[i] ?? null;
+      const img = this.place(el('div', 'ed-furn'), B + p.x * cell, B + p.z * cell, fw * cell, fd * cell);
       img.dataset.testid = 'editor-furniture';
       img.dataset.kind = p.kind;
       img.dataset.x = String(p.x);
       img.dataset.z = String(p.z);
       img.dataset.rot = String(p.rot);
       img.dataset.i = String(i);
+      if (bad) {
+        // 赤い 家具（1E）: 置く 前の 赤い 形と 同じ 赤 ＋ しま もよう（色だけに たよらない 印。しまは 家具の 形の 中だけ）
+        img.style.backgroundImage = `url(${art.ng})`;
+        img.style.setProperty('--ed-mask', `url(${art.normal})`);
+        img.classList.add('is-red');
+        img.dataset.bad = bad;
+      } else {
+        img.style.backgroundImage = `url(${art.normal})`;
+      }
       if (i === s.furniture.length - 1 && s.furniture.length > this.lastCount) img.classList.add('is-new');
-      if (ctl.flash && ctl.flash.idx === i && ctl.flash.seq !== this.lastFlash) img.classList.add('is-flash');
+      if (flash && flash.items.includes(i) && flash.seq !== this.lastFlash) img.classList.add('is-flash');
       this.layer.append(img);
     });
     this.lastCount = s.furniture.length;
-    if (ctl.flash) this.lastFlash = ctl.flash.seq;
+    if (flash) this.lastFlash = flash.seq;
     const sp = ctl.sel.placed !== null ? s.furniture[ctl.sel.placed] : undefined;
     if (sp) {
       const [fw, fd] = footprint(sp.kind, sp.rot);
-      this.layer.append(this.place(this.selbox, sp.x * cell, sp.z * cell, fw * cell, fd * cell));
+      this.layer.append(this.place(this.selbox, B + sp.x * cell, B + sp.z * cell, fw * cell, fd * cell)); // いちばん 上
     }
     this.layer.append(this.ghost);
   }
 
   /**
-   * えらんだ 家具の すぐ そばに ボタンを 出す。まわしても 動かない 場所（左上の マスは かわらない）に きめる ので、
-   * つづけて ↻ を 押せる（ボタンが ゆびの 下から にげない）。しっぽと わくが 家具に ついて いく。
-   * 上に 入れば 家具の 上の ふち の すぐ 上、入らなければ 下（2 マスの 家具は まわした どの 向きでも おさまる 2×2 の 下）。
-   * よこは そのまま 方眼の はばに おさめる。方眼から はみ出す 側には 出さない。
+   * えらんだ 家具の すぐ そばに ボタンを 出す。上に 入れば 家具の 上の ふち の すぐ 上、入らなければ 下。
+   * 家具は もとの マスを 中心に まわる ので、まわすたびに 家具の 見えて いる 四角（方眼の はこで 切った あと）から 決めなおして ついて いく。
+   * よこは 家具の まん中に そろえ、方眼の はばに おさめる。方眼から はみ出す 側には 出さない。しっぽが 家具を さす。
    */
   private paintCluster(): void {
     const { ctl, cell: c, cluster } = this;
     const s = ctl.s;
-    const p = ctl.sel.placed !== null ? s.furniture[ctl.sel.placed] : undefined;
+    const at = ctl.sel.placed;
+    const p = at !== null ? s.furniture[at] : undefined;
     cluster.hidden = !p;
-    if (!p) return;
+    if (!p) {
+      this.clusterFor = null;
+      return;
+    }
     const B = BAND_PX;
     const W = s.w * c + 2 * B;
     const H = s.d * c + 2 * B;
     const [fw, fd] = footprint(p.kind, p.rot);
-    const m = Math.max(fw, fd);
-    const x0 = B + p.x * c;
-    const top0 = B + p.z * c;
-    const { w: cw, h: ch, gap } = CLUSTER;
-    const aboveTop = top0 - gap - ch;
-    const side = aboveTop >= 0 ? 'above' : 'below';
-    const top = side === 'above' ? aboveTop : Math.min(top0 + m * c + gap, H - ch);
-    const left = W >= cw ? clamp(x0 + (m * c) / 2 - cw / 2, 0, W - cw) : (W - cw) / 2;
-    cluster.style.left = `${left}px`;
-    cluster.style.top = `${top}px`;
-    cluster.style.setProperty('--tail', `${clamp(x0 + (fw * c) / 2 - left, 24, cw - 24)}px`);
-    cluster.classList.toggle('is-above', side === 'above');
+    const place = clusterPlace({ w: W, h: H }, { l: B + p.x * c, t: B + p.z * c, r: B + (p.x + fw) * c, b: B + (p.z + fd) * c }, CLUSTER);
+    const jump = at !== this.clusterFor; // べつの 家具を えらんだ: すべらせず すぐ うつす
+    this.clusterFor = at;
+    if (jump) cluster.style.transition = 'none';
+    cluster.style.left = `${place.left}px`;
+    cluster.style.top = `${place.top}px`;
+    cluster.style.setProperty('--tail', `${place.tail}px`);
+    cluster.classList.toggle('is-above', place.side === 'above');
+    if (jump) {
+      void cluster.offsetWidth; // 今の 場所を 決めて から すべりを もどす
+      cluster.style.transition = '';
+    }
   }
 
   private paintGhost(): void {
-    const pend = this.ctl.pending();
-    if (!pend || !this.hover) {
+    const { ctl, hover } = this;
+    const pend = ctl.pending();
+    // 家具の ある マスの 上では 形を 出さない（押すと 置かずに えらぶ ため。1E）
+    if (!pend || !hover || ctl.indexAt(hover.x, hover.z) >= 0) {
       this.ghost.hidden = true;
       return;
     }
-    const p = { kind: pend.kind, x: this.hover.x, z: this.hover.z, rot: pend.rot };
+    // 押した マス ＝ もとの マス（置く 前の 向きが 0 で なくても。1E）。赤くても 押せる
+    const at = topLeftOf(pend.kind, pend.rot, hover.x, hover.z);
+    const p = { kind: pend.kind, x: at.x, z: at.z, rot: pend.rot };
+    const bad = placeProblem(ctl.s, p);
     const img = this.preview().furnitureImage(p.kind, p.rot, 'top');
-    const src = placeProblem(this.ctl.s, p) === null ? img.ok : img.ng;
+    const src = bad === null ? img.ok : img.ng;
     if (src !== this.ghostSrc) {
       this.ghostSrc = src;
       this.ghost.src = src;
     }
+    if (bad === null) delete this.ghost.dataset.bad;
+    else this.ghost.dataset.bad = bad;
     const [fw, fd] = footprint(p.kind, p.rot);
-    this.place(this.ghost, p.x * this.cell, p.z * this.cell, fw * this.cell, fd * this.cell);
+    this.place(this.ghost, BAND_PX + p.x * this.cell, BAND_PX + p.z * this.cell, fw * this.cell, fd * this.cell);
     this.ghost.hidden = false;
     if (!this.ghost.isConnected) this.layer.append(this.ghost);
   }

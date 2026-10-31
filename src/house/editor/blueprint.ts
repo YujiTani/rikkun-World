@@ -1,5 +1,5 @@
 // HOUSE-1B せっけいずの 中身（持ち物の マスの `plan` 番号 → ここ）。DOM・three なし。仕様 docs/design/HOUSE-1.md §2.7・§6.1。
-import { cloneState, parseState, windowCells, type EditorState, type Placed, type WindowCell } from './model';
+import { cloneState, parseState, plainFurniture, windowCells, type EditorState, type Placed, type WindowCell } from './model';
 import { LIGHT_DEFAULT, type LightKind, type RoofKind, type Size, type WindowKind } from './tuning';
 
 /** せっけいず 1 まいの 中身。番号は その 世界で 作った 順（1, 2, 3 …。すてても こわしても もどらない） */
@@ -31,10 +31,11 @@ export function blueprintWindows(bp: Pick<Blueprint, 'w' | 'd' | 'windows'>): Wi
   return windowCells(bp);
 }
 
-/** 保存から 読む。番号が 正の 整数で ない ものは null。形は 作りかけと 同じ 決まりで 読む（おかしい 所は はじめの まま） */
+/** 保存から 読む。番号が 正の 整数で ない ものは null。形は 作りかけと 同じ 決まりで 読む（おかしい 所は はじめの まま）。せっけいずに 赤い 家具は 入らない ので 赤い 家具は すてる（作りかけの 下書きは 赤も のこす） */
 export function parseBlueprint(raw: unknown): Blueprint | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const r = raw as Record<string, unknown>;
   if (typeof r.number !== 'number' || !Number.isInteger(r.number) || r.number < 1) return null;
-  return toBlueprint(parseState(r), r.number);
+  const s = parseState(r);
+  return toBlueprint({ ...s, furniture: plainFurniture(s) }, r.number);
 }

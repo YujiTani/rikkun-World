@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { FURN_ORDER, FURNITURE } from './furniture';
 import { makeController } from './testkit';
 import { BUBBLE, CONFIRM_TEXT, MSG } from './tuning';
 
-/** HOUSE-1B AC8〜AC10・AC13b・AC44・AC44b・AC55・AC56（もどす／すすむ・できた！の しらべ・ふきだし・Esc の 順） */
+/** HOUSE-1B AC8〜AC10・AC13b・AC44・AC44b・AC55・AC56（もどす／すすむ・できた！の しらべ・ふきだし・Esc の 順）。HOUSE-1E の 内装の 仮置きは controller1e.test.ts */
 
 describe('もどす／すすむ（何回でも。見えて いる すすみへ 切りかわる）', () => {
   it('1 回の 操作が 1 つ。20 回 もどして 20 回 すすむと 元に もどる。新しい 操作で すすむ 側は 消える', () => {
@@ -98,36 +99,20 @@ describe('もどす／すすむ（何回でも。見えて いる すすみへ �
   });
 });
 
-describe('家具を まわす・あかり（AC13b）', () => {
-  it('まわせない（はみ出す・重なる）ときは まわらず、赤く 光る 合図（flash）。もどす にも 入らない', () => {
-    const { ctl } = makeController();
-    ctl.place('table', 3, 0); // 2×1 が 右はしに ぴったり
-    expect(ctl.rotate(0, 'right'), '2×1 → 1×2 に して も 入る').toBe(true);
-    ctl.place('table', 0, 4); // 下はしの 1 マスしか ない 場所（戸の 前〔2,4〕には かからない）
-    expect(ctl.rotate(1, 'right'), '下に はみ出す').toBe(false);
-    expect(ctl.flash?.idx).toBe(1);
-    expect(ctl.s.furniture[1]!.rot).toBe(0);
-  });
-
-  it('AC13（2.4）ながい テーブル（3×1）: みぎに まわすと 1×3・rot 1 で 左上の マスは 同じ。下に はみ出す ときは まわらない', () => {
-    const { ctl } = makeController();
-    ctl.place('long_table', 0, 0);
-    expect(ctl.rotate(0, 'right')).toBe(true);
-    expect(ctl.s.furniture[0]).toEqual({ kind: 'long_table', x: 0, z: 0, rot: 1 });
-    expect(ctl.rotate(0, 'left')).toBe(true);
-    expect(ctl.rotate(0, 'left'), 'rot 3').toBe(true);
-    expect(ctl.s.furniture[0]!.rot).toBe(3);
-    ctl.place('long_table', 0, 3); // 5×5 の 下から 2 だんめ。たて 3 マスに すると 下へ はみ出す
-    expect(ctl.rotate(1, 'right')).toBe(false);
-    expect(ctl.s.furniture[1]).toEqual({ kind: 'long_table', x: 0, z: 3, rot: 0 });
-  });
-
-  it('AC13（2.4）まるい テーブル・まるいす・はにわ（1×1）: まわしても rot だけ かわる（場所は 同じ）', () => {
-    for (const kind of ['round_table', 'stool', 'haniwa'] as const) {
+describe('家具を まわす・あかり（AC13b・AC13c の 1×1）', () => {
+  // 1E〔#374〕で こわれた「まわせない（はみ出す・重なる）ときは まわらず flash」と「まわしても 左上の マスは 同じ」は、
+  // 新しい きまり（もとの マスを 中心に まわる・赤く なる 向きにも まわる）の AC13c〜AC13e に かわった → controller1e.test.ts
+  it('AC13c 1×1 の 家具ぜんぶ（いす・まるい テーブル・まるいす・はにわ・たんす・かまど・あんどん・ほんだな）: まわしても x・z は 同じで rot だけ かわる', () => {
+    const ones = FURN_ORDER.filter((k) => FURNITURE[k].cells[0] === 1 && FURNITURE[k].cells[1] === 1);
+    expect(ones.length, '1×1 の 家具が ある').toBeGreaterThan(0);
+    for (const kind of ones) {
       const { ctl } = makeController();
       ctl.place(kind, 1, 1);
       expect(ctl.rotate(0, 'right'), kind).toBe(true);
       expect(ctl.s.furniture[0], kind).toEqual({ kind, x: 1, z: 1, rot: 1 });
+      expect(ctl.rotate(0, 'left'), kind).toBe(true);
+      expect(ctl.rotate(0, 'left'), kind).toBe(true);
+      expect(ctl.s.furniture[0], kind).toEqual({ kind, x: 1, z: 1, rot: 3 });
     }
   });
 

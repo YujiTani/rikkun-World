@@ -38,7 +38,7 @@ export class ConfirmPop {
   }
 }
 
-/** ひつような もの（1 行 ＝ 絵・名前・ひつよう・くら・たりない。足りない 数は 赤、足りて いれば 緑の ✓） */
+/** ひつような もの（1 行 ＝ 絵・名前・ひつよう・ある・たりない。ある ＝ もちもの ＋ 近くの たんす〔1E〕。足りない 数は 赤、足りて いれば 緑の ✓） */
 export class NeedPop {
   readonly el = el('div', 'ed-pop');
 
@@ -53,7 +53,9 @@ export class NeedPop {
     const card = el('div', 'ed-card ed-need');
     card.append(el('h2', 'ed-need__title', 'ひつような もの'));
     const list = el('div', 'ed-need__list');
-    list.append(el('div', 'ed-need__row ed-need__row--head', '<span></span><span></span><span class="is-num">ひつよう</span><span class="is-num">くら</span><span class="is-num">たりない</span>'));
+    const head = el('div', 'ed-need__row ed-need__row--head', '<span></span><span></span><span class="is-num">ひつよう</span><span class="is-num">ある</span><span class="is-num">たりない</span>');
+    head.dataset.testid = 'need-head';
+    list.append(head);
     const rows = this.ctl.need();
     if (rows.length === 0) list.append(el('div', 'ed-need__row', '<span></span><span>まだ なにも いらないよ</span><span></span><span></span><span></span>'));
     for (const r of rows) {

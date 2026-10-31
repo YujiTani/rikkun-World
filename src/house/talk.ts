@@ -1,10 +1,10 @@
-import type { ItemId } from '../contracts';
+import type { Inventory, ItemId } from '../contracts';
 import { HOUSE_TOOL_IDS } from '../content/items/ids';
 import { editorButtons } from './editor/buttons';
 import type { EditorController } from './editor/controller';
 import { pressEditor } from './editor/ops';
 import { FUDE } from './editor/sheet';
-import { KURA_MAX, type Kura, type KuraBag } from './kura';
+import type { LegacyKura } from './legacyKura';
 import { RENAME_SAY, type HouseRename } from './rename';
 import type { BuildFlow } from './build/flow';
 import { FAREWELL_TICKS, MSG } from './build/tuning';
@@ -17,8 +17,10 @@ import type { Column } from './placement';
  *   はじめて 話す とき だけ、うなずきの あとに あいさつが 2 行（クリック なしで すすむ）。2 行目で 道具を わたしてから メニューが 開く:
  *       「こんにちは！ …」（うなずきの 間から） → 「これを あげる。…」（道具を わたす） → 「なにを する？」（メニュー）
  *   1B（#339）から: あいさつの 2 行目で ふでも わたす。#339 より 前に 道具を もらった セーブは、うなずきの あと「ふで を あげる」の 1 行（100 ステップ）で ふでを わたして メニュー。
+ *   1E（#374）から: くらは ない。前の セーブの くらに 物が ある ときは、うなずきの あと「あずかった ものを かえすね」の 1 行（100 ステップ）で もちものへ 入る 分だけ もどす。
+ *   入りきらなければ 続けて「いっぱい だから また あとでね」の 1 行（100 ステップ）。そのあとは ふつうの 流れ（ふでの 行・メニュー）。足もとには 落とさない（§2.4 の 4）。
  *   メニューの「せっけいずを つくる」で エディター（page 'editor'。「ひつような もの」が 出て いる 間は page 'need'）。
- *   メニューが 開いて いる 間（くらの 画面を ふくむ）は ゲームの 時間を 止める（frozen()。本の 画面と 同じ あつかい）。
+ *   メニューが 開いて いる 間は ゲームの 時間を 止める（frozen()。本の 画面と 同じ あつかい）。
  */
 
 /** あいさつの 1 行ごとの 長さ（ステップ）。6 歳が 読める ながさ。うなずき 22 ＋ これ × 2 は E2E の 待ち 300 ステップに 入る */
@@ -31,10 +33,12 @@ export const SAY = {
   fude: 'ふで を あげる。せっけいずを かく ときに つかってね',
   made: 'せっけいずが できたよ！',
   menu: 'なにを する？',
-  kura: 'ざいりょうを あずけよう',
   tools: 'どうぞ！ たいせつに してね',
-  kuraFull: '999 こ まで だよ',
   bagFull: 'もちものが いっぱい だよ',
+  /** 前の セーブの くらの 物を かえす（12 字＋空白 2 で 1 だん。§2.4 の 4） */
+  back: 'あずかった ものを かえすね',
+  /** 入りきらなかった ときの つづき（13 字＋空白 3 で 1 だん） */
+  later: 'いっぱい だから また あとでね',
 } as const;
 
 /** セーブに のこす 建築士さんの 記録: はじめての あいさつを したか・はじめの ふでを わたしたか・最初の 1 人の 場所（いちど 決まったら 動かさない） */
@@ -45,9 +49,9 @@ export interface HouseRecord {
   first: Column | null;
 }
 
-type HousePage = 'top' | 'kura' | 'editor' | 'need' | 'rename' | 'renameName' | 'pick' | 'sky';
-/** 上の メニューの ボタン（§2.3 の 順）。動くのは kura・editor・build〔建築中で なければ〕・rename〔建てた 家が あるとき〕・tools・close */
-export type HouseButtonId = 'kura' | 'editor' | 'build' | 'rename' | 'tools' | 'close';
+type HousePage = 'top' | 'editor' | 'need' | 'rename' | 'renameName' | 'pick' | 'sky';
+/** 上の メニューの ボタン（§2.3 の 順）。動くのは editor・build〔建築中で なければ〕・rename〔建てた 家が あるとき〕・tools・close */
+export type HouseButtonId = 'editor' | 'build' | 'rename' | 'tools' | 'close';
 
 /** 窓口の ボタン。上の メニューは HouseButtonId、エディターは editor/buttons.ts の id */
 export interface HouseButton {
@@ -67,8 +71,9 @@ export interface HouseMenuState {
 
 export interface HouseTalkDeps {
   record: HouseRecord;
-  kura: Kura;
-  bag: KuraBag;
+  /** 前の セーブの くらの 物を かえす 係（なければ 何も かえさない） */
+  legacy?: LegacyKura;
+  bag: Pick<Inventory, 'count' | 'add'>;
   /** 声「ぽぽぽ」を 1 回 鳴らす（話しはじめの とき） */
   voice: () => void;
   /** メニューが 開いた / とじた（時間を 止める・もどす・画面を 出す・けす） */
@@ -92,12 +97,12 @@ export interface HouseTalkDeps {
   busyText?: () => string | null;
 }
 
-type Phase = 'idle' | 'nod' | 'greet1' | 'greet2' | 'menu' | 'bye';
-type Page = 'top' | 'kura' | 'editor' | 'rename' | 'renameName' | 'build';
+/** back1 ＝ 前の セーブの くらの 物を かえす 行、back2 ＝ 入りきらなかった ときの 行（どちらも ふでの 行・メニューの 前） */
+type Phase = 'idle' | 'nod' | 'back1' | 'back2' | 'greet1' | 'greet2' | 'menu' | 'bye';
+type Page = 'top' | 'editor' | 'rename' | 'renameName' | 'build';
 
 /** 上の ページの ボタン（道具は 持っていない ときだけ 足す）。live = いま 押せる */
 const TOP: ReadonlyArray<{ id: HouseButtonId; live: boolean }> = [
-  { id: 'kura', live: true },
   { id: 'editor', live: true },
   { id: 'build', live: true },
   { id: 'rename', live: true },
@@ -161,7 +166,7 @@ export class HouseTalk {
     }
   }
 
-  /** メニュー（くらを ふくむ）が 開いて いる 間 true。ゲームの 時間を 止める */
+  /** メニューが 開いて いる 間 true。ゲームの 時間を 止める */
   frozen(): boolean {
     return this.phase === 'menu';
   }
@@ -170,12 +175,14 @@ export class HouseTalk {
   step(nodDone: boolean): void {
     if (this.phase === 'nod') {
       if (!nodDone) return;
-      if (this.d.record.toolsGiven && this.d.record.fudeGiven) this.open();
-      else if (this.d.record.toolsGiven) this.giveFude();
-      else {
-        this.phase = 'greet1';
-        this.timer = GREET_STEPS;
-      }
+      if (this.d.legacy?.pending()) this.giveBack();
+      else this.afterNod();
+    } else if (this.phase === 'back1') {
+      if (--this.timer > 0) return;
+      if (this.d.legacy?.pending()) this.sayLater();
+      else this.afterNod();
+    } else if (this.phase === 'back2') {
+      if (--this.timer <= 0) this.afterNod();
     } else if (this.phase === 'greet1') {
       if (--this.timer <= 0) this.gift();
     } else if (this.phase === 'greet2') {
@@ -218,10 +225,6 @@ export class HouseTalk {
     } else if (id === 'rename' && this.d.rename.available()) {
       this.page = 'rename';
       this.say = RENAME_SAY.pick;
-      this.ver++;
-    } else if (id === 'kura') {
-      this.page = 'kura';
-      this.say = SAY.kura;
       this.ver++;
     } else if (id === 'editor') {
       this.page = 'editor';
@@ -357,28 +360,10 @@ export class HouseTalk {
     this.d.endTalk(who);
   }
 
-  /** くらへ あずける。動いた 数。メニューが とじて いても 使える。999 こで 入りきらない 分は のこり、ふきだしで 知らせる */
-  deposit(item: ItemId, want: number): number {
-    const moved = this.d.kura.deposit(this.d.bag, item, want);
-    this.ver++;
-    if (this.phase === 'menu') this.say = moved < Math.floor(want) && this.d.kura.count(item) >= KURA_MAX ? SAY.kuraFull : SAY.kura;
-    return moved;
-  }
-
-  /** くらから とりだす。動いた 数。持ち物に 入らない 分は くらに のこり、ふきだしで 知らせる */
-  withdraw(item: ItemId, want: number): number {
-    const had = this.d.kura.count(item);
-    const moved = this.d.kura.withdraw(this.d.bag, item, want);
-    this.ver++;
-    if (this.phase === 'menu') this.say = moved < Math.min(Math.floor(want), had) ? SAY.bagFull : SAY.kura;
-    return moved;
-  }
-
   // ------------------------------------------------------------ 中の 動き
 
   private buttons(): HouseButton[] {
     if (this.page === 'build') return this.d.flow?.buttons() ?? [];
-    if (this.page === 'kura') return [{ id: 'close', enabled: true }];
     if (this.page === 'rename') return this.d.rename.listButtons();
     if (this.page === 'renameName') return this.d.rename.nameButtons();
     if (this.page === 'editor') return editorButtons(this.d.editor);
@@ -387,6 +372,39 @@ export class HouseTalk {
     if (this.canGetTools()) out.push({ id: 'tools', enabled: true });
     out.push({ id: 'close', enabled: true });
     return out;
+  }
+
+  /** うなずきの あと: 前の セーブの くらの 物を もちものへ 入る 分だけ もどして 1 行（入りきらなければ 続けて 2 行目） */
+  private giveBack(): void {
+    // もどした 種類ごとに 拾った ログ・音と 同じ 道（gave）を 通す
+    for (const item of this.d.legacy?.giveBack(this.d.bag) ?? []) this.d.gave(item);
+    this.phase = 'back1';
+    this.timer = GREET_STEPS;
+    this.say = SAY.back;
+    this.ver++;
+  }
+
+  /** 入りきらなかった 続きの 1 行 */
+  private sayLater(): void {
+    this.phase = 'back2';
+    this.timer = GREET_STEPS;
+    this.say = SAY.later;
+    this.ver++;
+  }
+
+  /** うなずき（か かえす 行）の あとの ふつうの 流れ: 道具も ふでも 渡して あれば メニュー、ふでだけ まだなら ふでの 行、はじめては あいさつ */
+  private afterNod(): void {
+    if (this.d.record.toolsGiven && this.d.record.fudeGiven) this.open();
+    else if (this.d.record.toolsGiven) this.giveFude();
+    else {
+      this.phase = 'greet1';
+      this.timer = GREET_STEPS;
+      if (this.say !== SAY.hello) {
+        // 前の セーブの くらの 行の あとで はじめての あいさつに 入る とき だけ、ふきだしを もどす
+        this.say = SAY.hello;
+        this.ver++;
+      }
+    }
   }
 
   /** 2 行目: 道具（みずもり・どうづき・ふで）を わたす。あいさつは これで おわり（持ち物が いっぱいで わたせなくても くりかえさない。「どうぐを もらう」が のこる） */

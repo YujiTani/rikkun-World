@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { houseMenuPixels } from './houseMenuArt';
 
-/** HOUSE-1A: メニューの ボタンの 仮の 絵（蔵・方眼と 家・えんぴつ）と 照準の 下の 案内「はなす」の ふきだし。書きまちがい（行の 長さ・色の 表に ない 字）を 見張る */
+/** HOUSE-1A: メニューの ボタンの 仮の 絵（方眼と 家・えんぴつ。1E: 蔵の 絵は ない）と 照準の 下の 案内「はなす」の ふきだし。書きまちがい（行の 長さ・色の 表に ない 字）を 見張る */
 
 describe('メニューの 仮の 絵', () => {
-  for (const kind of ['kura', 'editor', 'rename', 'talk'] as const) {
+  for (const kind of ['editor', 'rename', 'talk'] as const) {
     it(`${kind}: 16x16 で、色の ついた 画素が たくさん あり、まわりは すき間`, () => {
       const p = houseMenuPixels(kind);
       expect(p).toHaveLength(256);
@@ -20,7 +20,7 @@ describe('メニューの 仮の 絵', () => {
   }
 
   it('絵ごとに 見た目が ちがう', () => {
-    const key = (k: 'kura' | 'editor' | 'rename' | 'talk'): string => JSON.stringify(houseMenuPixels(k));
-    expect(new Set([key('kura'), key('editor'), key('rename'), key('talk')]).size).toBe(4);
+    const key = (k: 'editor' | 'rename' | 'talk'): string => JSON.stringify(houseMenuPixels(k));
+    expect(new Set([key('editor'), key('rename'), key('talk')]).size).toBe(3);
   });
 });

@@ -1,11 +1,10 @@
-// main.ts の 流れ 5.5: 建築士さん（HOUSE-1A）。話す 流れ・くら・保存の 記録・見た目・メニューの 画面を つなぐ。
+// main.ts の 流れ 5.5: 建築士さん（HOUSE-1A）。話す 流れ・材料〔もちもの ＋ 近くの たんす。1E〕・保存の 記録・見た目・メニューの 画面を つなぐ。
 import { Vector3 } from 'three';
 import { playArchitect } from '../../fx/architectSounds';
 import { playCraft } from '../../fx/craftSounds';
 import { ArchitectRenderer } from '../../house/ArchitectRenderer';
 import { watchBlocks } from '../../house/blockWatch';
 import { houseKeyGuard } from '../../house/keyGuard';
-import { KuraScreen } from '../../house/kuraScreen';
 import { Preview3D } from '../../house/preview/preview';
 import { HouseSystem } from '../../house/system';
 import { setPlanNameSource } from '../../inventory/planName';
@@ -20,7 +19,7 @@ import { modalLock } from './modalLock';
 const HEAD_TOP = 1.8;
 
 export function wireHouse(deps: WiredYokai) {
-  const { shared, world, seed, island, game, fxSound, hud, lock, pointerLock, controller, inventory, lighting, combat, dig, screen, blobShadow, storage, yokaiM, animals } = deps;
+  const { shared, world, seed, island, game, fxSound, hud, lock, pointerLock, controller, inventory, lighting, combat, dig, screen, blobShadow, storage, craft, w2, yokaiM, animals } = deps;
   // 家を 建てる 画面まわり（上空の 視点・みずもりの 色・道具を 持った 形・音）。house は あとから つなぐ（attach）
   const { siteView } = wireHouseSite(deps);
 
@@ -34,6 +33,10 @@ export function wireHouse(deps: WiredYokai) {
     },
     player: () => controller.state.position,
     bag: inventory,
+    // 材料（建てる・せっけいずの かみ・ふで）は もちもの ＋ 近くの たんす: 「つくる」と 同じ 数え方・同じ きょり（設定 craftTansuRange）。数えるのは 画面を 開いた・押した とき だけ
+    craft,
+    tansu: storage,
+    durability: () => w2.toolDurability,
     // 建築士さんの 声: yuzu が 決めた 案 C「ハミング」（話すたびに 3 しゅるいを じゅんばんに。src/fx/architectSounds.ts）
     voice: () => playArchitect(fxSound, 'architect_voice'),
     // 道具を わたした: 「拾った」ログ・知らせと 同じ 道を 通す（持ち物には もう 入れてある）
@@ -42,12 +45,12 @@ export function wireHouse(deps: WiredYokai) {
     nameBand: (text) => shared.celebrate.enqueueHouseName(text),
     // たんすの 中の 道具も「持って いる」（なくした ときだけ「どうぐを もらう」）
     owned: (item) => storage.list().reduce((n, p) => n + storage.countItem(p.x, p.y, p.z, item), 0),
-    // メニュー・くらが 開く: マウスが 出る。時間と 妖怪の 停止は ゲームの 窓（shared.houseFrozen）が 受けもつ。たんす・とりごやと おなじ 錠の あつかい
+    // メニューが 開く: マウスが 出る。時間と 妖怪の 停止は ゲームの 窓（shared.houseFrozen）が 受けもつ。たんす・とりごやと おなじ 錠の あつかい
     onOpen: () => modal.open(),
     onClose: () => {
       game.redrawWorld(); // エディターの 見本が キャンバスぜんぶを ぬって いる ので、世界を 描きなおす
       modal.close();
-      shared.requestSave(); // あずけた・とりだした 中身を 保存に
+      shared.requestSave(); // かえした くらの 物・作った せっけいずを 保存に
     },
     // やられた・もちもの画面や とりごやが 開いた: 話しを やめる（メニューが 勝手に 開かない ように）
     interrupted: () => combat.dead() || screen.inventoryOpen() || shared.coopMenuIsOpen(),
@@ -86,16 +89,6 @@ export function wireHouse(deps: WiredYokai) {
   // ブロックを 置く・ほる → 足もとに かかる 建築士さんが 高さを あわせる・家の 戸の 記録が あけしめ・こわれを おぼえる（立って いる 間は 毎ステップ 世界を 読まない ため。farm.onBlockChanged と 同じ 流れ）
   watchBlocks(world, house.watcher);
 
-  const kuraScreen = new KuraScreen({
-    slots: () => inventory.slots(),
-    bagCount: (item) => inventory.count(item),
-    entries: () => house.state.kura.entries(),
-    kuraCount: (item) => house.state.kura.count(item),
-    canStack: (item) => house.state.kura.canHold(item),
-    deposit: (item, n) => house.deposit(item, n),
-    withdraw: (item, n) => house.withdraw(item, n),
-  });
-
   // 話して いる 建築士さんの 頭の 上（画面の ピクセル）。うしろ・画面の 外なら null
   const head = new Vector3();
   const anchor = (): { x: number; y: number } | null => {
@@ -115,7 +108,6 @@ export function wireHouse(deps: WiredYokai) {
     rename: () => house.renameView(),
     makeEditor: (parent) =>
       new EditorView({ parent, ctl: house.editor, preview: getPreview, release: releasePreview, canvas: game.renderer.domElement, press: (id) => house.press(id), sound: fxSound }),
-    screen: kuraScreen,
     tick: () => playCraft(fxSound, 'tab'),
     anchor,
     site: { pickList: () => house.pickList(), needRows: () => house.buildNeedRows(), buildName: () => house.buildName(), pointer: siteView.pointer },
@@ -141,7 +133,7 @@ export function wireHouse(deps: WiredYokai) {
   game.scene.add(architectRenderer.group);
   lighting.register(architectRenderer.bodyMaterial, 'doll');
 
-  // 時間が すすんで いる 間だけ（メニュー・くらが 開くと ゲームの 窓が 止める）
+  // 時間が すすんで いる 間だけ（メニューが 開くと ゲームの 窓が 止める）
   game.onUpdate(() => house.update());
   game.onBeforeRender(() => {
     architectRenderer.update(house.manager.all(), game.camera, dig.aimedArchitect());
@@ -150,7 +142,7 @@ export function wireHouse(deps: WiredYokai) {
     doneUi.update(house.build.celebrate.view());
   });
 
-  // Esc・E: 話しを やめる（うなずき・あいさつ・メニュー・くら ぜんぶ）。メニューの 間は もちもの画面は 開かない（錠が 開いて いない）。
+  // Esc・E: 話しを やめる（うなずき・あいさつ・メニュー ぜんぶ）。メニューの 間は もちもの画面は 開かない（錠が 開いて いない）。
   // エディターの Esc は 確かめの まど → ひつような もの → 家具の えらび → とじる の 順（house.escape）
   game.input.onPress((action) => {
     if (action === 'closeMenu' && house.talking()) house.escape();

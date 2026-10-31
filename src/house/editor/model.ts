@@ -1,4 +1,4 @@
-// HOUSE-1B せっけいずの 形（EditorState）と 計算（窓の ならべ方・置ける 所・材料・名前）。DOM・three なし。
+// HOUSE-1B せっけいずの 形（EditorState）と 計算（窓の ならべ方・赤い 家具〔1E〕・材料・名前）。DOM・three なし。
 // 仕様 docs/design/HOUSE-1.md §4.1（大きさ・材料）・§4.2（窓と 戸）・§4.3（家具）・§2.6（名前）。
 import type { ItemId } from '../../contracts';
 import { furnFootprint } from '../../world/blocks/houseBlocks';
@@ -10,7 +10,7 @@ import {
 
 export interface Placed {
   kind: FurnKind;
-  /** 左上の マス（うしろ・ひだりの すみから 0） */
+  /** 今の 形（まわした あと）の 左上の マス（うしろ・ひだりの すみから 0）。赤い 家具は 0 より 小さい・よこ／たて 以上 にも なる（1E）。保存の 形 */
   x: number;
   z: number;
   /** みぎに まわす たびに ＋1（ふとんの 0 ＝ まくらが うしろ） */
@@ -138,9 +138,56 @@ export function footprint(kind: FurnKind, rot: Rot): readonly [number, number] {
   return furnFootprint(fw, fd, rot);
 }
 
+/**
+ * もとの マス（向き 0 の ときの 左上。ふとんは まくらの マス）が 今の 形の どの かどに あたるか（1E。仕様 §4.3）。
+ * 向きと いっしょに 時計まわりに うつる: 0 ＝ 左上・1 ＝ 右上・2 ＝ 右下・3 ＝ 左下。保存の 形は 今の 左上（x・z）と rot の まま
+ */
+const ORIGIN_CORNER: Readonly<Record<Rot, { right: boolean; bottom: boolean }>> = {
+  0: { right: false, bottom: false },
+  1: { right: true, bottom: false },
+  2: { right: true, bottom: true },
+  3: { right: false, bottom: true },
+};
+
+/** 家具の もとの マス（押して 置いた マス）。rot 0 では x・z と 同じ */
+export function originOf(p: Placed): { x: number; z: number } {
+  const [fw, fd] = footprint(p.kind, p.rot);
+  const c = ORIGIN_CORNER[p.rot];
+  return { x: p.x + (c.right ? fw - 1 : 0), z: p.z + (c.bottom ? fd - 1 : 0) };
+}
+
+/** もとの マス (ox, oz)・向き rot の 家具の 今の 左上（originOf の ぎゃく） */
+export function topLeftOf(kind: FurnKind, rot: Rot, ox: number, oz: number): { x: number; z: number } {
+  const [fw, fd] = footprint(kind, rot);
+  const c = ORIGIN_CORNER[rot];
+  return { x: ox - (c.right ? fw - 1 : 0), z: oz - (c.bottom ? fd - 1 : 0) };
+}
+
+/** もとの マスを 中心に 90 度 まわした 家具（右 ＝ ＋1、左 ＝ −1）。もとの マスは うごかない */
+export function turned(p: Placed, dir: 'right' | 'left'): Placed {
+  const rot = ((p.rot + (dir === 'right' ? 1 : 3)) % 4) as Rot;
+  const o = originOf(p);
+  const t = topLeftOf(p.kind, rot, o.x, o.z);
+  return { kind: p.kind, x: t.x, z: t.z, rot };
+}
+
+/** 方眼に 1 マスでも 入って いるか（入らない 家具は 消える。仕様 §4.3） */
+export function touchesGrid(s: Pick<EditorState, 'w' | 'd'>, p: Placed): boolean {
+  const [fw, fd] = footprint(p.kind, p.rot);
+  return p.x < s.w && p.x + fw > 0 && p.z < s.d && p.z + fd > 0;
+}
+
+/** 方眼の 中の マスか（押して 置ける マスは ここだけ） */
+export function inGrid(s: Pick<EditorState, 'w' | 'd'>, x: number, z: number): boolean {
+  return x >= 0 && z >= 0 && x < s.w && z < s.d;
+}
+
 export type PlaceProblem = 'out' | 'door' | 'overlap';
 
-/** 置けない わけ（置ける なら null）。skip ＝ いま 動かして いる 家具の 番号（自分とは 重ならない） */
+/**
+ * 赤い わけ（ふつうの 色で いられる なら null）。置けるか どうかの 門では ない（1E: 方眼の 中なら 赤くても 置ける）。
+ * 2 つ 以上 あてはまる ときは out → door → overlap の 順の 1 つ目。skip ＝ 自分の 番号（自分とは 重ならない）
+ */
 export function placeProblem(s: EditorState, p: Placed, skip = -1): PlaceProblem | null {
   const [fw, fd] = footprint(p.kind, p.rot);
   if (p.x < 0 || p.z < 0 || p.x + fw > s.w || p.z + fd > s.d) return 'out';
@@ -155,7 +202,20 @@ export function placeProblem(s: EditorState, p: Placed, skip = -1): PlaceProblem
   return null;
 }
 
-/** 大きさを かえた あと: 家具を 家の まん中からの 位置の まま 動かし、入らない 物を 消す。消えた 数も 返す */
+/** 置いた 家具ぜんぶの 赤い わけ（置いた 順。形から 毎回 決まる ので 保存しない） */
+export function furnitureProblems(s: EditorState): Array<PlaceProblem | null> {
+  return s.furniture.map((p, i) => placeProblem(s, p, i));
+}
+
+/** 赤くない（ふつうの 色の）家具 だけ。見本（3D）には これ だけ 出す（仕様 §2.5） */
+export function plainFurniture(s: EditorState): Placed[] {
+  return s.furniture.filter((p, i) => placeProblem(s, p, i) === null);
+}
+
+/**
+ * 大きさを かえた あと: 家具を 家の まん中からの 位置の まま 動かす。はみ出した・戸の 前に かかった・重なった 家具は 消さずに のこし（赤くなる）、
+ * 方眼に 1 マスも 入らなく なった 家具 だけ 消して 数を 返す（1E。仕様 §4.3）
+ */
 export function refit(old: EditorState, next: EditorState): { state: EditorState; dropped: number } {
   const out = cloneState(next);
   out.windows = Math.min(out.windows, windowMax(out));
@@ -165,7 +225,7 @@ export function refit(old: EditorState, next: EditorState): { state: EditorState
   let dropped = 0;
   for (const p of old.furniture) {
     const moved: Placed = { ...p, x: p.x + dx, z: p.z + dz };
-    if (placeProblem({ ...out, furniture: kept }, moved) === null) kept.push(moved);
+    if (touchesGrid(out, moved)) kept.push(moved);
     else dropped++;
   }
   out.furniture = kept;
@@ -191,7 +251,7 @@ function materialsOf(s: Pick<EditorState, 'w' | 'd' | 'windows' | 'furniture'>):
   return m;
 }
 
-/** ひつような もの（§3.2 の 並び）。have ＝ くらの 数（item → 数） */
+/** ひつような もの（§3.2 の 並び）。have ＝ もちもの ＋ 近くの たんすの 数（item → 数） */
 export function needOf(s: Pick<EditorState, 'w' | 'd' | 'windows' | 'furniture'>, have: (item: ItemId) => number): NeedRow[] {
   const m = materialsOf(s);
   return MATERIAL_ORDER.filter((item) => (m.get(item) ?? 0) > 0).map((item) => {
@@ -285,7 +345,7 @@ export function canAddChar(front: string): boolean {
 const NAME_CHAR = /^[\u3041-\u3096\u30A1-\u30FA\u30FC\u309B\u309C]$/;
 const int = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
 
-/** 保存された 作りかけ → EditorState。知らない 値・おかしい 値・置けない 家具は すてる（例外を 出さない） */
+/** 保存された 作りかけ → EditorState。知らない 値・おかしい 値・方眼に 1 マスも 入らない 家具は すてる（赤い 家具は のこす。例外を 出さない） */
 export function parseState(raw: unknown): EditorState {
   const out = emptyState();
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return out;
@@ -308,7 +368,7 @@ export function parseState(raw: unknown): EditorState {
       const rot = q.rot === 0 || q.rot === 1 || q.rot === 2 || q.rot === 3 ? q.rot : null;
       if (rot === null) continue;
       const p: Placed = { kind: q.kind, x: q.x, z: q.z, rot };
-      if (placeProblem(out, p) === null) out.furniture.push(p);
+      if (touchesGrid(out, p)) out.furniture.push(p); // 赤い 家具も のこす（方眼に 1 マスも 入らない 物 だけ すてる。1E）
     }
   }
   return out;

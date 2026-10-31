@@ -4,39 +4,12 @@ import { drawPixels, extraIconUrl, itemIconUrl } from './itemIcon';
 /**
  * 建築士さんの メニューの ボタンの 絵（HOUSE-1A。docs/design/HOUSE-1.md §2.3）。16x16 のドット絵。
  * 【仮の 絵】アートの 3 案が 決まる まで コードで 描いた もの。形と 色は 本番の 絵に かわる。
- *   kura: 蔵（白い かべ・黒い かわらの 屋根・とびら）／ editor: 方眼と 家 ／ rename: えんぴつ
+ *   editor: 方眼と 家 ／ rename: えんぴつ（1E: くらの 絵〔蔵〕は ない）
  *   talk: ふきだし（メニューではなく、建築士さんを ねらった とき 照準の 下の 案内「はなす」の 絵）
  *   build は とんかち（extraIconUrl('hammer')）、tools は みずもり ＋ どうづき（itemIconUrl）を そのまま 使う。
  */
 
 const CLEAR: Rgba = [0, 0, 0, 0];
-
-const KURA_PAL: Record<string, number> = {
-  O: 0x3b2a1a, // ふち
-  K: 0x4a5a7a, // かわら
-  k: 0x6c7ea0, // かわらの つや
-  W: 0xf0e6cc, // かべ
-  D: 0x8a5a2e, // とびら
-  S: 0x9aa0a8, // いしだん
-};
-const KURA = [
-  '................',
-  '.......OO.......',
-  '.....OOkkOO.....',
-  '...OOkKKKKkOO...',
-  '.OOKKKKKKKKKKOO.',
-  'OKKKKKKKKKKKKKKO',
-  '.OOOOOOOOOOOOOO.',
-  '..OWWWWWWWWWWO..',
-  '..OWWWOOOOWWWO..',
-  '..OWWWODDOWWWO..',
-  '..OWWWODDOWWWO..',
-  '..OWWWODDOWWWO..',
-  '..OWWWODDOWWWO..',
-  '..OOOOOOOOOOOO..',
-  '.SSSSSSSSSSSSSS.',
-  '................',
-];
 
 const EDITOR_PAL: Record<string, number> = {
   B: 0x3a6ea8, // わく
@@ -132,8 +105,7 @@ function pencil(): Rgba[] {
 }
 
 /** メニューの 絵（ドット絵）。DOM なし */
-export function houseMenuPixels(kind: 'kura' | 'editor' | 'rename' | 'talk'): Rgba[] {
-  if (kind === 'kura') return fromRows(KURA, KURA_PAL);
+export function houseMenuPixels(kind: 'editor' | 'rename' | 'talk'): Rgba[] {
   if (kind === 'editor') return fromRows(EDITOR, EDITOR_PAL);
   if (kind === 'talk') return fromRows(TALK, TALK_PAL);
   return pencil();
@@ -141,7 +113,7 @@ export function houseMenuPixels(kind: 'kura' | 'editor' | 'rename' | 'talk'): Rg
 
 const cache = new Map<string, string>();
 
-function urlOf(kind: 'kura' | 'editor' | 'rename' | 'talk'): string {
+function urlOf(kind: 'editor' | 'rename' | 'talk'): string {
   let url = cache.get(kind);
   if (!url) {
     const c = document.createElement('canvas');
@@ -159,7 +131,7 @@ export function houseTalkIconUrl(): string {
 
 /** ボタンの 絵の URL（data URL。DOM の ある 所で だけ 呼ぶ）。ボタンの id → 絵。close は 絵なし（✕ の 字） */
 export function houseButtonIcons(id: string): string[] {
-  if (id === 'kura' || id === 'editor' || id === 'rename') return [urlOf(id)];
+  if (id === 'editor' || id === 'rename') return [urlOf(id)];
   if (id === 'build') return [extraIconUrl('hammer')];
   if (id === 'tools') return [itemIconUrl('mizumori'), itemIconUrl('dotsuki')];
   return [];

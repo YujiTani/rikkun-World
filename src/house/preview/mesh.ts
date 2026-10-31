@@ -10,7 +10,7 @@ import { tileUv, type TileName } from '../../world/blocks/textures';
 import type { BoxKind } from '../../world/blocks/furnitureArt';
 import { furnitureQuads } from '../../world/blocks/furnitureQuads';
 import type { FurnRot } from '../../world/blocks/houseBlocks';
-import { doorIndex, footprint, windowCells, type EditorState, type Placed } from '../editor/model';
+import { doorIndex, footprint, plainFurniture, windowCells, type EditorState, type Placed } from '../editor/model';
 import { K_FUTON, K_KOTATSU } from '../editor/furniture';
 import { DOOR_TOP_Y, DOOR_WALL, HEIGHT, ROOF_Y, WALLS, WINDOW_Y, type Wall } from '../editor/tuning';
 import { OPENING, PREVIEW } from './tuning';
@@ -93,7 +93,7 @@ function buildBase(s: EditorState, w: number, d: number, mode: PreviewMode): Mes
     }
   }
   if (mode === 'inside') {
-    for (const p of s.furniture) pushFurniture(m, p);
+    for (const p of plainFurniture(s)) pushFurniture(m, p); // 赤い 家具は 見本に 出さない（建つ 形 だけ。1E）
     // 天井の まん中の ちょうちん（1 つ。はずせない）
     const tmp = emptyMesh();
     pushProp(tmp, (w - 1) / 2, ROOF_Y - 1, (d - 1) / 2, 'lantern', 1, 1);

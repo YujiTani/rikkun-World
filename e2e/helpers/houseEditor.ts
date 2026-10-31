@@ -13,12 +13,25 @@ import { TID, clickUi, htmlOf, menuState, openHouse, press, setBag, shownTid, st
 export type Step = 'soto' | 'naka' | 'namae';
 export type Wall = 'right' | 'back' | 'left';
 
+/** 保存の 形（`blueprints()` の 家具・`edit(place)` の 引数の もと）。x・z ＝ 今の 形の 左上、rot ＝ 向き */
 export interface PlacedFurniture {
   kind: string;
   x: number;
   z: number;
   rot: 0 | 1 | 2 | 3;
 }
+
+/** 赤い わけ（1E。仕様 §6.1）。2 つ 以上 あてはまる ときは out → door → overlap の 順の 1 つ目。ふつうの 家具は null */
+export type Bad = 'out' | 'door' | 'overlap' | null;
+
+/** `editor().furniture` の 1 こ（1E）。origin ＝ もとの マス（向き 0 の 左上。ふとんは まくらの マス）、bad ＝ 赤い わけ。保存の 形（PlacedFurniture）に origin・bad が 足された 形 */
+export interface EditorFurniture extends PlacedFurniture {
+  origin: { x: number; z: number };
+  bad: Bad;
+}
+
+/** 保存の 形（kind・x・z・rot）だけ 取り出す。`blueprints()` の 家具〔origin・bad は つかない〕と くらべる ときに 使う */
+export const plain = (f: PlacedFurniture): PlacedFurniture => ({ kind: f.kind, x: f.x, z: f.z, rot: f.rot });
 
 /** 光って いる 物（仕様 §6.1。PR-2）: door ＝ 戸が 光って いる（① に なった とき）、cells ＝ 光る 窓と なくなった 窓の あとの マス、left ＝ のこりの コマ（hover で 光らせて いる 間は null） */
 export interface PreviewGlow {
@@ -36,6 +49,8 @@ export interface PreviewState {
   /** さわった あと また 回り出す までの のこりの コマ（はなすと 600。さわる 前・回って いる 間は null。PR-2・新 23） */
   wait: number | null;
   builds: number;
+  /** 見本に 出して いる 家具の 数（1E。赤い 家具は 出さない） */
+  furniture: number;
   glow: PreviewGlow | null;
 }
 
@@ -48,8 +63,11 @@ export interface EditorState {
   windowKind: string;
   roof: string;
   windowCells: { wall: Wall; i: number }[];
-  furniture: PlacedFurniture[];
-  selected: { x: number; z: number } | null;
+  furniture: EditorFurniture[];
+  /** えらんで いる 置いた 家具（1E）。i ＝ furniture の 番号、x・z ＝ その 家具の もとの マス */
+  selected: { i: number; x: number; z: number } | null;
+  /** 赤く 光らせた 家具（1E）。items ＝ furniture の 番号、seq ＝ 光らせる たびに 1 ふえる 数。まだ 光らせて いなければ null */
+  flash: { items: number[]; seq: number } | null;
   light: string;
   name: { front: string; back: string };
   canUndo: boolean;
@@ -98,6 +116,21 @@ export const FURNITURE_ROWS: readonly (readonly FurnitureKind[])[] = [
   ['chair', 'stool', 'andon', 'shelf', 'ofuro', 'haniwa'],
 ];
 
+/**
+ * 保存の 形（左上 x・z と 向き rot）から もとの マス（向き 0 の 左上。ふとんは まくらの マス）を 求める（仕様 §4.3 の 式。1E）。
+ * 今の 形の よこ・たてを fw・fd として rot 0 ＝ (x, z)・1 ＝ (x＋fw−1, z)・2 ＝ (x＋fw−1, z＋fd−1)・3 ＝ (x, z＋fd−1)。
+ * 窓口 `edit({ op: 'place', x, z, rot })` の x・z は この もとの マス（押した マス。1E）
+ */
+export function originOf(f: PlacedFurniture): { x: number; z: number } {
+  const def = FURNITURE[f.kind as FurnitureKind];
+  const odd = f.rot % 2 === 1;
+  const fw = odd ? def.d : def.w;
+  const fd = odd ? def.w : def.d;
+  const right = f.rot === 1 || f.rot === 2;
+  const bottom = f.rot === 2 || f.rot === 3;
+  return { x: f.x + (right ? fw - 1 : 0), z: f.z + (bottom ? fd - 1 : 0) };
+}
+
 /** 後ろの 文字 5 つ（仕様 §2.6。ボタン suffix-0〜4 の 順） */
 export const SUFFIXES = ['のいえ', 'ハウス', 'のおうち', 'ひみつきち', 'のやしき'] as const;
 
@@ -115,6 +148,8 @@ export const MSG = {
   reset: 'いまの かたちを ぜんぶ けす？',
   /** 名前に よくない ことば（仕様 §2.6・AC58。PR-2） */
   ngWord: 'その ことばは おなまえに いれたら だめだよ',
+  /** 赤い 家具が ある まま つぎへ（② → ③）・できた！を 押した（1E。仕様 §2.5・AC13f） */
+  fixRed: 'あかい かぐを なおしてね',
 } as const;
 
 /** タイトルと 見出し（漢字は ふりがなを のぞいた 字。仕様 §3 の 表） */
@@ -384,7 +419,7 @@ export const drawStats = (page: Page): Promise<{ calls: number; triangles: numbe
 
 /**
  * 準備用（窓口 edit だけ。画面は 通さない）: 大きさ・まどの かず・家具・名前を 決めた 形に する。
- * 家具は 置けなければ 落とす。名前の 字は 1 字ずつ char で 入れる（前の 文字を 空に してから）。
+ * 家具は 置けなければ 落とす（x・z は 保存の 形の 左上。置く ときは もとの マスに 直す）。名前の 字は 1 字ずつ char で 入れる（前の 文字を 空に してから）。
  */
 export async function setForm(
   page: Page,
@@ -396,7 +431,12 @@ export async function setForm(
     const delta = f.windows > cur ? 1 : -1;
     for (let i = cur; i !== f.windows; i += delta) expect(await edit(page, { op: 'windows', delta }), `まどの かず ${i} → ${i + delta}`).toBe(true);
   }
-  for (const p of f.furniture ?? []) expect(await edit(page, { op: 'place', ...p }), `家具 ${p.kind} (${p.x}, ${p.z})`).toBe(true);
+  // furniture の x・z は 保存の 形（左上）。窓口 place の x・z は もとの マス（1E）なので 向きから 求めて 置く（形は どちらでも 同じ）
+  for (const p of f.furniture ?? []) {
+    const rot = (p.rot ?? 0) as 0 | 1 | 2 | 3;
+    const o = originOf({ kind: p.kind, x: p.x, z: p.z, rot });
+    expect(await edit(page, { op: 'place', kind: p.kind, x: o.x, z: o.z, rot }), `家具 ${p.kind} (${p.x}, ${p.z}) rot ${rot}`).toBe(true);
+  }
   if (f.front !== undefined) {
     while ((await ed(page)).name.front.length > 0) await edit(page, { op: 'erase' });
     for (const ch of Array.from(f.front)) expect(await edit(page, { op: 'char', ch }), `字 ${ch}`).toBe(true);
@@ -960,6 +1000,193 @@ export async function besideIssues(page: Page): Promise<HouseIssue[]> {
   return found;
 }
 
+/**
+ * 9×9 の 4 すみに はみ出す 赤い 家具と、重なる 赤い 家具（AC35c。1E）。x・z は 押した マス ＝ もとの マス〔`edit(place)` の x・z〕。ならびは 置く 順（= furniture の 番号）。
+ * 9×9 の マスは 0〜8: 左うえ ＝ こたつ〔2×2〕を もとの マス (0, 0) から 180 度（左と 上に 1 マス はみ出す）、右うえ ＝ ながい テーブル〔3×1〕の もとの マス (8, 0)（右へ 2 マス はみ出す）、
+ * 左した ＝ ながい テーブルを (0, 8) から 90 度（下へ 2 マス）、右した ＝ こたつ (8, 8)（右と 下に 1 マス）、重なり ＝ こたつ (3, 3) ［3〜4 × 3〜4］と ながい テーブル (5, 4) から 180 度 ［3〜5 × 4］。
+ */
+export const RED_SPOTS: readonly { name: string; kind: FurnitureKind; x: number; z: number; rot: 0 | 1 | 2 | 3; bad: 'out' | 'overlap' }[] = [
+  { name: '左うえ（こたつ）', kind: 'nukunuku', x: 0, z: 0, rot: 2, bad: 'out' },
+  { name: '右うえ（ながい テーブル）', kind: 'long_table', x: 8, z: 0, rot: 0, bad: 'out' },
+  { name: '左した（ながい テーブル）', kind: 'long_table', x: 0, z: 8, rot: 1, bad: 'out' },
+  { name: '右した（こたつ）', kind: 'nukunuku', x: 8, z: 8, rot: 0, bad: 'out' },
+  { name: '重なり 1（こたつ）', kind: 'nukunuku', x: 3, z: 3, rot: 0, bad: 'overlap' },
+  { name: '重なり 2（ながい テーブル）', kind: 'long_table', x: 5, z: 4, rot: 2, bad: 'overlap' },
+];
+
+/**
+ * 赤い 家具の そばの ボタンと はみ出しの 描き方（AC35c）。始めは ② なか・9×9・家具が RED_SPOTS だけ の 形で 呼ぶ。
+ * 6 つ それぞれを えらぶと、とる・↻・↺ が ① 方眼の はこ〔かべの 帯 こみ〕から はみ出さない ② 上の 帯・下の 帯・右の 列に かからない ③ えらんだ 家具の 方眼に 入って いる 所に かさならない。
+ * 帯・列は 画面の 部品〔タイトル・すすみ・もどす・すすむ・とじる・見出し / 下の 5 つの ボタン / 見本・家具の 一覧〕の 外わくの あつまり。
+ * ほかに、方眼の はこの 外へ はみ出した 家具は 描かない〔はこで 切る・はこに おさまる 大きさで 描く、どちらでも よい〕。
+ */
+export async function redBesideIssues(page: Page): Promise<HouseIssue[]> {
+  const found: HouseIssue[] = [];
+  const issue = (target: string, detail: string) => found.push({ kind: 'red', target, detail });
+  const e0 = await ed(page);
+  if (e0.furniture.length !== RED_SPOTS.length) {
+    return [{ kind: 'red', target: '赤い 家具', detail: `テストの 準備の 失敗: 家具が ${e0.furniture.length} こ（${RED_SPOTS.length} こ の はず）` }];
+  }
+  e0.furniture.forEach((f, i) => {
+    if (f.bad !== RED_SPOTS[i]!.bad) issue(`${RED_SPOTS[i]!.name} 赤い わけ`, `bad が「${f.bad}」（「${RED_SPOTS[i]!.bad}」の はず）`);
+  });
+
+  // はみ出した 所は 描かない: 方眼の はこ〔grid〕の 外に 出る 家具は、はこの 中で 切って いる（overflow・clip-path）か、はこに おさまる 大きさで 描いて いる
+  const drawn = await page.evaluate(() => {
+    const grid = document.querySelector('[data-testid="editor-grid"]');
+    if (!grid) return null;
+    const g = grid.getBoundingClientRect();
+    const o = 0.5;
+    const inside = (b: DOMRect): boolean => b.left >= g.left - o && b.top >= g.top - o && b.right <= g.right + o && b.bottom <= g.bottom + o;
+    const out: string[] = [];
+    for (const el of Array.from(document.querySelectorAll('[data-testid="editor-furniture"]'))) {
+      const b = el.getBoundingClientRect();
+      if (b.width <= 0 || b.height <= 0 || inside(b)) continue;
+      let clipped = getComputedStyle(el).clipPath !== 'none';
+      for (let p = el.parentElement; p && !clipped; p = p.parentElement) {
+        const cs = getComputedStyle(p);
+        if ((cs.overflowX !== 'visible' || cs.overflowY !== 'visible' || cs.clipPath !== 'none') && inside(p.getBoundingClientRect())) clipped = true;
+        if (p === grid) break;
+      }
+      if (!clipped) out.push(`${el.getAttribute('data-kind')} #${el.getAttribute('data-i')}`);
+    }
+    return out;
+  });
+  if (drawn === null) return [...found, { kind: 'red', target: '方眼', detail: 'editor-grid が 見つからない' }];
+  if (drawn.length > 0) issue('はみ出した 所の 描き方', `方眼の はこの 外に 描いて いる〔切って いない〕: ${drawn.join('、')}`);
+
+  let tried = 0;
+  for (const [i, spot] of RED_SPOTS.entries()) {
+    const tag = spot.name;
+    tried++;
+    if (!(await edit(page, { op: 'select', x: spot.x, z: spot.z }))) {
+      issue(`${tag} えらべない`, `edit(select) が false（(${spot.x}, ${spot.z}) の 赤い 家具が えらべない）`);
+      continue;
+    }
+    await stepUi(page, 2);
+    const sel = (await ed(page)).selected;
+    if (!sel || sel.i !== i) {
+      issue(`${tag} えらび`, `selected が ${JSON.stringify(sel)}（i ＝ ${i}、もとの マス (${spot.x}, ${spot.z}) の はず）`);
+      continue;
+    }
+    const r = await page.evaluate((i) => {
+      type R = { l: number; t: number; r: number; b: number };
+      const visible = (sel: string): Element[] =>
+        Array.from(document.querySelectorAll(sel)).filter((e) => {
+          const b = e.getBoundingClientRect();
+          return b.width > 0 && b.height > 0;
+        });
+      const rect = (el: Element | null): R | null => {
+        if (!el) return null;
+        const b = el.getBoundingClientRect();
+        return { l: b.left, t: b.top, r: b.right, b: b.bottom };
+      };
+      const union = (els: (Element | null)[]): R | null => {
+        const rs = els.map(rect).filter((x): x is R => x !== null);
+        if (rs.length === 0) return null;
+        return { l: Math.min(...rs.map((x) => x.l)), t: Math.min(...rs.map((x) => x.t)), r: Math.max(...rs.map((x) => x.r)), b: Math.max(...rs.map((x) => x.b)) };
+      };
+      const one = (sel: string): Element | null => visible(sel)[0] ?? null;
+      const tid = (id: string) => one(`[data-testid="${id}"]`);
+      const grid = rect(tid('editor-grid'));
+      const furn = rect(one(`[data-testid="editor-furniture"][data-i="${i}"]`));
+      const bs = ['take', 'turnRight', 'turnLeft'].map((id) => ({ id, r: rect(tid(`house-btn-${id}`)) }));
+      return {
+        grid,
+        // 見えて いる 所だけ（方眼の はこで 切った あと）
+        seen: grid && furn ? { l: Math.max(furn.l, grid.l), t: Math.max(furn.t, grid.t), r: Math.min(furn.r, grid.r), b: Math.min(furn.b, grid.b) } : null,
+        top: union(['editor-title', 'editor-progress', 'editor-heading', 'house-btn-undo', 'house-btn-redo', 'house-btn-close'].map(tid)),
+        bottom: union(['new', 'need', 'prev', 'next', 'done'].map((id) => tid(`house-btn-${id}`))),
+        right: union([tid('editor-preview'), tid('editor-palette')]),
+        bs,
+      };
+    }, i);
+    if (!r.grid || !r.top || !r.bottom || !r.right) {
+      issue(tag, `画面の 部品が 見つからない（方眼 ${!!r.grid}・上の 帯 ${!!r.top}・下の 帯 ${!!r.bottom}・右の 列 ${!!r.right}）`);
+      continue;
+    }
+    const o = 0.5;
+    const hit = (a: { l: number; t: number; r: number; b: number }, b: { l: number; t: number; r: number; b: number }): boolean =>
+      a.l < b.r - o && a.r > b.l + o && a.t < b.b - o && a.b > b.t + o;
+    for (const b of r.bs) {
+      if (!b.r) {
+        issue(`${tag} ${b.id}`, 'そばの ボタンが 出て いない');
+        continue;
+      }
+      if (b.r.l < r.grid.l - o || b.r.t < r.grid.t - o || b.r.r > r.grid.r + o || b.r.b > r.grid.b + o) {
+        issue(`${tag} ${b.id}`, `方眼の はこから はみ出す（ボタン ${JSON.stringify(b.r)} / 方眼 ${JSON.stringify(r.grid)}）`);
+      }
+      if (hit(b.r, r.top)) issue(`${tag} ${b.id}`, '上の 帯に かかる');
+      if (hit(b.r, r.bottom)) issue(`${tag} ${b.id}`, '下の 帯に かかる');
+      if (hit(b.r, r.right)) issue(`${tag} ${b.id}`, '右の 列に かかる');
+      if (r.seen && r.seen.r > r.seen.l && r.seen.b > r.seen.t && hit(b.r, r.seen)) issue(`${tag} ${b.id}`, 'えらんだ 家具の 方眼に 入って いる 所に かさなる');
+    }
+  }
+  expect(tried, '赤い 家具 6 つ（4 すみの はみ出し ＋ 重なり 2）を ぜんぶ ためした').toBe(RED_SPOTS.length);
+  return found;
+}
+
+/**
+ * ふきだしが ちょうど 1 だん（AC35c「あかい かぐを なおしてね」。ふりがなの 行は 数えない）。見えて いる 間に 呼ぶ。
+ * 字の 外わくを 行ごとに 数える〔1 だん ＝ 行の 高さ 32 px。折りかえしで 2 だんに なれば 上の ふちが ちがう〕。
+ */
+export async function bubbleOneLineIssues(page: Page, want: string): Promise<HouseIssue[]> {
+  const r = await page.evaluate(() => {
+    const el = Array.from(document.querySelectorAll('[data-testid="house-bubble"]')).find((e) => {
+      const b = e.getBoundingClientRect();
+      return b.width > 0 && b.height > 0;
+    });
+    if (!el) return null;
+    const tops: number[] = [];
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!(n.textContent ?? '').trim() || (n.parentElement && n.parentElement.closest('rt, rp'))) continue;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      for (const b of Array.from(range.getClientRects())) if (b.width > 0 && b.height > 0) tops.push(b.top);
+    }
+    tops.sort((a, b) => a - b);
+    let lines = 0;
+    let last = -1e9;
+    for (const t of tops) {
+      if (t - last > 12) lines++; // 行の 高さは 32 px。12 px より はなれて いれば べつの 行
+      last = t;
+    }
+    return { lines, height: el.getBoundingClientRect().height };
+  });
+  if (!r) return [{ kind: 'bubble', target: 'ふきだし', detail: 'house-bubble が 見えない' }];
+  const found: HouseIssue[] = [];
+  const text = await plainText(page, TID.bubble);
+  if (squash(text ?? '') !== squash(want)) found.push({ kind: 'bubble', target: 'ふきだしの 字', detail: `「${text}」（「${want}」の はず）` });
+  if (r.lines !== 1) found.push({ kind: 'bubble', target: '1 だん', detail: `${r.lines} だん（高さ ${r.height.toFixed(0)}px。1 だん ＝ 52px 前後）` });
+  return found;
+}
+
+/**
+ * ひつような もの の 列の 見出し（AC35c・2.5）: 見出し（need-head）は「ひつよう」「ある」「たりない」で、「くら」は 出ない。見出しの 字が 切れない。
+ * 材料の 名前〔10 しゅるい〕の 漢字に ふりがなが ある（くらの 画面の 検査が なく なった ので、ここで 見る）。ポップアップが 見えて いる 間に 呼ぶ。
+ */
+export async function needHeadIssues(page: Page): Promise<HouseIssue[]> {
+  const found: HouseIssue[] = [];
+  const issue = (target: string, detail: string) => found.push({ kind: 'needHead', target, detail });
+  const head = await plainText(page, TID.needHead);
+  if (head === null) issue('見出し', 'need-head が 見えない');
+  else if (head !== 'ひつようあるたりない') issue('見出し', `「${head}」（「ひつようあるたりない」の はず。列の 名前は「ある」で「くら」は 出ない）`);
+  const clipped = await page.evaluate((id) => {
+    const out: string[] = [];
+    const head = Array.from(document.querySelectorAll(`[data-testid="${id}"]`)).find((e) => e.getBoundingClientRect().width > 0);
+    if (!head) return out;
+    for (const el of [head, ...Array.from(head.querySelectorAll('*'))]) {
+      if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible') out.push((el.textContent ?? '').trim().slice(0, 8));
+    }
+    return out;
+  }, TID.needHead);
+  if (clipped.length > 0) issue('見出しの 字', `切れて いる: ${clipped.join('、')}`);
+  const bare = findUnrubiedKanji(await htmlOf(page, 'house-need'));
+  if (bare.length > 0) issue('ふりがなの ない 漢字', `ひつような ものの 漢字（材料の 名前など）に ふりがなが ない: ${JSON.stringify(bare).slice(0, 120)}`);
+  return found;
+}
+
 /** ② の 家具の ボタンを 上から 下・左から 右に 読んで 行ごとに 家具の id（furniture- を とった 物）を ならべる（同じ 行 ＝ 上の ふちが 4px 以内） */
 export function furnitureButtonRows(btns: DomBtn[]): string[][] {
   const fb = btns.filter((b) => b.id.startsWith('furniture-')).sort((a, c) => a.rect.y - c.rect.y || a.rect.x - c.rect.x);
@@ -1188,7 +1415,9 @@ export async function sekkeizuTooltipIssues(page: Page): Promise<HouseIssue[]> {
 export async function editorGateIssues(page: Page, g: { kind: EditorScreen; roots: string[]; beside?: boolean }): Promise<HouseIssue[]> {
   if (g.kind === 'sekkeizu') return sekkeizuTooltipIssues(page);
   const found = await editorUiIssues(page, g.roots);
-  if (g.kind === 'need') found.push(...(await needScrollIssues(page)));
+  if (g.kind === 'need') found.push(...(await needScrollIssues(page)), ...(await needHeadIssues(page)));
+  if (g.kind === 'red') found.push(...(await redBesideIssues(page))); // 家具を えらぶ ので さいごの ほう
+  if (g.kind === 'bubbleRedSoto' || g.kind === 'bubbleRedNaka') found.push(...(await bubbleOneLineIssues(page, MSG.fixRed)));
   if (['soto', 'naka', 'namae', 'bubbleSoto', 'bubbleNamae', 'bubbleNg'].includes(g.kind)) found.push(...(await layoutTableIssues(page, g.kind)));
   // PR-2: 見本の 手の 印（さわる 前の ① ②。動きを へらす 設定でも 出す）と ② の かべの 帯の 印（窓の 数・場所と 戸）
   if (g.kind === 'soto' || g.kind === 'naka') found.push(...(await handMarkIssues(page)));
@@ -1199,7 +1428,7 @@ export async function editorGateIssues(page: Page, g: { kind: EditorScreen; root
 
 // ---- UI 検査の 画面の 開き方（e2e/ui-gate.spec.ts の Screen.open）
 
-/** 家具の しゅるいを 全部（13 しゅるい。FURNITURE の ならび）まぜて 方眼いっぱいに（いちばん 多い 形。AC34 ③・AC35）。置けた 数と、置いた 家具の しゅるいの 一覧を 返す */
+/** 家具の しゅるいを 全部（13 しゅるい。FURNITURE の ならび）まぜて 方眼いっぱいに（いちばん 多い 形。AC34 ③・AC35）。赤く ならない（ふつうの 色で 置ける）所だけ 置く〔1E の 前と 同じ 形〕。置けた 数と、置いた 家具の しゅるいの 一覧を 返す */
 export async function fillFurniture(page: Page): Promise<{ placed: number; kinds: string[] }> {
   return page.evaluate((kinds) => {
     const h = (window as any).__rikkun;
@@ -1210,6 +1439,12 @@ export async function fillFurniture(page: Page): Promise<{ placed: number; kinds
       for (let x = 0; x < w; x++) {
         const kind = (kinds as string[])[i % (kinds as string[]).length]!;
         if (h.house.edit({ op: 'place', kind, x, z })) {
+          // 1E: 方眼の 中なら どこでも 置けて 赤く なる。1E の 前と 同じ 形（ふつうの 色で 置ける 所だけ）に するため、赤く なったら もどす
+          const f = h.house.editor().furniture as { bad?: string | null }[];
+          if (f[f.length - 1]?.bad) {
+            h.house.edit({ op: 'undo' });
+            continue;
+          }
           placed++;
           i++;
         }
@@ -1249,7 +1484,7 @@ async function maxOutside(page: Page): Promise<void> {
   expect((await ed(page)).windows, 'まどの かず 上限').toBe(max);
 }
 
-export type EditorScreen = 'soto' | 'naka' | 'beside' | 'namae' | 'confirmFuton' | 'confirmReset' | 'need' | 'bubbleSoto' | 'bubbleNamae' | 'bubbleNg' | 'sekkeizu';
+export type EditorScreen = 'soto' | 'naka' | 'beside' | 'red' | 'namae' | 'confirmFuton' | 'confirmReset' | 'need' | 'bubbleSoto' | 'bubbleNamae' | 'bubbleNg' | 'bubbleRedSoto' | 'bubbleRedNaka' | 'sekkeizu';
 
 const LONGEST_FRONT = 'あいうえおかきく'; // 前の 文字 いちばん 長い（8 字）
 
@@ -1277,6 +1512,41 @@ export async function openEditorScreen(page: Page, kind: EditorScreen): Promise<
         await edit(page, { op: 'select', x: f.x, z: f.z });
       }
       break;
+    case 'red': {
+      // 1E（AC35c）: ② なか・9×9 の 4 すみに はみ出す 赤い 家具と 重なる 赤い 家具（RED_SPOTS）。えらぶのは 検査の ほう（extra）
+      expect(await edit(page, { op: 'size', w: 9, d: 9 }), '大きさ 9×9').toBe(true);
+      await next(1);
+      expect((await ed(page)).step).toBe('naka');
+      for (const s of RED_SPOTS) {
+        expect(await edit(page, { op: 'place', kind: s.kind, x: s.x, z: s.z, rot: s.rot }), `赤い 家具 ${s.name}（方眼の 中の マスなら 赤く なる 所でも 置ける）`).toBe(true);
+      }
+      expect(
+        (await ed(page)).furniture.map((f) => f.bad),
+        '赤い わけ（4 すみ ＝ out、重なり ＝ overlap）',
+      ).toEqual(RED_SPOTS.map((s) => s.bad));
+      break;
+    }
+    case 'bubbleRedSoto':
+    case 'bubbleRedNaka': {
+      // 1E（AC35c）: 赤い 家具が ある まま 進めない ときの ふきだし「あかい かぐを なおしてね」。① からは できた！、② からは つぎへ（どちらも ② で 止まる）
+      const size = (await ed(page)).size;
+      // はじめの 大きさは 5×5（新 20）。かわらない 操作が false を 返す かは 決まって いない ので、5×5 でなければ だけ 呼ぶ
+      if (size.w !== 5 || size.d !== 5) expect(await edit(page, { op: 'size', w: 5, d: 5 }), '大きさ 5×5').toBe(true);
+      await next(1);
+      expect((await ed(page)).step).toBe('naka');
+      expect(await edit(page, { op: 'place', kind: 'long_table', x: 4, z: 0, rot: 0 }), 'ながい テーブルを 右の はしに（5×5 では 右へ はみ出して 赤い）').toBe(true);
+      expect((await ed(page)).furniture.map((f) => f.bad), '赤い').toEqual(['out']);
+      if (kind === 'bubbleRedSoto') {
+        await press(page, 'prev');
+        expect((await ed(page)).step, '① そと（赤くても もどれる）').toBe('soto');
+        await press(page, 'done');
+      } else {
+        await press(page, 'next');
+      }
+      expect((await ed(page)).step, '赤い 家具が ある 間は ② で 止まる').toBe('naka');
+      expect(squash((await menuState(page)).bubble), 'ふきだし').toBe(squash(MSG.fixRed));
+      break;
+    }
     case 'namae':
       await setForm(page, { front: LONGEST_FRONT, back: 'ひみつきち' });
       await next(2);
@@ -1357,6 +1627,7 @@ export const EDITOR_GATE: { id: string; kind: EditorScreen; roots: string[]; bes
   { id: 'house-editor-soto', kind: 'soto', roots: EDITOR_ROOTS },
   { id: 'house-editor-naka', kind: 'naka', roots: EDITOR_ROOTS },
   { id: 'house-editor-beside', kind: 'beside', roots: EDITOR_ROOTS, beside: true },
+  { id: 'house-editor-red', kind: 'red', roots: EDITOR_ROOTS },
   { id: 'house-editor-namae', kind: 'namae', roots: EDITOR_ROOTS },
   { id: 'house-confirm-futon', kind: 'confirmFuton', roots: CONFIRM_ROOTS },
   { id: 'house-confirm-reset', kind: 'confirmReset', roots: CONFIRM_ROOTS },
@@ -1364,5 +1635,7 @@ export const EDITOR_GATE: { id: string; kind: EditorScreen; roots: string[]; bes
   { id: 'house-bubble-soto', kind: 'bubbleSoto', roots: EDITOR_ROOTS },
   { id: 'house-bubble-namae', kind: 'bubbleNamae', roots: EDITOR_ROOTS },
   { id: 'house-bubble-ng', kind: 'bubbleNg', roots: EDITOR_ROOTS },
+  { id: 'house-bubble-red-soto', kind: 'bubbleRedSoto', roots: EDITOR_ROOTS },
+  { id: 'house-bubble-red-naka', kind: 'bubbleRedNaka', roots: EDITOR_ROOTS },
   { id: 'house-sekkeizu-name', kind: 'sekkeizu', roots: SEKKEIZU_NAME_ROOTS },
 ];

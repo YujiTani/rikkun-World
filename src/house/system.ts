@@ -5,6 +5,7 @@ import { EditorController } from './editor/controller';
 import { editOp } from './editor/ops';
 import { needBonusOf, type NeedRow } from './editor/model';
 import { SHEET, createSheetPort, type SheetBag } from './editor/sheet';
+import { Materials, type CraftCount, type TansuStock } from './materials';
 import type { HouseWorld } from './ground';
 import type { BlockWatcher } from './blockWatch';
 import { ArchitectManager, type ArchitectInfo } from './manager';
@@ -16,7 +17,6 @@ import { HouseRename, type RenameView } from './rename';
 import { recordHouse, writeShape } from './shape';
 import { HouseState } from './state';
 import { HouseTalk, type HouseMenuState } from './talk';
-import type { KuraBag } from './kura';
 import { BuildGlue, type HouseSfx } from './build/glue';
 export type { HouseSfx };
 import { MSG } from './build/tuning';
@@ -26,7 +26,7 @@ import type { FlowCursor } from './build/flow';
 import type { Site } from './build/sites';
 
 /**
- * 建築士さん・話す 流れ・くらを ひとつに つなぐ 係（HOUSE-1A）。DOM・three なし。
+ * 建築士さん・話す 流れ・材料を ひとつに つなぐ 係（HOUSE-1A。1E で くらは なくなり、材料は もちもの ＋ 近くの たんす）。DOM・three なし。
  * 毎ステップ `update()`（時間が すすんで いる 間だけ。メニューが 開くと ゲームが 止まるので 呼ばれない）。
  * 画面（HouseUi）と 窓口（`window.__rikkun.house`）は ここを 通して 動かす。
  */
@@ -41,7 +41,13 @@ export interface HouseSystemDeps {
   spawn: () => { x: number; z: number; yawDeg: number };
   /** プレイヤーの 足もと */
   player: () => Vec3;
-  bag: KuraBag & SheetBag;
+  bag: SheetBag;
+  /** 材料の 数え方（もちもの ＋ 近くの たんす。「つくる」と 同じ きょり・同じ 数え方。HOUSE-1E）。`tansu` と そろって いない ときは もちものだけ */
+  craft?: CraftCount;
+  /** 近くの たんすから 取り出す・読む・書く（建てる 材料・せっけいずの かみ・ふで。HOUSE-1E） */
+  tansu?: TansuStock;
+  /** 今の 設定 `toolDurability`（たんすの ふでの のこりを 数える。なければ はじめの 値） */
+  durability?: () => Readonly<Partial<Record<ItemId, number>>>;
   /** 声「ぽぽぽ」を 1 回 鳴らす */
   voice: () => void;
   /** 道具を わたした（拾った 知らせ） */
@@ -107,6 +113,8 @@ export class HouseSystem {
     boxFilled: (x0, y0, z0, x1, y1, z1, id) => this.book.boxFilled(x0, y0, z0, x1, y1, z1, id),
   };
   private readonly renamer: HouseRename;
+  /** 材料の もと（もちもの ＋ 近くの たんす）。数えるのは 画面を 開いた とき・押した とき だけ（呼ぶ 側が 毎ステップ 呼ばない） */
+  private readonly materials: Materials;
   private onChange: (() => void) | null = null;
   private seen = 0;
 
@@ -119,10 +127,11 @@ export class HouseSystem {
       player: d.player,
       isLand: d.isLand,
     });
+    this.materials = new Materials(d.bag, d);
     this.editor = new EditorController({
       holder: this.state.holder,
-      have: (item) => this.state.kura.count(item),
-      sheet: createSheetPort({ bag: d.bag, kura: this.state.kura, register: (draft) => this.state.register(draft), gave: d.gave }),
+      have: (item) => this.materials.have(item),
+      sheet: createSheetPort({ bag: d.bag, craft: d.craft, tansu: d.tansu, durability: d.durability, register: (draft) => this.state.register(draft), gave: d.gave }),
       onMade: () => this.talk.made(),
     });
     this.renamer = new HouseRename({ book: this.book, player: () => d.player() });
@@ -131,8 +140,8 @@ export class HouseSystem {
       player: d.player,
       held: () => d.held?.() ?? null,
       plans: () => this.blueprints(),
-      have: (item) => this.state.kura.count(item),
-      consume: (item, n) => this.state.kura.consume(item, n),
+      have: (item) => this.materials.have(item),
+      consume: (item, n) => this.materials.consume(item, n),
       buildTicks: () => this.settings.houseBuildTicks,
       book: this.book,
       manager: this.manager,
@@ -152,7 +161,7 @@ export class HouseSystem {
       rename: this.renamer,
       editor: this.editor,
       record: this.state.record,
-      kura: this.state.kura,
+      legacy: this.state.legacy,
       bag: d.bag,
       voice: d.voice,
       onOpen: () => d.onOpen(),
@@ -251,7 +260,7 @@ export class HouseSystem {
     this.build.load(d.build);
   }
 
-  /** 保存（くら・せっけいず ＋ 建てた 家の 記録 ＋ 建築中の 家。HOUSE-1C PR-2） */
+  /** 保存（せっけいず ＋ まだ かえして いない くらの 物 ＋ 建てた 家の 記録 ＋ 建築中の 家。HOUSE-1C PR-2） */
   serialize(): ReturnType<HouseState['serialize']> & { houses: ReturnType<HouseBook['serialize']>; build: ReturnType<BuildGlue['serialize']> } {
     return { ...this.state.serialize(), houses: this.book.serialize(), build: this.build.serialize() };
   }
@@ -305,9 +314,9 @@ export class HouseSystem {
     this.preview.hover(id !== null && this.previewMode() === 'outside' && glowsWindows(id));
   }
 
-  /** 窓口 `need(source?)`: source なし ＝ エディターの 今の 形、数 ＝ 持ち物の せっけいずの マスの 番号。bonus は 1C（はじめての 家の おまけ）まで 0 */
+  /** 窓口 `need(source?)`: source なし ＝ エディターの 今の 形、数 ＝ 持ち物の せっけいずの マスの 番号。have ＝ もちもの ＋ 近くの たんす（1E）。bonus は はじめての 家の おまけ（1C） */
   need(source?: number): Array<NeedRow & { bonus: number }> {
-    if (source === undefined) return needBonusOf(this.state.holder.draft, (item) => this.state.kura.count(item), false);
+    if (source === undefined) return needBonusOf(this.state.holder.draft, (item) => this.materials.have(item), false);
     const form = this.planAt(source);
     return form ? this.build.needRows(form) : [];
   }
@@ -345,16 +354,9 @@ export class HouseSystem {
     return bp ? blueprintName(bp) : null;
   }
 
-  deposit(item: ItemId, want: number): number {
-    const n = this.talk.deposit(item, want);
-    this.emit();
-    return n;
-  }
-
-  withdraw(item: ItemId, want: number): number {
-    const n = this.talk.withdraw(item, want);
-    this.emit();
-    return n;
+  /** 前の セーブ〔1D まで〕の くらの 物の うち まだ かえして いない 分 { アイテムid: 数 }。なければ null（窓口 `legacyKura()`。AC32d） */
+  legacyKura(): Record<string, number> | null {
+    return this.state.legacy.totals();
   }
 
   // ------------------------------------------------------------ 建てた 家（HOUSE-1C PR-1。窓口 buildNow・houses・blockAt・renaming）
@@ -436,12 +438,12 @@ export class HouseSystem {
     return this.manager.list();
   }
 
-  /** メニュー・くらが 開いて いる（ゲームの 時間を 止める） */
+  /** メニューが 開いて いる（ゲームの 時間を 止める） */
   frozen(): boolean {
     return this.talk.frozen();
   }
 
-  /** 話して いる（うなずき・あいさつ・メニュー・くら） */
+  /** 話して いる（うなずき・あいさつ・メニュー） */
   talking(): boolean {
     return this.talk.current() !== null;
   }
