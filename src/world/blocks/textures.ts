@@ -1,7 +1,7 @@
 import { DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType } from 'three';
 import type { BlockId } from '../../contracts';
 import { CHALK_MARK_IDS } from './chalkMark';
-import { WATER_PARTIAL_IDS } from './water';
+import { RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_PARTIAL_IDS } from './water';
 import { tansuPixels } from '../../storage/tansuArt';
 import { FARM_TILE_NAMES, paintFarmTile } from './farmTextures';
 import { GADGET_TILE_NAMES, isGadgetTile, paintGadgetTile, type GadgetTileName } from './gadgetTextures';
@@ -471,6 +471,8 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   water: ['water', 'water', 'water'],
   // WATER-1: 量 1〜7 も 同じ 絵（高さだけが ちがう）
   ...Object.fromEntries(WATER_PARTIAL_IDS.map((id) => [id, ['water', 'water', 'water'] as const])),
+  // 予約の 番号(世界に 置かない。型と テストの そろえのため)
+  ...Object.fromEntries([...RESERVED_BEFORE_IDS, RESERVED_AFTER_ID].map((id) => [id, ['stone', 'stone', 'stone'] as const])),
   bedrock: ['bedrock', 'bedrock', 'bedrock'],
   furnace: ['furnace_top', 'furnace_top', 'furnace_side'],
   kawara: ['kawara', 'kawara', 'kawara'],

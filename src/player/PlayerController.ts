@@ -16,7 +16,7 @@ import {
   createPlayerSettings,
   type PlayerSettings,
 } from './config';
-import { isDeepWater, isWater } from '../world/blocks/water';
+import { isDeepWater, isWater, waterAmount } from '../world/blocks/water';
 
 const DEG = Math.PI / 180;
 /** ふみこみを 区切る 長さ（がけ・妖怪の 手前で 止める 細かさ） */
@@ -435,8 +435,13 @@ export class PlayerController {
     const { x, y, z } = this.state.position;
     const bx = Math.floor(x);
     const bz = Math.floor(z);
-    this.state.inWater =
-      isDeepWater(this.world.getBlock(bx, Math.floor(y + EPS), bz)) ||
-      isDeepWater(this.world.getBlock(bx, Math.floor(y + 0.9), bz));
+    // WATER-1 §4.6: 量 4〜8 の 水の マスの 中 かつ 水面(マスの 底 + 量 / 8)より 下
+    this.state.inWater = this.surfaceBelow(bx, Math.floor(y + EPS), bz, y) || this.surfaceBelow(bx, Math.floor(y + 0.9), bz, y);
+  }
+
+  /** (bx, by, bz) が 深い 水で、点の 高さ y が その 水面より 下か */
+  private surfaceBelow(bx: number, by: number, bz: number, y: number): boolean {
+    const id = this.world.getBlock(bx, by, bz);
+    return isDeepWater(id) && y < by + waterAmount(id) / 8;
   }
 }

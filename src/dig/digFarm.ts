@@ -3,6 +3,7 @@ import { LIVE_SETTING_DEFAULTS, cropKindOfBlock, seedKindOfItem, vegKindOfItem }
 import { MINE_ITEM } from '../content/items/ids';
 import { itemDef } from '../content/items/registry';
 import { isFloraBlock } from '../world/blocks/flora';
+import { BUCKET_TAKE, waterId } from '../world/blocks/water';
 import { overlapsBody, sameBlock, type DigCore } from './digCore';
 import { giveStacks, liftFlora } from './digBreak';
 import { lookDirection } from './raycast';
@@ -131,7 +132,9 @@ export class DigFarm {
     const c = this.d;
     const spot = this.bucketSpotCell();
     if (!spot || !c.m4.bucket) return;
-    if (!c.world.setBlock(spot.x, spot.y, spot.z, 'water')) return;
+    // WATER-1 §4.4: バケツの 量ぶん(欄 なしは 8)の 水を 置く
+    const amount = c.inventory.held()?.water ?? BUCKET_TAKE;
+    if (!c.world.setBlock(spot.x, spot.y, spot.z, waterId(amount))) return;
     c.m4.bucket.placed(c.inventory.selected(), spot);
     c.m4.tools?.pushSwing('place');
   }
