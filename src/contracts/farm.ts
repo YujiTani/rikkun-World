@@ -383,6 +383,8 @@ export type RightClickKind =
   | 'chalkDraw' | 'ripen'
   // HOUSE-1C PR-1: 家の 戸を あける・しめる（上下 どちらを ねらっても 2 マス いっしょ）
   | 'doorOpen' | 'doorClose'
+  // HOUSE-1D: 家具の はたらき（いす・まるいすで すわる／おふろに はいる／ほんだなで ルールブックを よむ）
+  | 'sit' | 'bath' | 'read'
   // HOUSE-1C PR-2: みずもりで きじゅんを きめる・どうづきで じがため
   | 'level' | 'tamp';
 

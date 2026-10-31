@@ -325,8 +325,17 @@ export class CameraRig {
       this.camera.fov = cfg.fov;
       this.camera.updateProjectionMatrix();
     }
-    this.eye.set(s.position.x, s.position.y + cfg.eyeHeight, s.position.z);
-    aimPivot(this.world, s.position, this.pivot, cfg.eyeHeight + cfg.thirdPersonHeight, cfg.eyeHeight);
+    // HOUSE-1D: 座って いる 間は 目（と 回転の 中心）を さげる。体（板・人形）の 位置は そのまま
+    let feet = s.position;
+    const drop = this.eyeDrop();
+    if (drop > 0) {
+      feet = this.camFeet;
+      feet.x = s.position.x;
+      feet.y = s.position.y - drop;
+      feet.z = s.position.z;
+    }
+    this.eye.set(feet.x, feet.y + cfg.eyeHeight, feet.z);
+    aimPivot(this.world, feet, this.pivot, cfg.eyeHeight + cfg.thirdPersonHeight, cfg.eyeHeight);
 
     const yaw = (s.yawDeg + this.testYawOffsetDeg) * DEG;
     const pitch = s.pitchDeg * DEG;
@@ -398,6 +407,9 @@ export class CameraRig {
     this.shoulder.z = P.z + rz * sOff;
   }
 
+  /** HOUSE-1D: カメラの 目を さげる 高さ（マス。座って いる 間だけ > 0。つなぎ込みが SeatSystem.eyeDrop を わたす） */
+  eyeDrop: () => number = () => 0;
+  private readonly camFeet = { x: 0, y: 0, z: 0 };
   /** WEAPON-9: シャイニング中の 三人称の きょり（null = ふだんの thirdPersonDistance）。壁の ときは 今の きまりどおり 手前で 止まる */
   distanceOverride: number | null = null;
   /** テスト用: カメラだけ 体の 向きから この 角度 ずらす（遊びでは 0 のまま。斬撃の 横・うしろの 絵を 撮り分ける） */
