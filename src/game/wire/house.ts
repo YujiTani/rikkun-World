@@ -19,7 +19,7 @@ import { modalLock } from './modalLock';
 const HEAD_TOP = 1.8;
 
 export function wireHouse(deps: WiredYokai) {
-  const { shared, world, seed, island, game, fxSound, hud, lock, pointerLock, controller, inventory, lighting, combat, dig, screen, blobShadow, storage, craft, yokaiM, animals } = deps;
+  const { shared, world, seed, island, game, fxSound, hud, lock, pointerLock, controller, inventory, lighting, combat, dig, screen, blobShadow, storage, craft, w2, yokaiM, animals } = deps;
   // 家を 建てる 画面まわり（上空の 視点・みずもりの 色・道具を 持った 形・音）。house は あとから つなぐ（attach）
   const { siteView } = wireHouseSite(deps);
 
@@ -36,6 +36,7 @@ export function wireHouse(deps: WiredYokai) {
     // 材料（建てる・せっけいずの かみ・ふで）は もちもの ＋ 近くの たんす: 「つくる」と 同じ 数え方・同じ きょり（設定 craftTansuRange）。数えるのは 画面を 開いた・押した とき だけ
     craft,
     tansu: storage,
+    durability: () => w2.toolDurability,
     // 建築士さんの 声: yuzu が 決めた 案 C「ハミング」（話すたびに 3 しゅるいを じゅんばんに。src/fx/architectSounds.ts）
     voice: () => playArchitect(fxSound, 'architect_voice'),
     // 道具を わたした: 「拾った」ログ・知らせと 同じ 道を 通す（持ち物には もう 入れてある）

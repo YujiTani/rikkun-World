@@ -376,7 +376,8 @@ export class HouseTalk {
 
   /** うなずきの あと: 前の セーブの くらの 物を もちものへ 入る 分だけ もどして 1 行（入りきらなければ 続けて 2 行目） */
   private giveBack(): void {
-    this.d.legacy?.giveBack(this.d.bag);
+    // もどした 種類ごとに 拾った ログ・音と 同じ 道（gave）を 通す
+    for (const item of this.d.legacy?.giveBack(this.d.bag) ?? []) this.d.gave(item);
     this.phase = 'back1';
     this.timer = GREET_STEPS;
     this.say = SAY.back;

@@ -21,7 +21,7 @@ export interface Selection {
   placed: number | null;
 }
 
-/** できた！の ④〜⑥ と せっけいずを 作る 所（持ち物・くらを 読み書きする 係。house/editor/sheet.ts） */
+/** できた！の ④〜⑥ と せっけいずを 作る 所（もちもの ＋ 近くの たんすを 読み書きする 係。house/editor/sheet.ts） */
 export interface SheetPort {
   /** ④ かみ ⑤ ふで ⑥ 持ち物に 空きが ない。ひっかかる 1 つ目。通れば null */
   problem(): 'paper' | 'fude' | 'full' | null;
@@ -32,7 +32,7 @@ export interface SheetPort {
 export interface EditorHost {
   /** 作りかけ（HouseState が 持ち、保存に 入る。コントローラーは 中身を 入れかえる） */
   holder: { draft: EditorState };
-  /** くらの 数（「ひつような もの」の くら） */
+  /** ある 数（もちもの ＋ 近くの たんす。「ひつような もの」の ある） */
   have: (item: ItemId) => number;
   sheet: SheetPort;
   /** せっけいずが できた（メニューの 上の ページへ もどし、ふきだしを 出す） */

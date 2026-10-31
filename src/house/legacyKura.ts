@@ -49,12 +49,12 @@ export class LegacyKura {
     }
   }
 
-  /** もちものに 入る 分だけ もどす（登録表の ならび順）。入らなかった 分は のこる。もどした 数 */
-  giveBack(bag: LegacyBag): number {
-    let moved = 0;
+  /** もちものに 入る 分だけ もどす（登録表の ならび順）。入らなかった 分は のこる。1 こ以上 もどせた 種類（もどした 順） */
+  giveBack(bag: LegacyBag): ItemId[] {
+    const moved: ItemId[] = [];
     for (const { item, count } of this.entries()) {
       const left = bag.add(item, count);
-      moved += count - left;
+      if (left < count) moved.push(item);
       if (left > 0) this.counts.set(item, left);
       else this.counts.delete(item);
     }

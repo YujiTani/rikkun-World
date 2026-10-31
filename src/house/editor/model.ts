@@ -251,7 +251,7 @@ function materialsOf(s: Pick<EditorState, 'w' | 'd' | 'windows' | 'furniture'>):
   return m;
 }
 
-/** ひつような もの（§3.2 の 並び）。have ＝ くらの 数（item → 数） */
+/** ひつような もの（§3.2 の 並び）。have ＝ もちもの ＋ 近くの たんすの 数（item → 数） */
 export function needOf(s: Pick<EditorState, 'w' | 'd' | 'windows' | 'furniture'>, have: (item: ItemId) => number): NeedRow[] {
   const m = materialsOf(s);
   return MATERIAL_ORDER.filter((item) => (m.get(item) ?? 0) > 0).map((item) => {

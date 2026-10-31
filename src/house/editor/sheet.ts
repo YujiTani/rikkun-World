@@ -18,6 +18,8 @@ export interface SheetDeps extends MaterialSource {
   register: (draft: Readonly<EditorState>) => number;
   /** せっけいずが 持ち物に 入った（拾った 知らせ） */
   gave?: (item: ItemId) => void;
+  /** 今の 設定 `toolDurability`（ふでの 新品の たいきゅうを その 時に 読む。なければ はじめの 値） */
+  durability?: () => Readonly<Partial<Record<ItemId, number>>>;
 }
 
 const PAPER: ItemId = 'paper';
@@ -25,8 +27,6 @@ const PAPER: ItemId = 'paper';
 export const FUDE: ItemId = 'fude';
 export const SHEET: ItemId = 'sekkeizu';
 
-/** ふでの 新品の たいきゅう（たんすの ふでの のこりを 数える ため。もちものの ふでは もちものが 数える） */
-const FUDE_MAX: number = maxDurability(FUDE, W2_SETTING_DEFAULTS.toolDurability) ?? 1;
 
 /** 使う ふで 1 本: もちものの マス か、たんす at の マス i。left ＝ のこりの たいきゅう */
 type Fude = { left: number } & ({ slot: number } | { at: Vec3; i: number });
@@ -41,16 +41,19 @@ function lastPaperSlot(bag: SheetBag): number {
 export function createSheetPort(d: SheetDeps): SheetPort {
   const { bag } = d;
   const mat = new Materials(bag, d);
+  /** ふでの 新品の たいきゅう（たんすの ふでの のこりを 数える ため。もちものの ふでは もちものが 数える）。呼ぶ たびに 今の 設定から */
+  const fudeMax = (): number => maxDurability(FUDE, d.durability?.() ?? W2_SETTING_DEFAULTS.toolDurability) ?? 1;
 
   /** いちばん へって いる ふで。同じ へり方なら 先に 見た 方（たんす〔近い 順・マスの 順〕→ もちもの〔マスの 順〕）。なければ null */
   function leastFude(): Fude | null {
     let best: Fude | null = null;
+    const max = fudeMax();
     for (const at of mat.near()) {
       const slots = d.tansu?.get(at.x, at.y, at.z)?.slots ?? [];
       for (let i = 0; i < slots.length; i++) {
         const s = slots[i];
         if (s?.item !== FUDE) continue;
-        const left = Math.max(1, FUDE_MAX - (s.wear ?? 0));
+        const left = Math.max(1, max - (s.wear ?? 0));
         if (!best || left < best.left) best = { left, at, i };
       }
     }
@@ -72,7 +75,7 @@ export function createSheetPort(d: SheetDeps): SheetPort {
     const s = d.tansu?.get(f.at.x, f.at.y, f.at.z)?.slots[f.i];
     if (!s || s.item !== FUDE) return;
     const left = f.left - 1;
-    d.tansu?.set(f.at.x, f.at.y, f.at.z, f.i, left <= 0 ? null : copyStack({ ...s, wear: FUDE_MAX - left }));
+    d.tansu?.set(f.at.x, f.at.y, f.at.z, f.i, left <= 0 ? null : copyStack({ ...s, wear: fudeMax() - left }));
   }
 
   return {

@@ -46,6 +46,8 @@ export interface HouseSystemDeps {
   craft?: CraftCount;
   /** 近くの たんすから 取り出す・読む・書く（建てる 材料・せっけいずの かみ・ふで。HOUSE-1E） */
   tansu?: TansuStock;
+  /** 今の 設定 `toolDurability`（たんすの ふでの のこりを 数える。なければ はじめの 値） */
+  durability?: () => Readonly<Partial<Record<ItemId, number>>>;
   /** 声「ぽぽぽ」を 1 回 鳴らす */
   voice: () => void;
   /** 道具を わたした（拾った 知らせ） */
@@ -129,7 +131,7 @@ export class HouseSystem {
     this.editor = new EditorController({
       holder: this.state.holder,
       have: (item) => this.materials.have(item),
-      sheet: createSheetPort({ bag: d.bag, craft: d.craft, tansu: d.tansu, register: (draft) => this.state.register(draft), gave: d.gave }),
+      sheet: createSheetPort({ bag: d.bag, craft: d.craft, tansu: d.tansu, durability: d.durability, register: (draft) => this.state.register(draft), gave: d.gave }),
       onMade: () => this.talk.made(),
     });
     this.renamer = new HouseRename({ book: this.book, player: () => d.player() });
