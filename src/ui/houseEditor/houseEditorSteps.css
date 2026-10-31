@@ -369,3 +369,74 @@
   height: var(--e-key);
   padding: 0 8px;
 }
+
+/* ---- なまえを かえる（HOUSE-1C。一覧 .rn-list・名前の 画面 .rn-name。大きさの 表は 上の --e-*） ---- */
+.rn-list,
+.rn-name {
+  box-sizing: border-box;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+  pointer-events: auto;
+  color: var(--rk-text);
+}
+.rn-list *,
+.rn-name * {
+  box-sizing: border-box;
+}
+/* 一覧: 家の 名前の ボタンを 2 列。10 けん（5 行）まで 画面に おさまる。ふえたら たてに スクロール */
+.rn-list {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e-bgap);
+  max-width: min(960px, calc(100vw - 32px));
+  padding: var(--e-pad);
+  background: var(--rk-bg-900);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-2);
+}
+.rn-list__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e-bgap);
+  min-width: 0;
+}
+.rn-pick {
+  width: 100%;
+  min-width: 0;
+  height: var(--e-key);
+  padding: 0 16px;
+  font-size: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rn-close {
+  height: var(--e-key);
+  width: var(--e-key);
+}
+/* 名前の 画面: ③ なまえと 同じ 並び。右の 列の 下に これで いい！・やめる */
+.rn-name {
+  padding: var(--e-pad);
+  background: var(--rk-bg-900);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-2);
+  max-width: calc(100vw - 32px);
+}
+.rn-name .ed-namae {
+  margin-top: 0;
+}
+.rn-name .ed-stepview {
+  display: block;
+}
+.rn-ok,
+.rn-cancel {
+  font-size: 24px;
+}
+/* 右の 列を ひろげる（「これで いい！」が 24px で 1 行に おさまる はば） */
+.rn-name .ed-namae__side {
+  width: 192px;
+}
+.rn-name .ed-namae__side .ed-btn {
+  width: 192px;
+}

@@ -8,16 +8,16 @@ import {
   BufferGeometry, Color, Mesh, MeshBasicMaterial, PerspectiveCamera, Scene, Vector2, Vector3, Vector4,
   type DataTexture, type WebGLRenderer,
 } from 'three';
+import { HOUSE_LOOK } from '../../world/blocks/houseArt';
+import { createAtlasTexture } from '../../world/blocks/textures';
 import { toGeometry } from '../../world/render/rendererGeometry';
 import type { FurnKind } from '../editor/furniture';
 import { openingChange, windowCells, type EditorState, type OpeningChange, type WindowCell } from '../editor/model';
 import { ROOF_Y, WALLS, type Rot, type Wall } from '../editor/tuning';
-import { createPreviewAtlas } from './atlas';
 import { FurnitureIcons, type FurnImage } from './furnitureIcons';
 import { GhostWall, wallGhostLevels } from './ghostWall';
 import { GlowCtl } from './glow';
 import { GlowMeshes, doorSpot, windowSpot, type GlowSpot } from './glowMesh';
-import { HOUSE_LOOK } from './look';
 import { buildPreview, type PreviewMode, type PreviewParts } from './mesh';
 import type { PreviewInfo, PreviewPort } from './port';
 import { GLOW, PREVIEW } from './tuning';
@@ -43,7 +43,7 @@ export interface PreviewStats {
 const rad = (deg: number): number => (deg * Math.PI) / 180;
 
 export class Preview3D implements PreviewPort {
-  private readonly atlas: DataTexture = createPreviewAtlas();
+  private readonly atlas: DataTexture = createAtlasTexture();
   private readonly material = new MeshBasicMaterial({ map: this.atlas, vertexColors: true, alphaTest: 0.5 });
   private readonly scene = new Scene();
   private readonly camera = new PerspectiveCamera(PREVIEW.fovDeg, 1, 0.5, 400);

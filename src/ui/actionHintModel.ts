@@ -158,6 +158,13 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
       case 'ripen':
         out.right = { icon: right.item!, word: 'まく' };
         break;
+      // HOUSE-1C: 家の 戸（しまって いる = あける・あいて いる = しめる。絵は 戸）
+      case 'doorOpen':
+        out.right = { icon: 'house_door', word: 'あける' };
+        break;
+      case 'doorClose':
+        out.right = { icon: 'house_door', word: 'しめる' };
+        break;
       // HOUSE-1A: 建築士さんを ねらって いる = ふきだし ＋ はなす（左の「ほる」は DigSystem.previewLeftClick が 出さない）
       case 'talk':
         out.right = { icon: 'talk', word: 'はなす' };

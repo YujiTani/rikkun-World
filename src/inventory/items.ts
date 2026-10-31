@@ -1,5 +1,5 @@
 import type { ItemType } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GEYSER_DEFS, GOLD_DEFS, HOUSE_FURNITURE_DEFS, HOUSE_PLAN_DEFS, HOUSE_TOOL_DEFS, INGOT_DEFS, KONGO_DEFS, LEGEND_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, MATERIAL_DEFS, MINE_DEFS, NINJA_SAMURAI_DEFS, PLACEABLE_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, VOX_I_DEFS, itemTypesOf } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GEYSER_DEFS, GOLD_DEFS, HOUSE_BLOCK_DEFS, HOUSE_FURNITURE_DEFS, HOUSE_PLAN_DEFS, HOUSE_TOOL_DEFS, INGOT_DEFS, KONGO_DEFS, LEGEND_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, MATERIAL_DEFS, MINE_DEFS, NINJA_SAMURAI_DEFS, PLACEABLE_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, VOX_I_DEFS, itemTypesOf } from '../content/items/registry';
 
 export const INVENTORY_SIZE = 36;
 export const HOTBAR_SIZE = 9;
@@ -47,6 +47,8 @@ export const ITEM_TYPES: readonly ItemType[] = [
   // HOUSE-1B（#339）: 新しい 家具・せっけいず も 登録表（content/items/houseEditor.ts）から（いちばん うしろ）
   ...itemTypesOf(HOUSE_FURNITURE_DEFS),
   ...itemTypesOf(HOUSE_PLAN_DEFS),
+  // HOUSE-1C PR-1（#340）: 家の ブロック 5 つ（ゆか・かべ・やね・しょうじ・戸）は 登録表（content/items/houseBlocks.ts）から
+  ...itemTypesOf(HOUSE_BLOCK_DEFS),
 ];
 
 const BY_ID = new Map<string, ItemType>(ITEM_TYPES.map((t) => [t.id, t]));

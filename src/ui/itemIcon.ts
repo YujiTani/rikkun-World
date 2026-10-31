@@ -10,6 +10,7 @@ import { isW7Item, w7ItemPixels } from './itemArtW7';
 import { goldItemPixels, isGoldItem } from './itemArtGold';
 import { houseToolPixels, isHouseToolItem } from './itemArtHouse';
 import { houseEditorItemPixels, isHouseEditorItem } from './itemArtHouseEditor';
+import { houseBlockItemPixels, isHouseBlockItem } from './itemArtHouseBlocks';
 import { isKongoItem, kongoItemPixels } from './itemArtKongo';
 import { isNinjaItem, ninjaItemPixels } from './itemArtNinja';
 import { isSamuraiItem, samuraiItemPixels } from './itemArtSamurai';
@@ -45,6 +46,7 @@ export function itemIconPixels(item: ItemId): Pixels {
   if (isGoldItem(item)) return goldItemPixels(item);
   if (isHouseToolItem(item)) return houseToolPixels(item); // HOUSE-1A: 仮の 絵
   if (isHouseEditorItem(item)) return houseEditorItemPixels(item); // HOUSE-1B: 新しい 家具・せっけいず（仮の 絵）
+  if (isHouseBlockItem(item)) return houseBlockItemPixels(item); // HOUSE-1C: 家の ブロック 5 つ
   if (isKongoItem(item)) return kongoItemPixels(item);
   if (isLive3Item(item)) return live3ItemPixels(item);
   if (isW7Item(item)) return w7ItemPixels(item);

@@ -1,7 +1,9 @@
 import type { ItemId } from '../contracts';
 import { itemType } from '../inventory/items';
 import type { KuraCellView, KuraScreen, KuraScreenView } from '../house/kuraScreen';
+import type { RenameView } from '../house/rename';
 import type { HouseButtonId, HouseMenuState } from '../house/talk';
+import { buildRenameList, buildRenameName, type RenameNamePanel } from './houseEditor/renameView';
 import { houseButtonIcons } from './houseMenuArt';
 import { itemIconUrl } from './itemIcon';
 import { withRuby } from './text';
@@ -43,6 +45,10 @@ interface HouseUiDeps {
   parent: HTMLElement;
   menu(): HouseMenuState;
   press(id: string): void;
+  /** なまえを かえる の 画面が 読む もの（HOUSE-1C） */
+  rename(): RenameView;
+  /** 家の 名前の 帯（戸を 外から 通った とき。出て いなければ null）。HOUSE-1C */
+  band(): { text: string } | null;
   screen: KuraScreen;
   /** エディターの 画面を 作って 返す（親は 引数の 要素）。はじめて エディターが 開く とき 1 回 */
   makeEditor(parent: HTMLElement): EditorViewLike;
@@ -70,10 +76,15 @@ function img(src: string): HTMLImageElement {
 export class HouseUi {
   readonly el: HTMLDivElement;
   private readonly bubble: HTMLDivElement;
+  /** 家の 名前の 帯（画面の 上。メニューとは 別の 要素で、話しかけて いなくても 出る） */
+  private readonly band: HTMLDivElement;
+  private bandText = '';
   private mode: Mode = 'off';
   private editorView: EditorViewLike | null = null;
   private menuEl: HTMLDivElement | null = null;
   private menuSig = '';
+  /** 名前の 画面（page 'renameName'。入るたびに 作りなおす） */
+  private namePanel: RenameNamePanel | null = null;
   private kuraEl: HTMLDivElement | null = null;
   private kuraSig = '';
   /** あずけた・とりだした 物の マスを 次の 描きなおしで ぴょこんと させる */
@@ -85,6 +96,19 @@ export class HouseUi {
     this.bubble.dataset.testid = 'house-bubble';
     this.el.append(this.bubble);
     d.parent.append(this.el);
+    this.band = el('div', 'house-name-band');
+    this.band.dataset.testid = 'house-name-band';
+    this.band.hidden = true;
+    d.parent.append(this.band);
+  }
+
+  /** 毎フレーム: 名前の 帯を 今の 状態に あわせる（かわった ときだけ DOM を 書く） */
+  updateBand(): void {
+    const text = this.d.band()?.text ?? '';
+    if (text === this.bandText) return;
+    this.bandText = text;
+    this.band.textContent = text;
+    this.band.hidden = text === '';
   }
 
   /** メニュー・くら・エディターが 開いて いる */
@@ -137,6 +161,7 @@ export class HouseUi {
     this.menuEl?.remove();
     this.menuEl = null;
     this.menuSig = '';
+    this.namePanel = null;
     this.kuraEl?.remove();
     this.kuraEl = null;
     this.kuraSig = '';
@@ -158,7 +183,11 @@ export class HouseUi {
   // ------------------------------------------------------------ 上の メニュー
 
   private renderMenu(m: HouseMenuState): void {
-    const sig = m.buttons.map((b) => `${b.id}:${b.enabled ? 1 : 0}`).join(',');
+    if (m.page === 'rename' || m.page === 'renameName') {
+      this.renderRename(m);
+      return;
+    }
+    const sig = `${m.page}|` + m.buttons.map((b) => `${b.id}:${b.enabled ? 1 : 0}`).join(',');
     if (this.menuEl && sig === this.menuSig) return;
     this.menuSig = sig;
     const menu = el('div', 'house-menu');
@@ -167,6 +196,36 @@ export class HouseUi {
     if (this.menuEl) this.menuEl.replaceWith(menu);
     else this.el.append(menu);
     this.menuEl = menu;
+  }
+
+  /** なまえを かえる の 一覧・名前の 画面（ふきだしの 下に 並べる。上の メニューと 同じ 場所） */
+  private renderRename(m: HouseMenuState): void {
+    const view = this.d.rename();
+    const press = (id: string): void => {
+      this.d.tick();
+      this.d.press(id);
+      this.refresh();
+    };
+    if (m.page === 'rename') {
+      const sig = `rename|${view.houses.map((h) => `${h.id}:${h.name}`).join(',')}`;
+      if (this.menuEl && sig === this.menuSig) return;
+      this.menuSig = sig;
+      this.swapMenu(buildRenameList(view, press), null);
+      return;
+    }
+    if (!this.namePanel || this.menuSig !== 'renameName') {
+      this.menuSig = 'renameName';
+      const panel = buildRenameName(view, press);
+      this.swapMenu(panel.root, panel);
+    }
+    this.namePanel?.update(view, m.buttons);
+  }
+
+  private swapMenu(root: HTMLElement, panel: RenameNamePanel | null): void {
+    this.namePanel = panel;
+    if (this.menuEl) this.menuEl.replaceWith(root);
+    else this.el.append(root);
+    this.menuEl = root as HTMLDivElement;
   }
 
   private menuButton(id: HouseButtonId, enabled: boolean): HTMLButtonElement {

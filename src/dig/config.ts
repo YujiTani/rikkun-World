@@ -1,10 +1,20 @@
 import { defaultDropMax } from '../drops/rarityTable';
 import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
 import { CHALK_MARK_IDS, type ChalkMarkId } from '../world/blocks/chalkMark';
+import { HOUSE_BLOCK_IDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, houseDropOf, type HouseBase, type HouseBlockId, type HouseDoorPartId, type NewFurnBlockId } from '../world/blocks/houseBlocks';
 
 /** チョークの しるし 12 こ ぜんぶに 同じ 値を 入れる（`satisfies Record<BlockId, …>` が 12 こ そろって いることを 見る） */
 function forChalkMarks<T>(value: T): Record<ChalkMarkId, T> {
   return Object.fromEntries(CHALK_MARK_IDS.map((id) => [id, value])) as Record<ChalkMarkId, T>;
+}
+
+/**
+ * 家の ブロック 5 つ・戸の のこり 3 マス・向きの ある 家具の 新しい id（HOUSE-1C）に、元の アイテム（`HouseBase`。戸の どの マスも `house_door`・家具は しゅるい）の 値を 入れる。
+ * `satisfies Record<BlockId, …>` が 全部 そろって いることを 見る
+ */
+function forHouse<T>(byBase: Record<HouseBase, T>): Record<HouseBlockId | HouseDoorPartId | NewFurnBlockId, T> {
+  const ids: readonly string[] = [...HOUSE_BLOCK_IDS, ...HOUSE_DOOR_PART_IDS, ...NEW_FURN_BLOCK_IDS];
+  return Object.fromEntries(ids.map((id) => [id, byBase[houseDropOf(id)!]])) as Record<HouseBlockId | HouseDoorPartId | NewFurnBlockId, T>;
 }
 
 /**
@@ -103,6 +113,24 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     suisho_ore: 12, // てつの つるはしで 2 秒
     diamond_ore: 18, // てつの つるはしで 3 秒（こんごうの つるはし 強さ 8 で 2.25 秒）
     ...forChalkMarks(0), // しるしは さわると すぐ こわれる（1 ステップ）
+    // HOUSE-1C（素手の 秒数。戸は 上下 どちらも 同じ。家具は 向き・マスが ちがっても 同じ。たんす・かまどの 向き 0 は 上の 表）
+    ...forHouse<number>({
+      house_floor: 6, // いし と おなじ
+      house_wall: 5, // き と おなじ
+      house_roof: 4, // かわら と おなじ
+      shoji: 1, // かみ。すぐ やぶれる
+      house_door: 5, // き と おなじ
+      tansu: 5, // 今の たんす と おなじ
+      furnace: 6, // 今の かまど と おなじ
+      table: 3,
+      long_table: 3,
+      round_table: 3,
+      chair: 2,
+      stool: 2,
+      andon: 1,
+      shelf: 3,
+      ofuro: 4,
+    }),
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -175,6 +203,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     suisho_ore: 2,
     diamond_ore: 2, // ダイヤの いしも 2（こんごうの つるはしの レベルは 2 の まま。KONGO-1）
     ...forChalkMarks(0),
+    // HOUSE-1C: 家の ブロック・家具は すでで ほれる
+    ...forHouse<number>({ house_floor: 0, house_wall: 0, house_roof: 0, shoji: 0, house_door: 0, tansu: 0, furnace: 0, table: 0, long_table: 0, round_table: 0, chair: 0, stool: 0, andon: 0, shelf: 0, ofuro: 0 }),
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
   handLevel: 0,
@@ -257,6 +287,11 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     suisho_ore: 'superRare',
     diamond_ore: 'mythic',
     ...forChalkMarks<Rarity>('common'),
+    // HOUSE-1C（家具は アイテムの めずらしさ〔content/items/houseEditor.ts が ここから 読む〕。たんす・かまどの 向き 0 は 上の 表）
+    ...forHouse<Rarity>({
+      house_floor: 'common', house_wall: 'common', house_roof: 'common', shoji: 'uncommon', house_door: 'uncommon',
+      tansu: 'uncommon', furnace: 'uncommon', table: 'common', long_table: 'common', round_table: 'common', chair: 'common', stool: 'common', andon: 'uncommon', shelf: 'uncommon', ofuro: 'rare',
+    }),
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };

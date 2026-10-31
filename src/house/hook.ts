@@ -1,4 +1,6 @@
-import type { ItemId } from '../contracts';
+import type { ItemId, Vec3 } from '../contracts';
+import type { HouseView } from './book';
+import type { CellInfo } from './cell';
 import { LIGHT_DEFAULT, type Rot, type Size, type Step, type WindowKind, type RoofKind } from './editor/tuning';
 import { windowCells, type WindowCell } from './editor/model';
 import type { Confirm } from './editor/controller';
@@ -22,6 +24,11 @@ import type { HouseMenuState } from './talk';
  *   blueprints()    持ち物の せっけいず { slot, number, name, w, d, windows, windowKind, roof, furniture, light }[]
  *   previewDrag(dx, dy) / previewWheel(dx, dy)   見本の 上で ドラッグ／wheel した のと 同じ。今の { angle, pitch }（見本が 出て いなければ null）
  *   hover(id | null)    まどの ボタンに マウスを のせた／はなした のと 同じ（光るのは windowsDown・windowsUp・windowKind）
+ * 1C PR-1（#340）:
+ *   buildNow(number, at)  せっけいずから 家を その場に 建てる（at ＝ 外の 箱の 北西の すみの 床の 高さ）。知らない 番号は null
+ *   houses()        戸で おぼえた 記録 { id, name, number, outer, door, doorOpen }[]
+ *   blockAt(x, y, z) { id, item, dir }（ほると 手に 入る アイテム・家具の 向き）
+ *   renaming()      名前の 画面で 作って いる { id, name }（ほかの ページでは null）
  */
 interface EditorPreviewInfo {
   mode: 'outside' | 'inside';
@@ -69,9 +76,13 @@ export interface HouseHook {
   previewDrag(dx: number, dy: number): { angle: number; pitch: number } | null;
   previewWheel(dx: number, dy: number): { angle: number; pitch: number } | null;
   hover(id: string | null): void;
+  buildNow(number: number, at: Vec3): HouseView | null;
+  houses(): HouseView[];
+  blockAt(x: number, y: number, z: number): CellInfo;
+  renaming(): ReturnType<HouseSystem['renaming']>;
 }
 
-type HookSystem = Pick<HouseSystem, 'architects' | 'talkTo' | 'menu' | 'press' | 'deposit' | 'withdraw' | 'state' | 'editor' | 'editing' | 'edit' | 'need' | 'blueprints' | 'preview' | 'previewDrag' | 'previewWheel' | 'hover'>;
+type HookSystem = Pick<HouseSystem, 'architects' | 'talkTo' | 'menu' | 'press' | 'deposit' | 'withdraw' | 'state' | 'editor' | 'editing' | 'edit' | 'need' | 'blueprints' | 'preview' | 'previewDrag' | 'previewWheel' | 'hover' | 'buildNow' | 'houses' | 'blockAt' | 'renaming'>;
 
 export function createHouseHook(sys: HookSystem): HouseHook {
   const editor = (): EditorInfo | null => {
@@ -114,5 +125,9 @@ export function createHouseHook(sys: HookSystem): HouseHook {
     previewDrag: (dx, dy) => sys.previewDrag(dx, dy),
     previewWheel: (dx, dy) => sys.previewWheel(dx, dy),
     hover: (id) => sys.hover(id),
+    buildNow: (number, at) => sys.buildNow(number, at),
+    houses: () => sys.houses(),
+    blockAt: (x, y, z) => sys.blockAt(x, y, z),
+    renaming: () => sys.renaming(),
   };
 }

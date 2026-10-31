@@ -1,7 +1,7 @@
 // HOUSE-1B 家具の 絵 7 まい（2.4: たんす・かまどの 横と うしろ、はにわの 土・顔・おび）。16×16、シード つき（Math.random なし）。
 // たんす・かまどの 前は ゲームの ブロックの 絵（tansu_front・furnace_side）の まま。色は ブロックの 絵と 同じ 色だけ。
 // 数の 元は アートの furniture2.ts.txt（このファイルと 同じ 中身。yuzu OK ずみ）。
-import { fromRows, rect, speck, type Px } from './tilePaint';
+import { fromRows, rect, speck, type Px } from './houseTilePaint';
 
 export type Tile2 = 'tansu_flank' | 'tansu_rear' | 'furnace_flank' | 'furnace_rear' | 'haniwa_clay' | 'haniwa_face' | 'haniwa_band';
 export const TILE2_NAMES: readonly Tile2[] = ['tansu_flank', 'tansu_rear', 'furnace_flank', 'furnace_rear', 'haniwa_clay', 'haniwa_face', 'haniwa_band'];

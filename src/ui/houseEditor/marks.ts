@@ -1,6 +1,6 @@
 // HOUSE-1B ② なかの 方眼の かべの 帯に 出す 窓と 戸の 印（SVG）。窓 ＝ 白い しょうじ、戸 ＝ 戸の 絵（立てた 戸）。
 // 色は 見本の 家（houseLook.ts）と そろえる。UI の 色の きまり（トークン）には SVG の 中身は 入らない。
-import { HOUSE_LOOK } from '../../house/preview/look';
+import { HOUSE_LOOK } from '../../world/blocks/houseArt';
 
 const P = HOUSE_LOOK.pal;
 /** しょうじの 白い 紙（見本の 紙より 白く して、帯の 木の 色と はっきり 分ける）・くっきりした ふち */

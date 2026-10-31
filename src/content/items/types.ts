@@ -3,6 +3,7 @@ import type { InfoRow } from '../../craft/info/table';
 import type { ToolFamily } from '../../dig/toolFamily';
 import type { ItemCategory } from '../../ui/itemCategory';
 import { CHALK_MARK_IDS } from '../../world/blocks/chalkMark';
+import { FURN_VARIANT_IDS, HOUSE_DOOR_PART_IDS } from '../../world/blocks/houseBlocks';
 
 /**
  * アイテムに ならない ブロック（持ち物に 入らない。みず・そこいし・作物・小屋の 部品 …）。
@@ -21,6 +22,9 @@ export const BLOCK_ONLY_IDS = [
   // MINE-1B（#349）: 持てない ブロック。ねんど（ほると ねんど `clay`）・すいしょうの いし（ほると `crystal`）・ダイヤの いし（ほると `diamond`）・チョークの しるし 12 こ
   'nendo', 'suisho_ore', 'diamond_ore',
   ...CHALK_MARK_IDS,
+  // HOUSE-1C PR-1（#340）: 戸の のこり 3 マス・向きの ある 家具の 向き ちがい／2 つ目 いこうの マス（ほると 元の アイテム〔`tansu`・`table` …〕 1 こ）。向き 0 の 1 つ目〔`tansu`・`table` …〕は アイテムの id と 同じ ので ここには 入れない
+  ...HOUSE_DOOR_PART_IDS,
+  ...FURN_VARIANT_IDS,
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 

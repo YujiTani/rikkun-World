@@ -1,10 +1,11 @@
 /**
  * #293 試作: たたきつけた 手の 下と まわりの ブロックを こわす（yuzu 2026-10-24「塗り壁のように フィールドを 破壊する」）。
  * こわして よい ブロックの きまりは ぬりかべの たおれこみ（src/yokai/ai/YokaiManager.ts の crush）と おなじ:
- *   いちばん 下の 段（y ≦ 0。岩盤の かわり）・air・outside・みず・start_torch は こわさない。落とし物は なし。
+ *   いちばん 下の 段（y ≦ 0。岩盤の かわり）・air・outside・みず・start_torch・家の 戸〔上・下・あけた 物も〕は こわさない。落とし物は なし。
  *   こわした マスは onBlocks へ（ぬりかべと おなじく くだける つぶと 音は 呼ぶ 側）。
  * 数は gashaBigTuning.ts の slam.crush*。
  */
+import { doorInfo } from '../world/blocks/houseBlocks';
 import { TUNE as T } from './gashaBigTuning';
 
 export interface CrushIO {
@@ -18,7 +19,7 @@ export interface CrushIO {
 
 /** ぬりかべと おなじ: こわして よい ブロックか */
 export function crushable(block: string, y: number): boolean {
-  return y > 0 && block !== 'air' && block !== 'outside' && block !== 'water' && block !== 'start_torch';
+  return y > 0 && block !== 'air' && block !== 'outside' && block !== 'water' && block !== 'start_torch' && doorInfo(block) === null;
 }
 
 /** 手の ひらの まんなか（x, z）と 立つ 面の 高さ y の まわりを こわす。こわした マスを 返す。S を 省くと 前進の たたきつけ（slam）、両手たたきつけは T.slam2 */

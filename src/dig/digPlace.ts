@@ -1,7 +1,8 @@
-import type { BlockId } from '../contracts';
+import type { BlockId, TargetInfo } from '../contracts';
 import { itemType } from '../inventory/items';
 import { FUTON_HEAD, futonDirFromYaw, futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS } from '../world/blocks/kotatsu';
+import { K_TANSU, doorId, doorInfo, furnInfo, furnPlaceCells, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
 import { applyFlatten, planFlatten, type FlattenPlan } from '../world/flatten';
 import { HANGING_SUPPORT, isReplaceable, overlapsBody, type DigCore } from './digCore';
 
@@ -11,7 +12,8 @@ export interface PlaceSpot {
   y: number;
   z: number;
   block: BlockId;
-  cells?: ReadonlyArray<{ x: number; z: number; block: BlockId }>;
+  /** ふとん・こたつ・家具・戸の ぜんぶの マス。y を 書かない マスは 置く 高さ y */
+  cells?: ReadonlyArray<{ x: number; y?: number; z: number; block: BlockId }>;
   plan?: FlattenPlan;
 }
 
@@ -45,6 +47,9 @@ export class BlockPlacer {
       const k = this.kotatsuSpot(x, y, z);
       return k ? { x: k.x, y, z: k.z, block, cells: k.cells, plan: k.plan } : null;
     }
+    // HOUSE-1C: 向きの ある 家具（プレイヤーの ほうを 向く）・戸（2 マス。いつも 南向き）
+    if (furnInfo(block)) return this.furnSpot(block, x, y, z);
+    if (doorInfo(block)) return this.doorSpot(x, y, z);
     if (block === 'nobana') {
       // のばな は くさ・つち の上だけ
       const under = c.world.getBlock(x, y - 1, z);
@@ -68,6 +73,29 @@ export class BlockPlacer {
     } else if (this.overlapsBody(x, y, z)) return null;
     if (c.gate?.placeBlocked(x, y, z)) return null; // 妖怪の箱の所には置けない
     return { x, y, z, block };
+  }
+
+  /** 向きの ある 家具を 置く 場所。ぜんぶの マスが あいて いて、体に 重ならない ところ だけ（ねらった マスが 見た目の 左はし〔長さ 2〕か まん中〔長さ 3〕） */
+  private furnSpot(block: BlockId, x: number, y: number, z: number): PlaceSpot | null {
+    const c = this.c;
+    const kind = furnInfo(block)!.kind;
+    const { cells } = furnPlaceCells(kind, c.player().yawDeg, x, z);
+    for (const k of cells) {
+      const cur = c.world.getBlock(k.x, y, k.z);
+      if ((cur !== 'air' && cur !== 'water') || this.overlapsBody(k.x, y, k.z) || c.gate?.placeBlocked(k.x, y, k.z)) return null;
+    }
+    const aimed = cells.find((k) => k.x === x && k.z === z)!;
+    return cells.length === 1 ? { x, y, z, block: aimed.id } : { x, y, z, block: aimed.id, cells: cells.map((k) => ({ x: k.x, z: k.z, block: k.id })) };
+  }
+
+  /** 戸 2 マス（下〔ねらった マス〕と その 上）を 置く 場所。2 マスとも あいて いて、体に 重ならない ところ だけ */
+  private doorSpot(x: number, y: number, z: number): PlaceSpot | null {
+    const c = this.c;
+    const upper = c.world.getBlock(x, y + 1, z);
+    if (upper !== 'air' && upper !== 'water') return null;
+    for (const yy of [y, y + 1]) if (this.overlapsBody(x, yy, z) || c.gate?.placeBlocked(x, yy, z)) return null;
+    const lo = doorId(false, false);
+    return { x, y, z, block: lo, cells: [{ x, z, block: lo }, { x, y: y + 1, z, block: doorId(true, false) }] };
   }
 
   private overlapsBody(x: number, y: number, z: number): boolean {
@@ -117,6 +145,18 @@ export class BlockPlacer {
     return d;
   }
 
+  /** 家の 戸を あける・しめる（上下 どちらを ねらっても 2 マスとも。あいて いたら しめる）。戸でなければ 何も しない */
+  toggleDoor(t: TargetInfo): void {
+    const w = this.c.world;
+    const d = doorInfo(t.id);
+    if (!d) return;
+    const { x, y, z } = t.block;
+    const loY = d.top ? y - 1 : y;
+    const open = !d.open;
+    if (doorInfo(w.getBlock(x, loY, z))?.top === false) w.setBlock(x, loY, z, doorId(false, open));
+    if (doorInfo(w.getBlock(x, loY + 1, z))?.top === true) w.setBlock(x, loY + 1, z, doorId(true, open));
+  }
+
   tryPlace(): void {
     const c = this.c;
     const spot = this.spot();
@@ -127,14 +167,14 @@ export class BlockPlacer {
         applyFlatten(spot.plan, (fx, fy, fz, b) => c.world.setBlock(fx, fy, fz, b));
         this.flatDust = spot.plan.dust;
       }
-      for (const k of spot.cells) c.world.setBlock(k.x, y, k.z, k.block);
+      for (const k of spot.cells) c.world.setBlock(k.x, k.y ?? y, k.z, k.block);
     } else if (c.bodyTgt()) {
       if (!c.m4.bodyBlocks?.place({ x, y, z }, block)) return;
     } else if (!c.world.setBlock(x, y, z, block)) return;
     c.inventory.consumeHeld();
-    if (block === 'tansu') c.m4.storage?.placed(x, y, z, c.player().yawDeg);
+    if (isFurnKind(block, K_TANSU)) c.m4.storage?.placed(x, y, z, c.player().yawDeg);
     c.m4.tools?.pushSwing('place');
-    c.emit({ type: 'place', tick: c.tick(), block: { x, y, z }, id: block });
+    c.emit({ type: 'place', tick: c.tick(), block: { x, y, z }, id: houseDropOf(block) ?? block }); // 家の もの〔向き・マス ちがい〕は もとの id
   }
 }
 

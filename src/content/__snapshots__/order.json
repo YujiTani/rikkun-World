@@ -426,7 +426,12 @@
     "build": [
       "kawara",
       "brick",
-      "shikkui"
+      "shikkui",
+      "house_floor",
+      "house_wall",
+      "house_roof",
+      "shoji",
+      "house_door"
     ],
     "food": [
       "onion",
@@ -864,7 +869,12 @@
     "long_table",
     "round_table",
     "stool",
-    "sekkeizu"
+    "sekkeizu",
+    "house_floor",
+    "house_wall",
+    "house_roof",
+    "shoji",
+    "house_door"
   ],
   "RARITY_ORDER": [
     "common",
