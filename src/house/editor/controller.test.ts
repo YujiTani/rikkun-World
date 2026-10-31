@@ -284,3 +284,112 @@ describe('名前の 操作', () => {
     expect(ctl.s.name.front).toBe('アー');
   });
 });
+
+describe('よくない ことば（AC58。新 21・§2.6）', () => {
+  /**
+   * ことばを ボタンを 押すのと 同じ 順で 1 つずつ 入れる（にごる 字は 「ふ」＋゛ の ように 分ける）。かえりは 1 つずつの できた か（ー は 字）。
+   * 最後の 1 つが 入った あとの 結果は ok.at(-1)
+   */
+  const typed = (ctl: ReturnType<typeof makeController>['ctl'], text: string): boolean[] =>
+    [...text.normalize('NFD')].map((ch) => (ch === '\u3099' ? ctl.mark('dakuten') : ch === '\u309A' ? ctl.mark('handakuten') : ctl.char(ch)));
+
+  it('「し」の あとに「ね」: false・名前は「し」の まま・ふきだし・もどす の 記録は かわらない', () => {
+    const { ctl } = makeController();
+    expect(ctl.char('し')).toBe(true);
+    const undo = ctl.canUndo();
+    ctl.hideBubble();
+    expect(ctl.char('ね')).toBe(false);
+    expect(ctl.s.name.front).toBe('し');
+    expect(ctl.bubble?.text).toBe(MSG.ngWord);
+    expect(ctl.canUndo()).toBe(undo);
+    ctl.undo(); // もどす 1 回で「し」が きえる（止まった 操作は 数えない）
+    expect(ctl.s.name.front).toBe('');
+  });
+
+  it('そろえた あとで 止める: カタカナ「シ」「ネ」・ー を はさんだ「しー」「ね」・大きい つの「ぶつころ」', () => {
+    for (const [word, front] of [['シネ', 'シ'], ['しーね', 'しー'], ['ぶっころ', 'ぶっこ'], ['ぶつころ', 'ぶつこ'], ['あしね', 'あし']] as const) {
+      const { ctl } = makeController();
+      const ok = typed(ctl, word);
+      expect(ok.at(-1), `${word} の 最後の 字`).toBe(false);
+      expect(ok.slice(0, -1).every(Boolean), `${word} の 最後の 前までは 入る`).toBe(true);
+      expect(ctl.s.name.front, word).toBe(front);
+    }
+  });
+
+  it('゛ で よくない ことばに なる とき（「でふ」→「でぶ」）は 押しても かわらない。「てふ」「はか」は 止まらない', () => {
+    const { ctl } = makeController();
+    typed(ctl, 'でふ');
+    expect(ctl.mark('dakuten')).toBe(false);
+    expect(ctl.s.name.front).toBe('でふ');
+    expect(ctl.bubble?.text).toBe(MSG.ngWord);
+    const k = makeController();
+    expect(typed(k.ctl, 'てふ').every(Boolean)).toBe(true);
+    expect(k.ctl.bubble).toBeNull();
+    expect(typed(makeController().ctl, 'はか').every(Boolean)).toBe(true);
+  });
+
+  it('ゆるす ことば「ちびっこ」は 入る。「ちびっころす」は ころす で 止まる', () => {
+    const a = makeController();
+    expect(typed(a.ctl, 'ちびっこ').every(Boolean)).toBe(true);
+    const b = makeController();
+    const ok = typed(b.ctl, 'ちびっころす');
+    expect(ok.at(-1)).toBe(false);
+    expect(b.ctl.s.name.front).toBe('ちびっころ');
+  });
+
+  it('後ろの 文字（suffix）も つないで しらべる: 前に よくない ことばが のこって いる とき', () => {
+    const { ctl, holder } = makeController();
+    holder.draft.name.front = 'しね'; // 読みこんだ 作りかけ（表が あとで ふえた など）
+    expect(ctl.suffix('ハウス')).toBe(false);
+    expect(ctl.s.name.back).toBe('のいえ');
+    expect(ctl.bubble?.text).toBe(MSG.ngWord);
+    const ok = makeController();
+    expect(ok.ctl.suffix('ハウス')).toBe(true);
+  });
+
+  it('erase は 止まらない: よくない ことばが のこる ときは なくなるまで 1 字ずつ けす（1 回の 操作。同じ ふきだし）', () => {
+    const { ctl, holder } = makeController();
+    holder.draft.name.front = 'しねこ';
+    expect(ctl.erase()).toBe(true);
+    expect(ctl.s.name.front).toBe('し');
+    expect(ctl.bubble?.text).toBe(MSG.ngWord);
+    expect(ctl.undo(), '1 回の 操作').toBe(true);
+    expect(ctl.s.name.front).toBe('しねこ');
+    // ふつうの けす は 1 字だけ・ふきだしは 出ない
+    const k = makeController();
+    typed(k.ctl, 'ひみつ');
+    expect(k.ctl.erase()).toBe(true);
+    expect(k.ctl.s.name.front).toBe('ひみ');
+    expect(k.ctl.bubble).toBeNull();
+  });
+
+  it('できた！も 止まる: ③ なまえ へ・ふきだし・かみ ふで せっけいずは かわらない', () => {
+    const { ctl, holder, sheets, made } = makeController();
+    holder.draft.furniture.push({ kind: 'futon', x: 0, z: 0, rot: 0 }, { kind: 'chair', x: 2, z: 0, rot: 0 });
+    holder.draft.name.front = 'しね';
+    holder.draft.step = 'naka';
+    expect(ctl.done()).toBe('stopped');
+    expect(ctl.s.step).toBe('namae');
+    expect(ctl.bubble?.text).toBe(MSG.ngWord);
+    expect(sheets).toHaveLength(0);
+    expect(made.n).toBe(0);
+    ctl.erase();
+    expect(ctl.done()).toBe('made');
+  });
+
+  it('読みこんだ 作りかけに よくない ことばが あると、どの すすみで 保存して あっても ③ で 開いて 同じ ふきだし', () => {
+    const { ctl, holder } = makeController();
+    holder.draft.name.front = 'しねこ';
+    holder.draft.step = 'soto';
+    ctl.open();
+    expect(ctl.s.step).toBe('namae');
+    expect(ctl.bubble?.text).toBe(MSG.ngWord);
+    // よくない ことばが なければ そのまま
+    const k = makeController();
+    k.holder.draft.name.front = 'ひみつ';
+    k.holder.draft.step = 'naka';
+    k.ctl.open();
+    expect(k.ctl.s.step).toBe('naka');
+    expect(k.ctl.bubble).toBeNull();
+  });
+});

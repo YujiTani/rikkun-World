@@ -68,7 +68,13 @@ export function wireHouse(deps: WiredYokai) {
     preview?.dispose();
     preview = null;
   };
-  house.previewProbe = (mode) => preview?.viewOf(mode) ?? null;
+  // 窓口（previewDrag・previewWheel・hover）と editor().preview は 見本が あれば その 見本へ（なければ 何も しない）
+  house.preview = {
+    info: (mode) => preview?.info(mode) ?? null,
+    drag: (dx, dy) => preview?.drag(dx, dy) ?? false,
+    wheel: (dx, dy) => preview?.wheel(dx, dy) ?? false,
+    hover: (on) => preview?.hover(on),
+  };
   // ブロックを 置く・ほる → 足もとに かかる 建築士さんが 高さを あわせる（立って いる 間は 毎ステップ 世界を 読まない ため。farm.onBlockChanged と 同じ 流れ）
   watchBlocks(world, house.manager);
 

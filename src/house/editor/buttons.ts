@@ -53,6 +53,14 @@ function namae(c: EditorController): EditorButton[] {
   ];
 }
 
+/**
+ * マウスを のせると 見本の 窓が ぜんぶ 光る ボタン（まどの かず −＋・まどの しゅるい。AC56）。'windowKind' だけでも よい（窓口 hover）。
+ * 画面は この ボタンの ならびに 手を おいた ときを 見る
+ */
+export function glowsWindows(id: string): boolean {
+  return id === 'windowsDown' || id === 'windowsUp' || id === 'windowKind' || id.startsWith('windowKind-');
+}
+
 /** エディター本体の ボタン ぜんぶ（ポップアップは 数えない。画面は これで 見える・押せるを 決める） */
 export function baseButtons(c: EditorController): EditorButton[] {
   const step = c.s.step;

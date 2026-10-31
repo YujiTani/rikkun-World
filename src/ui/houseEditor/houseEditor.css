@@ -425,6 +425,59 @@ body.house-editor-open #hud > :not(.house-ui) {
   min-width: 0;
   min-height: 140px;
   background: transparent;
+  /* ドラッグ・wheel で まわせる（ページを うごかさない） */
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.ed-view.is-drag {
+  cursor: grabbing;
+}
+/* さわる 前だけ 見本の みぎ した に 出る 小さな 手の 印（手が よこへ ゆらゆら「くるっ」）。さわったら（.is-touched）消える */
+.ed-view__hint {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  color: var(--rk-text);
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-pill);
+  pointer-events: none;
+  transition: opacity var(--rk-dur-fast) var(--rk-ease);
+}
+.ed-view__hint .ed-ico {
+  width: 32px;
+  height: 32px;
+}
+.ed-view.is-touched .ed-view__hint {
+  opacity: 0;
+  visibility: hidden;
+}
+.ed-swipe__hand {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: ed-swipe 1.6s ease-in-out infinite;
+}
+@keyframes ed-swipe {
+  0%,
+  100% {
+    transform: translateX(-3px) rotate(-10deg);
+  }
+  50% {
+    transform: translateX(3px) rotate(10deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed-swipe__hand,
+  .ed-view__hint {
+    animation: none;
+    transition: none;
+  }
 }
 .ed-view::after {
   content: '';

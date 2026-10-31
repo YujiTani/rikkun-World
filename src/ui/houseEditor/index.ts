@@ -3,12 +3,13 @@
 // ボタンは どれも 窓口 press(id) と 同じ 道（house/editor/ops.ts）を 通る。見えるか・押せるかは editor/buttons.ts の 一覧が 決める。
 // DOM: house-editor（全体）・editor-title・editor-heading・editor-progress（editor-step-soto/naka/namae）・editor-preview（見本の 穴）・
 //   editor-grid / editor-cell / editor-furniture（② 方眼）・editor-name（③）・house-confirm・house-need・ボタン house-btn-<id>。
-import { baseButtons } from '../../house/editor/buttons';
+import { baseButtons, glowsWindows } from '../../house/editor/buttons';
 import type { EditorController } from '../../house/editor/controller';
 import { STEPS, type Step } from '../../house/editor/tuning';
-import type { Preview3D, ViewRect } from '../../house/preview/preview';
+import type { Preview3D, PreviewMode, ViewRect } from '../../house/preview/preview';
 import type { SoundFx } from '../../fx/sound';
 import { ruby } from '../text';
+import { bindDrag } from './drag';
 import { btn, el, makeTileUrls, setEnabled } from './dom';
 import { PressFx, type PressKind } from './feedback';
 import { ICONS } from './icons';
@@ -49,6 +50,9 @@ const LEAD: Readonly<Record<Step, string>> = {
   namae: `${ruby('設計図', 'せっけいず')}に おなまえを つけよう`,
 };
 
+/** 見本が ある すすみと、その 見せ方（手の 印を さわった かどうかで 出し入れする） */
+const PREVIEW_STEPS = [['soto', 'outside'], ['naka', 'inside']] as const satisfies ReadonlyArray<readonly [Step, PreviewMode]>;
+
 /** ボタンの 音の しゅるい（そばの［とる］は 低く・まわす は 高く） */
 function pressKind(id: string): PressKind {
   return id === 'take' ? 'take' : id === 'turnRight' || id === 'turnLeft' ? 'turn' : 'press';
@@ -70,6 +74,8 @@ export class EditorView {
   /** 「あたらしい せっけいず → ぜんぶ けす」を 見た 回数（見本の 向きを はじめに もどす ため） */
   private resets = 0;
   private shown = false;
+  /** 手の 印を 消して いる か（すすみごと。かわった ときだけ 画面を さわる） */
+  private readonly touchedShown: Record<'soto' | 'naka', boolean | null> = { soto: null, naka: null };
   /** 見本の 穴の 四角（measure が 書きかえる 1 つ）と、いま 穴が あるか */
   private readonly hole: ViewRect = { x: 0, y: 0, w: 0, h: 0 };
   private hasHole = false;
@@ -137,6 +143,19 @@ export class EditorView {
     o.parent.append(this.root);
     for (const b of this.root.querySelectorAll<HTMLButtonElement>('button[data-btn]')) this.buttons.set(b.dataset.btn!, b);
 
+    // 見本を ドラッグ・wheel で まわす（押すと 置いた 家具の えらびは はずれる）。さわる 前は 右下に 手の 印
+    for (const [step] of PREVIEW_STEPS) {
+      const view = this.panels[step].view;
+      if (view) bindDrag(view, o.preview, () => void ctl.clearPlaced());
+    }
+    // まどの かず・しゅるいの ボタンの ならびに 手を おいて いる 間、見本の 窓が ぜんぶ 光る（キーボードで 来ても 同じ）
+    const rows = new Set<HTMLElement>();
+    for (const [id, b] of this.buttons) if (glowsWindows(id) && b.parentElement) rows.add(b.parentElement);
+    for (const row of rows) {
+      for (const ev of ['pointerenter', 'focusin'] as const) row.addEventListener(ev, () => this.glowWindows(true));
+      for (const ev of ['pointerleave', 'focusout'] as const) row.addEventListener(ev, () => this.glowWindows(false));
+    }
+
     // ゲームの 操作に ならない ように（マウスの 押す・まわす・右クリックは ここで 止める）
     for (const ev of ['mousedown', 'mouseup', 'wheel', 'click'] as const) this.root.addEventListener(ev, (e) => e.stopPropagation());
     // つぎに 何か 押したら ふきだしは 消える（そのまま ふきだしが 出る 押し方なら 新しい ふきだしが 出る）
@@ -161,7 +180,12 @@ export class EditorView {
     this.naka.setCell(cell);
   }
 
-  /** ひらく／とじる。ひらく とき 見本の 向きを はじめに もどす */
+  /** まどの ボタンに 手を おいた／はなした（見本が 見えて いる 間だけ。見本の 窓が 光る） */
+  private glowWindows(on: boolean): void {
+    if (this.shown) this.o.preview().hover(on);
+  }
+
+  /** ひらく／とじる。ひらく とき 見本の 向きを はじめに もどす（戸が 光る） */
   show(on: boolean): void {
     if (on === this.shown) return;
     this.shown = on;
@@ -169,7 +193,7 @@ export class EditorView {
     document.body.classList.toggle('house-editor-open', on);
     if (on) {
       this.layout();
-      this.o.preview().hide();
+      this.o.preview().restart();
       this.refresh();
     } else {
       this.o.release();
@@ -207,11 +231,12 @@ export class EditorView {
     this.sayWidth(s.step);
     if (ctl.resets !== this.resets) {
       this.resets = ctl.resets;
-      preview.hide();
+      preview.restart();
     }
     this.panels[s.step].update();
     if (s.step === 'namae') preview.hide();
     else preview.setShape(s, s.step === 'naka' ? 'inside' : 'outside');
+    this.syncTouched(preview);
     this.confirm.update();
     this.need.update();
     this.sayHost.hidden = ctl.bubble === null;
@@ -247,8 +272,21 @@ export class EditorView {
     if (this.shown) this.o.preview().draw(this.hasHole ? this.hole : null);
   }
 
-  /** 1 ステップ（1/60 秒）: 見本の 向き */
+  /** 手の 印: さわった 見本の すすみは 消す（また 回り出しても 出さない）。かわった ときだけ 画面を さわる */
+  private syncTouched(preview: Preview3D): void {
+    for (const [step, mode] of PREVIEW_STEPS) {
+      const touched = preview.touched(mode);
+      if (this.touchedShown[step] === touched) continue;
+      this.touchedShown[step] = touched;
+      this.panels[step].view?.classList.toggle('is-touched', touched);
+    }
+  }
+
+  /** 1 ステップ（1/60 秒）: 見本の 向き・時間 */
   tick(): void {
-    if (this.shown) this.o.preview().tick();
+    if (!this.shown) return;
+    const preview = this.o.preview();
+    preview.tick();
+    this.syncTouched(preview);
   }
 }

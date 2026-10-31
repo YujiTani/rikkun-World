@@ -6,6 +6,7 @@ import {
   canAddChar, cloneState, dakuten, emptyState, footprint, handakuten, isKanaChar, needOf, placeProblem, refit, windowMax,
   type EditorState, type NeedRow, type Placed,
 } from './model';
+import { hasNgWord } from './ngWords';
 import {
   BUBBLE, MSG, ROOF_KINDS, SIZES, SUFFIXES, WINDOW_KINDS,
   type RoofKind, type Rot, type Size, type Step, type WindowKind,
@@ -88,13 +89,21 @@ export class EditorController {
     for (const fn of this.listeners) fn();
   }
 
-  /** エディターを 開く: 見本の 向きや 家具の えらびは 作りかけに 入らないので、えらびと ポップアップを まっさらに（もどす の 記録は のこす） */
+  /**
+   * エディターを 開く: 見本の 向きや 家具の えらびは 作りかけに 入らないので、えらびと ポップアップを まっさらに（もどす の 記録は のこす）。
+   * 読みこんだ 作りかけの 名前に よくない ことばが あれば（表が あとで ふえた など）、すすみに よらず ③ なまえ で 開いて ふきだし（§2.6）
+   */
   open(): void {
     this.sel = { palette: null, placed: null };
     this.confirm = null;
     this.needOpen = false;
     this.bubble = null;
     this.katakana = false;
+    if (this.hasNgName(this.s.name)) {
+      this.s.step = 'namae';
+      this.say(MSG.ngWord);
+      return;
+    }
     this.emit();
   }
 
@@ -246,20 +255,43 @@ export class EditorController {
     this.say(MSG.light);
   }
 
+  /** 名前（前の 文字と 後ろの 文字を つなげた ぜんぶ）に よくない ことばが ある（§2.6） */
+  private hasNgName(name: EditorState['name']): boolean {
+    return hasNgWord(name.front + name.back);
+  }
+
+  /** 名前を かえる 操作: よくない ことばに なる ときは 何も かえず ふきだし（もどす にも 入らない。わざと ためす 遊びに しない） */
+  private commitName(next: EditorState): boolean {
+    const was = this.s.name;
+    if ((next.name.front !== was.front || next.name.back !== was.back) && this.hasNgName(next.name)) {
+      this.say(MSG.ngWord);
+      return false;
+    }
+    return this.commit(next, 'namae');
+  }
+
   char(ch: string): boolean {
     if (!isKanaChar(ch) || !canAddChar(this.s.name.front)) return false;
     const next = cloneState(this.s);
     next.name.front += ch;
-    return this.commit(next, 'namae');
+    return this.commitName(next);
   }
 
+  /** 1 もじ けす: 止めない。けした あとに よくない ことばが のこる ときは、なくなるまで 1 字ずつ けす（1 回の 操作。同じ ふきだし） */
   erase(): boolean {
     const chars = [...this.s.name.front];
     if (chars.length === 0) return false;
     chars.pop();
+    let more = false;
+    while (chars.length > 0 && hasNgWord(chars.join('') + this.s.name.back)) {
+      chars.pop();
+      more = true;
+    }
     const next = cloneState(this.s);
     next.name.front = chars.join('');
-    return this.commit(next, 'namae');
+    const ok = this.commit(next, 'namae');
+    if (ok && more) this.say(MSG.ngWord);
+    return ok;
   }
 
   mark(kind: 'dakuten' | 'handakuten'): boolean {
@@ -270,14 +302,14 @@ export class EditorController {
     if (marked === null) return false;
     const next = cloneState(this.s);
     next.name.front = [...chars, marked].join('');
-    return this.commit(next, 'namae');
+    return this.commitName(next);
   }
 
   suffix(back: string): boolean {
     if (!SUFFIXES.includes(back)) return false;
     const next = cloneState(this.s);
     next.name.back = back;
-    return this.commit(next, 'namae');
+    return this.commitName(next);
   }
 
   /** あたらしい せっけいず →［ぜんぶ けす］: まっさらに（大きさ 5×5・窓 0・家具 なし・名前 空・① そと）。1 回の 操作 */
@@ -391,6 +423,7 @@ export class EditorController {
     };
     if (!s.furniture.some((p) => p.kind === K_FUTON)) return stop(MSG.futon, 'naka'); // ②
     if ([...s.name.front].length === 0) return stop(MSG.name, 'namae'); // ③
+    if (this.hasNgName(s.name)) return stop(MSG.ngWord, 'namae'); // ③ よくない ことば（読みこんだ 作りかけ など）
     const bad = this.h.sheet.problem();
     if (bad) return stop(MSG[bad], null); // ④ かみ ⑤ ふで ⑥ もちものが いっぱい（MSG の 同じ名前の 文）
     if (s.furniture.every((p) => p.kind === K_FUTON)) {

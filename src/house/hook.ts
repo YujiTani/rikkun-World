@@ -3,6 +3,7 @@ import { LIGHT_DEFAULT, type Rot, type Size, type Step, type WindowKind, type Ro
 import { windowCells, type WindowCell } from './editor/model';
 import type { Confirm } from './editor/controller';
 import type { ArchitectInfo } from './manager';
+import type { GlowInfo } from './preview/glow';
 import type { HouseSystem } from './system';
 import type { HouseMenuState } from './talk';
 
@@ -18,6 +19,8 @@ import type { HouseMenuState } from './talk';
  *   edit(op)        エディターを 窓口から 動かす（できたら true。開いて いない とき false）
  *   need(source?)   ひつような もの { item, need, have, short, bonus }[]
  *   blueprints()    持ち物の せっけいず { slot, number, name, w, d, windows, windowKind, roof, furniture, light }[]
+ *   previewDrag(dx, dy) / previewWheel(dx, dy)   見本の 上で ドラッグ／wheel した のと 同じ。今の { angle, pitch }（見本が 出て いなければ null）
+ *   hover(id | null)    まどの ボタンに マウスを のせた／はなした のと 同じ（光るのは windowsDown・windowsUp・windowKind）
  */
 interface EditorPreviewInfo {
   mode: 'outside' | 'inside';
@@ -25,9 +28,11 @@ interface EditorPreviewInfo {
   angle: number;
   pitch: number;
   touched: boolean;
+  /** さわった あと また 回り出す までの のこりの コマ（はなすと 600、1 コマごとに 1 へり、0 で null。さわる 前・回って いる 間・動きを へらす 設定は null） */
+  wait: number | null;
   builds: number;
-  /** 窓・戸の 光り（PR-2。いまは いつも null） */
-  glow: null;
+  /** 光って いる 物（光って いなければ null）。cells ＝ 光る 窓と なくなった 窓の あとの マス、left ＝ のこりの コマ（hover の 間は null） */
+  glow: GlowInfo | null;
 }
 
 interface EditorInfo {
@@ -60,9 +65,12 @@ export interface HouseHook {
   edit(op: unknown): boolean;
   need(source?: number): ReturnType<HouseSystem['need']>;
   blueprints(): ReturnType<HouseSystem['blueprints']>;
+  previewDrag(dx: number, dy: number): { angle: number; pitch: number } | null;
+  previewWheel(dx: number, dy: number): { angle: number; pitch: number } | null;
+  hover(id: string | null): void;
 }
 
-type HookSystem = Pick<HouseSystem, 'architects' | 'talkTo' | 'menu' | 'press' | 'deposit' | 'withdraw' | 'state' | 'editor' | 'editing' | 'edit' | 'need' | 'blueprints' | 'previewProbe'>;
+type HookSystem = Pick<HouseSystem, 'architects' | 'talkTo' | 'menu' | 'press' | 'deposit' | 'withdraw' | 'state' | 'editor' | 'editing' | 'edit' | 'need' | 'blueprints' | 'preview' | 'previewDrag' | 'previewWheel' | 'hover'>;
 
 export function createHouseHook(sys: HookSystem): HouseHook {
   const editor = (): EditorInfo | null => {
@@ -71,7 +79,7 @@ export function createHouseHook(sys: HookSystem): HouseHook {
     const s = c.s;
     const sel = c.selected();
     const mode = s.step === 'naka' ? 'inside' : 'outside';
-    const v = s.step === 'namae' ? null : sys.previewProbe(mode);
+    const v = s.step === 'namae' ? null : sys.preview.info(mode);
     return {
       step: s.step,
       size: { w: s.w, d: s.d },
@@ -87,7 +95,7 @@ export function createHouseHook(sys: HookSystem): HouseHook {
       canUndo: c.canUndo(),
       canRedo: c.canRedo(),
       confirm: c.confirm,
-      preview: v ? { mode, roof: mode === 'outside', angle: v.yaw, pitch: v.elev, touched: v.touched, builds: v.builds, glow: null } : null,
+      preview: v ? { mode, roof: mode === 'outside', angle: v.yaw, pitch: v.elev, touched: v.touched, wait: v.wait, builds: v.builds, glow: v.glow } : null,
     };
   };
   return {
@@ -102,5 +110,8 @@ export function createHouseHook(sys: HookSystem): HouseHook {
     edit: (op) => sys.edit(op),
     need: (source) => sys.need(source),
     blueprints: () => sys.blueprints(),
+    previewDrag: (dx, dy) => sys.previewDrag(dx, dy),
+    previewWheel: (dx, dy) => sys.previewWheel(dx, dy),
+    hover: (id) => sys.hover(id),
   };
 }

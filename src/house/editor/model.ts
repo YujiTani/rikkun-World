@@ -87,6 +87,30 @@ export function windowCells(s: Pick<EditorState, 'w' | 'd' | 'windows'>): Window
   return out;
 }
 
+/** 窓が かわった ようす（見本の 光る 窓。ふえた 窓 ＝ added、なくなった 窓の あと ＝ removed）。かべの 番号は windowCells と 同じ */
+export interface OpeningChange {
+  added: WindowCell[];
+  removed: WindowCell[];
+}
+
+type OpeningKey = Pick<EditorState, 'w' | 'd' | 'windows' | 'windowKind'>;
+
+const sameCell = (a: WindowCell, b: WindowCell): boolean => a.wall === b.wall && a.i === b.i;
+
+/**
+ * 窓の かず・しゅるいが かわって 見本が 光る とき。a → b。大きさ（よこ・たて）が かわった ときは null（家 ぜんたいが かわる ので 光らせない。
+ * 窓が 上限で 切られた ときも 同じ）。しゅるいが かわった ときは 窓 ぜんぶが ふえた 窓。かわらなければ null
+ */
+export function openingChange(a: OpeningKey, b: OpeningKey): OpeningChange | null {
+  if (a.w !== b.w || a.d !== b.d) return null;
+  const was = windowCells(a);
+  const now = windowCells(b);
+  const kindChanged = a.windowKind !== b.windowKind;
+  const added = kindChanged ? now : now.filter((c) => !was.some((q) => sameCell(q, c)));
+  const removed = kindChanged ? [] : was.filter((c) => !now.some((q) => sameCell(q, c)));
+  return added.length + removed.length > 0 ? { added, removed } : null;
+}
+
 export function windowMax(s: Pick<EditorState, 'w' | 'd'>): number {
   return windowLimits(s.w, s.d).max;
 }
