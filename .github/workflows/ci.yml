@@ -80,7 +80,7 @@ jobs:
           if ls e2e-times-prev/*.json >/dev/null 2>&1; then echo "times=$(jq -sc 'add' e2e-times-prev/*.json || true)" >> "$GITHUB_OUTPUT"; fi
 
   e2e:
-    name: E2E（${{ matrix.shard }}/5）
+    name: E2E（${{ matrix.shard }}/6）
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
@@ -89,11 +89,11 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.56.1-noble
       options: --ipc=host
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -110,7 +110,7 @@ jobs:
           if [ -n "$TIMES" ]; then printf '%s' "$TIMES" > e2e-times-prev/main.json; fi
       # 件数でなく 時間で 5 つに 分ける（scripts/e2e-shard.mjs）。前の main の 時間 → e2e/shard-times.json → テストの 本数で 見つもり の 順
       - name: E2E（5 つに分けた ${{ matrix.shard }} つ目）
-        run: npx playwright test $(node scripts/e2e-shard.mjs ${{ matrix.shard }} 5) --reporter=list,html,json
+        run: npx playwright test $(node scripts/e2e-shard.mjs ${{ matrix.shard }} 6) --reporter=list,html,json
         env:
           PLAYWRIGHT_HTML_OPEN: never
           PLAYWRIGHT_JSON_OUTPUT_FILE: e2e-result.json

@@ -1,11 +1,17 @@
 import { defaultDropMax } from '../drops/rarityTable';
 import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
+import { SCAFFOLD_IDS, type ScaffoldId } from '../world/blocks/buildBlocks';
 import { CHALK_MARK_IDS, type ChalkMarkId } from '../world/blocks/chalkMark';
 import { HOUSE_BLOCK_IDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, houseDropOf, type HouseBase, type HouseBlockId, type HouseDoorPartId, type NewFurnBlockId } from '../world/blocks/houseBlocks';
 
 /** チョークの しるし 12 こ ぜんぶに 同じ 値を 入れる（`satisfies Record<BlockId, …>` が 12 こ そろって いることを 見る） */
 function forChalkMarks<T>(value: T): Record<ChalkMarkId, T> {
   return Object.fromEntries(CHALK_MARK_IDS.map((id) => [id, value])) as Record<ChalkMarkId, T>;
+}
+
+/** 足場 5 つ（HOUSE-1C PR-2）ぜんぶに 同じ 値を 入れる */
+function forScaffold<T>(value: T): Record<ScaffoldId, T> {
+  return Object.fromEntries(SCAFFOLD_IDS.map((id) => [id, value])) as Record<ScaffoldId, T>;
 }
 
 /**
@@ -139,6 +145,9 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
       shelf: WOOD_HARDNESS,
       ofuro: WOOD_HARDNESS,
     }),
+    // HOUSE-1C PR-2（#340）: かためた つちは つち と おなじ。足場は ほれない（建築が 終わると 消える）
+    katame_tsuchi: 0.5,
+    ...forScaffold<null>(null),
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -213,6 +222,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     ...forChalkMarks(0),
     // HOUSE-1C: 家の ブロック・家具は すでで ほれる
     ...forHouse<number>({ house_floor: 0, house_wall: 0, house_roof: 0, shoji: 0, house_door: 0, tansu: 0, furnace: 0, table: 0, long_table: 0, round_table: 0, chair: 0, stool: 0, andon: 0, shelf: 0, ofuro: 0 }),
+    katame_tsuchi: 0,
+    ...forScaffold(0),
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
   handLevel: 0,
@@ -300,6 +311,9 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
       house_floor: 'common', house_wall: 'common', house_roof: 'common', shoji: 'uncommon', house_door: 'uncommon',
       tansu: OLD_FURN.rarity, furnace: OLD_FURN.rarity, table: 'common', long_table: 'common', round_table: 'common', chair: 'common', stool: 'common', andon: 'uncommon', shelf: 'uncommon', ofuro: 'rare',
     }),
+    // HOUSE-1C PR-2: かためた つち・足場（ほると 手に 入る 数の 上限。かためた つちは FARM_BREAK_DROP で いつも 1 こ）
+    katame_tsuchi: 'common',
+    ...forScaffold<Rarity>('common'),
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };
@@ -318,6 +332,8 @@ export function createDigConfig(): DigConfig {
 export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; count: number }>>> = {
   farmland: { item: 'dirt', count: 1 },
   farmland_wet: { item: 'dirt', count: 1 },
+  // HOUSE-1C PR-2（#340）: かためた つちを ほると つち 1 こ
+  katame_tsuchi: { item: 'dirt', count: 1 },
   saku: { item: 'log', count: 1 },
   sprinkler: { item: 'sprinkler', count: 1 },
   // #293 試作: 間欠泉の つちは いつも 1 こ（そのまま 置きなおせる）

@@ -28,7 +28,7 @@ interface Expect {
 
 const EXPECT: Record<string, Expect> = {
   yokai_orb: { name: 'ようかいだま', maxStack: 64, rarity: 'uncommon', category: 'material', info: { use: 'いまは つかえない よ', how: '', buttons: [] } },
-  paper: { name: 'かみ', maxStack: 64, rarity: 'common', category: 'material', info: { use: 'や・ちょうちん・たこ の ざいりょう', how: E, buttons: ['E'] } },
+  paper: { name: 'かみ', maxStack: 64, rarity: 'common', category: 'material', info: { use: 'や・ちょうちん・たこ・せっけいず の ざいりょう', how: E, buttons: ['E'] } },
   oil: { name: 'あぶら', maxStack: 64, rarity: 'uncommon', category: 'material', info: { use: 'たいまつ・ちょうちん の ざいりょう。かまど の ねんりょう にも なる', how: `${E}。ねんりょう は かってに つかう`, buttons: ['E'] } },
   string: { name: 'いと', maxStack: 64, rarity: 'common', category: 'material', info: { use: 'ゆみ・よろい・すねあて・たこ・ふとん・おまもり・わらじ の ざいりょう', how: E, buttons: ['E'] } },
   cloth: { name: 'ぬの', maxStack: 64, rarity: 'common', category: 'material', info: { use: 'かぶと・よろい・こて・ふとん・おまもり の ざいりょう', how: E, buttons: ['E'] } },

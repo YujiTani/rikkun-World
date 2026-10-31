@@ -164,6 +164,12 @@ export class Game {
     this.renderDirty = true;
   }
 
+  /** いま 1 回 世界だけを 描く（本・メニューが 世界を 止めて いる 間に、上空の 視点などを 見せる とき。HOUSE-1C） */
+  renderWorldFrame(): void {
+    for (const fn of this.preRenders) fn();
+    this.drawWorld();
+  }
+
   /** 世界の 絵を 描きなおす 合図。止めて いる 間に キャンバスを 上書きした 画面（エディターの 見本）が とじた とき */
   redrawWorld(): void {
     this.idleDrawn = false;

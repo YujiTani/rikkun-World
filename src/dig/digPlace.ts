@@ -41,6 +41,7 @@ export class BlockPlacer {
     }
     // FLORA-75: くさ を ねらって 置くと、くさ の マスに 置ける（くさ は 消える）。MINE-1B: チョークの しるしも 同じ
     const { x, y, z } = isReplaceable(t.id) ? t.block : t.place;
+    if (this.lockedCell(x, y, z)) return null; // HOUSE-1C PR-2: 建築中の 場所には 置けない
     const cur = c.world.getBlock(x, y, z);
     if (cur !== 'air' && cur !== 'water' && !(isReplaceable(cur) && cur === t.id)) return null; // 世界の外・ほかのブロック
     if (block === 'nukunuku') {
@@ -63,7 +64,7 @@ export class BlockPlacer {
       const fcur = c.world.getBlock(foot.x, y, foot.z);
       if (fcur !== 'air' && fcur !== 'water') return null;
       if (this.overlapsBody(x, y, z) || this.overlapsBody(foot.x, y, foot.z)) return null;
-      if (c.gate?.placeBlocked(x, y, z) || c.gate?.placeBlocked(foot.x, y, foot.z)) return null;
+      if (c.gate?.placeBlocked(x, y, z) || c.gate?.placeBlocked(foot.x, y, foot.z) || this.lockedCell(foot.x, y, foot.z)) return null;
       return { x, y, z, block: head, cells: [{ x, z, block: head }, { x: foot.x, z: foot.z, block: foot.id }] };
     }
     // たいまつ・ちょうちん: 固くない（体と重なっても置ける）。支えが要る（たいまつ = 下か横、ちょうちん = 下・横・上）
@@ -86,7 +87,7 @@ export class BlockPlacer {
         const cur = c.world.getBlock(k.x, y, k.z);
         if (cur !== 'air' && cur !== 'water' && !isReplaceable(cur)) return null;
       }
-      if (this.overlapsBody(k.x, y, k.z) || c.gate?.placeBlocked(k.x, y, k.z)) return null;
+      if (this.overlapsBody(k.x, y, k.z) || c.gate?.placeBlocked(k.x, y, k.z) || this.lockedCell(k.x, y, k.z)) return null;
     }
     const aimed = cells.find((k) => k.x === x && k.z === z)!;
     return cells.length === 1 ? { x, y, z, block: aimed.id } : { x, y, z, block: aimed.id, cells: cells.map((k) => ({ x: k.x, z: k.z, block: k.id })) };
@@ -97,9 +98,14 @@ export class BlockPlacer {
     const c = this.c;
     const upper = c.world.getBlock(x, y + 1, z);
     if (upper !== 'air' && upper !== 'water') return null;
-    for (const yy of [y, y + 1]) if (this.overlapsBody(x, yy, z) || c.gate?.placeBlocked(x, yy, z)) return null;
+    for (const yy of [y, y + 1]) if (this.overlapsBody(x, yy, z) || c.gate?.placeBlocked(x, yy, z) || this.lockedCell(x, yy, z)) return null;
     const lo = doorId(false, false);
     return { x, y, z, block: lo, cells: [{ x, z, block: lo }, { x, y: y + 1, z, block: doorId(true, false) }] };
+  }
+
+  /** HOUSE-1C PR-2: 建築中の 場所の マスか */
+  private lockedCell(x: number, y: number, z: number): boolean {
+    return this.c.m4.build?.locked(x, y, z) ?? false;
   }
 
   private overlapsBody(x: number, y: number, z: number): boolean {

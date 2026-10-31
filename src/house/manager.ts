@@ -1,6 +1,7 @@
 import { slab } from '../animals/animalMath';
 import type { Vec3 } from '../contracts';
 import { Architect, ARCHITECT_HIT } from './architect';
+import { ARCHITECT_WORK } from './build/tuning';
 import { standY, type HouseWorld } from './ground';
 import { firstCandidates, landColumn, regionHasArchitect, regionIndex, spotCandidates, type Column } from './placement';
 import type { HouseRecord } from './talk';
@@ -22,6 +23,8 @@ const REFRESH_EVERY = 20;
 const REFRESH_MOVE = 8;
 /** 木・置いた ブロックで 立てない とき、まわり この 半径の 列から 立てる 所を さがす */
 const NUDGE = 2;
+/** 建築で うつる 先が ふさがって いる とき、立てる 所を さがす 半径（列） */
+const WORK_NUDGE = 4;
 
 export interface ArchitectInfo {
   id: string;
@@ -30,7 +33,7 @@ export interface ArchitectInfo {
   y: number;
   z: number;
   first: boolean;
-  /** 建築中（HOUSE-1C から。この 票では いつも false） */
+  /** 建築中（HOUSE-1C PR-2。戸の 前で とんかちを ふっている） */
   busy: boolean;
 }
 
@@ -46,8 +49,16 @@ export interface ArchitectManagerDeps {
   isLand?: (x: number, z: number) => boolean;
 }
 
+/** 建築で 場所を うつされた 建築士さん（id ごと）。spot ＝ 作業の 場所（戸の 前の 列）、origin ＝ もとの 場所（わかった とき）、phase ＝ 建築中 / 完成して もとへ もどる 待ち */
+interface WorkSpot {
+  spot: Column;
+  origin: Column | null;
+  phase: 'build' | 'return';
+}
+
 export class ArchitectManager {
   private readonly list_: Architect[] = [];
+  private readonly work = new Map<string, WorkSpot>();
   private readonly byId = new Map<string, Architect>();
   /** 区画ごとの 候補（地形で 水でない 列だけ。順番は 置き方の 関数の まま）。1 回 計算したら 使いまわす */
   private readonly regionLand = new Map<string, Column[]>();
@@ -73,7 +84,7 @@ export class ArchitectManager {
 
   /** 窓口 `architects()` の 形 */
   list(): ArchitectInfo[] {
-    return this.list_.map((a) => ({ id: a.id, x: a.x, y: a.y, z: a.z, first: a.first, busy: false }));
+    return this.list_.map((a) => ({ id: a.id, x: a.x, y: a.y, z: a.z, first: a.first, busy: a.busy }));
   }
 
   /** 1 ステップ（時間が すすんで いる 間だけ 呼ぶ） */
@@ -81,6 +92,50 @@ export class ArchitectManager {
     const p = this.d.player();
     if (++this.since >= REFRESH_EVERY || Math.hypot(p.x - this.lastX, p.z - this.lastZ) >= REFRESH_MOVE) this.refresh(p);
     for (const a of this.list_) a.update(this.d.world, p);
+    this.settleWork(p);
+  }
+
+  /** 建築を 始める: 建築士さん id を 作業の 場所 spot（戸の 前の 列）へ うつす。ふさがって いたら 近い 立てる 所。うつった 足もとを 返す（その 建築士さんが 読みこまれて いなければ null。読みこまれた とき うつる） */
+  assignBuild(id: string, spot: Column, origin: Column | null): Vec3 | null {
+    const a = this.byId.get(id);
+    const prev = this.work.get(id);
+    const home = prev?.origin ?? origin ?? (a ? { x: Math.floor(a.homeX), z: Math.floor(a.homeZ) } : null);
+    const w: WorkSpot = { spot, origin: home, phase: 'build' };
+    this.work.set(id, w);
+    return a ? this.applyWork(a, w) : null;
+  }
+
+  /** 完成: とんかちを やめて ばんざい。プレイヤーが 32 マス 以上 はなれたら もとの 場所へ もどる */
+  finishBuild(id: string): void {
+    const w = this.work.get(id);
+    if (w) w.phase = 'return';
+    const a = this.byId.get(id);
+    if (a) {
+      a.setBusy(false);
+      a.startCheer();
+    }
+  }
+
+  /** 作業の 場所へ うつして、建築中なら とんかちを ふらせる */
+  private applyWork(a: Architect, w: WorkSpot): Vec3 | null {
+    const s = this.nearStand(w.spot, WORK_NUDGE);
+    if (s) a.relocate(s.col.x + 0.5, s.y, s.col.z + 0.5);
+    a.setBusy(w.phase === 'build');
+    return s ? { x: s.col.x + 0.5, y: s.y, z: s.col.z + 0.5 } : null;
+  }
+
+  /** 完成して 待って いる 建築士さんを、プレイヤーが 32 マス 以上 はなれたら もとの 場所へ もどす（読みこまれて いなければ 作業の 記録だけ 消す。次に 出る とき もとの 場所） */
+  private settleWork(p: Vec3): void {
+    for (const [id, w] of this.work) {
+      if (w.phase !== 'return') continue;
+      const a = this.byId.get(id);
+      if (a && Math.hypot(a.x - p.x, a.z - p.z) < ARCHITECT_WORK.returnDistance) continue;
+      if (a && w.origin) {
+        const s = this.nearStand(w.origin, WORK_NUDGE);
+        if (s) a.relocate(s.col.x + 0.5, s.y, s.col.z + 0.5);
+      }
+      this.work.delete(id);
+    }
   }
 
   /**
@@ -153,6 +208,12 @@ export class ArchitectManager {
     const a = new Architect({ id, first, x: col.x + 0.5, y, z: col.z + 0.5, seed: this.d.seed });
     this.list_.push(a);
     this.byId.set(id, a);
+    // 建築で 場所を うつされて いた 建築士さんが 読みこまれた: 作業の 場所へ（もとの 場所は ここ）
+    const w = this.work.get(id);
+    if (w) {
+      w.origin ??= { x: col.x, z: col.z };
+      this.applyWork(a, w);
+    }
   }
 
   /** 列が 読みこみから はずれた・遠く なった 建築士さんは 一覧から はずす（また 近づけば 同じ 場所に 出る） */
@@ -195,9 +256,9 @@ export class ArchitectManager {
   }
 
   /** (col) に 立てれば その 列。木・置いた ブロックで 立てない ときは まわり NUDGE 列以内の 近い 列（読みこみ前は null） */
-  private nearStand(col: Column): { col: Column; y: number } | null {
+  private nearStand(col: Column, radius = NUDGE): { col: Column; y: number } | null {
     const w = this.d.world;
-    for (let r = 0; r <= NUDGE; r++) {
+    for (let r = 0; r <= radius; r++) {
       for (let dz = -r; dz <= r; dz++) {
         for (let dx = -r; dx <= r; dx++) {
           if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;

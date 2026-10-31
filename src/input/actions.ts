@@ -38,6 +38,7 @@ export const ACTIONS = [
   'pagePrev', // 本の ◀（←。BOOK-1。遊びの moveLeft にも なる）
   'pageNext', // 本の ▶（→。BOOK-1。遊びの moveRight にも なる）
   'bookBack', // 本の もどる（Backspace。BOOK-1）
+  'confirm', // きめる（Enter。上空の 視点の 決定。HOUSE-1C PR-2）
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];
@@ -81,6 +82,9 @@ export const EXTRA_KEY_BINDINGS: Readonly<Record<string, Action>> = {
   ArrowLeft: 'pagePrev',
   ArrowRight: 'pageNext',
   Backspace: 'bookBack',
+  // 上空の 視点の 決定（HOUSE-1C PR-2）。主な Action では ない ので ふだんは ブラウザの Enter〔ボタンを 押す〕を 止めない
+  Enter: 'confirm',
+  NumpadEnter: 'confirm',
 };
 
 /**

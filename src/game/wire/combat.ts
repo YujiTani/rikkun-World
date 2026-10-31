@@ -387,6 +387,12 @@ export function wireFighters(deps: WiredWeapons) {
         talk: (id) => shared.house?.talkTo(id) ?? false,
         hit: (id) => shared.house?.hit(id),
       },
+      // HOUSE-1C PR-2: 建築中の 場所の 守りと みずもり・どうづき（wireHouse で あとから 作る ので 関数で 包む）
+      build: {
+        locked: (x, y, z) => shared.house?.build.builder.locked(x, y, z) ?? false,
+        level: (x, y, z) => shared.house?.build.useLevel(x, y, z),
+        tamp: (x, y, z) => shared.house?.build.useTamp(x, y, z),
+      },
       live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks, coopCountMax: live.coopCountMax, coopMax: live.coopMax, kitEggMax: live.kitEggMax }),
       emitFarm: (e) => farm.emit(e),
       nowTick: () => game.tick,

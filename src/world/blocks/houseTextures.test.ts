@@ -9,8 +9,8 @@ import { BLOCK_TILES, TILE_NAMES, getTilePixels, tileUv, type TileName } from '.
 /** HOUSE-1C PR-1（#304 1 か所）: エディターの 見本と 世界の ブロックは 同じ 絵の 表（アトラス）を 読む。新しい 絵は アトラスの さいごに 足す */
 
 describe('世界の 絵の 表に 足した 絵', () => {
-  it('家の ブロック 12 まい ＋ 家具 20 まい。名前は ぶつからず、アトラスの さいごに この 順で ならぶ', () => {
-    expect(HOUSE_ATLAS_TILE_NAMES).toHaveLength(12 + 20);
+  it('家の ブロック 12 まい ＋ 家具 20 まい ＋ 建築 8 まい。名前は ぶつからず、アトラスの さいごに この 順で ならぶ', () => {
+    expect(HOUSE_ATLAS_TILE_NAMES).toHaveLength(12 + 20 + 8); // PR-2 で 建築の ブロック 8 まい（かためた つち 2・足場 5・のぼり 1）を さいごに 足した
     expect(new Set(TILE_NAMES).size, 'アトラスの 名前は ぜんぶ ちがう').toBe(TILE_NAMES.length);
     expect(TILE_NAMES.slice(TILE_NAMES.length - HOUSE_ATLAS_TILE_NAMES.length)).toEqual([...HOUSE_ATLAS_TILE_NAMES]);
     for (const n of HOUSE_ATLAS_TILE_NAMES) expect(isHouseTile(n)).toBe(true);

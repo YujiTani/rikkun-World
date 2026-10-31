@@ -82,6 +82,8 @@ export const VARY: Readonly<Record<string, Vary>> = {
   pet: tones(),
   petAgain: tones(),
   fill: plain({ cents: 120, gain: 0.15, dur: 0.15 }),
+  // HOUSE-1C 案 A: 家が できた（big。ほかの 家の 音は ふつうの ゆらぎ）
+  houseDone: root({ cents: 0, gain: 0, dur: 0, big: true }),
 };
 
 export function varyOf(name: string): Vary {

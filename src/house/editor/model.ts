@@ -2,9 +2,9 @@
 // 仕様 docs/design/HOUSE-1.md §4.1（大きさ・材料）・§4.2（窓と 戸）・§4.3（家具）・§2.6（名前）。
 import type { ItemId } from '../../contracts';
 import { furnFootprint } from '../../world/blocks/houseBlocks';
-import { FURNITURE, isFurnKind, type FurnKind } from './furniture';
+import { FURNITURE, K_FUTON, isFurnKind, type FurnKind } from './furniture';
 import {
-  DOOR_WALL, MATERIAL_ORDER, NAME_FRONT_MAX, OPPOSITE, PAPER_PER_WINDOW, ROOF_DEFAULT, ROOF_KINDS, SIZES, SIZE_DEFAULT, STEPS, SUFFIXES, SUFFIX_DEFAULT,
+  BUILD_TICKS, DOOR_WALL, MATERIAL_ORDER, NAME_FRONT_MAX, OPPOSITE, PAPER_PER_WINDOW, ROOF_DEFAULT, ROOF_KINDS, SIZES, SIZE_DEFAULT, STEPS, SUFFIXES, SUFFIX_DEFAULT,
   WINDOW_KINDS, WINDOW_KIND_DEFAULT, type RoofKind, type Rot, type Size, type Step, type Wall, type WindowKind,
 } from './tuning';
 
@@ -126,6 +126,11 @@ export function doorInside(s: Pick<EditorState, 'w' | 'd'>): { x: number; z: num
   return { x: (s.w - 1) / 2, z: s.d - 1 };
 }
 
+/** 建築の 長さ（ステップ。仕様 §4.1）。よこ と たてを 入れかえても 同じ。テスト用の 設定 houseBuildTicks が 0 の ときの 長さ */
+export function houseBuildTicks(s: Pick<EditorState, 'w' | 'd'>): number {
+  return BUILD_TICKS.base + BUILD_TICKS.perCell * (s.w + s.d - BUILD_TICKS.baseSum);
+}
+
 // ------------------------------------------------------------ 家具を 置く（§2.5・§4.3）
 
 export function footprint(kind: FurnKind, rot: Rot): readonly [number, number] {
@@ -193,6 +198,29 @@ export function needOf(s: Pick<EditorState, 'w' | 'd' | 'windows' | 'furniture'>
     const need = m.get(item) ?? 0;
     const got = have(item);
     return { item, need, have: got, short: Math.max(0, need - got) };
+  });
+}
+
+/** はじめての 家の おまけ つきの 行（HOUSE-1C PR-2。仕様 §4.3・AC51）。bonus ＝ おまけで ただに なる 数、need ＝ それを ひいた 数 */
+export interface NeedBonusRow extends NeedRow {
+  bonus: number;
+}
+
+/**
+ * ひつような もの ＋ はじめての 家の おまけ。firstBonus が true の 間（まだ 1 けんも 建て はじめて いない）、
+ * ふとん 1 つぶんの 材料（ぬの 3・いと 1）は ただ。設計図に ふとんが あれば、その 材料の 合計の うち ふとん 1 つぶんまで（合計が それより 少なければ 合計まで）を おまけに する。
+ * need が 0 でも bonus が 1 以上の 行は のこす。足りるかの 判定は need（おまけを ひいた 数）で する
+ */
+export function needBonusOf(s: Pick<EditorState, 'w' | 'd' | 'windows' | 'furniture'>, have: (item: ItemId) => number, firstBonus: boolean): NeedBonusRow[] {
+  const m = materialsOf(s);
+  const hasFuton = s.furniture.some((p) => p.kind === K_FUTON);
+  const free = new Map<ItemId, number>(firstBonus && hasFuton ? FURNITURE[K_FUTON].mats : []);
+  return MATERIAL_ORDER.filter((item) => (m.get(item) ?? 0) > 0).map((item) => {
+    const total = m.get(item) ?? 0;
+    const bonus = Math.min(total, free.get(item) ?? 0);
+    const need = total - bonus;
+    const got = have(item);
+    return { item, need, have: got, short: Math.max(0, need - got), bonus };
   });
 }
 

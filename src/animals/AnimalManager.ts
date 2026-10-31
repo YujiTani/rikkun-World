@@ -114,6 +114,20 @@ export class AnimalManager implements AnimalApi {
     return listAnimals(this.core);
   }
 
+  /** HOUSE-1C PR-2: 建築が はじまる 場所から 外へ うつす（箱の 中に いる にわとりを 立てる 場所 spots へ。足りなければ くりかえす）。うつした 数 */
+  evictFrom(box: { x0: number; z0: number; x1: number; z1: number; y0: number; y1: number }, spots: readonly Vec3[]): number {
+    let n = 0;
+    for (const e of this.core.ents) {
+      if (e.x < box.x0 || e.x >= box.x1 || e.z < box.z0 || e.z >= box.z1 || e.y < box.y0 - 1 || e.y >= box.y1) continue;
+      const to = spots[n % spots.length]!;
+      e.x = to.x;
+      e.y = to.y;
+      e.z = to.z;
+      n++;
+    }
+    return n;
+  }
+
   rayHit(origin: Vec3, dir: Vec3, maxDist: number): { id: number; distance: number } | null {
     return rayHitAnimal(this.core, origin, dir, maxDist);
   }

@@ -4,6 +4,7 @@ import type { PlayerCombatImpl } from '../../combat';
 import { BathSteam } from '../../fx/bathSteam';
 import { SeatSystem } from '../../house/seat';
 import type { Game } from '../Game';
+import { modalLock } from './modalLock';
 import type { FurnUse } from '../../world/blocks/furnUse';
 
 interface SeatWireDeps {
@@ -26,27 +27,17 @@ export function wireSeat(d: SeatWireDeps) {
   d.game.onUpdate((dt) => steam.update(dt, seat.bathSpot()));
 
   // ほんだな：ふつうの 本の ボタンと 同じ 本を ① もくじで ひらく。ひらく 間は マウスを はなし、とじたら 遊びに もどす（建築士さんの メニューと 同じ 錠の あつかい）
+  const modal = modalLock({ game: d.game, lock: d.lock, pointerLock: d.pointerLock });
   let fromShelf = false;
   d.book.visibleHook = (visible) => {
     if (visible || !fromShelf) return;
     fromShelf = false;
-    if (d.lock.isSimulated()) {
-      d.lock.simulate(true);
-      d.lock.setInventoryOpen(false);
-    } else {
-      d.lock.beginRelock();
-      d.lock.setInventoryOpen(false);
-      d.pointerLock.request();
-    }
-    d.game.input.releaseAll();
+    modal.close();
   };
   const readBook = (): void => {
     if (d.book.active()) return;
     fromShelf = true;
-    d.lock.setInventoryOpen(true);
-    d.game.input.releaseAll();
-    if (d.lock.isSimulated()) d.lock.simulate(false);
-    d.pointerLock.release();
+    modal.open();
     d.book.open();
   };
 

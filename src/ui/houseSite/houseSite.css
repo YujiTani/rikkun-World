@@ -1,0 +1,215 @@
+/*
+ * HOUSE-1C PR-2 「けんちくを はじめる」の 画面（docs/design/HOUSE-1.md §2.8・§3.4）と 完成の 盛り上げ（§3.1）。
+ * 色・ふち・角は src/ui/theme の 変数だけ。大きさは houseUi.css と 同じ（文字 24 / 32、押せる 物 64、すきま 4・8・12・16・24・32・48）。
+ */
+/* 外わく: 一覧・ひつような もの ＝ 画面の まん中の たて 1 列（ふきだし → 中身）、上空の 視点 ＝ 上の 帯 ＋ 世界 */
+.house-ui.is-site {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+}
+.house-ui.is-sky {
+  display: block;
+}
+.house-site {
+  display: contents;
+}
+.house-ui.is-sky .house-site {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+/* ---- 一覧 ---- */
+.house-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.house-pick__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, auto));
+  gap: 8px 16px;
+  max-width: calc(100vw - 32px);
+}
+.house-pick__card {
+  justify-content: flex-start;
+  min-width: 320px;
+  max-width: 100%;
+}
+.house-pick__card .house-btn__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.house-pick__card.is-disabled {
+  opacity: 0.6;
+}
+
+/* ---- 上空の 視点 ---- */
+.house-sky-catch {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  cursor: crosshair;
+  pointer-events: auto;
+}
+.house-sky-catch[hidden] {
+  display: none;
+}
+.house-sky {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 16px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  pointer-events: none;
+}
+.house-ui.is-sky .house-bubble {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  padding: 8px 16px;
+  font-size: 24px;
+  box-shadow: none;
+}
+
+/* ---- ひつような もの・確かめの まど ---- */
+.house-need,
+.house-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.house-confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: 16px;
+  background: var(--rk-scrim-modal);
+  pointer-events: auto;
+}
+.site-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-width: 360px;
+  max-width: calc(100vw - 32px);
+  padding: 24px 32px;
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-2);
+}
+.site-card__msg {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 40px;
+  text-align: center;
+  white-space: nowrap;
+}
+.site-card__btns {
+  display: flex;
+  gap: 16px;
+}
+.site-need {
+  align-items: stretch;
+  min-width: 640px;
+}
+.site-need__title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 40px;
+  text-align: center;
+}
+.site-need__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: calc(100vh - 360px);
+  overflow-y: auto;
+}
+.site-need__row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 96px 72px 96px;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  font-size: 24px;
+  font-weight: 800;
+}
+.site-need__row img {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
+.site-need__row small {
+  font-size: 24px;
+  color: var(--rk-text-sub);
+}
+.site-need__row .is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.site-need__row--head {
+  min-height: 32px;
+  color: var(--rk-text-sub);
+}
+.site-need__short {
+  text-align: right;
+  color: var(--rk-danger, #ff7a6a);
+}
+.site-need__short.is-ok {
+  display: flex;
+  justify-content: flex-end;
+  color: var(--rk-ok, #6bd37a);
+}
+.site-need__short svg {
+  width: 24px;
+  height: 24px;
+}
+.site-card__btns .house-btn {
+  min-width: 144px;
+}
+
+/* ---- 紙ふぶき（完成の 帯は 上の 帯の 列〔ui/celebrate〕） ---- */
+.house-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  overflow: hidden;
+  pointer-events: none;
+}
+.house-confetti i {
+  position: absolute;
+  top: -16px;
+  width: 12px;
+  height: 20px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: house-confetti-fall 2.8s ease-in forwards;
+}
+@keyframes house-confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  100% {
+    opacity: 0.9;
+    transform: translate(var(--sway, 0), 110vh) rotate(540deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .house-confetti {
+    display: none;
+  }
+}

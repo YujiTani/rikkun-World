@@ -11,14 +11,20 @@ import { HouseSystem } from '../../house/system';
 import { setPlanNameSource } from '../../inventory/planName';
 import { EditorView } from '../../ui/houseEditor';
 import { HouseUi } from '../../ui/houseUi';
+import { HouseDoneUi } from '../../ui/houseSite/celebrate';
 import type { WiredYokai } from './creatures';
+import { wireHouseSite } from './houseSite';
+import { modalLock } from './modalLock';
 
 /** 建築士さんの 頭の 上（足もとから）。ふきだしの しっぽが ここに くる */
 const HEAD_TOP = 1.8;
 
 export function wireHouse(deps: WiredYokai) {
-  const { shared, world, seed, island, game, fxSound, hud, lock, pointerLock, controller, inventory, lighting, combat, dig, screen, blobShadow, storage } = deps;
+  const { shared, world, seed, island, game, fxSound, hud, lock, pointerLock, controller, inventory, lighting, combat, dig, screen, blobShadow, storage, yokaiM, animals } = deps;
+  // 家を 建てる 画面まわり（上空の 視点・みずもりの 色・道具を 持った 形・音）。house は あとから つなぐ（attach）
+  const { siteView } = wireHouseSite(deps);
 
+  const modal = modalLock({ game, lock, pointerLock });
   const house = new HouseSystem({
     seed,
     world,
@@ -37,29 +43,28 @@ export function wireHouse(deps: WiredYokai) {
     // たんすの 中の 道具も「持って いる」（なくした ときだけ「どうぐを もらう」）
     owned: (item) => storage.list().reduce((n, p) => n + storage.countItem(p.x, p.y, p.z, item), 0),
     // メニュー・くらが 開く: マウスが 出る。時間と 妖怪の 停止は ゲームの 窓（shared.houseFrozen）が 受けもつ。たんす・とりごやと おなじ 錠の あつかい
-    onOpen: () => {
-      lock.setInventoryOpen(true);
-      game.input.releaseAll();
-      if (lock.isSimulated()) lock.simulate(false);
-      pointerLock.release();
-    },
+    onOpen: () => modal.open(),
     onClose: () => {
       game.redrawWorld(); // エディターの 見本が キャンバスぜんぶを ぬって いる ので、世界を 描きなおす
-      if (lock.isSimulated()) {
-        lock.simulate(true);
-        lock.setInventoryOpen(false);
-      } else {
-        lock.beginRelock();
-        lock.setInventoryOpen(false);
-        pointerLock.request();
-      }
-      game.input.releaseAll();
+      modal.close();
       shared.requestSave(); // あずけた・とりだした 中身を 保存に
     },
     // やられた・もちもの画面や とりごやが 開いた: 話しを やめる（メニューが 勝手に 開かない ように）
     interrupted: () => combat.dead() || screen.inventoryOpen() || shared.coopMenuIsOpen(),
+    // HOUSE-1C PR-2: 手に 持って いる 物（みずもりの 色）・音と 演出・場所の 中の 人と 動物・妖怪を 外へ
+    held: () => inventory.held()?.item ?? null,
+    play: (e) => siteView.play(e),
+    teleport: (x, y, z) => controller.set({ position: { x, y, z }, velocity: { x: 0, y: 0, z: 0 } }),
+    evict: (box, spots) => {
+      yokaiM.evictFrom(box, spots);
+      animals.evictFrom(box, spots);
+    },
   });
   shared.house = house;
+  siteView.attach(house);
+  // 建築中の 場所の 中（床の 上）は 歩いて 入れない。足場の ブロックと あわせて 外へ とめる（建築中でなければ すぐ false）
+  const solidBase = world.isSolidForPlayer.bind(world);
+  world.isSolidForPlayer = (x, y, z) => solidBase(x, y, z) || house.build.builder.keepOut(x, y, z);
   shared.houseFrozen = () => house.frozen();
   setPlanNameSource((plan) => house.planName(plan));
   // 見本（3D）は エディターを はじめて 開く とき 作る（ふだんの 遊びには 何も 足さない）
@@ -94,7 +99,7 @@ export function wireHouse(deps: WiredYokai) {
   // 話して いる 建築士さんの 頭の 上（画面の ピクセル）。うしろ・画面の 外なら null
   const head = new Vector3();
   const anchor = (): { x: number; y: number } | null => {
-    const id = house.talk.current();
+    const id = house.talk.speaker();
     const a = id === null ? undefined : house.manager.get(id);
     if (!a) return null;
     game.camera.updateMatrixWorld();
@@ -113,15 +118,22 @@ export function wireHouse(deps: WiredYokai) {
     screen: kuraScreen,
     tick: () => playCraft(fxSound, 'tab'),
     anchor,
+    site: { pickList: () => house.pickList(), needRows: () => house.buildNeedRows(), buildName: () => house.buildName(), pointer: siteView.pointer },
   });
-  house.setOnChange(() => houseUi.refresh());
+  // 完成の 帯と 紙ふぶき（毎フレーム。変わった ときだけ DOM を 書く）
+  const doneUi = new HouseDoneUi(hud, () => reduced?.matches === true, (text) => shared.celebrate.enqueueHouseDone(text));
+  house.setOnChange(() => {
+    houseUi.refresh();
+    siteView.changed();
+  });
   // エディターが 開いて いる 間は ゲームの 時間が 止まる ので、見本の 向き・ふきだしの 時間・見本の 描画は ゲームの 窓（player.ts）が 呼ぶ
   shared.houseModal = {
     tick: () => {
       house.tickEditor();
       houseUi.stepEditor();
+      siteView.tick();
     },
-    render: () => houseUi.drawEditor(),
+    render: () => (house.skying() ? siteView.drawSky() : houseUi.drawEditor()),
   };
 
   // 見た目: 1 人 = 1 描画。足もとの 影は プレイヤーの 影（blobShadow）の 描画に まぜる（描画回数 +0）
@@ -135,6 +147,7 @@ export function wireHouse(deps: WiredYokai) {
     architectRenderer.update(house.manager.all(), game.camera, dig.aimedArchitect());
     blobShadow.setExtras(architectRenderer.shadowSpots());
     houseUi.placeBubble();
+    doneUi.update(house.build.celebrate.view());
   });
 
   // Esc・E: 話しを やめる（うなずき・あいさつ・メニュー・くら ぜんぶ）。メニューの 間は もちもの画面は 開かない（錠が 開いて いない）。

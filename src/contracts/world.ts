@@ -3,6 +3,7 @@
  */
 
 import type { ChalkMarkId } from '../world/blocks/chalkMark';
+import type { KATAME_TSUCHI, ScaffoldId } from '../world/blocks/buildBlocks';
 import type { FurnBlockId, HouseBlockId, HouseDoorPartId } from '../world/blocks/houseBlocks';
 
 export interface Vec3 {
@@ -94,7 +95,10 @@ export type BlockId =
   // HOUSE-1C PR-1（#340。うしろに足す）: 家の ブロック 5 つ・戸の のこり 3 マス・向きの ある 家具（向き × マスごとの id。`src/world/blocks/houseBlocks.ts`）
   | HouseBlockId
   | HouseDoorPartId
-  | FurnBlockId;
+  | FurnBlockId
+  // HOUSE-1C PR-2（#340。うしろに足す）: かためた つち・足場 5 つ（`src/world/blocks/buildBlocks.ts`）
+  | typeof KATAME_TSUCHI
+  | ScaffoldId;
 
 export interface BlockType {
   id: BlockId;

@@ -136,4 +136,25 @@ describe('上の 帯（家の 名前）', () => {
     expect(b.houseLook()).toBeNull();
     expect(b.canOpenToast(false)).toBe(true);
   });
+
+  it('完成の 帯「<名前> が できた！」も 同じ 列: 列が 空なら 次の ステップで すぐ 出る。名前の 帯とは 区別され、houseLook には 出ない（HOUSE-1C PR-2）', () => {
+    const b = new TopBandModel(cfg);
+    b.enqueueHouseDone('ももの いえ が できた！');
+    expect(b.houseLook(), '名前の 帯の 窓口には 出ない').toBeNull();
+    expect(b.step(1, false)).toMatchObject({ houseStarted: 'ももの いえ が できた！', houseDone: true });
+    expect(b.info(null).kind).toBe('house');
+    expect(b.houseLook()).toBeNull();
+  });
+
+  it('完成の 帯は テロップが 出ている 間は 待ち、名前の 帯と 重ならない（先に 並んだ 順）', () => {
+    const b = new TopBandModel(cfg);
+    b.enqueueTelop('raijin_ken');
+    b.enqueueHouseDone('ももの いえ が できた！');
+    b.enqueueHouseName('ももの いえ');
+    expect(b.step(1, false).telopStarted).toBe('raijin_ken');
+    for (let i = 0; i < 299; i++) b.step(1, false);
+    expect(b.step(1, false)).toMatchObject({ houseStarted: 'ももの いえ が できた！', houseDone: true });
+    for (let i = 0; i < 179; i++) expect(b.step(1, false).houseStarted).toBeNull();
+    expect(b.step(1, false)).toMatchObject({ houseStarted: 'ももの いえ', houseDone: false });
+  });
 });

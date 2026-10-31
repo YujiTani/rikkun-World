@@ -13,6 +13,7 @@ import type { ItemDef } from './types';
 export const ORB = {
   yokai_orb: {
     name: 'ようかいだま',
+    zukan: 'ようかいの ［力｜ちから］が ぎゅっと つまった、ふしぎな ［丸｜まる］い たま。［今｜いま］は まだ ［何｜なに］に つかうか わからない。だいじに とって おこう。',
     maxStack: 64,
     rarity: 'uncommon',
     category: 'material',
@@ -24,13 +25,15 @@ export const ORB = {
 export const MATERIALS = {
   paper: {
     name: 'かみ',
+    zukan: 'うすくて かるい ［紙｜かみ］。ちょうちんや たこの ざいりょうに なる。ふでで せっけいずを かけば、ゆめの おうちの はじまり。からかさや ちょうちんの ようかいが よく もって いる。',
     maxStack: 64,
     rarity: 'common',
     category: 'material',
-    info: { use: 'や・ちょうちん・たこ の ざいりょう', how: CRAFT_E, buttons: ['E'] },
+    info: { use: 'や・ちょうちん・たこ・せっけいず の ざいりょう', how: CRAFT_E, buttons: ['E'] },
   },
   oil: {
     name: 'あぶら',
+    zukan: 'とろりとした あぶら。たいまつや ちょうちんの ［火｜ひ］を ともす。かまどに ［入｜い］れれば よく もえる。からかさの ようかいが しずくを たらして いく。',
     maxStack: 64,
     rarity: 'uncommon',
     category: 'material',
@@ -38,6 +41,7 @@ export const MATERIALS = {
   },
   string: {
     name: 'いと',
+    zukan: 'ほそくて じょうぶな ［糸｜いと］。ゆみの つる、ふとん、たこの ［糸｜いと］。いろんな ものを むすんで つないで くれる。',
     maxStack: 64,
     rarity: 'common',
     category: 'material',
@@ -45,6 +49,7 @@ export const MATERIALS = {
   },
   cloth: {
     name: 'ぬの',
+    zukan: 'やわらかい ぬの。ふとんや かぶとの うらに つかわれる。ろくろくびが まきつけて いる ことが あるらしい。',
     maxStack: 64,
     rarity: 'common',
     category: 'material',
@@ -52,6 +57,7 @@ export const MATERIALS = {
   },
   clay: {
     name: 'ねんど',
+    zukan: 'しめった ところで みつかる やわらかい ねんど。こねて かまどで やけば、かわらや レンガや はにわに へんしん。',
     maxStack: 64,
     rarity: 'uncommon',
     category: 'material',
@@ -60,6 +66,7 @@ export const MATERIALS = {
   },
   crystal: {
     name: 'すいしょう',
+    zukan: '［地｜ち］［下｜か］の おくで すきとおった ［光｜ひかり］を はなつ すいしょう。むかしから「まよけの ［石｜いし］」と いわれ、きらめく カタナや おまもりの ざいりょうに なる。',
     maxStack: 64,
     rarity: 'superRare', // ハイパーレア
     category: 'metal',
@@ -69,6 +76,7 @@ export const MATERIALS = {
   // TAKO-1: タコはちまきを たおすと かならず 1〜2 こ（ドロップは content/yokai/tako_hachimaki.ts）。ふでの ざいりょう
   sumi: {
     name: 'すみ',
+    zukan: '［海｜うみ］に すむ ようかい タコはちまきが ぷしゅっと はく まっ［黒｜くろ］な すみ。ふでの けさきに すいこませると、せっけいずが かけるように なる。',
     maxStack: 64,
     rarity: 'common',
     category: 'material',
@@ -80,6 +88,7 @@ export const MATERIALS = {
 export const INGOT = {
   iron_ingot: {
     name: 'てつの かたまり',
+    zukan: 'てつこうせきを かまどで やいて できた てつの かたまり。かたくて おもくて たよりになる。［強｜つよ］い つるはしや かたなの もと。',
     maxStack: 64,
     rarity: 'rare',
     category: 'metal',

@@ -16,6 +16,7 @@ import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid
 import { TID as HOUSE_TID, houseUiIssues, openKuraScreen, openMenuScreen } from './helpers/house';
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
+import { PICK_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen } from './helpers/houseSite';
 
 /**
  * UI 検査ゲート（`npm run check:ui`）。
@@ -888,6 +889,18 @@ SCREENS.push(
   { id: 'house-rename-list', slow: true, roots: RENAME_LIST_ROOTS, open: (page) => openRenameScreen(page, 'list'), extra: (page) => editorUiIssues(page, RENAME_LIST_ROOTS) },
   { id: 'house-rename-name', slow: true, roots: RENAME_NAME_ROOTS, open: (page) => openRenameScreen(page, 'name'), extra: (page) => editorUiIssues(page, RENAME_NAME_ROOTS) },
   { id: 'house-name-band', slow: true, roots: NAME_BAND_ROOTS, open: (page) => openRenameScreen(page, 'band'), extra: (page) => houseUiIssues(page, NAME_BAND_ROOTS) },
+);
+
+/**
+ * HOUSE-1C PR-2 AC35b（docs/design/HOUSE-1.md §2.8・§2.9・§6.2。#340）: 「けんちくを はじめる」の 一覧（設計図 7 枚・いちばん 長い 名前・材料が 足りない 物が まざる）・
+ * 上空の 視点（上から 見た 画面と 案内の ふきだし）・確かめの まど（「ここに たてる？」）。3 つの 大きさで はみ出さない・重ならない・色・字・部品の きまりは 上の 検査。
+ * 字 24px 以上・ボタン 高さ 56px 以上・はば 48px 以上は `extra`（1B の ③ なまえと 同じ きまり。`editorUiIssues`）。
+ * 見た目の 細部（案 B の 足場の 色など）は 見ない。窓口と 画面の 名前（data-testid）の 約束は e2e/helpers/house.ts の 先頭（1C PR-2 の 約束）。実装の 前は 窓口が 無くて 赤。
+ */
+SCREENS.push(
+  { id: 'house-pick', slow: true, roots: PICK_ROOTS, open: (page) => openSiteScreen(page, 'pick'), extra: (page) => editorUiIssues(page, PICK_ROOTS) },
+  { id: 'house-sky', slow: true, roots: SKY_ROOTS, open: (page) => openSiteScreen(page, 'sky'), extra: (page) => editorUiIssues(page, SKY_ROOTS) },
+  { id: 'house-sky-confirm', slow: true, roots: SKY_CONFIRM_ROOTS, open: (page) => openSiteScreen(page, 'confirm'), extra: (page) => editorUiIssues(page, SKY_CONFIRM_ROOTS) },
 );
 
 interface Issue {
