@@ -104,7 +104,7 @@ export const HOUSE_FURNITURE = {
 } satisfies Record<HouseFurnitureId, ItemDef>;
 
 /**
- * せっけいず（HOUSE-1B #339。docs/design/HOUSE-1.md §2.7）。1 マスに 1 こ・こわれない・捨てられる・くらには 入らない（重ならない 物）。
+ * せっけいず（HOUSE-1B #339。docs/design/HOUSE-1.md §2.7）。1 マスに 1 こ・こわれない・捨てられる（重ならない 物）。
  * 「<名前>の せっけいず」と いう 名前と 形・番号は 1 まいずつ 持つ（持ち物の マスの `plan`〔番号〕→ 保存の house の 中身）。
  * ここの 名前は 中身を 読めない とき（番号が 分からない 古い マス）の 名前。つかえるのは HOUSE-1C（けんちくを はじめる）。
  */

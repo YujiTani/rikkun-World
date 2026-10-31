@@ -140,7 +140,7 @@
 }
 .site-need__row {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) 96px 72px 96px;
+  grid-template-columns: 48px minmax(0, 1fr) 112px 112px 112px;
   align-items: center;
   gap: 8px;
   min-height: 48px;
@@ -163,6 +163,8 @@
 .site-need__row--head {
   min-height: 32px;
   color: var(--rk-text-sub);
+  /* 見出し「ひつよう」「ある」「たりない」は 1 行（4 字 × 24px ＝ 96px が 列〔112px〕に おさまる。折りかえさない） */
+  white-space: nowrap;
 }
 .site-need__short {
   text-align: right;

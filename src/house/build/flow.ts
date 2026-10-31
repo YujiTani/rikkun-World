@@ -7,7 +7,7 @@ import { MSG } from './tuning';
 
 export type FlowPage = 'pick' | 'need' | 'sky';
 
-/** 一覧の せっけいず 1 まい（enough = くらに 材料が そろって いる。おまけの 分は ひいて 数える） */
+/** 一覧の せっけいず 1 まい（enough = もちもの ＋ 近くの たんすで 材料が そろって いる。おまけの 分は ひいて 数える） */
 export interface FlowPlan {
   slot: number;
   bp: Blueprint;
@@ -18,8 +18,11 @@ export interface FlowDeps {
   plans(): FlowPlan[];
   /** せっけいずの 家が 建てられる 場所（プレイヤーの まわり。近い 順） */
   findSites(bp: Blueprint): Site[];
-  /** ［ここに たてる］: 建築を はじめる（材料を へらす・足場を 立てる）。はじめられたら true */
-  begin(slot: number, bp: Blueprint, site: Site): boolean;
+  /**
+   * ［ここに たてる］: 建築を はじめる（材料を へらす・足場を 立てる）。はじめられたら true。
+   * 数えなおして 材料が たりなかった ときは 何も へらさず 'short'（1E: ひつような ものへ）。ほかの わけで はじめられない ときは false
+   */
+  begin(slot: number, bp: Blueprint, site: Site): boolean | 'short';
 }
 
 export interface FlowCursor {
@@ -182,6 +185,14 @@ export class BuildFlow {
     const site = this.page === 'sky' && this.confirm_ ? this.siteAt() : null;
     if (!site || !this.bp) return false;
     const ok = this.d.begin(this.slot, this.bp, site);
+    if (ok === 'short') {
+      // 数えなおしたら たりなかった（確かめの まどを 出して いる 間に たんす・もちものが かわった）: 何も へらさず「ひつような もの」へ
+      this.confirm_ = false;
+      this.found = [];
+      this.page = 'need';
+      this.say = MSG.short;
+      return false;
+    }
     if (ok) this.reset();
     return ok;
   }

@@ -1,4 +1,4 @@
-import type { ItemId, Vec3 } from '../contracts';
+import type { Vec3 } from '../contracts';
 import type { HouseView } from './book';
 import type { CellInfo } from './cell';
 import { LIGHT_DEFAULT, type Rot, type Size, type Step, type WindowKind, type RoofKind } from './editor/tuning';
@@ -15,13 +15,12 @@ import type { HouseMenuState } from './talk';
  * 窓口 `window.__rikkun.house`（HOUSE-1A・1B。仕様 docs/design/HOUSE-1.md §6.1。テスト用）。
  *   architects()    読みこまれて いる 建築士さん { id, x, y, z, first, busy }（x・y・z は 足もと）
  *   talk(id)        右クリックで 話すのと 同じ
- *   menu()          { open, page: 'top' | 'kura' | 'editor' | 'need' | null, bubble, buttons: { id, enabled }[] }
+ *   menu()          { open, page: 'top' | 'editor' | 'need' | null, bubble, buttons: { id, enabled }[] }
  *   press(id, arg?) メニュー・エディターの ボタンを 押す（close は どの ページでも 全部 とじる）
- *   kura()          くらの 中身 { アイテムid: 数 }（1 こ以上 ある 種類だけ）
- *   deposit(item, n) / withdraw(item, n)   くらへ あずける / とりだす。動いた 数を 返す。メニューが とじて いても 動く
+ *   legacyKura()    前の セーブ〔1D まで〕の くらの 物の うち まだ かえして いない 分 { アイテムid: 数 }（なければ null。1E: くらは ない）
  *   editor()        エディターの 今の 形（開いて いない とき null）
  *   edit(op)        エディターを 窓口から 動かす（できたら true。開いて いない とき false）
- *   need(source?)   ひつような もの { item, need, have, short, bonus }[]
+ *   need(source?)   ひつような もの { item, need, have, short, bonus }[]（have ＝ もちもの ＋ 近くの たんす。1E）
  *   blueprints()    持ち物の せっけいず { slot, number, name, w, d, windows, windowKind, roof, furniture, light }[]
  *   previewDrag(dx, dy) / previewWheel(dx, dy)   見本の 上で ドラッグ／wheel した のと 同じ。今の { angle, pitch }（見本が 出て いなければ null）
  *   hover(id | null)    まどの ボタンに マウスを のせた／はなした のと 同じ（光るのは windowsDown・windowsUp・windowKind）
@@ -76,9 +75,7 @@ export interface HouseHook {
   talk(id: string | number): void;
   menu(): HouseMenuState;
   press(id: string, arg?: unknown): void;
-  kura(): Record<string, number>;
-  deposit(item: string, n: number): number;
-  withdraw(item: string, n: number): number;
+  legacyKura(): Record<string, number> | null;
   editor(): EditorInfo | null;
   edit(op: unknown): boolean;
   need(source?: number): ReturnType<HouseSystem['need']>;
@@ -100,7 +97,7 @@ export interface HouseHook {
   celebrate(): ReturnType<HouseSystem['celebrate']>;
 }
 
-type HookSystem = Pick<HouseSystem, 'architects' | 'talkTo' | 'menu' | 'press' | 'deposit' | 'withdraw' | 'state' | 'editor' | 'editing' | 'edit' | 'need' | 'blueprints' | 'preview' | 'previewDrag' | 'previewWheel' | 'hover' | 'buildNow' | 'houses' | 'blockAt' | 'renaming' | 'level' | 'sites' | 'cursor' | 'building' | 'firstBonus' | 'celebrate'>;
+type HookSystem = Pick<HouseSystem, 'architects' | 'talkTo' | 'menu' | 'press' | 'legacyKura' | 'editor' | 'editing' | 'edit' | 'need' | 'blueprints' | 'preview' | 'previewDrag' | 'previewWheel' | 'hover' | 'buildNow' | 'houses' | 'blockAt' | 'renaming' | 'level' | 'sites' | 'cursor' | 'building' | 'firstBonus' | 'celebrate'>;
 
 export function createHouseHook(sys: HookSystem, seat: { seat(): SeatInfo | null } = { seat: () => null }): HouseHook {
   const editor = (): EditorInfo | null => {
@@ -133,9 +130,7 @@ export function createHouseHook(sys: HookSystem, seat: { seat(): SeatInfo | null
     talk: (id) => void sys.talkTo(String(id)),
     menu: () => sys.menu(),
     press: (id, arg) => sys.press(id, arg),
-    kura: () => sys.state.kura.totals(),
-    deposit: (item, n) => sys.deposit(item as ItemId, n),
-    withdraw: (item, n) => sys.withdraw(item as ItemId, n),
+    legacyKura: () => sys.legacyKura(),
     editor,
     edit: (op) => sys.edit(op),
     need: (source) => sys.need(source),

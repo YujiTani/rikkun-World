@@ -28,9 +28,9 @@ export interface GlueDeps {
   held(): ItemId | null;
   /** 持ち物の せっけいず（マスの 番号つき） */
   plans(): Array<Blueprint & { slot: number }>;
-  /** くらの 数 */
+  /** ある 数（もちもの ＋ 近くの たんす。1E） */
   have(item: ItemId): number;
-  /** くらから へらす */
+  /** 建てる 材料を へらす（近くの たんす〔近い 順〕→ もちもの。1E）。へらせた 数 */
   consume(item: ItemId, n: number): number;
   /** テスト用の 建築の 長さ（0 以下 ＝ 式） */
   buildTicks(): number;
@@ -103,13 +103,16 @@ export class BuildGlue {
 
   // ------------------------------------------------------------ 建築のはじまり
 
-  /** ［ここに たてる］: 材料を へらし、草花を 消し、中の プレイヤー・動物・妖怪を 外へ、建築士さんを 戸の 前へ、足場を 立てる。はじめられたら true */
-  private begin(slot: number, bp: Blueprint, site: Site): boolean {
+  /**
+   * ［ここに たてる］: 材料を 数えなおし、へらし、草花を 消し、中の プレイヤー・動物・妖怪を 外へ、建築士さんを 戸の 前へ、足場を 立てる。はじめられたら true。
+   * 数えなおして たりなければ 何も へらさず 'short'（数えるのも へらすのも、プレイヤーを うつす 前の 位置で）
+   */
+  private begin(slot: number, bp: Blueprint, site: Site): boolean | 'short' {
     if (this.builder.active()) return false;
     const plan = this.d.plans().find((p) => p.slot === slot);
     if (!plan) return false;
     const rows = this.needRows(plan);
-    if (rows.some((r) => r.short > 0)) return false;
+    if (rows.some((r) => r.short > 0)) return 'short';
     const w = this.d.world;
     const outW = bp.w + 2;
     const outD = bp.d + 2;

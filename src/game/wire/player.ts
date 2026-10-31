@@ -41,7 +41,7 @@ export function wireInput(deps: WiredRender) {
     beforeOpen: () => game.flushRender(),
   });
   bookRef = book;
-  // 世界を 止める 画面は 2 つ: 本と、建築士さんの メニュー・くら（HOUSE-1A。時刻・妖怪も 止まる）。建築士さんの 画面は HTML なので 描く 物は ない
+  // 世界を 止める 画面は 2 つ: 本と、建築士さんの メニュー（HOUSE-1A。時刻・妖怪も 止まる）。建築士さんの 画面は HTML なので 描く 物は ない
   game.setModal({
     active: () => book.active() || shared.houseFrozen(),
     tick: () => {
