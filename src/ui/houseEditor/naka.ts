@@ -12,9 +12,9 @@ import type { PressFx } from './feedback';
 import { ICONS } from './icons';
 import { DOOR_MARK_H, doorMark, shojiMark } from './marks';
 import type { StepPanel } from './soto';
+import { clusterPlace } from './clusterPlace';
 import { BAND_PX, CLUSTER } from './tuning';
 
-const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
 export class NakaPanel implements StepPanel {
   readonly el: HTMLElement = el('section', 'ed-stepview ed-stepview--naka');
@@ -327,23 +327,14 @@ export class NakaPanel implements StepPanel {
     const W = s.w * c + 2 * B;
     const H = s.d * c + 2 * B;
     const [fw, fd] = footprint(p.kind, p.rot);
-    const fl = Math.max(0, B + p.x * c);
-    const fr = Math.min(W, B + (p.x + fw) * c);
-    const ft = Math.max(0, B + p.z * c);
-    const fb = Math.min(H, B + (p.z + fd) * c);
-    const { w: cw, h: ch, gap } = CLUSTER;
-    const aboveTop = ft - gap - ch;
-    const side = aboveTop >= 0 ? 'above' : 'below';
-    const top = side === 'above' ? aboveTop : Math.min(fb + gap, H - ch);
-    const mid = (fl + fr) / 2;
-    const left = W >= cw ? clamp(mid - cw / 2, 0, W - cw) : (W - cw) / 2;
+    const place = clusterPlace({ w: W, h: H }, { l: B + p.x * c, t: B + p.z * c, r: B + (p.x + fw) * c, b: B + (p.z + fd) * c }, CLUSTER);
     const jump = at !== this.clusterFor; // べつの 家具を えらんだ: すべらせず すぐ うつす
     this.clusterFor = at;
     if (jump) cluster.style.transition = 'none';
-    cluster.style.left = `${left}px`;
-    cluster.style.top = `${top}px`;
-    cluster.style.setProperty('--tail', `${clamp(mid - left, 24, cw - 24)}px`);
-    cluster.classList.toggle('is-above', side === 'above');
+    cluster.style.left = `${place.left}px`;
+    cluster.style.top = `${place.top}px`;
+    cluster.style.setProperty('--tail', `${place.tail}px`);
+    cluster.classList.toggle('is-above', place.side === 'above');
     if (jump) {
       void cluster.offsetWidth; // 今の 場所を 決めて から すべりを もどす
       cluster.style.transition = '';

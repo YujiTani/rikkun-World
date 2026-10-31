@@ -264,7 +264,8 @@
   transition:
     left var(--rk-dur-fast) var(--rk-ease),
     top var(--rk-dur-fast) var(--rk-ease);
-  animation: ed-pop var(--rk-dur-pop) var(--rk-ease-pop) 1;
+  /* ふわっと 出る だけ（大きさは かえない: 出る とちゅうで 方眼の はこから はみ出さない ように。1E） */
+  animation: ed-fade var(--rk-dur-pop) var(--rk-ease) 1;
 }
 .ed-cluster::before {
   content: '';
