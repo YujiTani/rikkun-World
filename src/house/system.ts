@@ -8,7 +8,7 @@ import { SHEET, createSheetPort, type SheetBag } from './editor/sheet';
 import type { HouseWorld } from './ground';
 import { ArchitectManager, type ArchitectInfo } from './manager';
 import type { PreviewMode } from './preview/mesh';
-import { NO_PREVIEW, type PreviewPort } from './preview/port';
+import { NO_PREVIEW, previewModeOf, type PreviewPort } from './preview/port';
 import { HouseState } from './state';
 import { HouseTalk, type HouseMenuState } from './talk';
 import type { KuraBag } from './kura';
@@ -151,8 +151,7 @@ export class HouseSystem {
   /** いま 見本が 出て いる 見せ方（エディターが 開いて いない・③ なまえ は null） */
   previewMode(): PreviewMode | null {
     if (!this.talk.editing()) return null;
-    const step = this.editor.s.step;
-    return step === 'namae' ? null : step === 'naka' ? 'inside' : 'outside';
+    return previewModeOf(this.editor.s.step);
   }
 
   /** 見本を まわす: 確かめの まど・ひつような ものが 出て いる 間は まわさない。まわしたら 置いた 家具の えらびは はずれる（AC57）。今の { angle, pitch }（見本が なければ null） */

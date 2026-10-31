@@ -1,6 +1,15 @@
 // HOUSE-1B 見本（3D）と エディターの 窓口・UI の つなぎ目。three なし（Preview3D が この 形で 答える。wireHouse が つなぐ）。
+import type { Step } from '../editor/tuning';
 import type { GlowInfo } from './glow';
 import type { PreviewMode } from './mesh';
+
+/** すすみごとの 見本の 見せ方（③ なまえ は 見本が ない ＝ null）。「すすみ → 見せ方」は この 表 1 か所 */
+const PREVIEW_OF = { soto: 'outside', naka: 'inside', namae: null } as const satisfies Record<Step, PreviewMode | null>;
+
+/** その すすみで 見せる 見本の 見せ方（見本が なければ null） */
+export function previewModeOf(step: Step): PreviewMode | null {
+  return PREVIEW_OF[step];
+}
 
 /** 見本の 今の ようす（窓口 `editor().preview` の 元）。yaw ＝ 見る 向き（度。0 ＝ まえから、90 ＝ みぎから）、elev ＝ 見おろす 角度 */
 export interface PreviewInfo {

@@ -463,6 +463,10 @@ body.house-editor-open #hud > :not(.house-ui) {
   transform-origin: 50% 100%;
   animation: ed-swipe 1.6s ease-in-out infinite;
 }
+/* 消えて いる 間は 手を ゆらさない（見えない アニメを 回し続けない） */
+.ed-view.is-touched .ed-swipe__hand {
+  animation: none;
+}
 @keyframes ed-swipe {
   0%,
   100% {

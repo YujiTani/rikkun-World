@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NG_ALLOWED, NG_GROUPS, NG_WORDS, hasNgWord, normalizeName } from './ngWords';
+import { NG_ALLOWED, NG_GROUPS, NG_WORDS, hasNgName, hasNgWord, normalizeName, trimToClean } from './ngWords';
 import { SUFFIXES } from './tuning';
 
 /** HOUSE-1B AC58（よくない ことば。仕様 §2.6・docs/design/HOUSE-1-ngwords.md）の しらべ方。表の 中身は yuzu が 足し引きする ので、しくみと 約束の ことばだけ たしかめる */
@@ -90,5 +90,36 @@ describe('hasNgWord（止める 名前か）', () => {
   it('前の 文字と 後ろの 文字を つないだ 名前も しらべられる（つなぎ目で ことばに なる とき）', () => {
     expect(hasNgWord('あし' + 'ねこ')).toBe(true);
     expect(hasNgWord('りっくん' + SUFFIXES[0])).toBe(false);
+  });
+});
+
+describe('hasNgName（前の 文字 ＋ 後ろの 文字）', () => {
+  it('つないだ 名前で しらべる', () => {
+    expect(hasNgName({ front: 'あし', back: 'ねこ' })).toBe(true);
+    expect(hasNgName({ front: 'りっくん', back: SUFFIXES[0]! })).toBe(false);
+    expect(hasNgName({ front: '', back: '' })).toBe(false);
+  });
+});
+
+describe('trimToClean（なくなるまで 後ろから 消す）', () => {
+  it('よくない ことばが なければ そのまま（0 字）', () => {
+    expect(trimToClean('りっくん', SUFFIXES[0]!)).toEqual({ front: 'りっくん', cut: 0 });
+    expect(trimToClean('ちびっこ', '')).toEqual({ front: 'ちびっこ', cut: 0 });
+    expect(trimToClean('', '')).toEqual({ front: '', cut: 0 });
+  });
+
+  it('ことばが 見つからなく なるまで 1 字ずつ 消す', () => {
+    expect(trimToClean('あしね', '')).toEqual({ front: 'あし', cut: 1 });
+    expect(trimToClean('ばかばか', '')).toEqual({ front: 'ば', cut: 3 });
+    expect(trimToClean('ころす', '')).toEqual({ front: 'ころ', cut: 1 });
+  });
+
+  it('後ろの 文字は 消さない（前の 文字だけ 消す）', () => {
+    expect(trimToClean('ばか', 'ハウス')).toEqual({ front: 'ば', cut: 1 });
+  });
+
+  it('後ろの 文字と つながって できる ことばも 消す（つなぎ目）', () => {
+    // 後ろに ことばの 後ろ半分が ある 形（表の 「しね」を 前 ＋ 後ろに 分ける）
+    expect(trimToClean('あし', 'ね')).toEqual({ front: 'あ', cut: 1 });
   });
 });

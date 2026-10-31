@@ -76,6 +76,8 @@ export class Preview3D implements PreviewPort {
   };
   /** 最後に 見せた 見せ方（null ＝ 見せて いない。見せ方が かわったら 光りを 消し、さわって いない 向きは はじめに もどす） */
   private shown: PreviewMode | null = null;
+  /** いま 押して いる 見本（はなす とき この 見本を はなす。押して いる 間に すすみが かわっても 手が のこらない）。null ＝ 押して いない */
+  private pressed: PreviewMode | null = null;
   /** 窓・戸の 光りの 時間と 形（そとの 見本 だけ） */
   private readonly glow = new GlowCtl();
   private readonly glowMesh = new GlowMeshes();
@@ -196,6 +198,7 @@ export class Preview3D implements PreviewPort {
   /** 見本を はじめに もどす（エディターを 開いた・ぜんぶ けした）。どちらの 向きも さわる 前に もどり、光りも 消える */
   restart(): void {
     for (const v of Object.values(this.views)) v.reset();
+    this.pressed = null;
     this.shown = null;
     this.open = null;
     this.glow.clear();
@@ -216,12 +219,17 @@ export class Preview3D implements PreviewPort {
   /** 見えて いる 見本を まわす（ドラッグ・wheel）。押して いる 間は 600 コマの 数えを とめる。見えて いなければ false */
   press(): boolean {
     if (this.shown === null) return false;
+    if (this.pressed !== null && this.pressed !== this.shown) this.release(); // 別の 見本を 押したまま だった（前の 手は はなす）
+    this.pressed = this.shown;
     this.views[this.shown].press();
     return true;
   }
 
+  /** 押した 見本を はなす（いま 見えて いる 見本とは かぎらない）。押して いなければ 何も しない */
   release(): void {
-    if (this.shown !== null) this.views[this.shown].release();
+    const m = this.pressed;
+    this.pressed = null;
+    if (m !== null) this.views[m].release();
   }
 
   drag(dx: number, dy: number): boolean {

@@ -4,6 +4,7 @@ import { windowCells, type WindowCell } from './editor/model';
 import type { Confirm } from './editor/controller';
 import type { ArchitectInfo } from './manager';
 import type { GlowInfo } from './preview/glow';
+import { previewModeOf } from './preview/port';
 import type { HouseSystem } from './system';
 import type { HouseMenuState } from './talk';
 
@@ -78,8 +79,8 @@ export function createHouseHook(sys: HookSystem): HouseHook {
     const c = sys.editor;
     const s = c.s;
     const sel = c.selected();
-    const mode = s.step === 'naka' ? 'inside' : 'outside';
-    const v = s.step === 'namae' ? null : sys.preview.info(mode);
+    const mode = previewModeOf(s.step);
+    const v = mode === null ? null : sys.preview.info(mode);
     return {
       step: s.step,
       size: { w: s.w, d: s.d },
@@ -95,7 +96,7 @@ export function createHouseHook(sys: HookSystem): HouseHook {
       canUndo: c.canUndo(),
       canRedo: c.canRedo(),
       confirm: c.confirm,
-      preview: v ? { mode, roof: mode === 'outside', angle: v.yaw, pitch: v.elev, touched: v.touched, wait: v.wait, builds: v.builds, glow: v.glow } : null,
+      preview: mode !== null && v ? { mode, roof: mode === 'outside', angle: v.yaw, pitch: v.elev, touched: v.touched, wait: v.wait, builds: v.builds, glow: v.glow } : null,
     };
   };
   return {

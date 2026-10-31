@@ -3,12 +3,13 @@
 import type { ItemId } from '../../contracts';
 import { K_FUTON, FURNITURE, type FurnKind } from './furniture';
 import {
-  canAddChar, cloneState, dakuten, emptyState, footprint, handakuten, isKanaChar, needOf, placeProblem, refit, windowMax,
+  cloneState, dakuten, emptyState, footprint, handakuten, needOf, placeProblem, refit, windowMax,
   type EditorState, type NeedRow, type Placed,
 } from './model';
-import { hasNgWord } from './ngWords';
+import { NameEdit } from './nameEdit';
+import { hasNgName } from './ngWords';
 import {
-  BUBBLE, MSG, ROOF_KINDS, SIZES, SUFFIXES, WINDOW_KINDS,
+  BUBBLE, MSG, ROOF_KINDS, SIZES, WINDOW_KINDS,
   type RoofKind, type Rot, type Size, type Step, type WindowKind,
 } from './tuning';
 
@@ -69,6 +70,7 @@ export class EditorController {
   private redos: HistoryItem[] = [];
   private seq = 0;
   private readonly listeners: Array<() => void> = [];
+  private readonly names = new NameEdit({ state: () => this.s, commit: (next) => this.commit(next, 'namae'), say: (text) => this.say(text) });
 
   constructor(private readonly h: EditorHost) {}
 
@@ -99,7 +101,7 @@ export class EditorController {
     this.needOpen = false;
     this.bubble = null;
     this.katakana = false;
-    if (this.hasNgName(this.s.name)) {
+    if (hasNgName(this.s.name)) {
       this.s.step = 'namae';
       this.say(MSG.ngWord);
       return;
@@ -255,61 +257,18 @@ export class EditorController {
     this.say(MSG.light);
   }
 
-  /** 名前（前の 文字と 後ろの 文字を つなげた ぜんぶ）に よくない ことばが ある（§2.6） */
-  private hasNgName(name: EditorState['name']): boolean {
-    return hasNgWord(name.front + name.back);
-  }
-
-  /** 名前を かえる 操作: よくない ことばに なる ときは 何も かえず ふきだし（もどす にも 入らない。わざと ためす 遊びに しない） */
-  private commitName(next: EditorState): boolean {
-    const was = this.s.name;
-    if ((next.name.front !== was.front || next.name.back !== was.back) && this.hasNgName(next.name)) {
-      this.say(MSG.ngWord);
-      return false;
-    }
-    return this.commit(next, 'namae');
-  }
-
+  // 名前を かえる 操作（足す・けす・゛゜・後ろの ことば）。決まりごとは nameEdit.ts
   char(ch: string): boolean {
-    if (!isKanaChar(ch) || !canAddChar(this.s.name.front)) return false;
-    const next = cloneState(this.s);
-    next.name.front += ch;
-    return this.commitName(next);
+    return this.names.char(ch);
   }
-
-  /** 1 もじ けす: 止めない。けした あとに よくない ことばが のこる ときは、なくなるまで 1 字ずつ けす（1 回の 操作。同じ ふきだし） */
   erase(): boolean {
-    const chars = [...this.s.name.front];
-    if (chars.length === 0) return false;
-    chars.pop();
-    let more = false;
-    while (chars.length > 0 && hasNgWord(chars.join('') + this.s.name.back)) {
-      chars.pop();
-      more = true;
-    }
-    const next = cloneState(this.s);
-    next.name.front = chars.join('');
-    const ok = this.commit(next, 'namae');
-    if (ok && more) this.say(MSG.ngWord);
-    return ok;
+    return this.names.erase();
   }
-
   mark(kind: 'dakuten' | 'handakuten'): boolean {
-    const chars = [...this.s.name.front];
-    const last = chars.pop();
-    if (!last) return false;
-    const marked = kind === 'dakuten' ? dakuten(last) : handakuten(last);
-    if (marked === null) return false;
-    const next = cloneState(this.s);
-    next.name.front = [...chars, marked].join('');
-    return this.commitName(next);
+    return this.names.mark(kind);
   }
-
   suffix(back: string): boolean {
-    if (!SUFFIXES.includes(back)) return false;
-    const next = cloneState(this.s);
-    next.name.back = back;
-    return this.commitName(next);
+    return this.names.suffix(back);
   }
 
   /** あたらしい せっけいず →［ぜんぶ けす］: まっさらに（大きさ 5×5・窓 0・家具 なし・名前 空・① そと）。1 回の 操作 */
@@ -423,7 +382,7 @@ export class EditorController {
     };
     if (!s.furniture.some((p) => p.kind === K_FUTON)) return stop(MSG.futon, 'naka'); // ②
     if ([...s.name.front].length === 0) return stop(MSG.name, 'namae'); // ③
-    if (this.hasNgName(s.name)) return stop(MSG.ngWord, 'namae'); // ③ よくない ことば（読みこんだ 作りかけ など）
+    if (hasNgName(s.name)) return stop(MSG.ngWord, 'namae'); // ③ よくない ことば（読みこんだ 作りかけ など）
     const bad = this.h.sheet.problem();
     if (bad) return stop(MSG[bad], null); // ④ かみ ⑤ ふで ⑥ もちものが いっぱい（MSG の 同じ名前の 文）
     if (s.furniture.every((p) => p.kind === K_FUTON)) {

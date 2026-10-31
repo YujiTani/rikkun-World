@@ -6,6 +6,7 @@
 import { baseButtons, glowsWindows } from '../../house/editor/buttons';
 import type { EditorController } from '../../house/editor/controller';
 import { STEPS, type Step } from '../../house/editor/tuning';
+import { previewModeOf } from '../../house/preview/port';
 import type { Preview3D, PreviewMode, ViewRect } from '../../house/preview/preview';
 import type { SoundFx } from '../../fx/sound';
 import { ruby } from '../text';
@@ -50,8 +51,11 @@ const LEAD: Readonly<Record<Step, string>> = {
   namae: `${ruby('設計図', 'せっけいず')}に おなまえを つけよう`,
 };
 
-/** 見本が ある すすみと、その 見せ方（手の 印を さわった かどうかで 出し入れする） */
-const PREVIEW_STEPS = [['soto', 'outside'], ['naka', 'inside']] as const satisfies ReadonlyArray<readonly [Step, PreviewMode]>;
+/** 見本が ある すすみと、その 見せ方（手の 印を さわった かどうかで 出し入れする。対応は previewModeOf） */
+const PREVIEW_STEPS: ReadonlyArray<readonly [Step, PreviewMode]> = STEPS.flatMap((step) => {
+  const mode = previewModeOf(step);
+  return mode === null ? [] : [[step, mode] as const];
+});
 
 /** ボタンの 音の しゅるい（そばの［とる］は 低く・まわす は 高く） */
 function pressKind(id: string): PressKind {
@@ -75,7 +79,9 @@ export class EditorView {
   private resets = 0;
   private shown = false;
   /** 手の 印を 消して いる か（すすみごと。かわった ときだけ 画面を さわる） */
-  private readonly touchedShown: Record<'soto' | 'naka', boolean | null> = { soto: null, naka: null };
+  private readonly touchedShown: Record<Step, boolean | null> = { soto: null, naka: null, namae: null };
+  /** 見本の ドラッグを 取りやめる 関数（とじる とき 押した まま の 手を はなす） */
+  private readonly cancelDrags: Array<() => void> = [];
   /** 見本の 穴の 四角（measure が 書きかえる 1 つ）と、いま 穴が あるか */
   private readonly hole: ViewRect = { x: 0, y: 0, w: 0, h: 0 };
   private hasHole = false;
@@ -146,7 +152,7 @@ export class EditorView {
     // 見本を ドラッグ・wheel で まわす（押すと 置いた 家具の えらびは はずれる）。さわる 前は 右下に 手の 印
     for (const [step] of PREVIEW_STEPS) {
       const view = this.panels[step].view;
-      if (view) bindDrag(view, o.preview, () => void ctl.clearPlaced());
+      if (view) this.cancelDrags.push(bindDrag(view, o.preview, () => void ctl.clearPlaced()));
     }
     // まどの かず・しゅるいの ボタンの ならびに 手を おいて いる 間、見本の 窓が ぜんぶ 光る（キーボードで 来ても 同じ）
     const rows = new Set<HTMLElement>();
@@ -196,6 +202,7 @@ export class EditorView {
       this.o.preview().restart();
       this.refresh();
     } else {
+      for (const cancel of this.cancelDrags) cancel(); // 見本を 押した まま とじた: 手を はなす
       this.o.release();
     }
   }
@@ -234,8 +241,9 @@ export class EditorView {
       preview.restart();
     }
     this.panels[s.step].update();
-    if (s.step === 'namae') preview.hide();
-    else preview.setShape(s, s.step === 'naka' ? 'inside' : 'outside');
+    const mode = previewModeOf(s.step);
+    if (mode === null) preview.hide();
+    else preview.setShape(s, mode);
     this.syncTouched(preview);
     this.confirm.update();
     this.need.update();

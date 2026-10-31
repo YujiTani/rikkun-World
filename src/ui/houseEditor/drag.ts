@@ -10,9 +10,10 @@ const WHEEL_PX = [1, 16, 400] as const;
 
 /**
  * 見本の 穴 view に 手の 印を 足し、ドラッグ・wheel を つなぐ。手の 印は view に .is-touched が つくと 消える（EditorView が 見本の touched に あわせる）。
- * onPress ＝ 見本を 押した／wheel した とき（置いた 家具の えらびを はずす）
+ * onPress ＝ 見本を 押した／wheel した とき（置いた 家具の えらびを はずす）。
+ * 返す 関数 ＝ 進行中の ドラッグを 取りやめる（エディターを とじる とき。はなした のと 同じ 片づけ）
  */
-export function bindDrag(view: HTMLElement, preview: () => Preview3D, onPress: () => void): void {
+export function bindDrag(view: HTMLElement, preview: () => Preview3D, onPress: () => void): () => void {
   const hint = el('div', 'ed-view__hint', ICONS.swipe);
   hint.dataset.testid = 'editor-hand-mark';
   hint.setAttribute('role', 'img');
@@ -37,17 +38,28 @@ export function bindDrag(view: HTMLElement, preview: () => Preview3D, onPress: (
       /* 取れなくても ドラッグは できる（見本の 外へ 出ると 止まる だけ） */
     }
   });
+  /** ドラッグを おわる（はなした・取りやめ）。見本の 手を はなし、ポインターの つかみも ほどく */
+  const finish = (): void => {
+    const held = id;
+    if (held === null) return;
+    id = null;
+    view.classList.remove('is-drag');
+    preview().release();
+    try {
+      view.releasePointerCapture(held);
+    } catch {
+      /* もう はなれて いる */
+    }
+  };
   view.addEventListener('pointermove', (e) => {
     if (e.pointerId !== id) return;
+    if (e.buttons === 0) return finish(); // はなした のを 受けとり そこねた（ウインドウの 外など）: 動かさず おわる
     preview().drag(e.clientX - lx, e.clientY - ly);
     lx = e.clientX;
     ly = e.clientY;
   });
   const end = (e: PointerEvent): void => {
-    if (e.pointerId !== id) return;
-    id = null;
-    view.classList.remove('is-drag');
-    preview().release();
+    if (e.pointerId === id) finish();
   };
   view.addEventListener('pointerup', end);
   view.addEventListener('pointercancel', end);
@@ -63,4 +75,5 @@ export function bindDrag(view: HTMLElement, preview: () => Preview3D, onPress: (
     },
     { passive: false },
   );
+  return finish;
 }

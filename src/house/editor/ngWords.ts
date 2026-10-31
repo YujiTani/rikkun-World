@@ -59,3 +59,22 @@ export function hasNgWord(name: string): boolean {
   }
   return false;
 }
+
+/** 名前（前の 文字 ＋ 後ろの 文字）に よくない ことばが あるか（つなぎ目で ことばに なる 分も 数える） */
+export function hasNgName(name: { readonly front: string; readonly back: string }): boolean {
+  return hasNgWord(name.front + name.back);
+}
+
+/**
+ * 前の 文字の 後ろから 1 字ずつ 消して、名前（前 ＋ 後ろ）から よくない ことばが なくなる ところで 止める（もう なければ 消さない）。
+ * 後ろの 文字（back）は 消さない。cut ＝ 消した 字数
+ */
+export function trimToClean(front: string, back: string): { front: string; cut: number } {
+  const chars = [...front];
+  let cut = 0;
+  while (chars.length > 0 && hasNgWord(chars.join('') + back)) {
+    chars.pop();
+    cut++;
+  }
+  return { front: chars.join(''), cut };
+}
