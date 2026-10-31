@@ -20,6 +20,8 @@ export interface PreviewInfo {
   wait: number | null;
   /** 形を 作りなおした 回数（形が かわった とき と 光りの はじまり・おわり） */
   builds: number;
+  /** 見本に 出して いる 家具の 数（なかの 見本 だけ。赤い 家具は 出さない。1E・仕様 §2.5） */
+  furniture: number;
   glow: GlowInfo | null;
 }
 

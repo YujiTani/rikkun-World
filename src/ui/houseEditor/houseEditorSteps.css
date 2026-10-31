@@ -102,10 +102,12 @@
 .ed-cell {
   box-shadow: inset 0 0 0 1px var(--rk-scrim);
 }
+/* 家具の 層: かべの 帯 こみの 方眼の はこ ぜんぶ。赤い 家具の はみ出した 所は 帯の 上まで 描き、はこの 外は 切る（1E） */
 .ed-layer {
   position: absolute;
-  left: 16px;
-  top: 16px;
+  left: 0;
+  top: 0;
+  overflow: hidden;
   pointer-events: none;
 }
 .ed-furn,
@@ -123,6 +125,18 @@
 }
 .ed-ghost {
   opacity: 0.9;
+}
+/* 赤い 家具（仮置き。1E）: 絵は 赤い 形（置く 前の 赤と 同じ）。色だけに たよらない 印として 家具の 形の 中に しまを 重ねる（--ed-mask ＝ 家具の 形） */
+.ed-furn.is-red::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(135deg, rgb(255 255 255 / 0.6) 0 4px, transparent 4px 10px);
+  -webkit-mask-image: var(--ed-mask);
+  mask-image: var(--ed-mask);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  pointer-events: none;
 }
 .ed-furn.is-new {
   animation: ed-pop var(--rk-dur-pop) var(--rk-ease-pop) 1;

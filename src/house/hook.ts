@@ -2,8 +2,8 @@ import type { ItemId, Vec3 } from '../contracts';
 import type { HouseView } from './book';
 import type { CellInfo } from './cell';
 import { LIGHT_DEFAULT, type Rot, type Size, type Step, type WindowKind, type RoofKind } from './editor/tuning';
-import { windowCells, type WindowCell } from './editor/model';
-import type { Confirm } from './editor/controller';
+import { furnitureProblems, originOf, windowCells, type PlaceProblem, type WindowCell } from './editor/model';
+import type { Confirm, Flash } from './editor/controller';
 import type { ArchitectInfo } from './manager';
 import type { GlowInfo } from './preview/glow';
 import { previewModeOf } from './preview/port';
@@ -49,6 +49,8 @@ interface EditorPreviewInfo {
   /** さわった あと また 回り出す までの のこりの コマ（はなすと 600、1 コマごとに 1 へり、0 で null。さわる 前・回って いる 間・動きを へらす 設定は null） */
   wait: number | null;
   builds: number;
+  /** 見本に 出して いる 家具の 数（赤い 家具は 出さない。1E） */
+  furniture: number;
   /** 光って いる 物（光って いなければ null）。cells ＝ 光る 窓と なくなった 窓の あとの マス、left ＝ のこりの コマ（hover の 間は null） */
   glow: GlowInfo | null;
 }
@@ -61,8 +63,12 @@ interface EditorInfo {
   windowKind: WindowKind;
   roof: RoofKind;
   windowCells: WindowCell[];
-  furniture: Array<{ kind: string; x: number; z: number; rot: Rot }>;
-  selected: { x: number; z: number } | null;
+  /** 置いた 順。x・z ＝ 今の 形の 左上（保存と 同じ）、origin ＝ もとの マス、bad ＝ 赤い わけ（ふつうは null。1E） */
+  furniture: Array<{ kind: string; x: number; z: number; rot: Rot; origin: { x: number; z: number }; bad: PlaceProblem | null }>;
+  /** えらんで いる 家具。i ＝ furniture の 番号、x・z ＝ もとの マス（1E） */
+  selected: { i: number; x: number; z: number } | null;
+  /** 赤く 光らせた 家具（まだ 光らせて いなければ null。1E） */
+  flash: Flash | null;
   light: string;
   name: { front: string; back: string };
   canUndo: boolean;
@@ -108,6 +114,8 @@ export function createHouseHook(sys: HookSystem, seat: { seat(): SeatInfo | null
     const c = sys.editor;
     const s = c.s;
     const sel = c.selected();
+    const at = c.sel.placed;
+    const bads = furnitureProblems(s);
     const mode = previewModeOf(s.step);
     const v = mode === null ? null : sys.preview.info(mode);
     return {
@@ -118,14 +126,15 @@ export function createHouseHook(sys: HookSystem, seat: { seat(): SeatInfo | null
       windowKind: s.windowKind,
       roof: s.roof,
       windowCells: windowCells(s),
-      furniture: s.furniture.map((p) => ({ kind: p.kind, x: p.x, z: p.z, rot: p.rot })),
-      selected: sel ? { x: sel.x, z: sel.z } : null,
+      furniture: s.furniture.map((p, i) => ({ kind: p.kind, x: p.x, z: p.z, rot: p.rot, origin: originOf(p), bad: bads[i] ?? null })),
+      selected: sel && at !== null ? { i: at, ...originOf(sel) } : null,
+      flash: c.flash ? { items: [...c.flash.items], seq: c.flash.seq } : null,
       light: LIGHT_DEFAULT,
       name: { front: s.name.front, back: s.name.back },
       canUndo: c.canUndo(),
       canRedo: c.canRedo(),
       confirm: c.confirm,
-      preview: mode !== null && v ? { mode, roof: mode === 'outside', angle: v.yaw, pitch: v.elev, touched: v.touched, wait: v.wait, builds: v.builds, glow: v.glow } : null,
+      preview: mode !== null && v ? { mode, roof: mode === 'outside', angle: v.yaw, pitch: v.elev, touched: v.touched, wait: v.wait, builds: v.builds, furniture: v.furniture, glow: v.glow } : null,
     };
   };
   return {
