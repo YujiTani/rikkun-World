@@ -58,11 +58,11 @@ describe('houseKeyGuard', () => {
   it('上空の 視点: Enter は 決定（ゲームに とどけない）。矢印・WASD・Esc は 通す。押しっぱなしは 1 回だけ', () => {
     const skyDecide = vi.fn();
     const guard = houseKeyGuard({ typing: () => false, escape: vi.fn(), press: vi.fn(), skying: () => true, skyDecide });
-    const enter = key('Enter', { code: 'Enter' } as Partial<KeyLike>);
+    const enter = key('Enter', { code: 'Enter' });
     guard(enter);
     expect(skyDecide).toHaveBeenCalledTimes(1);
     expect(enter.stopImmediatePropagation).toHaveBeenCalled();
-    guard(key('Enter', { code: 'NumpadEnter', repeat: true } as Partial<KeyLike>));
+    guard(key('Enter', { code: 'NumpadEnter', repeat: true }));
     expect(skyDecide).toHaveBeenCalledTimes(1);
     for (const k of ['ArrowLeft', 'w', 'Escape']) {
       const e = key(k);
@@ -74,7 +74,7 @@ describe('houseKeyGuard', () => {
   it('上空の 視点で ない ときの Enter は さわらない', () => {
     const skyDecide = vi.fn();
     const guard = houseKeyGuard({ typing: () => false, escape: vi.fn(), press: vi.fn(), skying: () => false, skyDecide });
-    const e = key('Enter', { code: 'Enter' } as Partial<KeyLike>);
+    const e = key('Enter', { code: 'Enter' });
     guard(e);
     expect(skyDecide).not.toHaveBeenCalled();
     expect(e.stopImmediatePropagation).not.toHaveBeenCalled();

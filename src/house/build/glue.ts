@@ -1,12 +1,13 @@
 // 家を 建てる 流れの つなぎ役（HOUSE-1C PR-2 #340）。建築中の 家・一覧と 上空の 視点・みずもり・どうづき・完成の 盛り上げを まとめて 持ち、
 // HouseSystem が 1 ステップごとに update を 呼ぶ。DOM・three なし。世界は 窓口（HouseWorld）だけで 読む。
 import type { BlockId, ItemId, Vec3 } from '../../contracts';
-import { LEAF_BLOCKS, isFloraBlock } from '../../world/blocks/flora';
-import { houseShape } from '../shape';
-import type { HouseBook, HouseView } from '../book';
+import { isVanishingFlora } from '../../world/blocks/flora';
+import { isLeafId } from '../../world/blocks/blockTypes';
+import { recordHouse, writeShape } from '../shape';
+import type { HouseBook } from '../book';
 import type { Blueprint } from '../editor/blueprint';
 import { houseBuildTicks, needBonusOf, type NeedRow } from '../editor/model';
-import type { HouseWorld } from '../ground';
+import { standY, type HouseWorld } from '../ground';
 import type { ArchitectManager } from '../manager';
 import { HouseBuilder, type ActiveBuild, type BuilderSave } from './builder';
 import { HouseCelebrate } from './celebrate';
@@ -14,7 +15,7 @@ import { BuildFlow, doorOffset, type FlowPlan } from './flow';
 import { LevelTool } from './level';
 import { findSites, type Site } from './sites';
 import { Dozuki } from './tamp';
-import { HAMMER_HEAR_RANGE, KEEP_OUT, SITE, buildingSay, toolKindOf } from './tuning';
+import { EVICT, HAMMER_HEAR_RANGE, KEEP_OUT, SITE, buildingSay, toolKindOf } from './tuning';
 
 /** 音・演出の 知らせ（wire/house.ts が 鳴らす）。hammer は 戸から HAMMER_HEAR_RANGE 以内の ときだけ 来る */
 export type HouseSfx = { k: 'level' } | { k: 'dozuki'; hard: boolean } | { k: 'start' } | { k: 'hammer' } | { k: 'done' };
@@ -27,8 +28,6 @@ export interface GlueDeps {
   held(): ItemId | null;
   /** 持ち物の せっけいず（マスの 番号つき） */
   plans(): Array<Blueprint & { slot: number }>;
-  /** 番号の せっけいず */
-  blueprint(number: number): Blueprint | null;
   /** くらの 数 */
   have(item: ItemId): number;
   /** くらから へらす */
@@ -43,7 +42,8 @@ export interface GlueDeps {
   fallbackArchitect(): string | null;
   play(e: HouseSfx): void;
   teleport(x: number, y: number, z: number): void;
-  evict(box: { x0: number; z0: number; x1: number; z1: number; y0: number; y1: number }, to: Vec3): void;
+  /** 箱の 中の 動物・妖怪を 外の 立てる 場所（spots。近い 順。足りなければ くりかえす）へ */
+  evict(box: { x0: number; z0: number; x1: number; z1: number; y0: number; y1: number }, spots: readonly Vec3[]): void;
 }
 
 export class BuildGlue {
@@ -60,10 +60,10 @@ export class BuildGlue {
     this.level = new LevelTool((x, y, z) => {
       if (!w.isSolid(x, y, z)) return false;
       const id = String(w.getBlock(x, y, z));
-      return !LEAF_BLOCKS.includes(id);
+      return !isLeafId(id);
     });
     this.dozuki = new Dozuki(w);
-    this.builder = new HouseBuilder({ world: w, finish: (b) => this.finishShape(b) });
+    this.builder = new HouseBuilder({ world: w, shape: (b) => writeShape(w, b.bp, b.at), record: (b) => this.record(b) });
     this.flow = new BuildFlow({
       plans: () => this.cards(),
       findSites: (bp) => this.sitesFor(bp),
@@ -115,15 +115,16 @@ export class BuildGlue {
     const outD = bp.d + 2;
     const doorX = site.x + doorOffset(bp);
     // 草花は 消える（箱の 中と 戸の 前）
-    for (let h = 1; h <= KEEP_OUT.levels; h++) for (let z = 0; z < outD; z++) for (let x = 0; x < outW; x++) if (isFloraBlock(w.getBlock(site.x + x, site.y + h, site.z + z))) w.setBlock(site.x + x, site.y + h, site.z + z, 'air');
-    for (let h = 1; h <= SITE.doorFrontClear; h++) if (isFloraBlock(w.getBlock(doorX, site.y + h, site.z + outD))) w.setBlock(doorX, site.y + h, site.z + outD, 'air');
+    for (let h = 1; h <= KEEP_OUT.levels; h++) for (let z = 0; z < outD; z++) for (let x = 0; x < outW; x++) if (isVanishingFlora(w.getBlock(site.x + x, site.y + h, site.z + z))) w.setBlock(site.x + x, site.y + h, site.z + z, 'air');
+    for (let h = 1; h <= SITE.doorFrontClear; h++) if (isVanishingFlora(w.getBlock(doorX, site.y + h, site.z + outD))) w.setBlock(doorX, site.y + h, site.z + outD, 'air');
     for (const r of rows) if (r.need > 0) this.d.consume(r.item, r.need);
-    // 中に いる 物を 外（戸の 前の 外）へ
-    const out: Vec3 = { x: doorX + 0.5, y: site.y + 1, z: site.z + outD + 1.5 };
+    // 中に いる 物を 外（戸の 前の、しらべた 列から 近い 立てる 所）へ
     const box = { x0: site.x, z0: site.z, x1: site.x + outW, z1: site.z + outD, y0: site.y + 1, y1: site.y + KEEP_OUT.levels + 1 };
+    const spots = this.outSpots(box, doorX, site.z + outD, site.y + 1);
+    const out = spots[0]!;
     const p = this.d.player();
     if (p.x >= box.x0 && p.x < box.x1 && p.z >= box.z0 && p.z < box.z1 && p.y >= box.y0 - 1.2 && p.y < box.y1) this.d.teleport(out.x, out.y, out.z);
-    this.d.evict(box, out);
+    this.d.evict(box, spots);
     // 建築士さんを 戸の 前へ
     const id = this.d.speaker() ?? this.d.fallbackArchitect() ?? 'first';
     const spot = { x: doorX, z: site.z + outD };
@@ -135,22 +136,32 @@ export class BuildGlue {
     return true;
   }
 
+  /**
+   * 外へ うつす 先。戸の 前の 列（場所さがしで 空きを しらべた 列）から 近い 順に、実際に 立てる 列（箱の 外・standY）を 集める。
+   * ひとつも 見つからない ときは 戸の 前の 列の 床の 高さ（フォールバック）
+   */
+  private outSpots(box: { x0: number; z0: number; x1: number; z1: number }, fx: number, fz: number, fy: number): Vec3[] {
+    const out: Vec3[] = [];
+    for (let r = 0; r <= EVICT.radius && out.length < EVICT.spots; r++) {
+      for (let dz = -r; dz <= r; dz++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dz)) !== r || out.length >= EVICT.spots) continue;
+          const x = fx + dx;
+          const z = fz + dz;
+          if (x >= box.x0 && x < box.x1 && z >= box.z0 && z < box.z1) continue;
+          const y = standY(this.d.world, x, z);
+          if (y !== null) out.push({ x: x + 0.5, y, z: z + 0.5 });
+        }
+      }
+    }
+    return out.length > 0 ? out : [{ x: fx + 0.5, y: fy, z: fz + 0.5 }];
+  }
+
   // ------------------------------------------------------------ 完成
 
-  /** 家の 形を 外の 箱ぜんぶに 書いて（足場は 空気で きえる）記録し、盛り上げを 出す */
-  private finishShape(b: Pick<ActiveBuild, 'number' | 'bp' | 'at'>): void {
-    const shape = houseShape(b.bp);
-    const w = this.d.world;
-    for (const c of shape.cells) w.setBlock(b.at.x + c.x, b.at.y + c.y, b.at.z + c.z, c.id);
-    const rec = this.d.book.add({
-      name: b.bp.name.front + b.bp.name.back,
-      front: b.bp.name.front,
-      back: b.bp.name.back,
-      number: b.number,
-      outer: { w: shape.outerW, d: shape.outerD },
-      door: { x: b.at.x + shape.door.x, y: b.at.y + shape.door.y, z: b.at.z + shape.door.z },
-      doorOpen: false,
-    });
+  /** 完成の 記録（houses()・盛り上げ）。形の 書きこみは builder が 場所の 読みこみを 待って shape で する */
+  private record(b: Pick<ActiveBuild, 'number' | 'bp' | 'at'>): void {
+    const rec = recordHouse(this.d.book, b.bp, b.number, b.at);
     this.celebrate.fire(rec.name);
     this.d.play({ k: 'done' });
   }
@@ -198,11 +209,6 @@ export class BuildGlue {
   busyText(): string | null {
     const v = this.builder.view();
     return v ? buildingSay(v.name, v.leftText) : null;
-  }
-
-  /** 家の 数（テスト用の 窓口 houses() は HouseSystem が book から 返す） */
-  houseViews(): HouseView[] {
-    return this.d.book.list().map((r) => this.d.book.view(r));
   }
 
   // ------------------------------------------------------------ 保存

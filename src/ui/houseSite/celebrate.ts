@@ -1,10 +1,9 @@
 import type { CelebrateView } from '../../house/build/celebrate';
-import { withRuby } from '../text';
 import './houseSite.css';
 
 /**
- * 完成の 盛り上げ（HOUSE-1C PR-2 #340。仕様 §3.1・AC36）: 上の 帯「<名前> が できた！」（`house-done-banner`）と 紙ふぶき（CSS だけ。回数が ふえた ときに 1 回）。
- * 毎フレーム `update(view)`。変わった ときだけ DOM を 書く。動きを へらす 設定の ときは 紙ふぶきを 出さない（帯だけ）。
+ * 完成の 盛り上げ（HOUSE-1C PR-2 #340。仕様 §3.1・AC36）: 紙ふぶき（CSS だけ。回数が ふえた ときに 1 回）と、上の 帯「<名前> が できた！」を 上の 帯の 列（TopBandModel。`house-done-banner`）に 入れる。
+ * 毎フレーム `update(view)`。回数が ふえた ときだけ 動く。動きを へらす 設定の ときは 紙ふぶきを 出さない（帯だけ）。
  */
 
 /** 紙ふぶきの つぶの 数と 色 */
@@ -14,33 +13,25 @@ const COLORS = ['#ff6b6b', '#ffd93d', '#6bcB77', '#4d96ff', '#c77dff', '#ff9f45'
 const CONFETTI_MS = 3600;
 
 export class HouseDoneUi {
-  private readonly banner = document.createElement('div');
   private readonly layer = document.createElement('div');
-  private text = '';
   private count = -1;
   private clearAt = 0;
 
-  constructor(parent: HTMLElement, private readonly reduced: () => boolean) {
-    this.banner.className = 'house-done-banner';
-    this.banner.dataset.testid = 'house-done-banner';
-    this.banner.hidden = true;
+  /** band ＝ 完成の 帯を 上の 帯の 列に 入れる */
+  constructor(parent: HTMLElement, private readonly reduced: () => boolean, private readonly band: (text: string) => void) {
     this.layer.className = 'house-confetti';
     this.layer.dataset.testid = 'house-confetti';
     this.layer.setAttribute('aria-hidden', 'true');
-    parent.append(this.banner, this.layer);
+    parent.append(this.layer);
   }
 
-  /** topBusy ＝ 上の 帯（実績・テロップ・家の 名前）が 出ている 間は 帯を かくす（重ねない。おわれば のこりの 間 出る） */
-  update(v: CelebrateView, topBusy = false): void {
-    const text = v.banner?.text ?? '';
-    if (text !== this.text) {
-      this.text = text;
-      this.banner.innerHTML = withRuby(text);
-    }
-    this.banner.hidden = text === '' || topBusy;
+  update(v: CelebrateView): void {
     if (this.count < 0) this.count = v.confetti; // 読みこんだ 直後は 出さない
     else if (v.confetti !== this.count) {
-      if (v.confetti > this.count && !this.reduced()) this.burst();
+      if (v.confetti > this.count) {
+        if (v.banner) this.band(v.banner.text);
+        if (!this.reduced()) this.burst();
+      }
       this.count = v.confetti;
     }
     if (this.clearAt > 0 && performance.now() > this.clearAt) {

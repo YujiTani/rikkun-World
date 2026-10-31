@@ -2,7 +2,6 @@
 // 進みは 世界の 歩数（update が 呼ばれた 数）で 決まる。メニュー・上空の 視点が 開いて いる 間は update が 呼ばれない ので 止まる（AC41）。
 // 毎ステップ 世界を 読まない: かべ・仕上げを 立てる ステップだけ 書き、立てる 場所が 読みこまれて いない 間は 書かず、読みこまれたら 1 回だけ ぜんぶ 合わせる。
 import type { BlockId, Vec3 } from '../../contracts';
-import { houseBuildTicks } from '../editor/model';
 import type { Blueprint } from '../editor/blueprint';
 import { makePlan, stageCounts, type BuildPlan, type PlanBlueprint, type PlanCell } from './plan';
 import { KEEP_OUT, NO_SPAWN_RADIUS } from './tuning';
@@ -51,8 +50,10 @@ export interface BuildingView {
 
 export interface BuilderDeps {
   world: BuilderWorld;
-  /** 完成: 家の 形を 外の 箱 ぜんぶに 書いて 記録する（足場も 空気で 消える）。HouseSystem.finishShape */
-  finish(b: Pick<ActiveBuild, 'number' | 'bp' | 'at'>): void;
+  /** 家の 形を 外の 箱 ぜんぶに 書く（足場も 空気で 消える）。場所が 読みこまれて いる とき だけ 呼ばれる */
+  shape(b: Pick<ActiveBuild, 'number' | 'bp' | 'at'>): void;
+  /** 完成の 記録（houses()・紙ふぶき・ファンファーレ）。完成した ステップで 1 回。読みこみ前でも 同じ ステップ（AC21） */
+  record(b: Pick<ActiveBuild, 'number' | 'bp' | 'at'>): void;
 }
 
 /** 場所が 読みこまれて いるかを 見直す 間かく（ステップ） */
@@ -94,10 +95,10 @@ export class HouseBuilder {
     return this.cur;
   }
 
-  /** 建て はじめる（建築中は 始められない）。length 0 以下 ＝ 式。足場を ぜんぶ 立てる */
+  /** 建て はじめる（建築中は 始められない）。length ＝ 建築の 長さ（ステップ。式は 呼ぶ 側が houseBuildTicks で 決める）。足場を ぜんぶ 立てる */
   start(a: Omit<ActiveBuild, 'elapsed' | 'length'>, length: number): boolean {
     if (this.cur) return false;
-    this.cur = { ...a, elapsed: 0, length: length > 0 ? Math.floor(length) : houseBuildTicks(a.bp) };
+    this.cur = { ...a, elapsed: 0, length: Math.max(1, Math.floor(length)) };
     this.plan = makePlan(a.bp);
     this.bonusUsed = true;
     this.doneWalls = 0;
@@ -108,7 +109,7 @@ export class HouseBuilder {
     return true;
   }
 
-  /** 1 ステップ。完成したら その 家を 返す（写しを 返す） */
+  /** 1 ステップ。完成したら その 建築の 内容を 返す（保存に のこす 形。完成した 家の 記録は book に 入る） */
   update(): ActiveBuild | null {
     this.recheckPending();
     const b = this.cur;
@@ -252,8 +253,13 @@ export class HouseBuilder {
 
   private complete(done: Pick<ActiveBuild, 'number' | 'bp' | 'at'>): void {
     this.pendingWait = 0;
-    if (this.loaded(done.at, done.bp)) this.d.finish(done);
-    else this.pending.push({ number: done.number, bp: done.bp, at: done.at });
+    if (this.loaded(done.at, done.bp)) {
+      this.d.shape(done);
+      this.d.record(done); // 形を 書きおわってから 記録（書く 途中の 知らせで 記録が 消えない ように）
+    } else {
+      this.d.record(done); // 記録は 同じ ステップ。形は 読みこまれて から（pending）
+      this.pending.push({ number: done.number, bp: done.bp, at: done.at });
+    }
   }
 
   /** 完成したのに 場所が 読みこまれて いなかった 家: 読みこまれたら 形を 書く */
@@ -262,7 +268,7 @@ export class HouseBuilder {
     this.pendingWait = 0;
     const left: typeof this.pending = [];
     for (const p of this.pending) {
-      if (this.loaded(p.at, p.bp)) this.d.finish(p);
+      if (this.loaded(p.at, p.bp)) this.d.shape(p);
       else left.push(p);
     }
     this.pending = left;

@@ -181,30 +181,7 @@
   min-width: 144px;
 }
 
-/* ---- 完成の 帯・紙ふぶき ---- */
-.house-done-banner {
-  position: fixed;
-  left: 50%;
-  top: 96px;
-  z-index: 9;
-  box-sizing: border-box;
-  max-width: calc(100vw - 32px);
-  padding: 12px 32px;
-  transform: translateX(-50%);
-  font-size: 32px;
-  font-weight: 800;
-  line-height: 1.3;
-  white-space: nowrap;
-  color: var(--rk-ink);
-  background: var(--rk-accent-grad);
-  border: var(--rk-bw-sel) solid var(--rk-accent);
-  border-radius: var(--rk-r-l);
-  box-shadow: var(--rk-shadow-2);
-  pointer-events: none;
-}
-.house-done-banner[hidden] {
-  display: none;
-}
+/* ---- 紙ふぶき（完成の 帯は 上の 帯の 列〔ui/celebrate〕） ---- */
 .house-confetti {
   position: fixed;
   inset: 0;

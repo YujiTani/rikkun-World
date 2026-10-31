@@ -1,7 +1,7 @@
 // 建てられる 場所を さがす（HOUSE-1C PR-2 #340。仕様 §4.7・決め 8・AC19）。DOM・three なし。上空の 視点に 入る ときに 1 回 だけ 世界を 読む（毎ステップ 読まない）。
 import type { BlockId } from '../../contracts';
 import { KATAME_TSUCHI } from '../../world/blocks/buildBlocks';
-import { isFloraBlock } from '../../world/blocks/flora';
+import { isVanishingFlora } from '../../world/blocks/flora';
 import { KEEP_OUT, SITE } from './tuning';
 
 export interface SiteWorld {
@@ -22,7 +22,7 @@ export interface UsedBox {
   d: number;
 }
 
-const clear = (id: BlockId | 'outside'): boolean => id === 'air' || isFloraBlock(id);
+const clear = (id: BlockId | 'outside'): boolean => id === 'air' || isVanishingFlora(id);
 
 /** 北西の すみ (x, y, z)・外の 大きさ outW×outD の 場所に 建てられるか。戸は まえ（南）の かべの 外 doorX（箱の 北西からの ずれ）に ある */
 export function siteOk(world: SiteWorld, x: number, y: number, z: number, outW: number, outD: number, doorX: number): boolean {

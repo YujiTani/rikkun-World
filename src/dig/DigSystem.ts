@@ -525,7 +525,7 @@ export class DigSystemImpl implements DigSystem {
       return;
     }
     if (pv.kind === 'tamp') {
-      if (due && t) this.m4.build?.tamp(t.block.x, t.block.y, t.block.z); // HOUSE-1C PR-2: どうづき。間かくは 20 ステップ（Dozuki が 見る）
+      if (t) this.m4.build?.tamp(t.block.x, t.block.y, t.block.z); // HOUSE-1C PR-2: どうづき。押しつづけは 毎ステップ 渡し、20 ステップの 間かくは Dozuki が 見る（§4.4。placeRepeatTicks は 見ない）
       return;
     }
     if (pv.kind === 'chalkDraw') {

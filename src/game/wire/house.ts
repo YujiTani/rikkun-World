@@ -66,9 +66,9 @@ export function wireHouse(deps: WiredYokai) {
     held: () => inventory.held()?.item ?? null,
     play: (e) => siteView.play(e),
     teleport: (x, y, z) => controller.set({ position: { x, y, z }, velocity: { x: 0, y: 0, z: 0 } }),
-    evict: (box, to) => {
-      yokaiM.evictFrom(box, to);
-      animals.evictFrom(box, to);
+    evict: (box, spots) => {
+      yokaiM.evictFrom(box, spots);
+      animals.evictFrom(box, spots);
     },
   });
   shared.house = house;
@@ -132,7 +132,7 @@ export function wireHouse(deps: WiredYokai) {
     site: { pickList: () => house.pickList(), needRows: () => house.buildNeedRows(), buildName: () => house.buildName(), pointer: siteView.pointer },
   });
   // 完成の 帯と 紙ふぶき（毎フレーム。変わった ときだけ DOM を 書く）
-  const doneUi = new HouseDoneUi(hud, () => reduced?.matches === true);
+  const doneUi = new HouseDoneUi(hud, () => reduced?.matches === true, (text) => shared.celebrate.enqueueHouseDone(text));
   house.setOnChange(() => {
     houseUi.refresh();
     siteView.changed();
@@ -158,7 +158,7 @@ export function wireHouse(deps: WiredYokai) {
     architectRenderer.update(house.manager.all(), game.camera, dig.aimedArchitect());
     blobShadow.setExtras(architectRenderer.shadowSpots());
     houseUi.placeBubble();
-    doneUi.update(house.build.celebrate.view(), shared.celebrate.topBandBusy());
+    doneUi.update(house.build.celebrate.view());
   });
 
   // Esc・E: 話しを やめる（うなずき・あいさつ・メニュー・くら ぜんぶ）。メニューの 間は もちもの画面は 開かない（錠が 開いて いない）。

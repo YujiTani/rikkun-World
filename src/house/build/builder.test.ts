@@ -14,10 +14,12 @@ const OUT = 7;
 function rig(opts: { loaded?: (x: number, z: number) => boolean } = {}) {
   const world = makeFakeWorld({ height: () => 9, ...(opts.loaded ? { loaded: opts.loaded } : {}) });
   const finished: Array<{ number: number }> = [];
+  const shaped: Array<{ number: number }> = [];
   const b = new HouseBuilder({
     world,
-    finish: (f) => {
-      finished.push({ number: f.number });
+    record: (f) => finished.push({ number: f.number }),
+    shape: (f) => {
+      shaped.push({ number: f.number });
       for (let y = 0; y < 5; y++) for (let z = 0; z < OUT; z++) for (let x = 0; x < OUT; x++) world.setBlock(f.at.x + x, f.at.y + y, f.at.z + z, 'air'); // 形の 代わり: 箱を 空に（足場が 消える ことを 見る）
     },
   });
@@ -37,14 +39,14 @@ function rig(opts: { loaded?: (x: number, z: number) => boolean } = {}) {
   const run = (n: number): void => {
     for (let i = 0; i < n; i++) b.update();
   };
-  return { world, b, finished, start, scan, run };
+  return { world, b, finished, shaped, start, scan, run };
 }
 
 describe('建築中の 家', () => {
-  it('式の 長さ: length 0 なら houseBuildTicks（5×5 は 9,000）', () => {
+  it('長さは 呼ぶ 側が 決めた とおり（式は houseBuildTicks。5×5 は 9,000）', () => {
     const r = rig();
-    r.start(0);
-    expect(r.b.view()).toMatchObject({ leftTicks: houseBuildTicks({ w: 5, d: 5 }), progress: 0 });
+    r.start(houseBuildTicks({ w: 5, d: 5 }));
+    expect(r.b.view()).toMatchObject({ leftTicks: 9000, progress: 0 });
   });
   it('始まった ばかり: 足場だけ（かべ 0）。「はじめた ばかり だよ」', () => {
     const r = rig();
@@ -173,10 +175,12 @@ describe('建築中の 家', () => {
     loaded = false;
     r.run(160);
     expect(r.b.view()).toBeNull();
-    expect(r.finished).toEqual([]);
+    expect(r.finished, '記録は 完成した ステップで（AC21）').toEqual([{ number: 1 }]);
+    expect(r.shaped, '形は まだ').toEqual([]);
     loaded = true;
     r.run(60);
     expect(r.finished).toHaveLength(1);
+    expect(r.shaped, '読みこまれたら 形を 書く').toEqual([{ number: 1 }]);
     expect(r.scan().scaffold).toBe(0);
   });
   it('場所が 読みこまれて いない 間に 進んだ 分は、読みこまれたら 1 回で 合わせる', () => {

@@ -31,6 +31,9 @@ export function wireHouseSite(deps: WiredYokai) {
   const tmp = { x: 0, y: 0, z: 0 };
   const pt = { x: 0, y: 0 };
 
+  /** 上空の 視点の 世界の 描き（毎コマ 呼ぶので 関数を 作りなおさない） */
+  const renderWorld = (): void => game.renderWorldFrame();
+
   /** 上空の カメラで f を 実行（カメラは かならず もとへ もどす） */
   const inSky = <T>(f: () => T): T => {
     sky.enter(P().x, P().y, P().z);
@@ -74,8 +77,11 @@ export function wireHouseSite(deps: WiredYokai) {
 
   /** 画面の 状態が かわった（menu() が かわる たび）。上空の 視点が おわったら 緑の 絵を かくして 世界を ふつうの カメラで 描きなおす */
   let wasSky = false;
+  /** 上空の 絵（置ける 場所・わく）を 最後に 作った 画面の 版 */
+  let skyVer = -1;
   const changed = (): void => {
     const now = house?.skying() ?? false;
+    if (!now) skyVer = -1; // 次に 上空に 入ったら 緑の 絵を 作りなおす
     if (wasSky && !now) {
       sky.hide();
       game.renderWorldFrame();
@@ -102,14 +108,22 @@ export function wireHouseSite(deps: WiredYokai) {
   /** 上空の 視点を 描く（世界が 止まって いる 間も 毎コマ） */
   const drawSky = (): void => {
     const f = house?.build.flow;
-    const o = f?.outer();
-    if (!f || !o) return;
-    sky.show(f.sites(), o.w, o.d, f.cursor());
-    inSky(() => game.renderWorldFrame());
+    if (!f) return;
+    // 画面の 版が かわった ときだけ 絵を 作りなおす（毎コマ cursor()・outer() の 物を 作らない）
+    if (f.version !== skyVer) {
+      const o = f.outer();
+      if (!o) return;
+      skyVer = f.version;
+      sky.show(f.sites(), o.w, o.d, f.cursor());
+    }
+    inSky(renderWorld);
   };
 
   // ------------------------------------------------------------ 道具・みずもりの 色
   let levelShown = false;
+  /** みずもりの 色を 最後に 書いた ときの 配列・版（変わって いなければ 169 この 行列を 書きなおさない） */
+  let lastCells: unknown = null;
+  let lastRev = -1;
   game.onUpdate(() => tool.tick());
   game.onBeforeRender(() => {
     const kind: HeldToolKind | null = toolKindOf(inventory.held()?.item);
@@ -118,7 +132,10 @@ export function wireHouseSite(deps: WiredYokai) {
     const h = house;
     if (!h) return;
     const cells = h.build.level.cells(kind === 'level', P().x, P().z);
-    if (cells.length > 0 || levelShown) {
+    const rev = h.build.level.revision();
+    if ((cells.length > 0 || levelShown) && (cells !== lastCells || rev !== lastRev)) {
+      lastCells = cells;
+      lastRev = rev;
       sky.showLevel(cells, h.build.level.baseY());
       levelShown = cells.length > 0;
     }

@@ -44,8 +44,9 @@ export class TopBandModel {
   readonly toast: ModalModel;
   private telop: { item: ItemId; source: TelopSource; age: number } | null = null;
   private queue: { item: ItemId; source: TelopSource }[] = [];
-  private house: { text: string; age: number } | null = null;
-  private houseQueue: string[] = [];
+  /** 家の 帯（名前〔戸を 通った〕か、完成〔done。「<名前> が できた！」〕）。どちらも 同じ 列で 1 つずつ */
+  private house: { text: string; age: number; done: boolean } | null = null;
+  private houseQueue: Array<{ text: string; done: boolean }> = [];
 
   constructor(private readonly cfg: () => CelebrateSettings) {
     this.toast = new ModalModel(cfg);
@@ -58,7 +59,12 @@ export class TopBandModel {
 
   /** 家の 名前の 帯を 列に 入れる（戸を 外から 通った とき） */
   enqueueHouseName(text: string): void {
-    this.houseQueue.push(text);
+    this.houseQueue.push({ text, done: false });
+  }
+
+  /** 完成の 帯「<名前> が できた！」を 列に 入れる（HOUSE-1C PR-2。列が 空なら 次の ステップで すぐ 出る） */
+  enqueueHouseDone(text: string): void {
+    this.houseQueue.push({ text, done: true });
   }
 
   /** 実績の おしらせを 出して よいか（テロップが 出ている・待っている・家の 名前が 出ている・あらわれたが 出ている 間は だめ） */
@@ -75,11 +81,6 @@ export class TopBandModel {
     if (this.toast.isOpen()) this.toast.restart();
   }
 
-  /** 上の 帯が 今 出ているか（実績・テロップ・家の 名前。毎フレーム 呼べる〔新しい 物を 作らない〕） */
-  busy(): boolean {
-    return this.telop !== null || this.toast.isOpen() || this.house !== null;
-  }
-
   telopShowing(): boolean {
     return this.telop !== null;
   }
@@ -90,22 +91,23 @@ export class TopBandModel {
 
   /** 家の 名前の 帯（窓口 `ui.houseNameBand()`）。出ている 間は のこり ステップ、列で 待っている 間は 出はじめの 数。なければ null */
   houseLook(): { text: string; ticksLeft: number } | null {
-    if (this.house) return { text: this.house.text, ticksLeft: Math.max(0, HOUSE_BAND_STEPS - Math.floor(this.house.age + 1e-9)) };
-    const next = this.houseQueue[0];
-    return next === undefined ? null : { text: next, ticksLeft: HOUSE_BAND_STEPS };
+    if (this.house && !this.house.done) return { text: this.house.text, ticksLeft: Math.max(0, HOUSE_BAND_STEPS - Math.floor(this.house.age + 1e-9)) };
+    const next = this.houseQueue.find((q) => !q.done);
+    return next === undefined ? null : { text: next.text, ticksLeft: HOUSE_BAND_STEPS };
   }
 
   /**
    * 1 ステップ（amount = 画面ステップ。案内画面は 0）。appearing の 間は 止まる。
    * 戻りは { telopStarted: 今 出し始めた テロップの 武器, toastEnded: きえた 実績の おしらせの id の列 }
    */
-  step(amount: number, appearing: boolean): { telopStarted: ItemId | null; telopSource: TelopSource | null; toastEnded: AchievementId[] | null; houseStarted: string | null } {
+  step(amount: number, appearing: boolean): { telopStarted: ItemId | null; telopSource: TelopSource | null; toastEnded: AchievementId[] | null; houseStarted: string | null; houseDone: boolean } {
     let telopStarted: ItemId | null = null;
     let telopSource: TelopSource | null = null;
     let toastEnded: AchievementId[] | null = null;
     let houseStarted: string | null = null;
+    let houseDone = false;
     // あらわれた が 出ている 間・案内画面（amount 0）は 止まる
-    if (appearing || amount <= 0) return { telopStarted, telopSource, toastEnded, houseStarted };
+    if (appearing || amount <= 0) return { telopStarted, telopSource, toastEnded, houseStarted, houseDone };
     if (!this.telop && !this.house && !this.toast.isOpen() && this.queue.length > 0) {
       const q = this.queue.shift()!;
       this.telop = { item: q.item, source: q.source, age: 0 };
@@ -120,15 +122,17 @@ export class TopBandModel {
     } else {
       // 家の 名前: テロップ・実績が 出ても 待ってもいない ときだけ（いちばん あと）
       if (!this.house && this.houseQueue.length > 0) {
-        houseStarted = this.houseQueue.shift()!;
-        this.house = { text: houseStarted, age: 0 };
+        const q = this.houseQueue.shift()!;
+        houseStarted = q.text;
+        houseDone = q.done;
+        this.house = { text: q.text, age: 0, done: q.done };
       }
       if (this.house) {
         this.house.age += amount;
         if (this.house.age >= HOUSE_BAND_STEPS - 1e-9) this.house = null;
       }
     }
-    return { telopStarted, telopSource, toastEnded, houseStarted };
+    return { telopStarted, telopSource, toastEnded, houseStarted, houseDone };
   }
 
   telopLook(): TelopLook | null {

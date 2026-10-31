@@ -39,6 +39,8 @@ export class LevelTool {
   private base_: LevelBase | null = null;
   private readonly list: LevelCell[] = [];
   private dirty = true;
+  /** cells の 中身を 作りなおす たびに ふえる 数（描画が 変わった ときだけ 書きなおす ため） */
+  private rev = 0;
 
   constructor(private readonly solid: SolidAt) {
     for (let i = 0; i < SIDE * SIDE; i++) this.list.push({ x: 0, z: 0, state: 'ok' });
@@ -97,6 +99,11 @@ export class LevelTool {
     return this.list;
   }
 
+  /** cells の 版（recompute のたび +1。同じ 版 ＋ 同じ 配列なら 描画は そのまま） */
+  revision(): number {
+    return this.rev;
+  }
+
   /** base の 高さ（なければ 0） */
   baseY(): number {
     return this.base_?.y ?? 0;
@@ -114,5 +121,6 @@ export class LevelTool {
       }
     }
     this.dirty = false;
+    this.rev++;
   }
 }

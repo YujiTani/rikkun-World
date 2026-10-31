@@ -1,7 +1,7 @@
 // どうづき（HOUSE-1C PR-2 #340。仕様 §2.9・§4.4・AC17）: 地面を たたくと、たたいた ブロックと 同じ 高さの 3×3 の うち、上が 空気（か 消える 草花）の くさ・つち・すな・ゆきが かためた つちに なる。DOM・three なし。
 import type { BlockId } from '../../contracts';
 import { KATAME_TSUCHI } from '../../world/blocks/buildBlocks';
-import { isFloraBlock } from '../../world/blocks/flora';
+import { isVanishingFlora } from '../../world/blocks/flora';
 import { DOZUKI } from './tuning';
 
 /** かためた つちに できる 地面 */
@@ -33,7 +33,7 @@ export class Dozuki {
         const cz = z + dz;
         if (!TAMPABLE.has(w.getBlock(cx, y, cz))) continue;
         const above = w.getBlock(cx, y + 1, cz);
-        if (above !== 'air' && !isFloraBlock(above)) continue;
+        if (above !== 'air' && !isVanishingFlora(above)) continue;
         if (above !== 'air') w.setBlock(cx, y + 1, cz, 'air'); // 消える 草花は どける
         w.setBlock(cx, y, cz, KATAME_TSUCHI);
         changed++;

@@ -27,9 +27,8 @@ export const KEEP_OUT = { levels: 4 } as const;
 /** 建築中は 妖怪が 湧かない はんい（まん中から 横に マス。§4.6） */
 export const NO_SPAWN_RADIUS = 16;
 
-/** 建築士さん（§4.5・AC40）: うろうろする 半径（マス）・とんかちを ふる 間かく（ステップ）・うちおろす コマ・完成後に 元の 場所へ もどる プレイヤーとの きょり（マス） */
+/** 建築士さん（§4.5・AC40。うろうろする 半径は architect.ts の WANDER_RADIUS）: とんかちを ふる 間かく（ステップ）・うちおろす コマ・完成後に 元の 場所へ もどる プレイヤーとの きょり（マス） */
 export const ARCHITECT_WORK = {
-  wanderRadius: 3,
   hammerEvery: 60,
   hammerHitFrame: 10,
   hammerFrames: 24,
@@ -41,8 +40,11 @@ export const ARCHITECT_WORK = {
 /** とんかちの 音が 聞こえる 戸からの きょり（マス。PO 決め） */
 export const HAMMER_HEAR_RANGE = 16;
 
-/** 完成の 盛り上げ（ステップ）: 上の 帯の 長さ（settleWorld を またぐ ほど 長く）・紙ふぶきの 長さ */
-export const CELEBRATE = { bannerTicks: 420, confettiTicks: 180, toastTicks: 300 } as const;
+/** 完成の 盛り上げ（ステップ）: 上の 帯の 長さ（settleWorld を またぐ ほど 長く） */
+export const CELEBRATE = { bannerTicks: 420 } as const;
+
+/** 建築を はじめる とき 場所の 中に いた 人・動物・妖怪の うつし先: 戸の 前の 列から 近い 順に 実際に 立てる 列を 集める（最大 こ数・さがす 半径 マス） */
+export const EVICT = { spots: 9, radius: 5 } as const;
 
 /** 上空の 視点（§3.4）: カメラの 高さ（プレイヤーの 上に マス。探す はんい 24 マスが 画面に 入る）・矢印を 押しっぱなしの くり返し（はじまるまで delayTicks、そのあと repeatTicks ごと。ステップ） */
 export const SKY = { height: 40, repeatTicks: 6, delayTicks: 12 } as const;

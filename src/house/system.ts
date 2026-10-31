@@ -13,7 +13,7 @@ import { cellInfo, type CellInfo } from './cell';
 import type { PreviewMode } from './preview/mesh';
 import { NO_PREVIEW, previewModeOf, type PreviewPort } from './preview/port';
 import { HouseRename, type RenameView } from './rename';
-import { houseShape } from './shape';
+import { recordHouse, writeShape } from './shape';
 import { HouseState } from './state';
 import { HouseTalk, type HouseMenuState } from './talk';
 import type { KuraBag } from './kura';
@@ -64,7 +64,7 @@ export interface HouseSystemDeps {
   /** プレイヤーを 足もと (x, y, z) へ うつす（建築を はじめる とき 場所の 中に いた ときだけ）。なければ 位置を 書きかえる */
   teleport?: (x: number, y: number, z: number) => void;
   /** 建築を はじめる 場所の 中に いる 動物・妖怪を 外へ うつす。なければ 何も しない */
-  evict?: (box: { x0: number; z0: number; x1: number; z1: number; y0: number; y1: number }, to: Vec3) => void;
+  evict?: (box: { x0: number; z0: number; x1: number; z1: number; y0: number; y1: number }, spots: readonly Vec3[]) => void;
 }
 
 /** 窓口 settings に 出す 数（テスト用。houseBuildTicks 0 ＝ 仕様 §4.1 の 式） */
@@ -131,7 +131,6 @@ export class HouseSystem {
       player: d.player,
       held: () => d.held?.() ?? null,
       plans: () => this.blueprints(),
-      blueprint: (n) => this.state.blueprint(n),
       have: (item) => this.state.kura.count(item),
       consume: (item, n) => this.state.kura.consume(item, n),
       buildTicks: () => this.settings.houseBuildTicks,
@@ -144,7 +143,7 @@ export class HouseSystem {
         if (d.teleport) d.teleport(x, y, z);
         else Object.assign(d.player(), { x, y, z });
       },
-      evict: (box, to) => d.evict?.(box, to),
+      evict: (box, spots) => d.evict?.(box, spots),
     });
     this.talk = new HouseTalk({
       flow: this.build.flow,
@@ -367,18 +366,9 @@ export class HouseSystem {
   buildNow(number: number, at: Vec3): HouseView | null {
     const bp = this.state.blueprint(number);
     if (!bp) return null;
-    const shape = houseShape(bp);
     // 記録は 書きおわってから 足す（書く 途中の blockWatch の 知らせで、まだ 戸が 無い マスを 記録が 見て 消えたり しない ように）
-    for (const c of shape.cells) this.d.world.setBlock(at.x + c.x, at.y + c.y, at.z + c.z, c.id as BlockId);
-    const rec = this.book.add({
-      name: bp.name.front + bp.name.back,
-      front: bp.name.front,
-      back: bp.name.back,
-      number,
-      outer: { w: shape.outerW, d: shape.outerD },
-      door: { x: at.x + shape.door.x, y: at.y + shape.door.y, z: at.z + shape.door.z },
-      doorOpen: false,
-    });
+    writeShape(this.d.world, bp, at);
+    const rec = recordHouse(this.book, bp, number, at);
     return this.book.view(rec);
   }
 

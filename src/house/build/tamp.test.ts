@@ -55,4 +55,13 @@ describe('どうづき', () => {
     expect(around(w, 5, 10, 5)).toEqual(Array(9).fill('katame_tsuchi'));
     expect(d.tap(5, 10, 5, 30)).toEqual({ kind: 'cooling' });
   });
+  it('消える 草花は くさ・のばな・はな 3 しゅ・すすき（HOUSE-1 §4.7）。はっぱなどは 消えず その列は そのまま', () => {
+    const { w, d } = rig();
+    const flora = ['kusa', 'nobana', 'flower_y', 'flower_o', 'flower_p', 'susuki'] as const;
+    flora.forEach((id, i) => w.set(4 + (i % 3), 11, 4 + Math.floor(i / 3), id));
+    w.set(6, 11, 6, 'leaves'); // 消える 草花では ない
+    expect(d.tap(5, 10, 5, 0)).toEqual({ kind: 'tamp', changed: 8 });
+    for (let i = 0; i < flora.length; i++) expect(w.getBlock(4 + (i % 3), 11, 4 + Math.floor(i / 3)), flora[i]).toBe('air');
+    expect(w.getBlock(6, 10, 6)).toBe('grass');
+  });
 });
