@@ -9,6 +9,7 @@ import {
   bandMarkIssues,
   blueprints,
   btn,
+  btnState,
   cellKeys,
   changedCells,
   clickBtn,
@@ -33,7 +34,6 @@ import {
   previewOf,
   previewWheel,
   readButtons,
-  reopenHouse,
   setForm,
   squash,
   turnedFrom,
@@ -72,6 +72,17 @@ function clockFrom(page: Page): (n: number) => Promise<PreviewState> {
 }
 
 const between = (v: number, lo: number, hi: number): boolean => v >= lo && v <= hi;
+
+/** さわって いない 見本を、135／225 から 25° 以上 はなれる まで 回して まつ（「光らない」を 見る 前の 準備。窓を 見せに 回ったら 動きで 分かる ように） */
+async function stepAwayFromGlowTargets(page: Page): Promise<void> {
+  for (let i = 0; i < 40; i++) {
+    const p = await previewOf(page);
+    expect(p.wait, '準備: さわって いない（回って いる）').toBeNull();
+    if (angleGap(p.angle, glowTarget(p.angle)) >= 25) return;
+    await stepUi(page, 10);
+  }
+  throw new Error('準備の 失敗: 見本が 135／225 から はなれない');
+}
 
 test.describe('HOUSE-1B PR-2 見本を まわす', () => {
   test('AC50: ドラッグ（previewDrag）と wheel（previewWheel）— 向きの 計算・端で 止まる・さわった 印・もどす に 入らない・ひつような もの の 間は まわせない', async ({ page }) => {
@@ -112,7 +123,7 @@ test.describe('HOUSE-1B PR-2 見本を まわす', () => {
     r = await apply('drag', 60, 20);
     expect(r.after.angle, 'ななめ: よこ').toBeCloseTo(norm360(r.before.angle - 30), 3);
     expect(r.after.pitch, 'ななめ: たて').toBeCloseTo(r.before.pitch + 10, 3);
-    // 端で 止まる（そと 10〜80）。端を こえて 動かした 分は ためない（もどす 向きに 動かすと すぐ 動く）
+    // 端で 止まる（そと 10〜80）。端に とどいた あとは その 端から 数える（上の 端 10 から 下へ 20 px で 10 ふえて 20）
     r = await apply('drag', 0, 1000);
     expect(r.after.pitch, 'そと: 下の 端 80').toBe(80);
     r = await apply('drag', 0, -1000);
@@ -241,7 +252,7 @@ test.describe('HOUSE-1B PR-2 見本を まわす', () => {
     const p2 = await previewOf(page);
     expect(p2.wait, '600 コマ目で wait が null').toBeNull();
     expect(p2.touched, 'また 回り出しても touched は true のまま').toBe(true);
-    expect([0, PREVIEW.perFrame].some((v) => Math.abs(turnedFrom(p1.angle, p2.angle) - v) < 0.01), '600 コマ目の angle は そのまま か 0.3° まで').toBe(true);
+    expect(Math.abs(turnedFrom(p1.angle, p2.angle) - PREVIEW.perFrame) < 0.01, `600 コマ目に 0.3° 動く（回ったのは ${turnedFrom(p1.angle, p2.angle)}°）`).toBe(true);
     expect(p2.pitch, '回り出しても pitch は 46 の まま（26 には もどらない）').toBeCloseTo(p1.pitch, 3);
     await stepUi(page, 60);
     const p3 = await previewOf(page);
@@ -458,9 +469,6 @@ test.describe('HOUSE-1B PR-2 窓と 戸の 光り', () => {
     expect(between(p.glow!.left ?? -1, PREVIEW.glow - 3, PREVIEW.glow), `${why}: 光りの のこりは 90 から。今は ${p.glow!.left}`).toBe(true);
     const started = p.builds;
     expect(between(started - p0.builds, 1, 2), `${why}: 形が かわった ことと 光りの 始まりで 作りなおす（1〜2 回。今は ${started - p0.builds}）`).toBe(true);
-    p = await at(15);
-    expect(angleGap(p.angle, target) < angleGap(p0.angle, target) - 1 && angleGap(p.angle, target) > 1, `${why}: 15 コマ目は ${target} へ 回る 途中（${p0.angle.toFixed(1)} → ${p.angle.toFixed(1)}）`).toBe(true);
-    expect(p.pitch, `${why}: pitch は かわらない`).toBe(p0.pitch);
     p = await at(PREVIEW.turn + 2);
     expect(angleGap(p.angle, target), `${why}: 30 コマで ${target}`).toBeLessThan(0.01);
     expect(p.pitch, `${why}: pitch は かわらない`).toBe(p0.pitch);
@@ -533,7 +541,6 @@ test.describe('HOUSE-1B PR-2 窓と 戸の 光り', () => {
     let at = clockFrom(page);
     let p = await at(15);
     expect(p.pitch, '回る 途中も pitch は かわらない').toBe(26);
-    expect(angleGap(p.angle, 225) < angleGap(300, 225) - 1 && angleGap(p.angle, 225) > 1, '15 コマ目は 225 へ 回る 途中').toBe(true);
     p = await at(PREVIEW.turn + 2);
     expect(angleGap(p.angle, 225), '30 コマで 225').toBeLessThan(0.01);
     expect(p.pitch, 'pitch は そのまま').toBe(26);
@@ -650,6 +657,7 @@ test.describe('HOUSE-1B PR-2 窓と 戸の 光り', () => {
     p = await previewOf(page);
     expect(p.glow, 'windowsUp に のせると 窓が ぜんぶ 光る').toMatchObject({ door: false, left: null });
     expect(cellKeys(p.glow!.cells), '光る マス ＝ 窓 ぜんぶ').toEqual(cells);
+    expect(turnedFrom(a0, p.angle) <= PREVIEW.perFrame + 0.01, `回って いる 最中に のせても 窓を 見せに 回らない（1 コマで 0.3° まで。${turnedFrom(a0, p.angle).toFixed(2)}° 動いた）`).toBe(true);
     expect(between(p.builds - b0, 0, 1), `のせた 直後の 1 回 だけ 作りなおす（今は ${p.builds - b0}）`).toBe(true);
     const draw = await drawStats(page);
     expect(draw.calls, `のせて 光らせて いる コマの 描画回数（9×9・窓 ${max - 1}）は 24 以下`).toBeLessThanOrEqual(MAX_CALLS);
@@ -736,6 +744,57 @@ test.describe('HOUSE-1B PR-2 窓と 戸の 光り', () => {
     const g4 = await drawStats(page);
     expect(g4.calls, '戸が 光って いる コマ（9×9・窓 上限）の 描画回数は 24 以下').toBeLessThanOrEqual(MAX_CALLS);
     expect(g4.calls).toBeGreaterThan(0);
+  });
+
+  test('AC56: 光らない — 大きさを かえて 窓が 上限で 切られた 時（9×9・窓 15 → 5×5 で 9）・上限で ＋／0 で − を 押した 時', async ({ page }) => {
+    test.setTimeout(240_000);
+    await openFresh(page);
+    await setForm(page, { w: 9, d: 9 });
+    expect((await ed(page)).windowMax, '9×9 の まどの かず 上限').toBe(15);
+    await setForm(page, { windows: 15 });
+    expect((await previewOf(page)).glow, '（見張り）まどの かずを かえた 直後は 光る').toMatchObject({ door: false });
+    await stepUi(page, 200); // 光りも 向きなおしも おわる まで
+    await stepAwayFromGlowTargets(page);
+
+    // 「光らない」を 見る: n コマ たつ まで ずっと glow: null・向きなおし なし（1 コマ 0.3° の ふつうの 回り方 だけ）・builds は ふえない
+    const expectNoGlow = async (page: Page, from: PreviewState, ns: number[], why: string, builds: number): Promise<void> => {
+      const at = clockFrom(page);
+      for (const n of ns) {
+        const p = await at(n);
+        expect(p.glow, `${why}: ${n} コマ目も 光らない`).toBeNull();
+        expect(Math.abs(turnedFrom(from.angle, p.angle) - n * PREVIEW.perFrame) < PREVIEW.perFrame + 0.01, `${why}: ${n} コマ目も 窓を 見せに 回らない（1 コマ 0.3° の まま。${turnedFrom(from.angle, p.angle).toFixed(2)}° 動いた）`).toBe(true);
+        expect(p.pitch, `${why}: pitch は かわらない`).toBe(from.pitch);
+        expect(p.builds, `${why}: ${n} コマ目も 作りなおしは ${builds - from.builds} 回 だけ`).toBe(builds);
+      }
+    };
+
+    // ---- (a) 大きさを かえて 窓の かずが 上限で 切られる（9×9・窓 15 → 5×5・窓 9）: 家 ぜんたいが かわる ので 回らず 光らない
+    let p = await previewOf(page);
+    expect(p, 'はじめは 光って いない・回って いる').toMatchObject({ glow: null, wait: null });
+    expect(await editNoStep(page, { op: 'size', w: 5, d: 5 }), '大きさ 5×5').toBe(true);
+    let e = await ed(page);
+    expect({ windowMax: e.windowMax, windows: e.windows }, '上限が へって 窓も 15 → 9').toEqual({ windowMax: 9, windows: 9 });
+    await expectNoGlow(page, p, [1, 15, 31, 100], '9×9・窓 15 → 5×5', p.builds + 1);
+
+    // ---- (b) 上限で ＋ を 押す（5×5・窓 9）: 何も かわらず 光らない
+    expect((await btnState(page, 'windowsUp'))?.enabled, '上限では ＋ が 押せない').toBe(false);
+    await stepAwayFromGlowTargets(page);
+    p = await previewOf(page);
+    e = await ed(page);
+    expect(await editNoStep(page, { op: 'windows', delta: 1 }), '上限で ＋ は 入らない').toBe(false);
+    expect(await ed(page), '上限で ＋ を 押しても 何も かわらない').toMatchObject({ windows: 9, canUndo: e.canUndo, canRedo: e.canRedo });
+    await expectNoGlow(page, p, [1, 40, 100], '上限で ＋', p.builds);
+
+    // ---- (c) 0 で − を 押す
+    await setForm(page, { windows: 0 });
+    await stepUi(page, 200);
+    await stepAwayFromGlowTargets(page);
+    expect((await btnState(page, 'windowsDown'))?.enabled, '0 では − が 押せない').toBe(false);
+    p = await previewOf(page);
+    e = await ed(page);
+    expect(await editNoStep(page, { op: 'windows', delta: -1 }), '0 で − は 入らない').toBe(false);
+    expect(await ed(page), '0 で − を 押しても 何も かわらない').toMatchObject({ windows: 0, canUndo: e.canUndo, canRedo: e.canRedo });
+    await expectNoGlow(page, p, [1, 40, 100], '0 で −', p.builds);
   });
 
   test('AC56: ② の 方眼の かべの 帯に 窓の 印（まどの かず こ・windowCells の 場所）と 戸の 印（まえの まん中に 1 こ）— 5×5・9×9 の 窓 0 と 上限', async ({ page }) => {
@@ -866,9 +925,8 @@ test.describe('HOUSE-1B PR-2 よくない ことば', () => {
     });
     await setBag(page, { paper: 2, fude: 1 });
     await press(page, 'close');
-    // 保存の 作りかけの 前の 文字を「しねこ」に・すすみを ① に かきかえて 読みこみなおす
+    // 保存の 作りかけの 前の 文字を「しねこ」に・すすみを ① に かきかえて 読みこみなおす（かきかえが 効いた ことは injectDraftName の 中で 先に 確かめる）
     await injectDraftName(page, 'しねこ');
-    await reopenHouse(page);
     await talkTo(page, (await firstArchitect(page)).id, 'hook');
     const m = await press(page, 'editor');
     expect(m, 'せっけいずを つくる').toMatchObject({ open: true, page: 'editor' });

@@ -620,7 +620,7 @@ export async function mouseDragPreview(
 /**
  * はなした 直後（wait: 600）の 状態から 600 コマ: 599 コマ すすめても 止まって いて（wait 1・angle と pitch は そのまま）、600 コマ目で wait が null に なり、
  * そのあと 1 コマ 0.3° ずつ その 向き・pitch の まま 回る（28・26・50 には もどらない）。
- * 仕様の 書き方が 2 つ（票「600 コマ目から 回る」・AC50「600 コマ目で wait: null、その あとは ふえる」）あるので、600 コマ目の 1 コマ分の 0.3° は どちらでも よい。
+ * 600 コマ目の 1 コマも 回る: 599 コマ目までは 止まり、600 コマ目に wait が null に なって その コマで 0.3° 動く（PO 決め。票「600 コマ目から 回る」）。
  * 回り出した あとの 状態を 返す。
  */
 export async function expectResumesAfter600(page: Page, from: PreviewState, why: string): Promise<PreviewState> {
@@ -635,7 +635,7 @@ export async function expectResumesAfter600(page: Page, from: PreviewState, why:
   p = await previewOf(page);
   expect(p.wait, `${why}: 600 コマ目で wait が null`).toBeNull();
   const first = turnedFrom(from.angle, p.angle);
-  expect([0, PREVIEW.perFrame].some((v) => Math.abs(first - v) < 0.01), `${why}: 600 コマ目の angle は そのまま か 0.3° まで（回ったのは ${first}°）`).toBe(true);
+  expect(Math.abs(first - PREVIEW.perFrame) < 0.01, `${why}: 600 コマ目に 0.3° 動く（回ったのは ${first}°）`).toBe(true);
   expect(p.pitch, `${why}: 回り出しても pitch は ドラッグで 決めた まま`).toBeCloseTo(from.pitch, 3);
   const a = p.angle;
   await stepUi(page, 60);
@@ -774,10 +774,32 @@ export function typeWords(page: Page, words: readonly string[]): Promise<TypedWo
   }, words);
 }
 
+/** 保存（IndexedDB の rikkun-world → meta → 今の saveId）の 作りかけの 前の 文字を 読む。作りかけの 保存が なければ null */
+async function readSavedDraftFront(page: Page): Promise<string | null> {
+  return page.evaluate(async () => {
+    const h = (window as any).__rikkun;
+    const saveId: string = h.save.info().saveId ?? 'main';
+    const db: IDBDatabase = await new Promise((ok, ng) => {
+      const r = indexedDB.open('rikkun-world', 1);
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => ng(r.error);
+    });
+    const meta: any = await new Promise((ok, ng) => {
+      const g = db.transaction('meta', 'readonly').objectStore('meta').get(saveId);
+      g.onsuccess = () => ok(g.result);
+      g.onerror = () => ng(g.error);
+    });
+    db.close();
+    const front = meta?.house?.draft?.name?.front;
+    return typeof front === 'string' ? front : null;
+  });
+}
+
 /**
  * 読みこんだ 作りかけに よくない ことばが ある 形を 作る（AC58・AC44）: ゲームの 保存を IndexedDB で 書きかえる（保存は house.draft.name.front を そのまま 持つ）。
  * セーブして から 前の 文字だけ 差しかえ、すすみは ① に して（読みこむと ③ に なるかを 見る ため）、そのあと 読みこみなおす（reopenHouse）。
- * 作りかけの ほか（家具など）・持ち物は そのまま。?nosave=1 を つけない 世界で 呼ぶ。
+ * 読みこみなおした あと、保存の 前の 文字が 書いた とおり（front）に なって いる ことを 先に 確かめる（上書きされたり 保存の 形が かわって いたら
+ * 「テストの 準備の 失敗」で 落ちる ＝ 実装の 不具合と 見まちがえない）。作りかけの ほか（家具など）・持ち物は そのまま。?nosave=1 を つけない 世界で 呼ぶ。
  */
 export async function injectDraftName(page: Page, front: string): Promise<void> {
   await page.evaluate(async (front) => {
@@ -794,7 +816,7 @@ export async function injectDraftName(page: Page, front: string): Promise<void> 
       g.onsuccess = () => ok(g.result);
       g.onerror = () => ng(g.error);
     });
-    if (!meta?.house?.draft) throw new Error('保存に house.draft が ない（作りかけの 保存の 形が かわった？）');
+    if (!meta?.house?.draft) throw new Error('テストの 準備の 失敗: 保存に house.draft が ない（作りかけの 保存の 形が かわった？）');
     meta.house.draft.name.front = front;
     meta.house.draft.step = 'soto';
     await new Promise<void>((ok, ng) => {
@@ -805,6 +827,9 @@ export async function injectDraftName(page: Page, front: string): Promise<void> 
     });
     db.close();
   }, front);
+  await reopenHouse(page);
+  const saved = await readSavedDraftFront(page);
+  expect(saved, `テストの 準備の 失敗: 読みこみなおした あとの 保存の draft.name.front が「${front}」に なって いない（かきかえが 効かなかった・上書きされた・保存の 形が かわった）`).toBe(front);
 }
 
 // ---------------------------------------------------------------- UI 検査（AC35。e2e/ui-gate.spec.ts の Screen.open・extra）
