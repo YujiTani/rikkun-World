@@ -67,7 +67,15 @@ export class NeedPop {
       row.dataset.short = String(r.short);
       list.append(row);
     }
-    card.append(list, btn({ cls: 'ed-btn--pri', id: 'needClose', html: 'とじる', onPress: this.press }));
+    // 行が 下に かくれて スクロールする とき だけ、下に 影を 出す（Mac は スクロールバーが 見えない ので 手がかりに する）
+    const scroll = el('div', 'ed-need__scroll');
+    scroll.append(list);
+    const hint = (): void => {
+      scroll.classList.toggle('has-more', list.scrollTop + list.clientHeight < list.scrollHeight - 1);
+    };
+    list.addEventListener('scroll', hint, { passive: true });
+    card.append(scroll, btn({ cls: 'ed-btn--pri', id: 'needClose', html: 'とじる', onPress: this.press }));
     this.el.replaceChildren(card);
+    hint();
   }
 }

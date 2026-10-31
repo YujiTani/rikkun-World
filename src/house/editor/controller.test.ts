@@ -274,4 +274,13 @@ describe('名前の 操作', () => {
     expect(ctl.suffix('ぜったいちがう')).toBe(false);
     expect(ctl.s.name.back).toBe('ハウス');
   });
+
+  it('KANA_CHARS に ない 字（英字・漢字・゛・空・2 字）は 入らない。カタカナは 入る', () => {
+    const { ctl } = makeController();
+    for (const bad of ['a', '1', '家', '゛', '', 'あい', ' ']) expect(ctl.char(bad), JSON.stringify(bad)).toBe(false);
+    expect(ctl.s.name.front).toBe('');
+    expect(ctl.char('ア')).toBe(true);
+    expect(ctl.char('ー')).toBe(true);
+    expect(ctl.s.name.front).toBe('アー');
+  });
 });

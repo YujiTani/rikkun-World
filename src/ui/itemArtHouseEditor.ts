@@ -3,7 +3,7 @@ import { HOUSE_FURNITURE_IDS, HOUSE_PLAN_IDS, type HouseFurnitureId, type HouseP
 import type { Rgba } from '../world/blocks/textures';
 
 /**
- * HOUSE-1B（#339）新しい 家具 8 つ（テーブル・いす・あんどん・ほんだな・おふろ・ながい テーブル・まるい テーブル・まるいす）と せっけいずの 16x16 アイコン（仮の 絵。
+ * HOUSE-1B（#339）新しい 家具（ids.ts の HOUSE_FURNITURE_IDS。テーブル・いす・あんどん・ほんだな・おふろ ほか）と せっけいずの 16x16 アイコン（仮の 絵。
  * アートの 3 案から 本番の 絵に かわる）。形は itemArtHouse.ts と 同じ（ROWS = 文字の 絵、PAL = 色の 表）。色は 案 A の 木と ざぶとんに そろえた。
  */
 type EditorItemId = HouseFurnitureId | HousePlanId;

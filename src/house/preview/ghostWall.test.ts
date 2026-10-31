@@ -1,4 +1,4 @@
-import { DataTexture } from 'three';
+import { DataTexture, ShaderLib, type WebGLProgramParametersWithUniforms, type WebGLRenderer } from 'three';
 import { describe, expect, it } from 'vitest';
 import { WALLS } from '../editor/tuning';
 import { GhostWall, ghostAlpha, ghostLevel, ghostWhite, wallGhostLevels } from './ghostWall';
@@ -86,6 +86,25 @@ describe('AC59 かべの 高さ・形は どの 向き・見おろす 角度で�
       expect(wall.mesh.position.toArray(), `k ${i / 100}`).toEqual([0, 0, 0]);
       expect(wall.mesh.visible, `k ${i / 100}`).toBe(true);
     }
+    wall.dispose();
+  });
+
+  it('シェーダーの さしこみ: three の MeshBasicMaterial の 本物の 断片シェーダーに uWhite・uAlpha が 入り、set() の 値が uniform に とどく（three を あげて 置きかえが 空ぶりに なったら ここで 落ちる）', () => {
+    const wall = new GhostWall(new DataTexture(new Uint8Array(4), 1, 1));
+    const shader = { uniforms: {}, fragmentShader: ShaderLib.basic.fragmentShader } as unknown as WebGLProgramParametersWithUniforms;
+    wall.material.onBeforeCompile(shader, null as unknown as WebGLRenderer);
+    const f = shader.fragmentShader;
+    expect(f).toContain('uniform float uWhite;');
+    expect(f).toContain('uniform float uAlpha;');
+    expect(f).toContain('gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), uWhite);');
+    expect(f).toContain('gl_FragColor.a *= uAlpha;');
+    // 色を 書き出した 直後（opaque_fragment の あと）に 入る
+    expect(f.indexOf('gl_FragColor.a *= uAlpha;'), 'opaque_fragment の 展開の あとに 入る').toBeGreaterThan(f.indexOf('#include <opaque_fragment>'));
+    expect(f.indexOf('#include <opaque_fragment>'), '置きかえの もとの 行が ある').toBeGreaterThan(-1);
+    wall.set(1);
+    expect((shader.uniforms as Record<string, { value: number }>).uWhite!.value).toBeCloseTo(0.7, 10);
+    expect((shader.uniforms as Record<string, { value: number }>).uAlpha!.value).toBeCloseTo(0.5, 10);
+    expect(wall.material.customProgramCacheKey()).toBe('house-preview-ghost-wall');
     wall.dispose();
   });
 

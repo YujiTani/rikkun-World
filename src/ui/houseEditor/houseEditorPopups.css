@@ -56,6 +56,27 @@
   line-height: 40px;
   text-align: center;
 }
+/* スクロールする 入れ物（.ed-need__list）の 外がわ。下に まだ 行が あるとき（.has-more）だけ、下のふちに 影を 重ねる（押せない・場所を とらない） */
+.ed-need__scroll {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.ed-need__scroll::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 48px;
+  content: '';
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--rk-bg-800));
+  border-radius: 0 0 var(--rk-r-s) var(--rk-r-s);
+  opacity: 0;
+}
+.ed-need__scroll.has-more::after {
+  opacity: 1;
+}
 .ed-need__list {
   display: flex;
   flex-direction: column;

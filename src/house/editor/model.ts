@@ -217,6 +217,12 @@ export function toKatakana(ch: string): string {
   return c >= 0x3041 && c <= 0x3096 ? String.fromCharCode(c + 0x60) : ch;
 }
 
+/** 名前に 入れられる 字か（`KANA_CHARS` の ひらがな、または その カタカナ。表は `KANA_CHARS` の 1 か所） */
+const KANA_INPUT: ReadonlySet<string> = new Set([...KANA_CHARS, ...KANA_CHARS.map(toKatakana)]);
+export function isKanaChar(ch: string): boolean {
+  return KANA_INPUT.has(ch);
+}
+
 export function canAddChar(front: string): boolean {
   return [...front].length < NAME_FRONT_MAX;
 }

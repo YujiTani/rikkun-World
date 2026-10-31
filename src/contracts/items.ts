@@ -41,7 +41,7 @@ export type ItemOnlyId =
   | GoldId
   // HOUSE-1A（#338）: みずもり・どうづき の id は content/items/ids.ts の 1 か所（#306）
   | HouseToolId
-  // HOUSE-1B（#339）: 新しい 家具 5 つ・せっけいず の id も content/items/ids.ts の 1 か所
+  // HOUSE-1B（#339）: 新しい 家具・せっけいず の id も content/items/ids.ts の 1 か所
   | HouseFurnitureId
   | HousePlanId
   // KONGO-1: こんごうシリーズ（ダイヤ・こんごうの そうび 8 こ）の id は content/items/ids.ts の 1 か所

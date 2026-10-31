@@ -94,7 +94,7 @@ export const VOX_I_DEFS: ItemDefs = VOX_I;
 
 /** みずもり・どうづき（HOUSE-1A。ITEM_TYPES では 金の 次。道具の 色分けでは 金の 道具の 次） */
 export const HOUSE_TOOL_DEFS: ItemDefs = HOUSE_TOOLS;
-/** 新しい 家具 5 つ（HOUSE-1B。ITEM_TYPES では みずもり・どうづきの 次。家具の 色分けは ふとんの 次） */
+/** 家の 新しい 家具（HOUSE-1B。数は ids.ts の HOUSE_FURNITURE_IDS。ITEM_TYPES では MINE-1B の 次。家具の 色分けは ふとんの 次） */
 export const HOUSE_FURNITURE_DEFS: ItemDefs = HOUSE_FURNITURE;
 /** せっけいず（HOUSE-1B。ITEM_TYPES では 新しい 家具の 次） */
 export const HOUSE_PLAN_DEFS: ItemDefs = HOUSE_PLANS;

@@ -20,7 +20,7 @@ describe('ボタンの 一覧（すすみごと）', () => {
     for (const no of ['prev', 'light', 'take', 'char-あ', 'furniture-futon']) expect(got).not.toContain(no);
   });
 
-  it('② なか: 家具 9 種 ＋ あかり。置いた 家具を えらぶと そばの 3 つ。prev も next も ある', () => {
+  it('② なか: 家具の ボタン（FURN_ORDER ぜんぶ）＋ あかり。置いた 家具を えらぶと そばの 3 つ。prev も next も ある', () => {
     const k = makeController();
     k.ctl.next();
     const got = ids(k);

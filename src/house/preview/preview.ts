@@ -73,6 +73,8 @@ export class Preview3D {
   /** 最後に 見せた 見せ方（null ＝ 見せて いない。見せ方が かわったら その 向きを はじめに もどす） */
   private shown: PreviewMode | null = null;
   private fitKey = '';
+  /** その ときの 穴の よこ÷たて（数で くらべる。毎コマ 文字を 作らない） */
+  private fitAspect = 0;
   private readonly fits = new Map<number, number>();
   private fitPts: Vector3[] = [];
   private readonly center = new Vector3();
@@ -214,15 +216,15 @@ export class Preview3D {
     this.stats.triangles = 0;
     if (rect && rect.w > 4 && rect.h > 4 && this.parts && this.shown !== null) {
       const aspect = rect.w / rect.h;
-      const fk = `${this.key}|${aspect.toFixed(3)}`;
-      if (fk !== this.fitKey) {
+      if (this.key !== this.fitKey || Math.abs(aspect - this.fitAspect) >= 5e-4) {
         this.camera.aspect = aspect;
         this.camera.updateProjectionMatrix();
         this.probe.aspect = aspect;
         this.probe.updateProjectionMatrix();
         this.fits.clear();
         this.fitPts = this.fitPoints(this.parts);
-        this.fitKey = fk;
+        this.fitKey = this.key;
+        this.fitAspect = aspect;
       }
       const view = this.views[this.mode];
       this.place(view.yaw, view.elev, this.distFor(view.elev), this.camera);

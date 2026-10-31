@@ -153,6 +153,27 @@ describe('AC9・AC10 ひつような もの（外装 ＋ 窓 ＋ 家具）', () 
     expect(rows.map((r) => r.item), '並び: き・いし・かみ・ぬの・いと・てつ・くさ・たいまつ・あぶら').toEqual(['log', 'stone', 'paper', 'cloth', 'string', 'oil']);
   });
 
+  it('AC9 仕様の 例: くらに き 10・いし 25、5×5・窓 0・ふとん 1 → き {24, 10, 14}・いし {25, 25, 0}・ぬの {3, 0, 3}・いと {1, 0, 1}。何度 よんでも 同じ', () => {
+    const have = (i: string): number => (i === 'log' ? 10 : i === 'stone' ? 25 : 0);
+    const form = { w: 5, d: 5, windows: 0, furniture: [{ kind: 'futon', x: 0, z: 0, rot: 0 }] } as const;
+    const rows = needOf({ ...form, furniture: [...form.furniture] }, have);
+    expect(rows).toEqual([
+      { item: 'log', need: 24, have: 10, short: 14 },
+      { item: 'stone', need: 25, have: 25, short: 0 },
+      { item: 'cloth', need: 3, have: 0, short: 3 },
+      { item: 'string', need: 1, have: 0, short: 1 },
+    ]);
+    expect(needOf({ ...form, furniture: [...form.furniture] }, have)).toEqual(rows);
+  });
+
+  it('AC10 仕様の 例: よこ 7・たて 5・窓 4・ふとん 1・いす 2 → き 28＋2×2 ＝ 32、いし 35、かみ 4、ぬの 3、いと 1', () => {
+    const rows = needOf(
+      { w: 7, d: 5, windows: 4, furniture: [{ kind: 'futon', x: 0, z: 0, rot: 0 }, { kind: 'chair', x: 3, z: 0, rot: 0 }, { kind: 'chair', x: 4, z: 0, rot: 0 }] },
+      () => 0,
+    );
+    expect(rows.map((r) => [r.item, r.need])).toEqual([['log', 32], ['stone', 35], ['paper', 4], ['cloth', 3], ['string', 1]]);
+  });
+
   it('AC10（2.4）: はにわ 1・ながい テーブル 1・まるい テーブル 1・まるいす 1（5×5・窓 0）→ ねんど 2・き ＝ 外まわり 24 ＋ 6＋2＋2 ＝ 34。ねんどは いちばん うしろ（10 しゅるい の 並び）', () => {
     const furniture: Placed[] = [
       { kind: 'haniwa', x: 0, z: 0, rot: 0 }, { kind: 'long_table', x: 0, z: 1, rot: 0 }, { kind: 'round_table', x: 4, z: 0, rot: 0 }, { kind: 'stool', x: 4, z: 1, rot: 0 },

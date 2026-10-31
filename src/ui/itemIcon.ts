@@ -44,7 +44,7 @@ export function itemIconPixels(item: ItemId): Pixels {
   if (item === 'kin_tamago') return kinTamagoPixels();
   if (isGoldItem(item)) return goldItemPixels(item);
   if (isHouseToolItem(item)) return houseToolPixels(item); // HOUSE-1A: 仮の 絵
-  if (isHouseEditorItem(item)) return houseEditorItemPixels(item); // HOUSE-1B: 新しい 家具 5 つ・せっけいず（仮の 絵）
+  if (isHouseEditorItem(item)) return houseEditorItemPixels(item); // HOUSE-1B: 新しい 家具・せっけいず（仮の 絵）
   if (isKongoItem(item)) return kongoItemPixels(item);
   if (isLive3Item(item)) return live3ItemPixels(item);
   if (isW7Item(item)) return w7ItemPixels(item);

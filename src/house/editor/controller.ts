@@ -3,7 +3,7 @@
 import type { ItemId } from '../../contracts';
 import { K_FUTON, FURNITURE, type FurnKind } from './furniture';
 import {
-  canAddChar, cloneState, dakuten, emptyState, footprint, handakuten, needOf, placeProblem, refit, windowMax,
+  canAddChar, cloneState, dakuten, emptyState, footprint, handakuten, isKanaChar, needOf, placeProblem, refit, windowMax,
   type EditorState, type NeedRow, type Placed,
 } from './model';
 import {
@@ -247,7 +247,7 @@ export class EditorController {
   }
 
   char(ch: string): boolean {
-    if ([...ch].length !== 1 || !canAddChar(this.s.name.front)) return false;
+    if (!isKanaChar(ch) || !canAddChar(this.s.name.front)) return false;
     const next = cloneState(this.s);
     next.name.front += ch;
     return this.commit(next, 'namae');

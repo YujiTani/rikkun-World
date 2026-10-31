@@ -122,7 +122,7 @@ export type MineItemId = (typeof MINE_ITEM_IDS)[number];
 export const MINE_ITEM = Object.fromEntries(MINE_ITEM_IDS.map((id) => [id, id])) as { readonly [K in MineItemId]: K };
 
 /**
- * 家の 新しい 家具 8 つ（HOUSE-1B #339。案 A「ごつごつの くりの 木」。2.4 で ながい テーブル・まるい テーブル・まるいす〔stool〕を 足した。
+ * 家の 新しい 家具（HOUSE-1B #339。案 A「ごつごつの くりの 木」。2.4 で ながい テーブル・まるい テーブル・まるいす〔stool〕を 足した。
  * 置いて ブロックに なるのは HOUSE-1C、はたらきは HOUSE-1D）。ITEM_TYPES では MINE-1B の 次
  */
 export const HOUSE_FURNITURE_IDS = ['table', 'chair', 'andon', 'shelf', 'ofuro', 'long_table', 'round_table', 'stool'] as const;

@@ -1,7 +1,7 @@
 // HOUSE-1B 家具 13 種（2.4）の 大きさと 材料（1 か所の 表。ルール #304）。仕様 docs/design/HOUSE-1.md §4.3。DOM・three なし。
 // id は アイテムの id（ふとん・こたつ・かまど・たんす・はにわは 今ある 物、テーブル・いす・あんどん・ほんだな・おふろ・
 // ながい テーブル・まるい テーブル・まるいすは 新しい 物 = content/items/houseEditor.ts）。
-// 足す ときは ここと、見本の 形（house/look/furnitureArt.ts の 箱の 表。Record なので 足し忘れると 型で 落ちる）。
+// 足す ときは ここと、見本の 形（house/preview/furnitureArt.ts の 箱の 表。Record なので 足し忘れると 型で 落ちる）。
 import type { ItemId } from '../../contracts';
 
 /**

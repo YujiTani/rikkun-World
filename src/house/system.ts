@@ -127,6 +127,12 @@ export class HouseSystem {
     return this.talk.editing();
   }
 
+  /** 保存から 読みこむ（HouseState の 中身を 入れかえ、エディターの もどす の 記録は すてる） */
+  load(data: unknown): void {
+    this.state.deserialize(data);
+    this.editor.loaded();
+  }
+
   /** 1 ステップ（1/60 秒。ゲームの 時間が 止まって いても すすむ）: エディターの ふきだしの 時間 */
   tickEditor(): void {
     if (!this.talk.editing()) return;

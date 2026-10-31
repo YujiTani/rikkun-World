@@ -44,7 +44,7 @@ export const ITEM_TYPES: readonly ItemType[] = [
   ...itemTypesOf(HOUSE_TOOL_DEFS),
   // MINE-1B（#349）: せっかいせき・ほたるいし・きんの いし・しっくい・チョーク・いしばいは 登録表（content/items/blocks.ts・mine.ts）から
   ...itemTypesOf(MINE_DEFS),
-  // HOUSE-1B（#339）: 新しい 家具 8 つ・せっけいず も 登録表（content/items/houseEditor.ts）から（いちばん うしろ）
+  // HOUSE-1B（#339）: 新しい 家具・せっけいず も 登録表（content/items/houseEditor.ts）から（いちばん うしろ）
   ...itemTypesOf(HOUSE_FURNITURE_DEFS),
   ...itemTypesOf(HOUSE_PLAN_DEFS),
 ];

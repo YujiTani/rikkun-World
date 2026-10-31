@@ -290,6 +290,19 @@ describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
     expect(hook.editor()).toMatchObject({ windows: 1, windowCells: [{ wall: 'back', i: 2 }], canUndo: true });
   });
 
+  it('保存から 読みこむ（load）と、作りかけは 保存の とおりに なり、もどす・すすむ の 記録は すてられる', () => {
+    const { sys, hook } = opened();
+    sys.press('editor');
+    for (const op of [{ op: 'windows', delta: 1 }, { op: 'size', w: 7 }, { op: 'windows', delta: 1 }]) expect(hook.edit(op)).toBe(true);
+    const saved = sys.state.serialize();
+    expect(hook.edit({ op: 'undo' })).toBe(true);
+    expect(hook.editor()).toMatchObject({ canUndo: true, canRedo: true });
+    sys.load(saved);
+    expect(hook.editor(), '読みこんだ 作りかけ（もどす の 記録は ない）').toMatchObject({ size: { w: 7, d: 5 }, windows: 2, canUndo: false, canRedo: false });
+    sys.load(null);
+    expect(hook.editor(), '保存が 空なら はじめの 形').toMatchObject({ size: { w: 5, d: 5 }, windows: 0, canUndo: false, canRedo: false });
+  });
+
   it('見本の 情報（preview）は ① ② だけ（③ は null）。つないだ 見本から angle・pitch・touched・builds を もらう', () => {
     const { sys, hook } = opened();
     sys.previewProbe = (mode) => ({ yaw: mode === 'outside' ? 28 : 40, elev: mode === 'outside' ? 26 : 50, touched: false, builds: 3 });

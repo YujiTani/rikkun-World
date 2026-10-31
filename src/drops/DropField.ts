@@ -76,6 +76,8 @@ export type DropSave = {
   water?: number;
   /** WEAPON-9: 虹の 強さ */
   power?: number;
+  /** HOUSE-1B: せっけいずの 番号（なし = せっけいず じゃない） */
+  plan?: number;
   /** 妖怪の おとしもの */
   yokai?: boolean;
 };

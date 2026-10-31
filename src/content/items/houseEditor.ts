@@ -5,7 +5,7 @@ const NOW_HOW = 'いまは もてる だけ';
 const FURN_SOURCE = 'けんちくし が たてた いえ を ほる';
 
 /**
- * 家の 新しい 家具 8 つ（HOUSE-1B #339。案 A「ごつごつの くりの 木」。2.4 で 3 つ 足した。docs/design/HOUSE-1.md §4.3）。
+ * 家の 新しい 家具（HOUSE-1B #339。案 A「ごつごつの くりの 木」。どれが あるかは ids.ts の HOUSE_FURNITURE_IDS。docs/design/HOUSE-1.md §4.3）。
  * 方眼の 大きさ・材料は エディターの 表（house/editor/furniture.ts）。ここは 持ち物の 名前・説明・めずらしさ だけ。
  * 置いて ブロックに なるのは HOUSE-1C（#340）、はたらき（いす・おふろ・あんどん・ほんだな）は HOUSE-1D（#341）。
  * 置けるブロックに なる 前なので いまは 置けない。重ねる 数は ふとんと 同じ（置けるブロックと 同じ 64）。絵は ui/itemArtHouseEditor.ts（仮の 絵）。

@@ -63,6 +63,11 @@ export function wireHouse(deps: WiredYokai) {
   const reduced = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   let preview: Preview3D | null = null;
   const getPreview = (): Preview3D => (preview ??= new Preview3D(game.renderer, () => reduced?.matches === true));
+  // エディターを とじたら 見本を すてる（絵の 表・材料を 持ちっぱなしに しない。次に ひらくと 作りなおす）
+  const releasePreview = (): void => {
+    preview?.dispose();
+    preview = null;
+  };
   house.previewProbe = (mode) => preview?.viewOf(mode) ?? null;
   // ブロックを 置く・ほる → 足もとに かかる 建築士さんが 高さを あわせる（立って いる 間は 毎ステップ 世界を 読まない ため。farm.onBlockChanged と 同じ 流れ）
   watchBlocks(world, house.manager);
@@ -94,7 +99,7 @@ export function wireHouse(deps: WiredYokai) {
     menu: () => house.menu(),
     press: (id) => house.press(id),
     makeEditor: (parent) =>
-      new EditorView({ parent, ctl: house.editor, preview: getPreview, canvas: game.renderer.domElement, press: (id) => house.press(id), sound: fxSound }),
+      new EditorView({ parent, ctl: house.editor, preview: getPreview, release: releasePreview, canvas: game.renderer.domElement, press: (id) => house.press(id), sound: fxSound }),
     screen: kuraScreen,
     tick: () => playCraft(fxSound, 'tab'),
     anchor,
@@ -128,18 +133,22 @@ export function wireHouse(deps: WiredYokai) {
     if (action === 'closeMenu' && house.talking()) house.escape();
     else if (action === 'toggleInventory' && house.talking() && !house.editing()) house.close();
   });
-  // エディターの 中は Esc いがいの キーを ゲームの 操作に しない（W・E・Q・数字キー。AC14）。Esc は エディターの 順で、Backspace は 1 もじ けす
-  const swallow = (e: KeyboardEvent): void => {
-    if (!house.editing() || e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) return;
-    e.stopImmediatePropagation();
-    if (e.type === 'keydown' && !e.repeat) {
-      if (e.key === 'Escape') house.escape();
-      else if (e.key === 'Backspace') house.press('erase');
-    }
-    e.preventDefault();
-  };
-  window.addEventListener('keydown', swallow, true);
-  window.addEventListener('keyup', swallow, true);
+  // エディターの 中は Esc いがいの キーを ゲームの 操作に しない（W・E・Q・数字キー。AC14）。Esc は エディターの 順で、Backspace は 1 もじ けす。
+  // 止めるのは 押した とき（keydown）だけ。はなした とき（keyup）は ゲームに とどける（キーを 押した まま ひらいて、中で はなしても、
+  // とじた あとに ゲームの 側で 押しっぱなしの まま 残らない ように）
+  window.addEventListener(
+    'keydown',
+    (e: KeyboardEvent): void => {
+      if (!house.editing() || e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) return;
+      e.stopImmediatePropagation();
+      if (!e.repeat) {
+        if (e.key === 'Escape') house.escape();
+        else if (e.key === 'Backspace') house.press('erase');
+      }
+      e.preventDefault();
+    },
+    true,
+  );
 
   return { house, architectRenderer, houseUi };
 }

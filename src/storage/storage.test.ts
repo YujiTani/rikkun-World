@@ -125,6 +125,21 @@ describe('たんす', () => {
     expect(r.st.drainEvents().map((e) => e.type)).toEqual(['store', 'storeFull']);
   });
 
+  it('HOUSE-1B: せっけいずの 番号（plan）は たんすに しまって 保存して 読みなおしても のこる。しまう・出す ときも', () => {
+    const r = rig();
+    r.st.open(5, 5, 5);
+    r.inv.setSlot(9, { item: 'sekkeizu', count: 1, plan: 4 });
+    r.st.shiftClick('inv', 9);
+    expect(r.st.get(5, 5, 5)!.slots.find((s) => s?.item === 'sekkeizu'), 'たんすに しまった').toMatchObject({ plan: 4 });
+    const data = JSON.parse(JSON.stringify(r.st.serialize()));
+    r.st.deserialize(data);
+    const i = r.st.get(5, 5, 5)!.slots.findIndex((s) => s?.item === 'sekkeizu');
+    expect(r.st.get(5, 5, 5)!.slots[i], '読みなおした').toEqual({ item: 'sekkeizu', count: 1, plan: 4 });
+    r.st.open(5, 5, 5);
+    r.st.shiftClick('tansu', i);
+    expect(r.inv.slots().find((s) => s?.item === 'sekkeizu'), '持ち物に もどした').toMatchObject({ plan: 4 });
+  });
+
   it('保存と読みこみ・古い保存・setBlock で消えたら中身も消える', () => {
     const r = rig();
     r.st.placed(5, 5, 5, 0);

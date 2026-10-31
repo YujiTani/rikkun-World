@@ -26,6 +26,8 @@ export interface EditorViewOpts {
   ctl: EditorController;
   /** 見本（3D）。はじめて 使う とき 作る（エディターを 開くまでは 作らない） */
   preview: () => Preview3D;
+  /** 見本を しまう（とじた とき 呼ぶ。次に ひらく とき preview() が 作りなおす） */
+  release: () => void;
   /** ゲームの キャンバス（穴の 場所を この 左上から はかる） */
   canvas: HTMLCanvasElement;
   /** ボタンを 押した（窓口 press と 同じ） */
@@ -68,6 +70,9 @@ export class EditorView {
   /** 「あたらしい せっけいず → ぜんぶ けす」を 見た 回数（見本の 向きを はじめに もどす ため） */
   private resets = 0;
   private shown = false;
+  /** 見本の 穴の 四角（measure が 書きかえる 1 つ）と、いま 穴が あるか */
+  private readonly hole: ViewRect = { x: 0, y: 0, w: 0, h: 0 };
+  private hasHole = false;
 
   constructor(private readonly o: EditorViewOpts) {
     const { ctl } = o;
@@ -167,7 +172,7 @@ export class EditorView {
       this.o.preview().hide();
       this.refresh();
     } else {
-      this.o.preview().hide();
+      this.o.release();
     }
   }
 
@@ -210,6 +215,7 @@ export class EditorView {
     this.confirm.update();
     this.need.update();
     this.sayHost.hidden = ctl.bubble === null;
+    this.measure();
   }
 
   /** ふきだしの はば ＝ その すすみの 左の 列の はば（§3.2。ふきだしの 字は これ − 100 で 折りかえす） */
@@ -219,18 +225,26 @@ export class EditorView {
     if (w > 0) this.root.style.setProperty('--ed-say-w', `${Math.round(w)}px`);
   }
 
-  /** 見本の 穴の 四角（キャンバスの 左上から。見本が ない すすみは null） */
-  private rect(): ViewRect | null {
+  /**
+   * 見本の 穴の 四角（キャンバスの 左上から）を はかって `hole` に 書きこむ（見本が ない すすみは hasHole ＝ false）。
+   * 穴の 場所は 画面の 大きさ・すすみ・ふきだし など 状態が かわった ときだけ かわる ので、refresh（と resize の あと）で はかる。
+   * 毎コマ はかると 新しい DOMRect と オブジェクトが 毎コマ できて しまう
+   */
+  private measure(): void {
     const view = this.panels[this.o.ctl.s.step].view;
-    if (!view || !this.shown) return null;
+    this.hasHole = view !== null && this.shown;
+    if (!view || !this.shown) return;
     const r = view.getBoundingClientRect();
     const c = this.o.canvas.getBoundingClientRect();
-    return { x: r.left - c.left, y: r.top - c.top, w: r.width, h: r.height };
+    this.hole.x = r.left - c.left;
+    this.hole.y = r.top - c.top;
+    this.hole.w = r.width;
+    this.hole.h = r.height;
   }
 
   /** 毎コマ（ゲームの 時間が 止まって いても 描く） */
   render(): void {
-    if (this.shown) this.o.preview().draw(this.rect());
+    if (this.shown) this.o.preview().draw(this.hasHole ? this.hole : null);
   }
 
   /** 1 ステップ（1/60 秒）: 見本の 向き */

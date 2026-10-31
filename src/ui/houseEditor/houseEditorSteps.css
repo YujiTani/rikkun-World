@@ -178,7 +178,7 @@
   flex: 1 1 0;
   min-height: 0;
 }
-/* 家具の ボタン: 1 行 ceil(n÷2) こ（9 種 ＝ 上 5・下 4、13 種 ＝ 上 7・下 6）。左 よせ。--ed-pal-cols は naka の JS が 入れる */
+/* 家具の ボタン: 1 行 ceil(n÷2) こ（13 種 ＝ 上 7・下 6）。左 よせ。--ed-pal-cols は naka の JS が 入れる */
 .ed-palette {
   display: grid;
   flex: none;
