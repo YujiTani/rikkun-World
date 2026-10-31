@@ -11,7 +11,7 @@ export const waterWaveUniforms = { uWaveTime: { value: 0 } };
 const g = (n: number): string => n.toFixed(7);
 const TAU = Math.PI * 2;
 
-export const WAVE_GLSL = `
+const WAVE_GLSL = `
 {
   vec4 wp = modelMatrix * vec4(position, 1.0);
   float ph = (wp.x + wp.z * 0.7) * ${g(TAU / WAVE_LENGTH)} + uWaveTime * ${g(TAU / WAVE_PERIOD)};

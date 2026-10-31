@@ -9,7 +9,7 @@ import { sectionToArray } from '../sections';
  */
 
 /** 水の 係が 世界に 求める もの（`ArrayVoxelWorld` が 満たす） */
-export interface WaterWorld {
+interface WaterWorld {
   getIndex(x: number, y: number, z: number): number;
   setBlock(x: number, y: number, z: number, id: BlockId): boolean;
   section(cx: number, sy: number, cz: number): SectionData | undefined;

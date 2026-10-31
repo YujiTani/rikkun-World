@@ -32,8 +32,10 @@ export function forWaterExtra<T>(value: T): Record<WaterExtraId, T> {
 
 /** 1 マスに 入る 量の 上限（つぶ） */
 export const WATER_MAX = 8;
+/** みずの バケツの id */
+export const WATER_BUCKET_ID = 'water_bucket' as const;
 /** 泳ぐ・深い 水と 数える 量（つぶ。4〜8） */
-export const WATER_DEEP = 4;
+const WATER_DEEP = 4;
 /** 水を 計算する 間かく（ステップ。15 = 0.25 秒）。このステップごとに 1 パス */
 export const WATER_TICK_STEPS = 15;
 /** 1 パスで 計算する マスの 上限（マス） */
@@ -50,10 +52,6 @@ export const WAVE_AMP = 0.06;
 export const WAVE_PERIOD = 3;
 /** ゆれの 波の 長さ（世界の マス） */
 export const WAVE_LENGTH = 6;
-/** 流れる 水の テクスチャの 速さ（マス/秒） */
-export const FLOW_SCROLL = 1.0;
-/** 止まった 水の テクスチャの ゆらめき（マス/秒） */
-export const IDLE_SCROLL = 0.1;
 
 const BY_ID: Readonly<Record<string, number>> = {
   water: 8,
@@ -81,12 +79,6 @@ export function waterId(n: number): 'air' | 'water' | WaterPartialId {
   if (n <= 0) return 'air';
   if (n >= WATER_MAX) return 'water';
   return WATER_PARTIAL_IDS[n - 1];
-}
-
-/** 量 n の 番号（0 は null） */
-export function waterIndexOf(n: number): number {
-  if (n >= WATER_MAX) return WATER_FULL_INDEX;
-  return WATER_W0 + n - 1;
 }
 
 /** 量 1〜8 の 水か */
