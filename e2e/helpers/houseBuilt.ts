@@ -381,7 +381,6 @@ export const digAimed = (page: Page): Promise<{ ready: boolean; steps: number }>
     return { ready, steps };
   });
 
-/** 家の 戸の 前の 外の 立ち位置（戸の 2 マス 南の 床の 上。まん中） */
 /** 持ち物の 空いた ホットバーの マスを えらぶ（右クリックが 持ち物の 道具に 取られない ように） */
 export const emptyHand = (page: Page): Promise<void> =>
   page.evaluate(() => {
@@ -392,6 +391,7 @@ export const emptyHand = (page: Page): Promise<void> =>
     h.step(1);
   });
 
+/** 家の 戸の 前の 外の 立ち位置（戸の 3 マス 南の 床の 上。まん中。south で かえられる） */
 export const outsideDoor = (door: Pt, south = 3): Pt => ({ x: door.x + 0.5, y: door.y, z: door.z + south });
 
 /** 戸を あけて（右クリック）外から 戸を 通って 中へ 歩く。足あとを 返す（中の マスまで） */

@@ -25,6 +25,8 @@ function make(over: Omit<Partial<ArchitectManagerDeps>, 'player' | 'world'> & { 
   return { m, world, record, player };
 }
 
+/** もとの 場所に もどった とみなす きょり（nearStand の ずれ） */
+const WORK_BACK = 4;
 const dist = (a: { x: number; z: number }, b: { x: number; z: number }): number => Math.hypot(a.x - b.x, a.z - b.z);
 
 describe('AC1 最初の 1 人', () => {
@@ -312,6 +314,48 @@ describe('AC40 10,000 ステップ: 一覧に 載った まま 自分の 場所�
       const a = m.list()[0]!;
       expect(dist(a, home), `step ${i}`).toBeLessThanOrEqual(3);
     }
+  });
+});
+
+describe('AC40 建築中の 建築士さん（HOUSE-1C PR-2）', () => {
+  /** 建築を 始めた 建築士さんと、戸の 前の 列 */
+  function building() {
+    const r = make();
+    r.m.update();
+    const a0 = r.m.list()[0]!;
+    const home = { x: Math.floor(a0.x), z: Math.floor(a0.z) };
+    const spot = { x: home.x + 12, z: home.z + 9 };
+    r.m.assignBuild('first', spot, null);
+    return { ...r, home, spot };
+  }
+
+  it('10,000 ステップの 間 いつも 戸の 前（作業の 場所）から 横 3 マス以内。とんかちを ふる（busy）', () => {
+    const { m, spot } = building();
+    const center = { x: spot.x + 0.5, z: spot.z + 0.5 };
+    expect(m.list()[0]!.busy).toBe(true);
+    for (let i = 0; i < 10_000; i++) {
+      m.update();
+      expect(dist(m.list()[0]!, center), `step ${i}`).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('完成後: プレイヤーが 32 マス 以上 はなれた ステップで もとの 場所へ もどる。31 マスでは もどらない', () => {
+    const { m, player, home, spot } = building();
+    m.finishBuild('first');
+    expect(m.list()[0]!.busy, '完成で とんかちを やめる').toBe(false);
+    const at = () => m.list()[0]!;
+    // 31 マス: もどらない（ぶらぶらで きょりが ゆれない ように 毎ステップ 建築士さんから 31 マスに おく）
+    for (let i = 0; i < 200; i++) {
+      player.x = at().x + 31;
+      player.z = at().z;
+      m.update();
+    }
+    expect(dist(at(), { x: spot.x + 0.5, z: spot.z + 0.5 }), '31 マスでは もどらない').toBeLessThanOrEqual(3);
+    // 32 マス: もどる
+    player.x = at().x + 32;
+    player.z = at().z;
+    m.update();
+    expect(dist(at(), { x: home.x + 0.5, z: home.z + 0.5 }), '32 マスで もとの 場所').toBeLessThanOrEqual(WORK_BACK);
   });
 });
 

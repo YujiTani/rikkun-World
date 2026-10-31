@@ -38,6 +38,11 @@
     "andon_e": 104,
     "andon_n": 103,
     "andon_w": 102,
+    "ashiba_deck_x": 144,
+    "ashiba_deck_z": 145,
+    "ashiba_flag": 146,
+    "ashiba_x": 142,
+    "ashiba_z": 143,
     "bamboo": 37,
     "bedrock": 10,
     "brick": 13,
@@ -95,6 +100,7 @@
     "iron_ore": 8,
     "kakashi": 27,
     "kakashi_head": 28,
+    "katame_tsuchi": 141,
     "kawara": 12,
     "kin_ore": 64,
     "kusa": 39,
@@ -1021,6 +1027,42 @@
       "id": "long_table_3_e",
       "name": "ながい テーブル",
       "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "katame_tsuchi",
+      "name": "かためた つち",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "ashiba_x",
+      "name": "あしば",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "ashiba_z",
+      "name": "あしば",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "ashiba_deck_x",
+      "name": "あしば",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "ashiba_deck_z",
+      "name": "あしば",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "ashiba_flag",
+      "name": "あしば",
+      "solid": true
     }
   ],
   "DIG_DEFAULTS": {
@@ -1045,6 +1087,11 @@
       "andon_e": 5,
       "andon_n": 5,
       "andon_w": 5,
+      "ashiba_deck_x": null,
+      "ashiba_deck_z": null,
+      "ashiba_flag": null,
+      "ashiba_x": null,
+      "ashiba_z": null,
       "bamboo": 1.5,
       "bedrock": null,
       "brick": 6,
@@ -1102,6 +1149,7 @@
       "iron_ore": 15,
       "kakashi": null,
       "kakashi_head": null,
+      "katame_tsuchi": 0.5,
       "kawara": 4,
       "kin_ore": 15,
       "kusa": 0.05,
@@ -1188,6 +1236,11 @@
       "andon_e": 0,
       "andon_n": 0,
       "andon_w": 0,
+      "ashiba_deck_x": 0,
+      "ashiba_deck_z": 0,
+      "ashiba_flag": 0,
+      "ashiba_x": 0,
+      "ashiba_z": 0,
       "bamboo": 0,
       "bedrock": 0,
       "brick": 0,
@@ -1245,6 +1298,7 @@
       "iron_ore": 1,
       "kakashi": 0,
       "kakashi_head": 0,
+      "katame_tsuchi": 0,
       "kawara": 0,
       "kin_ore": 2,
       "kusa": 0,
@@ -1332,6 +1386,11 @@
       "andon_e": "uncommon",
       "andon_n": "uncommon",
       "andon_w": "uncommon",
+      "ashiba_deck_x": "common",
+      "ashiba_deck_z": "common",
+      "ashiba_flag": "common",
+      "ashiba_x": "common",
+      "ashiba_z": "common",
       "bamboo": "common",
       "bedrock": "common",
       "brick": "uncommon",
@@ -1389,6 +1448,7 @@
       "iron_ore": "rare",
       "kakashi": "common",
       "kakashi_head": "common",
+      "katame_tsuchi": "common",
       "kawara": "uncommon",
       "kin_ore": "epic",
       "kusa": "common",
@@ -1528,6 +1588,10 @@
     "haniwa": {
       "count": 1,
       "item": "haniwa"
+    },
+    "katame_tsuchi": {
+      "count": 1,
+      "item": "dirt"
     },
     "lantern": {
       "count": 1,

@@ -205,6 +205,11 @@ export class CelebrateUi {
     this.bandModel.preempt();
   }
 
+  /** 完成の 帯「<名前> が できた！」を 列に 入れる（HOUSE-1C PR-2。実績・テロップ・家の 名前と 重ならず ならぶ） */
+  enqueueHouseDone(text: string): void {
+    this.bandModel.enqueueHouseDone(text);
+  }
+
   /** `ui.topBand()` */
   topBand(): TopBandInfo {
     return this.bandModel.info(this.d.appear?.() ?? null);
@@ -234,7 +239,7 @@ export class CelebrateUi {
       this.bandView.showTelop(this.d.itemName(item), this.d.itemIconUrl(item), this.d.itemRarity(item) + 1, r.telopSource ?? 'nushi');
       this.d.onTelopStart?.(item);
     }
-    if (r.houseStarted !== null) this.bandView.showHouse(r.houseStarted);
+    if (r.houseStarted !== null) this.bandView.showHouse(r.houseStarted, r.houseDone);
     if (r.toastEnded) for (const f of this.closedFns) f(r.toastEnded);
     this.bandView.paint(appearing ? null : this.bandModel.ease(), this.d.reducedMotion?.() ?? false);
   }

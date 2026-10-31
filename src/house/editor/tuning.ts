@@ -42,6 +42,12 @@ export const ROOF_Y = HEIGHT.floor + HEIGHT.inner;
 export const WINDOW_Y = HEIGHT.floor + HEIGHT.windowLevel - 1;
 export const DOOR_TOP_Y = HEIGHT.floor + HEIGHT.doorLevels - 1;
 
+/**
+ * 建築の 長さ（仕様 §4.1。1 ステップ ＝ 1/60 秒）＝ base ＋ perCell × (よこ ＋ たて − baseSum)。5×5 で 9,000（2 分 30 秒）、9×9 で 16,200（4 分 30 秒）。
+ * 式は model.ts の houseBuildTicks 1 か所
+ */
+export const BUILD_TICKS = { base: 9000, perCell: 900, baseSum: 10 } as const;
+
 /** 窓 1 こに かみ 1 まい（しょうじ。§4.1） */
 export const PAPER_PER_WINDOW = 1;
 

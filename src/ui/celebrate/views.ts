@@ -273,12 +273,12 @@ export class BandView {
     this.root.hidden = false;
   }
 
-  /** 家の 名前の 帯を 出し始める（絵と 見出しは なし。名前だけ。窓口の 目印 `house-name-band` を つける） */
-  showHouse(text: string): void {
+  /** 家の 帯を 出し始める（絵と 見出しは なし。字だけ。窓口の 目印は 名前の 帯 `house-name-band`、完成の 帯〔done〕 `house-done-banner`） */
+  showHouse(text: string, done = false): void {
     this.kind = 'house';
     this.band.className = 'cel-band cel-house';
     this.band.dataset.band = 'house';
-    this.band.dataset.testid = 'house-name-band';
+    this.band.dataset.testid = done ? 'house-done-banner' : 'house-name-band';
     this.medal = null;
     this.plain(true);
     this.name.textContent = text;

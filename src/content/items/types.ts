@@ -3,6 +3,7 @@ import type { InfoRow } from '../../craft/info/table';
 import type { ToolFamily } from '../../dig/toolFamily';
 import type { ItemCategory } from '../../ui/itemCategory';
 import { CHALK_MARK_IDS } from '../../world/blocks/chalkMark';
+import { KATAME_TSUCHI, SCAFFOLD_IDS } from '../../world/blocks/buildBlocks';
 import { FURN_VARIANT_IDS, HOUSE_DOOR_PART_IDS } from '../../world/blocks/houseBlocks';
 
 /**
@@ -25,6 +26,9 @@ export const BLOCK_ONLY_IDS = [
   // HOUSE-1C PR-1（#340）: 戸の のこり 3 マス・向きの ある 家具の 向き ちがい／2 つ目 いこうの マス（ほると 元の アイテム〔`tansu`・`table` …〕 1 こ）。向き 0 の 1 つ目〔`tansu`・`table` …〕は アイテムの id と 同じ ので ここには 入れない
   ...HOUSE_DOOR_PART_IDS,
   ...FURN_VARIANT_IDS,
+  // HOUSE-1C PR-2（#340）: かためた つち（ほると つち `dirt` 1 こ。FARM_BREAK_DROP）・足場 5 つ（ほれない・置けない）
+  KATAME_TSUCHI,
+  ...SCAFFOLD_IDS,
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 

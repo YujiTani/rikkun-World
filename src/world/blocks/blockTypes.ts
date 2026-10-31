@@ -1,4 +1,5 @@
 import type { BlockId, BlockType } from '../../contracts';
+import { KATAME_TSUCHI, SCAFFOLD_IDS } from './buildBlocks';
 import { CHALK_MARK_IDS, isChalkMarkId } from './chalkMark';
 import { FURNITURE } from '../../house/editor/furniture';
 import { FLAT_FURN_KINDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from './houseBlocks';
@@ -95,6 +96,9 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   ...HOUSE_DOOR_PART_IDS.map((id): BlockType => ({ id, name: 'いえの と', solid: !id.includes('open'), breakable: true })),
   // 向きの ある 家具（向き × マス。今の `tansu`・`furnace` は 向き 0 の ひとつ め）。動かない 机・いす・たなは 固い。あんどん・まるいすも 固い（ぶつかる）
   ...NEW_FURN_BLOCK_IDS.map((id): BlockType => ({ id, name: FURNITURE[furnInfo(id)!.kind].name, solid: true, breakable: true })),
+  // HOUSE-1C PR-2（#340。番号は 後ろに 足す）: かためた つち（ふつうに ほれる）と 足場 5 つ（建築中の 場所だけ。固い・ほれない・アイテムに ならない）
+  { id: KATAME_TSUCHI, name: 'かためた つち', solid: true, breakable: true },
+  ...SCAFFOLD_IDS.map((id): BlockType => ({ id, name: 'あしば', solid: true, breakable: false })),
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -121,6 +125,8 @@ const PROP_IDS: ReadonlySet<string> = new Set([
   // HOUSE-1C: しょうじ・戸（あけしめ 4 つ）・新しい 家具 8 しゅるい。固いが 光を 通す（箱の 形で 描く）。かべ・ゆか・やね・たんす・かまどは 平らな 箱
   'shoji', 'house_door', ...HOUSE_DOOR_PART_IDS,
   ...NEW_FURN_BLOCK_IDS.filter((id) => !FLAT_FURN_KINDS.has(furnInfo(id)!.kind)),
+  // HOUSE-1C PR-2: 足場（固いが 光を 通す。細い 箱で 描く）
+  ...SCAFFOLD_IDS,
 ]);
 const PROP = BLOCK_TYPES.map((t) => PROP_IDS.has(t.id));
 export function isPropIndex(index: number): boolean {

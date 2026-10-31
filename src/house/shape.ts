@@ -1,12 +1,13 @@
 // 建った 家の 形（HOUSE-1C PR-1 #340。仕様 docs/design/HOUSE-1.md §4.8・AC49）。せっけいず → 外の 箱の ぜんぶの マスの ブロック。DOM・three・世界なし（純粋な 計算）。
 // 形の 式は エディターの model.ts（windowCells・doorIndex・footprint）を 使う。別の 所に 同じ 計算を 書かない。
-import type { BlockId } from '../contracts';
+import type { BlockId, Vec3 } from '../contracts';
 import { FURN_LEN, doorId, furnCells, type FurnBlockKind, type FurnRot } from '../world/blocks/houseBlocks';
 import { FUTON_FOOT, FUTON_HEAD, type FutonDir } from '../world/blocks/futon';
 import { KOTATSU_CELLS } from '../world/blocks/kotatsu';
 import { K_FUTON, K_KOTATSU, type FurnKind } from './editor/furniture';
 import { doorIndex, windowCells, type Placed } from './editor/model';
 import { HEIGHT, ROOF_Y, WINDOW_Y, type Rot } from './editor/tuning';
+import type { HouseBook, HouseRec } from './book';
 import type { Blueprint } from './editor/blueprint';
 
 interface ShapeCell {
@@ -87,4 +88,23 @@ export function houseShape(bp: Pick<Blueprint, 'w' | 'd' | 'windows' | 'furnitur
     for (const c of furnitureCells(p)) at(1 + c.x, HEIGHT.floor, 1 + c.z).id = c.id;
   }
   return { outerW: ow, outerD: od, cells, door: { x: doorX, y: HEIGHT.floor, z: doorZ } };
+}
+
+/** 家の 形を 外の 箱ぜんぶに 書く（足場は 空気で きえる）。at ＝ 外の 箱の 北西の すみの 床の 高さ */
+export function writeShape(world: { setBlock(x: number, y: number, z: number, id: BlockId): boolean }, bp: Pick<Blueprint, 'w' | 'd' | 'windows' | 'furniture'>, at: Vec3): void {
+  for (const c of houseShape(bp).cells) world.setBlock(at.x + c.x, at.y + c.y, at.z + c.z, c.id);
+}
+
+/** 家の 記録（戸の 場所は 形から）を book に 足す */
+export function recordHouse(book: Pick<HouseBook, 'add'>, bp: Pick<Blueprint, 'w' | 'd' | 'windows' | 'furniture' | 'name'>, number: number, at: Vec3): HouseRec {
+  const shape = houseShape(bp);
+  return book.add({
+    name: bp.name.front + bp.name.back,
+    front: bp.name.front,
+    back: bp.name.back,
+    number,
+    outer: { w: shape.outerW, d: shape.outerD },
+    door: { x: at.x + shape.door.x, y: at.y + shape.door.y, z: at.z + shape.door.z },
+    doorOpen: false,
+  });
 }

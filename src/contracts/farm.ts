@@ -382,7 +382,9 @@ export type RightClickKind =
   // MINE-1B: チョークで かく・いしばいを まく
   | 'chalkDraw' | 'ripen'
   // HOUSE-1C PR-1: 家の 戸を あける・しめる（上下 どちらを ねらっても 2 マス いっしょ）
-  | 'doorOpen' | 'doorClose';
+  | 'doorOpen' | 'doorClose'
+  // HOUSE-1C PR-2: みずもりで きじゅんを きめる・どうづきで じがため
+  | 'level' | 'tamp';
 
 // ---------------------------------------------------------------- 設定（§4.3・§4.4・§4.5）
 

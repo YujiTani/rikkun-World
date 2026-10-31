@@ -48,6 +48,32 @@ export class HouseBook {
     return this.recs;
   }
 
+  /** 保存（HOUSE-1C PR-2。記録の 写し。次の 番号は 持たない: 読みこむ とき 一番 大きい id の 次から） */
+  serialize(): HouseRec[] {
+    return this.recs.map((r) => ({ ...r, door: { ...r.door }, outer: { ...r.outer } }));
+  }
+
+  /** 読みこむ（前の 記録は すてる）。形が おかしい 1 件は とばす。キーが ない（前の セーブ）なら 家なし */
+  restore(raw: unknown): void {
+    this.recs.length = 0;
+    this.byDoor.clear();
+    this.nextId = 1;
+    this.prevX = Number.NaN;
+    this.prevZ = Number.NaN;
+    if (!Array.isArray(raw)) return;
+    const int = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
+    for (const x of raw as unknown[]) {
+      const r = x as Partial<Record<keyof HouseRec, unknown>> | null;
+      const door = r?.door as Record<string, unknown> | undefined;
+      const outer = r?.outer as Record<string, unknown> | undefined;
+      if (!r || !int(r.id) || !int(r.number) || typeof r.front !== 'string' || typeof r.back !== 'string' || !door || !int(door.x) || !int(door.y) || !int(door.z) || !outer || !int(outer.w) || !int(outer.d)) continue;
+      const rec: HouseRec = { id: r.id, name: r.front + r.back, front: r.front, back: r.back, number: r.number, outer: { w: outer.w, d: outer.d }, door: { x: door.x, y: door.y, z: door.z }, doorOpen: r.doorOpen === true };
+      this.recs.push(rec);
+      this.byDoor.set(keyOf(rec.door.x, rec.door.y, rec.door.z), rec);
+      this.nextId = Math.max(this.nextId, rec.id + 1);
+    }
+  }
+
   get(id: number): HouseRec | null {
     return this.recs.find((r) => r.id === id) ?? null;
   }
