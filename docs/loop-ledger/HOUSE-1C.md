@@ -23,3 +23,20 @@ PR-1（#340, PR #369, ec84f42）を code-reviewer が見た結果（判定: 不�
 | 2 | dev | code-reviewer | 【軽微】13: house/book.ts doorBelow — 1 ステップに最大 3 回の表引き（AC34①「2 こまで」と読める） | fy±1 まで見るようにした | | 未対応（fy だけで足りるなら減らす） |
 | 2 | dev | code-reviewer | 【軽微】14（できれば）: 出入りをくり返すと同じ家の名前の帯が何回も列に入る | 列に同じ名前の重複よけがない | | 未対応 |
 | 2 | dev | code-reviewer | 【軽微】15（できれば）: world/blocks/blockTypes.ts が house/editor/furniture を import（向きが逆。輪はなし、cycles 6/6） | FURN_NAME を消して FURNITURE を直接見た | | 未対応（害はない。気になるなら名前の表を world 側へ） |
+
+PR-2「地盤と 建築」（#340, house-1c-pr2, 実装 e8ec7f1・3a99109）を code-reviewer が見た結果（判定: 合格・重大 0・軽微 12）。tsc・関係ユニット 71 ファイル 935 件・ratchet 緑・eslint の max-lines／no-restricted-imports 0。音は install-A.diff.txt と 同じ。E2E は回していない。
+
+| 周 | ループ | 指摘した係 | 指摘（どこ・なに） | 原因の見立て | グループ | 状態 |
+|---|---|---|---|---|---|---|
+| 1 | dev | code-reviewer | 【軽微】PR2-1: dig/DigSystem.ts:527 — どうづきを 押しつづけると due（placeRepeatTicks 30）で 30 ステップごと。§4.4 は「押しつづけても 20 ステップに 1 回」 | 置くの くり返しの 間かくに 乗せた | | 未対応（tamp は 毎ステップ build.tamp を 呼び Dozuki の 20 に まかせる） |
+| 1 | dev | code-reviewer | 【軽微】PR2-2: ui/houseSite/celebrate.ts・wire/house.ts:161 — 「<名前> が できた！」を TopBandModel の 列に 入れず 別の DOM。帯が 出ている 間は かくれた まま 420 ステップが へり、出ない ことも ある／あとから 来た 実績が 上に かさなる | PR-1 指摘 4 と 同じ（上の 帯を 1 か所で ならべない） | PR-1 の 4 | 未対応（bandModel に 完成の 帯を 足す） |
+| 1 | dev | code-reviewer | 【軽微】PR2-3: house/build/glue.ts:149 finishShape と house/system.ts:366 buildNow が 同じ「形を 書く＋記録」を 2 か所に。glue.ts:204 houseViews も system.houses の 写し | 1 データ 1 か所（#304） | | 未対応（1 つの 関数に して 両方から 呼ぶ。houseViews は 消す） |
+| 1 | dev | code-reviewer | 【軽微】PR2-4: world/blocks/flora.ts:4 LEAF_BLOCKS — blockTypes.ts:165 の isLeafId と 同じ 表 | 既存を さがさず 足した | | 未対応（isLeafId を 使う） |
+| 1 | dev | code-reviewer | 【軽微】PR2-5: house/build/sites.ts:25・glue.ts:120・tamp.ts:37 — 「消える 草花」が isFloraBlock（kusa・nobana）だけ。§4.7 は はな・すすき も 入る | 既存の 関数の 名前で 決めた | | 未対応（PO に はな・すすきを 消して よいか 聞いて 表を 決める） |
+| 1 | dev | code-reviewer | 【軽微】PR2-6: house/build/glue.ts:127 — 中に いた プレイヤーを 戸の 前の 2 マス先（z = 箱 ＋ 1）へ うつすが、そこは しらべて いない（しらべたのは 1 マス先）。妖怪・動物（AnimalManager.evictFrom・YokaiManager.evictFrom）も 同じ | うつす 先の 立てるかを 見ていない | | 未対応（しらべた 戸の 前の 列、だめなら nearStand で 近い 立てる 所） |
+| 1 | dev | code-reviewer | 【軽微】PR2-7: house/build/tuning.ts:50 SKY.height 40 — §3.4 は「真上 24 マス」【PO 案】 | 探す 範囲を 画面に 入れる ため 変えた | | 未対応（PO が 40 で よければ 仕様を 直す） |
+| 1 | dev | code-reviewer | 【軽微】PR2-8: house/keyGuard.ts:23 — 上空の 視点の Enter を keydown で 直に 読む。§3.4・CLAUDE.md は Action（confirm 案）経由 | 既存の キーの 見はりに 足した | | 未対応（できれば actions.ts に confirm を 足す。今は 動く） |
+| 1 | dev | code-reviewer | 【軽微】PR2-9: ユニット不足 — 票の 期待 8（AC23 シード固定 3,600 ステップの 湧き・AC34② ちょうちん 2 倍で 仕事 2 倍くらい）・10（AC40 10,000 ステップ 3 マス 以内・32／31 マスで もどる／もどらない） | 判定の 関数だけ 見た | | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】PR2-10（できれば）: 使われない 数・口 — tuning.ts の ARCHITECT_WORK.wanderRadius（architect.ts の WANDER_RADIUS 2.5 と 意味が かさなる）・CELEBRATE.confettiTicks／toastTicks・GlueDeps.blueprint・builder.start の length 0 の 式（glue が いつも 長さを わたす） | 書きかけの 名残 | | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】PR2-11（できれば）: game/wire/houseSite.ts:103・117 — 上空の 視点の 間 毎フレーム cursor() の 物・inSky の クロージャを 作る／みずもりを 持つ 間 毎フレーム 169 この 行列を 書きなおす | 毎フレーム 呼ぶ 所で 変わった かを 見ていない | | 未対応（メニュー中・持つ 間だけ なので あとでよい） |
+| 1 | dev | code-reviewer | 【軽微】PR2-12（できれば）: house/build/builder.ts — 場所が 読みこまれて いない 間に 完成すると houses() と 紙ふぶきが 読みこみ まで おくれる（AC21「同じ ステップで houses() に 入る」）。builder.ts:101 の「写しを 返す」は 中身 そのもの | 世界を 書けない 間の 扱い | | 未対応（記録だけ 先に 足すか、仕様に 書く） |
