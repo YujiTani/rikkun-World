@@ -100,7 +100,8 @@ test.describe('HOUSE-1C PR-2 地盤', () => {
       expect(lv2.cells.find((c) => c.x === high.x && c.z === high.z)?.state, 'ほって 同じ 高さに すると ok').toBe('ok');
       expect(await itemCount(page, 'dirt'), 'ほった つちが 手に 入った').toBeGreaterThanOrEqual(1);
       // うめる: つちを 持って、低い 列の 下の ブロックの 上を ねらって 置く。そのあと みずもりを 持ち直すと 色が もどる
-      await standAt(page, { x: low.x + 0.5, y: gy + 1, z: low.z + 3.5 }, 0);
+      // 穴の 手前の ふちが じゃまに ならない ように 穴の すぐ 手前に 立つ
+      await standAt(page, { x: low.x + 0.5, y: gy + 1, z: low.z + 1.5 }, 0);
       expect(await holdItem(page, 'dirt'), 'つちを 手に 持つ').toBeGreaterThanOrEqual(0);
       const tp = await aimBlock(page, { ...low, y: gy - 1 }, 1);
       expect(tp?.block, 'うめる 場所の 下の ブロック').toEqual({ ...low, y: gy - 1 });
@@ -164,7 +165,7 @@ test.describe('HOUSE-1C PR-2 地盤', () => {
       await emptyHand(page);
       const before = await itemCount(page, 'dirt');
       await standAt(page, { x: p1.x + 0.5, y: gy + 1, z: p1.z + 3.5 }, 0);
-      await aimBlock(page, p1, 0.5);
+      await aimBlock(page, p1, 1); // 上の 面を ねらう（側面の まん中だと 手前の となりに 当たる）
       await digAimed(page);
       expect(await blockOf(page, p1), 'ほると なくなる').toBe('air');
       expect(await itemCount(page, 'dirt') - before, 'ほると つち').toBe(1);

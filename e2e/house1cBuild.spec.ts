@@ -80,7 +80,7 @@ const wordFor = (elapsed: number, length: number): string => (elapsed * 3 < leng
 test.describe('HOUSE-1C PR-2 建築', () => {
   test('AC18〜AC22・AC31（建築中は 1 けんだけ）・AC32c・AC39〜AC41・AC51・AC36・AC49: せっけいず → 上空の 視点 → 確かめ → 建築中 → 完成 → 戸から 入る', async ({ page }) => {
     test.setTimeout(420_000);
-    await openHouse(page);
+    await openHouse(page, '?seed=7'); // ?nosave=1 を つけない（保存する 世界。AC32c で セーブ → 開きなおす）
     const first = await firstArchitect(page);
     // 紙ふぶきの 基準（AC36）。あずける・話す・せっけいずを 作る・建築中では ふえない ことを あとで 見る
     const confetti0 = (await celebrateOf(page)).confetti;
@@ -300,7 +300,9 @@ test.describe('HOUSE-1C PR-2 建築', () => {
       const after = await buildingOf(page);
       expect(after, '建築は つづいて いる').not.toBeNull();
       expect({ name: after!.name, w: after!.w, d: after!.d, at: after!.at }, '名前・大きさ・場所が 同じ').toEqual({ name: beforeSave!.name, w: beforeSave!.w, d: beforeSave!.d, at: beforeSave!.at });
-      expect(Math.abs(after!.leftTicks - beforeSave!.leftTicks), 'のこりが 同じ（開きなおしの 準備の 数ステップ ぶんの ずれは ゆるす）').toBeLessThanOrEqual(4);
+      // ページを 開きなおす 間（読みこみ〜一時停止）に 世界の 時計が 数ステップ（実測 7〜8）すすむ ので、のこりは その ぶんだけ 少なくなる。40% の まま つづく（0 から やりなおし でも 先へ とんでも ない）ことを 見る ため、1 秒（60 ステップ）まで ゆるす
+      expect(beforeSave!.leftTicks - after!.leftTicks, 'のこりは 保存の ときより 増えない').toBeGreaterThanOrEqual(0);
+      expect(beforeSave!.leftTicks - after!.leftTicks, 'のこりは 保存の とおり（開きなおしの 読みこみ 中の 数ステップ ぶんだけ 進む）').toBeLessThanOrEqual(60);
       expect(after!.leftTicks + Math.round(after!.progress * BUILD_TICKS), '長さは 保存した 長さの まま（設定を もう 1 度 入れなくても）').toBe(BUILD_TICKS);
       const cellsAfter = await scanBox(page, at, OUT_W, OUT_D);
       expect(tally(cellsAfter).scaffold, '足場は 保存の とおりに もどる（数は 同じ）').toBe(tally(cellsBefore).scaffold);
