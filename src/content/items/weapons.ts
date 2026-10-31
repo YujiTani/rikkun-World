@@ -12,6 +12,7 @@ import type { ItemDef } from './types';
 export const SWORDS = {
   bokuto: {
     name: 'ぼくとう',
+    zukan: '［木｜き］を けずって ［作｜つく］った ぼくとう。はじめての ぶき。これで ようかいに ゆうきを ［見｜み］せよう。',
     maxStack: 1,
     rarity: 'common',
     category: 'weapon',
@@ -24,6 +25,7 @@ export const SWORDS = {
   },
   katana: {
     name: 'かたな',
+    zukan: 'てつを なんども うって きたえた ［刀｜かたな］。ようかいを ［強｜つよ］く たたける。ほんものの さむらいの きぶん。',
     maxStack: 1,
     rarity: 'rare',
     category: 'weapon',
@@ -35,6 +37,7 @@ export const SWORDS = {
   },
   naginata: {
     name: 'なぎなた',
+    zukan: '［長｜なが］い えの ［先｜さき］に はを つけた なぎなた。［遠｜とお］くまで とどいて、ついたり はらったり かわりばんこに わざが ［出｜で］る。',
     maxStack: 1,
     rarity: 'rare',
     category: 'weapon',
@@ -52,6 +55,7 @@ export const SWORDS = {
   },
   crystal_katana: {
     name: 'きらめく カタナ',
+    zukan: 'すいしょうの ［光｜ひかり］を とじこめた ［刀｜かたな］。つづけて ふると、きらきらの 3 だんわざに なる。ふるたびに ［光｜ひかり］の すじが ［空｜そら］に のこる。',
     maxStack: 1,
     rarity: 'superRare',
     category: 'weapon',
@@ -67,6 +71,7 @@ export const BOWS = {
   // ゆみ: や の ダメージは 設定 bowDamage（1・2・3 だん）。ゆみごとに かえる ときだけ `bow` を 書く
   yumi: {
     name: 'ゆみ',
+    zukan: '［木｜き］と ［糸｜いと］で ［作｜つく］った ［弓｜ゆみ］。［矢｜や］を ［引｜ひ］いて はなせば、［遠｜とお］くの ようかいにも とどく。ねらいを よく さだめて。',
     maxStack: 1,
     rarity: 'uncommon',
     category: 'weapon',
@@ -82,6 +87,7 @@ export const BOWS = {
   // や: ゆみが つかう。つかうと 1 こ へる（たいきゅうは なし）。1 マス 64 こ（BLOCK_MAX_STACK と 同じ）
   ya: {
     name: 'や',
+    zukan: '［弓｜ゆみ］で とばす ［矢｜や］。［先｜さき］に ［石｜いし］、うしろに ［紙｜かみ］の ［羽｜はね］が ついて いて、まっすぐ とんで いく。',
     maxStack: 64,
     rarity: 'common',
     category: 'weapon',

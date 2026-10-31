@@ -35,6 +35,7 @@ const placeInfo = (use: string, extra: { how?: string; buttons?: Array<'1-9' | '
 export const PLACEABLE = {
   grass: {
     name: blockName('grass'),
+    zukan: 'ふかふかの ［草｜くさ］の はえた ［土｜つち］。こわすと ときどき やさいの たねが みつかる。［草｜くさ］を あんで わらじも ［作｜つく］れる。',
     maxStack: BLOCK_STACK,
     placeBlock: 'grass',
     rarity: blockRarity('grass'),
@@ -43,6 +44,7 @@ export const PLACEABLE = {
   },
   dirt: {
     name: blockName('dirt'),
+    zukan: 'どこを ほっても ［出｜で］てくる ちゃいろい ［土｜つち］。つみあげれば かべ、ほれば あな。くわで たがやせば やさいの そだつ はたけにも なる。せかいづくりの いちばん はじめの なかま。',
     maxStack: BLOCK_STACK,
     placeBlock: 'dirt',
     rarity: blockRarity('dirt'),
@@ -51,6 +53,7 @@ export const PLACEABLE = {
   },
   stone: {
     name: blockName('stone'),
+    zukan: 'じめんの ［下｜した］に ずっと つづく かたい ［石｜いし］。つるはしや かまどの もとに なる、たよれる ざいりょう。ほって いくと その おくに ［光｜ひか］る ［石｜いし］が ねむって いる かも。',
     maxStack: BLOCK_STACK,
     placeBlock: 'stone',
     rarity: blockRarity('stone'),
@@ -59,6 +62,7 @@ export const PLACEABLE = {
   },
   sand: {
     name: blockName('sand'),
+    zukan: '［海｜うみ］や ［川｜かわ］の そばに ある さらさらの すな。はだしで ［歩｜ある］くと きもちよさそう。つみあげて すなの おしろを ［作｜つく］って みよう。',
     maxStack: BLOCK_STACK,
     placeBlock: 'sand',
     rarity: blockRarity('sand'),
@@ -67,6 +71,7 @@ export const PLACEABLE = {
   },
   log: {
     name: blockName('log'),
+    zukan: 'せの ［高｜たか］い ［木｜き］から とれる まるた。［木｜き］の どうぐ、たいまつ、たんす。なんでも ［作｜つく］れる だいじな ざいりょうで、かまどで もやす まきにも なる。',
     maxStack: BLOCK_STACK,
     placeBlock: 'log',
     rarity: blockRarity('log'),
@@ -75,6 +80,7 @@ export const PLACEABLE = {
   },
   leaves: {
     name: blockName('leaves'),
+    zukan: '［木｜き］の えだに しげる みどりの はっぱ。おいて かきねや かくれがに すると、ようかいから みつかりにくい。',
     maxStack: BLOCK_STACK,
     placeBlock: 'leaves',
     rarity: blockRarity('leaves'),
@@ -83,6 +89,7 @@ export const PLACEABLE = {
   },
   coal_ore: {
     name: blockName('coal_ore'),
+    zukan: '［黒｜くろ］い つぶの まじった ［石｜いし］。ほると せきたんが とれる。かまどに ［入｜い］れると いきおいよく もえて、いちばん ［先｜さき］に ねんりょうに なって くれる。',
     maxStack: BLOCK_STACK,
     placeBlock: 'coal_ore',
     rarity: blockRarity('coal_ore'),
@@ -91,6 +98,7 @@ export const PLACEABLE = {
   },
   iron_ore: {
     name: blockName('iron_ore'),
+    zukan: 'ちゃいろの つぶが きらりと ［光｜ひか］る ［石｜いし］。かまどで やくと てつに なる。てつが あれば、［強｜つよ］い どうぐや ぶきが ［作｜つく］れるよ。',
     maxStack: BLOCK_STACK,
     placeBlock: 'iron_ore',
     rarity: blockRarity('iron_ore'),
@@ -103,6 +111,7 @@ export const PLACEABLE = {
 export const M4_BLOCKS = {
   furnace: {
     name: blockName('furnace'),
+    zukan: '［石｜いし］を つんで ［作｜つく］った かまど。てつや ねんどを やいたり、お［肉｜にく］を こんがり やいたり できる。',
     maxStack: BLOCK_STACK,
     placeBlock: 'furnace',
     rarity: blockRarity('furnace'),
@@ -112,6 +121,7 @@ export const M4_BLOCKS = {
   },
   kawara: {
     name: blockName('kawara'),
+    zukan: 'ねんどを やいた かたい いた。ならべると むかしの ［家｜いえ］の やねみたいに なる。［雨｜あめ］が ふっても へっちゃら。',
     maxStack: BLOCK_STACK,
     placeBlock: 'kawara',
     rarity: blockRarity('kawara'),
@@ -121,6 +131,7 @@ export const M4_BLOCKS = {
   },
   brick: {
     name: blockName('brick'),
+    zukan: 'ねんどを やいた ［赤｜あか］い ブロック。きれいに つみあげれば、がっしりした かべや えんとつが ［作｜つく］れる。',
     maxStack: BLOCK_STACK,
     placeBlock: 'brick',
     rarity: blockRarity('brick'),
@@ -130,6 +141,7 @@ export const M4_BLOCKS = {
   },
   torch: {
     name: blockName('torch'),
+    zukan: '［木｜き］の ［先｜さき］に ［火｜ひ］を ともした たいまつ。おくと まわりが ［明｜あか］るく なって、ようかいが ［出｜で］て こなく なる。［夜｜よる］の ぼうけんの ひっすひん。',
     maxStack: BLOCK_STACK,
     placeBlock: 'torch',
     rarity: blockRarity('torch'),
@@ -140,6 +152,7 @@ export const M4_BLOCKS = {
   },
   tansu: {
     name: blockName('tansu'),
+    zukan: '［木｜き］と てつで ［作｜つく］った ［大｜おお］きな たんす。もちものを たくさん しまって おける。たからものの かくしばしょに ぴったり。',
     maxStack: BLOCK_STACK,
     placeBlock: 'tansu',
     rarity: blockRarity('tansu'),
@@ -157,6 +170,7 @@ export const M4_BLOCKS = {
 export const GEYSER = {
   geyser_dirt: {
     name: '［間欠泉｜かんけつせん］の つち',
+    zukan: 'あったかい ゆげの ［出｜で］る ふしぎな ［土｜つち］。おくと そこから ［間欠泉｜かんけつせん］が ぶわっと ふきだす。のると ［高｜たか］く とばして もらえるよ。',
     maxStack: BLOCK_STACK,
     placeBlock: 'geyser_dirt',
     rarity: blockRarity('geyser_dirt'),
@@ -169,14 +183,70 @@ export const GEYSER = {
  * すすき・くさ は こわすと 消えるので 持ち物にならない（のばな は 持てる。FLORA-75）。
  */
 export const VOX_I = {
-  snow: { name: blockName('snow'), maxStack: BLOCK_STACK, placeBlock: 'snow', rarity: blockRarity('snow'), category: 'soil' },
-  momiji_leaves: { name: blockName('momiji_leaves'), maxStack: BLOCK_STACK, placeBlock: 'momiji_leaves', rarity: blockRarity('momiji_leaves'), category: 'plant' },
-  matsu_leaves: { name: blockName('matsu_leaves'), maxStack: BLOCK_STACK, placeBlock: 'matsu_leaves', rarity: blockRarity('matsu_leaves'), category: 'plant' },
-  flower_y: { name: blockName('flower_y'), maxStack: BLOCK_STACK, placeBlock: 'flower_y', rarity: blockRarity('flower_y'), category: 'plant' },
-  flower_o: { name: blockName('flower_o'), maxStack: BLOCK_STACK, placeBlock: 'flower_o', rarity: blockRarity('flower_o'), category: 'plant' },
-  flower_p: { name: blockName('flower_p'), maxStack: BLOCK_STACK, placeBlock: 'flower_p', rarity: blockRarity('flower_p'), category: 'plant' },
-  bamboo: { name: blockName('bamboo'), maxStack: BLOCK_STACK, placeBlock: 'bamboo', rarity: blockRarity('bamboo'), category: 'plant' },
-  nobana: { name: blockName('nobana'), maxStack: BLOCK_STACK, placeBlock: 'nobana', rarity: blockRarity('nobana'), category: 'plant' },
+  snow: {
+    name: blockName('snow'),
+    zukan: 'さむい ［国｜くに］の じめんを まっ［白｜しろ］に おおう ［雪｜ゆき］。ふみしめると きゅっきゅっと ［鳴｜な］りそう。［雪｜ゆき］だるまは なんだんまで つめるかな。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'snow',
+    rarity: blockRarity('snow'),
+    category: 'soil',
+  },
+  momiji_leaves: {
+    name: blockName('momiji_leaves'),
+    zukan: '［秋｜あき］の ［山｜やま］を まっ［赤｜か］に そめる もみじの はっぱ。ひらひら まいおちる すがたは とても きれい。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'momiji_leaves',
+    rarity: blockRarity('momiji_leaves'),
+    category: 'plant',
+  },
+  matsu_leaves: {
+    name: blockName('matsu_leaves'),
+    zukan: 'とげとげの まつの はっぱ。さむい ［冬｜ふゆ］でも みどりの まま。ずっと ［元気｜げんき］で いられる えんぎの よい ［木｜き］。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'matsu_leaves',
+    rarity: blockRarity('matsu_leaves'),
+    category: 'plant',
+  },
+  flower_y: {
+    name: blockName('flower_y'),
+    zukan: '［野｜の］はらに さく ［黄色｜きいろ］い ［花｜はな］。お［日｜ひ］さまの ［色｜いろ］を して いて、みつけると なんだか うれしく なる。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'flower_y',
+    rarity: blockRarity('flower_y'),
+    category: 'plant',
+  },
+  flower_o: {
+    name: blockName('flower_o'),
+    zukan: '［野｜の］はらに さく だいだい［色｜いろ］の ［花｜はな］。ゆうやけの ［空｜そら］を すこし わけて もらったような ［色｜いろ］。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'flower_o',
+    rarity: blockRarity('flower_o'),
+    category: 'plant',
+  },
+  flower_p: {
+    name: blockName('flower_p'),
+    zukan: '［野｜の］はらに さく もも［色｜いろ］の ［花｜はな］。そっと ［顔｜かお］を ［近｜ちか］づけると、あまい においが しそう。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'flower_p',
+    rarity: blockRarity('flower_p'),
+    category: 'plant',
+  },
+  bamboo: {
+    name: blockName('bamboo'),
+    zukan: 'まっすぐ のびる みどりの ［竹｜たけ］。［中｜なか］は からっぽで、かるくて じょうぶ。すみと あわせると ふでが ［作｜つく］れる。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'bamboo',
+    rarity: blockRarity('bamboo'),
+    category: 'plant',
+  },
+  nobana: {
+    name: blockName('nobana'),
+    zukan: '［道｜みち］ばたに そっと さく ［野｜の］ばな。［小｜ちい］さくても、ふまれても、［毎日｜まいにち］ ［元気｜げんき］に さいて いる。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'nobana',
+    rarity: blockRarity('nobana'),
+    category: 'plant',
+  },
 } satisfies Partial<Record<BlockId, ItemDef>>;
 
 /**
@@ -187,6 +257,7 @@ export const VOX_I = {
 export const MINE_BLOCKS = {
   sekkaiseki: {
     name: blockName('sekkaiseki'),
+    zukan: '［地｜ち］［下｜か］の ［中｜なか］ほどで みつかる ［白｜しろ］い ［石｜いし］。けずれば チョーク、やけば はたけの まほうの こな「いしばい」に なる。',
     maxStack: BLOCK_STACK,
     placeBlock: 'sekkaiseki',
     rarity: blockRarity('sekkaiseki'),
@@ -195,6 +266,7 @@ export const MINE_BLOCKS = {
   },
   shikkui: {
     name: blockName('shikkui'),
+    zukan: 'いしばいを ねって ［作｜つく］った まっ［白｜しろ］な かべ。おしろの かべにも つかわれた、むかしからの じょうぶな かべ。',
     maxStack: BLOCK_STACK,
     placeBlock: 'shikkui',
     rarity: blockRarity('shikkui'),
@@ -204,6 +276,7 @@ export const MINE_BLOCKS = {
   },
   hotaruishi: {
     name: blockName('hotaruishi'),
+    zukan: '［地｜ち］［下｜か］の くらやみで ぼんやり ［光｜ひか］る ふしぎな ［石｜いし］。ほたるの ［光｜ひかり］を ためこんだ と いわれて いる。おけば やさしい あかりに なる。',
     maxStack: BLOCK_STACK,
     placeBlock: 'hotaruishi',
     rarity: blockRarity('hotaruishi'),
@@ -212,6 +285,7 @@ export const MINE_BLOCKS = {
   },
   kin_ore: {
     name: blockName('kin_ore'),
+    zukan: '［地｜ち］［下｜か］の ずっと ふかい ところに ねむる、［金｜きん］の すじが ［入｜はい］った ［石｜いし］。かまどで やくと ぴかぴかの ［金｜きん］に なる。みつけたら ［大｜おお］あたり！',
     maxStack: BLOCK_STACK,
     placeBlock: 'kin_ore',
     rarity: blockRarity('kin_ore'),

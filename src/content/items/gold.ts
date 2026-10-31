@@ -12,6 +12,7 @@ export const GOLD = {
   // はらぱんみみず: ちか で ようかい を たおす・ブロック を こわす と ときどき でる。なかま の にわとり に あげる
   harapan_mimizu: {
     name: 'はらぱんみみず',
+    zukan: '［地｜ち］［下｜か］の ふかい ところに すむ、おなかが ぱんぱんの まぼろしの みみず。めったに みつからない。にわとりに あげると ［大｜おお］よろこびで、すぐに なかよしに なれる。',
     maxStack: 64,
     rarity: 'epic',
     category: 'plant',
@@ -20,6 +21,7 @@ export const GOLD = {
   // きん: かまどで きんの たまご（LIVE-2）を やく（てつ と 同じ 60 ステップ）
   kin: {
     name: 'きん',
+    zukan: 'やいて とりだした ぴかぴかの ［金｜きん］。さびない ので、むかしの とのさまも たからものに して いた。［金｜きん］の そうびの ざいりょう。',
     maxStack: 64,
     rarity: 'epic', // ほし 5（きん ぜんぶ）
     category: 'metal',
@@ -28,6 +30,7 @@ export const GOLD = {
   },
   kin_katana: {
     name: 'きんの かたな',
+    zukan: '［金｜きん］で きたえた ［刀｜かたな］。ようかいを とても ［強｜つよ］く たたける。ふると ぴかっと ［金｜きん］［色｜いろ］に ［光｜ひか］る。',
     maxStack: 1,
     rarity: 'epic',
     category: 'weapon',
@@ -40,6 +43,7 @@ export const GOLD = {
   },
   kin_yumi: {
     name: 'きんの ゆみ',
+    zukan: '［金｜きん］で ［作｜つく］った ［弓｜ゆみ］。［矢｜や］を とばして ［遠｜とお］くの ようかいを たおす。かまえる すがたも きまって いる。',
     maxStack: 1,
     rarity: 'epic',
     category: 'weapon',
@@ -55,6 +59,7 @@ export const GOLD = {
   },
   kin_pickaxe: {
     name: 'きんの つるはし',
+    zukan: '［金｜きん］で ［作｜つく］った ぴかぴかの つるはし。とても ［早｜はや］く ほれる。もって いるだけで ちょっと じまん できる。',
     maxStack: 1,
     rarity: 'epic',
     category: 'tool',
@@ -65,6 +70,7 @@ export const GOLD = {
   },
   kin_axe: {
     name: 'きんの おの',
+    zukan: '［金｜きん］で ［作｜つく］った ぴかぴかの おの。とても ［早｜はや］く ［木｜き］が ［切｜き］れる。',
     maxStack: 1,
     rarity: 'epic',
     category: 'tool',
@@ -75,6 +81,7 @@ export const GOLD = {
   },
   kin_kabuto: {
     name: 'きんの かぶと',
+    zukan: '［金｜きん］の かぶと。ぴかぴか ［光｜ひか］って、ひのたまの あつさを へらして くれる。',
     maxStack: 1,
     rarity: 'epic',
     category: 'armor',
@@ -85,6 +92,7 @@ export const GOLD = {
   },
   kin_yoroi: {
     name: 'きんの よろい',
+    zukan: '［金｜きん］の よろい。きると まるで おとのさま。ようかいの こうげきを へらして くれる。',
     maxStack: 1,
     rarity: 'epic',
     category: 'armor',
@@ -95,6 +103,7 @@ export const GOLD = {
   },
   kin_kote: {
     name: 'きんの こて',
+    zukan: '［金｜きん］の こて。うでを まもって、ようかいの こうげきを へらして くれる。',
     maxStack: 1,
     rarity: 'epic',
     category: 'armor',
@@ -105,6 +114,7 @@ export const GOLD = {
   },
   kin_suneate: {
     name: 'きんの すねあて',
+    zukan: '［金｜きん］の すねあて。［足｜あし］を まもって、おちた ときの いたさを へらして くれる。',
     maxStack: 1,
     rarity: 'epic',
     category: 'armor',

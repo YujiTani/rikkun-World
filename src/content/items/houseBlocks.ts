@@ -19,6 +19,7 @@ const info = (use: string, how = PLACE_HOW) => ({ use, how, buttons: ['1-9', 'ri
 export const HOUSE_BLOCKS = {
   house_floor: {
     name: blockName('house_floor'),
+    zukan: 'けんちくしさんが しきつめた ［石｜いし］だたみの ゆか。ひんやり して いて、はだしで ［歩｜ある］くと きもちいい。',
     maxStack: BLOCK_STACK,
     placeBlock: 'house_floor',
     rarity: blockRarity('house_floor'),
@@ -28,6 +29,7 @@ export const HOUSE_BLOCKS = {
   },
   house_wall: {
     name: blockName('house_wall'),
+    zukan: 'けんちくしさんが ていねいに くみあげた、［太｜ふと］い いたの かべ。ようかいの あらしにも まけない、たのもしい かべ。',
     maxStack: BLOCK_STACK,
     placeBlock: 'house_wall',
     rarity: blockRarity('house_wall'),
@@ -37,6 +39,7 @@ export const HOUSE_BLOCKS = {
   },
   house_roof: {
     name: blockName('house_roof'),
+    zukan: '［石｜いし］を のせて ［風｜かぜ］に とばされない ように した いたの やね。［雨｜あめ］の ［夜｜よる］も、この やねの ［下｜した］なら あんしん。',
     maxStack: BLOCK_STACK,
     placeBlock: 'house_roof',
     rarity: blockRarity('house_roof'),
@@ -46,6 +49,7 @@ export const HOUSE_BLOCKS = {
   },
   shoji: {
     name: blockName('shoji'),
+    zukan: '［紙｜かみ］を はった ［明｜あか］るい まど。［光｜ひかり］は ［通｜とお］すけれど、ようかいは ［通｜とお］れない。［夜｜よる］に なると ［家｜いえ］の あかりが ほんのり もれて、［遠｜とお］くからでも おうちが みつかる。',
     maxStack: BLOCK_STACK,
     placeBlock: 'shoji',
     rarity: blockRarity('shoji'),
@@ -55,6 +59,7 @@ export const HOUSE_BLOCKS = {
   },
   house_door: {
     name: blockName('house_door'),
+    zukan: 'おうちの ［入｜い］り［口｜ぐち］。みぎクリックで あけたり しめたり できる。しめて おけば ようかいは ［入｜はい］れない。「ただいま」と ［言｜い］って あけよう。',
     maxStack: BLOCK_STACK,
     placeBlock: 'house_door',
     rarity: blockRarity('house_door'),
