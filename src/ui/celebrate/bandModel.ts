@@ -75,6 +75,11 @@ export class TopBandModel {
     if (this.toast.isOpen()) this.toast.restart();
   }
 
+  /** 上の 帯が 今 出ているか（実績・テロップ・家の 名前。毎フレーム 呼べる〔新しい 物を 作らない〕） */
+  busy(): boolean {
+    return this.telop !== null || this.toast.isOpen() || this.house !== null;
+  }
+
   telopShowing(): boolean {
     return this.telop !== null;
   }

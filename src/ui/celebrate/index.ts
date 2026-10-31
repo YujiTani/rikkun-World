@@ -205,6 +205,11 @@ export class CelebrateUi {
     this.bandModel.preempt();
   }
 
+  /** 上の 帯が 出ているか（毎フレーム 呼べる。完成の 帯を 重ねない ために） */
+  topBandBusy(): boolean {
+    return this.bandModel.busy();
+  }
+
   /** `ui.topBand()` */
   topBand(): TopBandInfo {
     return this.bandModel.info(this.d.appear?.() ?? null);

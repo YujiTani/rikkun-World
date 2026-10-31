@@ -3,6 +3,7 @@
  * 点 ＝ 1/16 ブロック。前 ＝ +z ＝ 家の 外（南）。戸は いつも 南向き（PO 決め 2）。しょうじは 前後 対称（外からも 中からも 同じ）。
  * 絵の 名前は houseArt.ts の HouseTile。ゲームの 世界の 描き方は render/houseProp.ts。
  */
+import type { ScaffoldTile } from './buildBlocks';
 import type { HouseTile } from './houseArt';
 
 // ============================================================ 箱の 形（戸・しょうじ。点 = 1/16 ブロック。前 = +z = 家の 外）
@@ -11,7 +12,7 @@ export interface HouseBox {
   min: readonly [number, number, number];
   max: readonly [number, number, number];
   /** 面ごとの 絵（なければ side、さらに なければ house_door_edge） */
-  tiles: Partial<Record<BoxFace | 'side', HouseTile>>;
+  tiles: Partial<Record<BoxFace | 'side', HouseTile | ScaffoldTile>>;
   /** 絵を 箱の 位置で うつす ときの ずれ（点）。front/back の 絵の 左右の 位置 */
   uOff?: number;
   /** 描かない 面（かべに うまる 面） */

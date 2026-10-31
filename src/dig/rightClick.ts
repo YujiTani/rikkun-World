@@ -53,6 +53,8 @@ export interface RightClickCtx {
   coop?(): { eggs: number; /** LIVE-3: えらべる 子 が 1 わ 以上 いる（メニュー を ひらく） */ menu?: boolean } | null;
   /** LIVE-2 §2.11 の 10a: `toriya` を 持って 地面 を ねらって いる とき の 答え。'ok' = 置ける、'noRoom' = どこ も 入らない、'max' = 3 つ まで。ねらって いなければ null */
   coopSpot?(): 'ok' | 'noRoom' | 'max' | null;
+  /** HOUSE-1C PR-2: みずもり（'level'）・どうづき（'tamp'）を 持って、ブロックを ねらっている。そうでなければ null */
+  siteTool?(): 'level' | 'tamp' | null;
   /** 持っているものを、ねらっている所の前に置けるか */
   canPlace(): boolean;
   /** MINE-1B: チョークを 持って、かける 面（ゆか・かべ）か かきなおせる しるしを ねらっている */
@@ -77,7 +79,7 @@ export function isKitEgg(item: ItemId | null): boolean {
   return item === 'egg' || item === 'kin_tamago';
 }
 
-/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → 家の 戸 → ふとん（ねる）→ たこ → 防具 → チョーク（かく）→ バケツ → じょうろ（4a くむ・4b まく・4c 合図）→ いしばい（まく）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
+/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → 家の 戸 → ふとん（ねる）→ たこ → みずもり・どうづき → 防具 → チョーク（かく）→ バケツ → じょうろ（4a くむ・4b まく・4c 合図）→ いしばい（まく）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
 export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   const t = c.target;
   if (c.carrying?.()) return { kind: c.throwKind?.() ?? 'putDown', item: null };
@@ -101,6 +103,9 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   // ITEM-FX-1: ふとん（ねる。置くより 先）・たこ（持って 右クリック。ねらいが なくても）
   if (t && isFutonId(t.id)) return { kind: 'sleep', item: null };
   if (c.held === GADGET_ID.kite) return { kind: 'kite', item: c.held };
+  // HOUSE-1C PR-2: みずもり・どうづき（置けない 道具。ブロックを ねらって いる とき）
+  const tool = t ? c.siteTool?.() : null;
+  if (tool) return { kind: tool, item: c.held };
   if (c.held && c.canEquip(c.held)) return { kind: 'armor', item: c.held };
   if (t && c.canChalk?.()) return { kind: 'chalkDraw', item: c.held }; // MINE-1B: たんす・かまど・ふとん の あと（そちらの 働きが 先）
   const b = c.bucket?.();

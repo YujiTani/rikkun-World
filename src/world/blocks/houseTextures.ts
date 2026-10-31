@@ -5,6 +5,8 @@
  * エディターの 見本も 同じ 表を 読む（見本の ための 写しの 表は 持たない）。ブロックの 絵と 同じ 名前の ときは そちらを 使う（`tileOf`）。
  */
 import type { BlockId } from '../../contracts';
+import { BUILD_TILE_NAMES, buildTiles, type BuildTile } from './buildArt';
+import { KATAME_TSUCHI, SCAFFOLD_IDS } from './buildBlocks';
 import { FURN_TILE_NAMES, furnTiles, type FurnTile } from './furnitureArt';
 import { HOUSE_TILE_NAMES, houseTiles, type HouseTile } from './houseArt';
 import { FURN_BLOCK_IDS, FLAT_FURN_KINDS, furnBlockId, furnInfo, type FlatFurnKind, type FurnBlockKind, type FurnRot } from './houseBlocks';
@@ -12,10 +14,10 @@ import type { Px } from './houseTilePaint';
 import type { TileName } from './textures';
 
 type FurnAtlasTile = `furn_${FurnTile}`;
-export type HouseAtlasTile = HouseTile | FurnAtlasTile;
+export type HouseAtlasTile = HouseTile | FurnAtlasTile | BuildTile;
 
-/** 世界の 絵の 表に 足す 名前（家の ブロック 12 → 家具 20 の 順） */
-export const HOUSE_ATLAS_TILE_NAMES: readonly HouseAtlasTile[] = [...HOUSE_TILE_NAMES, ...FURN_TILE_NAMES.map((n): FurnAtlasTile => `furn_${n}`)];
+/** 世界の 絵の 表に 足す 名前（家の ブロック 12 → 家具 20 → 建築の ブロック 8 の 順。PR-2 の 8 まいは さいごに 足した） */
+export const HOUSE_ATLAS_TILE_NAMES: readonly HouseAtlasTile[] = [...HOUSE_TILE_NAMES, ...FURN_TILE_NAMES.map((n): FurnAtlasTile => `furn_${n}`), ...BUILD_TILE_NAMES];
 const HOUSE_SET: ReadonlySet<string> = new Set<string>(HOUSE_ATLAS_TILE_NAMES);
 
 export function isHouseTile(name: string): name is HouseAtlasTile {
@@ -24,12 +26,13 @@ export function isHouseTile(name: string): name is HouseAtlasTile {
 
 let painted: Record<string, Px> | null = null;
 
-/** 絵 1 まい（0xRRGGBB の 列。上の 行から）。初めに 32 まい まとめて 描いて おぼえる */
+/** 絵 1 まい（0xRRGGBB の 列。上の 行から）。初めに 40 まい まとめて 描いて おぼえる */
 export function paintHouseTile(name: HouseAtlasTile): Px {
   if (!painted) {
     painted = { ...houseTiles() };
     const furn = furnTiles();
     for (const n of FURN_TILE_NAMES) painted[`furn_${n}`] = furn[n];
+    Object.assign(painted, buildTiles());
   }
   return painted[name]!;
 }
@@ -93,9 +96,16 @@ export const FURN_FACE_TILES: Readonly<Record<string, readonly TileName[]>> = Ob
   ),
 );
 
+/** 建築の ブロックの [上, 下, 横]: かためた つち（はんこの ます目）と 足場（箱の 組み合わせ。描くのは render/houseProp.ts。ここの 3 つは 代表の 絵） */
+const BUILD_BLOCK_TILES: Readonly<Partial<Record<BlockId, Tiles3>>> = {
+  [KATAME_TSUCHI]: ['h1_soil_top', 'h1_soil_side', 'h1_soil_side'],
+  ...Object.fromEntries(SCAFFOLD_IDS.map((id) => [id, ['h1_plank', 'h1_plank_end', 'h1_pole'] as Tiles3])),
+};
+
 /** 家の ブロックの [上, 下, 横]（ゆか・かべ・やね）と 向きごとの たんす・かまどの [上, 下, 前]（面ごとの 絵は FURN_FACE_TILES）。textures.ts の BLOCK_TILES に 足す */
 export const HOUSE_BLOCK_TILES: Readonly<Partial<Record<BlockId, Tiles3>>> = {
   ...FLAT_HOUSE_TILES,
+  ...BUILD_BLOCK_TILES,
   shoji: ['house_shoji', 'house_shoji', 'house_shoji'],
   ...DOOR_TILES,
   ...Object.fromEntries(FURN_BLOCK_IDS.flatMap((id) => { const k = furnInfo(id)!.kind; return FLAT_FURN_KINDS.has(k) ? [] : [[id, PROP_FURN_TILES[k as keyof typeof PROP_FURN_TILES]] as const]; })),

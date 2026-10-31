@@ -17,6 +17,7 @@ import type {
 } from '../contracts';
 import type { Action, ActionState } from '../input/actions';
 import { cropKindOfBlock } from '../contracts';
+import { toolKindOf } from '../house/build/tuning';
 import type { FlattenPlan } from '../world/flatten';
 import { createDigConfig, type DigConfig } from './config';
 import { createRng, type Rng } from '../world/gen/random';
@@ -390,7 +391,13 @@ export class DigSystemImpl implements DigSystem {
       }
       if (this.ready) {
         // MAX で止まっている: 押し直した瞬間だけこわれる（押しっぱなしでは待つ）
-        if (this.justPressed()) this.breakBlock(t);
+        if (this.justPressed()) {
+          // HOUSE-1C PR-2: 建築中の 場所は ほれない（ひびが MAX に なっても こわれず、ひびが きえる）
+          if (this.m4.build?.locked(t.block.x, t.block.y, t.block.z)) {
+            this.clearMem();
+            this.active = false;
+          } else this.breakBlock(t);
+        }
         return;
       }
       // 強さ ÷ すでの強さ だけ進む（すでの何ステップ分で数える。持ちかえてもそのまま続く）。
@@ -517,6 +524,10 @@ export class DigSystemImpl implements DigSystem {
       if (due) this.farm.doRipen(); // MINE-1B: いしばい。みのる 前の 作物 1 つに 1 こ（みのった あとは この 種類に ならない）
       return;
     }
+    if (pv.kind === 'tamp') {
+      if (due && t) this.m4.build?.tamp(t.block.x, t.block.y, t.block.z); // HOUSE-1C PR-2: どうづき。間かくは 20 ステップ（Dozuki が 見る）
+      return;
+    }
     if (pv.kind === 'chalkDraw') {
       if (due && t) this.chalk.draw(t, first); // MINE-1B: チョーク。同じ マスは 押しつづけても 1 回
       return;
@@ -526,7 +537,8 @@ export class DigSystemImpl implements DigSystem {
       return;
     }
     if (!first) return;
-    if (pv.kind === 'bucketFill') this.farm.doBucketFill();
+    if (pv.kind === 'level' && t) this.m4.build?.level(t.block.x, t.block.y, t.block.z);
+    else if (pv.kind === 'bucketFill') this.farm.doBucketFill();
     else if (pv.kind === 'bucketPlace') this.farm.doBucketPlace();
     else if (pv.kind === 'bucketHint') this.m4.farm?.noteHint('bucket', this.farm.playerChest());
     else if (pv.kind === 'bucketNo' && t) this.m4.bucket?.no({ x: t.place.x, y: t.place.y, z: t.place.z });
@@ -595,6 +607,8 @@ export class DigSystemImpl implements DigSystem {
       water: () => this.farm.waterPreview(repeat),
       bucket: () => this.farm.bucketPreview(repeat),
       petSpot: () => this.farm.petSpot(),
+      // HOUSE-1C PR-2: みずもり（level）・どうづき（tamp）を 持って いる とき の 右クリック
+      siteTool: () => (this.m4.build ? toolKindOf(this.inventory.held()?.item) : null),
       canPlace: () => this.placer.spot() !== null,
       canChalk: () => this.chalk.canDraw(),
       canRipen: () => this.farm.ripenSpot(),

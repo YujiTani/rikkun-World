@@ -174,13 +174,14 @@ export class ArchitectRenderer {
   private apply(e: Entry, a: Architect): void {
     e.root.position.set(a.x, a.y, a.z);
     e.root.rotation.set(0, -a.yaw, 0); // ゲームの 向きは −yaw（妖怪と 同じ）
-    const p = poseOf({ gait: a.gait, gaitAmp: a.gaitAmp, nod: a.nod, wobble: a.wobble, wobbleDir: a.wobbleDir, yaw: a.yaw });
+    const p = poseOf({ gait: a.gait, gaitAmp: a.gaitAmp, nod: a.nod, wobble: a.wobble, wobbleDir: a.wobbleDir, yaw: a.yaw, hammer: a.hammer, cheer: a.cheer });
     const b = e.bones;
     b.body.position.set(e.bodyRest[0], e.bodyRest[1] + p.bodyUp * V, e.bodyRest[2]);
     b.body.rotation.set(p.bodyX * D, 0, 0);
     b.legL.rotation.set(p.legLX * D, 0, 0);
     b.legR.rotation.set(p.legRX * D, 0, 0);
     b.armL.rotation.set(p.armLX * D, 0, 0);
+    b.armR.rotation.set(p.armRX * D, 0, 0);
     b.head.rotation.set(p.headX * D, 0, p.headZ * D);
     b.tool.rotation.set(p.toolX * D, 0, p.toolZ * D);
     // おっとっと: 足もとを 中心に 体ごと かたむく（向きは 建築士さんから 見て。0 = 前 = −z）

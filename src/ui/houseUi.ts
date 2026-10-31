@@ -5,6 +5,7 @@ import type { RenameView } from '../house/rename';
 import type { HouseButtonId, HouseMenuState } from '../house/talk';
 import { buildRenameList, buildRenameName, type RenameNamePanel } from './houseEditor/renameView';
 import { houseButtonIcons } from './houseMenuArt';
+import { HouseSiteUi, type SiteDeps } from './houseSite';
 import { itemIconUrl } from './itemIcon';
 import { withRuby } from './text';
 import './houseUi.css';
@@ -29,7 +30,7 @@ const LABEL: Readonly<Record<HouseButtonId, string>> = {
 /** 押すと はたらく ボタン（目立たせる） */
 const GO: ReadonlySet<HouseButtonId> = new Set<HouseButtonId>(['kura', 'tools']);
 
-type Mode = 'off' | 'float' | 'menu' | 'kura' | 'editor';
+type Mode = 'off' | 'float' | 'menu' | 'kura' | 'editor' | 'site' | 'sky';
 
 /** エディターの 画面（ui/houseEditor。はじめて 開く とき 作る）。ふきだしは このなかの sayHost に 移して 使う */
 export interface EditorViewLike {
@@ -54,6 +55,8 @@ interface HouseUiDeps {
   tick(): void;
   /** 話して いる 建築士さんの 頭の 上（画面の ピクセル）。見えなければ null */
   anchor(): { x: number; y: number } | null;
+  /** 「けんちくを はじめる」の 画面（一覧・ひつような もの・上空の 視点）が 読む もの。press・tick は 上と 同じ */
+  site: Omit<SiteDeps, 'press' | 'tick'>;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] {
@@ -84,24 +87,31 @@ export class HouseUi {
   private kuraSig = '';
   /** あずけた・とりだした 物の マスを 次の 描きなおしで ぴょこんと させる */
   private pop: ItemId | null = null;
+  /** 「けんちくを はじめる」の 画面（HOUSE-1C PR-2） */
+  private readonly site: HouseSiteUi;
 
   constructor(private readonly d: HouseUiDeps) {
     this.el = el('div', 'house-ui');
     this.bubble = el('div', 'house-bubble');
     this.bubble.dataset.testid = 'house-bubble';
     this.el.append(this.bubble);
+    this.site = new HouseSiteUi({ ...d.site, press: (id) => d.press(id), tick: () => d.tick() }, this.bubble);
     d.parent.append(this.el);
   }
 
   /** メニュー・くら・エディターが 開いて いる */
   isOpen(): boolean {
-    return this.mode === 'menu' || this.mode === 'kura' || this.mode === 'editor';
+    return this.mode === 'menu' || this.mode === 'kura' || this.mode === 'editor' || this.mode === 'site' || this.mode === 'sky';
   }
 
   /** 画面を 今の 状態に あわせる（menu() が かわった とき・マスを おした とき・くらの 画面が 開いて いる 間は 毎ステップ） */
   refresh(): void {
     const m = this.d.menu();
-    const mode: Mode = m.open ? (m.page === 'kura' ? 'kura' : m.page === 'editor' || m.page === 'need' ? 'editor' : 'menu') : m.bubble !== '' ? 'float' : 'off';
+    const mode: Mode = m.open
+      ? m.build
+        ? m.page === 'sky' ? 'sky' : 'site'
+        : m.page === 'kura' ? 'kura' : m.page === 'editor' || m.page === 'need' ? 'editor' : 'menu'
+      : m.bubble !== '' ? 'float' : 'off';
     if (mode !== this.mode) this.setMode(mode);
     if (mode === 'off') return;
     const html = withRuby(m.bubble);
@@ -109,6 +119,7 @@ export class HouseUi {
     if (mode === 'menu') this.renderMenu(m);
     else if (mode === 'kura') this.renderKura();
     else if (mode === 'editor') this.editorView?.refresh();
+    else if (mode === 'site' || mode === 'sky') this.site.render(m);
   }
 
   /** エディターの 1 コマ（ゲームの 時間が 止まって いても 呼ぶ）と 描画（見本）。エディターが 開いて いなければ 何も しない */
@@ -148,8 +159,12 @@ export class HouseUi {
     this.kuraEl = null;
     this.kuraSig = '';
     if (this.mode === 'editor') this.editorView?.show(false);
+    if (mode !== 'site' && mode !== 'sky') {
+      this.site.clear();
+      this.site.root.remove();
+    } else if (!this.site.root.isConnected) this.el.append(this.site.root);
     this.mode = mode;
-    for (const m of ['float', 'menu', 'kura', 'editor'] as const) this.el.classList.toggle(`is-${m}`, mode === m);
+    for (const m of ['float', 'menu', 'kura', 'editor', 'site', 'sky'] as const) this.el.classList.toggle(`is-${m}`, mode === m);
     if (mode === 'editor') {
       this.editorView ??= this.d.makeEditor(this.el);
       this.editorView.sayHost.append(this.bubble);

@@ -17,8 +17,15 @@ export interface KeyLike {
  * 止めるのは 押した とき（keydown）だけ。はなした とき（keyup）は ゲームに とどける（キーを 押した まま ひらいて、中で はなしても、
  * とじた あとに ゲームの 側で 押しっぱなしの まま 残らない ように）。Ctrl・Cmd・Alt の 組み合わせと F1〜F12 は そのまま 通す。
  */
-export function houseKeyGuard(house: Pick<HouseSystem, 'typing' | 'escape' | 'press'>): (e: KeyLike) => void {
+export function houseKeyGuard(house: Pick<HouseSystem, 'typing' | 'escape' | 'press'> & Partial<Pick<HouseSystem, 'skying' | 'skyDecide'>>): (e: KeyLike & { code?: string }) => void {
   return (e) => {
+    // 上空の 視点（建てる 場所えらび。HOUSE-1C PR-2）: Enter は 決定（まどが あれば［ここに たてる］）。矢印・WASD・Esc は ふだんの 道（Action）に まかせる
+    if (house.skying?.() && (e.code === 'Enter' || e.code === 'NumpadEnter')) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (!e.repeat) house.skyDecide?.();
+      return;
+    }
     if (!house.typing() || e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) return;
     e.stopImmediatePropagation();
     if (!e.repeat) {

@@ -6,6 +6,7 @@
  */
 import { BLOCK_INDEX, SHOJI } from '../blocks/blockTypes';
 import { tileSubUv, tileUv, type TileName } from '../blocks/textures';
+import { isScaffoldId, scaffoldBoxes } from '../blocks/buildBlocks';
 import { doorBoxes, shojiBoxes, type BoxFace, type HouseBox } from '../blocks/houseBoxes';
 import { furnitureQuads } from '../blocks/furnitureQuads';
 import { FURN_LEN, doorInfo, furnCellOffset, furnInfo, type FurnRot } from '../blocks/houseBlocks';
@@ -119,6 +120,7 @@ function piecesOf(id: string, shojiAxis: 'x' | 'z'): readonly Piece[] | null {
   const d = doorInfo(id);
   if (d) p = piecesOfBoxes(doorBoxes(d.top ? 'up' : 'low', d.open), d.open);
   else if (isShoji) p = piecesOfBoxes(shojiBoxes(shojiAxis), false);
+  else if (isScaffoldId(id)) p = piecesOfBoxes(scaffoldBoxes(id), false); // HOUSE-1C PR-2: 足場
   else p = furnPieces(id);
   cache.set(key, p);
   return p;
@@ -140,7 +142,7 @@ export function shojiAxisAt(getIndex: (x: number, y: number, z: number) => numbe
   return w.has(getIndex(x, y, z - 1)) || w.has(getIndex(x, y, z + 1)) ? 'x' : 'z';
 }
 
-/** 家の 戸・しょうじ・家具なら 描いて true（そうでなければ false）。shojiAxis は しょうじの ときだけ 使う（shojiAxisAt） */
+/** 家の 戸・しょうじ・家具・足場なら 描いて true（そうでなければ false）。shojiAxis は しょうじの ときだけ 使う（shojiAxisAt） */
 export function pushHouseProp(mesh: MeshData, x: number, y: number, z: number, id: string, sky: number, block: number, shojiAxis: 'x' | 'z' = 'z'): boolean {
   const pieces = piecesOf(id, shojiAxis);
   if (!pieces) return false;

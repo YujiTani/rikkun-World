@@ -6,6 +6,8 @@ import { pressEditor } from './editor/ops';
 import { FUDE } from './editor/sheet';
 import { KURA_MAX, type Kura, type KuraBag } from './kura';
 import { RENAME_SAY, type HouseRename } from './rename';
+import type { BuildFlow } from './build/flow';
+import { FAREWELL_TICKS, MSG } from './build/tuning';
 import type { Column } from './placement';
 
 /**
@@ -43,8 +45,8 @@ export interface HouseRecord {
   first: Column | null;
 }
 
-type HousePage = 'top' | 'kura' | 'editor' | 'need' | 'rename' | 'renameName';
-/** 上の メニューの ボタン（§2.3 の 順）。動くのは kura・editor・rename〔建てた 家が あるとき〕・tools・close。build は 出すが 押せない（PR-2） */
+type HousePage = 'top' | 'kura' | 'editor' | 'need' | 'rename' | 'renameName' | 'pick' | 'sky';
+/** 上の メニューの ボタン（§2.3 の 順）。動くのは kura・editor・build〔建築中で なければ〕・rename〔建てた 家が あるとき〕・tools・close */
 export type HouseButtonId = 'kura' | 'editor' | 'build' | 'rename' | 'tools' | 'close';
 
 /** 窓口の ボタン。上の メニューは HouseButtonId、エディターは editor/buttons.ts の id */
@@ -59,6 +61,8 @@ export interface HouseMenuState {
   page: HousePage | null;
   bubble: string;
   buttons: HouseButton[];
+  /** 「けんちくを はじめる」の 流れの 画面（一覧・ひつような もの・上空の 視点）の とき true。画面は これで ひつような もの（page 'need'）を エディターの と 見分ける */
+  build?: true;
 }
 
 export interface HouseTalkDeps {
@@ -80,16 +84,22 @@ export interface HouseTalkDeps {
   editor: EditorController;
   /** なまえを かえる（建てた 家の 一覧・名前の 画面） */
   rename: HouseRename;
+  /** けんちくを はじめる の 流れ（HOUSE-1C PR-2。なければ せっけいずは 0 まいの 扱い） */
+  flow?: BuildFlow;
+  /** いま 建築中か（「けんちくを はじめる」は 建築中は 押せない） */
+  busy?: () => boolean;
+  /** 建築中の ふきだし「<名前>を たてて いるよ。<のこりの 言い方>」（建築中でなければ null。どの 建築士さんに 話しても 同じ） */
+  busyText?: () => string | null;
 }
 
-type Phase = 'idle' | 'nod' | 'greet1' | 'greet2' | 'menu';
-type Page = 'top' | 'kura' | 'editor' | 'rename' | 'renameName';
+type Phase = 'idle' | 'nod' | 'greet1' | 'greet2' | 'menu' | 'bye';
+type Page = 'top' | 'kura' | 'editor' | 'rename' | 'renameName' | 'build';
 
 /** 上の ページの ボタン（道具は 持っていない ときだけ 足す）。live = いま 押せる */
 const TOP: ReadonlyArray<{ id: HouseButtonId; live: boolean }> = [
   { id: 'kura', live: true },
   { id: 'editor', live: true },
-  { id: 'build', live: false },
+  { id: 'build', live: true },
   { id: 'rename', live: true },
 ];
 
@@ -100,28 +110,55 @@ export class HouseTalk {
   private timer = 0;
   private who = '';
   private ver = 0;
+  private started = false;
 
   constructor(private readonly d: HouseTalkDeps) {}
 
   /** menu() の 見た目が かわる たびに ふえる 数（画面の 描きなおしの 目印。うなずき・あいさつの カウントダウンでは ふえない） */
   version(): number {
-    return this.ver + this.d.editor.version;
+    return this.ver + this.d.editor.version + (this.d.flow?.version ?? 0);
   }
 
   /** 話しはじめる。もう 話して いる（うなずき・あいさつ・メニュー）なら 何もせず false */
   start(id: string): boolean {
-    if (this.phase !== 'idle') return false;
+    if (this.phase !== 'idle' && this.phase !== 'bye') return false;
     this.who = id;
     this.phase = 'nod';
-    this.say = this.d.record.toolsGiven ? SAY.menu : SAY.hello;
+    this.say = this.d.record.toolsGiven ? this.menuSay() : SAY.hello;
     this.ver++;
     this.d.voice();
     return true;
   }
 
-  /** 話して いる 人（建築士さんの id）。話して いなければ null */
+  /** 話して いる 人（建築士さんの id）。話して いなければ null（建築を はじめた あとの ひとこと〔bye〕は 話して いるに 数えない） */
   current(): string | null {
+    return this.phase === 'idle' || this.phase === 'bye' ? null : this.who;
+  }
+
+  /** ふきだしを 出して いる 建築士さん（ひとことも ふくむ。頭の 上に ふきだしを 出す 目印） */
+  speaker(): string | null {
     return this.phase === 'idle' ? null : this.who;
+  }
+
+  /** 建築を はじめた: メニューを とじて、建築士さんが ひとこと（text）。bye は 時間で きえる。時間は 1 ステップごと tickBye */
+  farewell(text: string): void {
+    const who = this.who;
+    this.close();
+    if (text === '') return;
+    this.who = who;
+    this.phase = 'bye';
+    this.say = text;
+    this.timer = FAREWELL_TICKS;
+    this.ver++;
+  }
+
+  /** 1 ステップ（ひとことの 時間。ゲームの 時間が すすんで いる 間だけ 呼ぶ） */
+  tickBye(): void {
+    if (this.phase === 'bye' && --this.timer <= 0) {
+      this.phase = 'idle';
+      this.say = '';
+      this.ver++;
+    }
   }
 
   /** メニュー（くらを ふくむ）が 開いて いる 間 true。ゲームの 時間を 止める */
@@ -151,7 +188,9 @@ export class HouseTalk {
     if (this.phase === 'idle') return { open: false, page: null, bubble: '', buttons: [] };
     if (this.phase !== 'menu') return { open: false, page: null, bubble: this.say, buttons: [] };
     const ed = this.page === 'editor';
-    return { open: true, page: ed && this.d.editor.needOpen ? 'need' : this.page, bubble: ed ? (this.d.editor.bubble?.text ?? '') : this.say, buttons: this.buttons() };
+    const fl = this.page === 'build' ? this.d.flow : undefined;
+    if (fl?.page) return { open: true, page: fl.page, bubble: fl.say, buttons: this.buttons(), build: true };
+    return { open: true, page: ed && this.d.editor.needOpen ? 'need' : (this.page === 'build' ? 'top' : this.page), bubble: ed ? (this.d.editor.bubble?.text ?? '') : this.say, buttons: this.buttons() };
   }
 
   /** ボタンを 押す。close は どのページ・どの 段階でも 全部 とじる。押せない ボタン・知らない id は 何も おきない。arg は 仕様 §6.1 の 2 引数の 形（windowKind・roof） */
@@ -169,8 +208,14 @@ export class HouseTalk {
       this.pressRename(id, arg);
       return;
     }
+    if (this.page === 'build') {
+      this.pressBuild(id, arg);
+      return;
+    }
     if (this.page !== 'top') return;
-    if (id === 'rename' && this.d.rename.available()) {
+    if (id === 'build' && !this.busy()) {
+      this.openBuild();
+    } else if (id === 'rename' && this.d.rename.available()) {
       this.page = 'rename';
       this.say = RENAME_SAY.pick;
       this.ver++;
@@ -221,15 +266,54 @@ export class HouseTalk {
     }
   }
 
+  private busy(): boolean {
+    return this.d.busy?.() ?? false;
+  }
+
+  /** 「けんちくを はじめる」: せっけいずが あれば 一覧、0 まいなら ふきだしだけ（ページは 上の まま） */
+  private openBuild(): void {
+    if (this.d.flow?.open()) this.page = 'build';
+    else this.say = MSG.noPlan;
+    this.ver++;
+  }
+
+  /** 一覧・ひつような もの・上空の 視点の ボタン。はじまったら メニューを とじる（ひとことは システムが farewell で足す） */
+  private pressBuild(id: string, arg: unknown): void {
+    const fl = this.d.flow;
+    if (!fl) return;
+    this.ver++;
+    if (fl.press(id, arg) === 'started') {
+      this.started = true;
+      return;
+    }
+    if (fl.page === null) this.toTop();
+  }
+
+  /** ［ここに たてる］で 建築が はじまった（システムが 読んで ひとことを 決める）。読むと false に もどる */
+  takeStarted(): boolean {
+    const s = this.started;
+    this.started = false;
+    return s;
+  }
+
+  /** 上の メニューの ふきだし（建築中は 名前と のこりの 言い方） */
+  private menuSay(): string {
+    return this.d.busyText?.() ?? SAY.menu;
+  }
+
   private toTop(): void {
     this.page = 'top';
-    this.say = SAY.menu;
+    this.say = this.menuSay();
     this.ver++;
   }
 
   /** Esc: エディターで 確かめの まど・ひつような もの・家具の えらびが あれば それを とじる。なければ 全部 とじる（AC55） */
   escape(): void {
     if (this.phase === 'menu' && this.page === 'editor' && this.d.editor.escape()) return;
+    if (this.phase === 'menu' && this.page === 'build' && this.d.flow?.escape()) {
+      this.ver++;
+      return;
+    }
     this.close();
   }
 
@@ -254,6 +338,13 @@ export class HouseTalk {
   /** 話しおわる（Esc・✕・とじる・途中で やめる）。メニューが 開いて いたら onClose も 呼ぶ */
   close(): void {
     if (this.phase === 'idle') return;
+    this.d.flow?.reset();
+    if (this.phase === 'bye') {
+      this.phase = 'idle';
+      this.say = '';
+      this.ver++;
+      return;
+    }
     const wasOpen = this.phase === 'menu';
     const who = this.who;
     this.phase = 'idle';
@@ -286,12 +377,13 @@ export class HouseTalk {
   // ------------------------------------------------------------ 中の 動き
 
   private buttons(): HouseButton[] {
+    if (this.page === 'build') return this.d.flow?.buttons() ?? [];
     if (this.page === 'kura') return [{ id: 'close', enabled: true }];
     if (this.page === 'rename') return this.d.rename.listButtons();
     if (this.page === 'renameName') return this.d.rename.nameButtons();
     if (this.page === 'editor') return editorButtons(this.d.editor);
     // なまえを かえる は 建てた 家が 1 けん 以上 あるときだけ 押せる
-    const out: HouseButton[] = TOP.map((b) => ({ id: b.id, enabled: b.id === 'rename' ? this.d.rename.available() : b.live }));
+    const out: HouseButton[] = TOP.map((b) => ({ id: b.id, enabled: b.id === 'rename' ? this.d.rename.available() : b.id === 'build' ? !this.busy() : b.live }));
     if (this.canGetTools()) out.push({ id: 'tools', enabled: true });
     out.push({ id: 'close', enabled: true });
     return out;
@@ -317,7 +409,7 @@ export class HouseTalk {
   private open(): void {
     this.phase = 'menu';
     this.page = 'top';
-    this.say = SAY.menu;
+    this.say = this.menuSay();
     this.ver++;
     this.d.onOpen();
   }

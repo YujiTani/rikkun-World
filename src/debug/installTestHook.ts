@@ -335,6 +335,7 @@ export function installGameHook(deps: WiredLoop): void {
         aimCfg,
         live,
         { clockPhases },
+        house.settings, // HOUSE-1C PR-2: houseBuildTicks（0 ＝ 仕様の 式）
         FX_SETTINGS,
         audioSettings,
         sharedSettingsView('knockback', [combat.config, yokaiM.config]),

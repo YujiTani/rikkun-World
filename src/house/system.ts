@@ -3,7 +3,7 @@ import { blueprintName, blueprintWindows, type Blueprint } from './editor/bluepr
 import { glowsWindows } from './editor/buttons';
 import { EditorController } from './editor/controller';
 import { editOp } from './editor/ops';
-import { needOf, type NeedRow } from './editor/model';
+import { needBonusOf, type NeedRow } from './editor/model';
 import { SHEET, createSheetPort, type SheetBag } from './editor/sheet';
 import type { HouseWorld } from './ground';
 import type { BlockWatcher } from './blockWatch';
@@ -17,6 +17,13 @@ import { houseShape } from './shape';
 import { HouseState } from './state';
 import { HouseTalk, type HouseMenuState } from './talk';
 import type { KuraBag } from './kura';
+import { BuildGlue, type HouseSfx } from './build/glue';
+export type { HouseSfx };
+import { MSG } from './build/tuning';
+import type { BuildingView } from './build/builder';
+import type { CelebrateView } from './build/celebrate';
+import type { FlowCursor } from './build/flow';
+import type { Site } from './build/sites';
 
 /**
  * 建築士さん・話す 流れ・くらを ひとつに つなぐ 係（HOUSE-1A）。DOM・three なし。
@@ -50,12 +57,37 @@ export interface HouseSystemDeps {
   isLand?: (x: number, z: number) => boolean;
   /** 戸を 外から 通って 中に 入った: 名前の 帯を 上の 帯の 列に 入れる（text ＝ 家の 名前。HOUSE-1 §3.3） */
   nameBand?: (text: string) => void;
+  /** 手に 持って いる もの（みずもりの 色を 出す 目印。なければ 何も 持って いない） */
+  held?: () => ItemId | null;
+  /** 音・演出（HOUSE-1C PR-2。なければ 鳴らさない） */
+  play?: (e: HouseSfx) => void;
+  /** プレイヤーを 足もと (x, y, z) へ うつす（建築を はじめる とき 場所の 中に いた ときだけ）。なければ 位置を 書きかえる */
+  teleport?: (x: number, y: number, z: number) => void;
+  /** 建築を はじめる 場所の 中に いる 動物・妖怪を 外へ うつす。なければ 何も しない */
+  evict?: (box: { x0: number; z0: number; x1: number; z1: number; y0: number; y1: number }, to: Vec3) => void;
 }
+
+/** 窓口 settings に 出す 数（テスト用。houseBuildTicks 0 ＝ 仕様 §4.1 の 式） */
+export interface HouseSettings {
+  houseBuildTicks: number;
+}
+
+/** 上空の 視点の 画面への 窓口（wireHouse が つなぐ。つなぐ 前は 何も しない） */
+export interface SkyPort {
+  /** 世界の 点 (x, y, z) が 画面の どこに 見えるか（CSS px） */
+  project(x: number, y: number, z: number): { x: number; y: number };
+}
+const NO_SKY: SkyPort = { project: () => ({ x: 0, y: 0 }) };
 
 export class HouseSystem {
   readonly state = new HouseState();
-  /** 建てた 家の 記録（戸で おぼえる。この PR では 保存しない） */
+  /** 建てた 家の 記録（戸で おぼえる。保存に 入る） */
   readonly book = new HouseBook();
+  /** 窓口 settings の houseBuildTicks（HOUSE-1C PR-2 のテスト用） */
+  readonly settings: HouseSettings = { houseBuildTicks: 0 };
+  /** 家を 建てる 流れ（建築中の 家・一覧・上空の 視点・みずもり・どうづき・完成の 盛り上げ） */
+  readonly build: BuildGlue;
+  sky: SkyPort = NO_SKY;
   readonly manager: ArchitectManager;
   readonly talk: HouseTalk;
   readonly editor: EditorController;
@@ -63,8 +95,14 @@ export class HouseSystem {
   preview: PreviewPort = NO_PREVIEW;
   /** 世界の ブロックの 変化の 受け手（建築士さんの 足もと ＋ 家の 戸の 記録）。`watchBlocks(world, house.watcher)` で つなぐ */
   readonly watcher: BlockWatcher = {
-    blockChanged: (x, z) => this.manager.blockChanged(x, z),
-    blocksChanged: (x0, z0, x1, z1) => this.manager.blocksChanged(x0, z0, x1, z1),
+    blockChanged: (x, z) => {
+      this.manager.blockChanged(x, z);
+      this.build.level.blockChanged(x, z);
+    },
+    blocksChanged: (x0, z0, x1, z1) => {
+      this.manager.blocksChanged(x0, z0, x1, z1);
+      this.build.level.blocksChanged(x0, z0, x1, z1);
+    },
     cellChanged: (x, y, z, id) => this.book.cellChanged(x, y, z, id),
     boxFilled: (x0, y0, z0, x1, y1, z1, id) => this.book.boxFilled(x0, y0, z0, x1, y1, z1, id),
   };
@@ -88,7 +126,30 @@ export class HouseSystem {
       onMade: () => this.talk.made(),
     });
     this.renamer = new HouseRename({ book: this.book, player: () => d.player() });
+    this.build = new BuildGlue({
+      world: d.world,
+      player: d.player,
+      held: () => d.held?.() ?? null,
+      plans: () => this.blueprints(),
+      blueprint: (n) => this.state.blueprint(n),
+      have: (item) => this.state.kura.count(item),
+      consume: (item, n) => this.state.kura.consume(item, n),
+      buildTicks: () => this.settings.houseBuildTicks,
+      book: this.book,
+      manager: this.manager,
+      speaker: () => this.talk.current(),
+      fallbackArchitect: () => this.manager.all()[0]?.id ?? null,
+      play: (e) => d.play?.(e),
+      teleport: (x, y, z) => {
+        if (d.teleport) d.teleport(x, y, z);
+        else Object.assign(d.player(), { x, y, z });
+      },
+      evict: (box, to) => d.evict?.(box, to),
+    });
     this.talk = new HouseTalk({
+      flow: this.build.flow,
+      busy: () => this.build.builder.active() !== null,
+      busyText: () => this.build.busyText(),
       rename: this.renamer,
       editor: this.editor,
       record: this.state.record,
@@ -114,6 +175,8 @@ export class HouseSystem {
     this.manager.update();
     const entered = this.book.step(this.d.player());
     if (entered) this.d.nameBand?.(entered.name);
+    this.build.update();
+    this.talk.tickBye();
     const id = this.talk.current();
     if (id !== null) this.stepTalk(id);
     this.emit();
@@ -134,7 +197,10 @@ export class HouseSystem {
   }
 
   press(id: string, arg?: unknown): void {
+    const bonus = this.build.builder.firstBonus();
     this.talk.press(id, arg);
+    // ［ここに たてる］で 建築が はじまった: メニューを とじて、建築士さんが ひとこと（はじめての 家は おまけの こと）
+    if (this.talk.takeStarted()) this.talk.farewell(bonus ? MSG.bonus : '');
     this.emit();
   }
 
@@ -142,6 +208,29 @@ export class HouseSystem {
   escape(): void {
     this.talk.escape();
     this.emit();
+  }
+
+  /** 上空の 視点の 操作（矢印〔dx, dz〕・マウス〔わくの 北西の すみ x, z〕・決定）。上空の 視点で なければ 何も しない */
+  skyMove(dx: number, dz: number): void {
+    this.build.flow.move(dx, dz);
+    this.emit();
+  }
+
+  skyMoveTo(x: number, z: number): void {
+    this.build.flow.moveTo(x, z);
+    this.emit();
+  }
+
+  /** Enter・左クリック: わくが 置ける 場所なら 確かめの まど。まどが あれば ［ここに たてる］ */
+  skyDecide(): void {
+    if (this.build.flow.cursor()?.confirm) this.press('yes');
+    else this.build.flow.decide();
+    this.emit();
+  }
+
+  /** 上空の 視点が 開いて いる（カメラを 上に あげる・まどを 出す） */
+  skying(): boolean {
+    return this.talk.menu().page === 'sky';
   }
 
   /** エディターが 開いて いる（Esc いがいの キーを ゲームの 操作に しない・見本を 描く） */
@@ -158,6 +247,14 @@ export class HouseSystem {
   load(data: unknown): void {
     this.state.deserialize(data);
     this.editor.loaded();
+    const d = (typeof data === 'object' && data !== null ? data : {}) as Record<string, unknown>;
+    this.book.restore(d.houses);
+    this.build.load(d.build);
+  }
+
+  /** 保存（くら・せっけいず ＋ 建てた 家の 記録 ＋ 建築中の 家。HOUSE-1C PR-2） */
+  serialize(): ReturnType<HouseState['serialize']> & { houses: ReturnType<HouseBook['serialize']>; build: ReturnType<BuildGlue['serialize']> } {
+    return { ...this.state.serialize(), houses: this.book.serialize(), build: this.build.serialize() };
   }
 
   /** 1 ステップ（1/60 秒。ゲームの 時間が 止まって いても すすむ）: エディターの ふきだしの 時間 */
@@ -211,9 +308,20 @@ export class HouseSystem {
 
   /** 窓口 `need(source?)`: source なし ＝ エディターの 今の 形、数 ＝ 持ち物の せっけいずの マスの 番号。bonus は 1C（はじめての 家の おまけ）まで 0 */
   need(source?: number): Array<NeedRow & { bonus: number }> {
-    const form = source === undefined ? this.state.holder.draft : this.planAt(source);
-    if (!form) return [];
-    return needOf(form, (item) => this.state.kura.count(item)).map((r) => ({ ...r, bonus: 0 }));
+    if (source === undefined) return needBonusOf(this.state.holder.draft, (item) => this.state.kura.count(item), false);
+    const form = this.planAt(source);
+    return form ? this.build.needRows(form) : [];
+  }
+
+  /** 「けんちくを はじめる」の 画面が 読む もの（一覧の カード・ひつような もの の 行・確かめの まどの 名前） */
+  pickList(): ReturnType<BuildGlue['pickList']> {
+    return this.build.pickList();
+  }
+  buildNeedRows(): Array<NeedRow & { bonus: number }> {
+    return this.need(this.build.flow.needSlot());
+  }
+  buildName(): string {
+    return this.build.flow.planName();
   }
 
   /** 窓口 `blueprints()`: 持ち物の せっけいず（マスの 番号つき）。中身を 知らない 番号は とばす */
@@ -282,6 +390,42 @@ export class HouseSystem {
   /** マス 1 つの ようす（ほると 手に 入る アイテム・家具の 向き） */
   blockAt(x: number, y: number, z: number): CellInfo {
     return cellInfo(this.d.world.getBlock(x, y, z));
+  }
+
+  // ------------------------------------------------------------ 建築（HOUSE-1C PR-2。窓口 level・sites・cursor・building・firstBonus・celebrate）
+
+  /** みずもりの きじゅんと 色（持って いて 近い 間だけ cells） */
+  level(): ReturnType<BuildGlue['levelView']> {
+    return this.build.levelView();
+  }
+
+  /** 上空の 視点の 間の 置ける 場所（ほかの 間は []） */
+  sites(): Site[] {
+    return this.build.flow.sites().map((s) => ({ ...s }));
+  }
+
+  /** 上空の 視点の わく（画面の 位置つき）。上空の 視点で なければ null */
+  cursor(): (FlowCursor & { screen: { x: number; y: number } }) | null {
+    const c = this.build.flow.cursor();
+    const o = this.build.flow.outer();
+    if (!c || !o) return null;
+    const y = this.build.flow.sites().find((s) => s.x === c.x && s.z === c.z)?.y ?? this.build.flow.sites()[0]?.y ?? 0;
+    return { ...c, screen: this.sky.project(c.x + o.w / 2, y + 1, c.z + o.d / 2) };
+  }
+
+  /** 建築中の 家（なければ null） */
+  building(): BuildingView | null {
+    return this.build.builder.view();
+  }
+
+  /** まだ 1 けんも 建て はじめて いない（ふとん 1 つぶんの おまけが ある） */
+  firstBonus(): boolean {
+    return this.build.builder.firstBonus();
+  }
+
+  /** 紙ふぶきの 回数と 上の 帯 */
+  celebrate(): CelebrateView {
+    return this.build.celebrate.view();
   }
 
   /** 名前の 画面で 作って いる 名前（ほかの ページでは null） */
