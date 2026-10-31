@@ -153,6 +153,16 @@ import { installAimHelpers } from './aim';
  *   house.renaming() → { id, name: { front: string, back: string } } | null   名前の 画面で 作っている 名前（ほかの ページでは null）
  *   `renameOk`: 前の 文字が 0 字 → 何も かわらず ふきだし「なまえを つけてね」（ページは そのまま）。1 字 以上 → `houses()` の name が かわり、ページは 上の メニューに もどる。
  *               せっけいずの 名前〔`blueprints()`〕は かわらない。`renameCancel`: 何も かえず 上の メニューへ
+ *
+ * ---- 1D（#341 家具の はたらき。docs/tickets/HOUSE-1D.md・仕様 §2.12・AC28・AC54）の 約束。テストの 関数は e2e/helpers/houseFurn.ts。ユニットは src/house/seat.test.ts ほか ----
+ * 窓口（step は 進めない。呼んだ その場の 値を 返す）:
+ *   house.seat() → { kind: 'sit' | 'bath'; block: { x, y, z }; position: { x, y, z } } | null
+ *       いす・まるいすに 座って いる（kind 'sit'）／おふろに 入って いる（kind 'bath'）あいだだけ 値。立つ・出る・当たって 立つと null。座る 前・座れない 家具〔ほんだな・テーブル …〕は null。
+ *       block ＝ 右クリックした ブロックの マス。position ＝ プレイヤーの 足もと（座って いる あいだ かわらない。`player.get().position` と 同じ 値）。
+ *       src/house/seat.ts の `SeatSystem.seat()` と 同じ 形（ユニットの 約束）。
+ *   ほんだな: 右クリックで 本が ひらく。窓口 `lock.get()`（BOOK-1。e2e/helpers/book.ts の BookState）が 動きの おわりで bookOpen: true・bookView: 'toc'（① もくじ）。
+ *       本の 動き（bookAnim）は ステップで 進む（時間では 待たず `settle`）。ほんだなを ねらうと 右の 案内（`hud.actionHint().right`）が 出る（ことばは ユニット）。
+ *   右クリックは 家具へ 向けた 1 回の 押して はなす（tapRight）。座る・入る・本は 持ち物に よらず はたらく。
  */
 
 export interface Architect {

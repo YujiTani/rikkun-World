@@ -29,3 +29,30 @@
 
 - E2E は ほんだな 1 本（AC28: ほんだなを 右クリック → 本が ① もくじ）。いす・おふろ・あんどん・右の 案内は ユニット。
 - フック（座る・入って いるかを 聞く 口）は tester が `e2e/helpers/house.ts` の 先頭に「1D の 約束」として 書く。
+
+### tester が 書いた テスト（先行テスト。実装の 前は 赤）
+
+| 場所 | 基準 | 中身 |
+|---|---|---|
+| `e2e/house1d.spec.ts`（1 本） | AC28・AC54 | テーブルでは 本が 開かず 座らない → 同じ 場所を ほんだなに おきかえて 右クリック → 右の 案内が 出て、本が ① もくじ（`lock.get()` の bookOpen・bookView 'toc'）で 開く |
+| `src/house/seat.test.ts` | AC28 | 座る・入る（いす・まるいす・おふろ。4 向き・2 マスの どちらの マスでも）、座れない 家具、座って いる 間 位置・向きが かわらない、移動キー・ジャンプ 1 ステップで 立つ、おふろ 60 ステップに 1・上限で 止まる・出ると 止まる、当たったら 立つ |
+| `src/dig/houseFurnUse.test.ts` | AC28・AC54 | 右の 案内（すわる・はいる・よむ。テーブル・あんどん・はにわは 案内なし）、右クリックの 実行が 出口に 1 回 とどく |
+| `src/world/light/andonLight.test.ts` | AC28 | あんどん 14／となり 13（たいまつと 同じ）。4 向き ぜんぶ。ほかの 家具は 光らない |
+| `src/dig/houseBlocks.test.ts`（直した） | AC54 | 1C の「案内なし」の 並びから、1D で 案内が 出る id（chair_w・shelf・ofuro_2_e・stool）を はずした（期待は ゆるめず、新しい 期待は houseFurnUse.test.ts へ） |
+
+### 実装が そろえる 約束（テストが 前提に する。変えるなら テストの 該当 箇所と ここを 直す）
+
+- **`src/house/seat.ts`（新）**: `tsc` が 赤く なるのは この モジュールが 無い間の `src/house/seat.test.ts` だけ。
+  - `SEAT_TUNING = { bathHealEverySteps: 60, bathHealAmount: 1 }`（1 か所の 表。単位つきの コメント）
+  - `new SeatSystem({ world, controller, actions, combat })`: controller は 本物の `PlayerController`（`state`・`motion` を 使って 位置を 止める。足りない 欄は `motion` に 足してよい）、combat は 本物の `PlayerCombatImpl`（`hp()`・`maxHp()`・`heal(n)`・`flinching()`）
+  - `use(x, y, z): boolean`（座れる／入れる id なら 座って true。そうでなければ 何も かえず false）／`seat(): { kind: 'sit' | 'bath'; block: Vec3; position: Vec3 } | null`／`update(): void`（1 ステップごとに、`controller.update` の 前に 呼ぶ）
+  - 座る 位置 ＝ ねらった マスの まん中（x・z）、高さは 同じ マスの 中。向き ＝ いすの 前（`facingDeg`。rot 0 ＝ 南 → 西 → 北 → 東）。2 マスの おふろは どちらの マスでも 同じ はたらき。
+  - 立つ もと: 移動キー 4 つ・ジャンプ（押して すぐ はなしても）／妖怪に 当たって `flinching()` が true。ほかの キー（右クリック・ホットバー）では 立たない。
+  - 回復: おふろに 入って から `update` 60 回めに 1、120 回めに もう 1 …（`heal` が 上限で 止める）。出ると 止まる。いす・まるいすは ふやさない。
+  - `update()` は 立って いる 間は `motion` を 元に もどす。実際の 順番は `src/game/step.ts`（`gadgets.step` の 近く。`controller.motion.*` を 毎ステップ 書き直す 所〔noMoveInput など〕と ぶつけない）。
+- **右クリック**: `RightClickKind` に `'sit'`（chair・stool）・`'bath'`（ofuro）・`'read'`（shelf）を 足す。判定は `previewRightClick`（ふとんの 前後・置くより 先・持ち物に よらない）。`actionHintModel` の ことばは「すわる」「はいる」「よむ」。
+- **DigSystem の 出口**: `DigM4Deps.furniture?: { use(kind: 'sit' | 'bath' | 'read', x, y, z): void }`。押した 最初の ステップに 1 回（`houseFurnUse.test.ts` は 型が できるまで `as never` で わたして いる。できたら はずす）。
+- **あんどんの 光**: `EMISSION` に あんどんの ぜんぶの id（4 向き）を `torchLevel` で 足す（`src/world/light/opacity.ts`）。
+- **フック**: `window.__rikkun.house.seat()`（`e2e/helpers/house.ts` の 先頭「1D の 約束」）。`SeatSystem.seat()` と 同じ 形。
+- **ほんだな**: 出口の 'read' で あそびかたの ほんを ① もくじで 開く（今の 本の 画面と 同じ。ロックは 本の ボタンと 同じ 道）。
+- **ユニットに 書かなかった もの**（実装が 決める。見落としやすい）: 座る 前から 移動キーを 押して いた とき／座った あとの 立つ 位置（イスの 中に はまらない）／右クリックを 押しつづけると 向きが カメラへ 回る（`PlayerController` の aiming。座って いる 間は いすの 向きを 保つ）／夜でも 座れる（時刻を 見ない）／湯気／カメラの 高さ（遊びの 見た目〔yuzu が 手元で 見る〕）。
