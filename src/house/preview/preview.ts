@@ -12,7 +12,7 @@ import { HOUSE_LOOK } from '../../world/blocks/houseArt';
 import { createAtlasTexture } from '../../world/blocks/textures';
 import { toGeometry } from '../../world/render/rendererGeometry';
 import type { FurnKind } from '../editor/furniture';
-import { openingChange, windowCells, type EditorState, type OpeningChange, type WindowCell } from '../editor/model';
+import { openingChange, plainFurniture, windowCells, type EditorState, type OpeningChange, type WindowCell } from '../editor/model';
 import { ROOF_Y, WALLS, type Rot, type Wall } from '../editor/tuning';
 import { FurnitureIcons, type FurnImage } from './furnitureIcons';
 import { GhostWall, wallGhostLevels } from './ghostWall';
@@ -95,6 +95,8 @@ export class Preview3D implements PreviewPort {
   private readonly keep = { color: new Color(), viewport: new Vector4(), scissor: new Vector4(), size: new Vector2() };
   private readonly pt = new Vector3();
   builds = 0;
+  /** 見本に 出して いる 家具の 数（なかの 見本の 赤くない 家具。そとは 0。1E） */
+  private shownFurniture = 0;
   stats: PreviewStats = { drawCalls: 0, triangles: 0 };
 
   constructor(private readonly renderer: WebGLRenderer, private readonly reduced: () => boolean) {
@@ -118,15 +120,18 @@ export class Preview3D implements PreviewPort {
       this.views[mode].enter();
       this.glow.clear();
     }
-    const key = JSON.stringify([mode, s.w, s.d, s.windows, s.windowKind, s.roof, mode === 'inside' ? s.furniture : 0]);
-    if (key !== this.key) this.rebuild(s, mode, key);
+    // 赤い 家具は 見本に 出さない ので、赤い 家具だけ ふえても 作りなおさない（1E）
+    const plain = mode === 'inside' ? plainFurniture(s) : [];
+    const key = JSON.stringify([mode, s.w, s.d, s.windows, s.windowKind, s.roof, plain]);
+    if (key !== this.key) this.rebuild(s, mode, key, plain.length);
     if (mode === 'outside') this.trackOpenings(s, entering);
     else this.open = null;
   }
 
-  private rebuild(s: EditorState, mode: PreviewMode, key: string): void {
+  private rebuild(s: EditorState, mode: PreviewMode, key: string, shown: number): void {
     this.key = key;
     this.mode = mode;
+    this.shownFurniture = shown;
     this.builds++;
     this.parts = buildPreview(s, mode);
     const set = (mesh: Mesh, data: PreviewParts['base']): void => {
@@ -252,7 +257,7 @@ export class Preview3D implements PreviewPort {
   /** その 見せ方の ようす（窓口 `editor().preview` の 元）。yaw 0 ＝ まえから、90 ＝ みぎから */
   info(mode: PreviewMode): PreviewInfo {
     const v = this.views[mode];
-    return { yaw: v.yaw, elev: v.elev, touched: v.touched, wait: v.wait, builds: this.builds, glow: this.shown === mode && mode === 'outside' ? this.glow.info(this.cells) : null };
+    return { yaw: v.yaw, elev: v.elev, touched: v.touched, wait: v.wait, builds: this.builds, furniture: this.shownFurniture, glow: this.shown === mode && mode === 'outside' ? this.glow.info(this.cells) : null };
   }
 
   // ------------------------------------------------------------ カメラ

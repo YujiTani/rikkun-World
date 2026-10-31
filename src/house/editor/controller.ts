@@ -1,9 +1,9 @@
 // HOUSE-1B エディターの 持ち主（作りかけ・もどす／すすむ・できた！の しらべ・ふきだし）。DOM・three なし。
-// 仕様 docs/design/HOUSE-1.md §2.5（すすみ方・できた！・もどす／すすむ・Esc の 順）・§2.6（名前）・§4.9（ふきだしの 長さ）。
+// 仕様 docs/design/HOUSE-1.md §2.5（すすみ方・できた！・もどす／すすむ・Esc の 順・赤い 家具〔1E〕）・§2.6（名前）・§4.9（ふきだしの 長さ）。
 import type { ItemId } from '../../contracts';
 import { K_FUTON, FURNITURE, type FurnKind } from './furniture';
 import {
-  cloneState, dakuten, emptyState, footprint, handakuten, needOf, placeProblem, refit, windowMax,
+  cloneState, dakuten, emptyState, footprint, furnitureProblems, handakuten, inGrid, needOf, refit, topLeftOf, touchesGrid, turned, windowMax,
   type EditorState, type NeedRow, type Placed,
 } from './model';
 import { NameEdit } from './nameEdit';
@@ -46,6 +46,12 @@ interface HistoryItem {
   step: Step;
 }
 
+/** 赤く 光らせた 家具（1E。フックの `flash` と 同じ 形）。items ＝ furniture の 番号、seq ＝ 光らせる たびに 1 ふえる 数 */
+export interface Flash {
+  items: number[];
+  seq: number;
+}
+
 export interface Bubble {
   text: string;
   /** のこりの コマ（1/60 秒）。0 で 消える */
@@ -62,13 +68,15 @@ export class EditorController {
   confirm: Confirm = null;
   needOpen = false;
   bubble: Bubble | null = null;
-  /** 赤く 1 回 光らせる 家具の 番号（まわせなかった とき）と 通し番号 */
-  flash: { idx: number; seq: number } | null = null;
+  /** 赤く 1 回 光らせる 家具（つぎへ・できた！で 止まった とき・まわせなかった とき）。まだ 光らせて いなければ null */
+  flash: Flash | null = null;
   /** 中身が かわった たびに ふえる 数（画面の 描きなおしの 目印） */
   version = 0;
   private undos: HistoryItem[] = [];
   private redos: HistoryItem[] = [];
   private seq = 0;
+  /** flash.seq の 数え（ふきだしの 通し番号とは べつ。エディターを 開きなおしても もどらない） */
+  private flashSeq = 0;
   private readonly listeners: Array<() => void> = [];
   private readonly names = new NameEdit({ state: () => this.s, commit: (next) => this.commit(next, 'namae'), say: (text) => this.say(text) });
 
@@ -93,14 +101,21 @@ export class EditorController {
 
   /**
    * エディターを 開く: 見本の 向きや 家具の えらびは 作りかけに 入らないので、えらびと ポップアップを まっさらに（もどす の 記録は のこす）。
-   * 読みこんだ 作りかけの 名前に よくない ことばが あれば（表が あとで ふえた など）、すすみに よらず ③ なまえ で 開いて ふきだし（§2.6）
+   * 読みこんだ 作りかけに 赤い 家具が あれば、とじた ときの すすみに よらず ② なか で 開く（1E。よくない ことばより 先）。
+   * 名前に よくない ことばが あれば（表が あとで ふえた など）、すすみに よらず ③ なまえ で 開いて ふきだし（§2.6）
    */
   open(): void {
     this.sel = { palette: null, placed: null };
     this.confirm = null;
     this.needOpen = false;
     this.bubble = null;
+    this.flash = null;
     this.katakana = false;
+    if (this.redItems().length > 0) {
+      this.s.step = 'naka';
+      this.emit();
+      return;
+    }
     if (hasNgName(this.s.name)) {
       this.s.step = 'namae';
       this.say(MSG.ngWord);
@@ -143,6 +158,14 @@ export class EditorController {
   /** えらんで いる 置いた 家具（なければ null） */
   selected(): Placed | null {
     return this.sel.placed === null ? null : (this.s.furniture[this.sel.placed] ?? null);
+  }
+  /** 赤い 家具の 番号（置いた 順。赤い わけは 形から 毎回 決まる。1E） */
+  redItems(): number[] {
+    const out: number[] = [];
+    furnitureProblems(this.s).forEach((bad, i) => {
+      if (bad !== null) out.push(i);
+    });
+    return out;
   }
 
   // ------------------------------------------------------------ ふきだし
@@ -218,12 +241,15 @@ export class EditorController {
     return this.commit(next, 'soto');
   }
 
+  /**
+   * 置く。x・z ＝ 押した マス ＝ もとの マス（rot が あっても。1E）。方眼の 中の マスなら はみ出す・重なる・戸の 前 でも 置ける（赤くなる）。
+   * 方眼の 外の マス・もう 家具が ある マスは 置かない（false。画面では 家具の ある マスは えらぶ）
+   */
   place(kind: FurnKind, x: number, z: number, rot: Rot = 0): boolean {
-    if (!(kind in FURNITURE)) return false;
-    const p: Placed = { kind, x, z, rot };
-    if (placeProblem(this.s, p) !== null) return false;
+    if (!(kind in FURNITURE) || !inGrid(this.s, x, z) || this.indexAt(x, z) >= 0) return false;
+    const at = topLeftOf(kind, rot, x, z);
     const next = cloneState(this.s);
-    next.furniture.push(p);
+    next.furniture.push({ kind, x: at.x, z: at.z, rot });
     return this.commit(next, 'naka');
   }
 
@@ -236,20 +262,33 @@ export class EditorController {
     return ok;
   }
 
-  /** 置いた 家具を まわす。はみ出す・重なる ときは まわらない（赤く 1 回 光る） */
+  /**
+   * 置いた 家具を もとの マスを 中心に まわす。赤く なる 向きにも まわる（1E）。
+   * 方眼に 1 マスも 入らなく なる とき（もとの マスが 方眼の 外に のこった 家具）だけ まわらず、赤く 1 回 光る
+   */
   rotate(idx: number, dir: 'right' | 'left'): boolean {
     const p = this.s.furniture[idx];
     if (!p) return false;
-    const rot = ((p.rot + (dir === 'right' ? 1 : 3)) % 4) as Rot;
-    const turned: Placed = { ...p, rot };
-    if (placeProblem(this.s, turned, idx) !== null) {
-      this.flash = { idx, seq: ++this.seq };
-      this.emit();
+    const to = turned(p, dir);
+    if (!touchesGrid(this.s, to)) {
+      this.lightUp([idx]);
       return false;
     }
     const next = cloneState(this.s);
-    next.furniture[idx] = turned;
+    next.furniture[idx] = to;
     return this.commit(next, 'naka');
+  }
+
+  /** 赤い 家具を 1 回 光らせる（番号の ならび）。光らせる たびに seq が 1 ふえる */
+  private lightUp(items: number[]): void {
+    this.flash = { items, seq: ++this.flashSeq };
+    this.emit();
+  }
+
+  /** 赤い 家具が ある まま すすめない: 赤い 家具 ぜんぶを 光らせて ふきだし（もどす の 1 回には 入らない） */
+  private stopRed(red: number[]): void {
+    this.flash = { items: red, seq: ++this.flashSeq };
+    this.say(MSG.fixRed);
   }
 
   /** あかりを 押す: ちょうちんは はずせない（何も かわらない・もどす にも 入らない） */
@@ -302,15 +341,23 @@ export class EditorController {
 
   private restore(state: EditorState, step: Step): void {
     this.s = cloneState(state);
-    this.s.step = step;
+    this.s.step = step === 'namae' && this.redItems().length > 0 ? 'naka' : step; // ③ に 赤い 家具は ない
     this.sel.placed = null;
     this.emit();
   }
 
   // ------------------------------------------------------------ 操作では ない もの
 
+  /** つぎへ。② で 赤い 家具が ある 間は すすまない（ふきだし・赤い 家具が 1 回 光る。① の つぎへは 赤くても すすむ。1E） */
   next(): boolean {
     if (this.s.step === 'namae') return false;
+    if (this.s.step === 'naka') {
+      const red = this.redItems();
+      if (red.length > 0) {
+        this.stopRed(red);
+        return false;
+      }
+    }
     this.s.step = this.s.step === 'soto' ? 'naka' : 'namae';
     this.sel.placed = null;
     this.emit();
@@ -380,6 +427,12 @@ export class EditorController {
       this.say(text);
       return 'stopped';
     };
+    const red = this.redItems(); // ⓪ 赤い 家具（いちばん 先。② なか へ 切りかえて 光る のを 見せる）
+    if (red.length > 0) {
+      s.step = 'naka';
+      this.stopRed(red);
+      return 'stopped';
+    }
     if (!s.furniture.some((p) => p.kind === K_FUTON)) return stop(MSG.futon, 'naka'); // ②
     if ([...s.name.front].length === 0) return stop(MSG.name, 'namae'); // ③
     if (hasNgName(s.name)) return stop(MSG.ngWord, 'namae'); // ③ よくない ことば（読みこんだ 作りかけ など）
@@ -434,15 +487,18 @@ export class EditorController {
 
   // ------------------------------------------------------------ 方眼
 
-  /** (x, z) に ある 家具の 番号（なければ -1） */
+  /** (x, z) に ある 家具の 番号（重なって いれば あとから 置いた 方。なければ -1。1E） */
   indexAt(x: number, z: number): number {
-    return this.s.furniture.findIndex((p) => {
+    const f = this.s.furniture;
+    for (let i = f.length - 1; i >= 0; i--) {
+      const p = f[i]!;
       const [fw, fd] = footprint(p.kind, p.rot);
-      return x >= p.x && x < p.x + fw && z >= p.z && z < p.z + fd;
-    });
+      if (x >= p.x && x < p.x + fw && z >= p.z && z < p.z + fd) return i;
+    }
+    return -1;
   }
 
-  /** 方眼の マスを 押した: 置いた 家具が あれば えらぶ。えらんだ 種類が あれば 置く。空いた マスで えらびを はずす */
+  /** 方眼の マスを 押した: 置いた 家具が あれば（重なって いれば あとから 置いた 方を）えらぶ。えらんだ 種類が あれば 押した マスを もとの マスに して 置く。空いた マスで えらびを はずす */
   clickCell(x: number, z: number): boolean {
     const at = this.indexAt(x, z);
     if (at >= 0) {
