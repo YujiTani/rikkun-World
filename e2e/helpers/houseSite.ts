@@ -73,8 +73,8 @@ export const buildingOf = (page: Page): Promise<Building | null> => hook<Buildin
 export const firstBonusOf = (page: Page): Promise<boolean> => hook<boolean>(page, 'firstBonus');
 export const celebrateOf = (page: Page): Promise<Celebrate> => hook<Celebrate>(page, 'celebrate');
 
-/** 建築の 長さを n ステップに 固定（null で 仕様の 式）。テスト用の 設定 */
-export const setBuildTicks = (page: Page, n: number | null): Promise<void> =>
+/** 建築の 長さを n ステップに 固定（0 で 仕様の 式。初期値も 0）。テスト用の 設定 */
+export const setBuildTicks = (page: Page, n: number): Promise<void> =>
   page.evaluate((n) => {
     (window as any).__rikkun.settings.set('houseBuildTicks', n);
   }, n);
@@ -444,7 +444,7 @@ export const SKY_CONFIRM_ROOTS = ['[data-testid="house-confirm"]'];
 
 /**
  * UI 検査の 画面を 出す: いちばん 長い 名前の せっけいずを 何まいか 作り、
- *   pick ＝ けんちくを はじめる の 一覧（7 まい。1 まいだけ 材料が そろって いる）／sky ＝ 上空の 視点（わく）／confirm ＝ 上空の 視点の 確かめの まど（名前が いちばん 長い）。
+ *   pick ＝ けんちくを はじめる の 一覧（7 まい。窓 0 の 4 まいは 材料が そろい、窓 1 の 3 まいは かみが たりなくて うすい カード）／sky ＝ 上空の 視点（わく）／confirm ＝ 上空の 視点の 確かめの まど（名前が いちばん 長い）。
  */
 export async function openSiteScreen(page: Page, kind: SiteScreen): Promise<void> {
   await openHouse(page);
@@ -467,7 +467,7 @@ export async function openSiteScreen(page: Page, kind: SiteScreen): Promise<void
     );
   }
   const bps = await blueprints(page);
-  await stockKura(page, bps[0]!.slot); // 1 まい目だけ 材料が そろう
+  await stockKura(page, bps[0]!.slot); // 窓 0 の 4 まい（0・2・4・6 まい目）は 同じ 材料 なので まとめて そろう。窓 1 の 3 まいは かみが たりない
   if (kind === 'pick') {
     await talkTo(page, first.id, 'hook');
     const m = await press(page, 'build');

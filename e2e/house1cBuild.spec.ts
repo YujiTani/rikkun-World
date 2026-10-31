@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { doorIndex } from '../src/house/editor/model';
 import { menuState, openHouse, press, shownTid, stepUi, talkTo } from './helpers/house';
-import { blueprints, firstArchitect, needOf, plainText, reopenHouse, squash } from './helpers/houseEditor';
+import { blueprints, clickDisabled, firstArchitect, needOf, plainText, reopenHouse, squash } from './helpers/houseEditor';
 import {
   aimBlock,
   bandOf,
@@ -78,10 +78,12 @@ const OUT_D = FORM.d + 2;
 const wordFor = (elapsed: number, length: number): string => (elapsed * 3 < length ? BUILD_WORDS[0] : elapsed * 5 < length * 4 ? BUILD_WORDS[1] : BUILD_WORDS[2]);
 
 test.describe('HOUSE-1C PR-2 建築', () => {
-  test('AC18〜AC22・AC31・AC32c・AC39〜AC41・AC51・AC36・AC49: せっけいず → 上空の 視点 → 確かめ → 建築中 → 完成 → 戸から 入る', async ({ page }) => {
+  test('AC18〜AC22・AC31（建築中は 1 けんだけ）・AC32c・AC39〜AC41・AC51・AC36・AC49: せっけいず → 上空の 視点 → 確かめ → 建築中 → 完成 → 戸から 入る', async ({ page }) => {
     test.setTimeout(420_000);
     await openHouse(page);
     const first = await firstArchitect(page);
+    // 紙ふぶきの 基準（AC36）。あずける・話す・せっけいずを 作る・建築中では ふえない ことを あとで 見る
+    const confetti0 = (await celebrateOf(page)).confetti;
 
     // ---- せっけいずが 1 まいも ない（AC18）: 押せて、一覧に ならず ふきだしだけ
     await test.step('AC18 せっけいずが 0 まい → 一覧に ならず ふきだし', async () => {
@@ -112,7 +114,8 @@ test.describe('HOUSE-1C PR-2 建築', () => {
       const pick = await press(page, 'build');
       expect(pick.page, 'せっけいずの 一覧').toBe('pick');
       expect(pick.buttons.find((b) => b.id === `pick-${slot}`)?.enabled, 'くらが 空 → 材料が たりなくて 押せない').toBe(false);
-      const need = await press(page, 'pick', slot);
+      await clickDisabled(page, `pick-${slot}`); // うすい カード（aria-disabled。disabled では ない）を 本物の マウスで 1 回
+      const need = await menuState(page);
       expect(need.page, '押すと ひつような もの').toBe('need');
       expect((await needOf(page, slot)).some((r) => r.short >= 1), 'たりない 物が ある').toBe(true);
       expect(squash(need.bubble), 'ふきだし').toBe(squash(MSG_SITE.short));
@@ -150,6 +153,14 @@ test.describe('HOUSE-1C PR-2 建築', () => {
       const sky = await press(page, 'pick', slot);
       expect(sky.page, '上空の 視点').toBe('sky');
       expect(sky.open, '上空の 視点の 間は メニュー扱い（時間が 止まる）').toBe(true);
+      // 上空の 視点の 間も 時が 止まる（AC41）。わくも 勝手には うごかない（screen は カメラの なめらかな 動きで かわりうるので 見ない）
+      const dayTick = (): Promise<number> => page.evaluate(() => (window as any).__rikkun.time.get().dayTick as number);
+      const skyTick = await dayTick();
+      const skyCursor = await cursorOf(page);
+      await stepUi(page, 60);
+      expect(await dayTick(), '上空の 視点の 間は 時刻が 止まる').toBe(skyTick);
+      const skyAfter = await cursorOf(page);
+      expect({ x: skyAfter?.x, z: skyAfter?.z, ok: skyAfter?.ok, confirm: skyAfter?.confirm }, 'わくは そのまま').toEqual({ x: skyCursor?.x, z: skyCursor?.z, ok: skyCursor?.ok, confirm: skyCursor?.confirm });
       expect(await sitesOf(page), '置ける 場所は 1 か所だけ（1 列 たりない 場所は 数えない）').toEqual([at]);
       const c0 = await cursorOf(page);
       expect(c0, 'わく').toMatchObject({ x: at.x, z: at.z, ok: true, confirm: false });
@@ -292,8 +303,10 @@ test.describe('HOUSE-1C PR-2 建築', () => {
       expect(Math.abs(after!.leftTicks - beforeSave!.leftTicks), 'のこりが 同じ（開きなおしの 準備の 数ステップ ぶんの ずれは ゆるす）').toBeLessThanOrEqual(4);
       expect(after!.leftTicks + Math.round(after!.progress * BUILD_TICKS), '長さは 保存した 長さの まま（設定を もう 1 度 入れなくても）').toBe(BUILD_TICKS);
       const cellsAfter = await scanBox(page, at, OUT_W, OUT_D);
+      expect(tally(cellsAfter).scaffold, '足場は 保存の とおりに もどる（数は 同じ）').toBe(tally(cellsBefore).scaffold);
       const diff = Object.keys(cellsBefore).filter((k) => cellsBefore[k]!.id !== cellsAfter[k]?.id);
-      expect(diff.length, '足場・かべが 保存の とおりに もどる（数ステップ ぶんの ずれは ゆるす）').toBeLessThanOrEqual(6);
+      expect(diff.filter((k) => cellsBefore[k]!.id !== 'house_wall' && cellsAfter[k]?.id !== 'house_wall'), 'ちがう マスは かべだけ').toEqual([]);
+      expect(diff.length, 'かべが 保存の とおりに もどる（開きなおしの 数ステップ ぶんの ずれは ゆるす）').toBeLessThanOrEqual(6);
       expect(await houses(page), 'まだ 完成して いないので 家の 記録は ない').toEqual([]);
     });
 
@@ -315,12 +328,18 @@ test.describe('HOUSE-1C PR-2 建築', () => {
 
     // ---- 85% すぎ: 屋根・ちょうちん。かべは ふえつづけて きた
     await test.step('AC21 85% すぎは 屋根・家具・ちょうちん', async () => {
-      const t55 = tally(await scanBox(page, at, OUT_W, OUT_D));
+      const cells55 = await scanBox(page, at, OUT_W, OUT_D);
+      const t55 = tally(cells55);
       expect(t55.roof, '55% では 屋根は まだ').toBe(0);
       expect(t55.wall, 'かべは 40% より ふえた').toBeGreaterThanOrEqual(prog[0]!);
       await runTo(Math.floor(BUILD_TICKS * 0.93));
-      const t93 = tally(await scanBox(page, at, OUT_W, OUT_D));
-      expect(t93.roof, '85% を すぎたら 屋根が 立ちはじめる').toBeGreaterThan(0);
+      const cells93 = await scanBox(page, at, OUT_W, OUT_D);
+      const t93 = tally(cells93);
+      // 屋根・床・家具・ちょうちんの どれから 立つかは 決めない: 55% に 無かった 種類（かべ・足場・窓・戸 いがい）が ふえて いれば よい
+      const lateKinds = (cells: Awaited<ReturnType<typeof scanBox>>): Set<string> =>
+        new Set(Object.values(cells).filter((c) => c.id !== 'air' && c.item !== null && !['house_wall', 'shoji', 'house_door'].includes(c.id)).map((c) => c.id));
+      const k55 = lateKinds(cells55);
+      expect([...lateKinds(cells93)].filter((k) => !k55.has(k)), '85% を すぎたら 屋根・床・家具・ちょうちんの どれかが 立ちはじめる').not.toEqual([]);
       expect(t93.wall, 'かべは そろって いる').toBeGreaterThanOrEqual(t55.wall);
     });
 
@@ -333,9 +352,9 @@ test.describe('HOUSE-1C PR-2 建築', () => {
 
     // ---- 完成の 1 ステップ 前 → 完成（AC21・AC36・AC49）
     await setNight(page, false);
-    await page.evaluate(() => (window as any).__rikkun.time.set(14000)); // ひる（描画の 比べ・戸の 光が 同じに なる ように）
+    await page.evaluate(() => (window as any).__rikkun.time.set(14000)); // ひるに する（夜の 見張りは おわり。完成の ステップで 夜の 湧きが 入りこまない ように）
     await standAt(page, stand, 0);
-    const confetti0 = (await celebrateOf(page)).confetti;
+    expect((await celebrateOf(page)).confetti, 'あずける・話す・せっけいずが できた・建築中では 紙ふぶきは 出ない').toBe(confetti0);
     await drainSfx(page);
     await test.step('AC21 完成の 1 ステップ 前は まだ 建築中・次の ステップで 完成', async () => {
       let b = (await buildingOf(page))!;

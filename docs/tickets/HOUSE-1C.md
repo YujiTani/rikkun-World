@@ -100,8 +100,8 @@
 
 ### フック（約束の 要点）
 - **道具**: `house.level()` → `{ base, cells: { x, z, state: 'high' | 'low' | 'ok' }[] }`（みずもりを 地面で 右クリック → base。13×13 の 169 列ぜんぶ〔ok も〕。高さは base の −4〜+5 を 見る。みずもりを 持って base から 16 マス 以内の 間だけ `cells`。持ちかえても base は のこる。みずもりを 持った まま 左クリックで 手と 同じに ほれる）。どうづき: 右クリックで 20 ステップに 1 回だけ 3×3 の 平らな 空気上の くさ・つち・すな・ゆき → `katame_tsuchi`、ほると `dirt`、たたいても かわらない。
-- **一覧・上空の 視点**: `build`（建築中は 押せない。せっけいずが 0 まいでも 押せて ふきだしだけ）→ page `'pick'`（ボタン `pick-<slot>`・`close`。DOM `house-pick`）。たりない ときは page `'need'`＋ふきだし。そろえば page `'sky'`。`house.sites()`（`{x,y,z}[]`、北西の すみ・床の 段）・`house.cursor()`（`{x,z,ok,confirm,screen:{x,y}}`）・ボタン `back`・`yes`・`no`、DOM `house-sky`・`house-confirm`（`data-kind="build"`）・`house-bubble`。キーは 矢印／WASD で 1 マス、Enter／左クリックで 決定（まどが あれば Enter ＝ `yes`）、Esc ＝ まどを とじる か 一覧へ。
-- **建築**: `settings.set('houseBuildTicks', n)`（建築の 長さを n に。`null` で 式。保存した 建築は 保存した 長さで つづく）・`house.building()` → `{ name, w, d, progress, leftTicks, leftText, at }`・`house.firstBonus()`・`house.celebrate()` → `{ confetti, banner }`（紙ふぶきの 回数と 上の 帯。DOM `house-done-banner`「<名前> が できた！」）。
+- **一覧・上空の 視点**: `build`（建築中は 押せない。せっけいずが 0 まいでも 押せて ふきだしだけ）→ page `'pick'`（ボタン `pick-<slot>`・`close`。DOM `house-pick`）。材料が たりない 設計図の うすい カードは `aria-disabled="true"`（`disabled` には しない）で、本物の マウスで 押しても page `'need'`＋ふきだし。そろえば page `'sky'`。`house.sites()`（`{x,y,z}[]`、北西の すみ・床の 段）・`house.cursor()`（`{x,z,ok,confirm,screen:{x,y}}`）・ボタン `back`・`yes`・`no`、DOM `house-sky`・`house-confirm`（`data-kind="build"`）・`house-bubble`。キーは 矢印／WASD で 1 マス、Enter／左クリックで 決定（まどが あれば Enter ＝ `yes`）、Esc ＝ まどを とじる か 一覧へ。
+- **建築**: `settings.set('houseBuildTicks', n)`（建築の 長さを n に。設定は 数だけで `null` は 使わない。初期値 0 ＝ 式。保存した 建築は 保存した 長さで つづく）・`house.building()` → `{ name, w, d, progress, leftTicks, leftText, at }`・`house.firstBonus()`・`house.celebrate()` → `{ confetti, banner }`（紙ふぶきの 回数と 上の 帯。DOM `house-done-banner`「<名前> が できた！」）。
 - 建築の 長さの 式は **`model.ts` の `houseBuildTicks({ w, d })`**（ユニット `src/house/editor/buildTime.test.ts` が この 名前と 形を 見る。決め 6）。
 
 ### AC と テストの 対応
@@ -109,21 +109,21 @@
 |---|---|---|
 | AC16 みずもり（high・low・ok・13×13・ほって ok） | E2E ＋ ユニット（色の 判定） | `e2e/house1cGround.spec.ts` 「AC16」 |
 | AC17 どうづき（3×3・石と 段差は そのまま・20 ステップ・掛け声と 土の 音・かためた つちは 小さい 音だけ・ほると つち） | E2E ＋ ユニット | 同「AC17」 |
-| AC18 一覧（材料が たりないと 押せない → `need`・せっけいず 0 まい） | E2E ＋ ユニット | `e2e/house1cBuild.spec.ts` 「AC18」 |
+| AC18 一覧（材料が たりないと 押せない → `need`〔うすい カードを 本物の マウスで 1 回 押す〕・せっけいず 0 まい） | E2E ＋ ユニット | `e2e/house1cBuild.spec.ts` 「AC18」 |
 | AC19 場所（なければ ふきだし・あれば 上空の 視点） | E2E（緑の 場所 → 決定 → 建築）＋ ユニット（場所の 判定） | 同「AC19」 |
 | AC20 確かめ（［ここに たてる］で 材料が ちょうど へる・せっけいずは のこる・［やめる］・Esc） | E2E ＋ ユニット | 同「AC20」 |
-| AC21 建築の 時間（式・完成の ちょうどの ステップ） | ユニット（赤）＋ E2E（テスト用の 長さで 1 ステップ 前は 建築中・次で 完成） | `src/house/editor/buildTime.test.ts`・build の 通し |
+| AC21 建築の 時間（式・完成の ちょうどの ステップ・85% すぎに 屋根・床・家具・ちょうちんの どれかが 立つ） | ユニット（赤）＋ E2E（テスト用の 長さで 1 ステップ 前は 建築中・次で 完成） | `src/house/editor/buildTime.test.ts`・build の 通し |
 | AC22 のこりの 言い方 3 つ（分け目） | E2E（100 ステップごとに 進みと 言い方）＋ ユニット（分け目の ちょうど） | build の 通し |
 | AC23 建築中は 湧かない（横 16 マス 以内） | E2E（夜・40%／93% で 湧いた 場所の 距離）＋ ユニット（湧く 場所の 判定） | build の 通し |
-| AC31 数の 上限なし／建築中は `build` が 押せない | E2E（建築中の `build`）＋ ユニット（12 けん目も 始まる） | build の 通し |
-| AC32c 保存（40% で セーブ → 開くと 40%） | E2E ＋ ユニット（読み書き・前の セーブは 家なし・おまけ あり） | build の 通し |
+| AC31 建築中は 1 けんだけ（`build` が 押せない）／数の 上限なし | E2E（建築中の `build` だけ）＋ ユニット（上限なし。12 けん目も 始まる） | build の 通し |
+| AC32c 保存（40% で セーブ → 開くと 40%。足場の 数は 同じ・ちがう マスは かべだけで 6 マスまで） | E2E ＋ ユニット（読み書き・前の セーブは 家なし・おまけ あり） | build の 通し |
 | AC34 ② 湧きの 仕事 2 倍 | ユニット（下） | — |
 | AC35b 画面 | UI 検査 `house-pick`・`house-sky`・`house-sky-confirm`（設計図 7 枚・いちばん 長い 名前・字 24px・ボタン 56px） | `e2e/ui-gate.spec.ts` |
-| AC36 完成の 紙ふぶき・ファンファーレ 1 回 | E2E（ちょうど 1 ふえる・`houseDone` 1 回・300 ステップ あとも ふえない）。どうづき・あずける・話す・せっけいずが できたでは ふえない | 地盤の 通し・build の 通し |
+| AC36 完成の 紙ふぶき・ファンファーレ 1 回 | E2E（開いた 直後の 数を 基準に、あずける・話す・せっけいずが できた・建築中では ふえず、完成で ちょうど 1 ふえる・`houseDone` 1 回・300 ステップ あとも ふえない）。どうづきでは ふえない（地盤の 通し） | 地盤の 通し・build の 通し |
 | AC37（音）とんかちは 戸から 16 マス 以内だけ | E2E（4 マスで 鳴る・18 マスで 鳴らない） | build の 通し |
 | AC39 建築中の 場所は 置く・ほる が 失敗・歩いて 入れない | E2E（保存から もどした あとも）＋ ユニット | build の 通し |
 | AC40 建築士さんの 動き（戸の 前に うつる） | E2E（4 マス 以内）＋ ユニット（10,000 ステップ・32／31 マス） | build の 通し |
-| AC41 メニュー・上空の 視点の 間は 時刻と 進みが 止まる | E2E（`step(600)` の 前後）＋ ユニット | build の 通し |
+| AC41 メニュー・上空の 視点の 間は 時刻と 進みが 止まる | E2E（建築士さんの メニューで `step(600)`・上空の 視点で `step(60)` の 前後で `dayTick`・`leftTicks`・わくが 同じ）＋ ユニット | build の 通し |
 | AC51 はじめての 家の おまけ | ユニット（赤）＋ E2E（1 けん目は くらに ぬの・いとが 0 でも 建つ・2 けん目は ぬの 3・いと 1） | `src/house/needBonus.test.ts`・build の 通し |
 | AC49 完成した 家の 形（足場が 消え、PR-1 の `buildNow` と 同じ 形） | E2E（`shapeMismatches`） | build の 通し |
 | AC25 完成 → 戸は しまって いる → 右クリックで あけて 入る → 名前の 帯 | E2E | build の 通し |
@@ -148,14 +148,13 @@ tester が 先に 書いた 物（赤。名前は そのまま）: `src/house/ed
 15. **おまけ（AC51）**: 建て はじめた あと〔`yes` を 押した あと〕は `firstBonus()` が false に なり、2 けん目から ぬの 3・いと 1 が いる（tester の ユニットは 建て はじめる 前の 数まで）。
 
 ### こわれる 既存テスト
-- **直した 物（tester。期待は ゆるめず 新しい 動きに 合わせた）**: `src/house/talk.test.ts` の「メニューの ボタンは §2.3 の 順…」で `en.build` を `false` → `true`（PR-2 から「けんちくを はじめる」は 建築中で なければ 押せる。`rename` は 家 0 けんの 間 false の まま）。実装の 前は この 1 本が 赤。
-- **通るが 題と 中身を あとで 直す 物**（developer）: 同じ ファイルの「押せない ボタンを 押しても 何も おきない」は `build` を 押しても page `'top'`・open の まま で 通る（せっけいずが 0 まいなら ふきだしだけ）。`build` は 押せる ボタンに なる ので、`nothing` と `rename` だけに 直す か、`build` の ふきだしを 見る 別の テストに 分ける。
+- **直した 物（tester。期待は ゆるめず 新しい 動きに 合わせた）**: `src/house/talk.test.ts` の「メニューの ボタンは §2.3 の 順…」で `en.build` を `false` → `true`（PR-2 から「けんちくを はじめる」は 建築中で なければ 押せる。`rename` は 家 0 けんの 間 false の まま）。実装の 前は この 1 本が 赤。同じ ファイルの「押せない ボタンを 押しても 何も おきない」は `build` を 押せる ボタンに なる ので、押す 物を `rename`・`nothing` だけに 直した（`build` の ふきだしは 上の 一覧の 期待で 見る）。
 - **実装で 変わる 写し**（developer が 理由を 確かめて 更新し、報告に 書く）: `src/content/__snapshots__/{content,ids,order,blocks,drops}.json`（`katame_tsuchi`・足場の ブロック。順番は 画面の 順なので 既存の 物は 動かさない）・`src/world/blocks/calm.test.ts`・`src/world/render/voxel/sectionMesher.slice.test.ts` の golden（アトラスに 足す とき）・登録表の 並び・件数を 数える テスト（`registry.test.ts`・`materials.test.ts`・`blocks.test.ts`・`src/ui/itemCategory.test.ts`）・`src/fx/sfx.test.ts` の big の 一覧（音の diff に 入っている）。道具を 持つ 形で 描画回数の 上限の テストが あれば（+1）。
 - **確実に こわれる 他の 既存テストは 見つからなかった**（`house1a`・`house1b`・`smoke` は 緑のまま）。
 
 ### 新しく 赤に した 物（実装の 前の 赤。別ポートの 設定で 確かめた）
 - `e2e/house1cGround.spec.ts` 1 本: テスト用フック `house.level` が まだ 無くて、いちばん 先の 呼び出しで 落ちる。
-- `e2e/house1cBuild.spec.ts` 1 本: 「けんちくを はじめる」が まだ 押せない（`build` が `enabled: false`）で、いちばん 先の 確かめ（AC18。せっけいず 0 まい）で 落ちる。このあとも `house.firstBonus`・`house.sites` などの フックが 要る（PR-1 の `house.blockAt`・`house.houses` も 建てる 通しで 要る）。
+- `e2e/house1cBuild.spec.ts` 1 本: テスト用フック `house.celebrate` が まだ 無くて、いちばん 先（紙ふぶきの 基準を 取る 所）で 落ちる。そのあとも「けんちくを はじめる」が まだ 押せない（`build` が `enabled: false`。AC18 の せっけいず 0 まい）、`house.firstBonus`・`house.sites` などの フックが 要る（PR-1 の `house.blockAt`・`house.houses` も 建てる 通しで 要る）。
 - `e2e/ui-gate.spec.ts` の 3 画面（`house-pick`・`house-sky`・`house-sky-confirm`）: 「けんちくを はじめる」が まだ 押せず page が `top` の まま で 落ちる。
 - `src/house/editor/buildTime.test.ts` 3 本（`houseBuildTicks` が `model.ts` に 無い）・`src/house/needBonus.test.ts` 3 本（`firstBonus` が 無く、`need()` の `bonus` は いつも 0）・`src/house/talk.test.ts` 1 本（`build` が まだ 押せない）。
 - 緑のまま: `house1a`・`house1b`・`smoke`、guard（`e2eNoTime`・`noFixedCounts`・`e2eShard`）、`tsc`。

@@ -86,7 +86,7 @@ import { installAimHelpers } from './aim';
  *   editor-grid      ② の 方眼の 外わく（div）。中の マス ＝ editor-cell（data-x・data-z。よこ×たて こ。9×9 の ときの 大きさは 48・54・61 px の 正方形）、置いた 家具 ＝ editor-furniture（data-kind・data-x・data-z・data-rot）。どれも div
  *   editor-name      ③ の 今の 名前（前の 字 ＋ 後ろの 字）
  *   house-bubble     ふきだし（1A と 同じ。エディターでは 見出しの だんに 重なる。menu().bubble と 同じ 字）
- *   house-confirm    確かめの まど（data-kind="reset" か "futonOnly"。editor().confirm と 同じ）
+ *   house-confirm    確かめの まど（エディター: data-kind="reset" か "futonOnly"〔editor().confirm と 同じ〕。1C PR-2 の 上空の 視点の まど: data-kind="build"）
  *   house-need       ひつような もの の ポップアップ。1 行 ＝ need-row（data-item・data-need・data-have・data-short。need() と 同じ 順）。材料は 10 しゅるいまで（2.4）。1024×700 だけ 行の ところが スクロール
  * 余白（§3.2 の 2.4 の 表。UI 検査 layoutTableIssues〔e2e/helpers/houseEditor.ts の LAYOUT〕が はかる。列は 1024×700・1280×800・1440×900。±1.5px）: 画面の ふちから ボタンまで
  *   16・24・32px 以上（上下左右）、下の 帯の ボタン（prev・next・done・new・need）の 高さ 56・64・64、① ② の ボタンの 高さ 56・64・64（② の 家具の ボタンは 正方形）、
@@ -174,7 +174,8 @@ import { installAimHelpers } from './aim';
  * けんちくを はじめる（§2.8・AC18〜AC20・AC51）:
  *   上の メニューの `build`: 建築中は enabled false。せっけいずが 0 まいでも 押せて、ふきだし「せっけいずが ないよ。…」（page は 'top' の まま）。
  *   press('build') → menu().page 'pick'（持ち物の せっけいずの 一覧。DOM は data-testid="house-pick"）。ボタン: `pick-<せっけいずの マスの 番号>`（blueprints()[i].slot。press('pick', slot) も 同じ）・`close`。
- *   材料が たりない せっけいずの `pick-*` は enabled false（press すると page 'need'・たりない 行の short ≧ 1・ふきだし「ざいりょうが たりないよ」）。
+ *   材料が たりない せっけいずの `pick-*`（うすい カード）は enabled false（press すると page 'need'・たりない 行の short ≧ 1・ふきだし「ざいりょうが たりないよ」）。
+ *   うすい カードの DOM は aria-disabled="true" に して、`disabled` には しない（本物の マウスで 押すと 同じく page 'need' に なる。E2E が 1 回 実クリックで ためす）。
  *   そろって いる せっけいずを press('pick', slot) すると 上空の 視点（page 'sky'）。置ける 場所が 1 つも なければ page は 'pick' の まま、ふきだし「かためた つちの ばしょが ないよ。みずもり と どうづき で つくってね」。
  *   house.sites() → { x, y, z }[]     上空の 視点の 間の 置ける 場所（ほかの 間は []）。x・z ＝ 外の 箱の 北西（−x・−z）の すみ、y ＝ 床の 段の 高さ（PR-1 の buildNow の `at` と 同じ）。
  *   house.cursor() → { x, z, ok, confirm, screen: { x, y } } | null     上空の 視点の 間だけ。x・z ＝ わくの 北西の すみ（sites() と 同じ 座標）・ok ＝ そこに 建てられる・confirm ＝ 確かめの まどが 出て いる・screen ＝ わくの まん中の 画面の 位置（CSS px）。
@@ -187,7 +188,7 @@ import { installAimHelpers } from './aim';
  *   house.firstBonus() → boolean     その 世界で まだ 1 けんも 建て はじめて いない（ふとん 1 つぶんの おまけが ある）。need() の ぬの・いとは {need: 0, bonus: 3 / 1}。
  *
  * 建築（§2.10・§4.1・§4.5・AC21・AC22・AC39・AC40・AC41）:
- *   settings.set('houseBuildTicks', n) … 建築の 長さを n ステップに 固定（どんな 大きさでも）。null で 仕様 §4.1 の 式 〔9,000＋900×(よこ＋たて−10)〕。保存された 建築は 保存した ときの 長さで つづく。
+ *   settings.set('houseBuildTicks', n) … 建築の 長さを n ステップに 固定（どんな 大きさでも）。設定は 数だけ（null は 使わない）。初期値 0 ＝ 仕様 §4.1 の 式 〔9,000＋900×(よこ＋たて−10)〕。保存された 建築は 保存した ときの 長さで つづく。
  *   house.building() → { name, w, d, progress, leftTicks, leftText, at } | null
  *       name ＝ 家の 名前（前の 文字 ＋ 後ろの 文字）・w d ＝ せっけいずの 中の よこ・たて・progress ＝ 0〜1（たった ステップ ÷ 長さ）・leftTicks ＝ のこりの ステップ・
  *       leftText ＝ 'はじめた ばかり だよ'（進み 1/3 未満）｜'まだまだ かかるよ'（4/5 未満）｜'もうすぐ おわりそう！'・at ＝ 場所の 北西の すみ { x, y, z }（床の 段。sites() の 1 件と 同じ）

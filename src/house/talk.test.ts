@@ -115,7 +115,7 @@ describe('AC3 うなずき 22 ステップのあと メニュー', () => {
   it('押せない ボタンを 押しても 何も おきない', () => {
     r.talk.start('first');
     run(r, 22);
-    for (const id of ['build', 'rename', 'nothing']) r.talk.press(id);
+    for (const id of ['rename', 'nothing']) r.talk.press(id);
     expect(r.talk.menu().page).toBe('top');
     expect(r.talk.menu().open).toBe(true);
   });
