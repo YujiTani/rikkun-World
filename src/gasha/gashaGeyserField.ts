@@ -14,6 +14,7 @@
  */
 import { TUNE as T } from './gashaBigTuning';
 import { groupsOf, pickSpot, type SpawnProbe } from './gashaGeyserSpawn';
+import { isWater } from '../world/blocks/water';
 
 export interface GeyserSpec {
   /** 柱の 北西の かどの マス（x0, z0）。柱は x0 〜 x0 + w、z0 〜 z0 + d */
@@ -317,7 +318,7 @@ export class GeyserField {
     for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
       const x = x0 + i, z = z0 + j, y = this.d.groundY(x, z);
       const id = this.d.blockAt(x, y, z);
-      if (id === 'air' || id === 'outside' || id === BLOCK || id === 'water') return false;
+      if (id === 'air' || id === 'outside' || id === BLOCK || isWater(id)) return false;
       if (!forceAny && id !== 'grass' && id !== 'dirt') return false;
       const k = key(x, z);
       if (this.cells.has(k) || this.pend.some((p) => p.cells.some((q) => q.x === x && q.z === z))) return false;
@@ -343,7 +344,7 @@ export class GeyserField {
   private finish(p: Pending): void {
     for (const q of p.cells) {
       const id = this.d.blockAt(q.x, q.y, q.z);
-      if (id === 'air' || id === 'outside' || id === 'water' || id === BLOCK) return; // 掘られた・かわった: やめる
+      if (id === 'air' || id === 'outside' || isWater(id) || id === BLOCK) return; // 掘られた・かわった: やめる
     }
     for (const q of p.cells) {
       const prev = this.d.blockAt(q.x, q.y, q.z);

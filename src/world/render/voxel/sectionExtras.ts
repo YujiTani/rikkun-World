@@ -1,7 +1,7 @@
 import type { CropStageSource } from '../../../contracts';
 import { cropKindOfBlock } from '../../../contracts';
 import { hasLook, occludes } from '../looks';
-import { AIR, BLOCK_TYPES, SHOJI, WATER, isChalkIndex, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../../blocks/blockTypes';
+import { AIR, BLOCK_TYPES, SHOJI, isChalkIndex, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../../blocks/blockTypes';
 import type { TileName } from '../../blocks/textures';
 import type { WorldLight } from '../../light/WorldLight';
 import type { ArrayVoxelWorld } from '../../VoxelWorld';
@@ -10,6 +10,7 @@ import { pushChalk } from '../chalkMesh';
 import { pushHouseProp, shojiAxisAt } from '../houseProp';
 import { pushKotatsuCell } from '../kotatsuMesh';
 import { FACES, FACE_UV, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, isCoopLineIndex, pushCoopPanels, pushCross, pushFace, pushProp, pushTorch, type MeshData } from '../meshChunk';
+import { isWaterIndex } from '../../blocks/water';
 
 /**
  * セクション 1 つぶんの「絵（atlas）で描くもの」: チョークの しるし〔MINE-1B。うかせた 板〕・たいまつ・十字の板（作物・やせいの やさい・かかし・さく）・
@@ -78,7 +79,7 @@ export function meshSectionExtras(
           continue;
         }
         if (isKotatsuBlock(BLOCK_TYPES[b].id) && pushKotatsuCell(opaque, world, light, x, y, z, BLOCK_TYPES[b].id)) continue;
-        const isWater = b === WATER;
+        const isWater = isWaterIndex(b);
         if (!isWater && hasLook(b)) continue; // 小ブロックの形で描く
         const uv = TILE_UV[b];
         if (!uv) continue;

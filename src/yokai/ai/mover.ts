@@ -8,6 +8,7 @@ import { swimOf, swimTarget } from './swimTerrain';
 import { AI_CONST, KIND_AI, type YokaiConfig } from './config';
 import { DT, type Ent, type YokaiField } from './entity';
 import { flySurface, groundSupport } from './terrain';
+import { isDeepWater } from '../../world/blocks/water';
 
 interface MoverDeps {
   world: VoxelWorld;
@@ -66,7 +67,7 @@ export class YokaiMover {
       if (
         !Number.isNaN(t) &&
         !KIND_TRAITS[e.kind].floatsDown && // ゆらゆら落ちる妖怪（からかさ）は ダメージなし
-        world.getBlock(Math.floor(x), Math.floor(t), Math.floor(z)) !== 'water' &&
+        !isDeepWater(world.getBlock(Math.floor(x), Math.floor(t), Math.floor(z))) &&
         fallDamage(e.y - t, config.safeFallHeight, config.fallDamagePerBlock) >= e.hp
       ) {
         t = NaN;

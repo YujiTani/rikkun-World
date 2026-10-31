@@ -113,7 +113,7 @@ export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries
 export const AIR = BLOCK_INDEX.air;
 export const WATER = BLOCK_INDEX.water;
 // 水の 番号の 約束（water.ts）が 並びと ずれて いないか 起動時に 確かめる
-if (WATER !== WATER_FULL_INDEX || BLOCK_INDEX.water_1 !== WATER_W0 || BLOCK_INDEX.reserved_147 !== BLOCKS_BEFORE_WATER) {
+if (BLOCK_INDEX.water !== WATER_FULL_INDEX || BLOCK_INDEX.water_1 !== WATER_W0 || BLOCK_INDEX.reserved_147 !== BLOCKS_BEFORE_WATER) {
   throw new Error('water block index mismatch (WATER-1 §4.6)');
 }
 export const TORCH = BLOCK_INDEX.torch;

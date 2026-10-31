@@ -5,6 +5,7 @@ import { itemType } from '../inventory/items';
 import { isRarity, itemRarity, topRarity } from './rarity';
 import { cellInWall } from '../world/wall';
 import { createRng, type Rng } from '../world/gen/random';
+import { isDeepWater, isWater } from '../world/blocks/water';
 
 /** 落ちたアイテムの数値。やられた落とし物も 妖怪のドロップも同じ部品を使う */
 export const DROP = {
@@ -330,7 +331,7 @@ export class DropField {
   private waterSurface(x: number, y: number, z: number): number {
     const w = this.d.world;
     let yy = y;
-    while (yy < w.size.y && w.getBlock(x, yy, z) === 'water') yy++;
+    while (yy < w.size.y && isDeepWater(w.getBlock(x, yy, z))) yy++;
     return yy;
   }
 
@@ -342,10 +343,10 @@ export class DropField {
       // 足もとが消えたら また落ちる（水にうかんでいるものは水がなくなったら）
       const yb = Math.floor(b.y - 1e-3);
       const below = w.getBlock(fx, yb, fz);
-      if (w.isSolid(fx, yb, fz) || below === 'outside' || below === 'water') return;
+      if (w.isSolid(fx, yb, fz) || below === 'outside' || isWater(below)) return;
       b.resting = false;
     }
-    if (w.getBlock(fx, Math.floor(b.y), fz) === 'water') {
+    if (isDeepWater(w.getBlock(fx, Math.floor(b.y), fz))) {
       const top = this.waterSurface(fx, Math.floor(b.y), fz);
       b.vx *= 0.9;
       b.vz *= 0.9;

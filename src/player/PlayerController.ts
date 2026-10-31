@@ -16,6 +16,7 @@ import {
   createPlayerSettings,
   type PlayerSettings,
 } from './config';
+import { isDeepWater, isWater } from '../world/blocks/water';
 
 const DEG = Math.PI / 180;
 /** ふみこみを 区切る 長さ（がけ・妖怪の 手前で 止める 細かさ） */
@@ -189,7 +190,7 @@ export class PlayerController {
     for (let i = i0; i <= i1; i++) {
       for (let k = k0; k <= k1; k++) {
         if (!w.isLoaded(i, k)) return true;
-        for (let j = j1; j >= j1 - 1; j--) if (this.solid(w, i, j, k) || w.getBlock(i, j, k) === 'water') return true;
+        for (let j = j1; j >= j1 - 1; j--) if (this.solid(w, i, j, k) || isWater(w.getBlock(i, j, k))) return true;
       }
     }
     return false;
@@ -435,7 +436,7 @@ export class PlayerController {
     const bx = Math.floor(x);
     const bz = Math.floor(z);
     this.state.inWater =
-      this.world.getBlock(bx, Math.floor(y + EPS), bz) === 'water' ||
-      this.world.getBlock(bx, Math.floor(y + 0.9), bz) === 'water';
+      isDeepWater(this.world.getBlock(bx, Math.floor(y + EPS), bz)) ||
+      isDeepWater(this.world.getBlock(bx, Math.floor(y + 0.9), bz));
   }
 }

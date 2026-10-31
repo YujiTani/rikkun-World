@@ -1,5 +1,6 @@
 import type { BlockId, Vec3, VoxelWorld, YokaiInfo, YokaiWorld } from '../contracts';
 import { boxOf, wallBetween } from '../combat/attackFacing';
+import { isWater } from '../world/blocks/water';
 
 /**
  * WEAPON-7 §3.2: 雷の ねらう 点 T・落ちる 点 S・空が 見えるか。判定は ブロックの 列だけで 決める
@@ -10,7 +11,7 @@ import { boxOf, wallBetween } from '../combat/attackFacing';
 export function thunderBlock(world: VoxelWorld, x: number, y: number, z: number): boolean {
   const id: BlockId | 'outside' = world.getBlock(x, y, z);
   if (id === 'air' || id === 'outside') return false;
-  return id === 'water' || world.isSolid(x, y, z);
+  return isWater(id) || world.isSolid(x, y, z);
 }
 
 export interface ThunderAim {

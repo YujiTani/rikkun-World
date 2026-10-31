@@ -6,6 +6,7 @@ import { rollBreed } from './hatch';
 import type { Kit, KitEggRow } from './animalTypes';
 import { BLOCK_NUKUNUKU, FRIEND_FULL_REPEAT, HATCH_MACHO_TICKS, HATCH_TICKS, KIT_HATCH_GAP, KIT_ICON_DIST, SPOT_RETRY } from './animalConsts';
 import { dist2d, inFootprintAny } from './animalMath';
+import { isDeepWater } from '../world/blocks/water';
 
 /** この 係 が 使う ものだけ（`AnimalCore` の 一部） */
 type KitCtx = Pick<AnimalCore, 'breedRng' | 'breedState' | 'coopList' | 'd' | 'dropGold' | 'ents' | 'find' | 'friendCount' | 'getPlayer' | 'hintOut' | 'kitList' | 'kitScratch' | 'make' | 'push' | 'settings' | 'world'>;
@@ -243,7 +244,7 @@ function findHatchSpot(core: KitCtx, k: Kit, p: Vec3): Vec3 | null {
     const iz = k.z + dz;
     if (!w.isLoaded(ix, iz)) continue;
     if (!w.isSolid(ix, k.y - 1, iz) || w.isSolid(ix, k.y, iz) || w.isSolid(ix, k.y + 1, iz)) continue;
-    if (w.getBlock(ix, k.y, iz) === 'water') continue;
+    if (isDeepWater(w.getBlock(ix, k.y, iz))) continue;
     if (inFootprintAny(core.coopList, ix + 0.5, iz + 0.5)) continue;
     return { x: ix + 0.5, y: k.y, z: iz + 0.5 };
   }

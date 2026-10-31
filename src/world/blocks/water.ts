@@ -20,6 +20,9 @@ export const RESERVED_BEFORE_IDS = ['reserved_147', 'reserved_148', 'reserved_14
 export const RESERVED_AFTER_ID = 'reserved_159' as const;
 export type ReservedId = (typeof RESERVED_BEFORE_IDS)[number] | typeof RESERVED_AFTER_ID;
 
+/** 量 1〜8 の 水の id ぜんぶ(集合に 入れる とき) */
+export const ALL_WATER_IDS = ['water', ...WATER_PARTIAL_IDS] as const;
+
 /** 量 1〜7 の 水と 予約の id（`Record<BlockId, …>` の 表に 同じ 値を 入れる ための 型と 一覧） */
 export type WaterExtraId = WaterPartialId | ReservedId;
 export const WATER_EXTRA_IDS: readonly WaterExtraId[] = [...WATER_PARTIAL_IDS, ...RESERVED_BEFORE_IDS, RESERVED_AFTER_ID];

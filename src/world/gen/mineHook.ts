@@ -9,6 +9,7 @@ import { layerAt } from './mineLayers';
 import type { OreCluster } from './mineOres';
 import { chalkInfo, type ChalkFace, type Compass } from '../blocks/chalkMark';
 import { groundHeightAt, terrainFor } from './terrain';
+import { isWaterIndex } from '../blocks/water';
 
 /**
  * window.__rikkun.mine（MINE-1A。docs/design/MINE-1.md §6.1）。炭鉱（地下）の ことを ゲームに 聞く。
@@ -65,7 +66,6 @@ export interface MineHook {
 
 const AIR = BLOCK_INDEX.air;
 const STONE = BLOCK_INDEX.stone;
-const WATER = BLOCK_INDEX.water;
 const ROW = CHUNK_SIZE;
 /** 鉱石は 表 `MINE_CONFIG.ores` の ブロック（せきたん・てつ・1B の 新しい 鉱物。ねんど・せっかいせき・ほたるいしは 名前が `_ore` で 終わらない） */
 const IS_ORE = BLOCK_TYPES.map((t) => MINE_CONFIG.ores.some((r) => r.block === t.id));
@@ -81,7 +81,7 @@ interface Col {
 }
 
 /** 見える ＝ となりが 水、または その 列の 地形の 高さ 以下の 空気（ほらあな・口） */
-const opens = (id: number, y: number, groundH: number): boolean => id === WATER || (id === AIR && y <= groundH);
+const opens = (id: number, y: number, groundH: number): boolean => isWaterIndex(id) || (id === AIR && y <= groundH);
 
 /** となりの マス（nx, nz）の ブロック。列の 中は この 列から、列の 外は 隣の 列の 面（face・k）から 読む */
 function sideBlock(c: Col, y: number, nx: number, nz: number, face: number, k: number): number {

@@ -1,4 +1,4 @@
-import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../blocks/blockTypes';
+import { AIR, BLOCK_TYPES, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../blocks/blockTypes';
 import { BLOCK_TILES, TORCH_PX, tileSubUv, tileUv, type TileName } from '../blocks/textures';
 import { FURN_FACE_TILES } from '../blocks/houseTextures';
 import type { CropStageSource } from '../../contracts';
@@ -9,6 +9,7 @@ import { OPACITY } from '../light/opacity';
 import type { WorldLight } from '../light/WorldLight';
 import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
 import { AO_LEVELS, FACE_SHADE_BY_INDEX } from './config';
+import { isWaterIndex } from '../blocks/water';
 
 /** メッシュの材料（three に依存しない。テストしやすい） */
 export interface MeshData {
@@ -487,7 +488,7 @@ export function meshChunk(
         }
         const uv = TILE_UV[b];
         if (!uv) continue;
-        const isWater = b === WATER;
+        const isWater = isWaterIndex(b);
         for (const face of FACES) {
           const n = world.getIndex(x + face.dir[0], y + face.dir[1], z + face.dir[2]);
           if (n < 0) continue; // 世界の外へ向く面は見えない

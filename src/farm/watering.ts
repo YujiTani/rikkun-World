@@ -9,6 +9,7 @@ import type {
   WateringPort,
 } from '../contracts';
 import type { FarmSystemImpl } from './FarmSystem';
+import { isWater } from '../world/blocks/water';
 
 /** じょうろ（2 しゅるい）か */
 export function isWateringCan(item: string | undefined): item is WateringCanId {
@@ -38,7 +39,7 @@ export function computeWaterRay(
   let x = Math.floor(ox);
   let y = Math.floor(oy);
   let z = Math.floor(oz);
-  const hitAt = (id: string) => id !== 'air' && id !== 'water' && id !== 'outside';
+  const hitAt = (id: string) => id !== 'air' && !isWater(id) && id !== 'outside';
   const start = world.getBlock(x, y, z);
   if (hitAt(start)) return { throughWater: false, waterCell: null, hit: { x, y, z } };
   const stepX = dx > 0 ? 1 : -1;
@@ -68,7 +69,7 @@ export function computeWaterRay(
     }
     if (t > reach) return { throughWater: waterCell !== null, waterCell, hit: null };
     const id = world.getBlock(x, y, z);
-    if (id === 'water') {
+    if (isWater(id)) {
       if (!waterCell) waterCell = { x, y, z };
     } else if (hitAt(id)) {
       return { throughWater: waterCell !== null, waterCell, hit: { x, y, z } };

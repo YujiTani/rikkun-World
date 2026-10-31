@@ -1,4 +1,5 @@
 import type { BlockId, TargetInfo, VoxelWorld } from '../contracts';
+import { isWater } from '../world/blocks/water';
 
 const DEG = Math.PI / 180;
 
@@ -14,7 +15,7 @@ export function lookDirection(yawDeg: number, pitchDeg: number, out: { x: number
 }
 
 function targetable(id: BlockId | 'outside'): id is BlockId {
-  return id !== 'air' && id !== 'water' && id !== 'outside';
+  return id !== 'air' && !isWater(id) && id !== 'outside';
 }
 
 /**

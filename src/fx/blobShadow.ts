@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BlobQuads } from './blobQuads';
+import { isWater } from '../world/blocks/water';
 
 /**
  * キャラの足もとの丸い影（TEX-A、docs/art/DESIGN.md 3.3）。
@@ -66,7 +67,7 @@ export function groundBelow(feetY: number, block: (y: number) => 'solid' | 'wate
   const y0 = Math.floor(feetY + 0.01);
   for (let y = y0; y >= Math.max(0, y0 - BLOB.maxHeight - 1); y--) {
     const b = block(y);
-    if (b === 'water') return null;
+    if (isWater(b)) return null;
     if (b === 'solid') return y + 1;
   }
   return null;
