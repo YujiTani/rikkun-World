@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { BAND_STEPS, HouseBook, type HouseRec } from './book';
+import { HouseBook, type HouseRec } from './book';
 
-/** HOUSE-1C PR-1（AC34・AC52）: 建てた 家の 記録（戸で おぼえる）と、戸を とおった ときの 名前の 帯 */
+/** HOUSE-1C PR-1（AC26・AC52）: 建てた 家の 記録（戸の マス〔x, y, z〕で おぼえる）と、「外 → 戸 → 中」に 入った 家を 知らせる 見はり */
 
 const DOOR = { x: 20, y: 10, z: 30 };
 const REC: Omit<HouseRec, 'id'> = { name: 'ひみつきち', front: 'ひみつ', back: 'きち', number: 1, outer: { w: 7, d: 7 }, door: DOOR, doorOpen: false };
@@ -12,8 +12,8 @@ function make(extra: Array<Omit<HouseRec, 'id'>> = []) {
   for (const e of extra) book.add(e);
   return { book, rec };
 }
-/** 足もとを (x, z) に して 1 ステップ */
-const stepAt = (b: HouseBook, x: number, z: number, y = DOOR.y): void => b.step({ x: x + 0.5, y, z: z + 0.5 });
+/** 足もとを (x, z) に して 1 ステップ。「外 → 戸 → 中」に 入った 家を 返す */
+const stepAt = (b: HouseBook, x: number, z: number, y = DOOR.y): HouseRec | null => b.step({ x: x + 0.5, y, z: z + 0.5 });
 
 describe('記録', () => {
   it('できた 順に 番号が つく。窓口 view には 前・後ろの 文字を 入れない', () => {
@@ -51,47 +51,53 @@ describe('記録', () => {
   });
 });
 
-describe('名前の 帯（AC34）', () => {
-  it('外（南）から 戸の マスへ 入ると 180 ステップ。1 ステップごとに 1 へって 消える', () => {
-    const { book } = make();
-    stepAt(book, DOOR.x, DOOR.z + 2);
+describe('戸を 通って 中へ（AC26。名前の 帯の 合図）', () => {
+  it('外（南）→ 戸の マス → 中（すぐ 北）で その 家を 返す。戸の マスに 入っただけでは まだ', () => {
+    const { book, rec } = make();
+    expect(stepAt(book, DOOR.x, DOOR.z + 2)).toBeNull();
+    expect(stepAt(book, DOOR.x, DOOR.z + 1)).toBeNull();
+    expect(stepAt(book, DOOR.x, DOOR.z), '戸の マス').toBeNull();
+    expect(stepAt(book, DOOR.x, DOOR.z - 1), '中').toBe(rec);
+    expect(stepAt(book, DOOR.x, DOOR.z - 2), '中で 歩いても 出なおさない').toBeNull();
+  });
+
+  it('外 → 戸 → 外 では 出ない（戸の マスで 引き返した）。もう 1 度 中まで 通れば 出る', () => {
+    const { book, rec } = make();
     stepAt(book, DOOR.x, DOOR.z + 1);
-    expect(book.nameBand()).toBeNull();
     stepAt(book, DOOR.x, DOOR.z);
-    expect(book.nameBand()).toEqual({ text: 'ひみつきち', ticksLeft: BAND_STEPS });
-    expect(BAND_STEPS).toBe(180);
-    for (let left = BAND_STEPS - 1; left >= 1; left--) {
-      stepAt(book, DOOR.x, DOOR.z - 1); // 中で 歩いても 出なおさない
-      expect(book.nameBand()?.ticksLeft).toBe(left);
-    }
-    stepAt(book, DOOR.x, DOOR.z - 1);
-    expect(book.nameBand()).toBeNull();
+    expect(stepAt(book, DOOR.x, DOOR.z + 1), '引き返した').toBeNull();
+    expect(stepAt(book, DOOR.x, DOOR.z + 2)).toBeNull();
+    stepAt(book, DOOR.x, DOOR.z + 1);
+    stepAt(book, DOOR.x, DOOR.z);
+    expect(stepAt(book, DOOR.x, DOOR.z - 1)).toBe(rec);
   });
 
   it('中から 出る・中で 歩く・テレポート・横から（かべの あな）・べつの 高さ では 出ない', () => {
     const { book } = make();
-    stepAt(book, DOOR.x, DOOR.z - 2);
-    stepAt(book, DOOR.x, DOOR.z - 1);
-    stepAt(book, DOOR.x, DOOR.z); // 北から 南へ 出る
-    stepAt(book, DOOR.x, DOOR.z + 1);
-    expect(book.nameBand(), '出る とき').toBeNull();
-    stepAt(book, DOOR.x + 5, DOOR.z + 5);
-    stepAt(book, DOOR.x, DOOR.z); // 2 マス 以上 とぶ
-    expect(book.nameBand(), 'テレポート').toBeNull();
-    stepAt(book, DOOR.x - 1, DOOR.z);
-    stepAt(book, DOOR.x, DOOR.z); // 横から
-    expect(book.nameBand(), '横から').toBeNull();
-    stepAt(book, DOOR.x, DOOR.z + 1, DOOR.y + 5);
-    stepAt(book, DOOR.x, DOOR.z, DOOR.y + 5); // 高さが ちがう
-    expect(book.nameBand(), '高さが ちがう').toBeNull();
+    const got: Array<HouseRec | null> = [];
+    got.push(stepAt(book, DOOR.x, DOOR.z - 2));
+    got.push(stepAt(book, DOOR.x, DOOR.z - 1));
+    got.push(stepAt(book, DOOR.x, DOOR.z)); // 北から 南へ 出る
+    got.push(stepAt(book, DOOR.x, DOOR.z + 1));
+    got.push(stepAt(book, DOOR.x + 5, DOOR.z + 5));
+    got.push(stepAt(book, DOOR.x, DOOR.z)); // 2 マス 以上 とぶ
+    got.push(stepAt(book, DOOR.x, DOOR.z - 1)); // テレポートで 戸の マスに 着いても つぎの 1 歩で 帯には ならない
+    got.push(stepAt(book, DOOR.x - 1, DOOR.z - 1));
+    got.push(stepAt(book, DOOR.x - 1, DOOR.z));
+    got.push(stepAt(book, DOOR.x, DOOR.z)); // 横から
+    got.push(stepAt(book, DOOR.x, DOOR.z - 1));
+    got.push(stepAt(book, DOOR.x, DOOR.z + 1, DOOR.y + 5));
+    got.push(stepAt(book, DOOR.x, DOOR.z, DOOR.y + 5)); // 高さが ちがう
+    got.push(stepAt(book, DOOR.x, DOOR.z - 1, DOOR.y + 5));
+    expect(got.every((r) => r === null)).toBe(true);
   });
 
-  it('なまえを かえた あとに 入ると 新しい 名前', () => {
+  it('なまえを かえた あとに 通ると 新しい 名前', () => {
     const { book, rec } = make();
     book.rename(rec.id, 'あ', 'ハウス');
     stepAt(book, DOOR.x, DOOR.z + 1);
     stepAt(book, DOOR.x, DOOR.z);
-    expect(book.nameBand()?.text).toBe('あハウス');
+    expect(stepAt(book, DOOR.x, DOOR.z - 1)?.name).toBe('あハウス');
   });
 
   it('毎ステップ しらべる 記録は 高々 1 件（足もとが かわった ステップだけ。立って いる 間は 0）', () => {
@@ -108,11 +114,22 @@ describe('名前の 帯（AC34）', () => {
     }
   });
 
-  it('戸が こわれた あとは 帯が 出ない', () => {
+  it('戸が こわれた あとは 出ない', () => {
     const { book } = make();
     book.cellChanged(DOOR.x, DOOR.y, DOOR.z, 'air');
     stepAt(book, DOOR.x, DOOR.z + 1);
     stepAt(book, DOOR.x, DOOR.z);
-    expect(book.nameBand()).toBeNull();
+    expect(stepAt(book, DOOR.x, DOOR.z - 1)).toBeNull();
+  });
+});
+
+describe('記録は 戸の (x, y, z) で ひく', () => {
+  it('同じ (x, z) で 高さが ちがう 戸が 2 つ あっても それぞれ 別の 記録（上の 戸を こわしても 下は のこる）', () => {
+    const { book } = make([{ ...REC, name: 'たかいいえ', front: 'たかい', back: 'いえ', door: { x: DOOR.x, y: DOOR.y + 20, z: DOOR.z } }]);
+    expect(book.count()).toBe(2);
+    book.cellChanged(DOOR.x, DOOR.y + 20, DOOR.z, 'house_door_open');
+    expect(book.list().map((r) => r.doorOpen)).toEqual([false, true]);
+    book.cellChanged(DOOR.x, DOOR.y + 20, DOOR.z, 'air');
+    expect(book.list().map((r) => r.name)).toEqual(['ひみつきち']);
   });
 });

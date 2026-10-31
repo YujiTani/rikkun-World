@@ -47,8 +47,6 @@ interface HouseUiDeps {
   press(id: string): void;
   /** なまえを かえる の 画面が 読む もの（HOUSE-1C） */
   rename(): RenameView;
-  /** 家の 名前の 帯（戸を 外から 通った とき。出て いなければ null）。HOUSE-1C */
-  band(): { text: string } | null;
   screen: KuraScreen;
   /** エディターの 画面を 作って 返す（親は 引数の 要素）。はじめて エディターが 開く とき 1 回 */
   makeEditor(parent: HTMLElement): EditorViewLike;
@@ -76,9 +74,6 @@ function img(src: string): HTMLImageElement {
 export class HouseUi {
   readonly el: HTMLDivElement;
   private readonly bubble: HTMLDivElement;
-  /** 家の 名前の 帯（画面の 上。メニューとは 別の 要素で、話しかけて いなくても 出る） */
-  private readonly band: HTMLDivElement;
-  private bandText = '';
   private mode: Mode = 'off';
   private editorView: EditorViewLike | null = null;
   private menuEl: HTMLDivElement | null = null;
@@ -96,19 +91,6 @@ export class HouseUi {
     this.bubble.dataset.testid = 'house-bubble';
     this.el.append(this.bubble);
     d.parent.append(this.el);
-    this.band = el('div', 'house-name-band');
-    this.band.dataset.testid = 'house-name-band';
-    this.band.hidden = true;
-    d.parent.append(this.band);
-  }
-
-  /** 毎フレーム: 名前の 帯を 今の 状態に あわせる（かわった ときだけ DOM を 書く） */
-  updateBand(): void {
-    const text = this.d.band()?.text ?? '';
-    if (text === this.bandText) return;
-    this.bandText = text;
-    this.band.textContent = text;
-    this.band.hidden = text === '';
   }
 
   /** メニュー・くら・エディターが 開いて いる */

@@ -1,6 +1,7 @@
 import type { BlockId, BlockType } from '../../contracts';
 import { CHALK_MARK_IDS, isChalkMarkId } from './chalkMark';
-import { FLAT_FURN_KINDS, FURN_NAME, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from './houseBlocks';
+import { FURNITURE } from '../../house/editor/furniture';
+import { FLAT_FURN_KINDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from './houseBlocks';
 
 /** M1-01 4-2 のブロック 11 種 + M4 の 3 種。配列の順番が内部の番号（air = 0） */
 export const BLOCK_TYPES: readonly BlockType[] = [
@@ -93,7 +94,7 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   // 戸の のこり 3 マス（上の 半分・あけた 下・あけた 上）。あけた 戸は 通れる
   ...HOUSE_DOOR_PART_IDS.map((id): BlockType => ({ id, name: 'いえの と', solid: !id.includes('open'), breakable: true })),
   // 向きの ある 家具（向き × マス。今の `tansu`・`furnace` は 向き 0 の ひとつ め）。動かない 机・いす・たなは 固い。あんどん・まるいすも 固い（ぶつかる）
-  ...NEW_FURN_BLOCK_IDS.map((id): BlockType => ({ id, name: FURN_NAME[furnInfo(id)!.kind], solid: true, breakable: true })),
+  ...NEW_FURN_BLOCK_IDS.map((id): BlockType => ({ id, name: FURNITURE[furnInfo(id)!.kind].name, solid: true, breakable: true })),
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(

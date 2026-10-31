@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { FUTON_FOOT, FUTON_HEAD } from '../world/blocks/futon';
 import { KOTATSU_CELLS } from '../world/blocks/kotatsu';
-import { furnBlockId } from '../world/blocks/houseBlocks';
+import { FURN_LEN, furnBlockId, type FurnBlockKind, type FurnRot } from '../world/blocks/houseBlocks';
+import { FURN_ORDER, FURNITURE } from './editor/furniture';
 import type { Placed } from './editor/model';
-import { doorIndex, windowCells, windowMax } from './editor/model';
-import { HEIGHT, ROOF_Y, SIZES, WINDOW_Y } from './editor/tuning';
+import { doorIndex, footprint, windowCells, windowMax } from './editor/model';
+import { HEIGHT, ROOF_Y, SIZES, WINDOW_Y, type Rot } from './editor/tuning';
 import { houseShape } from './shape';
 
 /** HOUSE-1C PR-1（AC49）: せっけいず → 建った 家の 形。形の 式は model.ts の 関数（windowCells・doorIndex）を 読む */
@@ -104,5 +105,55 @@ describe('houseShape: 家具（床の 上の 1 段目）', () => {
     const s = houseShape(bp(5, 5, 0, [{ kind: 'nukunuku', x: 0, z: 0, rot: 0 }, { kind: 'haniwa', x: 4, z: 4, rot: 0 }]));
     for (const c of KOTATSU_CELLS) expect(at(s, 1 + c.dx, FLOOR, 1 + c.dz)).toBe(c.block);
     expect(at(s, 5, FLOOR, 5)).toBe('haniwa');
+  });
+});
+
+describe('houseShape: 家具 ぜんぶ × 4 つの 向き（エディターの 大きさと 建った マスが 合う）', () => {
+  const FLOOR = HEIGHT.floor;
+  const ROTS: readonly Rot[] = [0, 1, 2, 3];
+  const X = 2;
+  const Z = 2;
+
+  /** 家具 1 つを 9×9 の 中の (X, Z) に おいた とき、その 家具の マス（床の 上の 1 段目で 空気でない 所） */
+  function placedCells(kind: (typeof FURN_ORDER)[number], rot: Rot) {
+    const s = houseShape(bp(9, 9, 0, [{ kind, x: X, z: Z, rot }]));
+    return s.cells.filter((c) => c.y === FLOOR && c.x >= 1 && c.x <= 9 && c.z >= 1 && c.z <= 9 && c.id !== 'air');
+  }
+
+  for (const kind of FURN_ORDER) {
+    it(`${kind}: 4 つの 向きぜんぶで マスの かずと 外わくが エディターの footprint と 同じ。左上が (x, z)`, () => {
+      const [cw, cd] = FURNITURE[kind].cells;
+      for (const rot of ROTS) {
+        const cells = placedCells(kind, rot);
+        const name = `${kind} rot${rot}`;
+        expect(cells, name).toHaveLength(cw * cd);
+        const [fw, fd] = footprint(kind, rot);
+        const xs = cells.map((c) => c.x);
+        const zs = cells.map((c) => c.z);
+        expect([Math.max(...xs) - Math.min(...xs) + 1, Math.max(...zs) - Math.min(...zs) + 1], `${name}: 外わくの 大きさ`).toEqual([fw, fd]);
+        expect([Math.min(...xs), Math.min(...zs)], `${name}: 左上の マス`).toEqual([1 + X, 1 + Z]);
+        expect(new Set(cells.map((c) => `${c.x},${c.z}`)).size, `${name}: マスは かさならない`).toBe(cells.length);
+      }
+    });
+  }
+
+  it('向きの ある 家具 10 しゅるいは どの 向きでも マスごとに 別の id（しゅるい・マス・向き）', () => {
+    for (const kind of FURN_ORDER.filter((k): k is FurnBlockKind => k in FURN_LEN)) {
+      for (const rot of ROTS) {
+        const ids = new Set(placedCells(kind, rot).map((c) => c.id));
+        const want = new Set(Array.from({ length: FURN_LEN[kind] }, (_, k) => furnBlockId(kind, k, rot as FurnRot)));
+        expect(ids, `${kind} rot${rot}`).toEqual(want);
+      }
+    }
+  });
+
+  it('ふとんは 向きごとに 頭と 足、こたつは 4 マス、はにわは 1 マス', () => {
+    for (const rot of ROTS) {
+      const ids = placedCells('futon', rot).map((c) => c.id).sort();
+      const dir = ({ 0: 1, 1: 2, 2: 3, 3: 0 } as const)[rot];
+      expect(ids, `futon rot${rot}`).toEqual([FUTON_HEAD[dir], FUTON_FOOT[dir]].sort());
+    }
+    expect(placedCells('nukunuku', 0).map((c) => c.id).sort()).toEqual(KOTATSU_CELLS.map((c) => c.block).sort());
+    expect(placedCells('haniwa', 2).map((c) => c.id)).toEqual(['haniwa']);
   });
 });

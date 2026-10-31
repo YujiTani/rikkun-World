@@ -220,7 +220,7 @@ export class BandView {
   private readonly head = el('div', 'cel-band__head', this.text);
   private readonly name = el('div', 'cel-band__name', this.text);
   private readonly sub = el('div', 'cel-band__sub', this.text);
-  private kind: 'achieve' | 'telop' | null = null;
+  private kind: 'achieve' | 'telop' | 'house' | null = null;
   private medal: HTMLElement | null = null;
 
   constructor(parent: HTMLElement) {
@@ -236,6 +236,7 @@ export class BandView {
     this.kind = 'achieve';
     this.band.className = 'cel-band cel-toast';
     this.band.dataset.band = 'achieve';
+    this.plain(false);
     this.pic.replaceChildren((this.medal = createMedal(main.tier, 88, main.artUrl)));
     this.head.textContent = 'おめでとう！';
     this.name.innerHTML = withRuby(main.name);
@@ -250,6 +251,7 @@ export class BandView {
   /** テロップを 出し始める（`ヌシ が 〔武器〕 を おとした！` ＋ ★。文は 出どころで かわる。telopText.ts） */
   showTelop(itemName: string, iconUrl: string, stars: number, source: TelopSource = 'nushi'): void {
     this.kind = 'telop';
+    this.plain(false);
     // 文が 長い 出どころ（がしゃどくろ・宝箱）は 帯を 広げる（NINJA-1）
     this.band.className = source === 'nushi' ? 'cel-band cel-telop' : 'cel-band cel-telop cel-telop--long';
     this.band.dataset.band = 'telop';
@@ -271,8 +273,30 @@ export class BandView {
     this.root.hidden = false;
   }
 
+  /** 家の 名前の 帯を 出し始める（絵と 見出しは なし。名前だけ。窓口の 目印 `house-name-band` を つける） */
+  showHouse(text: string): void {
+    this.kind = 'house';
+    this.band.className = 'cel-band cel-house';
+    this.band.dataset.band = 'house';
+    this.band.dataset.testid = 'house-name-band';
+    this.medal = null;
+    this.plain(true);
+    this.name.textContent = text;
+    this.name.hidden = false;
+    this.sub.hidden = true;
+    this.band.hidden = false;
+    this.root.hidden = false;
+  }
+
+  /** 名前だけの 帯〔家の 名前〕か。そうでなければ 絵と 見出しを もどし、窓口の 目印を はずす */
+  private plain(on: boolean): void {
+    this.pic.hidden = on;
+    this.head.hidden = on;
+    if (!on) delete this.band.dataset.testid;
+  }
+
   /** 毎ステップ: ease が null なら 隠す */
-  paint(ease: { kind: 'telop' | 'achieve'; opacity: number; slide: number; age: number } | null, reducedMotion: boolean): void {
+  paint(ease: { kind: 'telop' | 'achieve' | 'house'; opacity: number; slide: number; age: number } | null, reducedMotion: boolean): void {
     if (!ease) {
       if (this.kind !== null) {
         this.kind = null;
@@ -280,6 +304,7 @@ export class BandView {
         this.root.hidden = true;
         this.band.className = 'cel-band';
         delete this.band.dataset.band;
+        delete this.band.dataset.testid;
       }
       return;
     }

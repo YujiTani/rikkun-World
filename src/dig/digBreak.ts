@@ -1,14 +1,13 @@
-import type { BlockId, ItemId, TargetInfo, VoxelWorld } from '../contracts';
+import type { ItemId, TargetInfo, VoxelWorld } from '../contracts';
 import { isFloraBlock } from '../world/blocks/flora';
 import { CHALK_FACES, CHALK_NORMAL, chalkInfo, isChalkMarkId } from '../world/blocks/chalkMark';
-import { futonPartner, isFutonId } from '../world/blocks/futon';
+import { futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
 import { K_TANSU, doorInfo, furnSiblings, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
-import { GADGET_ID } from '../content/items/gadgetTuning';
 import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { randInt, type Rng } from '../world/gen/random';
 import { DUG_ALWAYS_ONE, FARM_BREAK_DROP, NO_DROP_BLOCKS } from './config';
-import { DUG_ITEM } from './dugItems';
+import { dropBlockOf, dugItemOf } from './dugItems';
 import { COOP_BLOCKS, HANGING_SUPPORT, TORCH_NEIGHBORS, type DigCore } from './digCore';
 
 /** こわしたあとの しめくくり: abort = こわせなかった（クールダウンなし）、bodyDone = 体の上の ブロック、done = ふつうにこわした */
@@ -52,7 +51,7 @@ export class BlockBreaker {
     // HOUSE-1C: 戸は 上下 2 マス・長い 家具は ぜんぶの マスが 消えて、もとの アイテム 1 こ（向き・マス ちがいの id は もとの id に もどす）
     const houseDrop = houseDropOf(t.id);
     this.clearHouseCells(t);
-    const dropId: BlockId = houseDrop ?? (isKotatsuBlock(t.id) ? 'nukunuku' : isFutonId(t.id) ? GADGET_ID.futon : t.id);
+    const dropId = dropBlockOf(t.id);
     // ふとん 2 マス: どちらを こわしても 相手の マスも 消えて ふとん 1 つ（相手が いない 1 マスだけの ふとんは そのまま）
     const pair = futonPartner(t.id, x, z);
     if (pair && c.world.getBlock(pair.x, y, pair.z) === pair.id) c.world.setBlock(pair.x, y, pair.z, 'air');
@@ -66,7 +65,7 @@ export class BlockBreaker {
     liftFlora(c, x, y + 1, z); // FLORA-75: 下の ブロックを こわすと 上の くさ・のばな も 消える
     const farmDrop = FARM_BREAK_DROP[t.id] ?? (houseDrop ? { item: houseDrop, count: 1 } : null);
     const fixed = farmDrop ? farmDrop.count : DUG_ALWAYS_ONE.has(dropId) ? 1 : (craft?.fixedDrop(dropId) ?? null);
-    const dropItem: ItemId = farmDrop ? farmDrop.item : (DUG_ITEM.get(dropId) ?? dropId);
+    const dropItem: ItemId = dugItemOf(t.id);
     const max = Math.max(1, c.config.dropMax[c.config.rarity[dropId]] ?? 1);
     const n = NO_DROP_BLOCKS.has(dropId) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
     const got = n - c.inventory.add(dropItem, n);

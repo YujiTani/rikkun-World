@@ -1,6 +1,7 @@
 // HOUSE-1B せっけいずの 形（EditorState）と 計算（窓の ならべ方・置ける 所・材料・名前）。DOM・three なし。
 // 仕様 docs/design/HOUSE-1.md §4.1（大きさ・材料）・§4.2（窓と 戸）・§4.3（家具）・§2.6（名前）。
 import type { ItemId } from '../../contracts';
+import { furnFootprint } from '../../world/blocks/houseBlocks';
 import { FURNITURE, isFurnKind, type FurnKind } from './furniture';
 import {
   DOOR_WALL, MATERIAL_ORDER, NAME_FRONT_MAX, OPPOSITE, PAPER_PER_WINDOW, ROOF_DEFAULT, ROOF_KINDS, SIZES, SIZE_DEFAULT, STEPS, SUFFIXES, SUFFIX_DEFAULT,
@@ -129,7 +130,7 @@ export function doorInside(s: Pick<EditorState, 'w' | 'd'>): { x: number; z: num
 
 export function footprint(kind: FurnKind, rot: Rot): readonly [number, number] {
   const [fw, fd] = FURNITURE[kind].cells;
-  return rot % 2 === 0 ? [fw, fd] : [fd, fw];
+  return furnFootprint(fw, fd, rot);
 }
 
 export type PlaceProblem = 'out' | 'door' | 'overlap';

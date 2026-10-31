@@ -14,6 +14,8 @@ const AT = { x: 40, y: 10, z: 40 };
 
 function make() {
   const bag = new InventoryImpl();
+  /** 名前の 帯を 出す 合図〔上の 帯の 列へ〕 */
+  const bands: string[] = [];
   const player = { x: 64.5, y: 11, z: 64.5 };
   const world = makeFakeWorld({ height: () => 9 });
   const sys = new HouseSystem({
@@ -27,6 +29,7 @@ function make() {
     onOpen: () => {},
     onClose: () => {},
     isLand: () => true,
+    nameBand: (text) => bands.push(text),
   });
   watchBlocks(
     Object.assign(world, { fill: () => 0 }),
@@ -36,7 +39,7 @@ function make() {
   draft.name = { front: 'あい', back: 'ハウス' };
   draft.furniture = [{ kind: 'table', x: 0, z: 0, rot: 0 }, { kind: 'chair', x: 3, z: 3, rot: 1 }];
   const number = sys.state.register(draft);
-  return { sys, world, player, number, hook: createHouseHook(sys) };
+  return { sys, world, player, number, bands, hook: createHouseHook(sys) };
 }
 
 describe('buildNow ・ houses ・ blockAt', () => {
@@ -83,22 +86,28 @@ describe('buildNow ・ houses ・ blockAt', () => {
   });
 });
 
-describe('名前の 帯（update で 1 ステップずつ）', () => {
-  it('戸の 外から 入ると 180 ステップ。house.nameBand() が 答える', () => {
-    const { sys, player, number } = make();
+describe('名前の 帯の 合図（update で 1 ステップずつ）', () => {
+  it('戸の 外から 戸を 通って 中に 入ると 1 回 だけ 名前を 渡す（外 → 戸 → 外 では 渡さない）', () => {
+    const { sys, player, number, bands } = make();
     const rec = sys.buildNow(number, AT)!;
-    player.y = rec.door.y;
-    player.x = rec.door.x + 0.5;
-    player.z = rec.door.z + 2.5;
-    sys.update();
-    player.z = rec.door.z + 1.5;
-    sys.update();
-    expect(sys.nameBand()).toBeNull();
-    player.z = rec.door.z + 0.5;
-    sys.update();
-    expect(sys.nameBand()).toEqual({ text: 'あいハウス', ticksLeft: 180 });
-    sys.update();
-    expect(sys.nameBand()?.ticksLeft).toBe(179);
+    const at = (dz: number): void => {
+      player.y = rec.door.y;
+      player.x = rec.door.x + 0.5;
+      player.z = rec.door.z + 0.5 + dz;
+      sys.update();
+    };
+    at(2);
+    at(1);
+    at(0); // 戸の マス
+    expect(bands, '戸の マスでは まだ').toEqual([]);
+    at(1); // 引き返す
+    expect(bands, '外 → 戸 → 外').toEqual([]);
+    at(0);
+    at(-1); // 中
+    expect(bands).toEqual(['あいハウス']);
+    at(-2);
+    at(-1);
+    expect(bands, '中を 歩いても 出なおさない').toEqual(['あいハウス']);
   });
 });
 
@@ -117,11 +126,15 @@ describe('なまえを かえる（メニュー 通し）', () => {
     expect(sys.menu().page, '押せない').toBe('top');
     const rec = sys.buildNow(number, AT)!;
     expect(world.getBlock(rec.door.x, rec.door.y, rec.door.z)).toBe('house_door');
+    expect(sys.typing(), '上の メニュー').toBe(false);
     sys.press('rename');
     expect(sys.menu().page).toBe('rename');
+    expect(sys.typing(), '一覧では キーを 止めない').toBe(false);
     expect(sys.menu().buttons.map((b) => b.id)).toEqual([`renamePick-${rec.id}`, 'close']);
     sys.press('renamePick', rec.id);
     expect(sys.menu().page).toBe('renameName');
+    expect(sys.typing(), '名前の 画面では エディターと 同じく Esc いがいの キーを ゲームに とどけない').toBe(true);
+    expect(sys.editing(), 'エディターでは ない').toBe(false);
     expect(sys.renaming()).toEqual({ id: rec.id, name: { front: 'あい', back: 'ハウス' } });
     sys.press('char-う');
     sys.press('suffix-3');

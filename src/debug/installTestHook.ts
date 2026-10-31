@@ -193,7 +193,7 @@ export function installGameHook(deps: WiredLoop): void {
       trauma: () => rig.traumaNow(),
       log: () => impactBus.log.map((l) => ({ ...l })),
     },
-    ui: { telop: (item: ItemId, source: 'nushi' | 'gasha' | 'chest' = 'nushi') => celebrate.enqueueTelop(item, source), coopMenu: () => coopMenu.model.info(), coopMenuPress: (button: string, id?: number) => coopMenu.press(button as never, id), meatText: () => itadakimasu.text(), alpha: () => uiAlpha(), topBand: () => celebrate.topBand(), buffs: () => buffModel.list().map((b) => ({ ...b })), houseNameBand: () => house.nameBand() },
+    ui: { telop: (item: ItemId, source: 'nushi' | 'gasha' | 'chest' = 'nushi') => celebrate.enqueueTelop(item, source), coopMenu: () => coopMenu.model.info(), coopMenuPress: (button: string, id?: number) => coopMenu.press(button as never, id), meatText: () => itadakimasu.text(), alpha: () => uiAlpha(), topBand: () => celebrate.topBand(), buffs: () => buffModel.list().map((b) => ({ ...b })), houseNameBand: () => celebrate.houseNameBand() },
     craft: {
       ...craftHook,
       ...craftUiHook.craft,

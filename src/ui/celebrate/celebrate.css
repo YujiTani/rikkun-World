@@ -212,6 +212,8 @@
 .cel-band__more {
   color: var(--rk-text-sub);
 }
+.cel-band__pic[hidden],
+.cel-band__head[hidden],
 .cel-band__sub[hidden],
 .cel-band__name[hidden] {
   display: none;
@@ -232,6 +234,16 @@
 .cel-toast .cel-band__more {
   font-size: 16px;
   line-height: 20px;
+}
+/* 家の 名前の 帯（HOUSE-1 §3.3）: 絵も 見出しも なし。名前だけ（字は 32px。UI 検査の 大きさ） */
+.cel-house {
+  max-width: calc(100vw - 32px);
+  padding: 12px 32px;
+}
+.cel-house .cel-band__name {
+  font-size: 32px;
+  line-height: 1.3;
+  color: var(--rk-text);
 }
 .cel-telop {
   width: 640px;
