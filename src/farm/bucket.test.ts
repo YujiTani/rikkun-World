@@ -13,19 +13,29 @@ import { findUnrubiedKanji } from '../ui/text';
 import { ACHIEVEMENT_DEFS } from '../achievements/defs';
 import { FARM_HINT_VIEW } from '../ui/farmHintModel';
 
+/** 水の id（WATER-1 §4.6）。`water.ts` の まえでも 他の テストを 落とさないよう ここに 書く */
+const waterId = (n: number): string => (n === 8 ? 'water' : n === 0 ? 'air' : `water_${n}`);
+const waterAmount = (id: string): number => (id === 'water' ? 8 : /^water_[1-7]$/.test(id) ? Number(id.slice(6)) : 0);
+
 const ray = (o: Partial<WaterRay> = {}): WaterRay => ({ throughWater: false, waterCell: null, hit: null, ...o });
 const wb: ItemStack = { item: 'water_bucket', count: 1 };
 const eb: ItemStack = { item: 'bucket', count: 1 };
 
-function make(slot0: ItemStack | null) {
+/** cells: 'x,y,z' → ブロック id（なければ air）。WATER-1: くむと その マスの 水が へる ので、バケツの 係は 世界を 読み書きする */
+function make(slot0: ItemStack | null, cells: Record<string, string> = {}) {
   const slots: Array<ItemStack | null> = [slot0];
   const events: FarmEvent[] = [];
+  const world = {
+    getBlock: (x: number, y: number, z: number) => cells[`${x},${y},${z}`] ?? 'air',
+    setBlock: (x: number, y: number, z: number, id: string) => ((cells[`${x},${y},${z}`] = id), true),
+  };
   const port = createBucket({
     inventory: { slots: () => slots, setSlot: (i, s) => void (slots[i] = s) },
     emit: (e) => void events.push(e),
     tick: () => 7,
+    world: world as never,
   });
-  return { slots, events, port };
+  return { slots, events, port, world };
 }
 
 describe('BUCKET-1 4d〜4g の ふりわけ（preview）', () => {
@@ -56,14 +66,53 @@ describe('BUCKET-1 4d〜4g の ふりわけ（preview）', () => {
 });
 
 describe('BUCKET-1 くむ・おく', () => {
-  it('くむ: から → みず（changed true）。みず → かわらず changed false。水の マスと item を 出来事に', () => {
-    const a = make(eb);
+  it('WATER-1 くむ: から → みずの バケツ（量 8）。マスは air に へる。出来事に 水の マスと item', () => {
+    const a = make(eb, { '4,5,6': 'water' });
     expect(a.port.fill(0, { x: 4, y: 5, z: 6 })).toBe(true);
-    expect(a.slots[0]).toEqual(wb);
-    expect(a.events).toEqual([{ type: 'bucketFill', tick: 7, x: 4, y: 5, z: 6, item: 'bucket', changed: true }]);
-    expect(a.port.fill(0, { x: 4, y: 5, z: 6 })).toBe(false);
-    expect(a.slots[0]).toEqual(wb);
-    expect(a.events[1]).toMatchObject({ type: 'bucketFill', item: 'water_bucket', changed: false });
+    expect(a.slots[0]).toMatchObject({ item: 'water_bucket', count: 1, water: 8 });
+    expect(a.world.getBlock(4, 5, 6)).toBe('air');
+    expect(a.events).toHaveLength(1);
+    expect(a.events[0]).toMatchObject({ type: 'bucketFill', tick: 7, x: 4, y: 5, z: 6, item: 'bucket', changed: true });
+  });
+  it('WATER-1 くむ: 量 3 の マスから 3 だけ。マスは air。バケツは 量 3', () => {
+    const a = make(eb, { '4,5,6': 'water_3' });
+    expect(a.port.fill(0, { x: 4, y: 5, z: 6 })).toBe(true);
+    expect(a.slots[0]).toMatchObject({ item: 'water_bucket', count: 1, water: 3 });
+    expect(a.world.getBlock(4, 5, 6)).toBe('air');
+  });
+  it('WATER-1 くむ: 量 5 の バケツで 量 8 の マス → バケツ 8・マスは 量 5 に へる（BUCKET-1 AC4）', () => {
+    const b = make({ item: 'water_bucket', count: 1, water: 5 }, { '4,5,6': 'water' });
+    expect(b.port.fill(0, { x: 4, y: 5, z: 6 })).toBe(true);
+    expect(b.slots[0]).toMatchObject({ item: 'water_bucket', count: 1, water: 8 });
+    expect(b.world.getBlock(4, 5, 6)).toBe(waterId(5));
+    expect(b.events[0]).toMatchObject({ type: 'bucketFill', item: 'water_bucket', changed: true });
+  });
+  it('WATER-1 くむ: 量 5 の バケツで 量 2 の マス → バケツ 7・マス air（あるだけ とる）', () => {
+    const a = make({ item: 'water_bucket', count: 1, water: 5 }, { '4,5,6': 'water_2' });
+    expect(a.port.fill(0, { x: 4, y: 5, z: 6 })).toBe(true);
+    expect(a.slots[0]).toMatchObject({ item: 'water_bucket', water: 7 });
+    expect(a.world.getBlock(4, 5, 6)).toBe('air');
+  });
+  it('WATER-1 くむ: 量 8 の バケツ（欄 なし = 8 も）は かわらない・マスも へらない・changed false（fullCan）', () => {
+    for (const full of [{ item: 'water_bucket', count: 1 }, { item: 'water_bucket', count: 1, water: 8 }] as ItemStack[]) {
+      const a = make(full, { '4,5,6': 'water' });
+      expect(a.port.fill(0, { x: 4, y: 5, z: 6 })).toBe(false);
+      expect(a.slots[0]).toEqual(full);
+      expect(a.world.getBlock(4, 5, 6)).toBe('water');
+      expect(a.events).toHaveLength(1);
+      expect(a.events[0]).toMatchObject({ type: 'bucketFill', item: 'water_bucket', changed: false });
+    }
+  });
+  it('WATER-1 くむ: 量の 合計は うつるだけ（バケツの 量 ＋ マスの 量 は くむ 前後で 同じ）', () => {
+    for (const held of [0, 1, 4, 7]) {
+      for (let cell = 1; cell <= 8; cell++) {
+        const stack: ItemStack = held === 0 ? { item: 'bucket', count: 1 } : { item: 'water_bucket', count: 1, water: held };
+        const a = make(stack, { '4,5,6': waterId(cell) });
+        a.port.fill(0, { x: 4, y: 5, z: 6 });
+        const after = (a.slots[0]?.item === 'water_bucket' ? (a.slots[0]?.water ?? 8) : 0) + waterAmount(a.world.getBlock(4, 5, 6));
+        expect(after, `バケツ ${held}・マス ${cell}`).toBe(held + cell);
+      }
+    }
   });
   it('おく: みず → から。出来事 bucketPlace。から では 何もしない', () => {
     const a = make(wb);
@@ -72,6 +121,12 @@ describe('BUCKET-1 くむ・おく', () => {
     expect(a.events).toEqual([{ type: 'bucketPlace', tick: 7, x: 1, y: 2, z: 3 }]);
     expect(a.port.placed(0, { x: 1, y: 2, z: 3 })).toBe(false);
     expect(a.events).toHaveLength(1);
+  });
+  it('WATER-1 おく: 量 3 の みずの バケツも から に もどる（量の 欄は のこらない）', () => {
+    const a = make({ item: 'water_bucket', count: 1, water: 3 });
+    expect(a.port.placed(0, { x: 1, y: 2, z: 3 })).toBe(true);
+    expect(a.slots[0]).toEqual(eb);
+    expect(a.slots[0]?.water).toBeUndefined();
   });
   it('no: bucketNo を出す。持ち物は へらない', () => {
     const a = make(wb);

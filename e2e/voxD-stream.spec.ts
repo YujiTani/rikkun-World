@@ -387,6 +387,7 @@ test.describe('VOX-D ストリーミング', () => {
         // 畑: つち + 水 → ぬれた はたけ → 作物（段 1）
         const c = { x: sx - 3, y: g, z: sz };
         w.setBlock(c.x, c.y, c.z, 'dirt');
+        h.water.pause(true); // WATER-1: 水を 置いて 動かさない
         w.setBlock(c.x + 1, c.y, c.z, 'water');
         const tilled = h.farm.till(c.x, c.y, c.z);
         const planted = h.farm.plant(c.x, c.y, c.z, 'onion');

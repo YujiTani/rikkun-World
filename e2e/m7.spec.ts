@@ -65,6 +65,7 @@ test.describe('M7 農業', () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
+      h.water.pause(true); // WATER-1: 水を 置いて 動かさない（流れの テストは water1.spec.ts）
       const out: any = {};
       h.world.setBlock(4, 9, 6, 'dirt');
       h.step(1);
@@ -193,6 +194,7 @@ test.describe('M7 農業', () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
+      h.water.pause(true); // WATER-1: 水を 置いて 動かさない（流れの テストは water1.spec.ts）
       h.world.setBlock(4, 9, 6, 'dirt');
       h.step(1);
       h.farm.till(4, 9, 6);
