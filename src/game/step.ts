@@ -25,7 +25,7 @@ import type { WiredFrame } from './wire/save';
 
 export function createStep(deps: WiredFrame): (dt: number) => void {
   const {
-    shared, game, streamFrame, audioStep, craft2Settings, time, dig, sprite, armor, parry, blade, tools,
+    shared, game, water, streamFrame, audioStep, craft2Settings, time, dig, sprite, armor, parry, blade, tools,
     legend, controller, w2, inventory, rig, combat, timeSettings, worldReady, yokaiM, animals, waveSys,
     coopMenu, itadakimasu, deliverAnimalEvents, animalFx, animalViews, pendingDust, animalHint, arrowRelay,
     screen, kodachi, geta, craft, storage, dropController, farm, renderer, m7, trackOldFarmSeeds,
@@ -197,6 +197,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     {
       const m = screen.mode();
       if (m === 'play' || (m === 'inventory' && screen.timeScale() > 0 && game.tick % 4 === 0)) farm.update({ playerPos: controller.state.position });
+      if (m === 'play' || (m === 'inventory' && screen.timeScale() > 0)) water.update(); // WATER-1: 水の 流れ(15 ステップごとに 1 パス)
       renderer.setRipeMinBrightness(m7.farmRipeMinBrightness);
       trackOldFarmSeeds();
     }

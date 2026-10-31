@@ -32,6 +32,7 @@ import { decideWeightedStart } from '../../start/weightPref';
 import { decideStrength, strengthToSave } from '../../yokai/strengthPref';
 import { playWeapon } from '../../fx/weaponSounds';
 import { createShared } from './shared';
+import { createWaterSystem } from '../../world/water/waterSystem';
 
 export async function wireBoot() {
   const shared = createShared();
@@ -102,6 +103,8 @@ export async function wireBoot() {
   world.edgeClosedBelow = SEA_Y - 8; // 読みこんでいない列の横は、海ゆかより下は ふさがっているとみなす（地下の「見えない」印）
   const seed = startPlan.seed;
   installMicroCountries(world, seed);
+  // WATER-1: 水の 流れ(setBlock の フックを つなぐ。毎ステップ step.ts が update、列の 読みこみ・手放しは StreamHost が知らせる)
+  const water = createWaterSystem({ world, tick: () => game.tick });
   const island = createWorldInfo(seed, world);
   // 保存（VOX-F）: IndexedDB から さわった列を 世界に入れる。描画の前に（光が 最初から 正しくなるように）
   // 前の世界（'main'・'seed-N'）とは別の名前。前の世界は読まず、消さない（VOX-B）
@@ -120,7 +123,7 @@ export async function wireBoot() {
   }
   return {
     shared, hud, game, audioSettings, audioPersist, mixer, bgm, bgmScene, fxSound, titleSound, saveOptions,
-    store, startBoot, startPlan, world, seed, island, saveId, idb, restored,
+    store, startBoot, startPlan, world, water, seed, island, saveId, idb, restored,
   };
 }
 

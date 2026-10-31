@@ -32,6 +32,7 @@ import type { CharSprite, SpriteInfo } from '../char';
 import type { SpriteMotion } from '../char';
 import type { StartHook } from '../start/startBoot';
 import type { WorkHook } from './workHook';
+import type { WaterHook } from '../world/water/waterSystem';
 import type { GashaHook } from '../gasha/release';
 import type { HouseHook } from '../house/hook';
 
@@ -65,6 +66,8 @@ export interface TestHook {
   perfOverlayVisible(): boolean;
   /** #255: 重さを 仕事の数で 見る（start → step → read → stop。docs/tickets/PERF-255.md） */
   work: WorkHook;
+  /** WATER-1 §6.1: 水の 量・リスト・パス・止める（グループ water） */
+  water: WaterHook;
   world: WorldHook;
   /** VOX-I-1 §8.1: 12 の国（at・here・find・take.path） */
   biome: BiomeHook;
@@ -201,7 +204,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

@@ -17,6 +17,9 @@ export interface WaterWorld {
   onBlockChange: ((x: number, y: number, z: number, prev: number, next: number) => void) | null;
 }
 
+/** 窓口 `window.__rikkun.water`（WATER-1 §6.1）が 出す もの */
+export type WaterHook = Pick<WaterSystem, 'set' | 'amount' | 'queue' | 'passes' | 'total' | 'stable' | 'pause' | 'waveTime'>;
+
 export interface WaterSystemDeps {
   world: WaterWorld;
   /** ゲームの ステップ番号 */

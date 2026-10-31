@@ -33,7 +33,7 @@ import type { WiredAchievements } from './ui';
 
 export function wireSave(deps: WiredAchievements) {
   const {
-    shared, world, seed, saveId, idb, restored, inventory, controller, spawnPlain, store, game,
+    shared, world, water, seed, saveId, idb, restored, inventory, controller, spawnPlain, store, game,
     strengthToWrite, screenSettings, combat, time, craft, armor, level, storage, achievements,
     countryWatch, animals, deliverAnimalEvents, legendBook, ninjaBook, kodachi, ninjaHave, samuraiBook,
     samuraiHave, farm, saveOptions, island, hud, renderer, frameClock, raiseAboveBlocks, startPoint,
@@ -153,6 +153,7 @@ export function wireSave(deps: WiredAchievements) {
     newWorld: !loadedSave,
     applyPlacement: applyPlacementNow,
     pending: restored.pending,
+    water,
     clock: frameClock,
     placePlayer: (p) => controller.set({ position: { x: p.x, y: raiseAboveBlocks(p.x, p.y, p.z), z: p.z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: p.yawDeg, pitchDeg: p.pitchDeg }),
     onColumnsLoaded: () => farm.rescan(),
