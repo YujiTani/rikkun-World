@@ -153,6 +153,54 @@ import { installAimHelpers } from './aim';
  *   house.renaming() → { id, name: { front: string, back: string } } | null   名前の 画面で 作っている 名前（ほかの ページでは null）
  *   `renameOk`: 前の 文字が 0 字 → 何も かわらず ふきだし「なまえを つけてね」（ページは そのまま）。1 字 以上 → `houses()` の name が かわり、ページは 上の メニューに もどる。
  *               せっけいずの 名前〔`blueprints()`〕は かわらない。`renameCancel`: 何も かえず 上の メニューへ
+ *
+ * ---- 1C PR-2（#340 地盤と 建築。docs/tickets/HOUSE-1C.md「PR-2」・仕様 §2.8〜2.10・§3.4・§4.1・§4.4〜4.7・§6.1・AC16〜AC23・AC31・AC32c・AC36・AC39〜AC41・AC51）の 約束。テストの 関数は e2e/helpers/houseSite.ts ----
+ * PR-1 の 約束（方位・向き・houses()・blockAt・戸・名前の 帯・なまえを かえる）は そのまま 使う。足場・道具の 見た目（案 B）と 音（案 A）の 細部は 見ない（出た／出ない・数・動きの 有無 だけ）。
+ *
+ * 道具（§2.9・§4.4）: みずもり `mizumori`・どうづき `dotsuki` を 手に 持って（`inventory.select`）地面を 右クリック（`input.press('secondary')`）。
+ *   house.level() → { base: { x, y, z } | null, cells: { x, z, state: 'high' | 'low' | 'ok' }[] }
+ *       みずもりで 地面を 右クリックすると base ＝ その ブロック、cells ＝ base を まん中に した 13×13 の ぜんぶの 列（'ok' も 入る。169 こ）。高さの ものさしは base の y。
+ *       state ＝ その 列の いちばん 上の 固い ブロック（base の −4〜+5 の 間。草花・はっぱは 見ない）が base より 高い ＝ 'high'・低い ＝ 'low'・同じ ＝ 'ok'（−4〜+5 に 固い ブロックが ない 列は 'low'）。
+ *       ほる・おくで 高さが かわると、そのステップの うちに state が かわる。base は 持ちかえても のこる（新しく 右クリックするまで）。cells が 出るのは みずもりを 手に 持って いて、
+ *       base から 横 16 マス 以内の 間 だけ（持ちかえた・16 マスを こえて はなれた 間は []）。まだ 右クリックして いない 間は base ＝ null・cells ＝ []。
+ *       みずもりを 持った まま 左クリックで ほれる（手と 同じ）。
+ *   どうづき: 右クリックで たたく。20 ステップに 1 回だけ 効く（その 間の 右クリックは 何も おきない・音も 鳴らない）。たたいた ブロックを まん中に した 3×3 の うち、
+ *       たたいた ブロックと 同じ 高さで 上が 空気（か 消える 草花）の くさ `grass`・つち `dirt`・すな `sand`・ゆき `snow` が `katame_tsuchi`（かためた つち）に なる。石や 高さが ちがう 所は かわらない。
+ *       かためた つちを ほると つち `dirt` が 1 こ。かためた つちを たたくと 何も かわらない（小さい 音だけ）。
+ * 音（`audio.sfx()` の 名前。サウンドの 案 A〔/mnt/project-files/housing-art/house-1c/sound/install-A.diff.txt〕の とおり）:
+ *   みずもり ＝ 'mizumori' 1 回／どうづき ＝ 'dozukiCall1'〜'dozukiCall4' の どれか 1 つ ＋ 'dozukiThud' 1 回（掛け声は 直前と 同じ 物が 続かない）／かためた つちを たたく ＝ 'dozukiSoft' 1 回 だけ／
+ *   ［ここに たてる］＝ 'tonkachiStart' 1 回／建築中の とんかち ＝ 'tonkachi'・'tonkachi2'・'tonkachi3'（戸から 16 マス 以内の ときだけ）／完成 ＝ 'houseDone' 1 回。
+ *
+ * けんちくを はじめる（§2.8・AC18〜AC20・AC51）:
+ *   上の メニューの `build`: 建築中は enabled false。せっけいずが 0 まいでも 押せて、ふきだし「せっけいずが ないよ。…」（page は 'top' の まま）。
+ *   press('build') → menu().page 'pick'（持ち物の せっけいずの 一覧。DOM は data-testid="house-pick"）。ボタン: `pick-<せっけいずの マスの 番号>`（blueprints()[i].slot。press('pick', slot) も 同じ）・`close`。
+ *   材料が たりない せっけいずの `pick-*` は enabled false（press すると page 'need'・たりない 行の short ≧ 1・ふきだし「ざいりょうが たりないよ」）。
+ *   そろって いる せっけいずを press('pick', slot) すると 上空の 視点（page 'sky'）。置ける 場所が 1 つも なければ page は 'pick' の まま、ふきだし「かためた つちの ばしょが ないよ。みずもり と どうづき で つくってね」。
+ *   house.sites() → { x, y, z }[]     上空の 視点の 間の 置ける 場所（ほかの 間は []）。x・z ＝ 外の 箱の 北西（−x・−z）の すみ、y ＝ 床の 段の 高さ（PR-1 の buildNow の `at` と 同じ）。
+ *   house.cursor() → { x, z, ok, confirm, screen: { x, y } } | null     上空の 視点の 間だけ。x・z ＝ わくの 北西の すみ（sites() と 同じ 座標）・ok ＝ そこに 建てられる・confirm ＝ 確かめの まどが 出て いる・screen ＝ わくの まん中の 画面の 位置（CSS px）。
+ *       はじめの わくは 置ける 場所の いちばん 近い 所。
+ *   上空の 視点の 操作: 矢印・WASD で 1 マス（cursor().x・z が 1 かわる）／マウスを 動かすと わくが マウスの 下へ／Enter か 左クリック ＝ 決定（まどが ない とき）→ cursor().confirm が true、
+ *       まどが ある とき の Enter ＝［ここに たてる］／Esc ＝ まどが あれば［やめる］（わくは そのまま）、なければ 'pick' へ もどる。ボタン: `back`（◀ もどる。Esc と 同じ）。
+ *       確かめの まどの 間の ボタンは `yes`（ここに たてる）・`no`（やめる）だけ。DOM は house-sky（上の 帯。案内 ＋ back）・house-confirm（data-kind="build"。2 行目に 家の 名前）。ふきだしは house-bubble。
+ *   `yes`（か Enter）で 建築開始: menu().open が false、くらから need() の need の 分だけ へる（せっけいずは のこる）、音 'tonkachiStart'。
+ *       プレイヤーが 場所の 中に いたら 戸の 前の 外へ うつる。建築を 始めた 建築士さんは 戸の 前（3 マス 以内）に うつる。
+ *   house.firstBonus() → boolean     その 世界で まだ 1 けんも 建て はじめて いない（ふとん 1 つぶんの おまけが ある）。need() の ぬの・いとは {need: 0, bonus: 3 / 1}。
+ *
+ * 建築（§2.10・§4.1・§4.5・AC21・AC22・AC39・AC40・AC41）:
+ *   settings.set('houseBuildTicks', n) … 建築の 長さを n ステップに 固定（どんな 大きさでも）。null で 仕様 §4.1 の 式 〔9,000＋900×(よこ＋たて−10)〕。保存された 建築は 保存した ときの 長さで つづく。
+ *   house.building() → { name, w, d, progress, leftTicks, leftText, at } | null
+ *       name ＝ 家の 名前（前の 文字 ＋ 後ろの 文字）・w d ＝ せっけいずの 中の よこ・たて・progress ＝ 0〜1（たった ステップ ÷ 長さ）・leftTicks ＝ のこりの ステップ・
+ *       leftText ＝ 'はじめた ばかり だよ'（進み 1/3 未満）｜'まだまだ かかるよ'（4/5 未満）｜'もうすぐ おわりそう！'・at ＝ 場所の 北西の すみ { x, y, z }（床の 段。sites() の 1 件と 同じ）
+ *   進みは 世界の 時計（step の 数）で 進む。メニュー・上空の 視点・エディターが 開いて いる 間は 進まない（AC41）。
+ *   見た目の 段階（§4.5）: 進み 0〜15% ＝ 足場だけ（house_wall なし）／15〜85% ＝ 壁が 少しずつ（house_roof なし）／85〜100% ＝ 屋根・家具・ちょうちん。
+ *   足場: アイテムに ならない 固い ブロック（house.blockAt() の item が null で id が 'air' でない）。完成で ぜんぶ 消える。建築中の 場所（外よこ × 外たて × 高さ 5）は
+ *       ブロックを 置く・ほる が 失敗し（ブロックは かわらない・持ち物も かわらない）、プレイヤーは 歩いて 入れない（テレポートは のぞく）。
+ *   建築士さんに 話す（建築中）: menu() は page 'top'・bubble に 家の 名前と leftText（空白は くらべない）・`build` は enabled false。
+ *   建築中の 場所の まん中から 横 16 マス 以内では 妖怪が 湧かない（yokai.events() の spawn の 位置で 見る）。
+ *   完成: building() が null・houses() に 1 件（doorOpen false）・足場が ぜんぶ 消える・house.celebrate().confetti が ちょうど 1 ふえる・'houseDone' が 1 回・上の 帯「<名前> が できた！」。
+ *   house.celebrate() → { confetti: number, banner: { text: string, ticksLeft: number } | null }     confetti ＝ 出した 紙ふぶきの 回数（ずっと 数える）。banner の DOM は data-testid="house-done-banner"。
+ *   保存（AC32c）: save.now() → 開きなおすと building() の progress・name・w・d・at が 同じ（leftTicks も 同じ）で、世界の ブロック（足場・壁）も 同じ。のこりの ステップで 完成。
+ *   音と 紙ふぶき: どうづき・あずける・話す・せっけいずが できた では confetti は ふえない。
  */
 
 export interface Architect {

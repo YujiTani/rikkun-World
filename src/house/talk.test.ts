@@ -100,8 +100,8 @@ describe('AC3 うなずき 22 ステップのあと メニュー', () => {
     expect(en.kura).toBe(true);
     expect(en.close).toBe(true);
     expect(en.editor).toBe(true);
-    // けんちく・なまえは HOUSE-1C 以降（出すが 押せない）
-    expect(en.build).toBe(false);
+    // 1C PR-2 から「けんちくを はじめる」は 建築中でなければ 押せる（せっけいずが 0 まいでも 押せて、ふきだしが 出る）。なまえを かえるは 家が 1 けんも ない 間 押せない（PR-1）
+    expect(en.build).toBe(true);
     expect(en.rename).toBe(false);
   });
 
