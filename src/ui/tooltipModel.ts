@@ -3,6 +3,7 @@ import { LIVE_SETTING_DEFAULTS, seedKindOfItem, vegKindOfItem, type ItemId, type
 import { CRAFT_UI_SETTINGS, TOOL_NUMBERS, type CraftUiSettings, type ToolNumbers } from '../fx/craftConfig';
 import { RARITY_COLOR, RARITY_TIERS } from '../drops/rarity';
 import { ITEM_INFO, SPECIAL_HEAD } from '../craft/info/table';
+import { planNameOf } from '../inventory/planName';
 import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { wearView } from './wearGauge';
 
@@ -117,7 +118,8 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
   }
   if (recipes.some((r) => r.output.item === item && !r.works)) add('もうすぐ つかえる', 'clock');
   const rarity = d.rarityOf(item);
-  return { item, name: d.nameOf(item), rarity, stars: STARS[rarity], lines, icons, desc: ITEM_INFO[item]?.use ?? '', special: ITEM_INFO[item]?.special ?? null, specialHead: SPECIAL_HEAD };
+  const name = (stack && stack.item === item ? planNameOf(stack) : null) ?? d.nameOf(item); // HOUSE-1B: せっけいずは「<名前>の せっけいず」
+  return { item, name, rarity, stars: STARS[rarity], lines, icons, desc: ITEM_INFO[item]?.use ?? '', special: ITEM_INFO[item]?.special ?? null, specialHead: SPECIAL_HEAD };
 }
 
 /** ★ を数だけ並べた文字 */

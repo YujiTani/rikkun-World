@@ -18,7 +18,7 @@ import './houseUi.css';
 
 const LABEL: Readonly<Record<HouseButtonId, string>> = {
   kura: 'あずける・とりだす',
-  editor: 'いえを つくる',
+  editor: 'せっけいずを つくる',
   build: 'けんちくを はじめる',
   rename: 'なまえを かえる',
   tools: 'どうぐを もらう',
@@ -27,13 +27,25 @@ const LABEL: Readonly<Record<HouseButtonId, string>> = {
 /** 押すと はたらく ボタン（目立たせる） */
 const GO: ReadonlySet<HouseButtonId> = new Set<HouseButtonId>(['kura', 'tools']);
 
-type Mode = 'off' | 'float' | 'menu' | 'kura';
+type Mode = 'off' | 'float' | 'menu' | 'kura' | 'editor';
+
+/** エディターの 画面（ui/houseEditor。はじめて 開く とき 作る）。ふきだしは このなかの sayHost に 移して 使う */
+export interface EditorViewLike {
+  root: HTMLElement;
+  sayHost: HTMLElement;
+  show(on: boolean): void;
+  refresh(): void;
+  tick(): void;
+  render(): void;
+}
 
 interface HouseUiDeps {
   parent: HTMLElement;
   menu(): HouseMenuState;
-  press(id: HouseButtonId): void;
+  press(id: string): void;
   screen: KuraScreen;
+  /** エディターの 画面を 作って 返す（親は 引数の 要素）。はじめて エディターが 開く とき 1 回 */
+  makeEditor(parent: HTMLElement): EditorViewLike;
   /** 「ポン」（ボタン・ページを かえた 音） */
   tick(): void;
   /** 話して いる 建築士さんの 頭の 上（画面の ピクセル）。見えなければ null */
@@ -59,6 +71,7 @@ export class HouseUi {
   readonly el: HTMLDivElement;
   private readonly bubble: HTMLDivElement;
   private mode: Mode = 'off';
+  private editorView: EditorViewLike | null = null;
   private menuEl: HTMLDivElement | null = null;
   private menuSig = '';
   private kuraEl: HTMLDivElement | null = null;
@@ -74,21 +87,30 @@ export class HouseUi {
     d.parent.append(this.el);
   }
 
-  /** メニュー・くらが 開いて いる */
+  /** メニュー・くら・エディターが 開いて いる */
   isOpen(): boolean {
-    return this.mode === 'menu' || this.mode === 'kura';
+    return this.mode === 'menu' || this.mode === 'kura' || this.mode === 'editor';
   }
 
   /** 画面を 今の 状態に あわせる（menu() が かわった とき・マスを おした とき・くらの 画面が 開いて いる 間は 毎ステップ） */
   refresh(): void {
     const m = this.d.menu();
-    const mode: Mode = m.open ? (m.page === 'kura' ? 'kura' : 'menu') : m.bubble !== '' ? 'float' : 'off';
+    const mode: Mode = m.open ? (m.page === 'kura' ? 'kura' : m.page === 'editor' || m.page === 'need' ? 'editor' : 'menu') : m.bubble !== '' ? 'float' : 'off';
     if (mode !== this.mode) this.setMode(mode);
     if (mode === 'off') return;
     const html = withRuby(m.bubble);
     if (this.bubble.innerHTML !== html) this.bubble.innerHTML = html;
     if (mode === 'menu') this.renderMenu(m);
     else if (mode === 'kura') this.renderKura();
+    else if (mode === 'editor') this.editorView?.refresh();
+  }
+
+  /** エディターの 1 コマ（ゲームの 時間が 止まって いても 呼ぶ）と 描画（見本）。エディターが 開いて いなければ 何も しない */
+  stepEditor(): void {
+    if (this.mode === 'editor') this.editorView?.tick();
+  }
+  drawEditor(): void {
+    if (this.mode === 'editor') this.editorView?.render();
   }
 
   /** 毎フレーム: 話して いる 間は ふきだしを 頭の 上へ */
@@ -118,8 +140,14 @@ export class HouseUi {
     this.kuraEl?.remove();
     this.kuraEl = null;
     this.kuraSig = '';
+    if (this.mode === 'editor') this.editorView?.show(false);
     this.mode = mode;
-    for (const m of ['float', 'menu', 'kura'] as const) this.el.classList.toggle(`is-${m}`, mode === m);
+    for (const m of ['float', 'menu', 'kura', 'editor'] as const) this.el.classList.toggle(`is-${m}`, mode === m);
+    if (mode === 'editor') {
+      this.editorView ??= this.d.makeEditor(this.el);
+      this.editorView.sayHost.append(this.bubble);
+      this.editorView.show(true);
+    }
     if (mode !== 'float') {
       this.bubble.style.left = '';
       this.bubble.style.top = '';
@@ -135,7 +163,7 @@ export class HouseUi {
     this.menuSig = sig;
     const menu = el('div', 'house-menu');
     menu.dataset.testid = 'house-menu';
-    for (const b of m.buttons) menu.append(this.menuButton(b.id, b.enabled));
+    for (const b of m.buttons) menu.append(this.menuButton(b.id as HouseButtonId, b.enabled));
     if (this.menuEl) this.menuEl.replaceWith(menu);
     else this.el.append(menu);
     this.menuEl = menu;

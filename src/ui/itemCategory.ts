@@ -5,7 +5,7 @@
  * 分類は 登録表（content/items/）の ItemDef の `category` に 書く（書き忘れは 型エラー）。ここは 色分けの 並びを 決めるだけ。
  */
 import type { ItemDefId } from '../content/items/types';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, HOUSE_TOOL_DEFS, ITEM_DEFS, KONGO_DEFS, LEGEND_DEFS, LIVE_DEFS, MINE_DEFS, NINJA_SAMURAI_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, itemDef, pickDefs, registryCategoryIds } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, HOUSE_FURNITURE_DEFS, HOUSE_PLAN_DEFS, HOUSE_TOOL_DEFS, ITEM_DEFS, KONGO_DEFS, LEGEND_DEFS, LIVE_DEFS, MINE_DEFS, NINJA_SAMURAI_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, itemDef, pickDefs, registryCategoryIds } from '../content/items/registry';
 
 export type ItemCategory =
   | 'soil'
@@ -65,7 +65,7 @@ const ORDER_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
 
 /** カテゴリーごとの アイテム（色分けの 並び。登録表の 全アイテムが ちょうど 1 回ずつ 入る = itemCategory.test.ts が 確かめる） */
 export const CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = Object.fromEntries(
-  ITEM_CATEGORIES.map((c) => [c, [...ORDER_ITEMS[c], ...registryCategoryIds(c, NINJA_SAMURAI_DEFS), ...registryCategoryIds(c, GOLD_DEFS), ...registryCategoryIds(c, KONGO_DEFS), ...registryCategoryIds(c, HOUSE_TOOL_DEFS), ...registryCategoryIds(c, MINE_DEFS)]]),
+  ITEM_CATEGORIES.map((c) => [c, [...ORDER_ITEMS[c], ...registryCategoryIds(c, NINJA_SAMURAI_DEFS), ...registryCategoryIds(c, GOLD_DEFS), ...registryCategoryIds(c, KONGO_DEFS), ...registryCategoryIds(c, HOUSE_TOOL_DEFS), ...registryCategoryIds(c, MINE_DEFS), ...registryCategoryIds(c, HOUSE_FURNITURE_DEFS), ...registryCategoryIds(c, HOUSE_PLAN_DEFS)]]),
 ) as unknown as Record<ItemCategory, readonly string[]>;
 
 /** アイテムのカテゴリー（登録表の `category`）。アイテムに ならない ブロックの id（みず など）と、セーブや 外から 来た 知らない id は そざい（型では 守れないので 残す） */

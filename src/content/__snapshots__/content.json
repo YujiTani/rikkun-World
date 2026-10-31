@@ -6033,6 +6033,132 @@
           "works": true
         }
       ]
+    },
+    "table": {
+      "ITEM_INFO.table": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "いえの なかに おく ざぶとん つきの つくえ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "テーブル",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
+    "chair": {
+      "ITEM_INFO.chair": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "いえの なかに おく すわる ところ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "いす",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
+    "andon": {
+      "ITEM_INFO.andon": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "いえの なかに おく やさしい あかり"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "あんどん",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "shelf": {
+      "ITEM_INFO.shelf": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "いえの なかに おく ほんを しまう たな"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "ほんだな",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "ofuro": {
+      "ITEM_INFO.ofuro": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "いえの なかに おく あったかい おふろ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "おふろ",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": []
+    },
+    "long_table": {
+      "ITEM_INFO.long_table": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "いえの なかに おく みんなで つかう ながい つくえ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "ながい テーブル",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
+    "round_table": {
+      "ITEM_INFO.round_table": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "いえの なかに おく まるい つくえ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "まるい テーブル",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
+    "stool": {
+      "ITEM_INFO.stool": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "いえの なかに おく まるい こしかけ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "まるいす",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
+    "sekkeizu": {
+      "ITEM_INFO.sekkeizu": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "おうちを たてる ための せっけいず（つかえるのは もうすぐ）"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "せっけいず",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
     }
   },
   "yokai": {

@@ -7,6 +7,7 @@ import { GEYSER, M4_BLOCKS, MINE_BLOCKS, PLACEABLE, VOX_I } from './blocks';
 import { BUCKETS, FARM_TOOLS, SEEDS, SPRINKLER, VEGGIES } from './farm';
 import { GOLD } from './gold';
 import { HOUSE_TOOLS } from './house';
+import { HOUSE_FURNITURE, HOUSE_PLANS } from './houseEditor';
 import { LEGEND } from './legend';
 import { KONGO } from './kongo';
 import { KOTATSU, LIVE } from './live';
@@ -93,6 +94,10 @@ export const VOX_I_DEFS: ItemDefs = VOX_I;
 
 /** みずもり・どうづき（HOUSE-1A。ITEM_TYPES では 金の 次。道具の 色分けでは 金の 道具の 次） */
 export const HOUSE_TOOL_DEFS: ItemDefs = HOUSE_TOOLS;
+/** 家の 新しい 家具（HOUSE-1B。数は ids.ts の HOUSE_FURNITURE_IDS。ITEM_TYPES では MINE-1B の 次。家具の 色分けは ふとんの 次） */
+export const HOUSE_FURNITURE_DEFS: ItemDefs = HOUSE_FURNITURE;
+/** せっけいず（HOUSE-1B。ITEM_TYPES では 新しい 家具の 次） */
+export const HOUSE_PLAN_DEFS: ItemDefs = HOUSE_PLANS;
 
 /** レジェンダリー武器（ITEM_TYPES・武器の 色分けでは これまでと 同じ 位置（crystal_katana の 次）に 入れる） */
 export const LEGEND_DEFS: ItemDefs = LEGEND;
@@ -113,7 +118,7 @@ export const ITEM_DEFS: Readonly<Record<ItemDefId, ItemDef>> = {
   ...TOOLS, ...SWORDS, ...BOWS, ...ARMOR, ...NINJA, ...SAMURAI,
   ...SEEDS, ...VEGGIES, ...FARM_TOOLS, ...SPRINKLER, ...BUCKETS,
   ...ORB, ...MATERIALS, ...INGOT, ...GADGETS, ...LIVE, ...KOTATSU, ...LEGEND, ...GOLD, ...KONGO, ...HOUSE_TOOLS,
-  ...MINE_BLOCKS, ...MINE_ITEMS,
+  ...MINE_BLOCKS, ...MINE_ITEMS, ...HOUSE_FURNITURE, ...HOUSE_PLANS,
 };
 
 /** 登録の 中から、ids の 順に 取り出した 登録（並びを 呼び出し側で 決めたい とき。登録に 無い id は 書きまちがいなので 投げる） */

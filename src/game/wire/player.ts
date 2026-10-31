@@ -46,9 +46,11 @@ export function wireInput(deps: WiredRender) {
     active: () => book.active() || shared.houseFrozen(),
     tick: () => {
       if (book.active()) book.tick();
+      else shared.houseModal.tick();
     },
     render: () => {
       if (book.active()) book.render();
+      else shared.houseModal.render();
     },
   });
   game.input.onPress((action) => book.onAction(action));

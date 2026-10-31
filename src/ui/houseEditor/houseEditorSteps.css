@@ -1,0 +1,371 @@
+/*
+ * HOUSE-1B せっけいずエディター: 3 つの すすみの 画面（① そと の パネル・② なか の 方眼と 右の 列・③ なまえ）。
+ * 外がわ（帯・ボタン・まん中・余白の 表 --e-*）は houseEditor.css、ポップアップ・ふきだしは houseEditorPopups.css。
+ */
+/* ① そと: パネル（まるい かどの 板）。3 まとまり（よこ・たて ／ まどの かず・しゅるい ／ やね）。まとまりの 中は 行 → 行 */
+.ed-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-sect);
+  max-height: 100%;
+  padding: var(--e-pad);
+  overflow-y: auto;
+  background: var(--rk-bg-800);
+  /* ふちは 内がわに かく（高さが 表の とおり 384・440・480 に なる） */
+  box-shadow: inset 0 0 0 var(--rk-bw) var(--rk-line);
+  border-radius: var(--rk-r-l);
+  scrollbar-width: thin;
+  scrollbar-color: var(--rk-line) transparent;
+}
+.ed-grp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-row);
+}
+.ed-row {
+  display: flex;
+  align-items: center;
+  gap: var(--e-lab);
+}
+/* 行の 名前: 絵 24 ＋ 4 ＋ 字（2 語の 名前は 1 語ずつ 2 だんに 分けて 作る。24 ＋ 8 ＋ 24 ＝ 56） */
+.ed-lab {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  width: 124px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 24px;
+  white-space: nowrap;
+}
+.ed-lab__text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ed-lab__text > span {
+  display: block;
+}
+.ed-opts {
+  display: flex;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-bgap);
+  min-width: 0;
+}
+.ed-opt {
+  width: var(--e-btn);
+  padding: 0;
+  font-size: 32px;
+}
+.ed-opt--text {
+  width: auto;
+  min-width: var(--e-btn);
+  padding: 0 24px;
+  font-size: 24px;
+}
+.ed-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--e-btn);
+  height: var(--e-btn);
+  font-size: 32px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.ed-count.is-max {
+  color: var(--rk-accent);
+}
+
+/* ② なか: 方眼 */
+.ed-grid {
+  position: relative;
+  flex: none;
+}
+.ed-band {
+  position: absolute;
+  background-repeat: repeat;
+  image-rendering: pixelated;
+}
+.ed-floor {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  display: grid;
+  background-repeat: repeat;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+.ed-cell {
+  box-shadow: inset 0 0 0 1px var(--rk-scrim);
+}
+.ed-layer {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  pointer-events: none;
+}
+.ed-furn,
+.ed-ghost {
+  position: absolute;
+  pointer-events: none;
+  image-rendering: auto;
+}
+/* 置いた 家具は 押せる（えらぶ）。絵は 背景で、はこ ぜんぶに ひろげる */
+.ed-furn {
+  pointer-events: auto;
+  cursor: pointer;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+.ed-ghost {
+  opacity: 0.9;
+}
+.ed-furn.is-new {
+  animation: ed-pop var(--rk-dur-pop) var(--rk-ease-pop) 1;
+}
+.ed-furn.is-flash {
+  animation: ed-flash 480ms ease-out 1;
+}
+.ed-selbox {
+  position: absolute;
+  border: var(--rk-bw-sel) solid var(--rk-accent);
+  border-radius: var(--rk-r-s);
+  box-shadow: var(--rk-glow);
+  pointer-events: none;
+}
+.ed-mark {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rk-text);
+  pointer-events: none;
+}
+.ed-mark .ed-ico {
+  width: 40px;
+  height: 40px;
+  opacity: 0.9;
+}
+.ed-mark--lamp .ed-ico {
+  width: 32px;
+  height: 32px;
+  opacity: 1;
+}
+.ed-mark__svg {
+  display: block;
+  pointer-events: none;
+}
+
+/* ② なか: 左の 列 ＝ 方眼（列の 上下 まん中。はば ＝ 9 マス ＋ かべの 帯 32 ＋ 戸の 印の はみ出し 8 ＋ 4 ×2 ＝ マス×9＋56） */
+.ed-colL--naka {
+  flex: none;
+  width: calc(var(--ed-cell) * 9 + 56px);
+}
+/* ② なか: 右の 列（パネルに しない）。上から 見本 ・家具の ボタン（1 行 7 こまで）・下の 行。あきは 表の 18 */
+.ed-right {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--e-rgap);
+  min-width: 0;
+  min-height: 0;
+}
+.ed-right .ed-view {
+  flex: 1 1 0;
+  min-height: 0;
+}
+/* 家具の ボタン: 1 行 ceil(n÷2) こ（13 種 ＝ 上 7・下 6）。左 よせ。--ed-pal-cols は naka の JS が 入れる */
+.ed-palette {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(var(--ed-pal-cols, 5), var(--e-btn));
+  gap: var(--e-fgap);
+  justify-content: start;
+}
+.ed-fbtn {
+  width: var(--e-btn);
+  padding: 0;
+}
+.ed-fbtn img {
+  width: 48px;
+  height: 48px;
+  pointer-events: none;
+}
+/* 下の 行: 左に えらんだ 家具の 名前（7 字 ＋ 空白 まで 176）、右に あかりの わく */
+.ed-lower {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-group);
+  height: var(--e-btn);
+}
+.ed-fname {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 24px;
+  white-space: nowrap;
+}
+.ed-light {
+  flex: none;
+  justify-content: flex-start;
+  gap: 4px;
+  width: auto;
+  padding: 0 12px;
+}
+.ed-light img {
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+}
+.ed-light small {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--rk-text-sub);
+}
+.ed-light.is-sel small {
+  color: var(--rk-ink);
+}
+
+/* 置いた 家具の そばに 出る ボタン（［とる］と、アイコン だけの まわす 2 つ）。しっぽが 家具を さす */
+.ed-cluster {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  background: var(--rk-bg-900);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-2);
+  transition:
+    left var(--rk-dur-fast) var(--rk-ease),
+    top var(--rk-dur-fast) var(--rk-ease);
+  animation: ed-pop var(--rk-dur-pop) var(--rk-ease-pop) 1;
+}
+.ed-cluster::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: var(--tail, 50%);
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  background: var(--rk-bg-900);
+  border-top: var(--rk-bw) solid var(--rk-line);
+  border-left: var(--rk-bw) solid var(--rk-line);
+  transform: rotate(45deg);
+}
+.ed-cluster.is-above::before {
+  top: auto;
+  bottom: -8px;
+  transform: rotate(225deg);
+}
+.ed-cbtn {
+  height: 56px;
+  min-width: 0;
+  padding: 0;
+}
+.ed-cbtn--take {
+  width: 72px;
+}
+.ed-cbtn--icon {
+  width: 56px;
+}
+.ed-cbtn--icon .ed-ico {
+  width: 40px;
+  height: 40px;
+}
+
+/* ③ なまえ: 左 ＝ 名前の 行 と 50 音（11 列 × 6 行。6 行めに カタカナ・1 もじ けす）、右 ＝ 後ろの 文字 5 つ。よこは 画面の まん中 */
+.ed-namae {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e-col);
+  margin: var(--e-name-top) auto 0;
+}
+.ed-namae__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-ngap);
+}
+.ed-plate {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--e-key);
+  padding: 0 12px;
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+}
+.ed-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 44px;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 32px;
+  border-bottom: var(--rk-bw-sel) solid var(--rk-line);
+}
+.ed-slot.is-filled {
+  border-bottom-color: var(--rk-accent);
+}
+.ed-suffix-text {
+  margin-left: 12px;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 32px;
+  white-space: nowrap;
+  color: var(--rk-accent);
+}
+.ed-kana {
+  display: grid;
+  grid-template-columns: repeat(11, var(--e-key));
+  grid-auto-rows: var(--e-key);
+  gap: var(--e-kgap);
+}
+.ed-kbtn {
+  width: var(--e-key);
+  height: var(--e-key);
+  min-width: 0;
+  padding: 0;
+  font-size: 32px;
+}
+.ed-kbtn .ed-ico {
+  width: 32px;
+  height: 32px;
+}
+/* 6 行めの ー の 右に 1 マス あけて（3 列めの 左から）カタカナ・1 もじ けす。ょ（11 列め）と 重ならない */
+.ed-kana__extra {
+  display: flex;
+  grid-column: 3 / 11;
+  align-items: center;
+  gap: var(--e-bgap);
+}
+.ed-kana__extra .ed-btn {
+  height: var(--e-key);
+  padding: 0 16px;
+}
+.ed-namae__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-bgap);
+  width: 144px;
+}
+.ed-namae__side .ed-btn {
+  width: 144px;
+  height: var(--e-key);
+  padding: 0 8px;
+}

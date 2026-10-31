@@ -78,7 +78,7 @@ describe('本物の VoxelWorld に つなぐ', () => {
   function build(watch: (world: ArrayVoxelWorld, m: ArchitectManager) => void = (world, m) => watchBlocks(world, m)) {
     const world = new ArrayVoxelWorld({ x: 160, y: 24, z: 160 });
     world.fill(0, 0, 0, 159, 8, 159, 'stone'); // 地面の 上面 y = 8 → 立つ 高さ 9
-    const record: HouseRecord = { toolsGiven: false, first: null };
+    const record: HouseRecord = { toolsGiven: false, fudeGiven: false, first: null };
     const player = { x: SPAWN.x, y: 9, z: SPAWN.z };
     const m = new ArchitectManager({ seed: 4242, world, spawn: () => SPAWN, record, player: () => player, isLand: () => true });
     watch(world, m);

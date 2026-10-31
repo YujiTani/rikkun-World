@@ -15,6 +15,14 @@
 3. 並び: 持ち物の順は `inventory/items.ts` の `ITEM_TYPES`、作業台のカードの順は `craft/recipes.ts`、色分けの順は `ui/itemCategory.ts`（`registry.test.ts`・`itemCategory.test.ts` が全アイテムが 1 回ずつ入っているか確かめる。順番は画面の順なので変えない）。
 4. 絵: `ui/itemArt<シリーズ>.ts`（`Record<…Id>` なので書き忘れは型エラー）。手に持つ形がある物だけ `camera/held<シリーズ>.ts`。2D の絵が無くて石の絵に落ちると `registry.test.ts` が落とす。
 
+**家具のアイテムを足す（HOUSE-1B。`houseEditor.ts`）**: 登録表の外に、エディターの表が 2 つ ある。足し忘れは型で落ちる。
+1. `ids.ts` の `HOUSE_FURNITURE_IDS` に id を足す → `houseEditor.ts` の `HOUSE_FURNITURE`（`satisfies Record<HouseFurnitureId, ItemDef>`）に名前・説明を 1 件。並びは `ITEM_TYPES`・色分けとも登録表から自動（`inventory/items.ts`・`ui/itemCategory.ts` は触らない）。
+2. 2D の絵: `ui/itemArtHouseEditor.ts`（`Record<HouseFurnitureId, …>`）。
+3. エディターに出す: `house/editor/furniture.ts` の `FURN_ORDER`（画面の並び = ボタンの並び。1 行の数は 自動で `⌈しゅるい ÷ 2⌉`）と `FURNITURE`（方眼の大きさ・材料の数。`Record<FurnKind, …>`）→ 見本の 3D の形は `house/preview/furnitureArt.ts` の箱の表（これも `Record`）。材料の id と外装の式は #340 でも `house/editor/model.ts` の関数を 共有する（別の所に書かない）。
+4. 置いたあとの 働き（ブロックにする = 1C〔#340〕、いす・おふろ・あんどん = 1D〔#341〕）は まだ無い。足すのは 持ち物の名前・絵・エディターの形まで。
+
+**`plan` を持つアイテム（せっけいず = `HOUSE_PLAN_IDS`）**: 1 まいずつ ちがう中身 = 番号 `ItemStack.plan`（`contracts/items.ts`）だけを 持ち物のマスに持ち、中身（形・名前）は 保存の `house`（`HouseState`）に番号でひもづく。`maxStack: 1`（重ならない）なので くら（`Kura`）には入らない。**マスをコピー・保存する所は `plan` を落とさないこと**: `tools/durability.ts` の `copyStack`・`readPlan`（`plan` が付けられるのは その id だけ）、`Inventory.addInto`／`add(…, { plan })`、`StorageSystem`（たんす）、`DropField`（`DropSave.plan`。落とす・拾う）。新しく「マスを作り直す」所を足したら、`plan` を引き継ぐ短いテストを 1 本（例 `inventory/plan.test.ts`・`storage/storage.test.ts`・`drops/DropField.test.ts`）。ツールチップの名前は `inventory/planName.ts`（`wireHouse` が番号から引く口をつなぐ）。`plan` を持つ アイテムを 増やすときは `ids.ts` の `HOUSE_PLAN_IDS` に足す（`readPlan` の対象は そこから 自動）。
+
 **まだ 登録表の 外に 手で 書く 所**（登録表が出どころでない物）:
 
 | 何 | 場所 |

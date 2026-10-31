@@ -47,6 +47,8 @@ interface Shared {
   house: HouseSystem | null;
   /** HOUSE-1A: 建築士さんの メニュー・くらが 開いて いる（ゲームの 時間・妖怪を 止める。本の 画面と 同じ あつかい。player.ts の 窓が 読む） */
   houseFrozen: () => boolean;
+  /** HOUSE-1B: エディターが 開いて いる 間の 1 コマ（見本の 向き・ふきだしの 時間）と 描画（見本）。player.ts の 窓が 呼ぶ。開いて いなければ 何も しない */
+  houseModal: { tick: () => void; render: () => void };
   requestSave: () => void;
   skipSignalLog: boolean;
   onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
@@ -101,6 +103,7 @@ export function createShared(): Shared {
     openCoopMenu: () => {},
     house: null,
     houseFrozen: () => false,
+    houseModal: { tick: () => undefined, render: () => undefined },
     requestSave: () => {},
     skipSignalLog: false,
     onDropPicked: () => {},

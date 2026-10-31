@@ -59,22 +59,23 @@ describe('話す 通し（右クリック 〜 メニュー）', () => {
     expect(sys.talkTo(a.id)).toBe(true);
     expect(calls).toEqual(['voice']);
     expect(sys.menu().bubble).toBe(SAY.hello);
-    let atOpen: { buttons: string[]; m: number; d: number } | null = null;
+    let atOpen: { buttons: string[]; m: number; d: number; f: number } | null = null;
     let steps = 0;
     while (!sys.menu().open && steps < 300) {
       g.step(1);
       steps++;
-      if (sys.menu().open) atOpen = { buttons: sys.menu().buttons.map((b) => b.id), m: bag.count('mizumori' as ItemId), d: bag.count('dotsuki' as ItemId) };
+      if (sys.menu().open) atOpen = { buttons: sys.menu().buttons.map((b) => b.id), m: bag.count('mizumori' as ItemId), d: bag.count('dotsuki' as ItemId), f: bag.count('fude' as ItemId) };
     }
     expect(steps).toBe(NOD_STEPS + GREET_STEPS * 2);
-    expect(atOpen).toEqual({ buttons: ['kura', 'editor', 'build', 'rename', 'close'], m: 1, d: 1 });
+    expect(atOpen).toEqual({ buttons: ['kura', 'editor', 'build', 'rename', 'close'], m: 1, d: 1, f: 1 });
     expect(calls.filter((c) => c === 'voice')).toHaveLength(1);
-    expect(calls).toEqual(['voice', 'gave:mizumori', 'gave:dotsuki', 'open']);
+    expect(calls).toEqual(['voice', 'gave:mizumori', 'gave:dotsuki', 'gave:fude', 'open']);
   });
 
   it('2 回目: うなずき 22 ステップで メニュー（21 ステップ目までは まだ）', () => {
     const { sys } = make();
     sys.state.record.toolsGiven = true;
+    sys.state.record.fudeGiven = true;
     const g = stepper(sys);
     g.step(1);
     const a = sys.architects()[0]!;
@@ -91,6 +92,7 @@ describe('話す 通し（右クリック 〜 メニュー）', () => {
   it('AC41: メニューが 開いて いる 間は step(600) しても 時刻・妖怪が 動かない。とじると また 進む（くらの 画面でも）', () => {
     const { sys, calls } = make();
     sys.state.record.toolsGiven = true;
+    sys.state.record.fudeGiven = true;
     const g = stepper(sys);
     g.step(1);
     sys.talkTo(sys.architects()[0]!.id);
@@ -200,6 +202,7 @@ describe('画面への 合図（onChange）', () => {
   it('ふきだし・ページ・くらの 中身が かわる たびに 呼ばれる。何も かわらない ステップでは 呼ばれない', () => {
     const { sys, bag } = make();
     sys.state.record.toolsGiven = true;
+    sys.state.record.fudeGiven = true;
     let n = 0;
     sys.setOnChange(() => n++);
     const g = stepper(sys);
@@ -261,5 +264,104 @@ describe('窓口 window.__rikkun.house', () => {
     expect(sys.talk.current()).toBeNull();
     hook.talk(hook.architects()[0]!.id);
     expect(sys.talk.current()).toBe('first');
+  });
+});
+
+describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
+  function opened() {
+    const rig = make();
+    rig.sys.state.record.toolsGiven = true;
+    rig.sys.state.record.fudeGiven = true;
+    const g = stepper(rig.sys);
+    g.step(1);
+    rig.sys.talkTo(rig.sys.architects()[0]!.id);
+    g.step(NOD_STEPS);
+    return { ...rig, g, hook: createHouseHook(rig.sys) };
+  }
+
+  it('エディターが 開いて いない とき editor() は null・edit() は false・menu の page は top', () => {
+    const { sys, hook } = opened();
+    expect(hook.editor()).toBeNull();
+    expect(hook.edit({ op: 'windows', delta: 1 })).toBe(false);
+    sys.press('editor');
+    expect(sys.menu().page).toBe('editor');
+    expect(hook.editor()).toMatchObject({ step: 'soto', size: { w: 5, d: 5 }, windows: 0, windowMax: 9, windowKind: 'shoji', roof: 'flat', light: 'lantern', canUndo: false, confirm: null, selected: null, preview: null });
+    expect(hook.edit({ op: 'windows', delta: 1 })).toBe(true);
+    expect(hook.editor()).toMatchObject({ windows: 1, windowCells: [{ wall: 'back', i: 2 }], canUndo: true });
+  });
+
+  it('保存から 読みこむ（load）と、作りかけは 保存の とおりに なり、もどす・すすむ の 記録は すてられる', () => {
+    const { sys, hook } = opened();
+    sys.press('editor');
+    for (const op of [{ op: 'windows', delta: 1 }, { op: 'size', w: 7 }, { op: 'windows', delta: 1 }]) expect(hook.edit(op)).toBe(true);
+    const saved = sys.state.serialize();
+    expect(hook.edit({ op: 'undo' })).toBe(true);
+    expect(hook.editor()).toMatchObject({ canUndo: true, canRedo: true });
+    sys.load(saved);
+    expect(hook.editor(), '読みこんだ 作りかけ（もどす の 記録は ない）').toMatchObject({ size: { w: 7, d: 5 }, windows: 2, canUndo: false, canRedo: false });
+    sys.load(null);
+    expect(hook.editor(), '保存が 空なら はじめの 形').toMatchObject({ size: { w: 5, d: 5 }, windows: 0, canUndo: false, canRedo: false });
+  });
+
+  it('見本の 情報（preview）は ① ② だけ（③ は null）。つないだ 見本から angle・pitch・touched・builds を もらう', () => {
+    const { sys, hook } = opened();
+    sys.previewProbe = (mode) => ({ yaw: mode === 'outside' ? 28 : 40, elev: mode === 'outside' ? 26 : 50, touched: false, builds: 3 });
+    sys.press('editor');
+    expect(hook.editor()?.preview).toEqual({ mode: 'outside', roof: true, angle: 28, pitch: 26, touched: false, builds: 3, glow: null });
+    sys.press('next');
+    expect(hook.editor()?.preview).toMatchObject({ mode: 'inside', roof: false, angle: 40, pitch: 50 });
+    sys.press('next');
+    expect(hook.editor()?.step).toBe('namae');
+    expect(hook.editor()?.preview).toBeNull();
+  });
+
+  it('メニューが ひらいた まま 時間は 止まる（エディターの 間も）。Esc は エディターの 順、最後に 全部 とじる', () => {
+    const { sys, g, calls } = opened();
+    sys.press('editor');
+    const t = g.w.time;
+    g.step(600);
+    expect(g.w.time).toBe(t);
+    sys.press('need');
+    expect(sys.menu().page).toBe('need');
+    sys.escape();
+    expect(sys.menu().page).toBe('editor');
+    sys.escape();
+    expect(sys.menu().open).toBe(false);
+    expect(sys.editing()).toBe(false);
+    expect(calls.at(-1)).toBe('close');
+  });
+
+  it('できた！ → せっけいずが 持ち物に（番号つき）・blueprints()・need(source)・メニューは top に もどる・もう 1 まいで 番号 2', () => {
+    const { sys, bag, hook } = opened();
+    bag.add('paper', 3);
+    bag.add('fude', 1);
+    sys.press('editor');
+    for (const op of [{ op: 'size', w: 7 }, { op: 'windows', delta: 1 }, { op: 'place', kind: 'futon', x: 0, z: 0 }, { op: 'place', kind: 'chair', x: 3, z: 0 }]) expect(hook.edit(op)).toBe(true);
+    sys.press('next');
+    sys.press('next');
+    for (const ch of 'ひみつ') expect(hook.edit({ op: 'char', ch })).toBe(true);
+    sys.press('done');
+    expect(sys.menu()).toMatchObject({ open: true, page: 'top', bubble: 'せっけいずが できたよ！' });
+    expect(bag.count('paper')).toBe(2);
+    const bps = hook.blueprints();
+    expect(bps).toHaveLength(1);
+    expect(bps[0]).toMatchObject({ number: 1, name: { front: 'ひみつ', back: 'のいえ' }, w: 7, d: 5, windows: 1, windowKind: 'shoji', roof: 'flat', light: 'lantern' });
+    expect(bps[0]!.furniture).toEqual([{ kind: 'futon', x: 0, z: 0, rot: 0 }, { kind: 'chair', x: 3, z: 0, rot: 0 }]);
+    expect(sys.planName(1)).toBe('ひみつのいえの せっけいず');
+    // 作りかけは のこる。持ち物の せっけいずの 必要な 材料を 聞ける
+    expect(hook.need(bps[0]!.slot).find((r) => r.item === 'log')).toMatchObject({ need: 2 * (7 + 5) + 4 + 2, have: 0, bonus: 0 });
+    sys.press('editor');
+    expect(hook.editor()).toMatchObject({ step: 'namae', name: { front: 'ひみつ', back: 'のいえ' } });
+    sys.press('done');
+    expect(bag.count('sekkeizu')).toBe(2);
+    expect(hook.blueprints().map((b) => b.number)).toEqual([1, 2]);
+    expect(hook.need(999), '知らない マス').toEqual([]);
+  });
+
+  it('くらの 材料は へらない。くらの 数が need の have', () => {
+    const { sys, hook } = opened();
+    sys.state.kura.restore({ log: 30 });
+    sys.press('editor');
+    expect(hook.need().find((r) => r.item === 'log')).toMatchObject({ need: 24, have: 30, short: 0 });
   });
 });

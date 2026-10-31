@@ -1,0 +1,221 @@
+/*
+ * HOUSE-1B せっけいずエディター: 確かめの まど・ひつような もの・建築士さんの ふきだし・うごき（keyframes・動きを へらす 設定）。
+ * 外がわは houseEditor.css、3 つの すすみの 画面は houseEditorSteps.css。
+ */
+/* ---- 確かめの まど・ひつような もの ---- */
+.ed-pop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--e-edge);
+  background: var(--rk-scrim-modal);
+}
+.ed-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  min-width: 360px;
+  max-width: 100%;
+  padding: var(--e-pop-in);
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-2);
+}
+.ed-card__msg {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 40px;
+  text-align: center;
+  white-space: nowrap;
+}
+.ed-card__btns {
+  display: flex;
+  gap: var(--e-pop-btn);
+  margin-top: var(--e-pop-msg);
+}
+.ed-card__btns .ed-btn {
+  height: 64px;
+  min-width: 144px;
+  padding: 0 24px;
+}
+.ed-need {
+  align-items: stretch;
+  gap: 8px;
+  min-width: 640px;
+}
+.ed-need__title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 40px;
+  text-align: center;
+}
+/* スクロールする 入れ物（.ed-need__list）の 外がわ。下に まだ 行が あるとき（.has-more）だけ、下のふちに 影を 重ねる（押せない・場所を とらない） */
+.ed-need__scroll {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.ed-need__scroll::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 48px;
+  content: '';
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--rk-bg-800));
+  border-radius: 0 0 var(--rk-r-s) var(--rk-r-s);
+  opacity: 0;
+}
+.ed-need__scroll.has-more::after {
+  opacity: 1;
+}
+.ed-need__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* 9 行（頭の 行 32＋すきま 4＋48×9＋4×8 ＝ 500）が スクロール なしで 入る。10 行から スクロール。画面の ふち・内がわの あきを あけても まどが はみ出さない 高さ */
+  max-height: calc(100vh - 2 * var(--e-edge) - 2 * var(--e-pop-in) - 60px - var(--e-btn));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rk-line) transparent;
+}
+.ed-need__row {
+  display: grid;
+  grid-template-columns: 40px 1fr 112px 112px 112px;
+  align-items: center;
+  column-gap: 16px;
+  min-height: 48px;
+  padding: 4px 8px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+  background: var(--rk-bg-700);
+  border-radius: var(--rk-r-s);
+}
+.ed-need__row--head {
+  min-height: 32px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+  color: var(--rk-text-sub);
+  background: transparent;
+}
+.ed-need__row img {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+}
+.ed-need__row > .is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ed-need__short {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: var(--rk-ng);
+  font-variant-numeric: tabular-nums;
+}
+.ed-need__short.is-ok {
+  color: var(--rk-ok);
+}
+.ed-need__short .ed-ico {
+  width: 24px;
+  height: 24px;
+}
+
+/* ---- 建築士さんの ふきだし: 見出しの だんの 左の ふちから 重ねて 出す（見出しは かくれる）。はばは その すすみの 左の 列（--ed-say-w。index.ts が はかる）。
+   字は 列 − 100（顔 56 ＋ 8、左右 16×2、ふち 4）で 折りかえす。3 だんに なる 長い 文は 見本・方眼の 上の はしに 重ねる ---- */
+.ed-say {
+  position: absolute;
+  left: var(--e-edge);
+  top: calc(var(--e-edge) + var(--e-top) + var(--e-lead-gap));
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: var(--ed-say-w, 580px);
+  cursor: pointer;
+  animation: ed-pop var(--rk-dur-pop) var(--rk-ease-pop) 1;
+}
+.ed-say__face {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-pill);
+}
+.ed-say__face .ed-ico {
+  width: 48px;
+  height: 48px;
+}
+.ed-say__text {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 32px;
+  color: var(--rk-ink);
+  background: var(--rk-text);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-1);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+
+
+@keyframes ed-pop {
+  0% {
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes ed-boing {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes ed-flash {
+  0% {
+    filter: sepia(1) saturate(12) hue-rotate(-35deg);
+  }
+  100% {
+    filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed-furn.is-new,
+  .ed-furn.is-flash,
+  .ed-say,
+  .ed-cluster,
+  .ed-btn.is-boing {
+    animation: none;
+    transition: none;
+  }
+}

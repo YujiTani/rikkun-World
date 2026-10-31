@@ -1,5 +1,9 @@
 import type { ItemId } from '../contracts';
 import { HOUSE_TOOL_IDS } from '../content/items/ids';
+import { editorButtons } from './editor/buttons';
+import type { EditorController } from './editor/controller';
+import { pressEditor } from './editor/ops';
+import { FUDE } from './editor/sheet';
 import { KURA_MAX, type Kura, type KuraBag } from './kura';
 import type { Column } from './placement';
 
@@ -9,6 +13,8 @@ import type { Column } from './placement';
  *   start → うなずき（建築士さんが 22 ステップ。この 間も ゲームの 時間は すすむ）→ メニュー
  *   はじめて 話す とき だけ、うなずきの あとに あいさつが 2 行（クリック なしで すすむ）。2 行目で 道具を わたしてから メニューが 開く:
  *       「こんにちは！ …」（うなずきの 間から） → 「これを あげる。…」（道具を わたす） → 「なにを する？」（メニュー）
+ *   1B（#339）から: あいさつの 2 行目で ふでも わたす。#339 より 前に 道具を もらった セーブは、うなずきの あと「ふで を あげる」の 1 行（100 ステップ）で ふでを わたして メニュー。
+ *   メニューの「せっけいずを つくる」で エディター（page 'editor'。「ひつような もの」が 出て いる 間は page 'need'）。
  *   メニューが 開いて いる 間（くらの 画面を ふくむ）は ゲームの 時間を 止める（frozen()。本の 画面と 同じ あつかい）。
  */
 
@@ -18,7 +24,9 @@ export const GREET_STEPS = 100;
 /** ふきだしの 字（ぜんぶ ひらがな・カタカナ。漢字は 使わない） */
 export const SAY = {
   hello: 'こんにちは！ ぼくは けんちくし。いえを たてるよ',
-  gift: 'これを あげる。みずもり と どうづき だよ',
+  gift: 'これを あげる。みずもり と どうづき と ふで だよ',
+  fude: 'ふで を あげる。せっけいずを かく ときに つかってね',
+  made: 'せっけいずが できたよ！',
   menu: 'なにを する？',
   kura: 'ざいりょうを あずけよう',
   tools: 'どうぞ！ たいせつに してね',
@@ -26,18 +34,21 @@ export const SAY = {
   bagFull: 'もちものが いっぱい だよ',
 } as const;
 
-/** セーブに のこす 建築士さんの 記録: はじめての あいさつを したか・最初の 1 人の 場所（いちど 決まったら 動かさない） */
+/** セーブに のこす 建築士さんの 記録: はじめての あいさつを したか・はじめの ふでを わたしたか・最初の 1 人の 場所（いちど 決まったら 動かさない） */
 export interface HouseRecord {
   toolsGiven: boolean;
+  /** はじめの ふでを わたせた とき だけ true（持ち物が いっぱいで わたせない ときは false の まま） */
+  fudeGiven: boolean;
   first: Column | null;
 }
 
-export type HousePage = 'top' | 'kura';
-/** メニューの ボタン（§2.3 の 順）。この 票で 動くのは kura・tools・close。editor・build・rename は 出すが 押せない（HOUSE-1B 以降） */
+type HousePage = 'top' | 'kura' | 'editor' | 'need';
+/** 上の メニューの ボタン（§2.3 の 順）。動くのは kura・editor・tools・close。build・rename は 出すが 押せない（HOUSE-1C） */
 export type HouseButtonId = 'kura' | 'editor' | 'build' | 'rename' | 'tools' | 'close';
 
+/** 窓口の ボタン。上の メニューは HouseButtonId、エディターは editor/buttons.ts の id */
 export interface HouseButton {
-  id: HouseButtonId;
+  id: string;
   enabled: boolean;
 }
 
@@ -64,21 +75,24 @@ export interface HouseTalkDeps {
   gave: (item: ItemId) => void;
   /** 持ち物の ほかに 持って いる 数（たんすの 中。なければ 0）。持って いる 道具は あげない・「どうぐを もらう」に 出さない */
   owned?: (item: ItemId) => number;
+  /** エディターの 持ち主（作りかけ・もどす・できた！の しらべ） */
+  editor: EditorController;
 }
 
 type Phase = 'idle' | 'nod' | 'greet1' | 'greet2' | 'menu';
+type Page = 'top' | 'kura' | 'editor';
 
-/** 上の ページの ボタン（道具は 持っていない ときだけ 足す）。live = この 票で 押せる */
+/** 上の ページの ボタン（道具は 持っていない ときだけ 足す）。live = いま 押せる */
 const TOP: ReadonlyArray<{ id: HouseButtonId; live: boolean }> = [
   { id: 'kura', live: true },
-  { id: 'editor', live: false },
+  { id: 'editor', live: true },
   { id: 'build', live: false },
   { id: 'rename', live: false },
 ];
 
 export class HouseTalk {
   private phase: Phase = 'idle';
-  private page: HousePage | null = null;
+  private page: Page | null = null;
   private say = '';
   private timer = 0;
   private who = '';
@@ -88,7 +102,7 @@ export class HouseTalk {
 
   /** menu() の 見た目が かわる たびに ふえる 数（画面の 描きなおしの 目印。うなずき・あいさつの カウントダウンでは ふえない） */
   version(): number {
-    return this.ver;
+    return this.ver + this.d.editor.version;
   }
 
   /** 話しはじめる。もう 話して いる（うなずき・あいさつ・メニュー）なら 何もせず false */
@@ -116,7 +130,8 @@ export class HouseTalk {
   step(nodDone: boolean): void {
     if (this.phase === 'nod') {
       if (!nodDone) return;
-      if (this.d.record.toolsGiven) this.open();
+      if (this.d.record.toolsGiven && this.d.record.fudeGiven) this.open();
+      else if (this.d.record.toolsGiven) this.giveFude();
       else {
         this.phase = 'greet1';
         this.timer = GREET_STEPS;
@@ -132,24 +147,53 @@ export class HouseTalk {
   menu(): HouseMenuState {
     if (this.phase === 'idle') return { open: false, page: null, bubble: '', buttons: [] };
     if (this.phase !== 'menu') return { open: false, page: null, bubble: this.say, buttons: [] };
-    return { open: true, page: this.page, bubble: this.say, buttons: this.buttons() };
+    const ed = this.page === 'editor';
+    return { open: true, page: ed && this.d.editor.needOpen ? 'need' : this.page, bubble: ed ? (this.d.editor.bubble?.text ?? '') : this.say, buttons: this.buttons() };
   }
 
-  /** ボタンを 押す。close は どのページ・どの 段階でも 全部 とじる。押せない ボタン・知らない id は 何も おきない */
-  press(id: string): void {
+  /** ボタンを 押す。close は どのページ・どの 段階でも 全部 とじる。押せない ボタン・知らない id は 何も おきない。arg は 仕様 §6.1 の 2 引数の 形（windowKind・roof） */
+  press(id: string, arg?: unknown): void {
     if (id === 'close') {
       this.close();
       return;
     }
-    if (this.phase !== 'menu' || this.page !== 'top') return;
+    if (this.phase !== 'menu') return;
+    if (this.page === 'editor') {
+      pressEditor(this.d.editor, id, arg);
+      return;
+    }
+    if (this.page !== 'top') return;
     if (id === 'kura') {
       this.page = 'kura';
       this.say = SAY.kura;
       this.ver++;
-    } else if (id === 'tools' && this.missingTool()) {
+    } else if (id === 'editor') {
+      this.page = 'editor';
+      this.d.editor.open();
+      this.ver++;
+    } else if (id === 'tools' && this.canGetTools()) {
       this.say = this.giveMissing() ? SAY.tools : SAY.bagFull;
       this.ver++;
     }
+  }
+
+  /** Esc: エディターで 確かめの まど・ひつような もの・家具の えらびが あれば それを とじる。なければ 全部 とじる（AC55） */
+  escape(): void {
+    if (this.phase === 'menu' && this.page === 'editor' && this.d.editor.escape()) return;
+    this.close();
+  }
+
+  /** エディターが 開いて いる（ひつような ものが 出て いる 間も） */
+  editing(): boolean {
+    return this.phase === 'menu' && this.page === 'editor';
+  }
+
+  /** できた！が 通った: エディターを とじて 上の ページへ。ふきだし「せっけいずが できたよ！」 */
+  made(): void {
+    if (this.phase !== 'menu') return;
+    this.page = 'top';
+    this.say = SAY.made;
+    this.ver++;
   }
 
   /** 話しおわる（Esc・✕・とじる・途中で やめる）。メニューが 開いて いたら onClose も 呼ぶ */
@@ -187,18 +231,27 @@ export class HouseTalk {
 
   private buttons(): HouseButton[] {
     if (this.page === 'kura') return [{ id: 'close', enabled: true }];
+    if (this.page === 'editor') return editorButtons(this.d.editor);
     const out: HouseButton[] = TOP.map((b) => ({ id: b.id, enabled: b.live }));
-    if (this.missingTool()) out.push({ id: 'tools', enabled: true });
+    if (this.canGetTools()) out.push({ id: 'tools', enabled: true });
     out.push({ id: 'close', enabled: true });
     return out;
   }
 
-  /** 2 行目: 道具を わたす。あいさつは これで おわり（持ち物が いっぱいで わたせなくても くりかえさない。「どうぐを もらう」が のこる） */
+  /** 2 行目: 道具（みずもり・どうづき・ふで）を わたす。あいさつは これで おわり（持ち物が いっぱいで わたせなくても くりかえさない。「どうぐを もらう」が のこる） */
   private gift(): void {
     this.phase = 'greet2';
     this.timer = GREET_STEPS;
     this.d.record.toolsGiven = true;
     this.say = this.giveMissing() ? SAY.gift : SAY.bagFull;
+    this.ver++;
+  }
+
+  /** #339 より 前に 道具を もらった セーブ: うなずきの あと「ふで を あげる」の 1 行で ふでを わたす（わたせない ときは「もちものが いっぱい だよ」で 記録は のこらない） */
+  private giveFude(): void {
+    this.phase = 'greet2';
+    this.timer = GREET_STEPS;
+    this.say = this.giveOneFude() ? SAY.fude : SAY.bagFull;
     this.ver++;
   }
 
@@ -215,12 +268,21 @@ export class HouseTalk {
     return this.d.bag.count(id) + (this.d.owned?.(id) ?? 0) > 0;
   }
 
-  /** どちらかの 道具を 持って いない（どうぐを もらう を 出す） */
-  private missingTool(): boolean {
-    return HOUSE_TOOL_IDS.some((id) => !this.has(id));
+  /** どちらかの 道具を 持って いない、または はじめの ふでを まだ わたして いない（「どうぐを もらう」を 出す。ふでは 2 本目から 出さない） */
+  private canGetTools(): boolean {
+    return HOUSE_TOOL_IDS.some((id) => !this.has(id)) || !this.d.record.fudeGiven;
   }
 
-  /** 持って いない 道具を 1 こずつ わたす。ぜんぶ 持つ ことに なったら true（入りきらない 分が あれば false） */
+  /** はじめの ふでを 1 本 わたす。わたせたら 記録して true */
+  private giveOneFude(): boolean {
+    if (this.d.record.fudeGiven) return true;
+    if (this.d.bag.add(FUDE, 1) !== 0) return false;
+    this.d.gave(FUDE);
+    this.d.record.fudeGiven = true;
+    return true;
+  }
+
+  /** 持って いない 道具を 1 こずつ わたし、はじめの ふでも わたす。ぜんぶ わたせたら true（入りきらない 分が あれば false） */
   private giveMissing(): boolean {
     let all = true;
     for (const id of HOUSE_TOOL_IDS) {
@@ -228,6 +290,6 @@ export class HouseTalk {
       if (this.d.bag.add(id, 1) === 0) this.d.gave(id);
       else all = false;
     }
-    return all;
+    return this.giveOneFude() && all;
   }
 }

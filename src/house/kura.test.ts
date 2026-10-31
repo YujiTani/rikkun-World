@@ -205,6 +205,28 @@ describe('くらの 並びと 読み書き（AC32）', () => {
   });
 });
 
+describe('consume（せっけいずの かみに 使って へらす）', () => {
+  it('たりて いれば 言った 数を ぜんぶ 引く（へらせた 数を 返す）', () => {
+    const kura = new Kura();
+    kura.restore({ paper: 5, log: 2 });
+    expect(kura.consume('paper', 3)).toBe(3);
+    expect(kura.count('paper')).toBe(2);
+    expect(kura.consume('paper', 2)).toBe(2);
+    expect(kura.count('paper')).toBe(0);
+    expect(kura.totals(), 'ほかの 種類は そのまま').toEqual({ log: 2 });
+  });
+
+  it('ない・0 以下・小数以下・数でない ときは 何も 引かない。多く たのむと ある 分だけ', () => {
+    const kura = new Kura();
+    kura.restore({ paper: 2 });
+    expect(kura.consume('log', 1), 'ない 種類').toBe(0);
+    for (const n of [0, -3, 0.9, Number.NaN]) expect(kura.consume('paper', n), String(n)).toBe(0);
+    expect(kura.count('paper'), '引かれて いない').toBe(2);
+    expect(kura.consume('paper', 100), 'ある 分だけ').toBe(2);
+    expect(kura.count('paper')).toBe(0);
+  });
+});
+
 describe('canHold（あずけられる 物か）', () => {
   it('重ねられる 物は true、道具・武器・知らない id は false', () => {
     const kura = new Kura();

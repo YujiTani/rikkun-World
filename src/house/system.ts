@@ -1,4 +1,9 @@
 import type { ItemId, Vec3 } from '../contracts';
+import { blueprintName, blueprintWindows, type Blueprint } from './editor/blueprint';
+import { EditorController } from './editor/controller';
+import { editOp } from './editor/ops';
+import { needOf, type NeedRow } from './editor/model';
+import { SHEET, createSheetPort, type SheetBag } from './editor/sheet';
 import type { HouseWorld } from './ground';
 import { ArchitectManager, type ArchitectInfo } from './manager';
 import { HouseState } from './state';
@@ -14,13 +19,16 @@ import type { KuraBag } from './kura';
 /** 話して いる 間に プレイヤーが これより はなれたら 話しを やめる（メニューが 勝手に 開かない ように） */
 export const TALK_RANGE = 12;
 
+/** 見本の 今の 見せ方（Preview3D が 答える。見本を まだ 作って いない ときは null）。窓口 `editor().preview` の 元 */
+export type PreviewProbe = (mode: 'outside' | 'inside') => { yaw: number; elev: number; touched: boolean; builds: number } | null;
+
 export interface HouseSystemDeps {
   seed: number;
   world: HouseWorld;
   spawn: () => { x: number; z: number; yawDeg: number };
   /** プレイヤーの 足もと */
   player: () => Vec3;
-  bag: KuraBag;
+  bag: KuraBag & SheetBag;
   /** 声「ぽぽぽ」を 1 回 鳴らす */
   voice: () => void;
   /** 道具を わたした（拾った 知らせ） */
@@ -40,6 +48,9 @@ export class HouseSystem {
   readonly state = new HouseState();
   readonly manager: ArchitectManager;
   readonly talk: HouseTalk;
+  readonly editor: EditorController;
+  /** 見本（3D）の 今の 向き。wireHouse が つなぐ（つなぐ 前は null） */
+  previewProbe: PreviewProbe = () => null;
   private onChange: (() => void) | null = null;
   private seen = 0;
 
@@ -52,7 +63,14 @@ export class HouseSystem {
       player: d.player,
       isLand: d.isLand,
     });
+    this.editor = new EditorController({
+      holder: this.state.holder,
+      have: (item) => this.state.kura.count(item),
+      sheet: createSheetPort({ bag: d.bag, kura: this.state.kura, register: (draft) => this.state.register(draft), gave: d.gave }),
+      onMade: () => this.talk.made(),
+    });
     this.talk = new HouseTalk({
+      editor: this.editor,
       record: this.state.record,
       kura: this.state.kura,
       bag: d.bag,
@@ -93,9 +111,70 @@ export class HouseSystem {
     this.manager.hit(id, this.d.player());
   }
 
-  press(id: string): void {
-    this.talk.press(id);
+  press(id: string, arg?: unknown): void {
+    this.talk.press(id, arg);
     this.emit();
+  }
+
+  /** Esc: エディターの 確かめの まど・ひつような もの・家具の えらびが あれば そちらを とじる。なければ 話しを ぜんぶ やめる */
+  escape(): void {
+    this.talk.escape();
+    this.emit();
+  }
+
+  /** エディターが 開いて いる（Esc いがいの キーを ゲームの 操作に しない・見本を 描く） */
+  editing(): boolean {
+    return this.talk.editing();
+  }
+
+  /** 保存から 読みこむ（HouseState の 中身を 入れかえ、エディターの もどす の 記録は すてる） */
+  load(data: unknown): void {
+    this.state.deserialize(data);
+    this.editor.loaded();
+  }
+
+  /** 1 ステップ（1/60 秒。ゲームの 時間が 止まって いても すすむ）: エディターの ふきだしの 時間 */
+  tickEditor(): void {
+    if (!this.talk.editing()) return;
+    this.editor.tick();
+    this.emit();
+  }
+
+  /** 窓口 `edit(op)`（仕様 §6.1）。エディターが 開いて いない とき false */
+  edit(op: unknown): boolean {
+    if (!this.talk.editing()) return false;
+    const ok = editOp(this.editor, op);
+    this.emit();
+    return ok;
+  }
+
+  /** 窓口 `need(source?)`: source なし ＝ エディターの 今の 形、数 ＝ 持ち物の せっけいずの マスの 番号。bonus は 1C（はじめての 家の おまけ）まで 0 */
+  need(source?: number): Array<NeedRow & { bonus: number }> {
+    const form = source === undefined ? this.state.holder.draft : this.planAt(source);
+    if (!form) return [];
+    return needOf(form, (item) => this.state.kura.count(item)).map((r) => ({ ...r, bonus: 0 }));
+  }
+
+  /** 窓口 `blueprints()`: 持ち物の せっけいず（マスの 番号つき）。中身を 知らない 番号は とばす */
+  blueprints(): Array<Blueprint & { slot: number; windowCells: ReturnType<typeof blueprintWindows> }> {
+    const out: Array<Blueprint & { slot: number; windowCells: ReturnType<typeof blueprintWindows> }> = [];
+    this.d.bag.slots().forEach((s, slot) => {
+      const bp = s?.item === SHEET && s.plan ? this.state.blueprint(s.plan) : null;
+      if (bp) out.push({ ...bp, slot, windowCells: blueprintWindows(bp) });
+    });
+    return out;
+  }
+
+  /** 持ち物の マスの せっけいずの 中身（なければ null） */
+  private planAt(slot: number): Blueprint | null {
+    const s = this.d.bag.slots()[slot];
+    return s?.item === SHEET && s.plan ? this.state.blueprint(s.plan) : null;
+  }
+
+  /** ツールチップの 名前（持ち物の せっけいず）。知らない 番号は null */
+  planName(plan: number): string | null {
+    const bp = this.state.blueprint(plan);
+    return bp ? blueprintName(bp) : null;
   }
 
   deposit(item: ItemId, want: number): number {

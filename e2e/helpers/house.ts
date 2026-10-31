@@ -19,7 +19,7 @@ import { installAimHelpers } from './aim';
  * ---- PO が 決めた つなぎ目の 約束（docs/tickets/HOUSE-1A.md「つなぎ目の 約束」。テストは これを 前提に する）----
  *   話す:   はじめての あいさつ（「こんにちは…」「これを あげる…」）は クリック なしで 進む。
  *           menu().open が true に なるのは、うなずきが おわって ボタンまで 出た とき（open が true なら ボタンは そろって いる）。
- *           はじめての 道具（みずもり・どうづき。アイテムの id は mizumori・dotsuki）は open が true に なる 前に わたす。
+ *           はじめての 道具（みずもり・どうづき・ふで〔1B から。#339〕。アイテムの id は mizumori・dotsuki・fude）は open が true に なる 前に わたす。
  *   場所:   最初の 1 人の「横 6〜10 マス」は world.spawn() からの XZ の 直線きょり。
  *   くら:   右（あずけた 物）は 1 こ以上 ある 種類だけ 出す（0 に なった マスは 消える）。
  *   とじる: Esc は どの ページでも press('close') と 同じ（全部 とじる）。くらの 画面にも ✕（house-btn-close）を 置く（もちもの 画面と 同じ）。
@@ -30,7 +30,7 @@ import { installAimHelpers } from './aim';
  *
  * ---- 仕様に 名前が 無い ので テストが 決めた 約束（開発は これに そろえる。変えるなら この ファイルだけ 直す）----
  *   ボタンの id（menu().buttons[].id・press(id)・DOM の data-testid="house-btn-<id>"）。上から この 順（§2.3）:
- *     kura（あずける・とりだす）｜editor（いえを つくる）｜build（けんちくを はじめる）｜rename（なまえを かえる）｜tools（どうぐを もらう。道具を 持って いる ときは 出さない）｜close（とじる）
+ *     kura（あずける・とりだす）｜editor（せっけいずを つくる。1A では「いえを つくる」。#339 で かわった）｜build（けんちくを はじめる）｜rename（なまえを かえる）｜tools（どうぐを もらう。道具を 持って いる ときは 出さない）｜close（とじる）
  *     press('close') は どの ページからでも メニューを 全部 とじる（Esc も 同じ）。くらの ✕ も data-testid="house-btn-close"。
  *   DOM（data-testid）:
  *     house-menu     上の メニューの 外わく（ボタン 6 つ。page 'top' の とき だけ ある）
@@ -42,6 +42,56 @@ import { installAimHelpers } from './aim';
  *     kura-minus10 / kura-minus1 / kura-plus1 / kura-plus10 / kura-all   数の えらびの ボタン（all = ぜんぶ）。kura- で 始まる 物は kura-count の ほか ぜんぶ 押せる 物（48px 以上を 見る）
  *     kura-deposit / kura-withdraw   「あずける」「とりだす」（持ち物の マスを えらんだ ときは あずける、くらの マスは とりだす だけ 出る）
  *   声の 効果音（audio.sfx() の 名前）: architect か kenchiku か popo か voice を ふくむ 名前（VOICE）。話すと ちょうど 1 回。
+ *
+ * ---- 1B（#339 エディター・せっけいず。docs/tickets/HOUSE-1B.md・仕様 §2.5〜2.7・§6.1）の 約束。テストの 関数は e2e/helpers/houseEditor.ts ----
+ * フックの 形・座標は 仕様 §6.1 と 票「つなぎ目の 約束」の とおり（x・z は 中の 床の 左上 ＝ うしろ・ひだりの すみ から 0、家具は 左上の マス、
+ * rot は みぎに まわす〔↻〕たびに ＋1）。仕様に 書いて ない 所を ここで 決める:
+ *   editor()          エディターが 開いて いない とき null。開いて いる とき §6.1 の 形（step・size・windows・windowMax・windowKind・roof・windowCells・furniture・
+ *                     selected・light・name・canUndo・canRedo・confirm・preview）。
+ *   edit(op)          §6.1 の とおり（できたら true）。エディターが 開いて いない とき false。画面（DOM）は 次の step() で 追いつく。
+ *   blueprints()      持ち物の せっけいず。name は editor().name と 同じ 形 { front, back }。number は 1, 2, 3 …（その 世界で 作った 順）。
+ *   need(source?)     §6.1 の とおり。item は アイテムの id（log・stone・paper・cloth・string …）。
+ *   menu()            page は 'top' | 'kura' | 'editor' | 'need'。確かめの まど（editor().confirm）が 出て いる 間も 'editor'。ひつような もの の
+ *                     ポップアップが 出て いる 間は 'need'（うしろの エディターは 開いた まま）。open は エディターが 開いて いる 間 ずっと true。
+ *                     buttons は page 'editor' では 画面に 見えて いる ボタン ぜんぶ（確かめの まどが 出て いる 間は yes・no だけ）、page 'need' では needClose だけ。
+ *                     id は DOM の data-testid から "house-btn-" を とった 物。並びは 決めない（テストは 並べかえて くらべる）。bubble は エディターの ふきだし。
+ *   press(id, arg?)   id は 上の buttons の id と 同じ（'width-7'・'furniture-futon'・'char-あ'・'next'・'done' …）。しゅるい・やねの ボタンは id に 値まで 入れた
+ *                     'windowKind-shoji'・'roof-flat' の 1 引数の 形（arg なし）。仕様 §6.1 の 2 引数の 形 press('windowKind', 'shoji')・press('roof', 'flat') も 同じ ボタンを
+ *                     押すので、実装は どちらも うけて よい。このテストが 使うのは 1 引数の 形 だけ。
+ *   とじる:           ✕（house-btn-close）・Esc〔何も 出て いない とき〕は エディターを とじて メニューも ぜんぶ とじる（menu().open が false）。
+ *                     できた！ が 通った とき だけ メニューの いちばん 上の ページ（'top'）に もどる。Esc の 順は AC55（確かめの まど → ひつような もの → 家具の えらび → エディター）。
+ *   時間:             エディターの 1 コマ ＝ step() 1 回（ゲームの 時間が 止まって いても 見本の 角度は すすむ）。時刻・建築・妖怪は エディター・確かめの まど・ひつような もの の 間 止まる（AC41）。
+ *   描画回数:         エディターが 開いて いる 間の step(n) の あと renderStats().drawCalls ＝ 見本を 描いた その コマの 回数（AC34 ③。本の 画面の 測り方〔AC16b〕と 同じ）。
+ *   キー:             エディターの 中は Esc いがいの キーを ゲームの 操作に しない（W・E・Q・数字キー。AC14）。
+ * ボタンの id（上の 1A の 続き。DOM の data-testid ＝ "house-btn-" ＋ id。引数が いる 物は id に "-引数" を つける）:
+ *   どの すすみにも:   undo・redo（上の 帯）・close（✕）・new（あたらしい せっけいず）・need（ひつような もの）・done（できた！）
+ *   すすみ:           next（つぎへ ▶。③ では 出さない）・prev（◀ まえへ。① では 出さない）
+ *   ① そと:           width-5/7/9・depth-5/7/9（よこ・たて。aria-pressed が えらんで いる 大きさ）・windowsDown・windowsUp（まどの かず −＋）・windowKind-shoji・roof-flat（今は 1 つ ずつ。aria-pressed="true"）
+ *   ② なか:           furniture-<アイテムの id>（13 種〔2.4〕: furnace・tansu・nukunuku・futon・table・long_table・round_table・chair・stool・andon・shelf・ofuro・haniwa。
+ *                     long_table ＝ ながい テーブル〔3×1〕、round_table ＝ まるい テーブル、stool ＝ まるいす、haniwa ＝ はにわ。aria-pressed が 置く 家具の えらび。
+ *                     ならびは 1 行 7 こ: 上 7 ＝ furnace・tansu・nukunuku・futon・table・long_table・round_table、下 6 ＝ chair・stool・andon・shelf・ofuro・haniwa）・light（あかりの わく）
+ *                     置いた 家具を えらんだ ときだけ そばに take（とる）・turnRight（↻）・turnLeft（↺）。aria-label は「とる」「みぎに まわす」「ひだりに まわす」。↻ ↺ に 字は ない
+ *   ③ なまえ:         char-<ひらがな 1 字>（50 音の ボタン。小さい っ ゃ ゅ ょ と ー も。カタカナに しても id は ひらがなの まま。押すと 入る 字は カタカナ）・dakuten（゛）・handakuten（゜）・
+ *                     katakana（カタカナ きりかえ。aria-pressed）・erase（1 もじ けす）・suffix-0〜4（後ろの 文字。のいえ・ハウス・のおうち・ひみつきち・のやしき の 順。aria-pressed）
+ *   確かめの まど:    yes・no（ふとん だけ ＝［このまま つくる］［かぐを おく］／あたらしい せっけいず ＝［ぜんぶ けす］［やめる］）
+ *   ひつような もの:  needClose
+ *   押せない（enabled が false）: 1A と 同じ（disabled か aria-disabled="true"）。9 字目の char-*・つけられない 字の あとの dakuten・handakuten・上限の windowsUp・0 の windowsDown・canUndo/canRedo が false の undo/redo。
+ * DOM（data-testid）:
+ *   house-editor     エディターの 画面ぜんたい（page 'editor' の とき だけ ある）
+ *   editor-title     上の 帯の タイトル「おうちの 設計図を 作ろう」（漢字に ruby）
+ *   editor-heading   すすみの 見出し（①「おうちの 外観を かんがえよう」②「おうちの 内装を かんがえよう」③「設計図に おなまえを つけよう」。ふきだしが 出て いる 間は 見えない）
+ *   editor-progress  すすみ ①②③ の 印（押せない。<button> に しない）。中は editor-step-soto・editor-step-naka・editor-step-namae。いま いる 所に aria-current="step"
+ *   editor-preview   見本の はこ（絵は レンダラーが 描く。この はこは すきとおって いる。PR-2 で ドラッグを うける）。③ では ない。大きさは §3.2 の「表から 出る 大きさ」
+ *                     ＝ ① 580×484・720×540・796×604、② 480×276・658×288・723×332（1024×700・1280×800・1440×900。UI 検査が はかる）
+ *   editor-grid      ② の 方眼の 外わく（div）。中の マス ＝ editor-cell（data-x・data-z。よこ×たて こ。9×9 の ときの 大きさは 48・54・61 px の 正方形）、置いた 家具 ＝ editor-furniture（data-kind・data-x・data-z・data-rot）。どれも div
+ *   editor-name      ③ の 今の 名前（前の 字 ＋ 後ろの 字）
+ *   house-bubble     ふきだし（1A と 同じ。エディターでは 見出しの だんに 重なる。menu().bubble と 同じ 字）
+ *   house-confirm    確かめの まど（data-kind="reset" か "futonOnly"。editor().confirm と 同じ）
+ *   house-need       ひつような もの の ポップアップ。1 行 ＝ need-row（data-item・data-need・data-have・data-short。need() と 同じ 順）。材料は 10 しゅるいまで（2.4）。1024×700 だけ 行の ところが スクロール
+ * 余白（§3.2 の 2.4 の 表。UI 検査 layoutTableIssues〔e2e/helpers/houseEditor.ts の LAYOUT〕が はかる。列は 1024×700・1280×800・1440×900。±1.5px）: 画面の ふちから ボタンまで
+ *   16・24・32px 以上（上下左右）、下の 帯の ボタン（prev・next・done・new・need）の 高さ 56・64・64、① ② の ボタンの 高さ 56・64・64（② の 家具の ボタンは 正方形）、
+ *   ③ の キー（char-*・dakuten・handakuten）は 正方形・後ろの 文字（suffix-*）・katakana・erase の 高さ 56・56・64。見本・マスの 大きさは 上の editor-preview・editor-grid。
+ * 文（空白は くらべない）: 仕様 §3 の ふきだしの 表と 確かめの まど。エディターの ふきだしは 次に どこかを 押すと すぐ 消える。出て いる 長さは 180 コマ ＋ 字 1 つ 12 コマ（§4.9）。
  */
 
 export interface Architect {
@@ -143,6 +193,24 @@ export const menuState = (page: Page): Promise<MenuState> => page.evaluate(() =>
 export const kura = (page: Page): Promise<Record<string, number>> => page.evaluate(() => (window as any).__rikkun.house.kura());
 export const countOf = (page: Page, item: string): Promise<number> => page.evaluate((i) => (window as any).__rikkun.inventory.count(i), item);
 
+/** ゲームの 時計（何日目か ＋ 1 日の 何 tick 目か）。メニュー・くら・エディターが 開いて いる 間は 止まる（AC41） */
+export const clockOf = (page: Page): Promise<{ day: number; dayTick: number }> =>
+  page.evaluate(() => {
+    const t = (window as any).__rikkun.time.get();
+    return { day: t.day as number, dayTick: t.dayTick as number };
+  });
+
+/** 持ち物の ふで（何本でも）の のこりの たいきゅう { max, left } を、持ち物の 並びの 順に。ふでが なければ 空 */
+export const fudeLeft = (page: Page): Promise<{ max: number; left: number }[]> =>
+  page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    const out: { max: number; left: number }[] = [];
+    h.inventory.get().slots.forEach((s: { item: string } | null, i: number) => {
+      if (s?.item === 'fude') out.push(h.inventory.durability(i) ?? { max: 0, left: 0 });
+    });
+    return out;
+  });
+
 /** メニューの ボタンを 押す（hook）。2 ステップ 進めてから メニューの 状態を 返す */
 export function press(page: Page, id: string, arg?: unknown): Promise<MenuState> {
   return page.evaluate(
@@ -158,10 +226,12 @@ export function press(page: Page, id: string, arg?: unknown): Promise<MenuState>
 
 /**
  * 画面の 要素を 押して 2 ステップ 進める（画面の 更新は ステップで 進む）。
- * クリックは 見つかるまで テストの 時間いっぱい 待ち続ける ので、先に 見えて いるか 確かめて、なければ すぐ 落とす（what = 何を 押す はずか）。
+ * クリックは 見つかる・押せる ように なるまで テストの 時間いっぱい 待ち続ける ので、先に 見えて いるか・押せるか 確かめて、だめなら すぐ 落とす（what = 何を 押す はずか）。
  */
 export async function clickUi(page: Page, locator: Locator, what?: string): Promise<void> {
   await expect(locator.first(), `押す 物が 画面に 見えない: ${what ?? String(locator)}`).toBeVisible();
+  // 押せない（disabled か aria-disabled）ボタンは click() が 押せる ように なるまで 待ち続ける ので、先に 確かめて すぐ 落とす
+  await expect(locator.first(), `押す 物が 押せない（disabled）: ${what ?? String(locator)}`).toBeEnabled();
   await locator.click();
   await stepUi(page);
 }
@@ -219,10 +289,10 @@ export interface Talked {
   /** 話しはじめてから メニューが 開いた あと 3 ステップまでに 鳴った 効果音の 名前 */
   sfx: string[];
   /**
-   * menu().open が はじめて true に なった ステップの 状態: ボタンの id の 並びと、持ち物の 道具の 数。
+   * menu().open が はじめて true に なった ステップの 状態: ボタンの id の 並びと、持ち物の 道具の 数（ふでは #339 から）。
    * 約束どおりなら、open が true の とき ボタンは そろって いて、はじめての 道具は もう わたして ある。開かなければ null
    */
-  atOpen: { buttons: string[]; mizumori: number; dotsuki: number } | null;
+  atOpen: { buttons: string[]; mizumori: number; dotsuki: number; fude: number } | null;
 }
 
 /**
@@ -248,13 +318,14 @@ export async function talkTo(page: Page, id: Architect['id'], via: 'rightClick' 
         for (const r of h.audio.sfx()) sfx.push(String(r.name));
       };
       h.audio.sfx(); // 話す 前の 音は すてる（前の 話の 声が 今回の 数に 入らない ように、記録を 空に する）
-      const seen: { at: { buttons: string[]; mizumori: number; dotsuki: number } | null } = { at: null };
+      const seen: { at: { buttons: string[]; mizumori: number; dotsuki: number; fude: number } | null } = { at: null };
       const look = () => {
         if (seen.at || !h.house.menu().open) return;
         seen.at = {
           buttons: h.house.menu().buttons.map((b: { id: string }) => b.id),
           mizumori: h.inventory.count('mizumori'),
           dotsuki: h.inventory.count('dotsuki'),
+          fude: h.inventory.count('fude'),
         };
       };
       let steps = 0;

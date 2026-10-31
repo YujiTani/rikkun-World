@@ -1,5 +1,5 @@
 import { W2_SETTING_DEFAULTS } from '../contracts';
-import { addStack, copyStack, maxDurability, readPower, readWater, readWear } from '../tools/durability';
+import { addStack, copyStack, maxDurability, readPlan, readPower, readWater, readWear } from '../tools/durability';
 import type { Inventory, ItemStack, Rarity, Vec3, VoxelWorld } from '../contracts';
 import { itemType } from '../inventory/items';
 import { isRarity, itemRarity, topRarity } from './rarity';
@@ -76,6 +76,8 @@ export type DropSave = {
   water?: number;
   /** WEAPON-9: 虹の 強さ */
   power?: number;
+  /** HOUSE-1B: せっけいずの 番号（なし = せっけいず じゃない） */
+  plan?: number;
   /** 妖怪の おとしもの */
   yokai?: boolean;
 };
@@ -414,6 +416,7 @@ export class DropField {
       ...(b.yokai ? { yokai: true } : {}),
       ...(b.item.wear && b.item.wear > 0 ? { wear: b.item.wear } : {}),
       ...(b.item.water && b.item.water > 0 ? { water: b.item.water } : {}),
+      ...(b.item.plan && b.item.plan > 0 ? { plan: b.item.plan } : {}),
       ...(b.item.power && b.item.power > 0 ? { power: b.item.power } : {}),
     }));
   }
@@ -448,7 +451,7 @@ export class DropField {
           resting: false,
           age: DROP.pickupDelay,
           bounces: DROP.bounce.maxCount,
-          item: copyStack({ item: ty.id, count: c, wear: readWear(r.wear, maxDurability(ty.id, W2_SETTING_DEFAULTS.toolDurability)), water: readWater(r.water, ty.id), power: readPower(r.power, ty.id) }),
+          item: copyStack({ item: ty.id, count: c, wear: readWear(r.wear, maxDurability(ty.id, W2_SETTING_DEFAULTS.toolDurability)), water: readWater(r.water, ty.id), power: readPower(r.power, ty.id), plan: readPlan(r.plan, ty.id) }),
           ticksLeft: Math.min(Math.floor(t), this.life),
           batch,
           rarity,
