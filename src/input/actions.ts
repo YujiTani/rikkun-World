@@ -72,8 +72,6 @@ export const DEFAULT_KEY_BINDINGS: Readonly<Record<string, Action>> = {
   KeyQ: 'drop',
   KeyR: 'stanceNext',
   KeyL: 'openLog',
-  Enter: 'confirm',
-  NumpadEnter: 'confirm',
 };
 
 /**
@@ -84,6 +82,9 @@ export const EXTRA_KEY_BINDINGS: Readonly<Record<string, Action>> = {
   ArrowLeft: 'pagePrev',
   ArrowRight: 'pageNext',
   Backspace: 'bookBack',
+  // 上空の 視点の 決定（HOUSE-1C PR-2）。主な Action では ない ので ふだんは ブラウザの Enter〔ボタンを 押す〕を 止めない
+  Enter: 'confirm',
+  NumpadEnter: 'confirm',
 };
 
 /**

@@ -40,9 +40,6 @@ export const ARCHITECT_WORK = {
 /** とんかちの 音が 聞こえる 戸からの きょり（マス。PO 決め） */
 export const HAMMER_HEAR_RANGE = 16;
 
-/** 完成の 盛り上げ（ステップ）: 上の 帯の 長さ（settleWorld を またぐ ほど 長く） */
-export const CELEBRATE = { bannerTicks: 420 } as const;
-
 /** 建築を はじめる とき 場所の 中に いた 人・動物・妖怪の うつし先: 戸の 前の 列から 近い 順に 実際に 立てる 列を 集める（最大 こ数・さがす 半径 マス） */
 export const EVICT = { spots: 9, radius: 5 } as const;
 
