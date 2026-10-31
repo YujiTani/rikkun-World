@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { itemDef } from '../content/items/registry';
-import { Kura } from '../house/kura';
 import { copyStack, readPlan } from '../tools/durability';
 import { buildTooltip } from '../ui/tooltipModel';
 import { InventoryImpl } from './Inventory';
 import { planNameOf, setPlanNameSource } from './planName';
 
-/** HOUSE-1B: せっけいず（sekkeizu）の 1 こずつの 中身 ＝ 番号（plan）。持ち物・保存・ツールチップ・くらの あずけ（AC8b・AC15・AC32b） */
+/** HOUSE-1B: せっけいず（sekkeizu）の 1 こずつの 中身 ＝ 番号（plan）。持ち物・保存・ツールチップ（AC15・AC32b。くらの あずけ〔AC8b〕は 1E で なくなった） */
 
 describe('plan（せっけいずの 番号）', () => {
   it('readPlan: せっけいずの 正の 整数だけ。ほかの アイテム・おかしい 値は 0', () => {
@@ -46,16 +45,5 @@ describe('plan（せっけいずの 番号）', () => {
     expect(buildTooltip('sekkeizu', d, { item: 'sekkeizu', count: 1, plan: 2 }).name).toBe('ひみつのいえの せっけいず');
     expect(buildTooltip('sekkeizu', d, { item: 'sekkeizu', count: 1, plan: 9 }).name).toBe(itemDef('sekkeizu')?.name);
     setPlanNameSource(() => null);
-  });
-
-  it('AC8b せっけいず・ふでは 1 マスに 1 こ なので くらに あずけられない（0 こ 動く）', () => {
-    const bag = new InventoryImpl();
-    bag.add('sekkeizu', 1, { plan: 1 });
-    bag.add('fude', 1);
-    const kura = new Kura();
-    expect(kura.deposit(bag, 'sekkeizu', 1)).toBe(0);
-    expect(kura.deposit(bag, 'fude', 1)).toBe(0);
-    expect(bag.count('sekkeizu')).toBe(1);
-    expect(bag.count('fude')).toBe(1);
   });
 });

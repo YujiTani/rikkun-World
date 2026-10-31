@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { TID, clockOf, countOf, findOtherArchitect, fudeLeft, kura, menuState, openHouse, press, setBag, stepUi, talkTo } from './helpers/house';
+import { TID, clockOf, countOf, findOtherArchitect, fudeLeft, menuState, openHouse, putTansu, press, setBag, stepUi, talkTo, tansuHas } from './helpers/house';
 import {
   FURNITURE,
   FURNITURE_ROWS,
@@ -354,7 +354,7 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     expect(needOne('stone')?.need, 'いし ＝ よこ×たて').toBe(7 * 5);
     expect(needOne('log')?.need, 'き ＝ 2×(よこ＋たて)＋4 ＋ テーブル 4 ＋ いす 2').toBe(2 * (7 + 5) + 4 + 4 + 2);
     expect(needOne('paper')?.need, 'かみ ＝ 窓 × 1').toBe(2);
-    for (const n of need) expect(n.short, `${n.item}: たりない ＝ ひつよう − くら`).toBe(Math.max(0, n.need - n.have));
+    for (const n of need) expect(n.short, `${n.item}: たりない ＝ ひつよう − ある`).toBe(Math.max(0, n.need - n.have));
     expect(await editorMismatch(page), '画面と menu() の ちがい（ひつような もの）').toEqual([]);
     const clockN = await clockOf(page);
     await stepUi(page, 600);
@@ -418,14 +418,13 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     expect((await btnState(page, 'suffix-0'))?.pressed).toBe(false);
     expect(await plainText(page, 'editor-name'), '名前の 行').toBe(`ひみつぎタ${SUFFIXES[3]}`);
 
-    // ---- できた！の しらべ（AC44・AC44b）と せっけいずが できる（AC15・AC45）。くらは まだ 空
+    // ---- できた！の しらべ（AC44・AC44b）と せっけいずが できる（AC15・AC45）。近くの たんすは まだ ない
     const form1 = await ed(page);
-    expect(Object.values(await kura(page)).reduce((a, b) => a + b, 0), 'くらは 空').toBe(0);
     const noChange = async (why: string) => {
       expect(await countOf(page, 'sekkeizu'), `${why}: せっけいずは ふえない`).toBe(0);
       expect(await blueprints(page), `${why}: blueprints() も ふえない`).toHaveLength(0);
     };
-    // ④ かみが 持ち物にも くらにも ない（かみと ふでが 両方 ない ときは ④ だけ）
+    // ④ かみが 持ち物にも 近くの たんすにも ない（かみと ふでが 両方 ない ときは ④ だけ）
     await setBag(page, {});
     expect(await countOf(page, 'paper'), 'かみ なし').toBe(0);
     expect(await countOf(page, 'fude'), 'ふで なし').toBe(0);
@@ -479,27 +478,25 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     expect(shapeOf(e), 'ふとんと 名前が もどった').toEqual(shapeOf(form1));
     expect(e.step, 'もどした 操作が ③ の 物なら ③ に うつる').toBe('namae');
 
-    // ---- せっけいずが できる（AC15）: かみは 持ち物から（くらは へらない）・ふでの たいきゅう −1・くらの 材料は へらない
-    //      持ち物に かみ 2・くらに かみ 3 と き 20
-    await setBag(page, { paper: 5, log: 20 });
+    // ---- せっけいずが できる（AC15）: かみは もちものが 先（たんすは へらない）・ふでの たいきゅう −1・建てる 材料〔もちもの・近くの たんす〕は へらない
+    //      もちものに かみ 2・近くの たんすに かみ 3 と き 20（1E: くらは ない）
+    await setBag(page, { paper: 2 });
+    const tansu = await putTansu(page, -6, 3, { paper: 3, log: 20 });
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
-      h.house.deposit('paper', 3);
-      h.house.deposit('log', 20);
       h.inventory.add('fude', 1);
       h.step(1);
     });
-    expect(await countOf(page, 'paper'), 'かみは 持ち物に 2').toBe(2);
-    expect(await kura(page), 'くらに かみ 3・き 20').toMatchObject({ paper: 3, log: 20 });
-    const bagBefore = await kura(page);
+    expect(await countOf(page, 'paper'), 'かみは もちものに 2').toBe(2);
+    expect([await tansuHas(page, tansu, 'paper'), await tansuHas(page, tansu, 'log')], 'たんすに かみ 3・き 20').toEqual([3, 20]);
     const formBefore = await ed(page);
     await clickBtn(page, 'done');
     expect(await menuState(page), 'できた！ で メニューの いちばん 上の ページに もどる').toMatchObject({ open: true, page: 'top' });
     await expectBubble(page, MSG.done, 'できた');
     expect(await countOf(page, 'sekkeizu'), 'せっけいずが 1 こ').toBe(1);
-    expect(await countOf(page, 'paper'), 'かみは 持ち物から 1 まい').toBe(1);
+    expect(await countOf(page, 'paper'), 'かみは もちものから 1 まい').toBe(1);
     expect((await fudeLeft(page))[0]!.left, 'ふでの たいきゅうが 1 へる').toBe(fudeMax - 1);
-    expect(await kura(page), 'くらの 材料は へらない（たりなくても 作れる）').toEqual(bagBefore);
+    expect([await tansuHas(page, tansu, 'paper'), await tansuHas(page, tansu, 'log')], 'たんすの かみ・き は へらない（たりなくても 作れる）').toEqual([3, 20]);
     let bps = await blueprints(page);
     expect(bps, 'blueprints()').toHaveLength(1);
     expect(bps[0], 'せっけいずの 中身').toMatchObject({
@@ -517,14 +514,14 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     await clickBtn(page, 'editor');
     expect(shapeOf(await ed(page)), 'できた！の あとも 作りかけは のこる').toEqual(shapeOf(formBefore));
 
-    // ---- 家具が ふとん だけ → 確かめの まど（AC44b ⑦）。Esc は まどだけ（AC55）。［かぐを おく］は ② へ。［このまま つくる］で 2 まい目（かみは くらから・番号 2）
+    // ---- 家具が ふとん だけ → 確かめの まど（AC44b ⑦）。Esc は まどだけ（AC55）。［かぐを おく］は ② へ。［このまま つくる］で 2 まい目（かみは もちものに 無いので 近くの たんすから・番号 2）
     for (const f of formBefore.furniture.filter((f) => f.kind !== 'futon')) expect(await edit(page, { op: 'remove', x: f.x, z: f.z }), `${f.kind} を とる`).toBe(true);
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.inventory.remove('paper', 1);
       h.step(1);
     });
-    expect(await countOf(page, 'paper'), '持ち物の かみ なし（くらに 3）').toBe(0);
+    expect(await countOf(page, 'paper'), '持ち物の かみ なし（たんすに 3）').toBe(0);
     await clickBtn(page, 'done');
     e = await ed(page);
     expect(e.confirm, 'ふとん だけ → 確かめの まど').toBe('futonOnly');
@@ -555,7 +552,7 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     expect(await menuState(page), '［このまま つくる］で できる').toMatchObject({ open: true, page: 'top' });
     expect(await countOf(page, 'sekkeizu'), '2 まい目').toBe(2);
     expect((await fudeLeft(page))[0]!.left, 'ふでの たいきゅうが もう 1 へる').toBe(fudeMax - 2);
-    expect((await kura(page)).paper, '持ち物に かみが ない ので くらから 1 まい').toBe(2);
+    expect(await tansuHas(page, tansu, 'paper'), 'もちものに かみが ない ので 近くの たんすから 1 まい').toBe(2);
     bps = await blueprints(page);
     expect(bps.map((b) => b.number).sort(), '番号は 1, 2').toEqual([1, 2]);
     expect(bps.find((b) => b.number === 2)!.furniture, '2 まい目は ふとん だけ').toEqual([{ kind: 'futon', x: 1, z: 1, rot: 0 }]);

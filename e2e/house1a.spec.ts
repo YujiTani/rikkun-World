@@ -1,29 +1,21 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { findUnrubiedKanji } from '../src/ui/text';
-import { BTN_ORDER, TID, clickUi, clockOf, countOf, findOtherArchitect, fudeLeft, htmlOf, kura, menuMismatch, menuState, openHouse, press, setBag, shownTid, spawnPoint, stepUi, talkTo, tid, voiceCount, waitArchitects } from './helpers/house';
+import { BTN_ORDER, TID, clickUi, clockOf, countOf, fudeLeft, htmlOf, menuMismatch, menuState, openHouse, press, shownTid, spawnPoint, stepUi, talkTo, tid, voiceCount, waitArchitects } from './helpers/house';
 
 /**
  * HOUSE-1A（#338。docs/design/HOUSE-1.md §2.1〜2.4・§5・§6、docs/tickets/HOUSE-1A.md）の E2E。
  * E2E に 書くのは 画面・入力が いる 確認と 遊びの 流れの 代表だけ（#311）。数・状態だけの 基準は ユニット（developer）:
- *   AC2・AC4・AC6〜AC8・AC32・AC33・AC40・AC41 と、AC1・AC3・AC5 の 数の 部分（置き方の 関数・道具を くれる 条件・くらの 出し入れの 数）。
+ *   AC2・AC4・AC6〜AC8・AC32・AC33・AC40・AC41 と、AC1・AC3 の 数の 部分（置き方の 関数・道具を くれる 条件）。
  *   AC41 は ユニット。ここでは ゲーム本体への つなぎ漏れ（本当に 時刻が 止まる）を AC3 の 通しの 中で 1 か所だけ 見る。
- * AC35（メニュー・くらの 3 つの 大きさ）は UI 検査（e2e/ui-gate.spec.ts の house-menu・house-kura）。
+ * AC35（メニューの 3 つの 大きさ）は UI 検査（e2e/ui-gate.spec.ts の house-menu）。
+ * 1E: くらを なくした ので、AC5（くらの あずけ・とりだし）の E2E は 消した（AC5〜AC8b は 欠番）。
  *
  * 窓口は 仕様 §6.1 の `window.__rikkun.house`。つなぎ目の 約束（PO が 票 docs/tickets/HOUSE-1A.md に 書いた 物）と、
  * 仕様に 無い 名前（ボタンの id・画面の data-testid・声の 効果音の 名前）は e2e/helpers/house.ts の 先頭に ある（開発は これに そろえる）。
  * 実装の 前は `window.__rikkun.house` が 無いので どちらも 赤。
  */
 
-/** 数の えらびに 出て いる 数（「10」でも「10こ」でも 数字だけ 読む。入力らんの value でも よい） */
-const shownCount = async (page: Page): Promise<number> =>
-  Number(
-    (await tid(page, TID.count).evaluate((el) => (el instanceof HTMLInputElement ? el.value : (el.textContent ?? '')))).replace(/\D/g, ''),
-  );
-
-const bagCell = (page: Page, item: string) => page.locator(`[data-testid="${TID.bag}"][data-item="${item}"]`).first();
-const storeCell = (page: Page, item: string) => page.locator(`[data-testid="${TID.store}"][data-item="${item}"]`);
-
-test.describe('HOUSE-1A 建築士さん・メニュー・くら', () => {
+test.describe('HOUSE-1A 建築士さん・メニュー', () => {
   test('AC1・AC3（1B の ふで も）: 新しい世界 → 最初の建築士さんを右クリック → うなずき → ふきだし・声 1 回 → メニュー → 道具（みずもり・どうづき・ふで）1 こずつ → 2 回目は ふえない → なくして「どうぐを もらう」でもどる（ふでは もどらない）', async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     await openHouse(page);
@@ -64,12 +56,12 @@ test.describe('HOUSE-1A 建築士さん・メニュー・くら', () => {
     const fude1 = await fudeLeft(page);
     expect(fude1, 'ふでは 新品（たいきゅうが まるまる のこって いる）').toHaveLength(1);
     expect(fude1[0]!.left, 'ふでは 新品').toBe(fude1[0]!.max);
-    // ボタンは §2.3 の 順。道具を 持って いるので「どうぐを もらう」は 出ない。この 票で 動くのは くら・とじる
+    // ボタンは §2.3 の 順。道具を 持って いるので「どうぐを もらう」は 出ない。1E: くらの ボタンは ない
     expect(
       t1.menu.buttons.map((b) => b.id),
       'ボタンの ならび（上から）',
     ).toEqual(BTN_ORDER.filter((id) => id !== 'tools'));
-    for (const id of ['kura', 'editor', 'close']) expect(t1.menu.buttons.find((b) => b.id === id)?.enabled, `${id} は 押せる（1B から editor も 動く）`).toBe(true);
+    for (const id of ['editor', 'close']) expect(t1.menu.buttons.find((b) => b.id === id)?.enabled, `${id} は 押せる（1B から editor も 動く）`).toBe(true);
     // 1B: メニューの ボタンの 名前が「いえを つくる」から「せっけいずを つくる」に かわった
     const editorLabel = await shownTid(page, TID.btn('editor')).evaluate((el) => {
       const c = el.cloneNode(true) as Element;
@@ -139,57 +131,5 @@ test.describe('HOUSE-1A 建築士さん・メニュー・くら', () => {
     expect(await countOf(page, 'dotsuki'), '「どうぐを もらう」で どうづき 1 こ').toBe(1);
     expect(await countOf(page, 'fude'), '「どうぐを もらう」では ふでは ふえない（はじめの 1 本を わたした あと。AC46）').toBe(0);
     expect((await press(page, 'close')).open, 'とじる').toBe(false);
-  });
-
-  test('AC5: くら — 持ち物のマスを えらんで あずける（持ち物が へり kura() が ふえる）→ べつの 建築士さんの くらでも 同じ数 → とりだす', async ({ page }, testInfo) => {
-    test.setTimeout(240_000);
-    await openHouse(page);
-    const first = (await waitArchitects(page)).find((a) => a.first)!;
-    expect(first, '最初の 建築士さん').toBeTruthy();
-    await setBag(page, { log: 20 });
-    expect(Object.values(await kura(page)).reduce((a, b) => a + b, 0), 'はじめの くらは 空').toBe(0);
-
-    // ---- 1 人目: くらの 画面で き を 10 こ あずける（き の マス → ＋10 → −1 → あずける）
-    const t1 = await talkTo(page, first.id, 'hook');
-    expect(t1.menu).toMatchObject({ open: true, page: 'top' });
-    await clickUi(page, tid(page, TID.btn('kura')));
-    expect((await menuState(page)).page, 'くらの 画面').toBe('kura');
-    await expect(tid(page, TID.kura)).toBeVisible();
-    expect(findUnrubiedKanji(await htmlOf(page, TID.kura)), 'ふりがなの ない 漢字（くら）').toEqual([]);
-    await clickUi(page, bagCell(page, 'log'));
-    expect(await shownCount(page), 'はじめの 数は 1').toBe(1);
-    await clickUi(page, tid(page, TID.plus10));
-    await clickUi(page, tid(page, TID.minus1));
-    expect(await shownCount(page), '1 → ＋10 → −1').toBe(10);
-    await clickUi(page, tid(page, TID.deposit));
-    expect(await countOf(page, 'log'), '持ち物の き が 10 へる').toBe(10);
-    expect((await kura(page)).log, 'kura().log が 10').toBe(10);
-    await expect(storeCell(page, 'log'), 'くらの マスに 10').toHaveAttribute('data-count', '10');
-    await testInfo.attach('くら', { body: await page.screenshot(), contentType: 'image/png' });
-
-    // ---- 2 人目（べつの 建築士さん）: くらの 中身は 同じ（共有）
-    await clickUi(page, shownTid(page, TID.btn('close')), 'くらの ✕（house-btn-close）'); // くらの ✕ を マウスで 押す
-    expect((await menuState(page)).open, 'くらの ✕ で 全部 とじる').toBe(false);
-    const other = await findOtherArchitect(page);
-    expect(other.first, '2 人目は 最初の 1 人ではない').toBe(false);
-    expect(other.id, '2 人目は べつの 建築士さん').not.toBe(first.id);
-    const t2 = await talkTo(page, other.id, 'hook');
-    expect(t2.menu).toMatchObject({ open: true, page: 'top' });
-    await clickUi(page, tid(page, TID.btn('kura')));
-    expect((await menuState(page)).page, 'くらの 画面').toBe('kura');
-    expect((await kura(page)).log, 'べつの 建築士さんの くらでも 10（共有）').toBe(10);
-    await expect(storeCell(page, 'log'), 'くらの マスに 10').toHaveAttribute('data-count', '10');
-
-    // ---- とりだす: くらの マスを えらぶ → ぜんぶ → とりだす
-    await clickUi(page, storeCell(page, 'log').first());
-    await clickUi(page, tid(page, TID.all));
-    expect(await shownCount(page), 'ぜんぶ = くらに ある 10').toBe(10);
-    await clickUi(page, tid(page, TID.withdraw));
-    expect(await countOf(page, 'log'), 'もとの 20 に もどる').toBe(20);
-    expect((await kura(page)).log ?? 0, 'くらは 空').toBe(0);
-    await expect(storeCell(page, 'log'), '1 こ以上 ある 種類だけ 出る（0 に なった マスは 消える）').toHaveCount(0);
-    await page.keyboard.press('Escape'); // くらの 画面でも Esc で 全部 とじる
-    await stepUi(page);
-    expect((await menuState(page)).open, 'くらで Esc を 押すと 全部 とじる').toBe(false);
   });
 });

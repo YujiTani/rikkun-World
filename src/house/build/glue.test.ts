@@ -1,80 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ItemId } from '../../contracts';
-import { InventoryImpl } from '../../inventory/Inventory';
 import { isScaffoldId } from '../../world/blocks/buildBlocks';
-import { NOD_STEPS } from '../architect';
-import { makeFakeWorld } from '../fakeWorld';
-import { createHouseHook } from '../hook';
-import { HouseSystem, type HouseSfx } from '../system';
+import { GY, PAD, houseRig } from '../houseRig';
 import { FAREWELL_TICKS, MSG } from './tuning';
 
-/** ユニット 3・5・10〜15（AC18〜AC21・AC31・AC32c・AC36・AC40・AC51）: 一覧 → 上空の 視点 → 建築 → 完成 → 保存。世界は ちいさな 平らな 床 */
-const SPAWN = { x: 64.5, z: 64.5, yawDeg: 0 };
-const PAD = { x: 70, z: 60 };
-const GY = 10;
-
-function rig(opts: { player?: { x: number; y: number; z: number }; held?: () => ItemId | null } = {}) {
-  const world = makeFakeWorld({ height: () => GY });
-  const bag = new InventoryImpl();
-  const player = opts.player ?? { x: SPAWN.x, y: GY + 1, z: SPAWN.z };
-  const sfx: HouseSfx[] = [];
-  const sys = new HouseSystem({
-    seed: 77,
-    world,
-    spawn: () => SPAWN,
-    player: () => player,
-    bag,
-    voice: () => undefined,
-    gave: () => undefined,
-    onOpen: () => undefined,
-    onClose: () => undefined,
-    isLand: () => true,
-    play: (e) => sfx.push(e),
-    ...(opts.held ? { held: opts.held } : {}),
-  });
-  sys.state.record.toolsGiven = true;
-  sys.state.record.fudeGiven = true;
-  sys.update();
-  const hook = createHouseHook(sys);
-  const talk = (): void => {
-    sys.talkTo(sys.architects()[0]!.id);
-    for (let i = 0; i < NOD_STEPS; i++) sys.update();
-  };
-  const make = (ops: unknown[] = [{ op: 'place', kind: 'futon', x: 0, z: 0 }, { op: 'place', kind: 'chair', x: 4, z: 0 }]): number => {
-    bag.add('paper', 2);
-    bag.add('fude', 1);
-    sys.press('editor');
-    for (const op of ops) expect(hook.edit(op)).toBe(true);
-    sys.press('next');
-    sys.press('next');
-    for (const ch of 'もも') expect(hook.edit({ op: 'char', ch })).toBe(true);
-    sys.press('done');
-    return hook.blueprints().at(-1)!.slot;
-  };
-  const stock = (slot: number, extra: Record<string, number> = {}): void => {
-    for (const r of hook.need(slot)) {
-      const n = r.need + (extra[r.item] ?? 0);
-      if (n > 0) {
-        bag.add(r.item, n);
-        sys.deposit(r.item, n);
-      }
-    }
-  };
-  const pad = (x = PAD.x, z = PAD.z, w = 7, d = 7): void => {
-    for (let dz = 0; dz < d; dz++) for (let dx = 0; dx < w; dx++) world.setBlock(x + dx, GY, z + dz, 'katame_tsuchi');
-  };
-  const run = (n: number): void => {
-    for (let i = 0; i < n; i++) sys.update();
-  };
-  /** 一覧 → えらぶ → 上空の 視点 → 決定 → ［ここに たてる］ */
-  const startBuild = (slot: number): void => {
-    sys.press('build');
-    sys.press('pick', slot);
-    sys.skyDecide();
-    sys.skyDecide();
-  };
-  return { world, bag, player, sys, hook, sfx, talk, make, stock, pad, run, startBuild };
-}
+/** ユニット 3・5・10〜15（AC18〜AC21・AC31・AC32c・AC36・AC40・AC51）: 一覧 → 上空の 視点 → 建築 → 完成 → 保存。世界は ちいさな 平らな 床。HOUSE-1E: 材料は もちもの（＋近くの たんす。材料の 数え方・へらす 順は materials.test.ts）。 */
+const rig = houseRig;
+/** 行の 材料の もちものの 数（へった 数を くらべる） */
+const bagOf = (r: ReturnType<typeof rig>, rows: Array<{ item: string }>): Record<string, number> => Object.fromEntries(rows.map((x) => [x.item, r.bag.count(x.item as ItemId)]));
 
 describe('AC18 一覧（システム）', () => {
   it('せっけいずが 0 まい: ページは 上の まま ＋ ふきだし', () => {
@@ -123,13 +56,13 @@ describe('AC19・AC20 場所と 確かめ', () => {
     const slot = r.make();
     r.stock(slot, { log: 5 });
     r.pad();
-    const before = r.hook.kura();
     const rows = r.hook.need(slot);
+    const before = bagOf(r, rows);
     r.sys.press('build');
     r.sys.press('pick', slot);
     r.sys.skyDecide();
     expect(r.hook.cursor()?.confirm).toBe(true);
-    expect(r.hook.kura()).toEqual(before);
+    expect(bagOf(r, rows), '決定は まだ 何も へらさない').toEqual(before);
     expect(r.hook.building()).toBeNull();
     r.sys.press('no');
     expect(r.hook.cursor()).toMatchObject({ confirm: false, x: PAD.x });
@@ -142,7 +75,7 @@ describe('AC19・AC20 場所と 確かめ', () => {
     r.sys.press('pick', slot);
     r.sys.skyDecide();
     r.sys.press('yes');
-    const after = r.hook.kura();
+    const after = bagOf(r, rows);
     for (const x of rows) expect(after[x.item] ?? 0, x.item).toBe((before[x.item] ?? 0) - x.need);
     expect(r.hook.blueprints().map((b) => b.slot)).toContain(slot);
     expect(r.hook.building()).toMatchObject({ name: 'もものいえ', w: 5, d: 5 });
@@ -259,7 +192,7 @@ describe('AC32c 保存', () => {
     expect(b.hook.building()).toBeNull();
     expect(b.hook.houses()).toHaveLength(1);
     const old = rig();
-    old.sys.load({ v: 2, kura: {}, first: null, toolsGiven: true, fudeGiven: true, blueprints: [], next: 1 });
+    old.sys.load({ v: 2, kura: {}, first: null, toolsGiven: true, fudeGiven: true, blueprints: [], next: 1 }); // 前の セーブ（くらの 記録は 空）も 読める
     expect(old.hook.building()).toBeNull();
     expect(old.hook.houses()).toEqual([]);
     expect(old.hook.firstBonus()).toBe(true);

@@ -13,7 +13,7 @@ import { checkColors, checkComponents, checkContrast, checkFontSizes, snapshotUi
 import { findUnrubiedKanji } from '../src/ui/text';
 import { openLive3 } from './helpers/live3';
 import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid, toNewScreen } from './helpers/start';
-import { TID as HOUSE_TID, houseUiIssues, openKuraScreen, openMenuScreen } from './helpers/house';
+import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house';
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
 import { PICK_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen } from './helpers/houseSite';
@@ -847,19 +847,15 @@ SCREENS.push({
 });
 
 /**
- * HOUSE-1A AC35（docs/design/HOUSE-1.md §3.2・§6.2。#338）: 建築士さんの メニュー（page 'top'・ボタン 6 つ ぜんぶ 出る とき。ふきだしも いっしょに 見る）と
- * くら（page 'kura'。くらは 重ねられる 物 ぜんぶ（今の 登録表の 最大）・持ち物は いっぱい・持ち物の マスを えらんで 数の えらびが 出た ところ）。
+ * HOUSE-1A AC35（docs/design/HOUSE-1.md §3.2・§6.2。#338）: 建築士さんの メニュー（page 'top'・ボタン 5 つ ぜんぶ 出る とき。ふきだしも いっしょに 見る）。
+ * 1E: くらを なくした ので、くらの 画面（'house-kura'）の 検査は ない。
  * 3 つの 大きさで はみ出さない・重ならない・色・字・部品の きまりは 上の 検査。字 24px 以上・押せる物 48px 以上は `extra`（e2e/helpers/house.ts）。
  * コントラストは 既存の きまり どおり: 大きい太字は 3:1 まで（既存のきまり）。4.5:1 は オーナーが目で見る。
  * ふきだしは house-menu の 外に あっても よい（票「つなぎ目の 約束」）ので、検査の 外わくに ふきだしも 入れる。
  * 窓口 `__rikkun.house` と 画面の 名前（data-testid）の 約束は e2e/helpers/house.ts の 先頭。実装の 前は 窓口が 無くて 赤。
  */
 const HOUSE_MENU_ROOTS = [HOUSE_TID.menu, HOUSE_TID.bubble].map((id) => `[data-testid="${id}"]`);
-const HOUSE_KURA_ROOTS = [`[data-testid="${HOUSE_TID.kura}"]`];
-SCREENS.push(
-  { id: 'house-menu', roots: HOUSE_MENU_ROOTS, open: openMenuScreen, extra: (page) => houseUiIssues(page, HOUSE_MENU_ROOTS) },
-  { id: 'house-kura', roots: HOUSE_KURA_ROOTS, open: openKuraScreen, extra: (page) => houseUiIssues(page, HOUSE_KURA_ROOTS) },
-);
+SCREENS.push({ id: 'house-menu', roots: HOUSE_MENU_ROOTS, open: openMenuScreen, extra: (page) => houseUiIssues(page, HOUSE_MENU_ROOTS) });
 
 /**
  * HOUSE-1B AC35（docs/design/HOUSE-1.md §3.2・§6.2。#339 PR-1）: エディター ① そと（9×9・窓 上限）・② なか（9×9・窓 上限・家具 いっぱい・えらんだ 家具の そばの ボタン）・

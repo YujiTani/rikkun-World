@@ -24,6 +24,7 @@ import {
   BUILD_WORDS,
   HAMMER_RE,
   MSG_SITE,
+  afterBuild,
   buildingOf,
   celebrateOf,
   clickAt,
@@ -38,7 +39,8 @@ import {
   setBuildTicks,
   setNight,
   sitesOf,
-  stockKura,
+  stockMaterials,
+  stockNow,
   talkNear,
   tally,
   tryEditSite,
@@ -113,7 +115,7 @@ test.describe('HOUSE-1C PR-2 建築', () => {
       expect(top.buttons.find((b) => b.id === 'build')?.enabled, '建築中でなければ「けんちくを はじめる」は 押せる').toBe(true);
       const pick = await press(page, 'build');
       expect(pick.page, 'せっけいずの 一覧').toBe('pick');
-      expect(pick.buttons.find((b) => b.id === `pick-${slot}`)?.enabled, 'くらが 空 → 材料が たりなくて 押せない').toBe(false);
+      expect(pick.buttons.find((b) => b.id === `pick-${slot}`)?.enabled, 'もちものにも 近くの たんすにも 材料が ない → たりなくて 押せない').toBe(false);
       await clickDisabled(page, `pick-${slot}`); // うすい カード（aria-disabled。disabled では ない）を 本物の マウスで 1 回
       const need = await menuState(page);
       expect(need.page, '押すと ひつような もの').toBe('need');
@@ -122,10 +124,14 @@ test.describe('HOUSE-1C PR-2 建築', () => {
       await press(page, 'close');
     });
 
-    // ---- 材料を ちょうど あずける（+5 は き だけ）。ふとんの ぬの・いとは 0 のまま（おまけ）→ 押せる
-    const kuraBefore = await stockKura(page, slot, { log: 5 });
-    expect(kuraBefore.cloth ?? 0, 'ぬの・いとは あずけて いない').toBe(0);
-    expect(kuraBefore.string ?? 0).toBe(0);
+    // ---- 材料を そろえる（1E: 半分は 近くの たんす・のこりは もちもの。+5 は き だけ）。ふとんの ぬの・いとは 0 のまま（おまけ）→ 押せる
+    const stock = await stockMaterials(page, slot, { log: 5 });
+    const stockItems = rows0.map((r) => r.item);
+    const stockOf = (): Promise<Awaited<ReturnType<typeof stockNow>>> => stockNow(page, stock.at, stockItems);
+    expect(stock.bag.cloth! + stock.tansu.cloth!, 'ぬの・いとは そろえて いない（おまけ）').toBe(0);
+    expect(stock.bag.string! + stock.tansu.string!).toBe(0);
+    expect(stock.tansu.log, 'き の 半分より 多い 分は たんすに ある').toBeGreaterThan(0);
+    expect(stock.bag.log, 'き の のこりは もちものに ある').toBeGreaterThan(0);
 
     // ---- 場所が ない（かためた つちが 1 か所も ない）→ 上空の 視点に ならず ふきだし
     await test.step('AC19 かためた つちの 場所が ない → 上空の 視点に ならない', async () => {
@@ -165,7 +171,6 @@ test.describe('HOUSE-1C PR-2 建築', () => {
       const c0 = await cursorOf(page);
       expect(c0, 'わく').toMatchObject({ x: at.x, z: at.z, ok: true, confirm: false });
       expect(await buildingOf(page), 'まだ 建築は 始まって いない').toBeNull();
-      const kuraNow = async () => page.evaluate(() => (window as any).__rikkun.house.kura() as Record<string, number>);
 
       // 矢印で 1 マス（置けない 所は ok false）→ もどす
       await pressKey(page, 'ArrowRight');
@@ -177,7 +182,7 @@ test.describe('HOUSE-1C PR-2 建築', () => {
       await clickAt(page, c0!.screen);
       expect(await cursorOf(page), '左クリックで 確かめの まど').toMatchObject({ x: at.x, z: at.z, confirm: true });
       expect(await buildingOf(page), '確かめの 間は まだ 建築しない').toBeNull();
-      expect(await kuraNow(), '確かめの 間は 材料が へらない').toEqual(kuraBefore);
+      expect(await stockOf(), '確かめの 間は 材料が へらない').toEqual(stock);
       await expect(shownTid(page, 'house-confirm').first(), '確かめの まど').toBeVisible();
       expect(await plainText(page, 'house-confirm'), '2 行目に せっけいずの 名前').toContain(NAME);
       const no = await press(page, 'no');
@@ -192,7 +197,7 @@ test.describe('HOUSE-1C PR-2 建築', () => {
       expect((await menuState(page)).page).toBe('sky');
       await pressKey(page, 'Escape');
       expect((await menuState(page)).page, 'まどが ない ときの Esc で 一覧へ').toBe('pick');
-      expect(await kuraNow(), 'もどっても 材料は へらない').toEqual(kuraBefore);
+      expect(await stockOf(), 'もどっても 材料は へらない').toEqual(stock);
       expect(await buildingOf(page)).toBeNull();
 
       // もう 1 度 えらんで Enter → Enter（［ここに たてる］）
@@ -214,8 +219,10 @@ test.describe('HOUSE-1C PR-2 建築', () => {
       expect(b0!.leftTicks + Math.round(b0!.progress * BUILD_TICKS), '長さ ＝ のこり ＋ たった').toBe(BUILD_TICKS);
       expect(b0!.progress, '始まった ばかり').toBeLessThan(CHUNK / BUILD_TICKS);
       expect(squash(b0!.leftText)).toBe(squash(BUILD_WORDS[0]));
-      const kuraAfter = await page.evaluate(() => (window as any).__rikkun.house.kura() as Record<string, number>);
-      for (const r of rows0) expect(kuraAfter[r.item] ?? 0, `${r.item}: くらから 必要な 分だけ へった`).toBe((kuraBefore[r.item] ?? 0) - r.need);
+      // 1E AC20b: たんす〔近い 順〕→ もちもの の 順に 必要な 分だけ へった（たんすが 先に 空に なる）
+      const after = await stockOf();
+      expect(after, '必要な 分だけ・たんす → もちもの の 順に へった').toEqual(afterBuild(stock, rows0));
+      for (const r of rows0) expect(after.tansu[r.item]! + after.bag[r.item]!, `${r.item}: 合計から 必要な 分だけ へった`).toBe(stock.tansu[r.item]! + stock.bag[r.item]! - r.need);
       expect(await firstBonusOf(page), 'はじめての 家の おまけを 使った').toBe(false);
       expect((await blueprints(page)).map((b) => b.number), 'せっけいずは のこる').toContain(number);
       expect(countName(await drainSfx(page), /^tonkachiStart$/), '［ここに たてる］の 合図').toBe(1);

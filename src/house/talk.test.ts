@@ -5,7 +5,6 @@ import { NOD_STEPS } from './architect';
 import { makeController } from './editor/testkit';
 import { HouseBook } from './book';
 import { HouseRename } from './rename';
-import { Kura } from './kura';
 import { GREET_STEPS, HouseTalk, SAY, type HouseRecord } from './talk';
 
 /** 建てた 家が 0 けんの なまえを かえる（1A・1B の テストでは 使わない） */
@@ -16,29 +15,28 @@ const noRename = (): HouseRename => new HouseRename({ book: new HouseBook(), pla
 interface Rig {
   talk: HouseTalk;
   bag: InventoryImpl;
-  kura: Kura;
   record: HouseRecord;
   calls: string[];
 }
 
 function rig(record: HouseRecord = { toolsGiven: false, fudeGiven: false, first: null }, owned?: (item: ItemId) => number): Rig {
   const bag = new InventoryImpl();
-  const kura = new Kura();
   const calls: string[] = [];
-  const talk = new HouseTalk({
+  // 1E: くらは ない。型の 上で まだ 残って いる `kura` を わたさない ため、いったん 変数に 入れて から 型を そろえる
+  const deps = {
     editor: makeController().ctl,
     rename: noRename(),
     record,
-    kura,
     bag,
     ...(owned ? { owned } : {}),
     voice: () => calls.push('voice'),
     onOpen: () => calls.push('open'),
     onClose: () => calls.push('close'),
-    endTalk: (id) => calls.push(`end:${id}`),
-    gave: (item) => calls.push(`gave:${item}`),
-  });
-  return { talk, bag, kura, record, calls };
+    endTalk: (id: string) => calls.push(`end:${id}`),
+    gave: (item: ItemId) => calls.push(`gave:${item}`),
+  };
+  const talk = new HouseTalk(deps as unknown as ConstructorParameters<typeof HouseTalk>[0]);
+  return { talk, bag, record, calls };
 }
 
 /** 話しはじめて から n ステップ（うなずきは 22 ステップで おわる つもりで 進める） */
@@ -90,14 +88,14 @@ describe('AC3 うなずき 22 ステップのあと メニュー', () => {
     expect(r.calls.filter((c) => c === 'voice')).toHaveLength(1);
   });
 
-  it('メニューの ボタンは §2.3 の 順。道具を 持って いるときは「どうぐを もらう」を 出さない。1B から 動くのは くら・せっけいずを つくる・とじる', () => {
+  it('メニューの ボタンは §2.3 の 順。道具を 持って いるときは「どうぐを もらう」を 出さない。1E: くらの ボタンは ない', () => {
     r.bag.add('mizumori' as ItemId, 1);
     r.bag.add('dotsuki' as ItemId, 1);
     r.talk.start('first');
     run(r, 22);
-    expect(ids(r)).toEqual(['kura', 'editor', 'build', 'rename', 'close']);
+    expect(ids(r)).toEqual(['editor', 'build', 'rename', 'close']);
     const en = Object.fromEntries(r.talk.menu().buttons.map((b) => [b.id, b.enabled]));
-    expect(en.kura).toBe(true);
+    expect(ids(r)).not.toContain('kura');
     expect(en.close).toBe(true);
     expect(en.editor).toBe(true);
     // 1C PR-2 から「けんちくを はじめる」は 建築中でなければ 押せる（せっけいずが 0 まいでも 押せて、ふきだしが 出る）。なまえを かえるは 家が 1 けんも ない 間 押せない（PR-1）
@@ -105,10 +103,10 @@ describe('AC3 うなずき 22 ステップのあと メニュー', () => {
     expect(en.rename).toBe(false);
   });
 
-  it('道具が ないときは 6 つ ぜんぶ（どうぐを もらう は 押せる）', () => {
+  it('道具が ないときは 5 つ ぜんぶ（どうぐを もらう は 押せる）', () => {
     r.talk.start('first');
     run(r, 22);
-    expect(ids(r)).toEqual(['kura', 'editor', 'build', 'rename', 'tools', 'close']);
+    expect(ids(r)).toEqual(['editor', 'build', 'rename', 'tools', 'close']);
     expect(r.talk.menu().buttons.find((b) => b.id === 'tools')!.enabled).toBe(true);
   });
 
@@ -141,7 +139,7 @@ describe('AC3 道具を くれる 条件', () => {
     expect(r.record.toolsGiven).toBe(true);
     expect(r.record.fudeGiven).toBe(true);
     // 開いた ときには ボタンまで そろって いる（道具を 持って いるので「どうぐを もらう」なし）
-    expect(ids(r)).toEqual(['kura', 'editor', 'build', 'rename', 'close']);
+    expect(ids(r)).toEqual(['editor', 'build', 'rename', 'close']);
     expect(r.calls.filter((c) => c.startsWith('gave:'))).toEqual(['gave:mizumori', 'gave:dotsuki', 'gave:fude']);
     // 声は 1 回だけ（あいさつ 2 行でも）
     expect(r.calls.filter((c) => c === 'voice')).toHaveLength(1);
@@ -251,7 +249,7 @@ describe('AC3 道具を くれる 条件', () => {
   });
 });
 
-describe('とじる・くら', () => {
+describe('とじる', () => {
   it('press(close) で 全部 とじる。onClose と 建築士さんの 話し おわりを 1 回ずつ', () => {
     const r = rig({ toolsGiven: true, fudeGiven: true, first: null });
     r.talk.start('first');
@@ -262,19 +260,6 @@ describe('とじる・くら', () => {
     expect(r.calls).toEqual(['close', 'end:first']);
     r.talk.press('close'); // もう とじて いる
     expect(r.calls).toEqual(['close', 'end:first']);
-  });
-
-  it('くらの 画面: press(kura) で page が kura。ボタンは ✕ だけ。press(close) は くらからでも 全部 とじる', () => {
-    const r = rig({ toolsGiven: true, fudeGiven: true, first: null });
-    r.talk.start('first');
-    run(r, 22);
-    r.talk.press('kura');
-    expect(r.talk.menu().page).toBe('kura');
-    expect(ids(r)).toEqual(['close']);
-    expect(r.talk.menu().bubble.trim()).not.toBe('');
-    r.talk.press('close');
-    expect(r.talk.menu().open).toBe(false);
-    expect(r.talk.menu().page).toBeNull();
   });
 
   it('うなずき・あいさつの 途中で やめる（cancel）と メニューは 開かず、onClose も 呼ばない', () => {
@@ -291,33 +276,9 @@ describe('とじる・くら', () => {
     expect(r.talk.start('first')).toBe(true);
     expect(r.talk.menu().bubble).toBe(SAY.hello);
   });
-
-  it('くらの 出し入れ（メニューが とじていても 使える）: deposit・withdraw は 動いた 数。いっぱい / 持ち物いっぱい の ふきだし', () => {
-    const r = rig({ toolsGiven: true, fudeGiven: true, first: null });
-    r.bag.add('log', 20);
-    expect(r.talk.deposit('log', 10)).toBe(10);
-    expect(r.bag.count('log')).toBe(10);
-    expect(r.kura.count('log')).toBe(10);
-    expect(r.talk.withdraw('log', 4)).toBe(4);
-    expect(r.bag.count('log')).toBe(14);
-    expect(r.kura.count('log')).toBe(6);
-    // 999 こ まで
-    r.kura.restore({ dirt: 998 });
-    r.bag.add('dirt', 5);
-    r.talk.start('first');
-    run(r, 22);
-    r.talk.press('kura');
-    expect(r.talk.deposit('dirt', 5)).toBe(1);
-    expect(r.talk.menu().bubble).toBe(SAY.kuraFull);
-    // 持ち物が いっぱい
-    for (let i = 0; i < r.bag.size; i++) r.bag.setSlot(i, { item: 'stone', count: 64 });
-    expect(r.talk.withdraw('dirt', 3)).toBe(0);
-    expect(r.kura.count('dirt')).toBe(999);
-    expect(r.talk.menu().bubble).toBe(SAY.bagFull);
-  });
 });
 
-describe('AC41 メニュー・くらが 開いて いる 間は 時間を 止める', () => {
+describe('AC41 メニューが 開いて いる 間は 時間を 止める', () => {
   it('frozen() は メニューが 開いて いる 間 だけ true（うなずき・あいさつの 間は false）', () => {
     const r = rig();
     expect(r.talk.frozen()).toBe(false);
@@ -327,8 +288,8 @@ describe('AC41 メニュー・くらが 開いて いる 間は 時間を 止め
       if (!r.talk.menu().open) expect(r.talk.frozen(), `step ${i}`).toBe(false);
     }
     expect(r.talk.frozen()).toBe(true);
-    r.talk.press('kura');
-    expect(r.talk.frozen(), 'くらの 画面でも').toBe(true);
+    r.talk.press('editor');
+    expect(r.talk.frozen(), 'せっけいずの 画面でも').toBe(true);
     r.talk.press('close');
     expect(r.talk.frozen()).toBe(false);
   });
@@ -423,22 +384,21 @@ describe('1B エディターの ページ（editor・need）', () => {
   function open(): Rig & { kit: ReturnType<typeof makeController> } {
     const kit = makeController();
     const bag = new InventoryImpl();
-    const kura = new Kura();
     const calls: string[] = [];
     const record: HouseRecord = { toolsGiven: true, fudeGiven: true, first: null };
-    const talk = new HouseTalk({
+    const deps = {
       editor: kit.ctl,
       rename: noRename(),
       record,
-      kura,
       bag,
       voice: () => calls.push('voice'),
       onOpen: () => calls.push('open'),
       onClose: () => calls.push('close'),
-      endTalk: (id) => calls.push(`end:${id}`),
-      gave: (item) => calls.push(`gave:${item}`),
-    });
-    const r = { talk, bag, kura, record, calls, kit };
+      endTalk: (id: string) => calls.push(`end:${id}`),
+      gave: (item: ItemId) => calls.push(`gave:${item}`),
+    };
+    const talk = new HouseTalk(deps as unknown as ConstructorParameters<typeof HouseTalk>[0]);
+    const r = { talk, bag, record, calls, kit };
     talk.start('first');
     run(r, 22);
     return r;

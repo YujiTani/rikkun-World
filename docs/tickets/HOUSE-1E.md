@@ -70,6 +70,45 @@ E2E は「内装の 仮置き」1 本（`e2e/house1e.spec.ts`）。5×5 で 重�
 | `e2e/house1b-pr2.spec.ts` | `selected`・furniture | `{ i: 0, x: 1, z: 1 }`・`origin`／`bad` を 足す |
 | `e2e/helpers/houseEditor.ts` | `setForm` | 家具の 左上＋rot を もとの マスに 直して `edit place`（1C 以降の 形 FORM が そのまま 同じ 形に なる） |
 
-### 1. 材料（くらを なくす）
+### 1. 材料（くらを なくす）（書いた 分。仕様 2.5 版 コミット 64943ef を 正に した）
 
-材料の 分（1-0〜1-8・AC9・AC9b・AC15・AC18・AC20・AC20b・AC32d・AC34 ⑤・E2E「材料の 通し」）は 次の コミットで 足す。
+- 約束は `e2e/helpers/house.ts` の 先頭「1E の 約束」〔材料〕。ユニットの 道具は `src/house/stockKit.ts`（本物の `StorageSystem`＋`CraftSystemImpl`＋`InventoryImpl`）と `src/house/houseRig.ts`（`HouseSystem` を 平らな 世界に のせる）。つなぎ目: `HouseSystem`・`createSheetPort` の deps に **`craft`**（`total(item)`・`tansuInRange()`）と **`tansu`**（`countItem`・`takeItem`・`get`・`set`）。どちらも 無ければ もちものだけ。
+- 手元の 確かめ: `npm run typecheck` は 緑。ユニットは 下の 表の ファイルが 赤（くらが ある 実装は `kura` を つかう ので、`sheet.test.ts` は `deps.kura` が 無くて 落ちる）。E2E は `e2e/house1e.spec.ts` の「材料の 通し」と `e2e/house1cBuild.spec.ts` が 赤（たんす・もちものの 材料を 数えない ところで 落ちる）。
+
+| 基準 | テスト | ふくむ もの |
+|---|---|---|
+| 1-0・AC43 | `system.test.ts`（フック）・`talk.test.ts`・`e2e/house1e.spec.ts`・`e2e/house1a.spec.ts` | メニューの ボタンは `editor`・`build`・`rename`・（`tools`）・`close` の 5 つ（この 順）・`press('kura')` は ない・フックに `kura`／`deposit`／`withdraw` が ない・`legacyKura` は 関数で 空なら null・メニューに「くら」の 字が 出ない |
+| AC9 | `materials.test.ts`「AC9」 | `need().have` ＝ もちもの ＋ 近くの たんす。5×5・窓 0・ふとん 1 → き {24, 10, 14}・いし {25, 25, 0}・ぬの {3, 0, 3}・いと {1, 0, 1}（2 けん目）。何度 よんでも 同じ・`craft`／`tansu` 無しで もちものだけでも 同じ |
+| AC9b | `materials.test.ts`「AC9b」 | 40 マスの 中の たんすだけ 数える（50 マスは 外。範囲を 60 に すると 入り、25 に すると 30 マスの たんすも 外）・エディターの `need()` と 一覧の `need(slot)`／`buildNeedRows` は 同じ 数・開くたびに 数えなおす・プレイヤーが 動くと 近い たんすが かわる |
+| AC15・AC44b・AC45 | `sheet.test.ts` | かみは もちもの → 近くの たんす（近い 順）・ふでは もちもの・たんすの どちらでも（いちばん へって いる 物から、同じ なら たんす〔近い 順〕→ もちもの）・たんすの ふでが 0 に なれば たんすから 消え、もちものの ふでは そのまま・50 マスの たんすの かみ・ふでは 使わない・建てる 材料は へらない〔たりなくても 作れる〕・④⑤ は もちもの＋たんすで 見る・⑥ は もちものの 空きだけで 見る（もちものに かみ 1 まい＋たんすに かみ 5 まいで いっぱいでも 通る〔たんすの かみは 5 の まま〕／たんすの ふでが こわれても もちものの マスは あかない） |
+| AC18 | `materials.test.ts`「AC18」・`glue.test.ts` | 一覧の `pick-<slot>` は もちもの だけ でも たんす だけ でも たりなければ false、合わせて そろえば true・50 マスの たんすは 数えない・押すと page 'need'・short ≧ 1・ふきだし「ざいりょうが たりないよ」 |
+| AC20・AC20b | `materials.test.ts`「AC20・AC20b」・`glue.test.ts`・`e2e/house1e.spec.ts`・`e2e/house1cBuild.spec.ts` | ［ここに たてる］で たんす（近い 順）→ もちもの の 順に へる〔近い たんすが 先に 0〕・いしも 同じ・たんすだけで そろう 材料は もちものを へらさない・50 マスの たんすは へらさない・時に たりなければ 何も へらさず page 'need'・プレイヤーを うつす 前の 位置で 数える・確かめの 間は へらない。E2E「材料の 通し」: き 24 ＝ たんす 10 ＋ もちもの 16 → 建てると たんす 0・もちもの 2、いし 25 ＝ たんす 5 ＋ もちもの 22 → たんす 0・もちもの 2 |
+| AC32d | `legacyKura.test.ts` | 空き 2 マス・くら {き 100・いし 5}: 22 で「あずかった ものを かえすね」・いし 5 と き 64 が 入り〔`ITEM_TYPES` の ならび〕・のこり {き 36} は `legacyKura()` に のこる・122 で「いっぱい だから また あとでね」・222 で メニュー・セーブして 開きなおしても {き 36}・話す 前の セーブは もとの まま・1 マス あけて 話すと 22 で き 36 が 入って null・122 で メニュー・そのあとは 22 で メニュー〔何も ふえない〕・空き 0 マスは 何も 入らず 2 行 → 222・ぜんぶ 入れば 2 行目なし・#339 より 前の セーブは ふでの 行が その あと（＋100）・`{}`／記録なし／null は null で 22 で メニュー |
+| AC32・AC33 | `legacyKura.test.ts`・`state.test.ts`・`SaveManager.test.ts` | 建築士さんの 記録は 往復する・古い セーブ〔家の 記録なし〕は 家なし・番号 1・`legacyKura` null・形が おかしい `kura` を 読んでも こわれない |
+| AC34 ⑤ | `materials.test.ts`「AC34 ⑤」 | 数えるのは `need()`・一覧を 開く・［ここに たてる］の ときだけ（毎ステップ 数えない）。エディター・一覧・ひつような もの・建築中が 開いて いても ステップでは 数えない。できた！は かみを たんすから 取る ときだけ たんすを 読む |
+| AC51 | `materials.test.ts`「AC51」・`glue.test.ts` | まだ 1 けんも 建て はじめて いない: ぬの・いとは {need 0, bonus}・もちもの・たんすに 0 でも 押せる・決定で どこからも へらず `firstBonus` が false。2 けん目から ぬの 3・いと 1 が いる〔たんす・もちものの 合計。へる 順は たんす → もちもの〕。ふとん 2 でも おまけは 1 つぶん |
+| E2E 材料の 通し | `e2e/house1e.spec.ts` | 新しい 世界の はじめての 家〔5×5・窓 0・ふとん 1〕: たんす 10・もちもの 16〔き〕と たんす 5・もちもの 22〔いし〕。たんす だけ／もちもの だけ では 押せず〔押すと ひつような もの・列の 見出し「ひつよう」「ある」「たりない」・画面の 行の `data-have`〕、50 マスの たんすは 数えず、合わせて 押せる → 建てると たんす 0・もちもの 2。メニューに くらの ボタンが ない |
+| 音・見た目 | なし（オーナー確認 AC37b） | 「あずかった ものを かえすね」の 文の 見え方、ひつような ものの 列の 見出し「ある」の 見た目 |
+
+### 1E〔材料〕で こわれて 直した 既存テスト（期待は ゆるめて いない）
+
+| ファイル | どう 直したか |
+|---|---|
+| `src/house/build/glue.test.ts` | 材料を くらに あずける 準備を もちもの＋たんす（`houseRig`・`stockKit`）に。「くらから へった」は「もちものから へった」の 数に〔`bagOf`〕。へらす 順の 新しい 期待は `materials.test.ts` |
+| `src/house/system.test.ts` | ボタン 6 → 5（`kura` を けす）・`press('kura')` は `press('editor')`・フックに `kura`／`deposit`／`withdraw` が ない・`legacyKura` を 足す。くらの 材料で 建てる テストは けした〔`materials.test.ts` に 置きかえ〕 |
+| `src/house/editor/sheet.test.ts` | `Kura` を やめて たんすを つかう。AC15・AC44b・AC45 は 上の 表の とおり 広げた〔かみ・ふでの 取り方が かわった ため〕 |
+| `src/house/talk.test.ts` | `Kura` の 準備と くらの ページ・あずける／とりだす・くらの 画面の 時間停止 を けし、ボタンの ならびを 5 つ〔道具が ないときは `tools` 入りで 5 つ〕に。時間停止は `editor` の 画面で 見る |
+| `src/house/state.test.ts`・`src/save/SaveManager.test.ts` | `HouseState.kura` を つかう 所を やめた〔古い セーブの `kura` を 読んでも こわれない 確かめは のこした〕 |
+| `src/ui/houseMenuArt.test.ts` | メニューの 絵は 3 種〔editor・rename・talk〕 |
+| `src/inventory/plan.test.ts` | AC8b〔せっけいず・ふでは くらに あずけられない〕は くらが 無い ので けした |
+| `e2e/helpers/house.ts` | `kura()`・`fillKuraAndBag`・`openKuraScreen`・くらの `TID`・`BTN_ORDER` の `kura` を けした。`putTansu`・`setTansu`・`tansuHas`・`playerAt`・`legacyKura` を 足した |
+| `e2e/helpers/houseSite.ts` | `stockKura` を `stockMaterials`〔半分を たんす・のこりを もちもの。`stockNow`・`afterBuild` で 数を くらべる〕に |
+| `e2e/house1cBuild.spec.ts` | くらの 数 → もちもの・たんすの 数。建てると たんす → もちもの の 順に へる |
+| `e2e/house1b.spec.ts` | かみ・き の 準備を たんすに。かみは もちものが 先で、たんすの かみは へらない／もちものに 無ければ たんすから 1 まい |
+| `e2e/house1a.spec.ts` | AC5〔くらの あずけ・とりだし〕の E2E を けした・ボタンの ならび |
+| `e2e/ui-gate.spec.ts` | 画面 `house-kura` を けした・`house-menu` は ボタン 5 つ |
+
+### 実装で けす テストの 一覧（くら そのものの テスト。くらの コードと いっしょに けす）
+
+- `src/house/kura.test.ts`（19 本）・`src/house/kuraScreen.test.ts`（13 本）・`src/house/kuraPicker.test.ts`（6 本）— そのまま のこして ある。くらの コードを けす とき いっしょに けす。
+- 前の セーブの くらを かえす 所 だけ のこす〔`legacyKura()`〕。その 基準は `legacyKura.test.ts`。

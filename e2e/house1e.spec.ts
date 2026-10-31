@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { countOf, openHouse, stepUi } from './helpers/house';
+import { countOf, legacyKura, menuState, openHouse, press, putTansu, setBag, setTansu, stepUi, talkTo, tansuHas } from './helpers/house';
 import {
   MSG,
   blueprints,
@@ -7,23 +7,37 @@ import {
   cellAt,
   clickBtn,
   clickCell,
+  clickDisabled,
   ed,
   editor,
   expectBubble,
   firstArchitect,
+  needOf,
   openEditor,
+  openEditorFast,
+  plainText,
   readButtons,
   reopenHouse,
+  setForm,
+  squash,
 } from './helpers/houseEditor';
+import { settleWorld } from './helpers/houseBuilt';
+import { MSG_SITE, afterBuild, buildingOf, cursorOf, firstBonusOf, layYard, pressKey, setBuildTicks, stockNow } from './helpers/houseSite';
 
 /**
  * HOUSE-1E（#374 使いやすく。docs/design/HOUSE-1.md 2.5 版、docs/tickets/HOUSE-1E.md）の E2E。
  * 約束（フック・testid・数）は e2e/helpers/house.ts の 先頭「1E の 約束」。関数は e2e/helpers/houseEditor.ts。時間では 待たず step の 数で 進める（#255）。
  *
- * 【今は 「内装の 仮置き」の 1 本だけ】 材料の 通し 1 本（AC9b・AC18・AC20b。くら＋もちもの＋近くの たんす）は、yuzu と くらの 形を 決めなおして いる ので
- * 決まって から 足す（PO 2026-10-31）。ここには まだ 書かない。
+ * 2 本（#311。E2E は 画面・入力・描画が いる 確認と 遊びの 流れの 代表だけ。数・状態だけの 基準は ユニット）:
+ *   ・材料の 通し（AC9b・AC18・AC20b・AC15・AC51・AC43。くらは ない。材料は もちもの＋近くの たんす）
+ *   ・内装の 仮置き（AC13 ほか）
  *
- * 内装の 仮置き 1 本（#311。E2E は 画面・入力・描画が いる 確認と 遊びの 流れの 代表だけ。数・状態だけの 基準は ユニット）:
+ * 材料の 通し 1 本: 新しい 世界の はじめての 家（5×5・窓 0・ふとん 1。ぬの・いとは おまけ）の せっけいず → き 24・いし 25 が いる。
+ *   近くの たんす〔き 10・いし 5〕だけ・もちもの〔き 16・いし 22〕だけ では 一覧で 押せず（押すと ひつような もの。列の 見出しは「ひつよう」「ある」「たりない」）、
+ *   50 マスの たんすは 数えない、2 つ 合わせると 押せる（ある ＝ 26・27）→ 場所を 用意して 建てると き は たんす 0・もちもの 2、いし は たんす 0・もちもの 2。
+ *   メニューに くらの ボタンが ない・`legacyKura()` は null。数・順番・かみ・ふでの 細かい 基準は ユニット（src/house/materials.test.ts・editor/sheet.test.ts・legacyKura.test.ts）。
+ *
+ * 内装の 仮置き 1 本:
  *   5×5 の 中で、いすと テーブルが 重なる（両方 赤）→ 重なった マスを 押すと あとから 置いた 方を えらぶ → ↻ で 両方 ふつうの 色 →
  *   右下の すみに ふとん（はみ出す・赤）→ 置く 前の 形（白／赤・家具の ある マスの 上では 出ない）→ 帯の 上の はみ出しを 押しても えらべる →
  *   つぎへ・できた！は 進まない（「あかい かぐを なおしてね」・赤い 家具が 光る）→ ↻ で ふつうの 色（見本に 出る）→ ↺ で 赤に もどる＝もどす 1 回 →
@@ -257,5 +271,149 @@ test.describe('HOUSE-1E 内装の 仮置き', () => {
     e = await ed(page);
     expect(e.step, '開きなおしても ② なか で 開く').toBe('naka');
     expect(e.furniture, '開きなおしても 赤い 家具が 同じ').toEqual(red.furniture);
+  });
+});
+
+// ---------------------------------------------------------------- 材料の 通し 1 本
+
+/** はじめての 家（5×5・窓 0・ふとん 1）の せっけいずを 作る。ふとん だけ なので 確かめの まどで ［このまま つくる］。番号を 返す */
+async function makeFutonPlan(page: Page): Promise<number> {
+  const first = await firstArchitect(page);
+  await openEditorFast(page, first.id);
+  await setForm(page, { windows: 0, furniture: [{ kind: 'futon', x: 0, z: 0, rot: 0 }], front: 'もも', back: 'のいえ' });
+  await setBag(page, { paper: 2, fude: 1 });
+  await press(page, 'done');
+  expect((await ed(page)).confirm, 'ふとん だけ → 確かめの まど').toBe('futonOnly');
+  await press(page, 'yes');
+  const bps = await blueprints(page);
+  expect(bps, 'せっけいずが 1 まい できた').toHaveLength(1);
+  await press(page, 'close');
+  return bps[0]!.number;
+}
+
+/** もちものの その 物の 数を n に する（ほかの 物は そのまま） */
+function setBagCount(page: Page, item: string, n: number): Promise<void> {
+  return page.evaluate(
+    ({ item, n }) => {
+      const h = (window as any).__rikkun;
+      const cur = h.inventory.count(item) as number;
+      if (n > cur) h.inventory.add(item, n - cur);
+      else if (n < cur) h.inventory.remove(item, cur - n);
+      h.step(1);
+    },
+    { item, n },
+  );
+}
+
+test.describe('HOUSE-1E 材料の 通し', () => {
+  test('AC9b・AC18・AC20b・AC51・AC43: き 24 ＝ たんす 10 ＋ もちもの 16、いし 25 ＝ たんす 5 ＋ もちもの 22 → 合わせて そろえば 一覧で 押せる → 建てると たんす → もちもの の 順に へる', async ({ page }) => {
+    test.setTimeout(300_000);
+    await openHouse(page); // 新しい 世界（保存しない）。はじめての 家
+    const first = await firstArchitect(page);
+    // 世界に もとから ある たんすの 中身は 材料に まぜない
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      for (const p of h.storage.list()) for (let i = 0; i < 54; i++) h.storage.set(p.x, p.y, p.z, i, null);
+    });
+    const number = await makeFutonPlan(page);
+    const slot = (await blueprints(page)).find((b) => b.number === number)!.slot;
+    expect(await firstBonusOf(page), 'まだ 1 けんも 建て はじめて いない').toBe(true);
+
+    // ---- 建築士さんの そばに 立って（まわり 9×9 が 平らに なる）から たんすを 置く
+    await talkTo(page, first.id, 'hook');
+    const top = await menuState(page);
+    expect(top.buttons.map((b) => b.id), 'AC43 メニューに くらの ボタンは ない').not.toContain('kura');
+    expect((await plainText(page, 'house-menu')) ?? '', 'メニューに「くら」の 字は 出ない').not.toContain('くら');
+    expect(await legacyKura(page), 'この 世界に 前の セーブの くらの 物は ない').toBeNull();
+    await press(page, 'close');
+    const near = await putTansu(page, -8, 4, {}); // 近くの たんす（足もとの 西 8 マス・南 4 マス）
+    const far = await putTansu(page, 0, 50, { log: 64, stone: 64 }); // 遠い たんす（南 50 マス。範囲 40 の 外）
+    expect(await tansuHas(page, far, 'log'), '遠い たんすは ちゃんと 置けた').toBe(64);
+
+    const rows0 = await needOf(page, slot);
+    const rowOf = async (item: string) => (await needOf(page, slot)).find((r) => r.item === item);
+    expect(rows0.find((r) => r.item === 'log'), 'き 24').toMatchObject({ need: 24, bonus: 0 });
+    expect(rows0.find((r) => r.item === 'stone'), 'いし 25').toMatchObject({ need: 25, bonus: 0 });
+    expect(rows0.find((r) => r.item === 'cloth'), 'ふとんの ぬの ＝ おまけ').toMatchObject({ need: 0, bonus: 3 });
+    expect(rows0.find((r) => r.item === 'string'), 'ふとんの いと ＝ おまけ').toMatchObject({ need: 0, bonus: 1 });
+
+    /** たんす〔近い 方〕・もちものに 入れる き・いし を きめて、一覧の カードが 押せるか と ある の 数を 返す（開いて しらべ、とじる） */
+    const arrange = async (tansu: { log: number; stone: number }, bag: { log: number; stone: number }) => {
+      await setTansu(page, near, tansu);
+      await setBagCount(page, 'log', bag.log);
+      await setBagCount(page, 'stone', bag.stone);
+      await talkTo(page, first.id, 'hook');
+      const pick = await press(page, 'build');
+      expect(pick.page, 'けんちくを はじめる の 一覧').toBe('pick');
+      const enabled = pick.buttons.find((b) => b.id === `pick-${slot}`)?.enabled;
+      return { enabled, log: await rowOf('log'), stone: await rowOf('stone') };
+    };
+
+    // ---- 何も ない
+    let r = await arrange({ log: 0, stone: 0 }, { log: 0, stone: 0 });
+    expect(r.enabled, 'もちものにも たんすにも ない → 押せない').toBe(false);
+    expect([r.log?.have, r.stone?.have], '遠い たんすは 数えない').toEqual([0, 0]);
+    await press(page, 'close');
+
+    // ---- たんす だけ（き 10・いし 5）→ たりない。押すと ひつような もの（見出しは「ひつよう」「ある」「たりない」）
+    r = await arrange({ log: 10, stone: 5 }, { log: 0, stone: 0 });
+    expect(r.enabled, 'たんす だけでは たりない').toBe(false);
+    expect(r.log, 'き: たんす 10').toMatchObject({ have: 10, short: 14 });
+    expect(r.stone, 'いし: たんす 5').toMatchObject({ have: 5, short: 20 });
+    await clickDisabled(page, `pick-${slot}`); // うすい カードを 本物の マウスで 1 回
+    const need = await menuState(page);
+    expect(need.page, '押すと ひつような もの').toBe('need');
+    expect(squash(need.bubble), 'ふきだし').toBe(squash(MSG_SITE.short));
+    await expect(page.getByTestId('house-need')).toBeVisible();
+    expect(squash((await plainText(page, 'need-head')) ?? ''), '列の 見出し').toBe('ひつようあるたりない');
+    expect((await plainText(page, 'house-need')) ?? '', 'ひつような ものに「くら」は 出ない').not.toContain('くら');
+    const shown = await page.getByTestId('need-row').evaluateAll((els) =>
+      els.map((el) => ({ item: el.getAttribute('data-item'), have: Number(el.getAttribute('data-have')), short: Number(el.getAttribute('data-short')) })),
+    );
+    expect(shown.find((x) => x.item === 'log'), '画面の 行: き').toMatchObject({ have: 10, short: 14 });
+    expect(shown.find((x) => x.item === 'stone'), '画面の 行: いし').toMatchObject({ have: 5, short: 20 });
+    await press(page, 'close');
+
+    // ---- もちもの だけ（き 16・いし 22）→ たりない
+    r = await arrange({ log: 0, stone: 0 }, { log: 16, stone: 22 });
+    expect(r.enabled, 'もちもの だけでは たりない').toBe(false);
+    expect(r.log, 'き: もちもの 16').toMatchObject({ have: 16, short: 8 });
+    expect(r.stone, 'いし: もちもの 22').toMatchObject({ have: 22, short: 3 });
+    await press(page, 'close');
+
+    // ---- 合わせると そろう（ある ＝ 26・27）→ 押せる
+    r = await arrange({ log: 10, stone: 5 }, { log: 16, stone: 22 });
+    expect(r.enabled, 'たんす ＋ もちもの で そろえば 押せる').toBe(true);
+    expect(r.log, 'き: 10 ＋ 16').toMatchObject({ have: 26, short: 0 });
+    expect(r.stone, 'いし: 5 ＋ 22').toMatchObject({ have: 27, short: 0 });
+    expect(await tansuHas(page, far, 'log'), '遠い たんすは そのまま').toBe(64);
+    await press(page, 'close');
+
+    // ---- 場所を 用意して 建てる（AC20b）。へる 前の 数を おぼえる
+    await layYard(page, first, 7, 7);
+    await settleWorld(page);
+    const items = ['log', 'stone', 'cloth', 'string'];
+    const before = await stockNow(page, near, items);
+    expect({ tansu: [before.tansu.log, before.tansu.stone], bag: [before.bag.log, before.bag.stone] }, '建てる 前の 数').toEqual({ tansu: [10, 5], bag: [16, 22] });
+    await talkTo(page, first.id, 'hook');
+    await press(page, 'build');
+    const sky = await press(page, 'pick', slot);
+    expect(sky.page, '上空の 視点').toBe('sky');
+    expect(await stockNow(page, near, items), '確かめの 前は へらない').toEqual(before);
+    await setBuildTicks(page, 1800);
+    await pressKey(page, 'Enter');
+    expect((await cursorOf(page))?.confirm, 'Enter で 確かめの まど').toBe(true);
+    await pressKey(page, 'Enter'); // ［ここに たてる］
+    expect(await buildingOf(page), '建築が 始まった').not.toBeNull();
+
+    const after = await stockNow(page, near, items);
+    expect(after, 'たんす → もちもの の 順に 必要な 分だけ へった').toEqual(afterBuild(before, rows0));
+    expect({ tansu: [after.tansu.log, after.tansu.stone], bag: [after.bag.log, after.bag.stone] }, 'き: たんす 0・もちもの 2 ／ いし: たんす 0・もちもの 2').toEqual({ tansu: [0, 0], bag: [2, 2] });
+    expect([after.bag.cloth, after.tansu.cloth, after.bag.string, after.tansu.string], 'ぬの・いとは おまけ（どこからも へらない）').toEqual([0, 0, 0, 0]);
+    expect(await tansuHas(page, far, 'log'), '遠い たんすは へらない').toBe(64);
+    expect(await tansuHas(page, far, 'stone')).toBe(64);
+    expect(await firstBonusOf(page), 'はじめての 家の おまけを 使った').toBe(false);
+    expect((await blueprints(page)).map((b) => b.number), 'せっけいずは のこる').toContain(number);
+    expect(await legacyKura(page), 'くらの 物は ずっと ない').toBeNull();
   });
 });

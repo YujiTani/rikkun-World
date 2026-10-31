@@ -7,7 +7,7 @@ import { createHouseHook } from './hook';
 import { HouseSystem, TALK_RANGE, type HouseSystemDeps } from './system';
 import { GREET_STEPS, SAY } from './talk';
 
-/** HOUSE-1A: 建築士さん・話す 流れ・くら・窓口の つなぎ。AC3・AC41 の 通し（ゲームの 時計を まねた 小さな ループで） */
+/** HOUSE-1A: 建築士さん・話す 流れ・窓口の つなぎ。AC3・AC41 の 通し（ゲームの 時計を まねた 小さな ループで）。HOUSE-1E: くらを なくした〔メニューの ボタンは 5 つ・kura／deposit／withdraw は ない〕 */
 
 const SPAWN = { x: 64.5, z: 64.5, yawDeg: 0 };
 
@@ -67,7 +67,7 @@ describe('話す 通し（右クリック 〜 メニュー）', () => {
       if (sys.menu().open) atOpen = { buttons: sys.menu().buttons.map((b) => b.id), m: bag.count('mizumori' as ItemId), d: bag.count('dotsuki' as ItemId), f: bag.count('fude' as ItemId) };
     }
     expect(steps).toBe(NOD_STEPS + GREET_STEPS * 2);
-    expect(atOpen).toEqual({ buttons: ['kura', 'editor', 'build', 'rename', 'close'], m: 1, d: 1, f: 1 });
+    expect(atOpen, '1E: くらの ボタンは ない').toEqual({ buttons: ['editor', 'build', 'rename', 'close'], m: 1, d: 1, f: 1 });
     expect(calls.filter((c) => c === 'voice')).toHaveLength(1);
     expect(calls).toEqual(['voice', 'gave:mizumori', 'gave:dotsuki', 'gave:fude', 'open']);
   });
@@ -89,7 +89,7 @@ describe('話す 通し（右クリック 〜 メニュー）', () => {
     expect(sys.menu().page).toBe('top');
   });
 
-  it('AC41: メニューが 開いて いる 間は step(600) しても 時刻・妖怪が 動かない。とじると また 進む（くらの 画面でも）', () => {
+  it('AC41: メニューが 開いて いる 間は step(600) しても 時刻・妖怪が 動かない。とじると また 進む（エディターの 画面でも）', () => {
     const { sys, calls } = make();
     sys.state.record.toolsGiven = true;
     sys.state.record.fudeGiven = true;
@@ -102,10 +102,10 @@ describe('話す 通し（右クリック 〜 メニュー）', () => {
     g.step(600);
     expect(g.w.time, 'メニューの 間 時刻').toBe(t0.time);
     expect(g.w.yokai, 'メニューの 間 妖怪').toBe(t0.yokai);
-    sys.press('kura');
+    sys.press('editor');
     g.step(600);
-    expect(g.w.time, 'くらの 間 時刻').toBe(t0.time);
-    expect(g.w.yokai, 'くらの 間 妖怪').toBe(t0.yokai);
+    expect(g.w.time, 'エディターの 間 時刻').toBe(t0.time);
+    expect(g.w.yokai, 'エディターの 間 妖怪').toBe(t0.yokai);
     sys.press('close');
     expect(sys.frozen()).toBe(false);
     g.step(60);
@@ -126,7 +126,7 @@ describe('話す 通し（右クリック 〜 メニュー）', () => {
     expect(g.w.time).toBe(t0 + 50);
   });
 
-  it('talking(): 話しかけてから とじるまで true（うなずき・あいさつ・メニュー・くら）。frozen() は メニューが 開いて いる 間だけ', () => {
+  it('talking(): 話しかけてから とじるまで true（うなずき・あいさつ・メニュー・エディター）。frozen() は メニューが 開いて いる 間だけ', () => {
     const { sys } = make();
     const g = stepper(sys);
     g.step(1);
@@ -137,7 +137,7 @@ describe('話す 通し（右クリック 〜 メニュー）', () => {
     g.step(NOD_STEPS + GREET_STEPS * 2);
     expect(sys.frozen()).toBe(true);
     expect(sys.talking()).toBe(true);
-    sys.press('kura');
+    sys.press('editor');
     expect(sys.talking()).toBe(true);
     sys.close();
     expect(sys.talking()).toBe(false);
@@ -199,8 +199,8 @@ describe('話しが 中断される とき', () => {
 });
 
 describe('画面への 合図（onChange）', () => {
-  it('ふきだし・ページ・くらの 中身が かわる たびに 呼ばれる。何も かわらない ステップでは 呼ばれない', () => {
-    const { sys, bag } = make();
+  it('ふきだし・ページ・エディターの 中身が かわる たびに 呼ばれる。何も かわらない ステップでは 呼ばれない', () => {
+    const { sys } = make();
     sys.state.record.toolsGiven = true;
     sys.state.record.fudeGiven = true;
     let n = 0;
@@ -214,10 +214,9 @@ describe('画面への 合図（onChange）', () => {
     expect(n).toBe(1);
     g.step(1); // メニューが 開く
     expect(n).toBe(2);
-    sys.press('kura');
+    sys.press('editor');
     expect(n).toBe(3);
-    bag.add('log', 5);
-    sys.deposit('log', 3);
+    sys.edit({ op: 'windows', delta: 1 });
     expect(n).toBe(4);
     sys.press('close');
     expect(n).toBe(5);
@@ -225,8 +224,8 @@ describe('画面への 合図（onChange）', () => {
 });
 
 describe('窓口 window.__rikkun.house', () => {
-  it('architects・talk・menu・press・kura・deposit・withdraw が 仕様どおりの 形で 動く', () => {
-    const { sys, bag } = make();
+  it('architects・talk・menu・press・legacyKura が 仕様どおりの 形で 動く。kura・deposit・withdraw は ない〔1E〕', () => {
+    const { sys } = make();
     const hook = createHouseHook(sys);
     const g = stepper(sys);
     g.step(1);
@@ -237,20 +236,14 @@ describe('窓口 window.__rikkun.house', () => {
     hook.talk(list[0]!.id);
     g.step(NOD_STEPS + GREET_STEPS * 2);
     expect(hook.menu().open).toBe(true);
-    expect(hook.menu().buttons.map((b) => b.id)).toEqual(['kura', 'editor', 'build', 'rename', 'close']);
-    hook.press('kura');
-    expect(hook.menu().page).toBe('kura');
-    bag.add('log', 20);
-    expect(hook.deposit('log', 10)).toBe(10);
-    expect(hook.kura()).toEqual({ log: 10 });
-    expect(hook.withdraw('log', 4)).toBe(4);
-    expect(hook.kura()).toEqual({ log: 6 });
-    expect(bag.count('log')).toBe(14);
+    expect(hook.menu().buttons.map((b) => b.id), '1E: editor・build・rename・（tools）・close の 順。くらの ボタンは ない').toEqual(['editor', 'build', 'rename', 'close']);
+    for (const gone of ['kura', 'deposit', 'withdraw']) expect(gone in hook, `${gone} は 窓口から なくなる`).toBe(false);
+    expect(typeof (hook as unknown as { legacyKura: unknown }).legacyKura).toBe('function');
+    expect((hook as unknown as { legacyKura(): unknown }).legacyKura(), 'くらの 記録の ない 世界').toBeNull();
+    hook.press('kura'); // 知らない ボタン ＝ 何も おきない
+    expect(hook.menu().page).toBe('top');
     hook.press('close', undefined);
     expect(hook.menu().open).toBe(false);
-    // メニューが とじて いても 出し入れは 動く
-    expect(hook.deposit('log', 14)).toBe(14);
-    expect(hook.kura()).toEqual({ log: 20 });
     // JSON を 通しても 同じ（page.evaluate で 返せる）
     expect(JSON.parse(JSON.stringify(hook.menu()))).toEqual(hook.menu());
     expect(JSON.parse(JSON.stringify(hook.architects()))).toEqual(hook.architects());
@@ -572,12 +565,5 @@ describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
     sys.press('done');
     expect(hook.blueprints()).toHaveLength(1);
     expect(hook.blueprints()[0]!.furniture).toEqual([{ kind: 'chair', x: 0, z: 0, rot: 0 }, { kind: 'futon', x: 3, z: 4, rot: 1 }]);
-  });
-
-  it('くらの 材料は へらない。くらの 数が need の have', () => {
-    const { sys, hook } = opened();
-    sys.state.kura.restore({ log: 30 });
-    sys.press('editor');
-    expect(hook.need().find((r) => r.item === 'log')).toMatchObject({ need: 24, have: 30, short: 0 });
   });
 });
