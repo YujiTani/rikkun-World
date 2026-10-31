@@ -364,7 +364,8 @@ test.describe('HOUSE-1E 材料の 通し', () => {
     const need = await menuState(page);
     expect(need.page, '押すと ひつような もの').toBe('need');
     expect(squash(need.bubble), 'ふきだし').toBe(squash(MSG_SITE.short));
-    await expect(page.getByTestId('house-need')).toBeVisible();
+    // エディターの ひつような もの（かくれて いる）も 同じ testid なので、見えて いる 方を 見る
+    await expect(page.getByTestId('house-need').filter({ visible: true })).toBeVisible();
     expect(squash((await plainText(page, 'need-head')) ?? ''), '列の 見出し').toBe('ひつようあるたりない');
     expect((await plainText(page, 'house-need')) ?? '', 'ひつような ものに「くら」は 出ない').not.toContain('くら');
     const shown = await page.getByTestId('need-row').evaluateAll((els) =>
