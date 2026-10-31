@@ -13,12 +13,25 @@ import { TID, clickUi, htmlOf, menuState, openHouse, press, setBag, shownTid, st
 export type Step = 'soto' | 'naka' | 'namae';
 export type Wall = 'right' | 'back' | 'left';
 
+/** 保存の 形（`blueprints()` の 家具・`edit(place)` の 引数の もと）。x・z ＝ 今の 形の 左上、rot ＝ 向き */
 export interface PlacedFurniture {
   kind: string;
   x: number;
   z: number;
   rot: 0 | 1 | 2 | 3;
 }
+
+/** 赤い わけ（1E。仕様 §6.1）。2 つ 以上 あてはまる ときは out → door → overlap の 順の 1 つ目。ふつうの 家具は null */
+export type Bad = 'out' | 'door' | 'overlap' | null;
+
+/** `editor().furniture` の 1 こ（1E）。origin ＝ もとの マス（向き 0 の 左上。ふとんは まくらの マス）、bad ＝ 赤い わけ。保存の 形（PlacedFurniture）に origin・bad が 足された 形 */
+export interface EditorFurniture extends PlacedFurniture {
+  origin: { x: number; z: number };
+  bad: Bad;
+}
+
+/** 保存の 形（kind・x・z・rot）だけ 取り出す。`blueprints()` の 家具〔origin・bad は つかない〕と くらべる ときに 使う */
+export const plain = (f: PlacedFurniture): PlacedFurniture => ({ kind: f.kind, x: f.x, z: f.z, rot: f.rot });
 
 /** 光って いる 物（仕様 §6.1。PR-2）: door ＝ 戸が 光って いる（① に なった とき）、cells ＝ 光る 窓と なくなった 窓の あとの マス、left ＝ のこりの コマ（hover で 光らせて いる 間は null） */
 export interface PreviewGlow {
@@ -36,6 +49,8 @@ export interface PreviewState {
   /** さわった あと また 回り出す までの のこりの コマ（はなすと 600。さわる 前・回って いる 間は null。PR-2・新 23） */
   wait: number | null;
   builds: number;
+  /** 見本に 出して いる 家具の 数（1E。赤い 家具は 出さない） */
+  furniture: number;
   glow: PreviewGlow | null;
 }
 
@@ -48,8 +63,11 @@ export interface EditorState {
   windowKind: string;
   roof: string;
   windowCells: { wall: Wall; i: number }[];
-  furniture: PlacedFurniture[];
-  selected: { x: number; z: number } | null;
+  furniture: EditorFurniture[];
+  /** えらんで いる 置いた 家具（1E）。i ＝ furniture の 番号、x・z ＝ その 家具の もとの マス */
+  selected: { i: number; x: number; z: number } | null;
+  /** 赤く 光らせた 家具（1E）。items ＝ furniture の 番号、seq ＝ 光らせる たびに 1 ふえる 数。まだ 光らせて いなければ null */
+  flash: { items: number[]; seq: number } | null;
   light: string;
   name: { front: string; back: string };
   canUndo: boolean;
@@ -98,6 +116,21 @@ export const FURNITURE_ROWS: readonly (readonly FurnitureKind[])[] = [
   ['chair', 'stool', 'andon', 'shelf', 'ofuro', 'haniwa'],
 ];
 
+/**
+ * 保存の 形（左上 x・z と 向き rot）から もとの マス（向き 0 の 左上。ふとんは まくらの マス）を 求める（仕様 §4.3 の 式。1E）。
+ * 今の 形の よこ・たてを fw・fd として rot 0 ＝ (x, z)・1 ＝ (x＋fw−1, z)・2 ＝ (x＋fw−1, z＋fd−1)・3 ＝ (x, z＋fd−1)。
+ * 窓口 `edit({ op: 'place', x, z, rot })` の x・z は この もとの マス（押した マス。1E）
+ */
+export function originOf(f: PlacedFurniture): { x: number; z: number } {
+  const def = FURNITURE[f.kind as FurnitureKind];
+  const odd = f.rot % 2 === 1;
+  const fw = odd ? def.d : def.w;
+  const fd = odd ? def.w : def.d;
+  const right = f.rot === 1 || f.rot === 2;
+  const bottom = f.rot === 2 || f.rot === 3;
+  return { x: f.x + (right ? fw - 1 : 0), z: f.z + (bottom ? fd - 1 : 0) };
+}
+
 /** 後ろの 文字 5 つ（仕様 §2.6。ボタン suffix-0〜4 の 順） */
 export const SUFFIXES = ['のいえ', 'ハウス', 'のおうち', 'ひみつきち', 'のやしき'] as const;
 
@@ -115,6 +148,8 @@ export const MSG = {
   reset: 'いまの かたちを ぜんぶ けす？',
   /** 名前に よくない ことば（仕様 §2.6・AC58。PR-2） */
   ngWord: 'その ことばは おなまえに いれたら だめだよ',
+  /** 赤い 家具が ある まま つぎへ（② → ③）・できた！を 押した（1E。仕様 §2.5・AC13f） */
+  fixRed: 'あかい かぐを なおしてね',
 } as const;
 
 /** タイトルと 見出し（漢字は ふりがなを のぞいた 字。仕様 §3 の 表） */
@@ -384,7 +419,7 @@ export const drawStats = (page: Page): Promise<{ calls: number; triangles: numbe
 
 /**
  * 準備用（窓口 edit だけ。画面は 通さない）: 大きさ・まどの かず・家具・名前を 決めた 形に する。
- * 家具は 置けなければ 落とす。名前の 字は 1 字ずつ char で 入れる（前の 文字を 空に してから）。
+ * 家具は 置けなければ 落とす（x・z は 保存の 形の 左上。置く ときは もとの マスに 直す）。名前の 字は 1 字ずつ char で 入れる（前の 文字を 空に してから）。
  */
 export async function setForm(
   page: Page,
@@ -396,7 +431,12 @@ export async function setForm(
     const delta = f.windows > cur ? 1 : -1;
     for (let i = cur; i !== f.windows; i += delta) expect(await edit(page, { op: 'windows', delta }), `まどの かず ${i} → ${i + delta}`).toBe(true);
   }
-  for (const p of f.furniture ?? []) expect(await edit(page, { op: 'place', ...p }), `家具 ${p.kind} (${p.x}, ${p.z})`).toBe(true);
+  // furniture の x・z は 保存の 形（左上）。窓口 place の x・z は もとの マス（1E）なので 向きから 求めて 置く（形は どちらでも 同じ）
+  for (const p of f.furniture ?? []) {
+    const rot = (p.rot ?? 0) as 0 | 1 | 2 | 3;
+    const o = originOf({ kind: p.kind, x: p.x, z: p.z, rot });
+    expect(await edit(page, { op: 'place', kind: p.kind, x: o.x, z: o.z, rot }), `家具 ${p.kind} (${p.x}, ${p.z}) rot ${rot}`).toBe(true);
+  }
   if (f.front !== undefined) {
     while ((await ed(page)).name.front.length > 0) await edit(page, { op: 'erase' });
     for (const ch of Array.from(f.front)) expect(await edit(page, { op: 'char', ch }), `字 ${ch}`).toBe(true);

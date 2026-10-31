@@ -309,7 +309,7 @@ describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
     const v = { outside: { yaw: 28, elev: 26 }, inside: { yaw: 40, elev: 50 } };
     const touched = { outside: false, inside: false };
     sys.preview = {
-      info: (mode) => ({ yaw: v[mode].yaw, elev: v[mode].elev, touched: touched[mode], wait: touched[mode] ? 600 : null, builds: 3, glow: null }),
+      info: (mode) => ({ yaw: v[mode].yaw, elev: v[mode].elev, touched: touched[mode], wait: touched[mode] ? 600 : null, builds: 3, furniture: 2, glow: null }),
       drag: (dx, dy) => {
         const m = sys.previewMode()!;
         v[m].yaw -= dx / 2;
@@ -334,7 +334,7 @@ describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
     const { sys, hook } = opened();
     fakePreview(sys);
     sys.press('editor');
-    expect(hook.editor()?.preview).toEqual({ mode: 'outside', roof: true, angle: 28, pitch: 26, touched: false, wait: null, builds: 3, glow: null });
+    expect(hook.editor()?.preview, '1E: furniture は 見本が 出して いる 家具の 数（見本から もらう）').toEqual({ mode: 'outside', roof: true, angle: 28, pitch: 26, touched: false, wait: null, builds: 3, furniture: 2, glow: null });
     sys.press('next');
     expect(hook.editor()?.preview).toMatchObject({ mode: 'inside', roof: false, angle: 40, pitch: 50 });
     sys.press('next');
@@ -378,7 +378,7 @@ describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
     sys.press('next');
     expect(hook.edit({ op: 'place', kind: 'futon', x: 1, z: 1 })).toBe(true);
     expect(hook.edit({ op: 'select', x: 1, z: 1 })).toBe(true);
-    expect(hook.editor()?.selected).toEqual({ x: 1, z: 1 });
+    expect(hook.editor()?.selected, '1E: i と もとの マス').toEqual({ i: 0, x: 1, z: 1 });
     const undo = sys.editor.canUndo();
     hook.previewDrag(10, 0);
     expect(hook.editor()?.selected).toBeNull();
@@ -440,6 +440,138 @@ describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
     expect(bag.count('sekkeizu')).toBe(2);
     expect(hook.blueprints().map((b) => b.number)).toEqual([1, 2]);
     expect(hook.need(999), '知らない マス').toEqual([]);
+  });
+
+  it('1E AC13c・AC57: furniture[].origin・bad・selected {i, x, z}。place の x・z は もとの マス。↻ ↺ で もとの マスは うごかず、赤く なる 向きにも まわる', () => {
+    const { sys, hook } = opened();
+    sys.press('editor');
+    sys.press('next');
+    expect(hook.edit({ op: 'place', kind: 'futon', x: 4, z: 4 }), '5×5 の 右下の すみ').toBe(true);
+    expect(hook.editor()?.furniture).toEqual([{ kind: 'futon', x: 4, z: 4, rot: 0, origin: { x: 4, z: 4 }, bad: 'out' }]);
+    expect(hook.edit({ op: 'select', x: 4, z: 4 })).toBe(true);
+    expect(hook.editor()?.selected).toEqual({ i: 0, x: 4, z: 4 });
+    const turns = [
+      ['turnRight', { x: 3, z: 4, rot: 1, bad: null }], ['turnRight', { x: 4, z: 3, rot: 2, bad: null }], ['turnRight', { x: 4, z: 4, rot: 3, bad: 'out' }], ['turnRight', { x: 4, z: 4, rot: 0, bad: 'out' }],
+      ['turnLeft', { x: 4, z: 4, rot: 3, bad: 'out' }], ['turnLeft', { x: 4, z: 3, rot: 2, bad: null }],
+    ] as const;
+    for (const [id, want] of turns) {
+      sys.press(id);
+      expect(hook.editor()?.furniture[0], `${id} → rot ${want.rot}`).toEqual({ kind: 'futon', ...want, origin: { x: 4, z: 4 } });
+      expect(hook.editor()?.selected, 'どの まわしでも えらびの x・z（もとの マス）は 同じ').toEqual({ i: 0, x: 4, z: 4 });
+    }
+    // 置く 前の 向きが ある place も 押した マスが もとの マス
+    expect(hook.edit({ op: 'place', kind: 'table', x: 0, z: 0, rot: 2 })).toBe(true);
+    expect(hook.editor()?.furniture[1]).toEqual({ kind: 'table', x: -1, z: 0, rot: 2, origin: { x: 0, z: 0 }, bad: 'out' });
+  });
+
+  it('1E AC13d: 重なりは 両方 overlap・select は あとから 置いた 方（i: 1）・まわして ほどくと 両方 null・とると もう 片方も null・bad は もどす でも 形から 決まる', () => {
+    const { sys, hook } = opened();
+    sys.press('editor');
+    sys.press('next');
+    hook.edit({ op: 'place', kind: 'futon', x: 1, z: 0 });
+    hook.edit({ op: 'place', kind: 'table', x: 0, z: 1 });
+    const bads = (): unknown[] => (hook.editor()?.furniture ?? []).map((f) => (f as unknown as { bad: unknown }).bad);
+    expect(bads()).toEqual(['overlap', 'overlap']);
+    expect(hook.edit({ op: 'select', x: 1, z: 1 })).toBe(true);
+    expect(hook.editor()?.selected).toEqual({ i: 1, x: 0, z: 1 });
+    expect(hook.edit({ op: 'select', x: 1, z: 0 })).toBe(true);
+    expect(hook.editor()?.selected).toEqual({ i: 0, x: 1, z: 0 });
+    expect(hook.edit({ op: 'rotate', x: 1, z: 1, dir: 'right' }), '重なる マスは あとから 置いた テーブル').toBe(true);
+    expect(bads()).toEqual([null, null]);
+    expect(hook.edit({ op: 'undo' })).toBe(true);
+    expect(bads()).toEqual(['overlap', 'overlap']);
+    expect(hook.edit({ op: 'remove', x: 1, z: 0 })).toBe(true); // ふとんを とる
+    expect(bads()).toEqual([null]);
+    expect(hook.edit({ op: 'undo' })).toBe(true);
+    expect(bads()).toEqual(['overlap', 'overlap']);
+    expect(hook.edit({ op: 'redo' })).toBe(true);
+    expect(bads()).toEqual([null]);
+  });
+
+  it('1E AC13e: 9×9 → 5×5 を size 1 回で。ながい テーブルは (−2, 2)・out、いすは (2, 4)・door で のこり、(0, 0) の いすだけ 消えて ふきだし。もどす 1 回で 3 つ とも もとに。まわせない 家具は false ＋ flash', () => {
+    const { sys, hook } = opened();
+    sys.press('editor');
+    expect(hook.edit({ op: 'size', w: 9, d: 9 })).toBe(true);
+    sys.press('next');
+    for (const op of [{ op: 'place', kind: 'long_table', x: 0, z: 4 }, { op: 'place', kind: 'chair', x: 4, z: 6 }, { op: 'place', kind: 'chair', x: 0, z: 0 }]) expect(hook.edit(op)).toBe(true);
+    expect(hook.edit({ op: 'size', w: 5, d: 5 })).toBe(true);
+    expect(hook.editor()?.furniture).toEqual([
+      { kind: 'long_table', x: -2, z: 2, rot: 0, origin: { x: -2, z: 2 }, bad: 'out' },
+      { kind: 'chair', x: 2, z: 4, rot: 0, origin: { x: 2, z: 4 }, bad: 'door' },
+    ]);
+    expect(sys.menu().bubble).toBe('はいらない かぐを かたづけたよ');
+    const shape = JSON.stringify(hook.editor()?.furniture);
+    expect(hook.editor()).toMatchObject({ canUndo: true, flash: null });
+    expect(hook.edit({ op: 'rotate', x: 0, z: 2, dir: 'right' }), 'もとの マス (−2, 2) は 方眼の 外 → 1 マスも 入らない').toBe(false);
+    expect(hook.editor()).toMatchObject({ canUndo: true, flash: { items: [0], seq: 1 } });
+    expect(hook.edit({ op: 'rotate', x: 0, z: 2, dir: 'left' })).toBe(false);
+    expect(hook.editor()).toMatchObject({ flash: { items: [0], seq: 2 } });
+    expect(JSON.stringify(hook.editor()?.furniture)).toBe(shape);
+    expect(hook.edit({ op: 'size', w: 9, d: 9 })).toBe(true);
+    expect(hook.editor()?.furniture).toEqual([
+      { kind: 'long_table', x: 0, z: 4, rot: 0, origin: { x: 0, z: 4 }, bad: null },
+      { kind: 'chair', x: 4, z: 6, rot: 0, origin: { x: 4, z: 6 }, bad: null },
+    ]);
+    expect(hook.edit({ op: 'undo' })).toBe(true); // 9×9 に もどした のを もどす
+    expect(hook.edit({ op: 'undo' })).toBe(true); // 小さく した のを もどす
+    expect(hook.editor()?.size).toEqual({ w: 9, d: 9 });
+    expect(hook.editor()?.furniture.map((f) => [f.kind, f.x, f.z])).toEqual([['long_table', 0, 4], ['chair', 4, 6], ['chair', 0, 0]]);
+  });
+
+  it('1E AC13f・AC44: 赤い 家具が ある 間の next（② → ③）と done は 進まない。ふきだし・flash（赤い 家具 ぜんぶ・seq が 1 ずつ）。せっけいずは ふえず、かみ・ふでは へらない。なおすと 進む', () => {
+    const { sys, bag, hook } = opened();
+    bag.add('paper', 3);
+    bag.add('fude', 1);
+    sys.press('editor');
+    sys.press('next');
+    for (const op of [{ op: 'place', kind: 'chair', x: 0, z: 0 }, { op: 'place', kind: 'futon', x: 4, z: 4 }, { op: 'place', kind: 'chair', x: 2, z: 4 }]) expect(hook.edit(op)).toBe(true);
+    const shape = JSON.stringify(hook.editor()?.furniture);
+    const undo = sys.editor.canUndo();
+    sys.press('next');
+    expect(hook.editor()).toMatchObject({ step: 'naka', canUndo: undo, flash: { items: [1, 2], seq: 1 } });
+    expect(sys.menu().bubble).toBe('あかい かぐを なおしてね');
+    sys.press('done');
+    expect(hook.editor()).toMatchObject({ step: 'naka', flash: { items: [1, 2], seq: 2 } });
+    expect(sys.menu().bubble).toBe('あかい かぐを なおしてね');
+    expect(JSON.stringify(hook.editor()?.furniture)).toBe(shape);
+    expect(hook.blueprints()).toHaveLength(0);
+    expect([bag.count('paper'), bag.count('fude'), bag.count('sekkeizu')]).toEqual([3, 1, 0]);
+    // ① からの done も 止まって ② に なる
+    sys.press('prev');
+    sys.press('done');
+    expect(hook.editor()).toMatchObject({ step: 'naka', flash: { items: [1, 2], seq: 3 } });
+    // ① の next ・② の prev は すすむ
+    sys.press('prev');
+    expect(hook.editor()?.step).toBe('soto');
+    sys.press('next');
+    expect(hook.editor()?.step).toBe('naka');
+    // なおして すすむ
+    hook.edit({ op: 'rotate', x: 4, z: 4, dir: 'right' });
+    hook.edit({ op: 'remove', x: 2, z: 4 });
+    sys.press('next');
+    expect(hook.editor()?.step).toBe('namae');
+  });
+
+  it('1E AC13g: 赤い 家具が ある まま セーブして 読みこむと 同じ furniture（x・z・rot・origin・bad）。① で とじた 形でも 開くと naka。blueprints() の 家具は 赤を ふくまない', () => {
+    const { sys, hook } = opened();
+    sys.press('editor');
+    sys.press('next');
+    for (const op of [{ op: 'place', kind: 'chair', x: 0, z: 0 }, { op: 'place', kind: 'futon', x: 4, z: 4 }]) expect(hook.edit(op)).toBe(true);
+    const before = hook.editor()?.furniture;
+    expect(before?.map((f) => (f as unknown as { bad: unknown }).bad)).toEqual([null, 'out']);
+    sys.press('prev'); // ① で とじる
+    const saved = sys.state.serialize();
+    sys.load(saved);
+    expect(hook.editor()?.step, '赤い 家具が あれば ② で 開く').toBe('naka');
+    expect(hook.editor()?.furniture).toEqual(before);
+    expect(JSON.stringify(saved)).not.toMatch(/"bad"|"origin"/);
+    // 赤い まま できた！は 止まる ので せっけいずに 赤い 家具は 入らない。なおして 作る
+    hook.edit({ op: 'rotate', x: 4, z: 4, dir: 'right' });
+    sys.press('next');
+    for (const ch of 'ひみつ') hook.edit({ op: 'char', ch });
+    sys.press('done');
+    expect(hook.blueprints()).toHaveLength(1);
+    expect(hook.blueprints()[0]!.furniture).toEqual([{ kind: 'chair', x: 0, z: 0, rot: 0 }, { kind: 'futon', x: 3, z: 4, rot: 1 }]);
   });
 
   it('くらの 材料は へらない。くらの 数が need の have', () => {

@@ -6,7 +6,10 @@ import {
 } from './model';
 import { NAME_FRONT_MAX, SIZES, type Size } from './tuning';
 
-/** HOUSE-1B AC11（まどの 上限）・AC12（窓の ならべ方）・AC13（置ける 所）・AC9〜10（材料）・名前（§2.6）・保存の 読み込み */
+/**
+ * HOUSE-1B AC11（まどの 上限）・AC12（窓の ならべ方）・AC13（置ける 所）・AC9〜10（材料）・名前（§2.6）・保存の 読み込み
+ * HOUSE-1E〔#374〕: placeProblem は「赤い わけ（bad）」を 返す 道具 ＝ 置けるかどうかの 門ではない（赤くても 置ける）。大きさを かえても 赤く のこす（AC13e）・保存の 読みこみ（AC13g）
+ */
 
 const form = (w: Size, d: Size, extra: Partial<EditorState> = {}): EditorState => ({ ...emptyState(), w, d, ...extra });
 
@@ -112,7 +115,7 @@ describe('AC13（2.4）13 しゅるいの 大きさと 向き', () => {
   });
 });
 
-describe('AC13 家具を 置ける 所', () => {
+describe('AC13・AC13d 家具が ふつうの 色で いられる 所（placeProblem ＝ 赤い わけ。null ＝ ふつう）', () => {
   const fill = (s: EditorState): number => {
     let n = 0;
     for (let z = 0; z < s.d; z++) {
@@ -127,22 +130,26 @@ describe('AC13 家具を 置ける 所', () => {
     return n;
   };
 
-  it('1×1 の 家具を 戸の 前の 1 マス いがい ぜんぶに 置ける（5×5 ＝ 24・7×7 ＝ 48・9×9 ＝ 80）', () => {
+  it('1×1 の 家具が ふつう（null）で いられる マスは 戸の 前の 1 マス いがい ぜんぶ（5×5 ＝ 24・7×7 ＝ 48・9×9 ＝ 80）', () => {
     expect(fill(form(5, 5))).toBe(24);
     expect(fill(form(7, 7))).toBe(48);
     expect(fill(form(9, 9))).toBe(80);
   });
 
-  it('戸の 前の 1 マスは まえの かべの まん中の 内がわ。外・重なりも 置けない', () => {
+  it('戸の 前の 1 マスは まえの かべの まん中の 内がわ。外・重なりと ともに 赤い わけ（out → door → overlap の 順）', () => {
     const s = form(7, 5);
     expect(doorInside(s)).toEqual({ x: 3, z: 4 });
     expect(placeProblem(s, { kind: 'chair', x: 3, z: 4, rot: 0 })).toBe('door');
     expect(placeProblem(s, { kind: 'table', x: 2, z: 4, rot: 0 }), '2×1 が 戸の 前に かかる').toBe('door');
     expect(placeProblem(s, { kind: 'chair', x: 7, z: 0, rot: 0 })).toBe('out');
     expect(placeProblem(s, { kind: 'chair', x: -1, z: 0, rot: 0 })).toBe('out');
+    expect(placeProblem(s, { kind: 'table', x: 6, z: 4, rot: 0 }), 'はしが 外').toBe('out');
+    expect(placeProblem(s, { kind: 'futon', x: 3, z: 4, rot: 0 }), '戸の 前にも かかるが out が 先').toBe('out');
+    expect(placeProblem(s, { kind: 'futon', x: 3, z: 3, rot: 0 }), '(3, 3)・(3, 4)').toBe('door');
     s.furniture.push({ kind: 'table', x: 0, z: 0, rot: 0 });
     expect(placeProblem(s, { kind: 'chair', x: 1, z: 0, rot: 0 })).toBe('overlap');
     expect(placeProblem(s, { kind: 'chair', x: 2, z: 0, rot: 0 })).toBeNull();
+    expect(placeProblem(form(7, 5, { furniture: [{ kind: 'chair', x: 3, z: 3, rot: 0 }] }), { kind: 'futon', x: 3, z: 3, rot: 0 }), '戸の 前にも かかり 重なっても door が 先').toBe('door');
     // 動かして いる 自分とは 重ならない
     expect(placeProblem(s, { kind: 'table', x: 0, z: 0, rot: 1 }, 0)).toBeNull();
   });
@@ -170,6 +177,36 @@ describe('大きさを かえる（refit）', () => {
     const clip = refit(nine, form(5, 5));
     expect(clip.dropped, '9→5 で はみ出す いす（左上の かど）は きえる').toBe(1);
     expect(clip.state.furniture.map((p) => [p.x, p.z])).toEqual([[2, 2]]);
+  });
+
+  it('AC13e 9×9 → 5×5: はみ出した・戸の 前に かかった 家具は 消さずに 赤く のこす。方眼に 1 マスも 入らない 家具 だけ 消える（数を 返す）', () => {
+    const old = form(9, 9, { furniture: [{ kind: 'long_table', x: 0, z: 4, rot: 0 }, { kind: 'chair', x: 4, z: 6, rot: 0 }, { kind: 'chair', x: 0, z: 0, rot: 0 }] });
+    const r = refit(old, form(5, 5));
+    expect(r.dropped).toBe(1);
+    expect(r.state.furniture).toEqual([{ kind: 'long_table', x: -2, z: 2, rot: 0 }, { kind: 'chair', x: 2, z: 4, rot: 0 }]);
+    expect(r.state.furniture.map((p, i) => placeProblem(r.state, p, i))).toEqual(['out', 'door']);
+    const back = refit(r.state, form(9, 9));
+    expect(back.dropped).toBe(0);
+    expect(back.state.furniture).toEqual([{ kind: 'long_table', x: 0, z: 4, rot: 0 }, { kind: 'chair', x: 4, z: 6, rot: 0 }]);
+    expect(back.state.furniture.map((p, i) => placeProblem(back.state, p, i))).toEqual([null, null]);
+  });
+
+  it('AC13e 消えるのは 方眼に 1 マスも 入らない 物 だけ（向きが かわった 形でも 今の 形の マスで 数える）。重なった 家具も のこる', () => {
+    const old = form(9, 9, {
+      furniture: [
+        { kind: 'table', x: 7, z: 0, rot: 0 }, // 5×5 では (5, −2) ＝ 外
+        { kind: 'table', x: 6, z: 6, rot: 0 }, // (4, 4)・(5, 4) ＝ 1 マス 入る
+        { kind: 'futon', x: 2, z: 0, rot: 2 }, // 1×2 → (0, −2)・(0, −1) ＝ 外
+        { kind: 'futon', x: 2, z: 1, rot: 2 }, // (0, −1)・(0, 0) ＝ 1 マス 入る
+        { kind: 'chair', x: 4, z: 4, rot: 0 },
+        { kind: 'chair', x: 4, z: 4, rot: 0 }, // 同じ マスに 重なる
+      ],
+    });
+    const r = refit(old, form(5, 5));
+    expect(r.dropped).toBe(2);
+    expect(r.state.furniture.map((p) => [p.kind, p.x, p.z, p.rot])).toEqual([
+      ['table', 4, 4, 0], ['futon', 0, -1, 2], ['chair', 2, 2, 0], ['chair', 2, 2, 0],
+    ]);
   });
 
   it('窓の 数は 新しい 上限に おさまる', () => {
@@ -255,17 +292,32 @@ describe('名前（§2.6）', () => {
   });
 });
 
-describe('AC32b 保存から 読む（parseState）', () => {
-  it('おかしい 値は はじめの まま。置けない 家具・知らない 家具は すてる。名前は 8 字まで', () => {
+describe('AC32b・AC13g 保存から 読む（parseState）', () => {
+  it('おかしい 値は はじめの まま。知らない 家具・向きの おかしい 家具・方眼に 1 マスも 入らない 家具は すてる。名前は 8 字まで', () => {
     expect(parseState(null)).toEqual(emptyState());
     expect(parseState('x')).toEqual(emptyState());
     const s = parseState({
       step: 'naka', w: 7, d: 4, windows: 99, windowKind: 'x', roof: 'flat',
-      furniture: [{ kind: 'chair', x: 0, z: 0, rot: 0 }, { kind: 'chair', x: 0, z: 0, rot: 0 }, { kind: 'sofa', x: 1, z: 1, rot: 0 }, { kind: 'chair', x: 99, z: 0, rot: 0 }, { kind: 'chair', x: 1, z: 0, rot: 7 }],
+      furniture: [{ kind: 'chair', x: 0, z: 0, rot: 0 }, { kind: 'sofa', x: 1, z: 1, rot: 0 }, { kind: 'chair', x: 99, z: 0, rot: 0 }, { kind: 'chair', x: 1, z: 0, rot: 7 }, { kind: 'chair', x: -1, z: 0, rot: 0 }],
       name: { front: 'あいうえおかきくけこ', back: 'ぜったいちがう' },
     });
     expect(s).toMatchObject({ step: 'naka', w: 7, d: 5, windows: windowMax({ w: 7, d: 5 }), windowKind: 'shoji', furniture: [{ kind: 'chair', x: 0, z: 0, rot: 0 }] });
     expect(s.name).toEqual({ front: 'あいうえおかきく', back: 'のいえ' });
+  });
+
+  it('AC13g 赤い 家具（はみ出し・戸の 前・重なり）も のこして 読む。保存の 形は {kind, x, z, rot} の まま（1D までの セーブも 同じ 場所）', () => {
+    const furniture = [
+      { kind: 'futon', x: 4, z: 4, rot: 0 }, // 外（足が 方眼の 外）
+      { kind: 'long_table', x: -2, z: 2, rot: 0 }, // 外（1 マス 入る）
+      { kind: 'chair', x: 2, z: 4, rot: 0 }, // 戸の 前
+      { kind: 'chair', x: 0, z: 0, rot: 0 },
+      { kind: 'chair', x: 0, z: 0, rot: 0 }, // 重なり
+      { kind: 'table', x: 1, z: 1, rot: 1 }, // 1D までの 形（左上と 向き）
+    ];
+    const s = parseState({ step: 'naka', w: 5, d: 5, furniture });
+    expect(s.furniture).toEqual(furniture);
+    expect(s.furniture.map((p, i) => placeProblem(s, p, i))).toEqual(['out', 'out', 'door', 'overlap', 'overlap', null]);
+    expect(JSON.parse(JSON.stringify(s)).furniture).toEqual(furniture);
   });
 
   it('cloneState は 深いコピー', () => {

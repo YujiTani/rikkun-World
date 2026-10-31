@@ -50,6 +50,7 @@
   "e2e/house1cBuild.spec.ts": 55,
   "e2e/house1cGround.spec.ts": 30,
   "e2e/house1d.spec.ts": 25,
+  "e2e/house1e.spec.ts": 120,
   "e2e/hurt1.spec.ts": 128,
   "e2e/itemFx1.spec.ts": 114,
   "e2e/kongo1.spec.ts": 41,

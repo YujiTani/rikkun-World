@@ -35,8 +35,41 @@
 | 2-8 材料・保存 | 「ひつような もの」の 数には 赤い 家具も 入れる。オートセーブにも 赤い 家具が のこる。できた せっけいずには 赤い 家具は 入らない（2-5 で 止まる ため） |
 | 2-9 置く 前の 形 | マウスの 下の 形は 今 どおり 白／赤 で 出す。赤でも 押せる。**家具の ある マスの 上では 形を 出さない**（押すと えらぶ ため。デザインの 提案を PO が 採用 2026-10-31） |
 
-## テストの 準備（yuzu の OK の あと）
+## テストの 準備（tester。2026-10-31。実装の 前に 書いた。新しい テストは ぜんぶ 赤）
 
-- ユニット: 2-1〜2-6・2-8（`src/house/editor/controller.test.ts`・`model.test.ts`）、1-1〜1-4（`src/house/build/glue` の まわり）。
-- E2E: 1 本ずつ。材料: もちものと たんすに 材料を 入れ、くらは 空の まま → 一覧で えらべる → 建てると くら → たんす → もちもの の 順に へる。内装: 5×5 の 右下の すみに ふとんを 押す（赤）→ ↻ → 白・つぎへ で 進める。
-- こわれる 既存テスト（AC13 の「置けない」「まわらない」「消える」など）は tester が 新しい 決まりに 直し、直した 一覧を 報告に 書く。
+- 約束（フック・testid・ふきだし・数）は `e2e/helpers/house.ts` の 先頭「1E の 約束」。E2E の 関数は `e2e/helpers/houseEditor.ts`（`originOf`・`plain`・`Bad`）。ユニットの ふきだしの 字は テストの 中に 直接 書いた（実装の `MSG.fixRed` と 同じ 字）。
+- 手元の 確かめ: `npm run typecheck` は 緑（赤い テストは 型では 落とさず、実行で 落ちる）。ユニットは 下の 表の ファイルが 赤。E2E は `e2e/house1e.spec.ts` が 赤（`flash` が 無い ところで 落ちる）。
+
+### 2. 内装の 仮置き（書いた 分）
+
+| 基準 | テスト | ふくむ もの |
+|---|---|---|
+| AC13 | `controller1e.test.ts`「AC13 方眼の 中の マスなら…」 | 13 しゅるい ぜんぶ 右下の すみに 置ける・方眼の 外／家具の ある マスは false（形・もどす は かわらない）・戸の 前も 置ける〔door〕・1×1 が null の マスの 数 24／48／80・こたつ 5×5 に null |
+| AC13c | `controller1e.test.ts`「家具を まわす」・`system.test.ts`（フック）・`e2e/house1e.spec.ts` | 表の とおりの 数: ふとん（4,4）・ながい テーブル（2,2）・こたつ（4,4）を ↻ 4 回・↺ 4 回〔赤く なる 向きも true〕、1×1 ぜんぶ rot だけ、置く 前の 向き つきの place、保存の 形は {kind,x,z,rot} だけ、もどす 1 回で 1 つ 前の 向き |
+| AC13d | `model.test.ts`（赤い わけの 順）・`controller1e.test.ts`・`system.test.ts` | (2,3)(2,4) ふとん＝door、(2,4) ふとん＝out、重なり＝両方 overlap、↻ で ほどく／とる／もどす で bad が 形から 決まる、重なった マスの select・indexAt・rotate・remove は あとから 置いた 方、家具の ある マスを 押すと えらぶ |
+| AC13d（置く 前の 形） | `e2e/house1e.spec.ts`（画面の 部品で しか 見えない） | `editor-ghost`: 白／赤（`data-bad`）・家具の ある マスの 上では 出ない |
+| AC13e | `model.test.ts`（refit）・`controller1e.test.ts`・`system.test.ts` | 9×9→5×5 で (−2,2)・out／(2,4)・door のこり、(0,0) だけ 消えて ふきだし、9×9 に もどすと null、もどす 1 回で 3 つ、1 マスも 入らない 向きの まわしは false＋flash＋形・canUndo そのまま、消える 家具が なければ ふきだし なし、重なった 赤い 家具も のこる |
+| AC13f | `controller1e.test.ts`・`ops.test.ts`・`system.test.ts`・`e2e/house1e.spec.ts` | ② の next と done（①・②）は 進まない・「あかい かぐを なおしてね」・`flash.items`＝赤い 家具 ぜんぶ・seq が 1 ずつ・形／canUndo／せっけいず／かみ・ふでは そのまま・ボタンは enabled・① next と ② prev は 進む・なおすと 'namae'・③ で undo して 赤く なると 'naka' |
+| AC13g | `preview.test.ts`・`controller1e.test.ts`・`system.test.ts`・`e2e/house1e.spec.ts` | 見本の 面に 赤い 家具が 出ない・`info.furniture` と 作りなおしの 回数・保存→読みこみで 赤が 同じ（origin・bad こみ）・① で とじても 開くと 'naka'（よくない ことばより 先）・`blueprints()` の 家具は plain・`parseState` は 赤も のこし 1 マスも 入らない 物だけ すてる |
+| AC44 ⓪ | `controller1e.test.ts` | 赤い ふとん しか ない／ふとん 0／名前 0 字 でも「あかい かぐを…」が 先・かみ ふで 持ち物は しらべない（④〜⑥ を 呼ばない） |
+| AC57 | `system.test.ts`・`ops.test.ts`・`e2e/house1e.spec.ts` | `selected` は {i,x,z}（x,z ＝ もとの マス・まわしても 同じ）・赤い 家具も えらべる・帯の 上の はみ出しを 押しても えらぶ・そばの ボタン |
+| 音 | なし（オーナー 確認 AC37b） | 赤く 置いた・まわした 音が ふつうと 同じ・止まった ときの 返しの 音／顔 |
+
+E2E は「内装の 仮置き」1 本（`e2e/house1e.spec.ts`）。5×5 で 重なる→えらぶ→↻、右下の すみの ふとん（赤）→ 置く 前の 形 → 帯の 上を 押す → つぎへ・できた！は 進まない → ↻ → つぎへ、赤い まま とじて 開く・セーブして 開きなおす。
+
+### 1E で こわれて 直した 既存テスト（期待は ゆるめて いない）
+
+| ファイル | テスト | どう 直したか |
+|---|---|---|
+| `src/house/editor/controller.test.ts` | 「まわせない（はみ出す・重なる）ときは まわらず…flash」 | 1E で 逆に なった（赤く なる 向きにも まわる）。`controller1e.test.ts` の AC13c〜AC13e に 置きかえ |
+| 同上 | 「AC13（2.4）ながい テーブル…左上の マスは 同じ」 | 「もとの マスを 中心に」に かわった。AC13c の ながい テーブル（2,2）に 置きかえ |
+| 同上 | 「まるい テーブル・まるいす・はにわ（1×1）」 | 1×1 ぜんぶ（`FURNITURE` の 大きさから 数える）に 広げ、↺ も 見る（ゆるめない） |
+| `src/house/editor/model.test.ts` | AC13「置ける 所」2 本・parseState | 題を「ふつうの 色で いられる 所〔placeProblem ＝ 赤い わけ〕」に。戻り値は 同じ。parseState は 重なった いす 2 つを のこす（赤）・方眼に 1 マスも 入らない 物は すてる |
+| `src/house/system.test.ts` | `selected` の 形・preview の 形 | `{ x, z }` → `{ i, x, z }`、`preview.furniture` を 足す |
+| `e2e/house1b.spec.ts` | 戸の 前に 置けない／`selected`／↻ の 左上／`blueprints`・AC34 ③ の 数 | 戸の 前は 置けて `bad: 'door'` → 選んで とる → 置きなおし。`selected` は {i,x,z}。↻ は 'もとの マス' で。AC34 ③ の 置ける 数は `bad: null` で 数える |
+| `e2e/house1b-pr2.spec.ts` | `selected`・furniture | `{ i: 0, x: 1, z: 1 }`・`origin`／`bad` を 足す |
+| `e2e/helpers/houseEditor.ts` | `setForm` | 家具の 左上＋rot を もとの マスに 直して `edit place`（1C 以降の 形 FORM が そのまま 同じ 形に なる） |
+
+### 1. 材料（くらを なくす）
+
+材料の 分（1-0〜1-8・AC9・AC9b・AC15・AC18・AC20・AC20b・AC32d・AC34 ⑤・E2E「材料の 通し」）は 次の コミットで 足す。

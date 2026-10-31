@@ -212,6 +212,37 @@ import { installAimHelpers } from './aim';
  *   ほんだな: 右クリックで 本が ひらく。窓口 `lock.get()`（BOOK-1。e2e/helpers/book.ts の BookState）が 動きの おわりで bookOpen: true・bookView: 'toc'（① もくじ）。
  *       本の 動き（bookAnim）は ステップで 進む（時間では 待たず `settle`）。ほんだなを ねらうと 右の 案内（`hud.actionHint().right`）が 出る（ことばは ユニット）。
  *   右クリックは 家具へ 向けた 1 回の 押して はなす（tapRight）。座る・入る・本は 持ち物に よらず はたらく。
+ *
+ * ---- 1E の 約束（#374 使いやすく。docs/tickets/HOUSE-1E.md・仕様 2.5 版 §2.5・§3.2・§4.3・§4.9・§6.1、AC13・AC13c〜AC13g・AC35c・AC37b・AC44・AC57）----
+ * 実装は この 約束に そろえる。変えるなら この ファイルだけ 直す。E2E は e2e/house1e.spec.ts、関数は e2e/helpers/houseEditor.ts（originOf・plain・Bad）。ユニットは src/house/editor/*.test.ts と src/house/system.test.ts。
+ * いまは 「内装の 仮置き」の 分だけ。「材料」〔くら＋もちもの＋近くの たんす。AC9b・AC20b・AC34 ⑤ ほか〕の 約束は yuzu と くらの 形を 決めなおして いる ので、決まったら ここに 足す。
+ *
+ * 〔内装の 仮置き〕方眼の 中の マスを 押せば どこでも 置けて、置けない 所に ある 家具は 赤（`bad`）。
+ *   editor().furniture[]   { kind, x, z, rot, origin: { x, z }, bad: 'out' | 'door' | 'overlap' | null }。ならびは 置いた 順（あとから 置いた 物が 後ろ。まわしても 順は かわらない）。
+ *                          x・z ＝ 今の 形（まわした あと）の 左上〔保存と 同じ。赤い 家具では 0 より 小さい・よこ／たて 以上 にも なる〕、rot ＝ 向き。
+ *                          origin ＝ もとの マス（向き 0 の 左上。ふとんは まくらの マス。rot 0 では x・z と 同じ）。かど ＝ rot 0 左上・1 右上・2 右下・3 左下（仕様 §4.3）。
+ *                          bad ＝ 赤い わけ。2 つ 以上 あてはまる ときは out → door → overlap の 1 つ目。重なった ときは 両方 `'overlap'`。形から 毎回 決まり、保存しない。
+ *                          blueprints()[].furniture は 今まで どおり { kind, x, z, rot }（origin・bad は つけない。せっけいずに なる 家具は 赤く ない 物 だけ）。
+ *   editor().selected      { i, x, z } | null。i ＝ furniture の 番号、x・z ＝ その 家具の もとの マス。まわしても かわらない。重なった マスを 押すと あとから 置いた 方。
+ *   editor().flash         { items: number[], seq: number } | null。赤く 光らせた 家具の 番号（小さい 順）と、光らせる たびに 1 ふえる 数。まだ 光らせて いなければ null。
+ *   editor().preview.furniture   見本に 出して いる 家具の 数。赤い 家具は 出さない（建つ 形 だけ）。ふつうの 色に なると 出て、`preview.builds` が 1 ふえる。
+ *   edit({ op: 'place', kind, x, z, rot? })   x・z ＝ 押した マス ＝ もとの マス（rot が あっても。左上は rot から 決まる）。方眼の 中の 空いた マスなら 赤く なる 所でも true。
+ *                          方眼の 外の マス・もう 家具が ある マスは false。edit({ op: 'select' | 'remove' | 'rotate', x, z }) の x・z ＝ その 家具の どれかの 方眼の 中の マス
+ *                          〔重なって いれば あとから 置いた 方〕。rotate は 赤く なる 向きでも true。ただし もとの マスが 方眼の 外で 1 マスも 入らなく なる ときだけ false
+ *                          〔furniture・canUndo は かわらない。flash が { items: [その 番号], seq: +1 } に なる〕。
+ *   まわす                 ↻ ↺（`turnRight`・`turnLeft`・edit rotate）は もとの マスを 中心に まわる。1×1 は その場で rot だけ。もどす 1 回で 1 つ 前の 向き。
+ *   つぎへ・できた！        赤い 家具が 1 つでも ある 間、② の `next`（② → ③）と `done`（どの すすみでも）は 進まない・何も へらない・せっけいずも できない。
+ *                          step は 'naka'（done が ① ③ から でも ② に 切りかわる）、menu().bubble は「あかい かぐを なおしてね」、
+ *                          editor().flash が { items: 赤い 家具 ぜんぶの 番号, seq: +1 }、形・canUndo・せっけいずは かわらない。ボタンは うすく ならない（next・done とも enabled true）。
+ *                          できた！の しらべでは いちばん 先（ふとん 0・名前 0 字 より 先）。① の `next`（① → ②）・② の `prev` は 赤くても 進む。
+ *                          赤を なおして（まわす・とる・大きさ）から `next` で 'namae'。
+ *   開く                   赤い 家具が ある 作りかけは、保存の step や 名前の よくない ことばに よらず step 'naka' で 開く。セーブ → 開きなおしても 赤い 家具が のこる（x・z・rot・origin・bad が 同じ）。
+ *   大きさを かえる         1 マスでも 方眼に 入る 家具は 消さずに 赤く のこす。1 マスも 入らなく なった 家具だけ 消え、ふきだし「はいらない かぐを かたづけたよ」（消える 家具が なければ 出ない）。
+ *   画面（DOM）            editor-furniture（data-kind・data-x・data-z〔左上〕・data-rot・data-i〔furniture の 番号〕）に、赤い 家具だけ data-bad="out|door|overlap" を つける
+ *                          〔ふつうの 家具には 属性を つけない〕。editor-ghost ＝ 置く 前の 形（ふつうは hidden）。見える 間は、赤い とき だけ data-bad を つける。
+ *                          家具の ある マスの 上では editor-ghost を 出さない。方眼の はこ（かべの 帯 こみ）の 外は 描かない。帯の 上に 見えて いる 赤い 家具の はみ出しを 押しても その 家具を えらぶ。
+ *                          そばの ボタン（take・turnRight・turnLeft）は 方眼の はこの 中に おさまる。
+ *   音                     赤く 置いた・赤く なる 向きに まわした ときの 音は ふつうと 同じ（E2E では 見ない。オーナー確認）。
  */
 
 export interface Architect {

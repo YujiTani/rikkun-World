@@ -37,6 +37,7 @@ import {
   openEditorFast,
   plainText,
   previewDrag,
+  plain,
   pressEsc,
   readButtons,
   reopenHouse,
@@ -216,22 +217,30 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     await clickCell(page, 1, 1);
     await clickBtn(page, 'furniture-table');
     await clickCell(page, 4, 0);
-    // 戸の 前の マス（まえの かべの まん中の 内がわ）には 置けない
+    // 戸の 前の マス（まえの かべの まん中の 内がわ）にも 置ける（1E: 赤い 家具になる。AC13・AC13d）。［とる］で とってから いすを 置き直す
     const doorFront = { x: (e.size.w - 1) / 2, z: e.size.d - 1 };
     await clickBtn(page, 'furniture-chair');
     await clickCell(page, doorFront.x, doorFront.z);
     e = await ed(page);
-    expect(e.furniture, '戸の 前には 置けない（ふとん・テーブルの ままで いすは 増えない）').toEqual([
+    expect(e.furniture.map(plain), '戸の 前にも 置けた（置いた ときは 向き 0）').toEqual([
       { kind: 'futon', x: 1, z: 1, rot: 0 },
       { kind: 'table', x: 4, z: 0, rot: 0 },
+      { kind: 'chair', x: doorFront.x, z: doorFront.z, rot: 0 },
     ]);
+    expect(e.furniture.map((f) => f.bad), '戸の 前の いすだけ 赤い（door）').toEqual([null, null, 'door']);
+    expect(e.furniture[2]!.origin, '押した マスが もとの マス').toEqual(doorFront);
+    await clickFurniture(page, doorFront.x, doorFront.z);
+    await clickBtn(page, 'take');
+    expect((await ed(page)).furniture, '戸の 前の いすを とった').toHaveLength(2);
+    await clickBtn(page, 'furniture-chair');
     await clickCell(page, 5, 3);
     e = await ed(page);
-    expect(e.furniture, '3 つ 置いた（置いた ときは 向き 0）').toEqual([
+    expect(e.furniture.map(plain), '3 つ 置いた（置いた ときは 向き 0）').toEqual([
       { kind: 'futon', x: 1, z: 1, rot: 0 },
       { kind: 'table', x: 4, z: 0, rot: 0 },
       { kind: 'chair', x: 5, z: 3, rot: 0 },
     ]);
+    expect(e.furniture.map((f) => f.bad), '3 つとも ふつうの 色').toEqual([null, null, null]);
     await testInfo.attach('② なか（家具を 置いた）', { body: await page.screenshot(), contentType: 'image/png' });
 
     // ---- AC57: 置いた 家具を 押すと えらべて、そばに［とる］［↻］［↺］が 出る
@@ -240,7 +249,7 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     expect((await btnState(page, 'furniture-chair'))?.pressed, '置く 家具（いす）を えらんだ 状態').toBe(true);
     await clickFurniture(page, 1, 1);
     e = await ed(page);
-    expect(e.selected, 'ふとんを えらんだ').toEqual({ x: 1, z: 1 });
+    expect(e.selected, 'ふとんを えらんだ').toEqual({ i: 0, x: 1, z: 1 });
     expect((await btnState(page, 'furniture-chair'))?.pressed, '置いた 家具を えらぶと 右の 家具の えらびは はずれる').toBe(false);
     const beside = (await readButtons(page)).filter((b) => ['take', 'turnRight', 'turnLeft'].includes(b.id));
     expect(beside.map((b) => b.id).sort(), 'そばの ボタン 3 つ').toEqual(['take', 'turnLeft', 'turnRight']);
@@ -257,11 +266,11 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
       expect(overlap, `${b.id} は えらんだ ふとんに かさならない`).toBe(false);
     }
     expect(await editorMismatch(page), '画面と menu() の ちがい（家具を えらんだ）').toEqual([]);
-    // ↻（みぎに まわす）→ 2×1・rot 1・左上は 同じ。↺ ・ ↺ → rot 0 → 3。もう 1 回 ↻ で rot 0
+    // ↻（みぎに まわす）→ 2×1・rot 1・もとの マス（1, 1）を 中心に まわる〔1E: 左上は (0, 1) に うごく〕。↺ ・ ↺ → rot 0 → 3。もう 1 回 ↻ で rot 0
     await clickBtn(page, 'turnRight');
     e = await ed(page);
-    expect(e.furniture[0], '↻ で rot 1（左上の マスは 同じ）').toEqual({ kind: 'futon', x: 1, z: 1, rot: 1 });
-    expect(e.selected, 'まわしても えらびは そのまま').toEqual({ x: 1, z: 1 });
+    expect(e.furniture[0], '↻ で rot 1（もとの マスは 同じ。左上は ずれる）').toEqual({ kind: 'futon', x: 0, z: 1, rot: 1, origin: { x: 1, z: 1 }, bad: null });
+    expect(e.selected, 'まわしても えらびは そのまま（もとの マスも 同じ）').toEqual({ i: 0, x: 1, z: 1 });
     await clickBtn(page, 'turnLeft');
     expect((await ed(page)).furniture[0]!.rot, '↺ で rot 0').toBe(0);
     await clickBtn(page, 'turnLeft');
@@ -286,7 +295,7 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     expect((await ed(page)).furniture, 'いすを もう 1 度 置いた').toHaveLength(3);
     // テーブルを えらぶ → 空いた マスを 押すと えらびが はずれる だけ（家具は 置かない）
     await clickFurniture(page, 4, 0);
-    expect((await ed(page)).selected, 'テーブルを えらんだ').toEqual({ x: 4, z: 0 });
+    expect((await ed(page)).selected, 'テーブルを えらんだ').toEqual({ i: 1, x: 4, z: 0 });
     await clickCell(page, 6, 4);
     e = await ed(page);
     expect(e.selected, '空いた マスで えらびが はずれる').toBeNull();
@@ -503,7 +512,7 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
       roof: 'flat',
       light: 'lantern',
     });
-    expect(bps[0]!.furniture, 'せっけいずの 家具').toEqual(formBefore.furniture);
+    expect(bps[0]!.furniture, 'せっけいずの 家具（origin・bad は つかない 保存の 形）').toEqual(formBefore.furniture.map(plain));
     // AC47: できた！の あとも 同じ 形が のこる
     await clickBtn(page, 'editor');
     expect(shapeOf(await ed(page)), 'できた！の あとも 作りかけは のこる').toEqual(shapeOf(formBefore));
@@ -550,7 +559,7 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     bps = await blueprints(page);
     expect(bps.map((b) => b.number).sort(), '番号は 1, 2').toEqual([1, 2]);
     expect(bps.find((b) => b.number === 2)!.furniture, '2 まい目は ふとん だけ').toEqual([{ kind: 'futon', x: 1, z: 1, rot: 0 }]);
-    expect(bps.find((b) => b.number === 1)!.furniture, '1 まい目は かわらない').toEqual(formBefore.furniture);
+    expect(bps.find((b) => b.number === 1)!.furniture, '1 まい目は かわらない').toEqual(formBefore.furniture.map(plain));
 
     // ---- あたらしい せっけいず（AC47）: 確かめの まど。Esc・やめる で かわらない・ぜんぶ けす で まっさら → もどす で もどる
     await clickBtn(page, 'editor');
@@ -681,8 +690,8 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
       h.step(2);
       return { n, fails };
     });
-    expect(placed.n, '1×1 の 家具を 戸の 前いがいの 9×9 − 1 マスに').toBe(9 * 9 - 1);
-    expect(placed.fails, '置けなかった マスは 戸の 前の 1 マス だけ').toEqual([`(${(9 - 1) / 2}, ${9 - 1})`]);
+    expect(placed.n, '1×1 の 家具を 9×9 の ぜんぶの マスに（戸の 前にも 置ける。1E）').toBe(9 * 9);
+    expect(placed.fails, '置けなかった マスは ない（1E: 方眼の 中の 空いた マスは どこでも 置ける）').toEqual([]);
     await stepUi(page, 1);
     const naka = await drawStats(page);
     testInfo.annotations.push({ type: '② 9×9・窓 上限・ほんだな 80 こ', description: `描画 ${naka.calls} 回・三角形 ${naka.triangles}` });

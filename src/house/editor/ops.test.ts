@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { editorButtons } from './buttons';
 import { FURN_ORDER } from './furniture';
-import { KANA_CHARS } from './model';
+import { KANA_CHARS, placeProblem } from './model';
 import { editOp, pressEditor } from './ops';
 import { makeController } from './testkit';
 import { ROOF_KINDS, SIZES, SUFFIXES, WINDOW_KINDS } from './tuning';
 
-/** HOUSE-1B 窓口 edit(op)・press(id) と ボタンの 一覧（画面の もと）。仕様 §6.1・e2e/helpers/house.ts の 先頭の 約束 */
+/** HOUSE-1B 窓口 edit(op)・press(id) と ボタンの 一覧（画面の もと）。仕様 §6.1・e2e/helpers/house.ts の 先頭の 約束。HOUSE-1E: place／rotate／remove／select の 赤い 家具・next／done */
 
 const ids = (k: ReturnType<typeof makeController>): string[] => editorButtons(k.ctl).map((b) => b.id);
 
@@ -156,7 +156,7 @@ describe('edit(op)（窓口）', () => {
     expect(e({ op: 'windowKind', kind: 'shoji' })).toBe(false);
     expect(e({ op: 'roof', kind: 'flat' })).toBe(false);
     expect(e({ op: 'place', kind: 'futon', x: 0, z: 0 })).toBe(true);
-    expect(e({ op: 'place', kind: 'futon', x: 0, z: 0 }), '重なる').toBe(false);
+    expect(e({ op: 'place', kind: 'futon', x: 0, z: 0 }), 'もう 家具が ある マス').toBe(false);
     expect(e({ op: 'place', kind: 'sofa', x: 3, z: 3 })).toBe(false);
     expect(e({ op: 'place', kind: 'chair', x: 1.5, z: 3 })).toBe(false);
     expect(e({ op: 'place', kind: 'chair', x: 4, z: 8, rot: 9 })).toBe(false);
@@ -178,5 +178,64 @@ describe('edit(op)（窓口）', () => {
     expect(e({ op: 'undo' })).toBe(true);
     expect(e({ op: 'redo' })).toBe(true);
     for (const bad of [null, 5, 'x', {}, { op: 'nope' }]) expect(e(bad)).toBe(false);
+  });
+});
+
+describe('HOUSE-1E 窓口と ボタン（赤い 家具）', () => {
+  const FIX_RED = 'あかい かぐを なおしてね';
+  const bads = (k: ReturnType<typeof makeController>) => k.ctl.s.furniture.map((p, i) => placeProblem(k.ctl.s, p, i));
+
+  it('edit place: x・z ＝ 押した マス（もとの マス）。方眼の 中なら 赤く なる 所でも true、外の マス・家具の ある マスは false', () => {
+    const k = makeController();
+    const e = (op: unknown): boolean => editOp(k.ctl, op);
+    expect(e({ op: 'place', kind: 'futon', x: 4, z: 4 }), '右下の すみ ＝ 赤').toBe(true);
+    expect(bads(k)).toEqual(['out']);
+    expect(e({ op: 'place', kind: 'futon', x: 4, z: 0, rot: 1 }), '向き つきでも 押した マスが もとの マス').toBe(true);
+    expect(k.ctl.s.furniture[1]).toEqual({ kind: 'futon', x: 3, z: 0, rot: 1 });
+    expect(e({ op: 'place', kind: 'chair', x: 2, z: 4 }), '戸の 前').toBe(true);
+    expect(e({ op: 'place', kind: 'chair', x: 5, z: 0 })).toBe(false);
+    expect(e({ op: 'place', kind: 'chair', x: 0, z: -1 })).toBe(false);
+    expect(e({ op: 'place', kind: 'chair', x: 4, z: 4 }), '家具の ある マス').toBe(false);
+    expect(k.ctl.s.furniture).toHaveLength(3);
+  });
+
+  it('重なった マスの select・rotate・remove は あとから 置いた 方。rotate は 赤く なる 向きでも true', () => {
+    const k = makeController();
+    const e = (op: unknown): boolean => editOp(k.ctl, op);
+    e({ op: 'place', kind: 'futon', x: 1, z: 0 }); // (1, 0)・(1, 1)
+    e({ op: 'place', kind: 'table', x: 0, z: 1 }); // (0, 1)・(1, 1)
+    expect(e({ op: 'select', x: 1, z: 1 })).toBe(true);
+    expect(k.ctl.sel.placed).toBe(1);
+    expect(e({ op: 'select', x: 1, z: 0 })).toBe(true);
+    expect(k.ctl.sel.placed).toBe(0);
+    expect(e({ op: 'rotate', x: 1, z: 1, dir: 'right' }), 'テーブルが まわる').toBe(true);
+    expect(k.ctl.s.furniture[1]!.rot).toBe(1);
+    expect(k.ctl.s.furniture[0]!.rot).toBe(0);
+    expect(e({ op: 'rotate', x: 1, z: 0, dir: 'left' }), 'ふとんを 赤く なる 向きにも').toBe(true);
+    expect(e({ op: 'remove', x: 0, z: 1 })).toBe(true);
+    expect(k.ctl.s.furniture.map((p) => p.kind)).toEqual(['futon']);
+  });
+
+  it('つぎへ・できた！ボタンは 赤い 家具が あっても 押せる（うすく ならない）が、押しても すすまない。① の つぎへ と ② の まえへ は すすむ', () => {
+    const k = makeController();
+    pressEditor(k.ctl, 'next');
+    editOp(k.ctl, { op: 'place', kind: 'futon', x: 4, z: 4 });
+    const en = (id: string): boolean => editorButtons(k.ctl).find((b) => b.id === id)!.enabled;
+    expect([en('next'), en('done'), en('prev')]).toEqual([true, true, true]);
+    expect(pressEditor(k.ctl, 'next'), 'すすまない').toBe(false);
+    expect(k.ctl.s.step).toBe('naka');
+    expect(k.ctl.bubble?.text).toBe(FIX_RED);
+    expect(pressEditor(k.ctl, 'done'), 'ボタンは 押せた').toBe(true);
+    expect(k.ctl.s.step).toBe('naka');
+    expect(k.ctl.bubble?.text).toBe(FIX_RED);
+    expect(pressEditor(k.ctl, 'prev')).toBe(true);
+    expect(pressEditor(k.ctl, 'next')).toBe(true);
+    expect(k.ctl.s.step).toBe('naka');
+    // 赤い 家具が ふとん 1 つでも そばの ボタンは えらべば 出る
+    editOp(k.ctl, { op: 'select', x: 4, z: 4 });
+    expect(ids(k)).toEqual(expect.arrayContaining(['take', 'turnRight', 'turnLeft']));
+    expect(pressEditor(k.ctl, 'turnRight'), '↻ で ふつうに なる').toBe(true);
+    expect(pressEditor(k.ctl, 'next')).toBe(true);
+    expect(k.ctl.s.step).toBe('namae');
   });
 });
