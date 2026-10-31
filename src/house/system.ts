@@ -1,4 +1,4 @@
-import type { ItemId, Vec3 } from '../contracts';
+import type { BlockId, ItemId, Vec3 } from '../contracts';
 import { blueprintName, blueprintWindows, type Blueprint } from './editor/blueprint';
 import { glowsWindows } from './editor/buttons';
 import { EditorController } from './editor/controller';
@@ -6,9 +6,14 @@ import { editOp } from './editor/ops';
 import { needOf, type NeedRow } from './editor/model';
 import { SHEET, createSheetPort, type SheetBag } from './editor/sheet';
 import type { HouseWorld } from './ground';
+import type { BlockWatcher } from './blockWatch';
 import { ArchitectManager, type ArchitectInfo } from './manager';
+import { HouseBook, type HouseView } from './book';
+import { cellInfo, type CellInfo } from './cell';
 import type { PreviewMode } from './preview/mesh';
 import { NO_PREVIEW, previewModeOf, type PreviewPort } from './preview/port';
+import { HouseRename, type RenameView } from './rename';
+import { houseShape } from './shape';
 import { HouseState } from './state';
 import { HouseTalk, type HouseMenuState } from './talk';
 import type { KuraBag } from './kura';
@@ -24,7 +29,8 @@ export const TALK_RANGE = 12;
 
 export interface HouseSystemDeps {
   seed: number;
-  world: HouseWorld;
+  /** 世界の 窓口。`setBlock` は 建てた 家を 書く `buildNow` が 使う（本物の 世界は ふつうの `setBlock`） */
+  world: HouseWorld & { setBlock(x: number, y: number, z: number, id: BlockId): boolean };
   spawn: () => { x: number; z: number; yawDeg: number };
   /** プレイヤーの 足もと */
   player: () => Vec3;
@@ -46,11 +52,21 @@ export interface HouseSystemDeps {
 
 export class HouseSystem {
   readonly state = new HouseState();
+  /** 建てた 家の 記録（戸で おぼえる。この PR では 保存しない） */
+  readonly book = new HouseBook();
   readonly manager: ArchitectManager;
   readonly talk: HouseTalk;
   readonly editor: EditorController;
   /** 見本（3D）への 入口。wireHouse が つなぐ（つなぐ 前は 何も しない） */
   preview: PreviewPort = NO_PREVIEW;
+  /** 世界の ブロックの 変化の 受け手（建築士さんの 足もと ＋ 家の 戸の 記録）。`watchBlocks(world, house.watcher)` で つなぐ */
+  readonly watcher: BlockWatcher = {
+    blockChanged: (x, z) => this.manager.blockChanged(x, z),
+    blocksChanged: (x0, z0, x1, z1) => this.manager.blocksChanged(x0, z0, x1, z1),
+    cellChanged: (x, y, z, id) => this.book.cellChanged(x, y, z, id),
+    boxFilled: (x0, y0, z0, x1, y1, z1, id) => this.book.boxFilled(x0, y0, z0, x1, y1, z1, id),
+  };
+  private readonly renamer: HouseRename;
   private onChange: (() => void) | null = null;
   private seen = 0;
 
@@ -69,7 +85,9 @@ export class HouseSystem {
       sheet: createSheetPort({ bag: d.bag, kura: this.state.kura, register: (draft) => this.state.register(draft), gave: d.gave }),
       onMade: () => this.talk.made(),
     });
+    this.renamer = new HouseRename({ book: this.book, player: () => d.player() });
     this.talk = new HouseTalk({
+      rename: this.renamer,
       editor: this.editor,
       record: this.state.record,
       kura: this.state.kura,
@@ -92,6 +110,7 @@ export class HouseSystem {
   /** 1 ステップ */
   update(): void {
     this.manager.update();
+    this.book.step(this.d.player());
     const id = this.talk.current();
     if (id !== null) this.stepTalk(id);
     this.emit();
@@ -221,6 +240,55 @@ export class HouseSystem {
     const n = this.talk.withdraw(item, want);
     this.emit();
     return n;
+  }
+
+  // ------------------------------------------------------------ 建てた 家（HOUSE-1C PR-1。窓口 buildNow・houses・blockAt・renaming）
+
+  /**
+   * せっけいず（番号）から 家を その場に 建てる（建築が おわった 形を いっぺんに。手順・材料・地盤は PR-2）。外の 箱の 北西の すみ at（床の 段の 高さ）。
+   * 箱の 中の ぜんぶの マスを ふつうの `world.setBlock` で 書く（blockWatch の 知らせ・光・メッシュも ふつうの 道）。知らない 番号は null
+   */
+  buildNow(number: number, at: Vec3): HouseView | null {
+    const bp = this.state.blueprint(number);
+    if (!bp) return null;
+    const shape = houseShape(bp);
+    // 戸を いちばん 最後に 書く（記録は 戸の マスで おぼえるので、その前に 戸が 無い 状態で 知らせが 出ない ように）
+    for (const c of shape.cells) this.d.world.setBlock(at.x + c.x, at.y + c.y, at.z + c.z, c.id as BlockId);
+    const rec = this.book.add({
+      name: bp.name.front + bp.name.back,
+      front: bp.name.front,
+      back: bp.name.back,
+      number,
+      outer: { w: shape.outerW, d: shape.outerD },
+      door: { x: at.x + shape.door.x, y: at.y + shape.door.y, z: at.z + shape.door.z },
+      doorOpen: false,
+    });
+    return this.book.view(rec);
+  }
+
+  /** 戸で おぼえた 記録（できた 順） */
+  houses(): HouseView[] {
+    return this.book.list().map((r) => this.book.view(r));
+  }
+
+  /** マス 1 つの ようす（ほると 手に 入る アイテム・家具の 向き） */
+  blockAt(x: number, y: number, z: number): CellInfo {
+    return cellInfo(this.d.world.getBlock(x, y, z));
+  }
+
+  /** 名前の 画面で 作って いる 名前（ほかの ページでは null） */
+  renaming(): { id: number; name: { front: string; back: string } } | null {
+    return this.talk.menu().page === 'renameName' ? this.renamer.renaming() : null;
+  }
+
+  /** なまえを かえる の 画面が 読む もの */
+  renameView(): RenameView {
+    return this.renamer.view();
+  }
+
+  /** 名前の 帯（家の 戸を 外から 通った とき 3 秒）。出て いなければ null */
+  nameBand(): { text: string; ticksLeft: number } | null {
+    return this.book.nameBand();
   }
 
   menu(): HouseMenuState {

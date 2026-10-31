@@ -541,6 +541,7 @@ export class DigSystemImpl implements DigSystem {
     else if (pv.kind === 'pet' && t) this.farm.doPet(t);
     if (pv.kind === 'storage' && t) this.m4.storage?.open(t.block.x, t.block.y, t.block.z);
     else if (pv.kind === 'furnace' && t) this.m4.craft?.openFurnace(t.block.x, t.block.y, t.block.z);
+    else if ((pv.kind === 'doorOpen' || pv.kind === 'doorClose') && t) this.placer.toggleDoor(t);
     else if (GADGET_KINDS.has(pv.kind)) this.m4.gadgets?.[pv.kind as 'sleep' | 'kite']();
     else if (pv.kind === 'armor' && pv.item) this.m4.armor?.tryEquip(pv.item);
     else if (pv.kind === 'seedHint' && t) this.m4.farm?.noteHint('till', center(t.block));

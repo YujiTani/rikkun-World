@@ -117,6 +117,42 @@ import { installAimHelpers } from './aim';
  * よくない ことば（AC58）: 前の 文字の 末に 入れた 字（edit char）・゛ ゜（press dakuten／handakuten）・後ろの 文字（edit suffix）で、そろえた 名前に 表の ことばが 入ると false（press は 何も かえない）。
  *   名前・canUndo は かわらず、ふきだし「その ことばは おなまえに いれたら だめだよ」。erase は 止まらない。読みこんだ 作りかけに よくない ことばが あると、すすみに よらず ③ なまえ で 開いて 同じ ふきだし。
  *   できた！（done）も 止まる（③ のまま・かみ／ふで／せっけいずは かわらない）。
+ *
+ * ---- 1C PR-1（#340 家の 中身。docs/tickets/HOUSE-1C.md「PR-1」・仕様 §2.6・§2.11・§2.13・§3.3・§4.6・§4.8・§6.1）の 約束。テストの 関数は e2e/helpers/houseBuilt.ts ----
+ * 家は テスト用の フックで せっけいずから その場に 建てる（建築の 手順・材料・地盤・上空の 視点は PR-2）。開発は この 約束に そろえる。変えるなら この ファイルだけ 直す。
+ * 方位: 家の まえ（戸の ある がわ）＝ 南 ＝ +z。方眼の 下 ＝ 南（+z）・上 ＝ 北（−z）・左 ＝ 西（−x）・右 ＝ 東（+x）。向き rot: 0 ＝ 前が 南 → 1 ＝ 西 → 2 ＝ 北 → 3 ＝ 東（↻ ＝ 上から 見て 時計まわり）。
+ *
+ *   house.buildNow(number, at) → HouseRec | null    せっけいずから 家を その場に 建てる（建築が おわった 形を いっぺんに 置く）
+ *       number ＝ せっけいずの 番号（`blueprints()[i].number`。持ち物に のこって いなくても 保存の 中身に あれば 建てる）。知らない 番号は null
+ *       at ＝ { x, y, z }: 家の 外の 箱の 北西（−x・−z）の すみの、床の 段の 高さ。外の 箱は x..x+w+1・z..z+d+1・y..y+4（w・d ＝ せっけいずの よこ・たて。床 1 ＋ 中 3 ＋ 屋根 1）
+ *       箱の 中の ぜんぶの マスを 書く（AC49）: 床の 段 ＝ 外の 箱ぜんぶ `house_floor`・屋根の 段 ＝ ぜんぶ `house_roof`・中の 3 段の 外まわり ＝ `house_wall`
+ *         〔まえの かべの まん中の 1・2 段目 ＝ `house_door`（しまって いる）。窓 ＝ 2 段目の `windowCells`（§4.2）の 場所に `shoji`〕・中の 3 段目の まん中 ＝ `lantern`・
+ *         家具 ＝ せっけいずの マス・向き（1 段目。ふとんは 頭 `futon*` ＋ 足 `futon_foot_*`）・のこりの 中の マス ＝ `air`
+ *       形の 式は `src/house/editor/model.ts`（`windowCells`・`doorIndex`・`footprint`）。テストも そこを 読んで 期待を 作る
+ *       材料・せっけいず・持ち物は へらさない。世界の 書きかえは ふつうの `world.setBlock` と 同じ 道（blockWatch の 知らせ・光・メッシュ）。家の 記録を 1 件 つくる
+ *   house.houses() → HouseRec[]                     戸で おぼえた 記録（できた 順）。戸が こわれると 消える（AC52）
+ *       HouseRec ＝ { id: number | string, name: string, number: number, outer: { w: number, d: number }, door: { x, y, z }, doorOpen: boolean }
+ *         name ＝ 前の 文字 ＋ 後ろの 文字（建てた ときの せっけいずの 名前。なまえを かえる で かわる）・number ＝ せっけいずの 番号・outer ＝ 外の 寸法（w＋2・d＋2）・
+ *         door ＝ 戸の 下の マス（まえの かべの まん中・床の 上の 1 段目）・doorOpen ＝ あいて いるか（建った ときは false）
+ *   house.blockAt(x, y, z) → { id: BlockId | 'outside', item: ItemId | null, dir: 0 | 1 | 2 | 3 | null }
+ *       id ＝ `world.getBlock` と 同じ・item ＝ そこを ほると 手に 入る アイテム（ふとんは 頭も 足も `futon`、戸は 上も 下も `house_door`、空気は null）・
+ *       dir ＝ 向きを 持つ ブロック（家具）の rot（上の 向き）、持たない 物は null。ブロックの id の 作り方〔向きごとに 別の id か〕は 決めない ため、家具は これで たしかめる
+ *   ui.houseNameBand() → { text: string, ticksLeft: number } | null
+ *       text ＝ 家の name そのまま（かぎかっこ なし）。ticksLeft ＝ あと 何ステップ 出すか: 出はじめは 180（179 も ゆるす）、1 ステップごとに 1 へり、`step(ticksLeft)` で null。
+ *       DOM は data-testid="house-name-band"（出て いない 間は 見えない か ない）。今の 上の 帯の 列に ならぶ 作りで よい（要素に この testid を つける）
+ *   戸: ブロックの id は `house_door` で はじまる（あけ・しめで 別の id に して よい。上下 2 マス）。右クリックで あけしめ（上下 どちらを ねらっても 2 マスとも）。
+ *       しまった 戸は プレイヤーが 通れない・あいた 戸は 通れる。あいた 戸も ねらえる（`target.get()` に 出る）。ねらうと 右の 案内（`hud.actionHint().right`）が 出る:
+ *       しまって いる ＝「あける」・あいて いる ＝「しめる」（E2E では ことばが 空でなく、あけしめで かわる ことだけ 見る。ことばは ユニット〔#37〕）
+ *   窓 `shoji`・かべ・床・屋根は 固い（通れない）。ほると それぞれ 同じ id の アイテム 1 こ（`inventory.count`）。戸は 上下 どちらを ほっても 2 マス 消えて `house_door` 1 こ
+ *
+ * ---- なまえを かえる（§2.6・AC53）。上の メニューの `rename` は 家が 1 けん 以上 あるとき だけ 押せる ----
+ *   menu().page: 'rename'（建てた 家の 一覧。ふきだし「どの いえの なまえを かえる？」）・'renameName'（名前の 画面。はじめは 今の 名前）
+ *   'rename'     ボタン: `renamePick-<家の id>`（プレイヤーから 近い 順に 上から）・`close`（✕）。press('renamePick', 家の id) も 同じ。DOM の 外わくは data-testid="house-rename"
+ *   'renameName' ボタン: ③ なまえ（1B）と 同じ `char-<ひらがな>`・`dakuten`・`handakuten`・`katakana`・`erase`・`suffix-0〜4` ＋ `renameOk`（これで いい！）・`renameCancel`（やめる）。
+ *                今の 名前の 字は data-testid="rename-name"。外わくは data-testid="house-rename-name"。ふきだしは `house-bubble`（menu().bubble と 同じ）
+ *   house.renaming() → { id, name: { front: string, back: string } } | null   名前の 画面で 作っている 名前（ほかの ページでは null）
+ *   `renameOk`: 前の 文字が 0 字 → 何も かわらず ふきだし「なまえを つけてね」（ページは そのまま）。1 字 以上 → `houses()` の name が かわり、ページは 上の メニューに もどる。
+ *               せっけいずの 名前〔`blueprints()`〕は かわらない。`renameCancel`: 何も かえず 上の メニューへ
  */
 
 export interface Architect {

@@ -3,6 +3,7 @@
  */
 
 import type { ChalkMarkId } from '../world/blocks/chalkMark';
+import type { FurnBlockId, HouseBlockId, HouseDoorPartId } from '../world/blocks/houseBlocks';
 
 export interface Vec3 {
   x: number;
@@ -89,7 +90,11 @@ export type BlockId =
   | 'suisho_ore' // すいしょうの いし（ほると すいしょう `crystal`）
   | 'diamond_ore' // ダイヤの いし（ほると ダイヤ `diamond`）
   // チョークの しるし 12 こ（面 × やじるしの 向き。持ち物に 入らない。`src/world/blocks/chalkMark.ts`）
-  | ChalkMarkId;
+  | ChalkMarkId
+  // HOUSE-1C PR-1（#340。うしろに足す）: 家の ブロック 5 つ・戸の のこり 3 マス・向きの ある 家具（向き × マスごとの id。`src/world/blocks/houseBlocks.ts`）
+  | HouseBlockId
+  | HouseDoorPartId
+  | FurnBlockId;
 
 export interface BlockType {
   id: BlockId;

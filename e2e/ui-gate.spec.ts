@@ -14,7 +14,8 @@ import { findUnrubiedKanji } from '../src/ui/text';
 import { openLive3 } from './helpers/live3';
 import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid, toNewScreen } from './helpers/start';
 import { TID as HOUSE_TID, houseUiIssues, openKuraScreen, openMenuScreen } from './helpers/house';
-import { EDITOR_GATE, editorGateIssues, openEditorScreen } from './helpers/houseEditor';
+import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
+import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
 
 /**
  * UI 検査ゲート（`npm run check:ui`）。
@@ -43,6 +44,8 @@ interface Screen {
   id: string;
   /** しらべる範囲（CSS セレクタ） */
   roots: string[];
+  /** true なら 画面を 出すまでに 時間が かかる（家を 何けんも 建てる など）。テストの 時間切れを 240 秒に する */
+  slow?: boolean;
   /** true なら くずれ（はみ出し・重なり）だけ しらべる（色・字の きまりは ほかの画面で見ている） */
   layoutOnly?: boolean;
   /** true なら 大きさを かえるときに ステップを 進めない（見た目を 落雷の F に 止めて 3 つの 大きさで 撮る。ART-PIPE-1 AC7） */
@@ -875,6 +878,18 @@ SCREENS.push(
   })),
 );
 
+/**
+ * HOUSE-1C PR-1 AC35b（docs/design/HOUSE-1.md §2.6・§3.3・§6.2。#340）: なまえを かえる の 一覧（いちばん 長い 名前の 家が たくさん）・名前の 画面（いちばん 長い 名前）・
+ * 戸から 入った ところの 家の 名前の 帯（いちばん 長い 名前で 切れない）。3 つの 大きさで はみ出さない・重ならない・色・字・部品の きまりは 上の 検査。
+ * 字 24px 以上は `extra`。ボタンは 高さ 56px 以上・はば 48px 以上（1B の ③ なまえと 同じ きまり。`editorUiIssues`）、帯は 押せる 物が ないので 字だけ（`houseUiIssues`）。
+ * 家は テスト用の フック `house.buildNow` で 建てる。窓口と 画面の 名前（data-testid）の 約束は e2e/helpers/house.ts の 先頭。実装の 前は フックが 無くて 赤。
+ */
+SCREENS.push(
+  { id: 'house-rename-list', slow: true, roots: RENAME_LIST_ROOTS, open: (page) => openRenameScreen(page, 'list'), extra: (page) => editorUiIssues(page, RENAME_LIST_ROOTS) },
+  { id: 'house-rename-name', slow: true, roots: RENAME_NAME_ROOTS, open: (page) => openRenameScreen(page, 'name'), extra: (page) => editorUiIssues(page, RENAME_NAME_ROOTS) },
+  { id: 'house-name-band', slow: true, roots: NAME_BAND_ROOTS, open: (page) => openRenameScreen(page, 'band'), extra: (page) => houseUiIssues(page, NAME_BAND_ROOTS) },
+);
+
 interface Issue {
   kind: string;
   /** 数字を ふくまない 目印（known.json と くらべる） */
@@ -935,7 +950,7 @@ test.describe('UI 検査ゲート', () => {
 
   for (const screen of SCREENS) {
     test(screen.id, async ({ page }) => {
-      if (screen.id.startsWith('start-')) test.setTimeout(240_000); // START-1: 保存の ある 世界を まず 作る 場面がある
+      if (screen.id.startsWith('start-') || screen.slow) test.setTimeout(240_000); // START-1: 保存の ある 世界を まず 作る 場面がある
       const known = loadKnown();
       mkdirSync(OUT, { recursive: true });
       await page.setViewportSize({ width: SIZES[0].w, height: SIZES[0].h });

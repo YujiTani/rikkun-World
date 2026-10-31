@@ -16,6 +16,8 @@ export interface FakeWorldOpts {
 export type FakeWorld = AnimalWorld & {
   topY(x: number, z: number): number;
   set(x: number, y: number, z: number, id: BlockId): void;
+  /** 本物の 世界と 同じ 名前の 書きかえ（`HouseSystem.buildNow` が 使う。いつも 置ける） */
+  setBlock(x: number, y: number, z: number, id: BlockId): boolean;
   /** 世界を 読んだ 回数。テストが 0 に もどして 数え なおして よい */
   reads: number;
 };
@@ -59,6 +61,10 @@ export function makeFakeWorld(o: FakeWorldOpts = {}): FakeWorld {
     },
     set(x, y, z, id) {
       edits.set(key(x, y, z), id);
+    },
+    setBlock(x, y, z, id) {
+      edits.set(key(x, y, z), id);
+      return true;
     },
   };
   return w;

@@ -1,7 +1,7 @@
 // HOUSE-1B 画面を 作る 小さな 道具（要素・ボタン・えらんだ しるし・タイルの 絵の data URL）。
 import { ICONS } from './icons';
-import { houseTiles, type HouseTile } from '../../house/preview/look';
-import type { Px } from '../../house/preview/tilePaint';
+import { houseTiles, type HouseTile } from '../../world/blocks/houseArt';
+import type { Px } from '../../world/blocks/houseTilePaint';
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = ''): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);

@@ -95,7 +95,7 @@ export class EditorView {
       o.press(id);
     };
     this.naka = new NakaPanel(ctl, o.preview, makeTileUrls(), this.fx, press);
-    this.panels = { soto: buildSoto(ctl, press), naka: this.naka, namae: buildNamae(ctl, press) };
+    this.panels = { soto: buildSoto(ctl, press), naka: this.naka, namae: buildNamae({ name: () => ctl.s.name, katakana: () => ctl.katakana }, press) };
 
     // 上の 帯 1 だん目: 左 ＝ タイトル・その 右に すすみ（印）、右 ＝ もどす・すすむ・✕。すぐ 下に 見出しの だん
     const top = el('header', 'ed-top');

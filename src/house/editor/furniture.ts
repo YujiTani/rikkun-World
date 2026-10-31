@@ -1,8 +1,9 @@
 // HOUSE-1B 家具 13 種（2.4）の 大きさと 材料（1 か所の 表。ルール #304）。仕様 docs/design/HOUSE-1.md §4.3。DOM・three なし。
 // id は アイテムの id（ふとん・こたつ・かまど・たんす・はにわは 今ある 物、テーブル・いす・あんどん・ほんだな・おふろ・
 // ながい テーブル・まるい テーブル・まるいすは 新しい 物 = content/items/houseEditor.ts）。
-// 足す ときは ここと、見本の 形（house/preview/furnitureArt.ts の 箱の 表。Record なので 足し忘れると 型で 落ちる）。
+// 足す ときは ここと、見本の 形（world/blocks/furnitureArt.ts の 箱の 表。世界の 絵と 同じ 表。Record なので 足し忘れると 型で 落ちる）。
 import type { ItemId } from '../../contracts';
+import { FURN_LEN } from '../../world/blocks/houseBlocks';
 
 /**
  * 家具の 並び（= 画面の ボタンの 並び。上の 行から 左→右。13 種は 上 7・下 6。§4.3）。ボタンの testid は `furniture-<id>`。
@@ -24,18 +25,18 @@ export interface FurnDef {
 }
 
 export const FURNITURE: Readonly<Record<FurnKind, FurnDef>> = {
-  furnace: { name: 'かまど', cells: [1, 1], mats: [['stone', 5]] },
-  tansu: { name: 'たんす', cells: [1, 1], mats: [['log', 8], ['iron_ingot', 2]] },
+  furnace: { name: 'かまど', cells: [FURN_LEN.furnace, 1], mats: [['stone', 5]] },
+  tansu: { name: 'たんす', cells: [FURN_LEN.tansu, 1], mats: [['log', 8], ['iron_ingot', 2]] },
   nukunuku: { name: 'こたつ', cells: [2, 2], mats: [['grass', 3], ['log', 2], ['torch', 1]] },
   futon: { name: 'ふとん', cells: [1, 2], mats: [['cloth', 3], ['string', 1]] },
-  table: { name: 'テーブル', cells: [2, 1], mats: [['log', 4]] },
-  long_table: { name: 'ながい テーブル', cells: [3, 1], mats: [['log', 6]] },
-  round_table: { name: 'まるい テーブル', cells: [1, 1], mats: [['log', 2]] },
-  chair: { name: 'いす', cells: [1, 1], mats: [['log', 2]] },
-  stool: { name: 'まるいす', cells: [1, 1], mats: [['log', 2]] },
-  andon: { name: 'あんどん', cells: [1, 1], mats: [['paper', 2], ['log', 1], ['oil', 1]] },
-  shelf: { name: 'ほんだな', cells: [1, 1], mats: [['log', 6], ['paper', 3]] },
-  ofuro: { name: 'おふろ', cells: [2, 1], mats: [['stone', 6], ['log', 4]] },
+  table: { name: 'テーブル', cells: [FURN_LEN.table, 1], mats: [['log', 4]] },
+  long_table: { name: 'ながい テーブル', cells: [FURN_LEN.long_table, 1], mats: [['log', 6]] },
+  round_table: { name: 'まるい テーブル', cells: [FURN_LEN.round_table, 1], mats: [['log', 2]] },
+  chair: { name: 'いす', cells: [FURN_LEN.chair, 1], mats: [['log', 2]] },
+  stool: { name: 'まるいす', cells: [FURN_LEN.stool, 1], mats: [['log', 2]] },
+  andon: { name: 'あんどん', cells: [FURN_LEN.andon, 1], mats: [['paper', 2], ['log', 1], ['oil', 1]] },
+  shelf: { name: 'ほんだな', cells: [FURN_LEN.shelf, 1], mats: [['log', 6], ['paper', 3]] },
+  ofuro: { name: 'おふろ', cells: [FURN_LEN.ofuro, 1], mats: [['stone', 6], ['log', 4]] },
   haniwa: { name: 'はにわ', cells: [1, 1], mats: [['clay', 2]] }, // 今の はにわの 作り方（かまどで やく）と 同じ
 };
 

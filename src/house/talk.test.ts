@@ -3,8 +3,13 @@ import type { ItemId } from '../contracts';
 import { InventoryImpl } from '../inventory/Inventory';
 import { NOD_STEPS } from './architect';
 import { makeController } from './editor/testkit';
+import { HouseBook } from './book';
+import { HouseRename } from './rename';
 import { Kura } from './kura';
 import { GREET_STEPS, HouseTalk, SAY, type HouseRecord } from './talk';
+
+/** 建てた 家が 0 けんの なまえを かえる（1A・1B の テストでは 使わない） */
+const noRename = (): HouseRename => new HouseRename({ book: new HouseBook(), player: () => ({ x: 0, y: 0, z: 0 }) });
 
 /** HOUSE-1A AC3・AC41: 話す → うなずき 22 ステップ → メニュー。はじめては 道具 1 こずつ。2 回目は ふえない。なくしたら「どうぐを もらう」 */
 
@@ -22,6 +27,7 @@ function rig(record: HouseRecord = { toolsGiven: false, fudeGiven: false, first:
   const calls: string[] = [];
   const talk = new HouseTalk({
     editor: makeController().ctl,
+    rename: noRename(),
     record,
     kura,
     bag,
@@ -422,6 +428,7 @@ describe('1B エディターの ページ（editor・need）', () => {
     const record: HouseRecord = { toolsGiven: true, fudeGiven: true, first: null };
     const talk = new HouseTalk({
       editor: kit.ctl,
+      rename: noRename(),
       record,
       kura,
       bag,

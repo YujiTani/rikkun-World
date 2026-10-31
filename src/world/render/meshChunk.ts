@@ -1,5 +1,6 @@
 import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../blocks/blockTypes';
 import { BLOCK_TILES, TORCH_PX, tileSubUv, tileUv, type TileName } from '../blocks/textures';
+import { FURN_FACE_TILES } from '../blocks/houseTextures';
 import type { CropStageSource } from '../../contracts';
 import { cropKindOfBlock } from '../../contracts';
 import { GADGET_ID } from '../../content/items/gadgetTuning';
@@ -62,6 +63,9 @@ export const TILE_UV: ([number, number, number, number][] | undefined)[] = BLOCK
   const tiles = BLOCK_TILES[t.id];
   return tiles ? tiles.map((n) => tileUv(n)) : undefined;
 });
+
+/** 面ごとに 絵を かえる ブロック（向きごとの たんす・かまど。HOUSE-1C）の [上, 下, +x, −x, +z, −z] の UV。ほかは undefined（TILE_UV の [上, 下, 横] を 使う） */
+export const FACE_UV: ([number, number, number, number][] | undefined)[] = BLOCK_TYPES.map((t) => FURN_FACE_TILES[t.id]?.map((n) => tileUv(n as TileName)));
 
 export const LIGHT_MAX = 15;
 
@@ -488,7 +492,7 @@ export function meshChunk(
           const n = world.getIndex(x + face.dir[0], y + face.dir[1], z + face.dir[2]);
           if (n < 0) continue; // 世界の外へ向く面は見えない
           if (isWater ? n !== AIR : isOpaqueIndex(n)) continue;
-          pushFace(isWater ? water : opaque, world, light, x, y, z, face, uv[face.kind]);
+          pushFace(isWater ? water : opaque, world, light, x, y, z, face, FACE_UV[b]?.[face.index] ?? uv[face.kind]);
         }
       }
     }

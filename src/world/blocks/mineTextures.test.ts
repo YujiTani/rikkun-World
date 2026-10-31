@@ -52,7 +52,7 @@ describe('MINE-1B 平らな 絵 9 まい', () => {
 
   it('今の 絵の 位置は かわらない（新しい 絵は アトラスの さいごに 足す）', () => {
     const at = TILE_NAMES.indexOf(MINE_TILE_NAMES[0]!);
-    expect(TILE_NAMES.slice(at)).toEqual([...MINE_TILE_NAMES]);
+    expect(TILE_NAMES.slice(at, at + MINE_TILE_NAMES.length)).toEqual([...MINE_TILE_NAMES]); // この あとに 足した 絵（HOUSE-1C の 家・家具）が ならんでも 位置は 同じ
     expect(TILE_NAMES.indexOf('geyser_dirt_side')).toBeLessThan(at);
   });
 });

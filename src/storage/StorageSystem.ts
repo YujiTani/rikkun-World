@@ -1,4 +1,5 @@
 import type { TansuMaterialStore, Inventory, ItemId, ItemStack, StorageEvent, Vec3, VoxelWorld } from '../contracts';
+import { K_TANSU, isFurnKind } from '../world/blocks/houseBlocks';
 import { addInto } from '../inventory/Inventory';
 import { itemType } from '../inventory/items';
 import { addStack, copyStack, readPlan, readPower, readWater, readWear, maxDurability } from '../tools/durability';
@@ -104,13 +105,13 @@ export class StorageSystem implements TansuMaterialStore {
   }
 
   isTansu(x: number, y: number, z: number): boolean {
-    return this.d.world.getBlock(x, y, z) === 'tansu';
+    return isFurnKind(this.d.world.getBlock(x, y, z), K_TANSU);
   }
 
   /** そのマスが 読みこまれていて、たんす でなくなった（読みこんでいない列は 'outside' = まだ分からない。記録は消さない。VOX-D） */
   private changedAway(x: number, y: number, z: number): boolean {
     const b = this.d.world.getBlock(x, y, z);
-    return b !== 'tansu' && b !== 'outside';
+    return !isFurnKind(b, K_TANSU) && b !== 'outside';
   }
 
   /** そこの たんす の記録。たんす でなければ null。記録がなければ（テストで置いた）空で作る */

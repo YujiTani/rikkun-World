@@ -1,6 +1,6 @@
 // HOUSE-1B エディターの 小さな 絵（SVG。色は currentColor か 下の 数）。字を 読まなくても 分かる ように する ための 絵。
 // 色は 見本の 家（houseLook.ts の 案 C）と そろえる。UI の 色の きまり（トークン）には SVG の 中身は 入らない。
-import { HOUSE_LOOK } from '../../house/preview/look';
+import { HOUSE_LOOK } from '../../world/blocks/houseArt';
 
 const P = HOUSE_LOOK.pal;
 type OpenOpt = { fill?: string; stroke?: string; sw?: number };

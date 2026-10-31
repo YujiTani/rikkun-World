@@ -1,4 +1,5 @@
 import type { BlockId, CraftEvent, CraftSystem, Inventory, MaterialSources, MaterialUse, TansuMaterialStore, TansuPos, ItemId, ItemStack, Recipe, Vec3, VoxelWorld } from '../contracts';
+import { K_FURNACE, K_TANSU, isFurnKind } from '../world/blocks/houseBlocks';
 import { CRAFT2_SETTING_DEFAULTS } from '../contracts';
 import { maxOwnedOf } from '../content/items/registry';
 import { itemType } from '../inventory/items';
@@ -167,7 +168,7 @@ export class CraftSystemImpl implements CraftSystem {
     this.filterCount++;
     const out: RangeTansu[] = [];
     for (const t of st.list()) {
-      if (this.d.world.getBlock(t.x, t.y, t.z) !== 'tansu') continue;
+      if (!isFurnKind(this.d.world.getBlock(t.x, t.y, t.z), K_TANSU)) continue;
       const dist = Math.hypot(p.x - (t.x + 0.5), p.y - t.y, p.z - (t.z + 0.5));
       if (dist <= fog) out.push({ x: t.x, y: t.y, z: t.z, dist, counts: new Map() });
     }
@@ -448,7 +449,7 @@ export class CraftSystemImpl implements CraftSystem {
   // ---------------------------------------------------------- かまど
 
   isFurnace(x: number, y: number, z: number): boolean {
-    return this.d.world.getBlock(x, y, z) === 'furnace';
+    return isFurnKind(this.d.world.getBlock(x, y, z), K_FURNACE);
   }
 
   openFurnace(x: number, y: number, z: number): void {

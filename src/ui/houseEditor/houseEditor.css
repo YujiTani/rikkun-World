@@ -4,7 +4,9 @@
  * （yuzu 22:11「余白が少ない」。あきは どれも 4 / 8 / 12 / 16 / 24 / 32 / 48。文字は 24 / 32、押せる 物は 56 以上、方眼の マスは 48 以上）。
  * 見本（3D）の 場所は 透明な「穴」（.ed-view）。ゲームの 画面（キャンバス）に 3D を 描き、この 穴から 見せる。
  */
-.ed-root {
+.ed-root,
+.rn-list,
+.rn-name {
   /* 方眼の マス（px）。ui/houseEditor/index.ts の layout() が まん中の 高さから きめる */
   --ed-cell: 48px;
   /* 表の 数（表の 番号 → 変数）。いちばん 小さい 画面（1024×700）が ふつうの 値、大きい 画面は 下の @media で 上書き */
@@ -42,7 +44,9 @@
   --e-stack-ico: 20px;
 }
 @media (min-height: 750px) {
-  .ed-root {
+  .ed-root,
+  .rn-list,
+  .rn-name {
     --e-edge: 24px;
     --e-top: 64px;
     --e-lead-gap: 12px;
@@ -68,7 +72,9 @@
   }
 }
 @media (min-height: 850px) {
-  .ed-root {
+  .ed-root,
+  .rn-list,
+  .rn-name {
     --e-edge: 32px;
     --e-lead-gap: 16px;
     --e-mid-gap: 24px;

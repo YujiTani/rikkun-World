@@ -46,6 +46,7 @@
   "e2e/house1a.spec.ts": 70,
   "e2e/house1b-pr2.spec.ts": 250,
   "e2e/house1b.spec.ts": 170,
+  "e2e/house1c.spec.ts": 120,
   "e2e/hurt1.spec.ts": 123,
   "e2e/kongo1.spec.ts": 30,
   "e2e/legend-fx.spec.ts": 161,

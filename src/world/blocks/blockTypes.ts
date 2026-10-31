@@ -1,5 +1,6 @@
 import type { BlockId, BlockType } from '../../contracts';
 import { CHALK_MARK_IDS, isChalkMarkId } from './chalkMark';
+import { FLAT_FURN_KINDS, FURN_NAME, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from './houseBlocks';
 
 /** M1-01 4-2 のブロック 11 種 + M4 の 3 種。配列の順番が内部の番号（air = 0） */
 export const BLOCK_TYPES: readonly BlockType[] = [
@@ -83,6 +84,16 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'diamond_ore', name: 'ダイヤの いし', solid: true, breakable: true },
   // チョークの しるし 12 こ（面 × 向き。固くない。名前は ぜんぶ 同じ。`chalkMark.ts`）
   ...CHALK_MARK_IDS.map((id): BlockType => ({ id, name: 'チョークの しるし', solid: false, breakable: true })),
+  // HOUSE-1C PR-1（#340。番号は 後ろに 足す）: 家の ブロック 5 つ（ゆか・かべ・やね・しょうじは 固い。戸は しまって いる ときだけ 固い〔`solid` は しまった 形。あけた 戸は 世界側で 通す〕）
+  { id: 'house_floor', name: 'いえの ゆか', solid: true, breakable: true },
+  { id: 'house_wall', name: 'いえの かべ', solid: true, breakable: true },
+  { id: 'house_roof', name: 'いえの やね', solid: true, breakable: true },
+  { id: 'shoji', name: 'しょうじ', solid: true, breakable: true },
+  { id: 'house_door', name: 'いえの と', solid: true, breakable: true },
+  // 戸の のこり 3 マス（上の 半分・あけた 下・あけた 上）。あけた 戸は 通れる
+  ...HOUSE_DOOR_PART_IDS.map((id): BlockType => ({ id, name: 'いえの と', solid: !id.includes('open'), breakable: true })),
+  // 向きの ある 家具（向き × マス。今の `tansu`・`furnace` は 向き 0 の ひとつ め）。動かない 机・いす・たなは 固い。あんどん・まるいすも 固い（ぶつかる）
+  ...NEW_FURN_BLOCK_IDS.map((id): BlockType => ({ id, name: FURN_NAME[furnInfo(id)!.kind], solid: true, breakable: true })),
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -96,6 +107,7 @@ export const START_TORCH = BLOCK_INDEX.start_torch;
 export const SPRINKLER = BLOCK_INDEX.sprinkler;
 export const LANTERN = BLOCK_INDEX.lantern;
 export const HOTARUISHI = BLOCK_INDEX.hotaruishi;
+export const SHOJI = BLOCK_INDEX.shoji;
 
 /** たいまつの なかまか（細い棒＋炎の形で描く。光る） */
 export function isTorchIndex(index: number): boolean {
@@ -103,7 +115,12 @@ export function isTorchIndex(index: number): boolean {
 }
 
 /** 小物の置き物（ITEM-FX-1: ちょうちん・ふとん・はにわ）。固くない・光を通す・箱の組み合わせで描く（絵は meshChunk の pushProp） */
-const PROP_IDS: ReadonlySet<string> = new Set(['lantern', 'futon', 'futon_s', 'futon_w', 'futon_n', 'futon_foot_e', 'futon_foot_s', 'futon_foot_w', 'futon_foot_n', 'haniwa']);
+const PROP_IDS: ReadonlySet<string> = new Set([
+  'lantern', 'futon', 'futon_s', 'futon_w', 'futon_n', 'futon_foot_e', 'futon_foot_s', 'futon_foot_w', 'futon_foot_n', 'haniwa',
+  // HOUSE-1C: しょうじ・戸（あけしめ 4 つ）・新しい 家具 8 しゅるい。固いが 光を 通す（箱の 形で 描く）。かべ・ゆか・やね・たんす・かまどは 平らな 箱
+  'shoji', 'house_door', ...HOUSE_DOOR_PART_IDS,
+  ...NEW_FURN_BLOCK_IDS.filter((id) => !FLAT_FURN_KINDS.has(furnInfo(id)!.kind)),
+]);
 const PROP = BLOCK_TYPES.map((t) => PROP_IDS.has(t.id));
 export function isPropIndex(index: number): boolean {
   return PROP[index] === true;

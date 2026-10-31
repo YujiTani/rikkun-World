@@ -37,8 +37,8 @@ export const SHADE_VALUES: number[] = [...new Set(FACE_SHADE_BY_INDEX)];
 /** (3) AO の 4 段（DESIGN 3.2） */
 export const AO_STEPS: readonly number[] = AO_LEVELS;
 
-/** 平らな箱で描く 15 種（道具 7 種 DESIGN 5.3 + LIVE-2 のこたつ・小屋 2 ブロック + こたつ 2×2 の のこり 3 マス。3 マス は 1 つ だけ 置くと ふつう の 箱。さく・とびら は LIVE-2.1 で 板 に なった ので 入らない + geyser_dirt = #293 間欠泉の 土: 赤ちゃ色＋ひび＋水色の すきまの 専用の 絵で 土と 見分けるため ごつごつに せず 平らな 箱 + shikkui = MINE-1B（#349）の しっくい: 人が 作った 物 なので 平らな 箱〔docs/art/design/07-mine.md 20.5〕。ねんど・せっかいせきは ごつごつ） */
-export const FLAT_BLOCKS = ['brick', 'farmland', 'farmland_wet', 'furnace', 'geyser_dirt', 'kawara', 'nukunuku', 'nukunuku_e', 'nukunuku_s', 'nukunuku_se', 'shikkui', 'sprinkler', 'tansu', 'toriya_box', 'toriya_nest'];
+/** 平らな箱で描く 24 種（HOUSE-1C PR-1〔#340〕で 家の ゆか・かべ・やね 3 つと、向きごとの たんす・かまど〔_w・_n・_e〕6 つが ふえた。たんす・かまどは 面ごとに 絵が ちがう〔前・うしろ・よこ〕ので、期待は ゲームの texelAt〔面ごとの 絵〕）。以下は 15 種の 内わけ（道具 7 種 DESIGN 5.3 + LIVE-2 のこたつ・小屋 2 ブロック + こたつ 2×2 の のこり 3 マス。3 マス は 1 つ だけ 置くと ふつう の 箱。さく・とびら は LIVE-2.1 で 板 に なった ので 入らない + geyser_dirt = #293 間欠泉の 土: 赤ちゃ色＋ひび＋水色の すきまの 専用の 絵で 土と 見分けるため ごつごつに せず 平らな 箱 + shikkui = MINE-1B（#349）の しっくい: 人が 作った 物 なので 平らな 箱〔docs/art/design/07-mine.md 20.5〕。ねんど・せっかいせきは ごつごつ） */
+export const FLAT_BLOCKS = ['brick', 'farmland', 'farmland_wet', 'furnace', 'furnace_e', 'furnace_n', 'furnace_w', 'geyser_dirt', 'house_floor', 'house_roof', 'house_wall', 'kawara', 'nukunuku', 'nukunuku_e', 'nukunuku_s', 'nukunuku_se', 'shikkui', 'sprinkler', 'tansu', 'tansu_e', 'tansu_n', 'tansu_w', 'toriya_box', 'toriya_nest'];
 
 /** 空の色の見分け方（TEX-A.md 基準 9・13） */
 export const isSky = (r: number, g: number, b: number): boolean => b > r + 40 && b > 180 && g > 150;

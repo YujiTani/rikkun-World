@@ -1,20 +1,20 @@
-// HOUSE-1B 見本の 家具の 形と 絵: 新しい 家具（テーブル・いす・あんどん・ほんだな・おふろ ＋ 2.4 の まるいす・ながい テーブル・まるい テーブル）と
+// HOUSE-1B 見本の 家具の 形と 絵（HOUSE-1C PR-1 から 世界の 絵の 表も ここを 読む。#304 1 か所）: 新しい 家具（テーブル・いす・あんどん・ほんだな・おふろ ＋ 2.4 の まるいす・ながい テーブル・まるい テーブル）と
 // 今ある 家具の はにわ・かまど・たんす。案 A「ごつごつの くりの 木」（yuzu OK ずみ）。
 // 数の 元は アートの houseA.ts.txt（形 ＝ 1/9 ブロック、0.5 きざみ。原点 ＝ 家具の 左前 下の かど、前 ＝ −z）と furniture2.ts.txt。
 // 今の 家具（こたつ・ふとん）は ゲームの 形を そのまま 使う（mesh.ts）。かまど・たんすは 面ごとに 絵を かえる（前・横・うしろ）。
 // 箱の 形を 作る 家具の しゅるいは BoxKind ＝ 家具の 表（editor/furniture.ts）から ふとん・こたつを のぞいた 物。足し忘れると Record で 型が 落ちる。
-import type { FurnKind, K_FUTON, K_KOTATSU } from '../editor/furniture';
+import type { FurnBlockKind } from './houseBlocks';
 import { tiles2, TILE2_NAMES, type Tile2 } from './furnitureTiles2';
-import { grain, rect, rng, solid, speck, type Px } from './tilePaint';
+import { grain, rect, rng, solid, speck, type Px } from './houseTilePaint';
 
 type V3 = readonly [number, number, number];
 
 export type FurnTile =
-  | 'wood_top' | 'wood_side' | 'wood_v' | 'wood_end' | 'zabuton' | 'shoji' | 'andon_top' | 'water' | 'bath_side'
+  | 'wood_top' | 'wood_side' | 'wood_v' | 'wood_end' | 'zabuton' | 'shoji' | 'andon_top' | 'bath_water' | 'bath_side'
   | 'book_r' | 'book_b' | 'book_g' | 'book_y'
   | Tile2;
 export const FURN_TILE_NAMES: readonly FurnTile[] = [
-  'wood_top', 'wood_side', 'wood_v', 'wood_end', 'zabuton', 'shoji', 'andon_top', 'water', 'bath_side', 'book_r', 'book_b', 'book_g', 'book_y',
+  'wood_top', 'wood_side', 'wood_v', 'wood_end', 'zabuton', 'shoji', 'andon_top', 'bath_water', 'bath_side', 'book_r', 'book_b', 'book_g', 'book_y',
   ...TILE2_NAMES,
 ];
 
@@ -41,7 +41,7 @@ export function furnTiles(): Record<FurnTile, Px> {
     zabuton: speck('#3D5A9E', ['#2F4780', '#5B7BC4'], 15, 0.2),
     shoji,
     andon_top: andonTop,
-    water: speck('#6FB8E0', ['#8FD0F0', '#5BA6D2'], 17, 0.2),
+    bath_water: speck('#6FB8E0', ['#8FD0F0', '#5BA6D2'], 17, 0.2),
     bath_side: bath,
     book_r: book('#B8452E'),
     book_b: book('#3D5A9E'),
@@ -61,8 +61,12 @@ export interface FurnBox {
   faces?: Partial<Record<FaceSide, string>>;
 }
 export type FaceSide = 'front' | 'back' | 'left' | 'right';
-/** 箱の 形で 作る 家具（ふとん・こたつは ゲームの ブロックの 形を そのまま 使う） */
-export type BoxKind = Exclude<FurnKind, typeof K_FUTON | typeof K_KOTATSU>;
+/**
+ * 箱の 形で 作る 家具（ふとん・こたつは ゲームの ブロックの 形を そのまま 使う）。向きの ある ブロックに なる 10 しゅるい（world/blocks/houseBlocks.ts）と、
+ * エディターの 見本だけで 描く はにわ。足し忘れると Record で 型が 落ちる。
+ */
+/** （はにわの 世界の ブロックは meshChunk の 小物の 形。この 表の 形は 見本だけ） */
+export type BoxKind = FurnBlockKind | 'haniwa';
 
 function leg(x: number, z: number, t: number, h: number): FurnBox {
   return { a: [x, 0, z], b: [x + t, h, z + t], top: 'wood_end', side: 'wood_v' };
@@ -134,7 +138,7 @@ export function furnitureBoxes(): Record<BoxKind, FurnBox[]> {
       { a: [0, 0, 7], b: [18, 6, 9], top: 'wood_top', side: 'bath_side' },
       { a: [0, 0, 2], b: [2, 6, 7], top: 'wood_top', side: 'bath_side' },
       { a: [16, 0, 2], b: [18, 6, 7], top: 'wood_top', side: 'bath_side' },
-      { a: [2, 0, 2], b: [16, 5, 7], top: 'water', side: 'water' },
+      { a: [2, 0, 2], b: [16, 5, 7], top: 'bath_water', side: 'bath_water' },
     ],
     // 今の ブロック（ふつうの 箱）。前（−z）は ゲームの ブロックの 絵の まま。横と うしろは 2.4 の 新しい 絵
     furnace: [{ a: [0, 0, 0], b: [9, 9, 9], top: 'furnace_top', side: 'furnace_flank', faces: { front: 'furnace_side', back: 'furnace_rear' } }],

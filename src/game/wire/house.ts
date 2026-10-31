@@ -75,8 +75,8 @@ export function wireHouse(deps: WiredYokai) {
     wheel: (dx, dy) => preview?.wheel(dx, dy) ?? false,
     hover: (on) => preview?.hover(on),
   };
-  // ブロックを 置く・ほる → 足もとに かかる 建築士さんが 高さを あわせる（立って いる 間は 毎ステップ 世界を 読まない ため。farm.onBlockChanged と 同じ 流れ）
-  watchBlocks(world, house.manager);
+  // ブロックを 置く・ほる → 足もとに かかる 建築士さんが 高さを あわせる・家の 戸の 記録が あけしめ・こわれを おぼえる（立って いる 間は 毎ステップ 世界を 読まない ため。farm.onBlockChanged と 同じ 流れ）
+  watchBlocks(world, house.watcher);
 
   const kuraScreen = new KuraScreen({
     slots: () => inventory.slots(),
@@ -104,6 +104,8 @@ export function wireHouse(deps: WiredYokai) {
     parent: hud,
     menu: () => house.menu(),
     press: (id) => house.press(id),
+    rename: () => house.renameView(),
+    band: () => house.nameBand(),
     makeEditor: (parent) =>
       new EditorView({ parent, ctl: house.editor, preview: getPreview, release: releasePreview, canvas: game.renderer.domElement, press: (id) => house.press(id), sound: fxSound }),
     screen: kuraScreen,
@@ -131,6 +133,7 @@ export function wireHouse(deps: WiredYokai) {
     architectRenderer.update(house.manager.all(), game.camera, dig.aimedArchitect());
     blobShadow.setExtras(architectRenderer.shadowSpots());
     houseUi.placeBubble();
+    houseUi.updateBand();
   });
 
   // Esc・E: 話しを やめる（うなずき・あいさつ・メニュー・くら ぜんぶ）。メニューの 間は もちもの画面は 開かない（錠が 開いて いない）。

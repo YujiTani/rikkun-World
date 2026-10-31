@@ -5,6 +5,7 @@ import type { EditorController } from './editor/controller';
 import { pressEditor } from './editor/ops';
 import { FUDE } from './editor/sheet';
 import { KURA_MAX, type Kura, type KuraBag } from './kura';
+import { RENAME_SAY, type HouseRename } from './rename';
 import type { Column } from './placement';
 
 /**
@@ -42,8 +43,8 @@ export interface HouseRecord {
   first: Column | null;
 }
 
-type HousePage = 'top' | 'kura' | 'editor' | 'need';
-/** 上の メニューの ボタン（§2.3 の 順）。動くのは kura・editor・tools・close。build・rename は 出すが 押せない（HOUSE-1C） */
+type HousePage = 'top' | 'kura' | 'editor' | 'need' | 'rename' | 'renameName';
+/** 上の メニューの ボタン（§2.3 の 順）。動くのは kura・editor・rename〔建てた 家が あるとき〕・tools・close。build は 出すが 押せない（PR-2） */
 export type HouseButtonId = 'kura' | 'editor' | 'build' | 'rename' | 'tools' | 'close';
 
 /** 窓口の ボタン。上の メニューは HouseButtonId、エディターは editor/buttons.ts の id */
@@ -77,17 +78,19 @@ export interface HouseTalkDeps {
   owned?: (item: ItemId) => number;
   /** エディターの 持ち主（作りかけ・もどす・できた！の しらべ） */
   editor: EditorController;
+  /** なまえを かえる（建てた 家の 一覧・名前の 画面） */
+  rename: HouseRename;
 }
 
 type Phase = 'idle' | 'nod' | 'greet1' | 'greet2' | 'menu';
-type Page = 'top' | 'kura' | 'editor';
+type Page = 'top' | 'kura' | 'editor' | 'rename' | 'renameName';
 
 /** 上の ページの ボタン（道具は 持っていない ときだけ 足す）。live = いま 押せる */
 const TOP: ReadonlyArray<{ id: HouseButtonId; live: boolean }> = [
   { id: 'kura', live: true },
   { id: 'editor', live: true },
   { id: 'build', live: false },
-  { id: 'rename', live: false },
+  { id: 'rename', live: true },
 ];
 
 export class HouseTalk {
@@ -162,8 +165,16 @@ export class HouseTalk {
       pressEditor(this.d.editor, id, arg);
       return;
     }
+    if (this.page === 'rename' || this.page === 'renameName') {
+      this.pressRename(id, arg);
+      return;
+    }
     if (this.page !== 'top') return;
-    if (id === 'kura') {
+    if (id === 'rename' && this.d.rename.available()) {
+      this.page = 'rename';
+      this.say = RENAME_SAY.pick;
+      this.ver++;
+    } else if (id === 'kura') {
       this.page = 'kura';
       this.say = SAY.kura;
       this.ver++;
@@ -175,6 +186,45 @@ export class HouseTalk {
       this.say = this.giveMissing() ? SAY.tools : SAY.bagFull;
       this.ver++;
     }
+  }
+
+  /** なまえを かえる の 2 ページ: 一覧から えらぶ（`renamePick-<id>`。`press('renamePick', id)` も 同じ）／名前の 画面の ボタン／これで いい！・やめる */
+  private pressRename(id: string, arg: unknown): void {
+    const r = this.d.rename;
+    if (this.page === 'rename') {
+      const n = id === 'renamePick' ? Number(arg) : id.startsWith('renamePick-') ? Number(id.slice(11)) : Number.NaN;
+      if (Number.isInteger(n) && r.pick(n)) {
+        this.page = 'renameName';
+        this.say = RENAME_SAY.name;
+        this.ver++;
+      }
+      return;
+    }
+    if (id === 'renameCancel') {
+      r.leave();
+      this.toTop();
+    } else if (id === 'renameOk') {
+      const ok = r.confirm();
+      if (ok === 'ok') this.toTop();
+      else if (ok === 'noName' || ok === 'ngWord') {
+        this.say = ok === 'noName' ? RENAME_SAY.noName : RENAME_SAY.ngWord;
+        this.ver++;
+      }
+    } else {
+      // よくない ことばで 止めた ときは、かわらなくても ふきだし（エディターの ③ なまえと 同じ 言い方）
+      const changed = r.press(id);
+      const bubble = r.takeBubble();
+      if (changed || bubble !== null) {
+        this.say = bubble ?? RENAME_SAY.name;
+        this.ver++;
+      }
+    }
+  }
+
+  private toTop(): void {
+    this.page = 'top';
+    this.say = SAY.menu;
+    this.ver++;
   }
 
   /** Esc: エディターで 確かめの まど・ひつような もの・家具の えらびが あれば それを とじる。なければ 全部 とじる（AC55） */
@@ -203,6 +253,7 @@ export class HouseTalk {
     const who = this.who;
     this.phase = 'idle';
     this.page = null;
+    this.d.rename.leave();
     this.say = '';
     this.timer = 0;
     this.ver++;
@@ -231,8 +282,11 @@ export class HouseTalk {
 
   private buttons(): HouseButton[] {
     if (this.page === 'kura') return [{ id: 'close', enabled: true }];
+    if (this.page === 'rename') return this.d.rename.listButtons();
+    if (this.page === 'renameName') return this.d.rename.nameButtons();
     if (this.page === 'editor') return editorButtons(this.d.editor);
-    const out: HouseButton[] = TOP.map((b) => ({ id: b.id, enabled: b.live }));
+    // なまえを かえる は 建てた 家が 1 けん 以上 あるときだけ 押せる
+    const out: HouseButton[] = TOP.map((b) => ({ id: b.id, enabled: b.id === 'rename' ? this.d.rename.available() : b.live }));
     if (this.canGetTools()) out.push({ id: 'tools', enabled: true });
     out.push({ id: 'close', enabled: true });
     return out;

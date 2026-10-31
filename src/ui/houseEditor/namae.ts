@@ -1,7 +1,6 @@
 // HOUSE-1B ③ なまえ の 画面（名札・50 音の ボタン 11×6〔6 行めに カタカナ・1 もじ けす〕・後ろの 文字 5 つ）。仕様 §2.6・§3.2 の ③ なまえ。
 // ボタンの id は ひらがな（カタカナに しても id は ひらがなの まま）。押すと 入る 字は カタカナ。
-import type { EditorController } from '../../house/editor/controller';
-import { KANA_LAYOUT, toKatakana } from '../../house/editor/model';
+import { KANA_LAYOUT, toKatakana, type EditorState } from '../../house/editor/model';
 import { NAME_FRONT_MAX, SUFFIXES } from '../../house/editor/tuning';
 import { btn, el, markSel, type BtnOpts } from './dom';
 import { ICONS } from './icons';
@@ -16,7 +15,13 @@ const MARKS: Readonly<Record<string, { id: 'dakuten' | 'handakuten'; label: stri
   '゜': { id: 'handakuten', label: 'まる' },
 };
 
-export function buildNamae(ctl: EditorController, press: BtnOpts['onPress']): StepPanel {
+/** 名前の 画面が 読む もの（エディターの ③ と、なまえを かえる〔HOUSE-1C〕の 両方が 同じ 画面を 使う） */
+export interface NameSource {
+  name(): EditorState['name'];
+  katakana(): boolean;
+}
+
+export function buildNamae(src: NameSource, press: BtnOpts['onPress']): StepPanel {
   const root = el('section', 'ed-stepview ed-stepview--namae');
   const wrap = el('div', 'ed-namae');
   const main = el('div', 'ed-namae__main');
@@ -65,18 +70,20 @@ export function buildNamae(ctl: EditorController, press: BtnOpts['onPress']): St
     el: root,
     view: null,
     update(): void {
-      const chars = [...ctl.s.name.front];
+      const name = src.name();
+      const katakana = src.katakana();
+      const chars = [...name.front];
       slots.forEach((slot, i) => {
         slot.textContent = chars[i] ?? '';
         slot.classList.toggle('is-filled', i < chars.length);
       });
-      suffixText.textContent = ctl.s.name.back;
+      suffixText.textContent = name.back;
       for (const { b, ch } of kbtns) {
-        const label = ctl.katakana ? toKatakana(ch) : ch;
+        const label = katakana ? toKatakana(ch) : ch;
         if (b.firstChild?.textContent !== label) b.textContent = label;
       }
-      for (const { b, suf } of sufBtns) markSel(b, ctl.s.name.back === suf);
-      markSel(kata, ctl.katakana);
+      for (const { b, suf } of sufBtns) markSel(b, name.back === suf);
+      markSel(kata, katakana);
     },
   };
 }
