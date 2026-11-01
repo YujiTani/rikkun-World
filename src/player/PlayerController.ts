@@ -85,6 +85,8 @@ export class PlayerController {
   private aimHold = 0;
   /** ROPE-1 版 3: つないだ ロープ いっぱいで ぶら下がって いる（のぼる・おりる・落ちない） */
   private hanging = false;
+  /** ROPE-1: 足もと か こしが ロープの マス（updateWater で 水と いっしょに 読む） */
+  private ropeCell = false;
 
   constructor(
     private readonly world: VoxelWorld,
@@ -453,12 +455,7 @@ export class PlayerController {
 
   /** ROPE-1: 体（足もと か こし）が ロープの マスに かかって いるか */
   onRope(): boolean {
-    if (this.hanging) return true;
-    const { x, y, z } = this.state.position;
-    const bx = Math.floor(x);
-    const bz = Math.floor(z);
-    const w = this.world;
-    return isClimbBlock(w.getBlock(bx, Math.floor(y + EPS), bz)) || isClimbBlock(w.getBlock(bx, Math.floor(y + 0.9), bz));
+    return this.hanging || this.ropeCell;
   }
 
   private updateWater(): void {
@@ -466,12 +463,17 @@ export class PlayerController {
     const bx = Math.floor(x);
     const bz = Math.floor(z);
     // WATER-1 §4.6: 量 4〜8 の 水の マスの 中 かつ 水面(マスの 底 + 量 / 8)より 下
-    this.state.inWater = this.surfaceBelow(bx, Math.floor(y + EPS), bz, y) || this.surfaceBelow(bx, Math.floor(y + 0.9), bz, y);
+    // ROPE-1: 同じ 2 マス（足もと・こし）を 1 回ずつ 読んで、ロープに かかって いるかも ここで きめる（getBlock を ふやさない）
+    const fy = Math.floor(y + EPS);
+    const wy = Math.floor(y + 0.9);
+    const feet = this.world.getBlock(bx, fy, bz);
+    const waist = this.world.getBlock(bx, wy, bz);
+    this.state.inWater = this.surfaceBelow(feet, fy, y) || this.surfaceBelow(waist, wy, y);
+    this.ropeCell = isClimbBlock(feet) || isClimbBlock(waist);
   }
 
-  /** (bx, by, bz) が 深い 水で、点の 高さ y が その 水面より 下か */
-  private surfaceBelow(bx: number, by: number, bz: number, y: number): boolean {
-    const id = this.world.getBlock(bx, by, bz);
+  /** マス（高さ by・中身 id）が 深い 水で、点の 高さ y が その 水面より 下か */
+  private surfaceBelow(id: string, by: number, y: number): boolean {
     return isDeepWater(id) && y < by + waterAmount(id) / 8;
   }
 }

@@ -21,7 +21,8 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
       const B = (window as any).__biomeT;
       const F = (window as any).__floraT;
       const out: any = { steps: [] as string[] };
-      const total = (): number => h.inventory.get().slots.reduce((n: number, s: any) => n + (s ? s.count : 0), 0);
+      // ROPE-1: くさ・のばな から ときどき（1/3）あさ が 出る（場所と 時こくの くじ）。あさ は 数えない（くさ 自体は 持ち物に ならない を 見る）
+      const total = (): number => h.inventory.get().slots.reduce((n: number, s: any) => n + (s && s.item !== 'hemp' ? s.count : 0), 0);
       const tap = (a: string) => {
         h.input.release(a);
         h.input.press(a);
