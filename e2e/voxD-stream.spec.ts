@@ -387,6 +387,7 @@ test.describe('VOX-D ストリーミング', () => {
         // 畑: つち + 水 → ぬれた はたけ → 作物（段 1）
         const c = { x: sx - 3, y: g, z: sz };
         w.setBlock(c.x, c.y, c.z, 'dirt');
+        h.water.pause(true); // WATER-1: 水を 置いて 動かさない
         w.setBlock(c.x + 1, c.y, c.z, 'water');
         const tilled = h.farm.till(c.x, c.y, c.z);
         const planted = h.farm.plant(c.x, c.y, c.z, 'onion');
@@ -439,8 +440,8 @@ test.describe('VOX-D ストリーミング', () => {
         const tansu = JSON.stringify(h.storage.get(t.x, t.y, t.z));
         const stage = h.farm.crop(c.x, c.y + 1, c.z)?.stage ?? null;
         const cropBlock = w.getBlock(c.x, c.y + 1, c.z);
-        // 近くの水を消す → 見直しが また動いて かわく
-        w.setBlock(c.x + 1, c.y, c.z, 'stone');
+        // 近くの水を消す → 見直しが また動いて かわく（WATER-1 §4.5: 石を 置くと 水は 押し出されて 近くに 残る。消すのは air）
+        w.setBlock(c.x + 1, c.y, c.z, 'air');
         h.step(65);
         const soilAfter = w.getBlock(c.x, c.y, c.z);
         return { tick, bags, furnaceDone: furnace?.done ?? null, tansu, stage, cropBlock, soilAfter, sx };

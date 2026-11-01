@@ -10,6 +10,7 @@ import { surfaceFor } from './surface';
 import type { CountryKind } from './config';
 import { terrainAt, terrainFor } from './terrain';
 import { treesInRect } from './trees';
+import { ALL_WATER_IDS } from '../blocks/water';
 
 /**
  * 世界の「目印」（スタート・仮の regions・洞くつの口・たいまつ）。VOX-D G1〜G6。
@@ -33,7 +34,7 @@ export interface WorldGenInfo extends IslandInfo {
 }
 
 /** 「一番上の地形」に数えないブロック（き・はっぱ・みず・たいまつ・M7 の やわらかい物） */
-const SOFT = new Set<string>(['air', 'water', 'log', 'leaves', 'torch', 'start_torch', 'kakashi', 'kakashi_head', 'saku', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'susuki', 'bamboo', 'kusa', 'nobana']);
+const SOFT = new Set<string>(['air', ...ALL_WATER_IDS, 'log', 'leaves', 'torch', 'start_torch', 'kakashi', 'kakashi_head', 'saku', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'susuki', 'bamboo', 'kusa', 'nobana']);
 function isSoft(id: BlockId | 'outside'): boolean {
   return SOFT.has(id) || (id !== 'outside' && (id.startsWith('wild_') || id.startsWith('crop_') || isChalkMarkId(id))); // チョークの しるし（MINE-1B）も 地形に 数えない
 }

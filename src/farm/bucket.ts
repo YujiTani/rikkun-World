@@ -1,4 +1,5 @@
-import type { BucketId, BucketPort, FarmEvent, ItemStack } from '../contracts';
+import type { BlockId, BucketId, BucketPort, FarmEvent, ItemStack } from '../contracts';
+import { BUCKET_TAKE, waterAmount, waterId } from '../world/blocks/water';
 
 /** バケツ（から・みず）か */
 export function isBucket(item: string | undefined): item is BucketId {
@@ -13,6 +14,11 @@ export interface BucketDeps {
   /** 農業の 出来事を 足す（`farm.emit`） */
   emit(e: FarmEvent): void;
   tick(): number;
+  /** WATER-1: くむと その マスの 水が へる ので 世界を 読み書きする */
+  world: {
+    getBlock(x: number, y: number, z: number): BlockId | 'outside';
+    setBlock(x: number, y: number, z: number, id: BlockId): boolean;
+  };
 }
 
 /**
@@ -38,8 +44,15 @@ export function createBucket(d: BucketDeps): BucketPort {
     fill(slot, cell) {
       const s = d.inventory.slots()[slot];
       if (!s || !isBucket(s.item)) return false;
-      const changed = s.item === 'bucket';
-      if (changed) d.inventory.setSlot(slot, { item: 'water_bucket', count: s.count });
+      // WATER-1 §4.4: マスの 水から min(8 − 今の 量, マスの 量) を とる(欄 なしの みずの バケツは 量 8)
+      const have = s.item === 'bucket' ? 0 : Math.max(0, Math.min(BUCKET_TAKE, s.water ?? BUCKET_TAKE));
+      const inCell = waterAmount(d.world.getBlock(cell.x, cell.y, cell.z));
+      const take = Math.min(BUCKET_TAKE - have, inCell);
+      const changed = take > 0;
+      if (changed) {
+        d.inventory.setSlot(slot, { item: 'water_bucket', count: s.count, water: have + take });
+        d.world.setBlock(cell.x, cell.y, cell.z, waterId(inCell - take));
+      }
       d.emit({ type: 'bucketFill', tick: d.tick(), x: cell.x, y: cell.y, z: cell.z, item: s.item, changed });
       return changed;
     },

@@ -9,6 +9,7 @@ import { DT, type Ent, type SwimState, type YokaiField } from './entity';
 import type { YokaiEvents } from './events';
 import { angleDiff, yawToward } from './geometry';
 import { swimOf, swimTarget } from './swimTerrain';
+import { isDeepWater } from '../../world/blocks/water';
 
 /** 秒 → ステップ（1/60 秒） */
 const steps = (sec: number): number => Math.round(sec * 60);
@@ -201,7 +202,7 @@ export class YokaiSwimmer {
   }
 
   private bodyCellIsWater(e: Ent): boolean {
-    return this.d.world.getBlock(Math.floor(e.x), Math.floor(e.y + e.dims.height / 2), Math.floor(e.z)) === 'water';
+    return isDeepWater(this.d.world.getBlock(Math.floor(e.x), Math.floor(e.y + e.dims.height / 2), Math.floor(e.z)));
   }
 
   /** 水面に 合わせて 上下に 少しずつ 動く（水が ふえ・へった とき） */

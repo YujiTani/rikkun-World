@@ -22,7 +22,7 @@ import { createLockHook } from '../../input';
 import { peakNear } from '../../world/gen/peak';
 import { MICRO_RADII } from '../../world/render/voxel/tier';
 import { groundBelow } from '../../fx/blobShadow';
-import { WATER, isSolidIndex } from '../../world/blocks/blockTypes';
+import { isSolidIndex } from '../../world/blocks/blockTypes';
 import { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
 import { saveShadowPref } from '../../world/render/shadow/shadowPref';
 import { createShadowSetting } from '../../ui/shadowSetting';
@@ -30,10 +30,11 @@ import { START_PITCH_DEG } from '../../player/config';
 import { computeFarmPlacement, applyFarmPlacement } from '../../world/gen/farmPlacement';
 import { createFarmVisual } from '../../world/render/farmVisual';
 import type { WiredAchievements } from './ui';
+import { isWaterIndex } from '../../world/blocks/water';
 
 export function wireSave(deps: WiredAchievements) {
   const {
-    shared, world, seed, saveId, idb, restored, inventory, controller, spawnPlain, store, game,
+    shared, world, water, seed, saveId, idb, restored, inventory, controller, spawnPlain, store, game,
     strengthToWrite, screenSettings, combat, time, craft, armor, level, storage, achievements,
     countryWatch, animals, deliverAnimalEvents, legendBook, ninjaBook, kodachi, ninjaHave, samuraiBook,
     samuraiHave, farm, saveOptions, island, hud, renderer, frameClock, raiseAboveBlocks, startPoint,
@@ -153,6 +154,7 @@ export function wireSave(deps: WiredAchievements) {
     newWorld: !loadedSave,
     applyPlacement: applyPlacementNow,
     pending: restored.pending,
+    water,
     clock: frameClock,
     placePlayer: (p) => controller.set({ position: { x: p.x, y: raiseAboveBlocks(p.x, p.y, p.z), z: p.z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: p.yawDeg, pitchDeg: p.pitchDeg }),
     onColumnsLoaded: () => farm.rescan(),
@@ -375,7 +377,7 @@ export function wireLoop(deps: WiredFrame) {
     const bz = Math.floor(p.z);
     const ground = groundBelow(p.y, (y) => {
       const b = world.getIndex(bx, y, bz);
-      return b === WATER ? 'water' : b > 0 && isSolidIndex(b) ? 'solid' : 'other';
+      return isWaterIndex(b) ? 'water' : b > 0 && isSolidIndex(b) ? 'solid' : 'other';
     });
     // #293: がしゃどくろの 体・ガラスの 雲・置いた ブロックの 上でも 足もとに 丸い 影（真下の いちばん 近い 体の 上面の 高さ。ワールドの 地面より 高い ほうを 使う）
     const onBody = shared.gashaBodyBlocks?.surfaceBelow(p.x, p.y, p.z) ?? null;

@@ -2,6 +2,7 @@ import { defaultDropMax } from '../drops/rarityTable';
 import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
 import { SCAFFOLD_IDS, type ScaffoldId } from '../world/blocks/buildBlocks';
 import { CHALK_MARK_IDS, type ChalkMarkId } from '../world/blocks/chalkMark';
+import { forWaterExtra } from '../world/blocks/water';
 import { HOUSE_BLOCK_IDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, houseDropOf, type HouseBase, type HouseBlockId, type HouseDoorPartId, type NewFurnBlockId } from '../world/blocks/houseBlocks';
 
 /** チョークの しるし 12 こ ぜんぶに 同じ 値を 入れる（`satisfies Record<BlockId, …>` が 12 こ そろって いることを 見る） */
@@ -148,6 +149,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     // HOUSE-1C PR-2（#340）: かためた つちは つち と おなじ。足場は ほれない（建築が 終わると 消える）
     katame_tsuchi: 0.5,
     ...forScaffold<null>(null),
+    ...forWaterExtra<null>(null),
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -224,6 +226,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     ...forHouse<number>({ house_floor: 0, house_wall: 0, house_roof: 0, shoji: 0, house_door: 0, tansu: 0, furnace: 0, table: 0, long_table: 0, round_table: 0, chair: 0, stool: 0, andon: 0, shelf: 0, ofuro: 0 }),
     katame_tsuchi: 0,
     ...forScaffold(0),
+    ...forWaterExtra(0),
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
   handLevel: 0,
@@ -314,6 +317,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     // HOUSE-1C PR-2: かためた つち・足場（ほると 手に 入る 数の 上限。かためた つちは FARM_BREAK_DROP で いつも 1 こ）
     katame_tsuchi: 'common',
     ...forScaffold<Rarity>('common'),
+    ...forWaterExtra<Rarity>('common'),
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };

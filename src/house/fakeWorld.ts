@@ -1,5 +1,6 @@
 import type { AnimalWorld } from '../animals/terrain';
 import type { BlockId } from '../contracts';
+import { ALL_WATER_IDS } from '../world/blocks/water';
 
 /**
  * 建築士さんの ユニットテスト用の 小さな 世界（テストだけが 使う）。
@@ -22,7 +23,7 @@ export type FakeWorld = AnimalWorld & {
   reads: number;
 };
 
-const SOFT = new Set<string>(['air', 'water', 'torch', 'kusa', 'flower_y', 'flower_o', 'flower_p', 'nobana', 'susuki', 'saku']);
+const SOFT = new Set<string>(['air', ...ALL_WATER_IDS, 'torch', 'kusa', 'flower_y', 'flower_o', 'flower_p', 'nobana', 'susuki', 'saku']);
 
 export function makeFakeWorld(o: FakeWorldOpts = {}): FakeWorld {
   const height = o.height ?? (() => 10);

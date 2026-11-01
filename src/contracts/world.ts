@@ -4,6 +4,7 @@
 
 import type { ChalkMarkId } from '../world/blocks/chalkMark';
 import type { KATAME_TSUCHI, ScaffoldId } from '../world/blocks/buildBlocks';
+import type { ReservedId, WaterPartialId } from '../world/blocks/water';
 import type { FurnBlockId, HouseBlockId, HouseDoorPartId } from '../world/blocks/houseBlocks';
 
 export interface Vec3 {
@@ -98,7 +99,10 @@ export type BlockId =
   | FurnBlockId
   // HOUSE-1C PR-2（#340。うしろに足す）: かためた つち・足場 5 つ（`src/world/blocks/buildBlocks.ts`）
   | typeof KATAME_TSUCHI
-  | ScaffoldId;
+  | ScaffoldId
+  // WATER-1（#376。うしろに足す）: 量 1〜7 の 水と 予約の 番号（`src/world/blocks/water.ts`）
+  | WaterPartialId
+  | ReservedId;
 
 export interface BlockType {
   id: BlockId;

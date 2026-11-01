@@ -21,6 +21,7 @@ import type { SpawnOptions, YokaiManagerOptions } from './managerTypes';
 import type { YokaiPlacement } from './placement';
 import { swimOf, swimTarget, waterDepthBelow, swimYAt } from './swimTerrain';
 import { collectFloors, groundSupport, isRoofed, isUnderground } from './terrain';
+import { isDeepWater } from '../../world/blocks/water';
 
 /** 水の 列で 出る 確率の 分母（重み ÷ 100） */
 const SWIM_WEIGHT_UNIT = 100;
@@ -234,7 +235,7 @@ export class YokaiSpawner {
       // M5: みず の列（うみ・かわ・いずみ・いけ）には 陸の 妖怪は 出ない。およぐ 妖怪（TAKO-1）だけ 出る。見るのは 足 ±yokaiSpawnHeight の 中だけ
       if (water) {
         let waterTop = -1; // はんいの 中で 列の いちばん 上の 水の マスの 高さ
-        for (let y = Math.min(hi, world.size.y - 1); y >= lo && waterTop < 0; y--) if (world.getBlock(ix, y, iz) === 'water') waterTop = y;
+        for (let y = Math.min(hi, world.size.y - 1); y >= lo && waterTop < 0; y--) if (isDeepWater(world.getBlock(ix, y, iz))) waterTop = y;
         if (waterTop >= 0 && this.trySpawnSwimmer(x, z, waterTop)) return;
         continue;
       }

@@ -7,6 +7,7 @@
  */
 import { doorInfo } from '../world/blocks/houseBlocks';
 import { TUNE as T } from './gashaBigTuning';
+import { isWater } from '../world/blocks/water';
 
 export interface CrushIO {
   /** ブロックの 名前 */
@@ -19,7 +20,7 @@ export interface CrushIO {
 
 /** ぬりかべと おなじ: こわして よい ブロックか */
 export function crushable(block: string, y: number): boolean {
-  return y > 0 && block !== 'air' && block !== 'outside' && block !== 'water' && block !== 'start_torch' && doorInfo(block) === null;
+  return y > 0 && block !== 'air' && block !== 'outside' && !isWater(block) && block !== 'start_torch' && doorInfo(block) === null;
 }
 
 /** 手の ひらの まんなか（x, z）と 立つ 面の 高さ y の まわりを こわす。こわした マスを 返す。S を 省くと 前進の たたきつけ（slam）、両手たたきつけは T.slam2 */

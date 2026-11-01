@@ -2,6 +2,7 @@ import type { Inventory, ItemClass, ItemId, ItemStack } from '../contracts';
 import { M7_SETTING_DEFAULTS, W2_SETTING_DEFAULTS } from '../contracts';
 import { HOUSE_PLAN_IDS } from '../content/items/ids';
 import { registryPermanent } from '../content/items/registry';
+import { BUCKET_TAKE, WATER_BUCKET_ID } from '../world/blocks/water';
 
 /** ずっと へらない もの（§4.6 (1)）。登録表（content/items/）で wear: 'permanent' の 物 */
 const PERMANENT: ReadonlySet<ItemId> = new Set<ItemId>(registryPermanent());
@@ -36,6 +37,8 @@ export function canCapacity(item: ItemId): number | null {
 
 /** 保存から 読んだ みず の 量（M7-2 §4.6）。整数に して 0〜入る回数 に おさめる。おかしい 値・じょうろ でない = 0 */
 export function readWater(raw: unknown, item: ItemId): number {
+  // WATER-1 §4.4: みずの バケツの 量(1〜8)。欄 なし・おかしい 値は 0 = 書かない(読む 側が 8 と みなす)
+  if (item === WATER_BUCKET_ID) return typeof raw === 'number' && Number.isFinite(raw) ? Math.max(0, Math.min(BUCKET_TAKE, Math.floor(raw))) : 0;
   const cap = canCapacity(item);
   if (cap === null || typeof raw !== 'number' || !Number.isFinite(raw)) return 0;
   return Math.max(0, Math.min(cap, Math.floor(raw)));

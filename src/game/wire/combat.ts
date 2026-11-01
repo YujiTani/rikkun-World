@@ -375,7 +375,7 @@ export function wireFighters(deps: WiredWeapons) {
       harapan: (id, y) => harapanRoll.block(id, y),
       farm,
       water: createWatering({ farm, inventory, settings: m7, tick: () => game.tick }),
-      bucket: createBucket({ inventory, emit: (e) => farm.emit(e), tick: () => game.tick }),
+      bucket: createBucket({ inventory, emit: (e) => farm.emit(e), tick: () => game.tick, world }),
       pet,
       animals,
       eggHeal: () => live.animalEggHeal,

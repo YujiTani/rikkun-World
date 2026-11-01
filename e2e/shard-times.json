@@ -115,6 +115,7 @@
   "e2e/voxF-save.spec.ts": 92,
   "e2e/voxI1-biome.spec.ts": 22,
   "e2e/w2.spec.ts": 100,
+  "e2e/water1.spec.ts": 150,
   "e2e/weapon3.spec.ts": 30,
   "e2e/weapon4.spec.ts": 216,
   "e2e/weapon5.spec.ts": 216,

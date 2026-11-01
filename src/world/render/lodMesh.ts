@@ -5,6 +5,7 @@ import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
 import { FACE_SHADE_BY_INDEX } from './config';
 import { emptyMesh, type MeshData } from './meshChunk';
 import { tileAverage } from './voxel/projection';
+import { isWaterIndex } from '../blocks/water';
 
 /**
  * 遠いチャンク用の かんたんメッシュ（LOD）。
@@ -94,7 +95,7 @@ function scanColumn(world: ArrayVoxelWorld, x: number, z: number): Col {
   for (let y = Math.max(world.topY(x, z), -1); y >= 0; y--) {
     const b = world.getIndex(x, y, z);
     if (b === AIR || isTorchIndex(b) || isCrossIndex(b) || isPropIndex(b)) continue;
-    if (b === WATER) {
+    if (isWaterIndex(b)) {
       if (wy < 0) wy = y;
       continue;
     }

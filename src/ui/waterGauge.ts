@@ -1,4 +1,5 @@
 import { M7_SETTING_DEFAULTS, type ItemId, type ItemStack } from '../contracts';
+import { BUCKET_TAKE, WATER_BUCKET_ID } from '../world/blocks/water';
 import './waterGauge.css';
 
 /**
@@ -23,6 +24,11 @@ export interface WaterView {
 /** マス の 中身 から 棒 の 値。じょうろ で なければ null */
 export function waterView(stack: ItemStack | null): WaterView | null {
   if (!stack || stack.count <= 0) return null;
+  // WATER-1 §6.2: みずの バケツ。はば = 量 ÷ 8(欄 なしは 8)
+  if (stack.item === WATER_BUCKET_ID) {
+    const water = Math.max(0, Math.min(BUCKET_TAKE, Math.floor(stack.water ?? BUCKET_TAKE)));
+    return { max: BUCKET_TAKE, water, ratio: water / BUCKET_TAKE };
+  }
   const max = source()[stack.item];
   if (typeof max !== 'number' || !(max > 0)) return null;
   const water = Math.max(0, Math.min(max, Math.floor(stack.water ?? 0)));

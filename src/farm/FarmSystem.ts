@@ -29,6 +29,7 @@ import {
 } from '../contracts';
 import { blockIndexOf } from '../world/blocks/blockTypes';
 import { cellFromKey, cellKey } from './cellKey';
+import { isWater } from '../world/blocks/water';
 
 /** 合図が出ている長さ（ステップ） */
 export const HINT_TICKS = 120;
@@ -204,7 +205,7 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
     const r = settings.farmWetRange;
     for (let dy = 0; dy <= 1; dy++)
       for (let dz = -r; dz <= r; dz++)
-        for (let dx = -r; dx <= r; dx++) if (world.getBlock(x + dx, y + dy, z + dz) === 'water') return true;
+        for (let dx = -r; dx <= r; dx++) if (isWater(world.getBlock(x + dx, y + dy, z + dz))) return true;
     return false;
   };
 

@@ -4,6 +4,7 @@ import type { WorldLight } from '../../world/light/WorldLight';
 import { AI_CONST, type KindAi } from './config';
 import { bodyInWall } from '../../world/wall';
 import { boxFree, groundTop, surfaceTop } from './geometry';
+import { isDeepWater } from '../../world/blocks/water';
 
 /**
  * (x, z) に、足の高さ y から立てるか。立てれば足もとの高さ、だめなら NaN。
@@ -34,7 +35,7 @@ export function groundSupport(
     const iz = Math.floor(sz);
     const g = groundTop(world, ix, iz, startY, cells);
     if (g === null) return NaN;
-    if (!allowWater && world.getBlock(ix, g, iz) === 'water') return NaN;
+    if (!allowWater && isDeepWater(world.getBlock(ix, g, iz))) return NaN;
     if (g > top) top = g;
   }
   if (!boxFree(world, x - r, top + 0.05, z - r, x + r, top + ai.height, z + r)) return NaN;
@@ -96,7 +97,7 @@ export function collectFloors(world: VoxelWorld, ix: number, iz: number, lo: num
     let b: string = '';
     if (y >= lo) {
       b = world.getBlock(ix, y, iz);
-      if (b === 'water') water = true;
+      if (isDeepWater(b)) water = true;
     }
     const feet = y + 1;
     if (feet > hi || feet > top) continue;

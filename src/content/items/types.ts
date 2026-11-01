@@ -5,6 +5,7 @@ import type { ItemCategory } from '../../ui/itemCategory';
 import { CHALK_MARK_IDS } from '../../world/blocks/chalkMark';
 import { KATAME_TSUCHI, SCAFFOLD_IDS } from '../../world/blocks/buildBlocks';
 import { FURN_VARIANT_IDS, HOUSE_DOOR_PART_IDS } from '../../world/blocks/houseBlocks';
+import { WATER_EXTRA_IDS } from '../../world/blocks/water';
 
 /**
  * アイテムに ならない ブロック（持ち物に 入らない。みず・そこいし・作物・小屋の 部品 …）。
@@ -29,6 +30,8 @@ export const BLOCK_ONLY_IDS = [
   // HOUSE-1C PR-2（#340）: かためた つち（ほると つち `dirt` 1 こ。FARM_BREAK_DROP）・足場 5 つ（ほれない・置けない）
   KATAME_TSUCHI,
   ...SCAFFOLD_IDS,
+  // WATER-1（#376）: 量 1〜7 の 水と 予約の 番号（アイテムに ならない）
+  ...WATER_EXTRA_IDS,
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 

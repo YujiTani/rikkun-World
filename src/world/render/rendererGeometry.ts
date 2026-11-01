@@ -14,6 +14,7 @@ export function toGeometry(data: MeshData): BufferGeometry {
   g.setAttribute('color', new BufferAttribute(new Float32Array(data.colors), 3));
   g.setAttribute('aLight', new BufferAttribute(new Float32Array(data.lights), 2));
   g.setAttribute('aDark', new BufferAttribute(new Float32Array(data.darks), 1));
+  if (data.waves !== undefined && data.waves.length * 3 === data.positions.length) g.setAttribute('aWave', new BufferAttribute(new Float32Array(data.waves), 1));
   g.setIndex(new BufferAttribute(new Uint32Array(data.indices), 1));
   g.computeBoundingSphere();
   g.computeBoundingBox();

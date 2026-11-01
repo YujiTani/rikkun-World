@@ -5,13 +5,14 @@ import { bodyInWall } from '../../world/wall';
 import { KIND_TRAITS } from '../traits';
 import { AI_CONST, type KindAi } from './config';
 import type { Ent } from './entity';
+import { isDeepWater } from '../../world/blocks/water';
 
 /**
  * およぐ 妖怪（TAKO-1）の 水の 見方。体の 箱が ぜんぶ 水の マスの ときだけ 動ける。
  * 水面 = その 列の いちばん 上の 水の マスの 上の 面（y の 数）。
  */
 
-const isWater = (world: VoxelWorld, x: number, y: number, z: number): boolean => world.getBlock(x, y, z) === 'water';
+const isDeepAt = (world: VoxelWorld, x: number, y: number, z: number): boolean => isDeepWater(world.getBlock(x, y, z));
 
 /** 体の 箱（足もと x, y, z・半径 r・高さ h）が ぜんぶ 水の マスの 中か。見えない 壁の 外・読みこんでいない 列は だめ */
 function bodyInWater(world: VoxelWorld, ai: KindAi, x: number, y: number, z: number): boolean {
@@ -22,7 +23,7 @@ function bodyInWater(world: VoxelWorld, ai: KindAi, x: number, y: number, z: num
   for (let yy = Math.floor(y + e); yy <= Math.floor(y + ai.height - e); yy++) {
     for (let xx = Math.floor(x - r + e); xx <= Math.floor(x + r - e); xx++) {
       for (let zz = Math.floor(z - r + e); zz <= Math.floor(z + r - e); zz++) {
-        if (!isWater(world, xx, yy, zz)) return false;
+        if (!isDeepAt(world, xx, yy, zz)) return false;
       }
     }
   }
@@ -34,9 +35,9 @@ function waterSurface(world: VoxelWorld, x: number, z: number, y: number): numbe
   const ix = Math.floor(x);
   const iz = Math.floor(z);
   let yy = Math.floor(y);
-  if (!isWater(world, ix, yy, iz)) return null;
+  if (!isDeepAt(world, ix, yy, iz)) return null;
   for (let n = 0; n < world.size.y; n++) {
-    if (!isWater(world, ix, yy + 1, iz)) return yy + 1;
+    if (!isDeepAt(world, ix, yy + 1, iz)) return yy + 1;
     yy++;
   }
   return yy + 1;
@@ -47,7 +48,7 @@ export function waterDepthBelow(world: VoxelWorld, x: number, z: number, surface
   const ix = Math.floor(x);
   const iz = Math.floor(z);
   let n = 0;
-  while (n < limit && isWater(world, ix, surface - 1 - n, iz)) n++;
+  while (n < limit && isDeepAt(world, ix, surface - 1 - n, iz)) n++;
   return n;
 }
 

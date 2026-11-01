@@ -25,6 +25,7 @@ import { createSaveHook } from '../save';
 import { colKey } from '../world/stream/ring';
 import { createWorkHook } from '../debug/workHook';
 import { installTestHook, type TestHookGroups, withSpriteDoll } from '../debug/testHook';
+import { waterSettings } from '../world/render/waterWave';
 import { createSettingsHook } from '../game/settings';
 import { createInputHook } from '../input';
 import { createPlayerHook } from '../player/hook';
@@ -52,11 +53,21 @@ export function installGameHook(deps: WiredLoop): void {
     waterFx, drops, store, level, yokaiM, blade, weaponFx, animals, deliverAnimalEvents, animalEvents,
     currentKitRows, animalFx, animalHint, aimPointInto, combat, lockHook, book, look, wheel, mixer, bgm,
     bgmScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
-    m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets, seat,
+    m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets, seat, water,
   } = deps;
   installTestHook(game, overlay, () => host.everReady, {
     start: startBoot.hook,
-    work: createWorkHook(() => game.tick, world),
+    work: createWorkHook(() => game.tick, world, () => water.computed()),
+    water: {
+      set: (x, y, z, n) => water.set(x, y, z, n),
+      amount: (x, y, z) => water.amount(x, y, z),
+      queue: () => water.queue(),
+      passes: () => water.passes(),
+      total: (x0, y0, z0, x1, y1, z1) => water.total(x0, y0, z0, x1, y1, z1),
+      stable: (x0, y0, z0, x1, y1, z1) => water.stable(x0, y0, z0, x1, y1, z1),
+      pause: (on) => water.pause(on),
+      waveTime: () => water.waveTime(),
+    },
     char: charCtl,
     shadow: createShadowHook({
       system: shared.shadowSystem,
@@ -347,6 +358,7 @@ export function installGameHook(deps: WiredLoop): void {
         yokaiM.config,
         timeSettings,
         renderer.config,
+        waterSettings, // WATER-1 §4.1: waveAmp
       ]),
   }, frameClock);
 }

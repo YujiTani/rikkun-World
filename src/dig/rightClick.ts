@@ -3,6 +3,7 @@ import { isFutonId } from '../world/blocks/futon';
 import { furnUseOf } from '../world/blocks/furnUse';
 import { doorInfo } from '../world/blocks/houseBlocks';
 import type { BucketPreview, BlockId, ItemId, RightClickKind, TargetInfo, WaterPreview, WaterRay } from '../contracts';
+import { isWater } from '../world/blocks/water';
 export type { RightClickKind };
 
 /**
@@ -196,7 +197,7 @@ export function computeWaterRay(
       tMaxZ += tDeltaZ;
     }
     if (t > reach || (hit ? t >= limit : t > limit)) return out;
-    if (getBlock(x, y, z) === 'water') {
+    if (isWater(getBlock(x, y, z))) {
       out.throughWater = true;
       out.waterCell = { x, y, z };
       return out;
