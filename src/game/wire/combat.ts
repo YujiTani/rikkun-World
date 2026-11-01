@@ -228,7 +228,8 @@ export function wireFighters(deps: WiredWeapons) {
     spawn: startPoint,
     // WEAPON-9: シャイニング中は 受ける ダメージ 1/3・落下ダメージなし
     takenMul: () => legend.takenMul(),
-    noFall: () => legend.noFall() || shared.protoNoFall,
+    // ROPE-1 版 3: ロープに つかまって いる 間は 落ちた 高さを ためない（ゆっくり おりて 着地しても・とちゅうで はなしても、はなした 所から 数える）
+    noFall: () => legend.noFall() || shared.protoNoFall || controller.onRope(),
     // 妖怪のねらい（CHAR-1 第 5.2 版 §4.5）: 届く距離は P から。S からの線で当たらないときは やさしい ねらい補助
     reachOrigin: (out) => aimPivot(world, controller.state.position, out),
     assist: (eye, dir, reach) => aimAssistPick(eye, dir, reach),

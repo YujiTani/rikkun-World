@@ -82,6 +82,16 @@ export const MATERIALS = {
     category: 'material',
     info: { use: 'ふで を つくる ざいりょう', how: 'タコはちまき を たおすと でる', buttons: [] },
   },
+  // ROPE-1: くさ・はっぱ・はなを こわすと ときどき でる（HEMP_DROP。dig/config.ts）。ゆみ・むしとりあみ・ロープで いとの かわりに なる（craft/recipes.ts の HEMP_ALT）
+  hemp: {
+    name: 'あさ',
+    zukan: 'くさや はっぱ、はなの なかから みつかる じょうぶな せんい。たくさん あつめれば、いとの かわりに なるし、ロープも なえるよ。',
+    maxStack: 64,
+    rarity: 'common',
+    category: 'material',
+    source: 'くさ・はっぱ・はな を こわすと ときどき でる',
+    info: { use: 'ロープ・ゆみ・むしとりあみ で いと の かわり に なる（いと より たくさん いる）', how: 'くさ・はっぱ・はな を こわすと ときどき でる', buttons: [] },
+  },
 } satisfies Record<MaterialId, ItemDef>;
 
 /** てつの かたまり: てつこうせきを かまどで やく（works: 本当） */

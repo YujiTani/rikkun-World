@@ -431,7 +431,8 @@
       "house_wall",
       "house_roof",
       "shoji",
-      "house_door"
+      "house_door",
+      "rope"
     ],
     "food": [
       "onion",
@@ -476,6 +477,7 @@
       "clay",
       "yokai_orb",
       "sumi",
+      "hemp",
       "kin_tamago",
       "ishibai"
     ],
@@ -614,7 +616,11 @@
     "torch_coal",
     "torch_log",
     "chalk",
-    "shikkui"
+    "shikkui",
+    "rope",
+    "yumi_hemp",
+    "mushi_ami_hemp",
+    "rope_hemp"
   ],
   "CRAFT_RECIPE_NAMES": [
     [
@@ -762,6 +768,7 @@
     "clay",
     "crystal",
     "sumi",
+    "hemp",
     "furnace",
     "kawara",
     "brick",
@@ -874,7 +881,8 @@
     "house_wall",
     "house_roof",
     "shoji",
-    "house_door"
+    "house_door",
+    "rope"
   ],
   "RARITY_ORDER": [
     "common",

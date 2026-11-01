@@ -4,9 +4,12 @@ import { CHALK_FACES, CHALK_NORMAL, chalkInfo, isChalkMarkId } from '../world/bl
 import { futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
 import { K_TANSU, doorInfo, furnSiblings, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
+import { ROPE, ROPE_STAKE, ROPE_FENCE, isRopeBlock, ropeColumn, ropeStakeOf, ropesFor, stakeRope } from '../world/blocks/rope';
+import { tetherOf } from '../world/blocks/ropeTether';
+import { HEMP } from '../craft/recipes';
 import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
-import { randInt, type Rng } from '../world/gen/random';
-import { DUG_ALWAYS_ONE, FARM_BREAK_DROP, NO_DROP_BLOCKS } from './config';
+import { hash01, randInt, type Rng } from '../world/gen/random';
+import { DUG_ALWAYS_ONE, FARM_BREAK_DROP, HEMP_DROP, NO_DROP_BLOCKS } from './config';
 import { dropBlockOf, dugItemOf } from './dugItems';
 import { COOP_BLOCKS, HANGING_SUPPORT, TORCH_NEIGHBORS, type DigCore } from './digCore';
 
@@ -45,6 +48,7 @@ export class BlockBreaker {
     if (c.bodyTgt()) return this.breakBodyBlock(t, bodyGlass);
     if (COOP_BLOCKS.has(t.id)) return this.breakCoopBlock(t);
     if (isChalkMarkId(t.id)) return this.breakChalkMark(t);
+    if (isRopeBlock(t.id)) return this.breakRope(t);
     const { x, y, z } = t.block;
     // こたつ 2×2: どの マス を こわして も 4 マス ぜんぶ 消える（`nukunuku` 1 と 中 の たまご は 1 回 だけ）
     if (isKotatsuBlock(t.id)) this.clearKotatsuCells(t);
@@ -75,6 +79,8 @@ export class BlockBreaker {
     if (wasFurnace) craft!.furnaceBroken(x, y, z);
     // GOLD-1 §4.7: はらぱんみみず（べつ の 乱数。地下 の ブロック 0.5%・き 0.2%）。地面 に おちる
     if (c.m4.harapan?.(t.id, y)) c.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, 'harapan_mimizu', 1);
+    // ROPE-1: くさ・はっぱ・はな から ときどき あさ（場所と 時こくの くじ。いつもの 乱数は つかわない）
+    if (HEMP_DROP.blocks.has(t.id) && hash01(HEMP_DROP.seed, x, y, z, c.tick()) < HEMP_DROP.chance) giveStacks(c, [{ item: HEMP, count: HEMP_DROP.count }], x, y, z);
     // M7: はたけ の 上の作物・くさ の 上の やせいの やさい、くさ から たね
     const farm = c.m4.farm;
     if (farm) {
@@ -100,6 +106,34 @@ export class BlockBreaker {
       return;
     }
     for (const s of furnSiblings(t.id, x, z)) if ((s.x !== x || s.z !== z) && w.getBlock(s.x, y, s.z) === s.id) w.setBlock(s.x, y, s.z, 'air');
+  }
+
+  /** ROPE-1: どの マス（くい・なわ・ロープだまり）を こわしても たれた ロープ ぜんぶと くいが 消え、つかった 本数（⌈長さ ÷ 10⌉。くいは 数えない）が 持ち物に もどる */
+  private breakRope(t: TargetInfo): BreakEnd {
+    const c = this.c;
+    const w = c.world;
+    const get = (gx: number, gy: number, gz: number): string => w.getBlock(gx, gy, gz);
+    const { x, y, z } = t.block;
+    let n = 0;
+    // 版 3: さく・つなぎの くいは それ だけ 消えて 1 本 もどる（つなぎも きれる）
+    const tether = tetherOf(w);
+    const a = tether.anchor;
+    const tied = a !== null && a.x === x && a.y === y && a.z === z;
+    if (tied) tether.clear();
+    const lone = t.id === ROPE_FENCE || tied;
+    // がけの くいを こわした: となりの ロープの 列を さがす
+    const col = lone ? null : t.id === ROPE_STAKE ? stakeRope(get, x, y, z) : { x, z };
+    if (lone || t.id === ROPE_STAKE) w.setBlock(x, y, z, 'air');
+    if (col) {
+      const { top, bottom } = ropeColumn((yy) => get(col.x, yy, col.z), y);
+      const stake = ropeStakeOf(get, col.x, top, col.z);
+      if (stake) w.setBlock(stake.x, top, stake.z, 'air');
+      for (let yy = bottom; yy <= top; yy++) w.setBlock(col.x, yy, col.z, 'air');
+      n = ropesFor(top - bottom + 1);
+    } else n = 1; // くいだけ のこって いた（ロープが ない）: 1 本 もどす
+    giveStacks(c, [{ item: ROPE, count: n }], x, y, z);
+    c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: t.id, gotItem: true, count: n });
+    return 'done';
   }
 
   /** MINE-1B: チョークの しるしは さわると すぐ 消えて 何も 出ない（持ち物は ふえない。道具の たいきゅうも へらない） */

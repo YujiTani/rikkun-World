@@ -115,12 +115,16 @@ test.describe('CRAFT-PAGE たいまつの作り方', () => {
       const h = window.__rikkun as any;
       const tiles = h.craft.ui().tiles as { id: string }[];
       const cards = h.craft.ui().cards as { id: string }[]; // tiles は 材料を持つ物だけ。カード数は cards で見る
-      const list = h.craft.list() as { id: string; output: { item: string } }[];
-      return { torchTiles: tiles.filter((t) => t.id === 'torch' || t.id.startsWith('torch')).length, cards: cards.length, recipes: list.length, torchRecipes: list.filter((c) => c.output.item === 'torch').length };
+      const list = h.craft.list() as { id: string; station: string; output: { item: string } }[];
+      return { torchTiles: tiles.filter((t) => t.id === 'torch' || t.id.startsWith('torch')).length, cards: cards.length, recipes: list.length, groups: new Set(list.map((c) => `${c.station}:${c.output.item}`)).size, stations: list.filter((c) => typeof c.station === 'string').length, torchRecipes: list.filter((c) => c.output.item === 'torch').length };
     });
     expect(r.torchRecipes).toBe(3);
     expect(r.torchTiles).toBe(1);
-    expect(r.cards).toBe(r.recipes - 2); // レシピは 38 こ、カードは 36 枚
+    // 同じ 場所・同じ できあがりの 作り方は 1 枚に まとまる（groupRecipes）。たいまつ 3 → 1 と、ROPE-1 の あさの 作り方（ゆみ・むしとりあみ・ロープ 各 2 → 1）
+    // 作り方の 数を きめうち しない: カード数 = 「場所:できあがり」の しゅるいの 数
+    expect(r.stations, 'list() に station が ある').toBe(r.recipes);
+    expect(r.cards).toBe(r.groups);
+    expect(r.recipes - r.cards).toBeGreaterThanOrEqual(2); // たいまつ の 2 つ ぶんは かならず まとまる
     // 材料が き 1 + せきたん 1 だけでも カードは 「作れる」（3 つのどれかが 作れれば）
     await open(page, [['log', 1], ['coal_ore', 1]]);
     const glow = await page.evaluate(() => (window.__rikkun as any).craft.ui().cards.find((c: any) => c.id === 'torch'));

@@ -87,7 +87,7 @@ export const ORB_IDS = ['yokai_orb'] as const;
 export type OrbId = (typeof ORB_IDS)[number];
 
 /** ざいりょう 6 つ（M3・M4）: かみ・あぶら・いと・ぬの・ねんど・すいしょう（この順が ITEM_TYPES の 並び。ようかいだまの 次） */
-export const MATERIAL_ITEM_IDS = ['paper', 'oil', 'string', 'cloth', 'clay', 'crystal', 'sumi'] as const;
+export const MATERIAL_ITEM_IDS = ['paper', 'oil', 'string', 'cloth', 'clay', 'crystal', 'sumi', 'hemp'] as const; // hemp = あさ（ROPE-1。くさ・はっぱ・はなから。いとの かわり）
 export type MaterialId = (typeof MATERIAL_ITEM_IDS)[number];
 
 /** てつの かたまり（M4。かまどで 鉄鉱石を やく。ITEM_TYPES では つるはし・おのの 次） */

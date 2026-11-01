@@ -6,6 +6,8 @@ import { K_TANSU, doorId, doorInfo, furnInfo, furnPlaceCells, houseDropOf, isFur
 import { applyFlatten, planFlatten, type FlattenPlan } from '../world/flatten';
 import { HANGING_SUPPORT, isReplaceable, overlapsBody, type DigCore } from './digCore';
 import { isWater } from '../world/blocks/water';
+import { ROPE, ROPE_FENCE, ROPE_STAKE, planRopeHere } from '../world/blocks/rope';
+import { tetherOf } from '../world/blocks/ropeTether';
 
 /** 置く場所とブロック（置けないなら null）。tryPlace とヒントが同じ判定を使う */
 export interface PlaceSpot {
@@ -16,6 +18,10 @@ export interface PlaceSpot {
   /** ふとん・こたつ・家具・戸の ぜんぶの マス。y を 書かない マスは 置く 高さ y */
   cells?: ReadonlyArray<{ x: number; y?: number; z: number; block: BlockId }>;
   plan?: FlattenPlan;
+  /** ROPE-1: つかう ロープの 本数（ふつうは 1 こ） */
+  use?: number;
+  /** ROPE-1 版 3: 置いた あとに する こと（つなぐ・さくの 上に のる） */
+  after?: () => void;
 }
 
 /** ブロックを 置く（右クリック）。置ける場所の判定・こたつ 2×2・たいらに する・置く の実行までを 受け持つ */
@@ -25,11 +31,19 @@ export class BlockPlacer {
 
   constructor(private readonly c: DigCore) {}
 
+  /** ROPE-1 版 3: ロープを 持って いるか（右クリックは ねらいを 見ずに 足もとから たらす） */
+  holdingRope(): boolean {
+    const held = this.c.inventory.held();
+    return held !== null && itemType(held.item)?.placeBlock === ROPE;
+  }
+
   /** 置く場所とブロック（置けないなら null） */
   spot(): PlaceSpot | null {
     const c = this.c;
     const t = c.tgt();
     const held = c.inventory.held();
+    // ROPE-1 版 3: ロープは ねらいを 見ない（足もとから 向いた ほうへ たらす）
+    if (held && itemType(held.item)?.placeBlock === ROPE) return this.ropeHere(held.count);
     if (!t || !held) return null;
     const block = itemType(held.item)?.placeBlock;
     if (!block) return null;
@@ -92,6 +106,42 @@ export class BlockPlacer {
     }
     const aimed = cells.find((k) => k.x === x && k.z === z)!;
     return cells.length === 1 ? { x, y, z, block: aimed.id } : { x, y, z, block: aimed.id, cells: cells.map((k) => ({ x: k.x, z: k.z, block: k.id })) };
+  }
+
+  /** ROPE-1 版 3: 足もとに くい、向いて いる ほうの となりの 列に 下へ たらす（がけで なければ null。くわしくは world/blocks/rope.ts の planRopeHere） */
+  private ropeHere(have: number): PlaceSpot | null {
+    const c = this.c;
+    const p = c.player();
+    const feet = { x: Math.floor(p.position.x), y: Math.floor(p.position.y + 1e-3), z: Math.floor(p.position.z) };
+    const free = (x: number, y: number, z: number): boolean => !c.gate?.placeBlocked(x, y, z) && !this.lockedCell(x, y, z);
+    const open = (x: number, y: number, z: number): boolean => {
+      const cur = c.world.getBlock(x, y, z);
+      return (cur === 'air' || isWater(cur)) && free(x, y, z);
+    };
+    const canStake = (): boolean => {
+      const cur = c.world.getBlock(feet.x, feet.y, feet.z);
+      return (cur === 'air' || isReplaceable(cur)) && free(feet.x, feet.y, feet.z) && c.world.isSolid(feet.x, feet.y - 1, feet.z);
+    };
+    const tether = tetherOf(c.world);
+    if (tether.live((x, y, z) => c.world.getBlock(x, y, z), ROPE_STAKE)) {
+      // つないで いる 間: 足もとに ロープの さく（1 本）。さくの 上にも つめる。置いたら プレイヤーは さくの 上へ
+      const head = (dy: number): boolean => {
+        const cur = c.world.getBlock(feet.x, feet.y + dy, feet.z);
+        return cur === 'air' && free(feet.x, feet.y + dy, feet.z);
+      };
+      if (!(canStake() && head(1) && head(2) && p.onGround)) return null;
+      const { x, y, z } = feet;
+      return { x, y, z, block: ROPE_FENCE, after: () => { p.position.y = y + 1; p.velocity.y = 0; } };
+    }
+    const plan = planRopeHere(feet, p.yawDeg, have, canStake, open);
+    if (!plan) {
+      // がけで ない（たいら）: 足もとに くいを うって 体と つなぐ（くい 1 本。長さは もって いた 本数 × 10）
+      if (!canStake() || !p.onGround) return null;
+      const { x, y, z } = feet;
+      return { x, y, z, block: ROPE_STAKE, after: () => tether.tie(feet, have) };
+    }
+    const { x, y, z } = plan.stake;
+    return { x, y, z, block: ROPE_STAKE, cells: [{ x, y, z, block: ROPE_STAKE }, ...plan.cells.map((k) => ({ x: plan.x, y: k.y, z: plan.z, block: k.block }))], use: plan.used };
   }
 
   /** 戸 2 マス（下〔ねらった マス〕と その 上）を 置く 場所。2 マスとも あいて いて、体に 重ならない ところ だけ */
@@ -182,7 +232,8 @@ export class BlockPlacer {
     } else if (c.bodyTgt()) {
       if (!c.m4.bodyBlocks?.place({ x, y, z }, block)) return;
     } else if (!c.world.setBlock(x, y, z, block)) return;
-    c.inventory.consumeHeld();
+    for (let i = 0; i < (spot.use ?? 1); i++) c.inventory.consumeHeld();
+    spot.after?.();
     if (isFurnKind(block, K_TANSU)) c.m4.storage?.placed(x, y, z, c.player().yawDeg);
     c.m4.tools?.pushSwing('place');
     c.emit({ type: 'place', tick: c.tick(), block: { x, y, z }, id: houseDropOf(block) ?? block }); // 家の もの〔向き・マス ちがい〕は もとの id

@@ -150,6 +150,10 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     katame_tsuchi: 0.5,
     ...forScaffold<null>(null),
     ...forWaterExtra<null>(null),
+    rope: 0.05, // ROPE-1: すぐ とれる（すすきと 同じ）
+    rope_coil: 0.05,
+    rope_stake: 0.05,
+    rope_fence: 0.1,
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -227,6 +231,10 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     katame_tsuchi: 0,
     ...forScaffold(0),
     ...forWaterExtra(0),
+    rope: 0,
+    rope_coil: 0,
+    rope_stake: 0,
+    rope_fence: 0,
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
   handLevel: 0,
@@ -318,6 +326,10 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     katame_tsuchi: 'common',
     ...forScaffold<Rarity>('common'),
     ...forWaterExtra<Rarity>('common'),
+    rope: 'common',
+    rope_coil: 'common',
+    rope_stake: 'common',
+    rope_fence: 'common',
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };
@@ -362,6 +374,20 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
  * ほると いつも 1 こ 出る もの（すいしょうの いし・ダイヤの いし。かまどを 通さない 宝石）。それ以外〔ねんど〕は ブロックの めずらしさの きまり（`rarity`・`dropMax`）の 数。
  */
 export const DUG_ALWAYS_ONE: ReadonlySet<BlockId> = new Set<BlockId>(['suisho_ore', 'diamond_ore']);
+
+/**
+ * ROPE-1: こわすと ときどき あさ（hemp）が でる ブロック と その 確率。いつもの ドロップに 足すだけ（いつもの 数・乱数は かえない）。
+ * くさ = grass・kusa、はっぱ = leaves・momiji_leaves・matsu_leaves、はな = flower_y・flower_o・flower_p・nobana
+ */
+export const HEMP_DROP = {
+  /** でる 確率（1 回 こわすごと。1/3 = 約 33%） */
+  chance: 1 / 3,
+  /** 1 回に でる 数（こ） */
+  count: 1,
+  blocks: new Set<BlockId>(['grass', 'kusa', 'leaves', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'nobana']) as ReadonlySet<BlockId>,
+  /** くじの 種（ほかの ドロップの 乱数と わける） */
+  seed: 0x4a5e,
+} as const;
 
 /** VOX-I-1: こわすと 持ち物がふえない ブロック（すすき・FLORA-75 の くさ。ふえるのは ひろえる物だけ） */
 export const NO_DROP_BLOCKS: ReadonlySet<BlockId> = new Set<BlockId>(['susuki', 'kusa']);

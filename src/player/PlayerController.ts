@@ -17,6 +17,8 @@ import {
   type PlayerSettings,
 } from './config';
 import { isDeepWater, isWater, waterAmount } from '../world/blocks/water';
+import { ROPE_STAKE, ROPE_TUNING, isClimbBlock } from '../world/blocks/rope';
+import { tetherOf } from '../world/blocks/ropeTether';
 
 const DEG = Math.PI / 180;
 /** ふみこみを 区切る 長さ（がけ・妖怪の 手前で 止める 細かさ） */
@@ -50,6 +52,9 @@ type Vec = Partial<{ x: number; y: number; z: number }>;
  * プレイヤーの動き（M1-02）。描画には何も触らない。
  * 位置は足もとの中央。順番: 向き → 水平の速さ → ジャンプ → 上下の速さ → 軸ごとに動かす。
  */
+/** ROPE-1 版 3: つなぎの 長さを はかる 体の 点（足もとから の 高さ） */
+const TETHER_WAIST = 0.9;
+
 export class PlayerController {
   readonly state: PlayerState;
   readonly settings: PlayerSettings;
@@ -78,6 +83,10 @@ export class PlayerController {
   private readonly idx = [0, 0, 0];
   /** ねらう行動のあと、向きをねらいに合わせつづける残りステップ */
   private aimHold = 0;
+  /** ROPE-1 版 3: つないだ ロープ いっぱいで ぶら下がって いる（のぼる・おりる・落ちない） */
+  private hanging = false;
+  /** ROPE-1: 足もと か こしが ロープの マス（updateWater で 水と いっしょに 読む） */
+  private ropeCell = false;
 
   constructor(
     private readonly world: VoxelWorld,
@@ -242,6 +251,11 @@ export class PlayerController {
         a.isHeld('secondary') || a.isHeld('drop') || a.isHeld('dropStack') ||
         a.wasPressed('secondary') || a.wasPressed('drop') || a.wasPressed('dropStack');
     }
+    // ROPE-1 版 3: ロープに つかまって いる 間は スペース（jump）= のぼる、シフト（run）= おりる、どちらも なし = とまる。
+    // まえ・うしろ・よこは ふつうに 歩く（がけの 上へ もどる・はなれる）。ロープの 上では 走らない
+    const climb = this.motion.hoverY === null && (this.onRope() || this.hanging);
+    const climbDir = !climb ? 0 : jumpHeld ? 1 : runHeld ? -1 : 0;
+    if (climb) runHeld = false;
     const yaw = st.yawDeg * DEG;
     const sin = Math.sin(yaw);
     const cos = Math.cos(yaw);
@@ -296,16 +310,23 @@ export class PlayerController {
     p[1] = st.position.y;
     p[2] = st.position.z;
     let vy = st.velocity.y;
-    if (st.onGround && !this.motion.jumpLocked && (jumpHeld || (wlen > 0 && cfg.autoJump && this.shouldAutoJump(wx, wz)))) {
+    // ROPE-1: ロープの 上では 重力なし（なにも しないと その 場に とまる）
+    if (climb) vy = climbDir * ROPE_TUNING.climbSpeed;
+    else if (st.onGround && !this.motion.jumpLocked && (jumpHeld || (wlen > 0 && cfg.autoJump && this.shouldAutoJump(wx, wz)))) {
       vy = Math.sqrt(2 * cfg.gravity * (this.jumpOverride ?? cfg.jumpHeight) * (st.inWater ? cfg.waterJumpMul : 1));
     }
 
     // 上下: はじめと終わりの速さの平均で動かす（§4.5）
     // WEAPON-9: うかぶ ときは 目標の 高さへ（1 ステップ 0.5 まで）。重力・ジャンプは 使わない
     const hover = this.motion.hoverY;
-    const vyNew = hover !== null ? 0 : Math.max(vy - cfg.gravity * dt, -cfg.maxFallSpeed);
-    const moveY = hover !== null ? Math.max(-0.5, Math.min(0.5, hover - st.position.y)) : ((vy + vyNew) / 2) * dt;
+    const vyNew = hover !== null ? 0 : climb ? vy : Math.max(vy - cfg.gravity * dt, -cfg.maxFallSpeed);
+    const moveY0 = hover !== null ? Math.max(-0.5, Math.min(0.5, hover - st.position.y)) : ((vy + vyNew) / 2) * dt;
 
+    // ROPE-1 版 3（つなぎ）: くいから ロープの 長さより 先へ 行く うごきを けす（がけから 落ちたら ぶら下がる）
+    const tether = tetherOf(this.world);
+    const anchor = hover === null ? tether.live((x, y, z) => this.world.getBlock(x, y, z), ROPE_STAKE) : null;
+    const waist = { x: p[0], y: p[1] + TETHER_WAIST, z: p[2] };
+    const moveY = anchor ? tether.clampStep(anchor, waist, st.velocity, moveY0, dt) : moveY0;
     const hitX = this.sweep(0, st.velocity.x * dt);
     const hitZ = this.sweep(2, st.velocity.z * dt);
     const hitY = this.sweep(1, moveY);
@@ -317,6 +338,7 @@ export class PlayerController {
     st.position.y = p[1];
     st.position.z = p[2];
     st.onGround = hover === null && hitY && moveY < 0;
+    this.hanging = anchor !== null && tether.anchor !== null && !st.onGround && (this.hanging || tether.taut(anchor, { x: p[0], y: p[1] + TETHER_WAIST, z: p[2] }));
     st.moving = wlen > 0 || Math.hypot(st.velocity.x, st.velocity.z) > MOVING_SPEED_EPS;
     this.updateWater();
 
@@ -431,17 +453,27 @@ export class PlayerController {
     return true;
   }
 
+  /** ROPE-1: 体（足もと か こし）が ロープの マスに かかって いるか */
+  onRope(): boolean {
+    return this.hanging || this.ropeCell;
+  }
+
   private updateWater(): void {
     const { x, y, z } = this.state.position;
     const bx = Math.floor(x);
     const bz = Math.floor(z);
     // WATER-1 §4.6: 量 4〜8 の 水の マスの 中 かつ 水面(マスの 底 + 量 / 8)より 下
-    this.state.inWater = this.surfaceBelow(bx, Math.floor(y + EPS), bz, y) || this.surfaceBelow(bx, Math.floor(y + 0.9), bz, y);
+    // ROPE-1: 同じ 2 マス（足もと・こし）を 1 回ずつ 読んで、ロープに かかって いるかも ここで きめる（getBlock を ふやさない）
+    const fy = Math.floor(y + EPS);
+    const wy = Math.floor(y + 0.9);
+    const feet = this.world.getBlock(bx, fy, bz);
+    const waist = this.world.getBlock(bx, wy, bz);
+    this.state.inWater = this.surfaceBelow(feet, fy, y) || this.surfaceBelow(waist, wy, y);
+    this.ropeCell = isClimbBlock(feet) || isClimbBlock(waist);
   }
 
-  /** (bx, by, bz) が 深い 水で、点の 高さ y が その 水面より 下か */
-  private surfaceBelow(bx: number, by: number, bz: number, y: number): boolean {
-    const id = this.world.getBlock(bx, by, bz);
+  /** マス（高さ by・中身 id）が 深い 水で、点の 高さ y が その 水面より 下か */
+  private surfaceBelow(id: string, by: number, y: number): boolean {
     return isDeepWater(id) && y < by + waterAmount(id) / 8;
   }
 }

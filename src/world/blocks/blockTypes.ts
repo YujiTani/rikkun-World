@@ -104,6 +104,11 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   ...RESERVED_BEFORE_IDS.map((id): BlockType => ({ id, name: 'くうき', solid: false, breakable: false })),
   ...WATER_PARTIAL_IDS.map((id): BlockType => ({ id, name: 'みず', solid: false, breakable: false })),
   { id: RESERVED_AFTER_ID, name: 'くうき', solid: false, breakable: false },
+  // ROPE-1（番号は 後ろに 足す。W0 + 8）: ロープ。固くない・十字の 板で 描く・つかまって のぼれる（player/climb.ts）
+  { id: 'rope', name: 'ロープ', solid: false, breakable: true },
+  { id: 'rope_coil', name: 'ロープだまり', solid: false, breakable: true },
+  { id: 'rope_stake', name: 'ロープの くい', solid: false, breakable: true }, // ROPE-1 版 3（番号は 後ろに 足す）
+  { id: 'rope_fence', name: 'ロープの さく', solid: true, breakable: true }, // ROPE-1 版 3: 当たりは 1 マスの ブロック（とりごやの さくと 同じ）
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -158,6 +163,7 @@ const CROSS_IDS: ReadonlySet<string> = new Set([
   'kakashi', 'kakashi_head', 'saku',
   'toriya_fence', 'toriya_gate', // LIVE-2.1: とりごや の さく・もん（当たり は 今 の まま ブロック）
   'flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana',
+  'rope', 'rope_coil', 'rope_stake', 'rope_fence', // ROPE-1: ロープ（たてに たれる なわ）・ロープだまり（下の まき）
 ]);
 const CROSS = BLOCK_TYPES.map((t) => CROSS_IDS.has(t.id));
 /** 十字の板で描くブロックか（作物・やせいの やさい・かかし・さく）。固くない・光を通す・まわりの面を隠さない */

@@ -36,6 +36,7 @@ import { LEGEND } from './legend';
 import { NO_INFO_OK } from './noInfoOk';
 import { ITEM_DEFS, itemDef, registryHeal } from './registry';
 import { HOUSE_BLOCKS } from './houseBlocks';
+import { ROPE_BLOCKS } from './rope';
 import { HOUSE_BLOCK_IDS } from '../../world/blocks/houseBlocks';
 import { toolFamily } from '../../dig/toolFamily';
 import { isM4Item, m4ItemPixels } from '../../ui/itemArtM4';
@@ -107,7 +108,7 @@ describe('登録表（金シリーズ）', () => {
   it('金の全 id に ItemDef がある（10 個・id は ids.ts の 1 回だけ）', () => {
     expect(GOLD_IDS).toHaveLength(10);
     for (const id of GOLD_IDS) expect(itemDef(id), id).toBeDefined();
-    expect(strip1B(Object.keys(ITEM_DEFS)).sort()).toEqual(strip1B([...GOLD_IDS, ...KONGO_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS, ...FARM_IDS, ...ORB_IDS, ...MATERIAL_ITEM_IDS, ...INGOT_IDS, ...GADGET_IDS, ...LIVE_ITEM_IDS, ...HOUSE_TOOL_IDS, ...HOUSE_FURNITURE_IDS, ...HOUSE_PLAN_IDS, ...HOUSE_BLOCK_IDS, 'nukunuku', ...BLOCK_ITEM_IDS]).sort()); // MINE-1B の 6 つは 別（MINE_1B_IDS）
+    expect(strip1B(Object.keys(ITEM_DEFS)).sort()).toEqual(strip1B([...GOLD_IDS, ...KONGO_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS, ...FARM_IDS, ...ORB_IDS, ...MATERIAL_ITEM_IDS, ...INGOT_IDS, ...GADGET_IDS, ...LIVE_ITEM_IDS, ...HOUSE_TOOL_IDS, ...HOUSE_FURNITURE_IDS, ...HOUSE_PLAN_IDS, ...HOUSE_BLOCK_IDS, 'nukunuku', ...BLOCK_ITEM_IDS, ...Object.keys(ROPE_BLOCKS)]).sort()); // MINE-1B の 6 つは 別（MINE_1B_IDS）
     expect(Object.keys(EXPECT).sort()).toEqual([...GOLD_IDS].sort());
   });
 
@@ -127,7 +128,7 @@ describe('登録表（金シリーズ）', () => {
   });
 
   it('同じ id が 2 つの シリーズに 入っていない（シリーズごとの 数の 合計 = ITEM_DEFS の 数）', () => {
-    const series = [PLACEABLE, M4_BLOCKS, GEYSER, VOX_I, TOOLS, SWORDS, BOWS, ARMOR_DEFS_RAW, NINJA, SAMURAI, SEEDS, VEGGIES, FARM_TOOLS, SPRINKLER, BUCKETS, ORB, MATERIALS, INGOT, GADGETS, LIVE, KOTATSU, LEGEND, GOLD, KONGO, HOUSE_TOOLS, HOUSE_FURNITURE, HOUSE_PLANS, HOUSE_BLOCKS];
+    const series = [PLACEABLE, M4_BLOCKS, GEYSER, VOX_I, TOOLS, SWORDS, BOWS, ARMOR_DEFS_RAW, NINJA, SAMURAI, SEEDS, VEGGIES, FARM_TOOLS, SPRINKLER, BUCKETS, ORB, MATERIALS, INGOT, GADGETS, LIVE, KOTATSU, LEGEND, GOLD, KONGO, HOUSE_TOOLS, HOUSE_FURNITURE, HOUSE_PLANS, HOUSE_BLOCKS, ROPE_BLOCKS];
     // MINE-1B の 6 つは 一覧の どれかに 入れても、新しい シリーズの ファイルに 入れても よい。一覧の 外に ある 分だけ 足して 合わせる
     const listed = new Set(series.flatMap((d) => Object.keys(d)));
     const outside = MINE_1B_IDS.filter((id) => id in ITEM_DEFS && !listed.has(id)).length;
