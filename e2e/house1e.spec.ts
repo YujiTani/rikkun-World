@@ -95,6 +95,9 @@ function domBads(page: Page): Promise<(string | null)[]> {
 async function expectClusterInGrid(page: Page, why: string): Promise<void> {
   const grid = await page.getByTestId('editor-grid').boundingBox();
   expect(grid, `${why}: 方眼の はこ`).not.toBeNull();
+  // ボタンの はこは CSS の ふわっと（ed-fade、とうめい → 見える）で 出る。これは step で なく 時計で 進む ので、
+  // おそい CI だと 押した すぐ あとは まだ とうめいで readButtons に 見えない。ふわっとが おわるのを 待ってから 読む
+  await page.getByTestId('editor-cluster').evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
   const beside = (await readButtons(page)).filter((b) => ['take', 'turnRight', 'turnLeft'].includes(b.id));
   expect(beside.map((b) => b.id).sort(), `${why}: そばの ボタン 3 つ`).toEqual(['take', 'turnLeft', 'turnRight']);
   for (const b of beside) {
