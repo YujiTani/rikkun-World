@@ -23,6 +23,7 @@ import { peakNear } from '../../world/gen/peak';
 import { MICRO_RADII } from '../../world/render/voxel/tier';
 import { groundBelow } from '../../fx/blobShadow';
 import { isSolidIndex } from '../../world/blocks/blockTypes';
+import { createTetherLine } from '../../world/render/tetherLine';
 import { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
 import { saveShadowPref } from '../../world/render/shadow/shadowPref';
 import { createShadowSetting } from '../../ui/shadowSetting';
@@ -371,8 +372,10 @@ export function wireLoop(deps: WiredFrame) {
     const p = controller.state.position;
     renderer.update({ x: p.x, z: p.z });
   });
+  const tetherLine = createTetherLine(game.scene, world); // ROPE-1 版 3: つなぎの なわ
   game.onUpdate(() => {
     const p = controller.state.position;
+    tetherLine.update(p);
     const bx = Math.floor(p.x);
     const bz = Math.floor(p.z);
     const ground = groundBelow(p.y, (y) => {

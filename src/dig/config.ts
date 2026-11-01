@@ -152,6 +152,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     ...forWaterExtra<null>(null),
     rope: 0.05, // ROPE-1: すぐ とれる（すすきと 同じ）
     rope_coil: 0.05,
+    rope_stake: 0.05,
+    rope_fence: 0.1,
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -231,6 +233,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     ...forWaterExtra(0),
     rope: 0,
     rope_coil: 0,
+    rope_stake: 0,
+    rope_fence: 0,
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
   handLevel: 0,
@@ -324,6 +328,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     ...forWaterExtra<Rarity>('common'),
     rope: 'common',
     rope_coil: 'common',
+    rope_stake: 'common',
+    rope_fence: 'common',
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };

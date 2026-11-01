@@ -498,6 +498,11 @@ export class DigSystemImpl implements DigSystem {
       if (due && this.placer.spot()) this.placer.tryPlace();
       return;
     }
+    // ROPE-1 版 3: ロープは ねらいに 関係なく、押した ステップ だけ 足もとから たらす（がけで なければ 何も しない）
+    if (this.placer.holdingRope()) {
+      if (first) this.placer.tryPlace();
+      return;
+    }
     // 00・0・0b・8b（LIVE-1 版 3.2 §2.3）。押した ステップ で きまり、押しつづけ の くりかえし では しない
     if (first) this.animals.rightFirst();
     if (this.animals.step(this.secondaryTicks)) return;

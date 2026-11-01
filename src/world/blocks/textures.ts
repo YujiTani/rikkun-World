@@ -549,6 +549,8 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   // ROPE-1: 十字の 板
   rope: ['rope', 'rope', 'rope'],
   rope_coil: ['rope_coil', 'rope_coil', 'rope_coil'],
+  rope_stake: ['rope_stake', 'rope_stake', 'rope_stake'],
+  rope_fence: ['rope_fence', 'rope_fence', 'rope_fence'],
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */

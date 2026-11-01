@@ -31,3 +31,14 @@
 
 ## art-reviewer
 合格（重大 0・軽微 1: A1 ロープだまりの 上の わが 小さい）。絵の 最終決定は オーナー。GIF は 動く 物が ないので なし。
+
+## 版 3: くい（rope_stake）（art-director → pixel-artist → art-reviewer）
+- 方向: A 案と 同じ 2 色（#C9A46A・#8A6A3A）＋ ふち #4A3218。木の くい（#9A6B3C・#6B4523）に なわを 2 まき、はしが がけの ほうへ のびる。案は A の なかま 1 つだけ（色ちがい 3 案は 作らず。オーナーの 「A の スタイルで」に したがった）。
+- 絵: `src/world/blocks/ropeTextures.ts` の stakeTile。見本 `stake-sheet.png`（がけ・くい・なわ・ロープだまり）・`stake-tile.png`・白黒 `stake-check-gray.png`。
+- art-reviewer: 合格（軽微 1: 十字の 板で 描くので、なわの はしが となりの 列の なわと つながって 見えない。ゲームで 見て オーナー確認）。
+
+## 版 3 追加: ロープの さく（rope_fence）・つなぎの なわ
+- さく: 左右に 木の くい 2 本（くいと 同じ 木の 色）、なわ 3 だん（A 案の 2 色の しま）。十字の 板で かく（とりごやの さくと 同じ）。`ropeTextures.ts` の fenceTile。見本 `fence-tile.png`。
+- つなぎの なわ: くいの 上 から プレイヤーの こしまで 1 本の 線（#C9A46A。`src/world/render/tetherLine.ts`）。線の 太さは WebGL の 都合で 1 ピクセル。
+- 実ゲーム画面: /workspace/rope-shots/（1 つなぎ・2 ぶら下がり・3 のぼった あと）。
+- art-reviewer: 合格（軽微 A3: 線が 細く、遠いと 見えにくい。オーナー確認）。

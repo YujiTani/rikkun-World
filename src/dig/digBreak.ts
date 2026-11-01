@@ -4,7 +4,8 @@ import { CHALK_FACES, CHALK_NORMAL, chalkInfo, isChalkMarkId } from '../world/bl
 import { futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
 import { K_TANSU, doorInfo, furnSiblings, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
-import { ROPE, isRopeBlock, ropeColumn, ropesFor } from '../world/blocks/rope';
+import { ROPE, ROPE_STAKE, ROPE_FENCE, isRopeBlock, ropeColumn, ropeStakeOf, ropesFor, stakeRope } from '../world/blocks/rope';
+import { tetherOf } from '../world/blocks/ropeTether';
 import { HEMP } from '../craft/recipes';
 import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { hash01, randInt, type Rng } from '../world/gen/random';
@@ -107,13 +108,29 @@ export class BlockBreaker {
     for (const s of furnSiblings(t.id, x, z)) if ((s.x !== x || s.z !== z) && w.getBlock(s.x, y, s.z) === s.id) w.setBlock(s.x, y, s.z, 'air');
   }
 
-  /** ROPE-1: どの マスを こわしても たれた ロープ ぜんぶが 消え、つかった 本数（⌈長さ ÷ 10⌉）が 持ち物に もどる */
+  /** ROPE-1: どの マス（くい・なわ・ロープだまり）を こわしても たれた ロープ ぜんぶと くいが 消え、つかった 本数（⌈長さ ÷ 10⌉。くいは 数えない）が 持ち物に もどる */
   private breakRope(t: TargetInfo): BreakEnd {
     const c = this.c;
+    const w = c.world;
+    const get = (gx: number, gy: number, gz: number): string => w.getBlock(gx, gy, gz);
     const { x, y, z } = t.block;
-    const { top, bottom } = ropeColumn((yy) => c.world.getBlock(x, yy, z), y);
-    for (let yy = bottom; yy <= top; yy++) c.world.setBlock(x, yy, z, 'air');
-    const n = ropesFor(top - bottom + 1);
+    let n = 0;
+    // 版 3: さく・つなぎの くいは それ だけ 消えて 1 本 もどる（つなぎも きれる）
+    const tether = tetherOf(w);
+    const a = tether.anchor;
+    const tied = a !== null && a.x === x && a.y === y && a.z === z;
+    if (tied) tether.clear();
+    const lone = t.id === ROPE_FENCE || tied;
+    // がけの くいを こわした: となりの ロープの 列を さがす
+    const col = lone ? null : t.id === ROPE_STAKE ? stakeRope(get, x, y, z) : { x, z };
+    if (lone || t.id === ROPE_STAKE) w.setBlock(x, y, z, 'air');
+    if (col) {
+      const { top, bottom } = ropeColumn((yy) => get(col.x, yy, col.z), y);
+      const stake = ropeStakeOf(get, col.x, top, col.z);
+      if (stake) w.setBlock(stake.x, top, stake.z, 'air');
+      for (let yy = bottom; yy <= top; yy++) w.setBlock(col.x, yy, col.z, 'air');
+      n = ropesFor(top - bottom + 1);
+    } else n = 1; // くいだけ のこって いた（ロープが ない）: 1 本 もどす
     giveStacks(c, [{ item: ROPE, count: n }], x, y, z);
     c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: t.id, gotItem: true, count: n });
     return 'done';

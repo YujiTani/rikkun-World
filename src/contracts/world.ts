@@ -105,6 +105,8 @@ export type BlockId =
   | ReservedId
   // ROPE-1（うしろに足す）: ロープ（固くない。つかまって のぼり おり できる）
   | 'rope'
+  | 'rope_fence' // ROPE-1 版 3: ロープの さく（つないで いる 間に 足もとへ。よこから とおれない・上に のれる）
+  | 'rope_stake' // ROPE-1 版 3: ロープを まきつけた くい（ロープの いちばん 上。足もと）
   | 'rope_coil'; // ロープ溜まり（ロープの いちばん 下。床に とどいた とき）
 
 export interface BlockType {

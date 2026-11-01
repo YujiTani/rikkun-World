@@ -34,6 +34,8 @@ export const BLOCK_ONLY_IDS = [
   ...WATER_EXTRA_IDS,
   // ROPE-1: ロープだまり（ロープの いちばん 下。こわすと ロープ ぜんぶが もどる。world/blocks/rope.ts）
   'rope_coil',
+  'rope_fence', // 版 3: ロープの さく（こわすと 1 本 もどる）
+  'rope_stake', // 版 3: くい（こわすと ロープ ぜんぶが もどる）
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 

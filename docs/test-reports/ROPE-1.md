@@ -23,3 +23,9 @@
 ## 見つけた問題
 1. 【軽微】がけを おりて のぼって 上に もどる 通しの E2E を 書いて いない（ルールの「実装の 前に E2E を 書いて 赤を 見る」を 守れて いない。役割の 指示が 実装の とちゅうで 来たため）。
 2. 【軽微】たてに くっついた 2 つの ロープは 1 つと して こわれ、もどる 本数が ⌈合計÷10⌉ に なる（少し へる ことが ある）。
+
+## 版 3（たらし方・操作・落下・つなぎ・さく）2026-11-01 夕
+- ユニット: src/dig/rope.test.ts（たらす・つなぎ・さく・こわす）、src/player/rope.test.ts（スペース/シフト・ダメージ 0）、src/player/tether.test.ts（長さで しばる・ぶら下がり・のぼる・くいが きえると きれる）、src/world/blocks/rope.test.ts（facingStep・planRopeHere・stakeRope）
+- E2E: e2e/rope1.spec.ts（つなぎ → がけで ぶら下がり → スペースで のぼる。ROPE_SHOTS=dir で 画面を のこす）
+- 実画面: /workspace/rope-shots/1-tethered-flat.png・2-hanging.png・3-climbed.png
+- sectionMesher の golden を 作りなおした: タイルが 1 つ ふえて アトラスの 行の 数（ceil(タイル数/4)）が かわり、ぜんぶの V 座標が かわる ため（GOLDEN_WRITE=1）

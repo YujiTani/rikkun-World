@@ -17,7 +17,8 @@ import {
   type PlayerSettings,
 } from './config';
 import { isDeepWater, isWater, waterAmount } from '../world/blocks/water';
-import { ROPE_TUNING, isRopeBlock } from '../world/blocks/rope';
+import { ROPE_STAKE, ROPE_TUNING, isClimbBlock } from '../world/blocks/rope';
+import { tetherOf } from '../world/blocks/ropeTether';
 
 const DEG = Math.PI / 180;
 /** ふみこみを 区切る 長さ（がけ・妖怪の 手前で 止める 細かさ） */
@@ -51,6 +52,9 @@ type Vec = Partial<{ x: number; y: number; z: number }>;
  * プレイヤーの動き（M1-02）。描画には何も触らない。
  * 位置は足もとの中央。順番: 向き → 水平の速さ → ジャンプ → 上下の速さ → 軸ごとに動かす。
  */
+/** ROPE-1 版 3: つなぎの 長さを はかる 体の 点（足もとから の 高さ） */
+const TETHER_WAIST = 0.9;
+
 export class PlayerController {
   readonly state: PlayerState;
   readonly settings: PlayerSettings;
@@ -79,6 +83,8 @@ export class PlayerController {
   private readonly idx = [0, 0, 0];
   /** ねらう行動のあと、向きをねらいに合わせつづける残りステップ */
   private aimHold = 0;
+  /** ROPE-1 版 3: つないだ ロープ いっぱいで ぶら下がって いる（のぼる・おりる・落ちない） */
+  private hanging = false;
 
   constructor(
     private readonly world: VoxelWorld,
@@ -243,10 +249,11 @@ export class PlayerController {
         a.isHeld('secondary') || a.isHeld('drop') || a.isHeld('dropStack') ||
         a.wasPressed('secondary') || a.wasPressed('drop') || a.wasPressed('dropStack');
     }
-    // ROPE-1: ロープに つかまって いる 間は、うしろ = おりる（よこへは 動かない）。まえ・ジャンプ = のぼる（まえへも 進むので がけの 上に あがれる）
-    const climb = this.motion.hoverY === null && this.onRope();
-    const climbDir = !climb ? 0 : fwd > 0 || jumpHeld ? 1 : fwd < 0 ? -1 : 0;
-    if (climbDir < 0) fwd = 0;
+    // ROPE-1 版 3: ロープに つかまって いる 間は スペース（jump）= のぼる、シフト（run）= おりる、どちらも なし = とまる。
+    // まえ・うしろ・よこは ふつうに 歩く（がけの 上へ もどる・はなれる）。ロープの 上では 走らない
+    const climb = this.motion.hoverY === null && (this.onRope() || this.hanging);
+    const climbDir = !climb ? 0 : jumpHeld ? 1 : runHeld ? -1 : 0;
+    if (climb) runHeld = false;
     const yaw = st.yawDeg * DEG;
     const sin = Math.sin(yaw);
     const cos = Math.cos(yaw);
@@ -311,8 +318,13 @@ export class PlayerController {
     // WEAPON-9: うかぶ ときは 目標の 高さへ（1 ステップ 0.5 まで）。重力・ジャンプは 使わない
     const hover = this.motion.hoverY;
     const vyNew = hover !== null ? 0 : climb ? vy : Math.max(vy - cfg.gravity * dt, -cfg.maxFallSpeed);
-    const moveY = hover !== null ? Math.max(-0.5, Math.min(0.5, hover - st.position.y)) : ((vy + vyNew) / 2) * dt;
+    const moveY0 = hover !== null ? Math.max(-0.5, Math.min(0.5, hover - st.position.y)) : ((vy + vyNew) / 2) * dt;
 
+    // ROPE-1 版 3（つなぎ）: くいから ロープの 長さより 先へ 行く うごきを けす（がけから 落ちたら ぶら下がる）
+    const tether = tetherOf(this.world);
+    const anchor = hover === null ? tether.live((x, y, z) => this.world.getBlock(x, y, z), ROPE_STAKE) : null;
+    const waist = { x: p[0], y: p[1] + TETHER_WAIST, z: p[2] };
+    const moveY = anchor ? tether.clampStep(anchor, waist, st.velocity, moveY0, dt) : moveY0;
     const hitX = this.sweep(0, st.velocity.x * dt);
     const hitZ = this.sweep(2, st.velocity.z * dt);
     const hitY = this.sweep(1, moveY);
@@ -324,6 +336,7 @@ export class PlayerController {
     st.position.y = p[1];
     st.position.z = p[2];
     st.onGround = hover === null && hitY && moveY < 0;
+    this.hanging = anchor !== null && tether.anchor !== null && !st.onGround && (this.hanging || tether.taut(anchor, { x: p[0], y: p[1] + TETHER_WAIST, z: p[2] }));
     st.moving = wlen > 0 || Math.hypot(st.velocity.x, st.velocity.z) > MOVING_SPEED_EPS;
     this.updateWater();
 
@@ -440,11 +453,12 @@ export class PlayerController {
 
   /** ROPE-1: 体（足もと か こし）が ロープの マスに かかって いるか */
   onRope(): boolean {
+    if (this.hanging) return true;
     const { x, y, z } = this.state.position;
     const bx = Math.floor(x);
     const bz = Math.floor(z);
     const w = this.world;
-    return isRopeBlock(w.getBlock(bx, Math.floor(y + EPS), bz)) || isRopeBlock(w.getBlock(bx, Math.floor(y + 0.9), bz));
+    return isClimbBlock(w.getBlock(bx, Math.floor(y + EPS), bz)) || isClimbBlock(w.getBlock(bx, Math.floor(y + 0.9), bz));
   }
 
   private updateWater(): void {

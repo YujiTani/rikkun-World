@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ROPE_TUNING, isRopeBlock, planRope, ropeColumn, ropesFor } from './rope';
+import { ROPE_TUNING, facingStep, isClimbBlock, isRopeBlock, planRope, planRopeHere, ropeColumn, ropeStakeOf, ropesFor, stakeRope } from './rope';
 
 /** ROPE-1 AC2〜AC5（docs/design/ROPE-1.md）: たらす 長さ・ロープだまり・つかう 本数・つながった ロープの 見つけ方 */
 
@@ -63,5 +63,35 @@ describe('ropeColumn・ropesFor（こわすと ぜんぶ もどる）', () => {
     expect(isRopeBlock('rope')).toBe(true);
     expect(isRopeBlock('rope_coil')).toBe(true);
     expect(isRopeBlock('air')).toBe(false);
+  });
+});
+
+describe('版 3: facingStep・planRopeHere・stakeRope', () => {
+  it('yaw 0 = -z、90 = +x、180 = +z、270 = -x。ななめは 近い ほう', () => {
+    expect(facingStep(0)).toEqual([0, -1]);
+    expect(facingStep(90)).toEqual([1, 0]);
+    expect(facingStep(180).map((v) => v + 0)).toEqual([0, 1]);
+    expect(facingStep(270)).toEqual([-1, 0]);
+    expect(facingStep(60)).toEqual([1, 0]);
+  });
+  it('くいは 足もと、なわは まえの 列の 足もとの 高さから 下へ', () => {
+    const open = (x: number, y: number) => x === 6 && y > 2; // まえ（x=6）は y=3 より 上が あき
+    const p = planRopeHere({ x: 5, y: 8, z: 5 }, 90, 1, () => true, open)!;
+    expect(p.stake).toEqual({ x: 5, y: 8, z: 5 });
+    expect([p.x, p.z]).toEqual([6, 5]);
+    expect(p.cells.map((c) => c.y)).toEqual([8, 7, 6, 5, 4, 3]);
+    expect(p.cells.at(-1)!.block).toBe('rope_coil');
+  });
+  it('まえの 1 つ下が ふさがって いる（がけで ない）・くいが おけない なら null', () => {
+    expect(planRopeHere({ x: 5, y: 8, z: 5 }, 90, 1, () => true, (_x, y) => y >= 8)).toBeNull();
+    expect(planRopeHere({ x: 5, y: 8, z: 5 }, 90, 1, () => false, () => true)).toBeNull();
+  });
+  it('くいの となりの ロープの 列・ロープの 上はしの となりの くい', () => {
+    const w = new Map<string, string>([['5,8,5', 'rope_stake'], ['6,8,5', 'rope'], ['6,7,5', 'rope_coil']]);
+    const id = (x: number, y: number, z: number) => w.get(`${x},${y},${z}`) ?? 'air';
+    expect(stakeRope(id, 5, 8, 5)).toEqual({ x: 6, z: 5 });
+    expect(ropeStakeOf(id, 6, 8, 5)).toEqual({ x: 5, z: 5 });
+    expect(isClimbBlock('rope_stake')).toBe(false);
+    expect(isRopeBlock('rope_stake')).toBe(true);
   });
 });
