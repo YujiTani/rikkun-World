@@ -6,6 +6,7 @@ import { K_TANSU, doorId, doorInfo, furnInfo, furnPlaceCells, houseDropOf, isFur
 import { applyFlatten, planFlatten, type FlattenPlan } from '../world/flatten';
 import { HANGING_SUPPORT, isReplaceable, overlapsBody, type DigCore } from './digCore';
 import { isWater } from '../world/blocks/water';
+import { ROPE, planRope } from '../world/blocks/rope';
 
 /** 置く場所とブロック（置けないなら null）。tryPlace とヒントが同じ判定を使う */
 export interface PlaceSpot {
@@ -16,6 +17,8 @@ export interface PlaceSpot {
   /** ふとん・こたつ・家具・戸の ぜんぶの マス。y を 書かない マスは 置く 高さ y */
   cells?: ReadonlyArray<{ x: number; y?: number; z: number; block: BlockId }>;
   plan?: FlattenPlan;
+  /** ROPE-1: つかう ロープの 本数（ふつうは 1 こ） */
+  use?: number;
 }
 
 /** ブロックを 置く（右クリック）。置ける場所の判定・こたつ 2×2・たいらに する・置く の実行までを 受け持つ */
@@ -45,6 +48,7 @@ export class BlockPlacer {
     if (this.lockedCell(x, y, z)) return null; // HOUSE-1C PR-2: 建築中の 場所には 置けない
     const cur = c.world.getBlock(x, y, z);
     if (cur !== 'air' && !isWater(cur) && !(isReplaceable(cur) && cur === t.id)) return null; // 世界の外・ほかのブロック
+    if (block === ROPE) return this.ropeSpot(t.face.y, x, y, z, held.count);
     if (block === 'nukunuku') {
       const k = this.kotatsuSpot(x, y, z);
       return k ? { x: k.x, y, z: k.z, block, cells: k.cells, plan: k.plan } : null;
@@ -92,6 +96,19 @@ export class BlockPlacer {
     }
     const aimed = cells.find((k) => k.x === x && k.z === z)!;
     return cells.length === 1 ? { x, y, z, block: aimed.id } : { x, y, z, block: aimed.id, cells: cells.map((k) => ({ x: k.x, z: k.z, block: k.id })) };
+  }
+
+  /** ROPE-1: ブロックの よこ・下の 面から 下へ たらす（上の 面には 使えない）。くわしくは world/blocks/rope.ts */
+  private ropeSpot(faceY: number, x: number, y: number, z: number, have: number): PlaceSpot | null {
+    if (faceY > 0) return null;
+    const c = this.c;
+    const open = (yy: number): boolean => {
+      const cur = c.world.getBlock(x, yy, z);
+      return (cur === 'air' || isWater(cur)) && !c.gate?.placeBlocked(x, yy, z) && !this.lockedCell(x, yy, z);
+    };
+    const plan = planRope(open, y, have);
+    if (!plan) return null;
+    return { x, y, z, block: ROPE, cells: plan.cells.map((k) => ({ x, y: k.y, z, block: k.block })), use: plan.used };
   }
 
   /** 戸 2 マス（下〔ねらった マス〕と その 上）を 置く 場所。2 マスとも あいて いて、体に 重ならない ところ だけ */
@@ -182,7 +199,7 @@ export class BlockPlacer {
     } else if (c.bodyTgt()) {
       if (!c.m4.bodyBlocks?.place({ x, y, z }, block)) return;
     } else if (!c.world.setBlock(x, y, z, block)) return;
-    c.inventory.consumeHeld();
+    for (let i = 0; i < (spot.use ?? 1); i++) c.inventory.consumeHeld();
     if (isFurnKind(block, K_TANSU)) c.m4.storage?.placed(x, y, z, c.player().yawDeg);
     c.m4.tools?.pushSwing('place');
     c.emit({ type: 'place', tick: c.tick(), block: { x, y, z }, id: houseDropOf(block) ?? block }); // 家の もの〔向き・マス ちがい〕は もとの id

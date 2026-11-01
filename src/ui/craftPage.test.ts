@@ -31,11 +31,11 @@ describe('たいまつの 作り方（CRAFT-PAGE A）', () => {
       [1, 'log3', true, 'craft'],
     ]);
   });
-  it('カードの グループ: たいまつ だけが 3 つ。それ以外は 1 つずつ。baseRecipeId は 元の id', () => {
+  it('カードの グループ: たいまつ が 3 つ・あさの 作り方の ある ゆみ・むしとりあみ・ロープが 2 つ（ROPE-1）。それ以外は 1 つずつ。baseRecipeId は 元の id', () => {
     const g = groupRecipes(craftRecipes);
-    // 数は 決め打ちしない（#311。MINE-1B でも カードが ふえる）。1 つより 多いのは たいまつ だけ
-    expect([...g].filter(([, ids]) => ids.length !== 1).map(([card]) => card)).toEqual(['torch']);
-    expect(g.size).toBe(craftRecipes.length - 2); // たいまつの 足した 作り方 2 つ ぶん、カードが 少ない
+    // 数は 決め打ちしない（#311。MINE-1B でも カードが ふえる）。1 つより 多いのは たいまつ と あさの 3 つ
+    expect([...g].filter(([, ids]) => ids.length !== 1).map(([card]) => card)).toEqual(['yumi', 'torch', 'mushi_ami', 'rope']);
+    expect(g.size).toBe(craftRecipes.length - 2 - 3); // たいまつの 足した 作り方 2 つ ＋ あさ 3 つ ぶん、カードが 少ない
     expect(g.get('torch')).toEqual(['torch', TORCH_COAL, TORCH_LOG]);
     expect(g.get('katana')).toEqual(['katana']);
     expect(baseRecipeId(TORCH_COAL)).toBe('torch');

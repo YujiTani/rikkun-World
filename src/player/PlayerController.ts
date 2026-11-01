@@ -17,6 +17,7 @@ import {
   type PlayerSettings,
 } from './config';
 import { isDeepWater, isWater, waterAmount } from '../world/blocks/water';
+import { ROPE_TUNING, isRopeBlock } from '../world/blocks/rope';
 
 const DEG = Math.PI / 180;
 /** ふみこみを 区切る 長さ（がけ・妖怪の 手前で 止める 細かさ） */
@@ -242,6 +243,10 @@ export class PlayerController {
         a.isHeld('secondary') || a.isHeld('drop') || a.isHeld('dropStack') ||
         a.wasPressed('secondary') || a.wasPressed('drop') || a.wasPressed('dropStack');
     }
+    // ROPE-1: ロープに つかまって いる 間は、うしろ = おりる（よこへは 動かない）。まえ・ジャンプ = のぼる（まえへも 進むので がけの 上に あがれる）
+    const climb = this.motion.hoverY === null && this.onRope();
+    const climbDir = !climb ? 0 : fwd > 0 || jumpHeld ? 1 : fwd < 0 ? -1 : 0;
+    if (climbDir < 0) fwd = 0;
     const yaw = st.yawDeg * DEG;
     const sin = Math.sin(yaw);
     const cos = Math.cos(yaw);
@@ -296,14 +301,16 @@ export class PlayerController {
     p[1] = st.position.y;
     p[2] = st.position.z;
     let vy = st.velocity.y;
-    if (st.onGround && !this.motion.jumpLocked && (jumpHeld || (wlen > 0 && cfg.autoJump && this.shouldAutoJump(wx, wz)))) {
+    // ROPE-1: ロープの 上では 重力なし（なにも しないと その 場に とまる）
+    if (climb) vy = climbDir * ROPE_TUNING.climbSpeed;
+    else if (st.onGround && !this.motion.jumpLocked && (jumpHeld || (wlen > 0 && cfg.autoJump && this.shouldAutoJump(wx, wz)))) {
       vy = Math.sqrt(2 * cfg.gravity * (this.jumpOverride ?? cfg.jumpHeight) * (st.inWater ? cfg.waterJumpMul : 1));
     }
 
     // 上下: はじめと終わりの速さの平均で動かす（§4.5）
     // WEAPON-9: うかぶ ときは 目標の 高さへ（1 ステップ 0.5 まで）。重力・ジャンプは 使わない
     const hover = this.motion.hoverY;
-    const vyNew = hover !== null ? 0 : Math.max(vy - cfg.gravity * dt, -cfg.maxFallSpeed);
+    const vyNew = hover !== null ? 0 : climb ? vy : Math.max(vy - cfg.gravity * dt, -cfg.maxFallSpeed);
     const moveY = hover !== null ? Math.max(-0.5, Math.min(0.5, hover - st.position.y)) : ((vy + vyNew) / 2) * dt;
 
     const hitX = this.sweep(0, st.velocity.x * dt);
@@ -429,6 +436,15 @@ export class PlayerController {
       for (let k = hz0; k <= hz1; k++)
         for (let j = h0; j <= h1; j++) if (this.solid(w, i, j, k)) return false;
     return true;
+  }
+
+  /** ROPE-1: 体（足もと か こし）が ロープの マスに かかって いるか */
+  onRope(): boolean {
+    const { x, y, z } = this.state.position;
+    const bx = Math.floor(x);
+    const bz = Math.floor(z);
+    const w = this.world;
+    return isRopeBlock(w.getBlock(bx, Math.floor(y + EPS), bz)) || isRopeBlock(w.getBlock(bx, Math.floor(y + 0.9), bz));
   }
 
   private updateWater(): void {

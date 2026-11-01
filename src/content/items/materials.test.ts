@@ -34,6 +34,7 @@ const EXPECT: Record<string, Expect> = {
   cloth: { name: 'ぬの', maxStack: 64, rarity: 'common', category: 'material', info: { use: 'かぶと・よろい・こて・ふとん・おまもり の ざいりょう', how: E, buttons: ['E'] } },
   clay: { name: 'ねんど', maxStack: 64, rarity: 'uncommon', category: 'material', info: { use: 'かまど で やくと かわら・レンガ・はにわ に なる', how: 'かまど に みぎクリック して やく', buttons: ['right'] } },
   crystal: { name: 'すいしょう', maxStack: 64, rarity: 'superRare', category: 'metal', info: { use: 'きらめく カタナ・おまもり の ざいりょう。ハイパーレア', how: E, buttons: ['E'] } },
+  hemp: { name: 'あさ', maxStack: 64, rarity: 'common', category: 'material', info: null }, // ROPE-1
   sumi: { name: 'すみ', maxStack: 64, rarity: 'common', category: 'material', info: { use: 'ふで を つくる ざいりょう', how: 'タコはちまき を たおすと でる', buttons: [] } }, // TAKO-1
   iron_ingot: { name: 'てつの かたまり', maxStack: 64, rarity: 'rare', category: 'metal', info: { use: 'てつの つるはし・ぶき・ぼうぐ・たんす の ざいりょう', how: E, buttons: ['E'] } },
   lantern: { name: 'ちょうちん', maxStack: 64, rarity: 'uncommon', category: 'light', info: null, placeBlock: 'lantern' },
@@ -48,7 +49,7 @@ const IDS = Object.keys(EXPECT);
 
 describe('登録表（素材 8 個・小物 6 個）', () => {
   it('15 個すべてに ItemDef が ある（id は ids.ts の 1 回。ITEM-FX-1 で ふえた omamori_torn は gadgetTuning.test.ts が 見る）', () => {
-    expect(IDS).toHaveLength(15);
+    expect(IDS).toHaveLength(16); // ROPE-1: あさ
     expect([...ORB_IDS, ...MATERIAL_ITEM_IDS, ...INGOT_IDS, ...GADGET_IDS].filter((i) => i !== 'omamori_torn').sort()).toEqual([...IDS].sort());
     for (const id of IDS) expect(itemDef(id), id).toBeDefined();
   });
@@ -64,8 +65,8 @@ describe('登録表（素材 8 個・小物 6 個）', () => {
   it('ITEM_TYPES: ようかいだま → ざいりょう 6 は 先頭の ブロックの 次、てつの かたまりは つるはし・おの 6 の 次、小物 6 は 間欠泉の つちの 次', () => {
     const ids = ITEM_TYPES.map((t) => t.id as string);
     const i = ids.indexOf('yokai_orb');
-    expect(ids.slice(i, i + 8)).toEqual(['yokai_orb', 'paper', 'oil', 'string', 'cloth', 'clay', 'crystal', 'sumi']); // TAKO-1: すみは ざいりょうの さいご
-    expect(ids[i + 8]).toBe('furnace');
+    expect(ids.slice(i, i + 9)).toEqual(['yokai_orb', 'paper', 'oil', 'string', 'cloth', 'clay', 'crystal', 'sumi', 'hemp']); // TAKO-1: すみ・ROPE-1: あさ は ざいりょうの さいご
+    expect(ids[i + 9]).toBe('furnace'); // ROPE-1: あさ の 次
     const j = ids.indexOf('iron_ingot');
     expect(ids.slice(j - 1, j + 2)).toEqual(['fude', 'iron_ingot', 'bokuto']); // TAKO-1: ふでは 道具の さいご
     const k = ids.indexOf('geyser_dirt');

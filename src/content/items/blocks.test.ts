@@ -93,7 +93,7 @@ describe('登録表（置けるブロック 22 個）', () => {
     const ids = ITEM_TYPES.map((t) => t.id as string);
     expect(ids.slice(0, 8)).toEqual(['grass', 'dirt', 'stone', 'sand', 'log', 'leaves', 'coal_ore', 'iron_ore']);
     const f = ids.indexOf('furnace');
-    expect(ids.slice(f - 1, f + 6)).toEqual(['sumi', 'furnace', 'kawara', 'brick', 'torch', 'tansu', 'wood_pickaxe']); // TAKO-1: すみは ざいりょうの さいご
+    expect(ids.slice(f - 1, f + 6)).toEqual(['hemp', 'furnace', 'kawara', 'brick', 'torch', 'tansu', 'wood_pickaxe']); // TAKO-1: すみは ざいりょうの さいご
     const g = ids.indexOf('geyser_dirt');
     expect(ids.slice(g - 1, g + 2)).toEqual(['samurai_geta', 'geyser_dirt', 'lantern']);
     const s = ids.indexOf('snow');

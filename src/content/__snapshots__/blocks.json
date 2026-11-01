@@ -141,6 +141,8 @@
     "reserved_150": 150,
     "reserved_151": 151,
     "reserved_159": 159,
+    "rope": 160,
+    "rope_coil": 161,
     "round_table": 109,
     "round_table_e": 112,
     "round_table_n": 111,
@@ -1154,6 +1156,18 @@
       "id": "reserved_159",
       "name": "くうき",
       "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "rope",
+      "name": "ロープ",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "rope_coil",
+      "name": "ロープだまり",
+      "solid": false
     }
   ],
   "DIG_DEFAULTS": {
@@ -1281,6 +1295,8 @@
       "reserved_150": null,
       "reserved_151": null,
       "reserved_159": null,
+      "rope": 0.05,
+      "rope_coil": 0.05,
       "round_table": 5,
       "round_table_e": 5,
       "round_table_n": 5,
@@ -1443,6 +1459,8 @@
       "reserved_150": 0,
       "reserved_151": 0,
       "reserved_159": 0,
+      "rope": 0,
+      "rope_coil": 0,
       "round_table": 0,
       "round_table_e": 0,
       "round_table_n": 0,
@@ -1606,6 +1624,8 @@
       "reserved_150": "common",
       "reserved_151": "common",
       "reserved_159": "common",
+      "rope": "common",
+      "rope_coil": "common",
       "round_table": "common",
       "round_table_e": "common",
       "round_table_n": "common",

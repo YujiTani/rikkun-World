@@ -1,3 +1,4 @@
+import { isRopeItem, ropeItemPixels } from './itemArtRope';
 import type { ItemId } from '../contracts';
 import { isMaterialItem, materialPixels } from './itemArt';
 import { clockPixels, hammerPixels, isM4Item, m4ItemPixels } from './itemArtM4';
@@ -53,6 +54,7 @@ export function itemIconPixels(item: ItemId): Pixels {
   if (isM7Item(item)) return m7ItemPixels(item);
   if (isM72Item(item)) return m72ItemPixels(item);
   if (isBucketItem(item)) return bucketItemPixels(item);
+  if (isRopeItem(item)) return ropeItemPixels(); // ROPE-1
   // ここまで 来るのは ブロックの 絵を つかう アイテム（全アイテムが ここか 上のどれかに 入る = registry.test.ts が 石の 絵に 落ちないと 確かめる）。
   // 石の 絵は アイテムに ならない ブロックの id（みず など）と、セーブや 外から 来た 知らない id の 守り（型では 守れないので 残す）
   const tiles = item in BLOCK_TILES ? BLOCK_TILES[item as keyof typeof BLOCK_TILES] : undefined;

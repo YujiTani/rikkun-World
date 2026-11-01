@@ -102,7 +102,10 @@ export type BlockId =
   | ScaffoldId
   // WATER-1（#376。うしろに足す）: 量 1〜7 の 水と 予約の 番号（`src/world/blocks/water.ts`）
   | WaterPartialId
-  | ReservedId;
+  | ReservedId
+  // ROPE-1（うしろに足す）: ロープ（固くない。つかまって のぼり おり できる）
+  | 'rope'
+  | 'rope_coil'; // ロープ溜まり（ロープの いちばん 下。床に とどいた とき）
 
 export interface BlockType {
   id: BlockId;

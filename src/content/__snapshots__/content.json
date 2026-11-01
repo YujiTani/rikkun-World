@@ -855,6 +855,44 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "yumi_hemp",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            },
+            {
+              "count": 8,
+              "item": "hemp"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "yumi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "mushi_ami_hemp",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 5,
+              "item": "hemp"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "mushi_ami"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -1440,6 +1478,21 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "rope",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "rope"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -1846,6 +1899,74 @@
           "output": {
             "count": 1,
             "item": "fude"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "hemp": {
+      "ITEM_INFO.hemp": {
+        "buttons": [],
+        "how": "くさ・はっぱ・はな を こわすと ときどき でる",
+        "use": "ロープ・ゆみ・むしとりあみ で いと の かわり に なる（いと より たくさん いる）"
+      },
+      "category": "material",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "あさ",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "yumi_hemp",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            },
+            {
+              "count": 8,
+              "item": "hemp"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "yumi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "mushi_ami_hemp",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 5,
+              "item": "hemp"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "mushi_ami"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "rope_hemp",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "hemp"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "rope"
           },
           "station": "craft",
           "works": true
@@ -2925,6 +3046,25 @@
             {
               "count": 3,
               "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "yumi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "yumi_hemp",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            },
+            {
+              "count": 8,
+              "item": "hemp"
             }
           ],
           "output": {
@@ -4321,6 +4461,25 @@
             {
               "count": 2,
               "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "mushi_ami"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "mushi_ami_hemp",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 5,
+              "item": "hemp"
             }
           ],
           "output": {
@@ -6313,6 +6472,57 @@
       "placeBlock": "house_door",
       "rarity": "uncommon",
       "recipes": []
+    },
+    "rope": {
+      "DIG_DEFAULTS.hardness.rope": 0.05,
+      "DIG_DEFAULTS.harvestLevel.rope": 0,
+      "DIG_DEFAULTS.rarity.rope": "common",
+      "ITEM_INFO.rope": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく。ロープ に はいって まえ か ジャンプ で のぼる、うしろ で おりる",
+        "use": "つかまると のぼったり おりたり できる"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "ロープ",
+      "placeBlock": "rope",
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "rope",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "rope"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "rope_hemp",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "hemp"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "rope"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     }
   },
   "yokai": {

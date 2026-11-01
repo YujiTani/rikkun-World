@@ -81,7 +81,7 @@ describe('AC6: こわす・置く', () => {
     const r = rig(null, 'kusa', { below: 'grass' });
     r.step(30, 'primary');
     expect(r.world.getBlock(5, 10, 6)).toBe('air');
-    expect(r.total()).toBe(0);
+    expect(r.total() - r.inv.count('hemp')).toBe(0); // ROPE-1: あさ（1/3）だけは でる ことが ある
     expect(r.log).not.toContain('grassSeed');
   });
   it('のばな を こわす → のばな ＋1', () => {
@@ -89,7 +89,7 @@ describe('AC6: こわす・置く', () => {
     r.step(30, 'primary');
     expect(r.world.getBlock(5, 10, 6)).toBe('air');
     expect(r.inv.count('nobana')).toBe(1);
-    expect(r.total()).toBe(1);
+    expect(r.total() - r.inv.count('hemp')).toBe(1); // ROPE-1: あさ（1/3）だけは でる ことが ある
   });
   it('のばな は くさ・つち（上が くうき）に 置ける。ほかには 置けない', () => {
     // 東を向いて (5,10,6) の くさ ブロックを ねらうと、置く場所は 西どなり (4,10,6)。その下 (4,9,6) が 地面かどうか

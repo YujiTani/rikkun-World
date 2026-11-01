@@ -32,6 +32,8 @@ export const BLOCK_ONLY_IDS = [
   ...SCAFFOLD_IDS,
   // WATER-1（#376）: 量 1〜7 の 水と 予約の 番号（アイテムに ならない）
   ...WATER_EXTRA_IDS,
+  // ROPE-1: ロープだまり（ロープの いちばん 下。こわすと ロープ ぜんぶが もどる。world/blocks/rope.ts）
+  'rope_coil',
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 

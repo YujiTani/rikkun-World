@@ -1,5 +1,5 @@
 import type { ItemId, Recipe } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, KONGO_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, MINE_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, pickDefs, recipesOf } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, KONGO_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, MINE_DEFS, ROPE_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, pickDefs, recipesOf } from '../content/items/registry';
 
 const r = (
   id: ItemId,
@@ -15,6 +15,23 @@ const r = (
   station,
 });
 
+/** ROPE-1: あさ（いとの かわり）。いと 1 この かわりに あさ 2.5 こ（はんぱは 切り上げ: 1→3・2→5・3→8） */
+export const HEMP: ItemId = 'hemp';
+const STRING: ItemId = 'string';
+export const HEMP_PER_STRING = 2.5;
+/** あさで 作れる 足した 作り方（ゆみ・むしとりあみ・ロープ。オーナー 2026-11-01。ぬのは 作り方が なく ドロップだけ なので なし） */
+const HEMP_ALT_OF: readonly ItemId[] = ['yumi', 'mushi_ami', 'rope'];
+export const hempCount = (strings: number): number => Math.ceil(strings * HEMP_PER_STRING);
+
+/** もとの 作り方の いとを あさに かえた 作り方（id = もとの id ＋ `_hemp`。カードは もとの 1 枚の まま） */
+function hempAlts(base: readonly Recipe[]): Recipe[] {
+  return HEMP_ALT_OF.map((id) => {
+    const b = base.find((x) => x.id === id && x.inputs.some((i) => i.item === STRING));
+    if (!b) throw new Error(`hemp alt: ${id} に いとの 作り方が ない`);
+    return { ...b, id: `${id}_hemp`, inputs: b.inputs.map((i) => (i.item === STRING ? { item: HEMP, count: hempCount(i.count) } : i)) };
+  });
+}
+
 /** たいまつの 足した作り方の id（もとの `torch` は き 1・あぶら 1 → 4） */
 export const TORCH_COAL = 'torch_coal';
 export const TORCH_LOG = 'torch_log';
@@ -22,7 +39,7 @@ export const TORCH_LOG = 'torch_log';
 const KIN_FROM_ORE = 'kin_from_ore';
 
 /** つくる 38 こ（カードは 36 枚。たいまつの 作り方が 3 つ）（M4 §4.1 の 22 こ + BAL-D の おの 3 こ + M7-2 の 3 こ + #63 の たね 4 こ + むしとりあみ + こたつ・とりごや。カードの順） */
-export const CRAFT_RECIPES: readonly Recipe[] = [
+const CRAFT_BASE: readonly Recipe[] = [
   // M4・BAL-D: つるはし 3 本・おの 3 本は 登録表（content/items/tools.ts）から。順は 登録の 順
   ...recipesOf(TOOL_DEFS, 'craft'),
   // かまどは 登録表（content/items/blocks.ts）から
@@ -53,6 +70,13 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   { ...r('torch', 1, [['log', 3]], true), id: TORCH_LOG },
   // MINE-1B（#349 §4.4）: チョーク（せっかいせき 1 → 4）→ しっくい（いしばい 1 ＋ いと 1 → 2）。作業台の カードの いちばん うしろ（この順）。登録表（content/items/mine.ts・blocks.ts）から
   ...recipesOf(pickDefs(MINE_DEFS, ['chalk', 'shikkui']), 'craft'),
+  // ROPE-1: いと 3 → ロープ 4 本（いちばん うしろ）
+  ...recipesOf(ROPE_DEFS, 'craft'),
+];
+export const CRAFT_RECIPES: readonly Recipe[] = [
+  ...CRAFT_BASE,
+  // ROPE-1: あさの 足した作り方（いちばん うしろ。番号を ずらさない）。カードは もとの 1 枚の まま（たいまつと 同じ しくみ）
+  ...hempAlts(CRAFT_BASE),
 ];
 
 /** やく 8 こ（カードは 7 枚。M4 §4.2 の 4 こ ＋ LIVE-3 の やいた もも にく ＋ GOLD-1 の きん ＋ MINE-1B の いしばい と きんの いしから 作る きん。かまど で。ねんりょう 1 こ・60 ステップ） */
