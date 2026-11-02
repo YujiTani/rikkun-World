@@ -144,6 +144,7 @@
     "rope": 160,
     "rope_coil": 161,
     "rope_fence": 163,
+    "rope_fence_post": 164,
     "rope_stake": 162,
     "round_table": 109,
     "round_table_e": 112,
@@ -1182,6 +1183,12 @@
       "id": "rope_fence",
       "name": "ロープの さく",
       "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "rope_fence_post",
+      "name": "ロープの さくの くい",
+      "solid": true
     }
   ],
   "DIG_DEFAULTS": {
@@ -1312,6 +1319,7 @@
       "rope": 0.05,
       "rope_coil": 0.05,
       "rope_fence": 0.1,
+      "rope_fence_post": 0.1,
       "rope_stake": 0.05,
       "round_table": 5,
       "round_table_e": 5,
@@ -1478,6 +1486,7 @@
       "rope": 0,
       "rope_coil": 0,
       "rope_fence": 0,
+      "rope_fence_post": 0,
       "rope_stake": 0,
       "round_table": 0,
       "round_table_e": 0,
@@ -1645,6 +1654,7 @@
       "rope": "common",
       "rope_coil": "common",
       "rope_fence": "common",
+      "rope_fence_post": "common",
       "rope_stake": "common",
       "round_table": "common",
       "round_table_e": "common",

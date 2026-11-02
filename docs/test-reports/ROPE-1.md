@@ -33,3 +33,7 @@
 ## 版 4（2026-11-02）
 - ユニット: world/blocks/ropeFence.test.ts（新。みち・だんさ・かべ・半径・本数・つむ）、dig/rope.test.ts（つなぎ 半径 10・まっすぐ・L 字・つむ・こわす）、player/tether.test.ts（半径 10 で ぶら下がり）
 - E2E: e2e/rope1.spec.ts（つなぎ → まっすぐ → L 字 → ぶら下がり → のぼる）。画面 /workspace/rope-shots-v4/
+
+## 版 5（2026-11-02 午後）
+- ユニット: world/blocks/ropeSpring.test.ts（新。ゆれ・減衰・おさまる）、player/tether.test.ts（半径 5・ジャンプ・ゴム・Shift+スペース/Shift+C・くいより 上へ 行かない）、dig/rope.test.ts（さくの くい・つなぎ おわり・かさねる・5 マス）、world/blocks/rope.test.ts・ropeFence.test.ts（5 マス）
+- E2E: e2e/rope1.spec.ts（つなぎ → まっすぐ → L 字 → かさね → ゆれ → ぶら下がり → Shift+スペース）。画面 /workspace/rope-shots-v5/
