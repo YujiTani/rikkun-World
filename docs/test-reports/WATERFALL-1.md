@@ -21,3 +21,10 @@
 
 ## 画面
 `/workspace/waterfall-shots/1-waterfall-flow.png`・`2-takitsubo.png`・`3-magma.png`・`4-magma-water-obsidian.png`
+
+## 版 2
+- ユニット: `src/world/water/magmaBurn.test.ts`（こげる・seed で 同じ・こげない 物・マグマを とると 止まる・ぐつぐつ の わりあい）、`src/combat/magma.test.ts`（こげた ダメージ 1 秒に 1・マグマと べつ）、`src/world/light/magmaLight.test.ts`（光 12・4 マス 先まで 妖怪が 出ない）
+- E2E: `e2e/waterfall1.spec.ts` 2 本目（新マグマ・ぐつぐつ コマ 4 まい・こげた 床・ふむと 19 → 18 → はなれて 止まる）
+- golden: アトラスが 41 → 42 だんに なり 面の V が かわる ので `GOLDEN_WRITE=1` で 作り直し。content snapshot: kogeta ブロック・MAGMA_TUNING の 追加で `-u`
+- ユニット だけで 確かめた: こげない 物の 一覧、seed の 決まり、かべ（横）からの ダメージ（E2E は 足もと だけ）、光の 数値
+- 画面: `/workspace/waterfall-shots-v2/`

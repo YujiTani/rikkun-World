@@ -17,3 +17,9 @@
 - 絵: `docs/art/waterfall-1/`
 - テストレポート: `docs/test-reports/WATERFALL-1.md`
 - 指摘台帳: `docs/loop-ledger/WATERFALL-1.md`
+
+## 版 2
+- [x] マグマの 絵を 見本 2 枚目 寄りに（旧 ↔ 新 シート）
+- [x] ぐつぐつ マグマ 4 コマ（座標 15%、見た目だけ、shader で コマ送り）
+- [x] こげた ブロック（確率で こげる・すみ ×1・1 秒に 1 ダメージ）
+- [x] マグマの 光で 妖怪が 出ない（テスト）
