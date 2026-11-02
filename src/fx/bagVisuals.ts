@@ -22,7 +22,7 @@ export interface BagLike {
 }
 
 /** WAKIDOKORO §8: 燃える 落としものの 炎・けむりの つぶ（1 か所の 表） */
-export const BURN_FX = {
+const BURN_FX = {
   /** 1 つの 落としものに 出す つぶ: 炎 2・けむり 1 */
   flames: 2,
   smokes: 1,

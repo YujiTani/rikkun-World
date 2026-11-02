@@ -10,8 +10,8 @@ export const BOIL_NAMES = ['magma_boil_0', 'magma_boil_1', 'magma_boil_2', 'magm
 export const SWIRL_FRAMES = 4;
 /** 渦の コマの 速さ（コマ / 秒。ゆっくり） */
 export const SWIRL_FPS = 3;
-export const WAKIDOKORO_NAMES = ['wakidokoro_0', 'wakidokoro_1', 'wakidokoro_2', 'wakidokoro_3'] as const;
-export const MAGMA_WAKIDOKORO_NAMES = ['magma_wakidokoro_0', 'magma_wakidokoro_1', 'magma_wakidokoro_2', 'magma_wakidokoro_3'] as const;
+const WAKIDOKORO_NAMES = ['wakidokoro_0', 'wakidokoro_1', 'wakidokoro_2', 'wakidokoro_3'] as const;
+const MAGMA_WAKIDOKORO_NAMES = ['magma_wakidokoro_0', 'magma_wakidokoro_1', 'magma_wakidokoro_2', 'magma_wakidokoro_3'] as const;
 export const WATERFALL_TILE_NAMES = [
   'wakimizu_top', 'wakimizu_side', 'takitsubo', 'kokuyouseki', 'magma_wakimizu_top', 'magma_wakimizu_side', 'magma', ...BOIL_NAMES, 'kogeta',
   // WAKIDOKORO（うしろに 足す。今の 絵の 位置は かわらない）: たきつぼの 横・マグマの たきつぼ の 上・わきどころ 2 つの 渦 4 コマずつ
