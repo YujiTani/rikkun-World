@@ -105,7 +105,7 @@ export const HOUSE_PLAN_DEFS: ItemDefs = HOUSE_PLANS;
 export const HOUSE_BLOCK_DEFS: ItemDefs = HOUSE_BLOCKS;
 /** ロープ（ROPE-1。ITEM_TYPES・色分けでは いちばん うしろ） */
 export const ROPE_DEFS: ItemDefs = ROPE_BLOCKS;
-/** WATERFALL-1: わきみず・マグマの わきみず・こくようせき（ITEM_TYPES・色分けでは いちばん うしろ） */
+/** WATERFALL-1: わきどころ・マグマの わきどころ・こくようせき（ITEM_TYPES・色分けでは いちばん うしろ） */
 export const WATERFALL_DEFS: ItemDefs = WATERFALL_BLOCKS;
 
 /** レジェンダリー武器（ITEM_TYPES・武器の 色分けでは これまでと 同じ 位置（crystal_katana の 次）に 入れる） */

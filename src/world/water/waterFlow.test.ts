@@ -50,23 +50,15 @@ describe('AC4 平らに', () => {
 });
 
 describe('AC5 広い 床', () => {
-  it('21×21 の まん中に 量 8 → 3 パスで 止まった。まん中 2・北 東 南 西 1・北北 1・北東 1（7 マス、合計 8）', () => {
+  it('21×21 の まん中に 量 8 → 5 パスで 止まった。WAKIDOKORO §6: ならしは ランダムな 2 方向（座標の まぜあわせ。いつも 同じ）→ 8 マスに 1 ずつ（合計 8）', () => {
     const r = makeRig();
     carve(r.world, [4, 2, 4, 26, 4, 26], [5, 3, 5, 25, 3, 25]);
     const box: Box = [5, 3, 5, 25, 3, 25];
     const [cx, cz] = [15, 15];
     r.sys.set(cx, 3, cz, 8);
-    expect(r.settle(40), '止まるまでの パスの 数').toBe(3);
-    const want = new Map<string, number>([
-      [`${cx},${cz}`, 2],
-      [`${cx},${cz - 1}`, 1], // 北（−z）
-      [`${cx + 1},${cz}`, 1], // 東（+x）
-      [`${cx},${cz + 1}`, 1], // 南
-      [`${cx - 1},${cz}`, 1], // 西
-      [`${cx},${cz - 2}`, 1], // 北北
-      [`${cx + 1},${cz - 1}`, 1], // 北東
-    ]);
-    for (let z = 5; z <= 25; z++) for (let x = 5; x <= 25; x++) expect(r.sys.amount(x, 3, z), `(${x},${z})`).toBe(want.get(`${x},${z}`) ?? 0);
+    expect(r.settle(40), '止まるまでの パスの 数').toBe(5);
+    const want = new Set(['-1,-1', '0,-1', '1,-1', '-1,0', '0,0', '1,0', '2,0', '0,1']);
+    for (let z = 5; z <= 25; z++) for (let x = 5; x <= 25; x++) expect(r.sys.amount(x, 3, z), `(${x},${z})`).toBe(want.has(`${x - cx},${z - cz}`) ? 1 : 0);
     stopped(r, box, 8);
   });
 });
@@ -411,5 +403,35 @@ describe('窓口の ふるまい（§6.1）', () => {
     expect(r.sys.waveTime() - t0).toBeCloseTo(1, 9);
     r.step(30);
     expect(r.sys.waveTime() - t0).toBeCloseTo(1.5, 9);
+  });
+});
+
+describe('WAKIDOKORO §6 ランダムな 2 方向', () => {
+  it('pickTwo: 3〜4 方向から ちょうど 2 つ（もとの 中から）。r で かわる', async () => {
+    const { pickTwo, flowRoll } = await import('./liquidCore');
+    const seen = new Set<number>();
+    for (let k = 0; k < 200; k++) {
+      const m = pickTwo(0b1111, 4, flowRoll(k, 3, 7, k * 3));
+      expect(m.toString(2).split('1').length - 1).toBe(2);
+      seen.add(m);
+      const t = pickTwo(0b1011, 3, flowRoll(k, 1, 2, k));
+      expect(t & ~0b1011).toBe(0);
+      expect(t.toString(2).split('1').length - 1).toBe(2);
+    }
+    expect(seen.size, '4 方向から 2 つの 組 6 とおり ぜんぶ 出る').toBe(6);
+  });
+  it('同じ 置き方なら 同じ 結果（再現できる）。水も マグマも', () => {
+    const run = (magma: boolean): string => {
+      const r = makeRig();
+      carve(r.world, [4, 2, 4, 26, 4, 26], [5, 3, 5, 25, 3, 25]);
+      if (magma) r.sys.magma.set(15, 3, 15, 8);
+      else r.sys.set(15, 3, 15, 8);
+      r.step(45 * 60);
+      const out: number[] = [];
+      for (let z = 5; z <= 25; z++) for (let x = 5; x <= 25; x++) out.push(magma ? r.sys.magma.amount(x, 3, z) : r.sys.amount(x, 3, z));
+      return out.join('');
+    };
+    expect(run(false)).toBe(run(false));
+    expect(run(true)).toBe(run(true));
   });
 });

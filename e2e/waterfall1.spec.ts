@@ -3,12 +3,12 @@ import { installAimHelpers } from './helpers/aim';
 import { installArena } from './helpers/arena';
 
 /**
- * WATERFALL-1（docs/design/WATERFALL-1.md §6 AC2・AC5・AC6）: わきみずを 作る・置く → 空中の わきみずから 滝 → たきつぼが できて 合計が かわらない
+ * WATERFALL-1（docs/design/WATERFALL-1.md §6 AC2・AC5・AC6）: わきどころを 作る・置く → 空中の わきどころから 滝 → たきつぼが できて 合計が かわらない
  * → マグマが 光って 流れ、水に ふれて こくようせきに なる。WF_SHOTS=dir で 画面を のこす。
  * 場所: 床 `__arena.floor`（y=8 の 石、上面 y=9）。たきつぼの 池は (12, 9, 12) を まん中に 5×5（ふちは 石 1 だん、床は つち）。
  * 時間（ms）で 合否を 決めない。たきつぼが できる ステップは シードで 決まる ので 上限 まで すすめる。
  */
-test('WATERFALL-1: わきみず → 滝 → たきつぼ（量 かわらない）・マグマ → こくようせき', async ({ page }) => {
+test('WATERFALL-1: わきどころ → 滝 → たきつぼ（量 かわらない）・マグマ → こくようせき', async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto('/?nosave=1');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
@@ -42,12 +42,13 @@ test('WATERFALL-1: わきみず → 滝 → たきつぼ（量 かわらない�
   expect(made.ok).toBe(true);
   expect(made.have).toBe(1);
 
-  // 置く: 足もとの 前の 床（上面）を ねらって 右クリック → 床の 上に わきみず（よこに 水を 出す）
+  // 置く: 足もとの 前の 床（上面）を ねらって 右クリック → 床の 上に わきどころ（よこに 水を 出す）
   const placed = await page.evaluate(() => {
     const h = (window as any).__rikkun;
     h.inventory.clear();
     h.inventory.add('wakimizu', 1); // 作った 1 こ と 同じ（スロット 0 に そろえる）
     h.inventory.select(0);
+    (window as any).__springs0 = h.water.springCount(); // 自然の 滝（生成）の わきどころも 数に 入る ので 置く 前と くらべる
     h.player.set({ position: { x: 20.5, y: 9, z: 20.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -40 });
     h.step(2);
     (window as any).__aim.solve(20, 8, 18, 1);
@@ -56,21 +57,23 @@ test('WATERFALL-1: わきみず → 滝 → たきつぼ（量 かわらない�
     h.step(1);
     h.input.release('secondary');
     h.step(2);
-    return { block: h.world.getBlock(20, 9, 18) as string, left: h.inventory.count('wakimizu') as number, springs: h.water.springCount() as number };
+    return { block: h.world.getBlock(20, 9, 18) as string, left: h.inventory.count('wakimizu') as number, springs: (h.water.springCount() - (window as any).__springs0) as number };
   });
   expect(placed.block).toBe('wakimizu');
   expect(placed.left).toBe(0);
   expect(placed.springs).toBe(1);
 
-  // 2) 空中の わきみず（y=20）から 滝。池は 5×5（ふち 石、床 つち）
+  // 2) 空中の わきどころ（y=20）から 滝。池は 5×5（ふち 石、床 つち）
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
-    h.world.setBlock(20, 9, 18, 'air'); // さっきの わきみずは かたづける
+    h.world.setBlock(20, 9, 18, 'air'); // さっきの わきどころは かたづける
     for (let n = 0; h.water.queue() > 0 && n < 3000; n++) h.step(1);
     h.world.fill(9, 9, 9, 15, 9, 15, 'stone');
     h.world.fill(10, 9, 10, 14, 9, 14, 'air');
     h.world.fill(10, 8, 10, 14, 8, 14, 'dirt');
     h.world.setBlock(12, 20, 12, 'wakimizu');
+    // WAKIDOKORO §5: わきどころは 5 方向に 出る。東西南北を いしで ふさいで 下 だけに 落とす
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) h.world.setBlock(12 + dx, 20, 12 + dz, 'stone');
     h.player.set({ position: { x: 12.5, y: 9, z: 2.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: 18 });
   });
   const formed = await page.evaluate(() => {

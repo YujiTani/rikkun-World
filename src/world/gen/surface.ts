@@ -85,7 +85,7 @@ class SurfaceImpl implements Surface {
 
   ground(x: number, z: number): number {
     const fc = fallColumn(this.T.liquid, x, z);
-    if (fc?.kind === 'pillar') return fc.pond.fall!.top; // MAGMA-SPAWN: 滝の はしらの 上の わきみず
+    if (fc?.kind === 'pillar') return fc.pond.fall!.top; // MAGMA-SPAWN: 滝の はしらの 上の わきどころ
     const h = this.T.height(x, z);
     const r = this.mouthRange(x, z);
     if (r !== null && r[1] >= h) return r[0] - 1; // さか道の口: 床の下の いし
@@ -146,12 +146,10 @@ class SurfaceImpl implements Surface {
     const r = this.mouthRange(x, z);
     if (r !== null && y >= r[0] && y <= r[1]) return 'air';
     if (y <= h) return 'solid';
-    // MAGMA-SPAWN: 滝の はしら（いし ＋ わきみず）と 落ちる 道（はっぱを どけた 空気）。木より 先
+    // MAGMA-SPAWN: 滝の はしら（いし ＋ わきどころ）と 落ちる 道（はっぱを どけた 空気）。木より 先
     const fc = fallColumn(this.T.liquid, x, z);
-    if (fc !== null && y >= fc.pond.level && y <= fc.pond.fall!.top + 1) {
-      if (fc.kind === 'pillar') return y <= fc.pond.fall!.top ? 'solid' : 'air';
-      if (y >= fc.pond.level) return 'air';
-    }
+    if (fc !== null && fc.kind === 'pillar' && y <= fc.pond.fall!.top) return 'solid'; // WAKIDOKORO: T 字の はしら（ふたの 列も 地面から）
+    if (fc !== null && fc.kind === 'path' && y >= fc.pond.level && y <= fc.pond.fall!.top + 1) return 'air';
     const tb = this.treeBlock(x, y, z);
     if (tb !== null) return tb;
     if (x === this.torch.x && z === this.torch.z && y === this.torch.y) return 'torch';

@@ -16,7 +16,7 @@ describe('マグマの 見本', () => {
     expect(wantsMagmaDemo('?nosave=1&demo=magma')).toBe(true);
     expect(wantsMagmaDemo('?nosave=1')).toBe(false);
   });
-  it('いけ・こくようせき・2 つの わきみず・たきつぼ・こげた ブロック が できる', () => {
+  it('いけ・こくようせき・2 つの わきどころ・たきつぼ・こげた ブロック が できる', () => {
     const r = rig();
     expect(buildMagmaDemo(r.world, r.sys, sp)).toBe(true);
     const L = magmaDemoLayout(sp);
@@ -31,14 +31,14 @@ describe('マグマの 見本', () => {
     expect(r.world.getBlock(L.kogeta[0], L.g, L.kogeta[1])).toBe('kogeta');
     expect(demoBoilCount(sp)).toBeGreaterThan(0);
   });
-  it('マグマの わきみずは ますが いっぱいに なると とまる（あふれない）', () => {
+  it('マグマの わきどころは ますが いっぱいに なると とまる（あふれない）', () => {
     const r = rig();
     buildMagmaDemo(r.world, r.sys, sp);
     const L = magmaDemoLayout(sp);
     const [bx0, bz0, bx1, bz1] = L.magmaBasin;
     r.step(45 * 400);
     const inBasin = r.sys.magma.total(bx0, L.g + 1, bz0, bx1, L.g + 5, bz1);
-    expect(inBasin).toBeGreaterThan((2 * 2 * 5 - 1) * 8 - 8); // わきみずの マスを のぞいて ほぼ いっぱい
+    expect(inBasin).toBeGreaterThan((2 * 2 * 5 - 1) * 8 - 8); // わきどころの マスを のぞいて ほぼ いっぱい
     expect(r.sys.magma.total(bx0 - 2, L.g + 1, bz0 - 2, bx1 + 2, L.g + 6, bz1 + 2)).toBe(inBasin);
   });
   it('列が 読みこまれて いなければ false（何も 置かない）', () => {

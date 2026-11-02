@@ -8,6 +8,7 @@ import { AimMarks } from '../../ui/aimMarks';
 import { createCrosshair } from '../../camera/crosshair';
 import { Book } from '../../ui/book/Book';
 import { playBook } from '../../fx/bookSounds';
+import { createLiquidSounds } from '../../fx/liquidSounds';
 import { FX_SETTINGS } from '../../fx/config';
 import { ImpactBus } from '../../fx/impact';
 import { type BgmSceneInput, screenLevel } from '../../fx/bgm/scene';
@@ -109,7 +110,8 @@ export function wirePlayer(deps: WiredInput) {
     return { ...sp, y, pitchDeg: START_PITCH_DEG };
   };
   const controller = new PlayerController(world, game.input, look, lock, startPoint);
-  deps.water.setFocus(() => controller.state.position); // MAGMA-SPAWN: 遠い わきみずは 休む
+  deps.water.setFocus(() => controller.state.position); // MAGMA-SPAWN: 遠い わきどころは 休む
+  deps.water.setSound(createLiquidSounds(deps.fxSound, () => game.tick, () => controller.state.position)); // WAKIDOKORO §11
   shared.controller = controller;
   // CHAR-1 第 5 版: 一人称（V）はなくなった。CameraRig は受け取るだけの ActionState を使う
   // #276 手ごたえ: ヒットストップと 画面の ゆれ（ゆれは FX_SETTINGS.fxShake が 0 なら なし）

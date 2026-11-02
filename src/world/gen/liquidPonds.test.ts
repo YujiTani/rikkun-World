@@ -51,14 +51,17 @@ describe('はじめの そばの 溶岩の いけ', () => {
 });
 
 describe.each(['magma', 'water'] as const)('自然の %s の 滝', (liquid) => {
-  it('はしらの 上に わきみず・くぼみに たきつぼ。つながって あふれない（量 かわらない）', () => {
+  it('はしらの 上に わきどころ・くぼみに たきつぼ。つながって あふれない（量 かわらない）', () => {
     const seed = C.defaultSeed;
     const p = firstFall(seed, liquid);
     const w = load(seed, p);
     const f = p.fall!;
     expect(w.getBlock(f.x, f.top, f.z)).toBe(liquid === 'magma' ? 'magma_wakimizu' : 'wakimizu');
     expect(w.getBlock(f.x, f.top - 1, f.z)).toBe(liquid === 'magma' ? 'kokuyouseki' : 'stone');
-    expect(w.getBlock(f.x, p.level - p.depth - 2, f.z - 1)).toBe('takitsubo');
+    expect(w.getBlock(f.x, p.level - p.depth - 2, f.z - 1)).toBe(liquid === 'magma' ? 'magma_takitsubo' : 'takitsubo');
+    // WAKIDOKORO §5: T 字の はしら（わきどころの 東・西・南が ふさがって いる。出口は 北 だけ）
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1]] as const) expect(w.getBlock(f.x + dx, f.top, f.z + dz), `ふた ${dx},${dz}`).toBe(liquid === 'magma' ? 'kokuyouseki' : 'stone');
+    expect(w.getBlock(f.x, f.top, f.z - 1)).toBe('air');
     let tick = 0;
     const sys = createWaterSystem({ world: w, tick: () => tick, seed, springsIn: springsIn(seed) });
     for (let cz = (p.z0 - 4) >> 4; cz <= (p.z1 + 4) >> 4; cz++) for (let cx = (p.x0 - 4) >> 4; cx <= (p.x1 + 4) >> 4; cx++) sys.onColumnLoaded(cx, cz, 'generated');
@@ -75,7 +78,7 @@ describe.each(['magma', 'water'] as const)('自然の %s の 滝', (liquid) => {
     for (let x = box[0]; x <= box[3]; x++) for (let z = box[2]; z <= box[5]; z++) if (terrainFor(seed).liquid.pondAt(x, z) === null && amt.amount(x, p.level, z) > 0) outside++;
     expect(outside).toBe(0);
   });
-  it('プレイヤーが activeRadius より 遠いと わきみずは 休む', () => {
+  it('プレイヤーが activeRadius より 遠いと わきどころは 休む', () => {
     const seed = C.defaultSeed;
     const p = firstFall(seed, liquid);
     const w = load(seed, p);
@@ -114,3 +117,4 @@ describe('升目の いけ', () => {
     for (const k of ['magma', 'magma-fall', 'water-fall']) expect(kinds.has(k), k).toBe(true); // 滝が 立たない 場所の 水は ただの いけ（'water'）
   });
 });
+

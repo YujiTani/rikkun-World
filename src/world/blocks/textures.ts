@@ -101,7 +101,7 @@ export const TILE_NAMES: readonly TileName[] = [
   ...HOUSE_ATLAS_TILE_NAMES,
   // ROPE-1: ロープ・ロープだまり。さいごに 足す
   ...ROPE_TILE_NAMES,
-  // WATERFALL-1: わきみず・たきつぼ・こくようせき・マグマ。さいごに 足す
+  // WATERFALL-1: わきどころ・たきつぼ・こくようせき・マグマ。さいごに 足す
   ...WATERFALL_TILE_NAMES,
 ];
 // WATERFALL-1 版 2: 煮えたぎる マグマの 4 コマは アトラスの 1 だんの 左から（shader が 1 コマ = 1/ATLAS_COLS だけ 横に ずらす）
@@ -559,7 +559,7 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   rope_stake: ['rope_stake', 'rope_stake', 'rope_stake'],
   rope_fence: ['rope_fence', 'rope_fence', 'rope_fence'],
   rope_fence_post: ['rope_stake', 'rope_stake', 'rope_stake'], // 版 5: くいと 同じ 絵
-  // WATERFALL-1: わきみず・たきつぼ・こくようせき・マグマの わきみず・マグマ（量 1〜8 は 同じ 絵）
+  // WATERFALL-1: わきどころ・たきつぼ・こくようせき・マグマの わきどころ・マグマ（量 1〜8 は 同じ 絵）
   ...WATERFALL_BLOCK_TILES,
 };
 

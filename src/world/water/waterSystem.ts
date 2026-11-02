@@ -21,8 +21,10 @@ export interface WaterSystemDeps {
   tick: () => number;
   /** 世界の シード（たきつぼの 確率。WATERFALL-1 §4.2）。なければ 0 */
   seed?: number;
-  /** MAGMA-SPAWN: 生成した 列 (cx, cz) に 滝の わきみずが あるか（ある 列だけ さがす。なければ 生成の 列は さがさない） */
+  /** MAGMA-SPAWN: 生成した 列 (cx, cz) に 滝の わきどころが あるか（ある 列だけ さがす。なければ 生成の 列は さがさない） */
   springsIn?: (cx: number, cz: number) => boolean;
+  /** WAKIDOKORO §10: いちどに 動かす わきどころの 上限（なければ SPRING_TUNING.maxActive。ベンチ・テスト用） */
+  springCap?: number;
 }
 
 /** WATERFALL-1: マグマ（水と 同じ しくみ。窓口 `__rikkun.water.magma`） */
@@ -34,6 +36,8 @@ interface MagmaHook {
 }
 
 export interface WaterSystem {
+  /** WAKIDOKORO §10: さいごの 出す ステップで 動いた わきどころの 数（上限 と 遠さで 休んだ ものを のぞく） */
+  springActive(): number;
   /** ゲームの 1 ステップごとに 1 回 */
   update(): void;
   /** マスを 量 n（0 = air、1〜8）に する。ふつうの `setBlock` と 同じく 起こす */
@@ -54,18 +58,26 @@ export interface WaterSystem {
   onColumnUnloaded(cx: number, cz: number): void;
   /** WATERFALL-1: マグマ */
   readonly magma: MagmaHook;
-  /** WATERFALL-1: わきみずの 数と、わきみずに つながった たきつぼ（なければ null） */
+  /** WATERFALL-1: わきどころの 数と、わきどころに つながった たきつぼ（なければ null） */
   springCount(): number;
   springLink(x: number, y: number, z: number): { x: number; y: number; z: number } | null;
   /** 版 2: (x, y, z) が こげた ブロックか（getIndex。プレイヤーの あつさ 用） */
   scorched(x: number, y: number, z: number): boolean;
-  /** MAGMA-SPAWN: プレイヤーの 場所を わたす（activeRadius より 遠い わきみずは 休む） */
+  /** MAGMA-SPAWN: プレイヤーの 場所を わたす（activeRadius より 遠い わきどころは 休む） */
   setFocus(fn: () => { x: number; z: number }): void;
+  /** WAKIDOKORO §11: 液体の 音の できごと（置いた・しんしょく）。1 か所で 受ける */
+  setSound(fn: ((kind: LiquidSoundKind, x: number, y: number, z: number) => void) | null): void;
 }
+
+/** WAKIDOKORO §11: 水の わきどころを 置いた・マグマの わきどころを 置いた・液体が ブロックを かえた（こくようせき・こげた・流れこみ） */
+export type LiquidSoundKind = 'placeWater' | 'placeMagma' | 'erode';
 
 const KOKUYOUSEKI = 'kokuyouseki';
 /** 版 2: 焼ける ブロック（固い・こわれる・burnSkip で ない）。番号で 引く 表 */
 const KOGETA_INDEX = BLOCK_INDEX.kogeta;
+const KOKU_INDEX = BLOCK_INDEX.kokuyouseki;
+const WAKI_W = BLOCK_INDEX.wakimizu;
+const WAKI_M = BLOCK_INDEX.magma_wakimizu;
 const SKIP = new Set<string>(MAGMA_TUNING.burnSkip);
 const BURNABLE: readonly boolean[] = BLOCK_TYPES.map((t) => t.solid && t.breakable && !SKIP.has(t.id));
 const cellKey = (x: number, y: number, z: number): number => (x + 32768) * 4294967296 + (y & 1023) * 4194304 + ((z + 2097152) & 4194303);
@@ -94,7 +106,7 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     return false;
   });
   const springs = createSprings(world, W, M, deps.seed ?? 0);
-  /** MAGMA-SPAWN: プレイヤーの 場所（わきみずが 休む 距離。なければ ぜんぶ 動く） */
+  /** MAGMA-SPAWN: プレイヤーの 場所（わきどころが 休む 距離。なければ ぜんぶ 動く） */
   let focusFn: (() => { x: number; z: number }) | null = null;
   // 版 2: 焼ける 見はり（計算した マグマの マスを 入れる。となりに 焼ける 物が なくなれば 外す）
   const hot = new Map<number, number>();
@@ -104,6 +116,7 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
   world.onBlockChange = (x, y, z, prev, next) => {
     const wn = waterAmount(next);
     const mn = magmaAmount(next);
+    if (soundFn) soundOf(x, y, z, prev, next, wn, mn);
     if (wn > 0) W.wake(x, y, z);
     else if (mn > 0) M.wake(x, y, z);
     for (let i = 0; i < 6; i++) {
@@ -123,6 +136,15 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     }
     springs.onChange(x, y, z, prev, next);
   };
+
+  let soundFn: ((kind: LiquidSoundKind, x: number, y: number, z: number) => void) | null = null;
+  /** 番号の 比べだけ（getBlock は 呼ばない） */
+  function soundOf(x: number, y: number, z: number, prev: number, next: number, wn: number, mn: number): void {
+    if (next === WAKI_W && prev !== WAKI_W) soundFn!('placeWater', x, y, z);
+    else if (next === WAKI_M && prev !== WAKI_M) soundFn!('placeMagma', x, y, z);
+    else if (next === KOKU_INDEX || (next === KOGETA_INDEX && prev !== KOGETA_INDEX)) soundFn!('erode', x, y, z);
+    else if ((wn > 0 || mn > 0) && prev !== AIR && waterAmount(prev) === 0 && magmaAmount(prev) === 0) soundFn!('erode', x, y, z);
+  }
 
   /** 版 2: 見はりの マグマの まわり 6 マスの 焼ける ブロックを 確率で こげた ブロックに（getIndex だけ。getBlock は 呼ばない） */
   function burnPass(): void {
@@ -169,7 +191,7 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
       const t = tick();
       W.update(t);
       M.update(t);
-      springs.update(t, focusFn?.() ?? null);
+      springs.update(t, focusFn?.() ?? null, deps.springCap);
       if (t % MAGMA_TUNING.burnEvery === 0 && hot.size > 0) burnPass();
     },
     set(x, y, z, n) {
@@ -191,6 +213,9 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     setFocus(fn) {
       focusFn = fn;
     },
+    setSound(fn) {
+      soundFn = fn;
+    },
     magma: {
       set(x, y, z, n) {
         M.write(x, y, z, Math.max(0, Math.min(8, Math.floor(n))));
@@ -200,12 +225,13 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
       total: totalOf(magmaAmount),
     },
     springCount: () => springs.count(),
+    springActive: () => springs.active(),
     springLink: (x, y, z) => springs.linkOf(x, y, z),
     scorched: (x, y, z) => world.getIndex(x, y, z) === KOGETA_INDEX,
     onColumnLoaded(cx, cz, how) {
       if (how === 'generated' && deps.springsIn?.(cx, cz) === true) springs.onColumnLoaded(cx, cz); // MAGMA-SPAWN: 自然の 滝
       if (how === 'saved') {
-        springs.onColumnLoaded(cx, cz); // 保存から 読んだ 列は いつも さがす（置いた わきみず）
+        springs.onColumnLoaded(cx, cz); // 保存から 読んだ 列は いつも さがす（置いた わきどころ）
         saved.add(chunkId(cx, cz));
         wakeBoth(cx, cz, 0, 15, 0, 15); // 保存から 読んだ 列: 動く かも しれない 液体 ぜんぶ
       }

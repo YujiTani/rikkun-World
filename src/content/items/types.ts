@@ -38,8 +38,7 @@ export const BLOCK_ONLY_IDS = [
   'rope_fence_post', // 版 5: さくの くい（はし・かど）
   'rope_fence', // 版 3: ロープの さく（こわすと 1 本 もどる）
   'rope_stake', // 版 3: くい（こわすと ロープ ぜんぶが もどる）
-  // WATERFALL-1: たきつぼ（水が つくる。ほると いし 1 こ）・予約と 量 1〜8 の マグマ（アイテムに ならない）
-  'takitsubo',
+  // WATERFALL-1: 予約と 量 1〜8 の マグマ（アイテムに ならない）。WAKIDOKORO: たきつぼ 2 つは アイテム（ほると その たきつぼ）
   ...MAGMA_EXTRA_IDS,
   'kogeta', // 版 2: マグマに 焼かれた ブロック（ほると すみ 1 こ）
 ] as const satisfies readonly BlockId[];

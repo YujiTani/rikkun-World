@@ -110,14 +110,16 @@ export type BlockId =
   | 'rope_fence' // ROPE-1 版 3: ロープの さく（つないで いる 間に 足もとへ。よこから とおれない・上に のれる）
   | 'rope_stake' // ROPE-1 版 3: ロープを まきつけた くい（ロープの いちばん 上。足もと）
   | 'rope_coil' // ロープ溜まり（ロープの いちばん 下。床に とどいた とき）
-  // WATERFALL-1（うしろに足す）: わきみず・たきつぼ・こくようせき・マグマの わきみず、予約、量 1〜8 の マグマ（`src/world/blocks/magma.ts`）
+  // WATERFALL-1（うしろに足す）: わきどころ・たきつぼ・こくようせき・マグマの わきどころ、予約、量 1〜8 の マグマ（`src/world/blocks/magma.ts`）
   | 'wakimizu'
   | 'takitsubo'
   | 'kokuyouseki'
   | 'magma_wakimizu'
   | MagmaExtraId
   // WATERFALL-1 版 2（うしろに足す）: マグマに 焼かれた ブロック（184。さわると あつい）
-  | 'kogeta';
+  | 'kogeta'
+  // WAKIDOKORO（うしろに足す。185）: マグマの たきつぼ
+  | 'magma_takitsubo';
 
 export interface BlockType {
   id: BlockId;

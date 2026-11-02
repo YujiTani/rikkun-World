@@ -156,13 +156,14 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     rope_stake: 0.05,
     rope_fence: 0.1,
     rope_fence_post: 0.1,
-    // WATERFALL-1: わきみず 2 つは いしと 同じ。たきつぼは つちと 同じ。こくようせきは とても かたい。マグマは ほれない
+    // WATERFALL-1: わきどころ 2 つは いしと 同じ。たきつぼは つちと 同じ。こくようせきは とても かたい。マグマは ほれない
     wakimizu: 1.5,
     magma_wakimizu: 1.5,
     takitsubo: 0.5,
     kokuyouseki: 12,
     ...forMagmaExtra<null>(null),
     kogeta: 1.0, // 版 2: もろい
+    magma_takitsubo: 0.5, // WAKIDOKORO: たきつぼと 同じ
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -251,6 +252,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kokuyouseki: 2, // てつの つるはし から
     ...forMagmaExtra(0),
     kogeta: 0,
+    magma_takitsubo: 0,
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
   handLevel: 0,
@@ -349,10 +351,11 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     rope_fence_post: 'common',
     wakimizu: 'uncommon',
     magma_wakimizu: 'uncommon',
-    takitsubo: 'common',
+    takitsubo: 'uncommon',
     kokuyouseki: 'rare',
     ...forMagmaExtra<Rarity>('common'),
     kogeta: 'common',
+    magma_takitsubo: 'uncommon',
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };
@@ -390,11 +393,10 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   haniwa: { item: 'haniwa', count: 1 },
   // FLORA-75: のばな は いつも 1 こ（ランダムな数にしない）
   nobana: { item: 'nobana', count: 1 },
-  // WATERFALL-1: わきみず 2 つ・こくようせきは いつも 1 こ。たきつぼは いし 1 こ
-  wakimizu: { item: 'wakimizu', count: 1 },
-  magma_wakimizu: { item: 'magma_wakimizu', count: 1 },
+  // WATERFALL-1: こくようせきは いつも 1 こ。WAKIDOKORO: たきつぼ 2 つは その たきつぼ 1 こ（置き直せる）。わきどころ 2 つは 何も 落とさない（NO_DROP_BLOCKS。バケツ だけで 回収）
   kokuyouseki: { item: 'kokuyouseki', count: 1 },
-  takitsubo: { item: 'stone', count: 1 },
+  takitsubo: { item: 'takitsubo', count: 1 },
+  magma_takitsubo: { item: 'magma_takitsubo', count: 1 },
   // 版 2: こげた ブロックは すみ 1 こ（元の ブロックには もどらない）
   kogeta: { item: 'sumi', count: 1 },
 };
@@ -420,7 +422,7 @@ export const HEMP_DROP = {
 } as const;
 
 /** VOX-I-1: こわすと 持ち物がふえない ブロック（すすき・FLORA-75 の くさ。ふえるのは ひろえる物だけ） */
-export const NO_DROP_BLOCKS: ReadonlySet<BlockId> = new Set<BlockId>(['susuki', 'kusa']);
+export const NO_DROP_BLOCKS: ReadonlySet<BlockId> = new Set<BlockId>(['susuki', 'kusa', 'wakimizu', 'magma_wakimizu']); // WAKIDOKORO: わきどころは こわしても 何も 落とさない
 
 /** 体の箱（M1-02 §4.1）。置く判定に使う */
 export const BODY_W = 0.6;
