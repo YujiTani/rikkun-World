@@ -87,7 +87,8 @@ export class LiquidPonds {
       const cz = sp.z + dz;
       const p = this.shape(cx - 3, cz - 2, 6, 5, 2, 'magma', 5, true);
       if (p === null) continue;
-      const slope = this.slope(p);
+      // 滝が 立たない 候補は 平らさに 10 を たして 後回し
+      const slope = this.slope(p) + (p.fall === null ? 10 : 0);
       if (best === null || slope < best.slope) best = { p, slope };
       if (slope <= T.maxSlope) break;
     }
@@ -161,7 +162,10 @@ export class LiquidPonds {
       // はしらは cx の 列で いちばん 南の inner の 1 つ 南（へり）。わきみずは 下が はしら なので 北（いけの 上）へ 出す
       let zi = z1;
       while (zi >= z0 && hitOf(p, cx, zi)?.kind !== 'inner') zi--;
-      p.fall = { x: cx, z: zi + 1, top: level + fallH };
+      const fz = zi + 1;
+      // はしらの 東・西・南の 地面が へりより 高いと、はしらの 横の 面が 地形の 小ブロックと かさなって ぬける（seeThrough）。そのときは 滝なし
+      const low = (x: number, z: number): boolean => hitOf(p, x, z) !== null || t.base(x, z) <= level;
+      if (low(cx - 1, fz) && low(cx + 1, fz) && low(cx, fz + 1)) p.fall = { x: cx, z: fz, top: level + fallH };
     }
     return p;
   }
@@ -211,6 +215,6 @@ export function fallBlocks(p: LiquidPond): { x: number; y: number; z: number; b:
   for (let y = p.level + 1; y < f.top; y++) out.push({ x: f.x, y, z: f.z, b: 'stone' });
   out.push({ x: f.x, y: f.top, z: f.z, b: p.liquid === 'magma' ? 'magma_wakimizu' : 'wakimizu' });
   for (let y = p.level; y <= f.top + 1; y++) out.push({ x: f.x, y, z: f.z - 1, b: 'air' }); // 落ちる 道（はっぱ など を どける）
-  out.push({ x: f.x, y: p.level - p.depth - 1, z: f.z - 1, b: 'takitsubo' });
+  out.push({ x: f.x, y: p.level - p.depth - 2, z: f.z - 1, b: 'takitsubo' }); // くぼみの 底（terrain.ts の 高さと 同じ）
   return out;
 }

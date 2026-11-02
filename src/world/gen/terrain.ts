@@ -205,7 +205,13 @@ export class Terrain {
     const pd = this.map.pondAt(x, z);
     if (pd !== null) return pd.kind === 'inner' ? pd.level - pd.depth - 1 : pd.level;
     const lp = this.liquid.pondAt(x, z);
-    if (lp !== null) return lp.kind === 'inner' ? lp.pond.level - lp.pond.depth - 1 : lp.pond.level;
+    if (lp !== null) {
+      if (lp.kind === 'ring') return lp.pond.level;
+      // 滝の 落ちる 道の 底は 1 つ 深い くぼみ（たきつぼ）。まわりの 底と 同じ 高さだと 地形の 小ブロックと かさなって 横の 面が ぬける
+      const f = lp.pond.fall;
+      const dip = f !== null && f.x === x && f.z - 1 === z ? 1 : 0;
+      return lp.pond.level - lp.pond.depth - 1 - dip;
+    }
     const b = this.base(x, z);
     const k = this.rock();
     const d = Math.hypot(x - k.cx, z - k.cz);

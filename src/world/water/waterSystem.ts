@@ -21,6 +21,8 @@ export interface WaterSystemDeps {
   tick: () => number;
   /** 世界の シード（たきつぼの 確率。WATERFALL-1 §4.2）。なければ 0 */
   seed?: number;
+  /** MAGMA-SPAWN: 生成した 列 (cx, cz) に 滝の わきみずが あるか（ある 列だけ さがす。なければ 生成の 列は さがさない） */
+  springsIn?: (cx: number, cz: number) => boolean;
 }
 
 /** WATERFALL-1: マグマ（水と 同じ しくみ。窓口 `__rikkun.water.magma`） */
@@ -194,8 +196,9 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     springLink: (x, y, z) => springs.linkOf(x, y, z),
     scorched: (x, y, z) => world.getIndex(x, y, z) === KOGETA_INDEX,
     onColumnLoaded(cx, cz, how) {
+      if (how === 'generated' && deps.springsIn?.(cx, cz) === true) springs.onColumnLoaded(cx, cz); // MAGMA-SPAWN: 自然の 滝
       if (how === 'saved') {
-        springs.onColumnLoaded(cx, cz); // わきみずは 生成では 置かない → 保存から 読んだ 列だけ さがす
+        springs.onColumnLoaded(cx, cz); // 保存から 読んだ 列は いつも さがす（置いた わきみず）
         saved.add(chunkId(cx, cz));
         wakeBoth(cx, cz, 0, 15, 0, 15); // 保存から 読んだ 列: 動く かも しれない 液体 ぜんぶ
       }
