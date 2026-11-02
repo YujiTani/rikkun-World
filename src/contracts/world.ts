@@ -115,7 +115,9 @@ export type BlockId =
   | 'takitsubo'
   | 'kokuyouseki'
   | 'magma_wakimizu'
-  | MagmaExtraId;
+  | MagmaExtraId
+  // WATERFALL-1 版 2（うしろに足す）: マグマに 焼かれた ブロック（184。さわると あつい）
+  | 'kogeta';
 
 export interface BlockType {
   id: BlockId;

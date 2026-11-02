@@ -120,6 +120,8 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   // WATERFALL-1: 予約（169〜175。M0 を 8 の 倍数に そろえる）→ 量 1〜8 の マグマ（M0 = 176 から。固くない・こわれない）
   ...MAGMA_RESERVED_IDS.map((id): BlockType => ({ id, name: 'くうき', solid: false, breakable: false })),
   ...MAGMA_IDS.map((id): BlockType => ({ id, name: 'マグマ', solid: false, breakable: false })),
+  // WATERFALL-1 版 2（番号は 後ろに 足す。184）: マグマに 焼かれた ブロック
+  { id: 'kogeta', name: 'こげた ブロック', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -133,7 +135,7 @@ if (BLOCK_INDEX.water !== WATER_FULL_INDEX || BLOCK_INDEX.water_1 !== WATER_W0 |
   throw new Error('water block index mismatch (WATER-1 §4.6)');
 }
 // マグマの 番号の 約束（magma.ts）も 同じく 確かめる
-if (BLOCK_INDEX.magma_1 !== MAGMA_M0 || BLOCK_INDEX.magma !== MAGMA_M0 + 7 || BLOCK_TYPES.length !== MAGMA_M0 + 8) {
+if (BLOCK_INDEX.magma_1 !== MAGMA_M0 || BLOCK_INDEX.magma !== MAGMA_M0 + 7 || BLOCK_TYPES.length < MAGMA_M0 + 8) {
   throw new Error('magma block index mismatch (WATERFALL-1 §4)');
 }
 export const TORCH = BLOCK_INDEX.torch;

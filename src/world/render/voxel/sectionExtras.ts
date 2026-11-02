@@ -93,7 +93,7 @@ export function meshSectionExtras(
           if (isWater) {
             // WATER-1: 水面の 高さ = 量 ÷ 8。高さの ちがう 水の 境は 高い ほうが 描く
             if (!waterFaceSpan(world, x, y, z, b, face, n)) continue;
-            pushFace(water, world, light, x, y, z, face, FACE_UV[b]?.[face.index] ?? uv[face.kind], false, WATER_SPAN.lo, WATER_SPAN.hi, WATER_SPAN.waveLo, WATER_SPAN.waveHi);
+            pushFace(water, world, light, x, y, z, face, WATER_SPAN.uv ?? FACE_UV[b]?.[face.index] ?? uv[face.kind], false, WATER_SPAN.lo, WATER_SPAN.hi, WATER_SPAN.waveLo, WATER_SPAN.waveHi);
             continue;
           }
           if (isOpaqueIndex(n) && (!hasLook(n) || (face.dir[1] !== 0 && occludes(n)))) continue;

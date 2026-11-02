@@ -41,6 +41,7 @@ export const BLOCK_ONLY_IDS = [
   // WATERFALL-1: たきつぼ（水が つくる。ほると いし 1 こ）・予約と 量 1〜8 の マグマ（アイテムに ならない）
   'takitsubo',
   ...MAGMA_EXTRA_IDS,
+  'kogeta', // 版 2: マグマに 焼かれた ブロック（ほると すみ 1 こ）
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 

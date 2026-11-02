@@ -52,7 +52,33 @@ export const MAGMA_TUNING = {
   /** ゆらめきの はばの 倍率（水 = 1）と 速さの 倍率（ゆっくり） */
   waveAmpMul: 0.6,
   waveSpeedMul: 0.35,
+  /** 版 2: 煮えたぎる（ボコボコ） マグマの マスの 割合と、コマの 速さ（コマ / 秒。4 コマ） */
+  boilChance: 0.15,
+  boilFps: 5,
+  /** 版 2: マグマに ふれた 固い ブロックが 焼ける（こげた ブロック）。burnEvery ステップごとに 1 マスずつ 確率 burnChance（シード つき） */
+  burnEvery: 60,
+  burnChance: 0.08,
+  /** 焼けない: こくようせき・こげた ブロック・わきみず 2 つ・たきつぼ（と こわれない・固くない ブロック） */
+  burnSkip: ['kokuyouseki', 'kogeta', 'wakimizu', 'magma_wakimizu', 'takitsubo'] as readonly BlockId[],
+  /** こげた ブロックに ふれて いる（足もと・体の となり）あいだ この ステップごとに ダメージ */
+  scorchHurtEvery: 60,
+  scorchHurtAmount: 1,
 } as const;
+
+/**
+ * 版 2: その マスの マグマが 煮えたぎる 見た目か。世界の 座標だけの まぜあわせ（決まった 塩）で 決める → 量が かわっても・流れても
+ * 同じ マスなら 同じ。読み直しても 同じ。描く 所だけが 見る（量・流れ・水との 反応・ダメージは ふつうの マグマと 同じ）
+ */
+export function magmaBoilsAt(x: number, y: number, z: number): boolean {
+  let h = 0x6a09e667;
+  for (const v of [x, y, z]) {
+    h = Math.imul(h ^ (v | 0), 0x85ebca6b) >>> 0;
+    h = (h ^ (h >>> 13)) >>> 0;
+    h = Math.imul(h, 0xc2b2ae35) >>> 0;
+    h = (h ^ (h >>> 16)) >>> 0;
+  }
+  return h / 4294967296 < MAGMA_TUNING.boilChance;
+}
 
 /** 番号で 液体（水・マグマ）か。描く・光・当たりで 水と 同じ あつかいを する 所が 使う */
 export function isLiquidIndex(index: number): boolean {

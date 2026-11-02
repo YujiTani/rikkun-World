@@ -162,6 +162,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     takitsubo: 0.5,
     kokuyouseki: 12,
     ...forMagmaExtra<null>(null),
+    kogeta: 1.0, // 版 2: もろい
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -249,6 +250,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     takitsubo: 0,
     kokuyouseki: 2, // てつの つるはし から
     ...forMagmaExtra(0),
+    kogeta: 0,
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
   handLevel: 0,
@@ -350,6 +352,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     takitsubo: 'common',
     kokuyouseki: 'rare',
     ...forMagmaExtra<Rarity>('common'),
+    kogeta: 'common',
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };
@@ -392,6 +395,8 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   magma_wakimizu: { item: 'magma_wakimizu', count: 1 },
   kokuyouseki: { item: 'kokuyouseki', count: 1 },
   takitsubo: { item: 'stone', count: 1 },
+  // 版 2: こげた ブロックは すみ 1 こ（元の ブロックには もどらない）
+  kogeta: { item: 'sumi', count: 1 },
 };
 
 /**

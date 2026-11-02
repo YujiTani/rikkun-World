@@ -1,5 +1,6 @@
 import { AIR } from '../blocks/blockTypes';
-import { MAGMA_TUNING, liquidAmountOf } from '../blocks/liquids';
+import { MAGMA_TUNING, liquidAmountOf, magmaBoilsAt } from '../blocks/liquids';
+import { tileUv } from '../blocks/textures';
 import { magmaAmount } from '../blocks/magma';
 
 /**
@@ -16,7 +17,26 @@ export const WATER_SPAN = {
   /** 下の 辺・上の 辺の 頂点が 液面か(ゆらめきの 印。水 = 1、マグマ = MAGMA_TUNING.waveAmpMul) */
   waveLo: 0,
   waveHi: 0,
+  /** 版 2: 煮えたぎる マグマの 面なら その 1 コマ目の UV（印に 2 を 足して shader が コマを ずらす）。ほかは null */
+  uv: null as [number, number, number, number] | null,
 };
+/** 印に 足す 「煮えたぎる」の しるし（shader は 1.5 以上を 煮えたぎる と 読む） */
+const BOIL_FLAG = 2;
+const BOIL_UV = tileUv('magma_boil_0');
+
+/**
+ * 液体の マス (x, y, z)（番号 b）の face 向きの 面を 描くか。描くなら true を 返して `WATER_SPAN` に 高さ（と 煮えたぎる マグマの UV）を 書く。
+ * nIdx = その 向きの となりの 番号（0 以上。世界の 外は 呼ぶ 前に 外す）。
+ */
+export function waterFaceSpan(world: { getIndex(x: number, y: number, z: number): number }, x: number, y: number, z: number, b: number, face: { readonly dir: readonly number[] }, nIdx: number): boolean {
+  if (!spanOf(world, x, y, z, b, face, nIdx)) return false;
+  if (magmaAmount(b) > 0 && magmaBoilsAt(x, y, z)) {
+    WATER_SPAN.waveLo += BOIL_FLAG;
+    WATER_SPAN.waveHi += BOIL_FLAG;
+    WATER_SPAN.uv = BOIL_UV;
+  } else WATER_SPAN.uv = null;
+  return true;
+}
 
 /** その マスが 液面(自由な 液面)を もつか: 低い(量 < 8)、または 上が 空気 */
 function freeSurface(aboveIdx: number, amount: number): boolean {
@@ -27,7 +47,7 @@ function freeSurface(aboveIdx: number, amount: number): boolean {
  * 液体の マス (x, y, z)（番号 b）の face 向きの 面を 描くか。描くなら true を 返して `WATER_SPAN` に 高さを 書く。
  * nIdx = その 向きの となりの 番号（0 以上。世界の 外は 呼ぶ 前に 外す）。
  */
-export function waterFaceSpan(world: { getIndex(x: number, y: number, z: number): number }, x: number, y: number, z: number, b: number, face: { readonly dir: readonly number[] }, nIdx: number): boolean {
+function spanOf(world: { getIndex(x: number, y: number, z: number): number }, x: number, y: number, z: number, b: number, face: { readonly dir: readonly number[] }, nIdx: number): boolean {
   const amt = liquidAmountOf(b);
   const mark = magmaAmount(b) > 0 ? MAGMA_TUNING.waveAmpMul : 1;
   const same = (i: number): boolean => amt(i) > 0;

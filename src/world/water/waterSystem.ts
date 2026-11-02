@@ -1,9 +1,9 @@
-import { AIR } from '../blocks/blockTypes';
-import { LIQUID_KINDS } from '../blocks/liquids';
+import { AIR, BLOCK_INDEX, BLOCK_TYPES } from '../blocks/blockTypes';
+import { LIQUID_KINDS, MAGMA_TUNING } from '../blocks/liquids';
 import { magmaAmount } from '../blocks/magma';
 import { WATER_MAX, waterAmount } from '../blocks/water';
 import { PUSH_DX, PUSH_DY, PUSH_DZ, chunkId, createLiquidCore, type LiquidWorld } from './liquidCore';
-import { createSprings } from './springs';
+import { createSprings, springRoll } from './springs';
 
 /**
  * WATER-1（docs/design/WATER-1.md §4.2・§4.3）: 水の 流れ。マスごとの 量（1〜8）を セル・オートマトンで 動かす。
@@ -55,9 +55,17 @@ export interface WaterSystem {
   /** WATERFALL-1: わきみずの 数と、わきみずに つながった たきつぼ（なければ null） */
   springCount(): number;
   springLink(x: number, y: number, z: number): { x: number; y: number; z: number } | null;
+  /** 版 2: (x, y, z) が こげた ブロックか（getIndex。プレイヤーの あつさ 用） */
+  scorched(x: number, y: number, z: number): boolean;
 }
 
 const KOKUYOUSEKI = 'kokuyouseki';
+/** 版 2: 焼ける ブロック（固い・こわれる・burnSkip で ない）。番号で 引く 表 */
+const KOGETA_INDEX = BLOCK_INDEX.kogeta;
+const SKIP = new Set<string>(MAGMA_TUNING.burnSkip);
+const BURNABLE: readonly boolean[] = BLOCK_TYPES.map((t) => t.solid && t.breakable && !SKIP.has(t.id));
+const cellKey = (x: number, y: number, z: number): number => (x + 32768) * 4294967296 + (y & 1023) * 4194304 + ((z + 2097152) & 4194303);
+const cellOf = (k: number): [number, number, number] => [Math.floor(k / 4294967296) - 32768, Math.floor(k / 4194304) % 1024, (k % 4194304) - 2097152];
 
 export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
   const { world, tick } = deps;
@@ -69,6 +77,7 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
   const W = createLiquidCore(world, LIQUID_KINDS.water);
   // WATERFALL-1 §4.4: マグマが 水に ふれたら（上下 北東南西）こくようせきに なる。水は へらない
   const M = createLiquidCore(world, LIQUID_KINDS.magma, (x, y, z, apply) => {
+    if (apply) hot.set(cellKey(x, y, z), 0);
     for (let i = 0; i < 6; i++) {
       if (waterAmount(world.getIndex(x + PUSH_DX[i], y + PUSH_DY[i], z + PUSH_DZ[i])) === 0) continue;
       if (apply) {
@@ -81,6 +90,9 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     return false;
   });
   const springs = createSprings(world, W, M, deps.seed ?? 0);
+  // 版 2: 焼ける 見はり（計算した マグマの マスを 入れる。となりに 焼ける 物が なくなれば 外す）
+  const hot = new Map<number, number>();
+  let burnRolls = 0;
 
   // ---- 起こす(setBlock の 1 か所) ----
   world.onBlockChange = (x, y, z, prev, next) => {
@@ -105,6 +117,27 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     }
     springs.onChange(x, y, z, prev, next);
   };
+
+  /** 版 2: 見はりの マグマの まわり 6 マスの 焼ける ブロックを 確率で こげた ブロックに（getIndex だけ。getBlock は 呼ばない） */
+  function burnPass(): void {
+    for (const k of [...hot.keys()]) {
+      const [x, y, z] = cellOf(k);
+      if (magmaAmount(world.getIndex(x, y, z)) === 0) {
+        hot.delete(k);
+        continue;
+      }
+      let any = false;
+      for (let i = 0; i < 6; i++) {
+        const nx = x + PUSH_DX[i];
+        const ny = y + PUSH_DY[i];
+        const nz = z + PUSH_DZ[i];
+        if (!BURNABLE[world.getIndex(nx, ny, nz)]) continue;
+        any = true;
+        if (springRoll(deps.seed ?? 0, nx, ny, nz, ++burnRolls) < MAGMA_TUNING.burnChance) world.setBlock(nx, ny, nz, 'kogeta');
+      }
+      if (!any) hot.delete(k);
+    }
+  }
 
   const loaded = (cx: number, cz: number): boolean => world.section(cx, 0, cz) !== undefined;
   const wakeBoth = (cx: number, cz: number, lx0: number, lx1: number, lz0: number, lz1: number): void => {
@@ -131,6 +164,7 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
       W.update(t);
       M.update(t);
       springs.update(t);
+      if (t % MAGMA_TUNING.burnEvery === 0 && hot.size > 0) burnPass();
     },
     set(x, y, z, n) {
       W.write(x, y, z, Math.max(0, Math.min(WATER_MAX, Math.floor(n))));
@@ -158,6 +192,7 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     },
     springCount: () => springs.count(),
     springLink: (x, y, z) => springs.linkOf(x, y, z),
+    scorched: (x, y, z) => world.getIndex(x, y, z) === KOGETA_INDEX,
     onColumnLoaded(cx, cz, how) {
       if (how === 'saved') {
         springs.onColumnLoaded(cx, cz); // わきみずは 生成では 置かない → 保存から 読んだ 列だけ さがす

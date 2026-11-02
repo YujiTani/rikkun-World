@@ -121,6 +121,8 @@ export interface CombatDeps {
   takenMul?: () => number;
   /** WEAPON-9: true の あいだ 落下ダメージを 出さない（シャイニング中・おわって 着地するまで） */
   noFall?: () => boolean;
+  /** WATERFALL-1 版 2: こげた ブロックに ふれて いるか（足もと・体の となり。なければ ふれない） */
+  scorched?: () => boolean;
 }
 
 export interface CombatHookState {
@@ -478,6 +480,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       }
       this.fallTick();
       this.magmaTick();
+      this.scorchTick();
       // 自然回復
       this.sinceDamage++;
       if (
@@ -511,6 +514,18 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     }
     if (this.magmaTicks++ % MAGMA_TUNING.hurtEvery === 0 && this.hurt(MAGMA_TUNING.hurtAmount, null, null, true)) {
       this.emit({ type: 'fallHurt', tick: this.tickCount, amount: MAGMA_TUNING.hurtAmount });
+    }
+  }
+
+  /** 版 2: こげた ブロックに ふれて いる あいだ scorchHurtEvery ステップごとに 1（はじめて ふれた とき すぐ 1。マグマとは べつに 数える） */
+  private scorchTicks = 0;
+  private scorchTick(): void {
+    if (this.d.scorched?.() !== true) {
+      this.scorchTicks = 0;
+      return;
+    }
+    if (this.scorchTicks++ % MAGMA_TUNING.scorchHurtEvery === 0 && this.hurt(MAGMA_TUNING.scorchHurtAmount, null, null, true)) {
+      this.emit({ type: 'fallHurt', tick: this.tickCount, amount: MAGMA_TUNING.scorchHurtAmount });
     }
   }
 
