@@ -14,6 +14,7 @@ import type {
   YokaiKind,
   YokaiWorld,
 } from '../contracts';
+import { MAGMA_TUNING } from '../world/blocks/liquids';
 import { createW2Settings } from '../contracts';
 import { GADGET_ID } from '../content/items/gadgetTuning';
 import { isBladeItem } from '../tools/blade';
@@ -476,6 +477,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
         this.shove(this.kbX, this.kbZ);
       }
       this.fallTick();
+      this.magmaTick();
       // 自然回復
       this.sinceDamage++;
       if (
@@ -500,6 +502,18 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   }
 
   /** 落ちた高さを見て、地面に着いたらダメージ。みず・ジャンプの着地は 0。ノックバックなし・防具でも減らない */
+  /** WATERFALL-1 §4.4: マグマに ふれて いる あいだ hurtEvery ステップごとに hurtAmount（はいった すぐ に 1 回。むてき中でも） */
+  private magmaTicks = 0;
+  private magmaTick(): void {
+    if (this.d.player.get().inMagma !== true) {
+      this.magmaTicks = 0;
+      return;
+    }
+    if (this.magmaTicks++ % MAGMA_TUNING.hurtEvery === 0 && this.hurt(MAGMA_TUNING.hurtAmount, null, null, true)) {
+      this.emit({ type: 'fallHurt', tick: this.tickCount, amount: MAGMA_TUNING.hurtAmount });
+    }
+  }
+
   private fallTick(): void {
     const st = this.d.player.get();
     const y = st.position.y;

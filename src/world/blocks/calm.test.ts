@@ -1,5 +1,6 @@
 // CALM（#194）: ブロックの絵の「ざわざわ」をへらす。受け入れ基準 1〜7（docs/tickets/CALM.md）
 import { isRopeTile } from './ropeTextures';
+import { isWaterfallTile } from './waterfallTextures';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { TILE_CALM, TILE_NAMES, TILE_SIZE, calmColor, getTilePixels, type Rgba, type TileName } from './textures';
@@ -228,7 +229,7 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
     // HOUSE-1C PR-1（#340）: 家の ブロック・家具の 新しい 絵（house_*・furn_* など）は アトラスの さいごに 足した 新しい 絵。画素は houseBlocks.test.ts が 見る
     const houseNew = (n: string) => isHouseTile(n);
     // ROPE-1: ロープ・ロープだまりの 新しい 絵（画素は ropeTextures.test.ts が 見る）
-    const ropeNew = (n: string) => isRopeTile(n);
+    const ropeNew = (n: string) => isRopeTile(n) || isWaterfallTile(n); // WATERFALL-1 の 絵も（画素は waterfallTextures.test.ts）
     expect(TILE_NAMES.filter((n) => !skip.has(n) && !kotatsuNew(n) && !gadgetNew(n) && !mineNew(n) && !houseNew(n) && !ropeNew(n)).sort()).toEqual(Object.keys(HASH).sort());
   });
   for (const [name, h] of Object.entries(HASH)) {

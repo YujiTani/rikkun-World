@@ -34,6 +34,8 @@ export interface PlayerState {
   pitchDeg: number;
   onGround: boolean;
   inWater: boolean;
+  /** WATERFALL-1: 体（足もと か こし）が マグマに ふれて いる（あつい。PlayerCombat が ダメージ） */
+  inMagma?: boolean;
   /** 水平に動いているか（人形の手足を振るため） */
   moving: boolean;
   /** CHAR-1: キャラの向き（0 以上 360 未満。yaw と同じ数え方）。見た目だけ。省略時は yaw と同じ */

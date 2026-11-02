@@ -5,6 +5,7 @@
 import type { ChalkMarkId } from '../world/blocks/chalkMark';
 import type { KATAME_TSUCHI, ScaffoldId } from '../world/blocks/buildBlocks';
 import type { ReservedId, WaterPartialId } from '../world/blocks/water';
+import type { MagmaExtraId } from '../world/blocks/magma';
 import type { FurnBlockId, HouseBlockId, HouseDoorPartId } from '../world/blocks/houseBlocks';
 
 export interface Vec3 {
@@ -108,7 +109,13 @@ export type BlockId =
   | 'rope_fence_post' // ROPE-1 版 5: ロープの さくの くい（はし・かど。くいと 同じ 絵。当たりは 1 マス）
   | 'rope_fence' // ROPE-1 版 3: ロープの さく（つないで いる 間に 足もとへ。よこから とおれない・上に のれる）
   | 'rope_stake' // ROPE-1 版 3: ロープを まきつけた くい（ロープの いちばん 上。足もと）
-  | 'rope_coil'; // ロープ溜まり（ロープの いちばん 下。床に とどいた とき）
+  | 'rope_coil' // ロープ溜まり（ロープの いちばん 下。床に とどいた とき）
+  // WATERFALL-1（うしろに足す）: わきみず・たきつぼ・こくようせき・マグマの わきみず、予約、量 1〜8 の マグマ（`src/world/blocks/magma.ts`）
+  | 'wakimizu'
+  | 'takitsubo'
+  | 'kokuyouseki'
+  | 'magma_wakimizu'
+  | MagmaExtraId;
 
 export interface BlockType {
   id: BlockId;

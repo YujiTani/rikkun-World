@@ -10,7 +10,7 @@ import { pushChalk } from '../chalkMesh';
 import { pushHouseProp, shojiAxisAt } from '../houseProp';
 import { pushKotatsuCell } from '../kotatsuMesh';
 import { FACES, FACE_UV, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, isCoopLineIndex, pushCoopPanels, pushCross, pushFace, pushProp, pushTorch, type MeshData } from '../meshChunk';
-import { isWaterIndex } from '../../blocks/water';
+import { isLiquidIndex } from '../../blocks/liquids';
 import { WATER_SPAN, waterFaceSpan } from '../waterFaces';
 
 /**
@@ -81,7 +81,7 @@ export function meshSectionExtras(
           continue;
         }
         if (isKotatsuBlock(BLOCK_TYPES[b].id) && pushKotatsuCell(opaque, world, light, x, y, z, BLOCK_TYPES[b].id)) continue;
-        const isWater = isWaterIndex(b);
+        const isWater = isLiquidIndex(b); // WATERFALL-1: マグマも 水と 同じ 液体の 面
         if (!isWater && hasLook(b)) continue; // 小ブロックの形で描く
         const uv = TILE_UV[b];
         if (!uv) continue;

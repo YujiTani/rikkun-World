@@ -67,6 +67,9 @@ export function installGameHook(deps: WiredLoop): void {
       stable: (x0, y0, z0, x1, y1, z1) => water.stable(x0, y0, z0, x1, y1, z1),
       pause: (on) => water.pause(on),
       waveTime: () => water.waveTime(),
+      magma: water.magma,
+      springCount: () => water.springCount(),
+      springLink: (x, y, z) => water.springLink(x, y, z),
     },
     char: charCtl,
     shadow: createShadowHook({

@@ -1,4 +1,5 @@
 import type { MeshBasicMaterial } from 'three';
+import { MAGMA_TUNING } from '../blocks/liquids';
 import { WAVE_AMP, WAVE_LENGTH, WAVE_PERIOD } from '../blocks/water';
 
 /**
@@ -17,7 +18,9 @@ const TAU = Math.PI * 2;
 const WAVE_GLSL = `
 {
   vec4 wp = modelMatrix * vec4(position, 1.0);
-  float ph = (wp.x + wp.z * 0.7) * ${g(TAU / WAVE_LENGTH)} + uWaveTime * ${g(TAU / WAVE_PERIOD)};
+  // WATERFALL-1: 印が 1 より 小さい 頂点（マグマ）は ゆっくり ゆれる
+  float sp = aWave > 0.99 ? 1.0 : ${g(MAGMA_TUNING.waveSpeedMul)};
+  float ph = (wp.x + wp.z * 0.7) * ${g(TAU / WAVE_LENGTH)} + uWaveTime * sp * ${g(TAU / WAVE_PERIOD)};
   transformed.y -= aWave * uWaveAmp * (1.0 + sin(ph)) * 0.5;
 }`;
 

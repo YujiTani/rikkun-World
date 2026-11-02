@@ -17,6 +17,7 @@ import {
   type PlayerSettings,
 } from './config';
 import { isDeepWater, isWater, waterAmount } from '../world/blocks/water';
+import { isMagma } from '../world/blocks/magma';
 import { ROPE_STAKE, ROPE_TUNING, isClimbBlock } from '../world/blocks/rope';
 import { tetherOf, type TetherBody } from '../world/blocks/ropeTether';
 
@@ -273,7 +274,7 @@ export class PlayerController {
     }
 
     // 水平の速さ: 目標へ一定の割合で近づける（先に速さを変えてから位置を動かす）
-    const waterMul = st.inWater ? cfg.waterSpeedMul : 1;
+    const waterMul = st.inWater || st.inMagma === true ? cfg.waterSpeedMul : 1; // WATERFALL-1: マグマの 中も おそい
     const walkSpeed = cfg.walkSpeed * waterMul;
     const running = runHeld && wlen > 0 && !this.motion.noRun;
     const topSpeed = (running ? cfg.runSpeed : cfg.walkSpeed) * waterMul;
@@ -486,6 +487,7 @@ export class PlayerController {
     const waist = this.world.getBlock(bx, wy, bz);
     this.state.inWater = this.surfaceBelow(feet, fy, y) || this.surfaceBelow(waist, wy, y);
     this.ropeCell = isClimbBlock(feet) || isClimbBlock(waist);
+    this.state.inMagma = isMagma(feet) || isMagma(waist); // WATERFALL-1: 同じ 2 マスで（getBlock を ふやさない）
   }
 
   /** マス（高さ by・中身 id）が 深い 水で、点の 高さ y が その 水面より 下か */

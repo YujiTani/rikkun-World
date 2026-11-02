@@ -3,6 +3,7 @@ import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
 import { SCAFFOLD_IDS, type ScaffoldId } from '../world/blocks/buildBlocks';
 import { CHALK_MARK_IDS, type ChalkMarkId } from '../world/blocks/chalkMark';
 import { forWaterExtra } from '../world/blocks/water';
+import { forMagmaExtra } from '../world/blocks/magma';
 import { HOUSE_BLOCK_IDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, houseDropOf, type HouseBase, type HouseBlockId, type HouseDoorPartId, type NewFurnBlockId } from '../world/blocks/houseBlocks';
 
 /** チョークの しるし 12 こ ぜんぶに 同じ 値を 入れる（`satisfies Record<BlockId, …>` が 12 こ そろって いることを 見る） */
@@ -155,6 +156,12 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     rope_stake: 0.05,
     rope_fence: 0.1,
     rope_fence_post: 0.1,
+    // WATERFALL-1: わきみず 2 つは いしと 同じ。たきつぼは つちと 同じ。こくようせきは とても かたい。マグマは ほれない
+    wakimizu: 1.5,
+    magma_wakimizu: 1.5,
+    takitsubo: 0.5,
+    kokuyouseki: 12,
+    ...forMagmaExtra<null>(null),
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -237,6 +244,11 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     rope_stake: 0,
     rope_fence: 0,
     rope_fence_post: 0,
+    wakimizu: 0,
+    magma_wakimizu: 0,
+    takitsubo: 0,
+    kokuyouseki: 2, // てつの つるはし から
+    ...forMagmaExtra(0),
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
   handLevel: 0,
@@ -333,6 +345,11 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     rope_stake: 'common',
     rope_fence: 'common',
     rope_fence_post: 'common',
+    wakimizu: 'uncommon',
+    magma_wakimizu: 'uncommon',
+    takitsubo: 'common',
+    kokuyouseki: 'rare',
+    ...forMagmaExtra<Rarity>('common'),
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };
@@ -370,6 +387,11 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   haniwa: { item: 'haniwa', count: 1 },
   // FLORA-75: のばな は いつも 1 こ（ランダムな数にしない）
   nobana: { item: 'nobana', count: 1 },
+  // WATERFALL-1: わきみず 2 つ・こくようせきは いつも 1 こ。たきつぼは いし 1 こ
+  wakimizu: { item: 'wakimizu', count: 1 },
+  magma_wakimizu: { item: 'magma_wakimizu', count: 1 },
+  kokuyouseki: { item: 'kokuyouseki', count: 1 },
+  takitsubo: { item: 'stone', count: 1 },
 };
 
 /**

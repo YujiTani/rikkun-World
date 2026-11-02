@@ -3,7 +3,9 @@ import { KATAME_TSUCHI, SCAFFOLD_IDS } from './buildBlocks';
 import { CHALK_MARK_IDS, isChalkMarkId } from './chalkMark';
 import { FURNITURE } from '../../house/editor/furniture';
 import { FLAT_FURN_KINDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from './houseBlocks';
-import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL_INDEX, WATER_PARTIAL_IDS, WATER_W0, isWaterIndex } from './water';
+import { isLiquidIndex } from './liquids';
+import { MAGMA_IDS, MAGMA_M0, MAGMA_RESERVED_IDS } from './magma';
+import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL_INDEX, WATER_PARTIAL_IDS, WATER_W0 } from './water';
 
 /** M1-01 4-2 のブロック 11 種 + M4 の 3 種。配列の順番が内部の番号（air = 0） */
 export const BLOCK_TYPES: readonly BlockType[] = [
@@ -110,6 +112,14 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'rope_stake', name: 'ロープの くい', solid: false, breakable: true }, // ROPE-1 版 3（番号は 後ろに 足す）
   { id: 'rope_fence', name: 'ロープの さく', solid: true, breakable: true }, // ROPE-1 版 3: 当たりは 1 マスの ブロック（とりごやの さくと 同じ）。版 5: くいの 間の よこに はった なわ
   { id: 'rope_fence_post', name: 'ロープの さくの くい', solid: true, breakable: true }, // ROPE-1 版 5: さくの はし・かど（くいと 同じ 絵）
+  // WATERFALL-1（番号は 後ろに 足す。165〜168）: わきみず・たきつぼ・こくようせき・マグマの わきみず
+  { id: 'wakimizu', name: 'わきみず', solid: true, breakable: true },
+  { id: 'takitsubo', name: 'たきつぼ', solid: true, breakable: true },
+  { id: 'kokuyouseki', name: 'こくようせき', solid: true, breakable: true },
+  { id: 'magma_wakimizu', name: 'マグマの わきみず', solid: true, breakable: true },
+  // WATERFALL-1: 予約（169〜175。M0 を 8 の 倍数に そろえる）→ 量 1〜8 の マグマ（M0 = 176 から。固くない・こわれない）
+  ...MAGMA_RESERVED_IDS.map((id): BlockType => ({ id, name: 'くうき', solid: false, breakable: false })),
+  ...MAGMA_IDS.map((id): BlockType => ({ id, name: 'マグマ', solid: false, breakable: false })),
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -121,6 +131,10 @@ export const WATER = BLOCK_INDEX.water;
 // 水の 番号の 約束（water.ts）が 並びと ずれて いないか 起動時に 確かめる
 if (BLOCK_INDEX.water !== WATER_FULL_INDEX || BLOCK_INDEX.water_1 !== WATER_W0 || BLOCK_INDEX.reserved_147 !== BLOCKS_BEFORE_WATER) {
   throw new Error('water block index mismatch (WATER-1 §4.6)');
+}
+// マグマの 番号の 約束（magma.ts）も 同じく 確かめる
+if (BLOCK_INDEX.magma_1 !== MAGMA_M0 || BLOCK_INDEX.magma !== MAGMA_M0 + 7 || BLOCK_TYPES.length !== MAGMA_M0 + 8) {
+  throw new Error('magma block index mismatch (WATERFALL-1 §4)');
 }
 export const TORCH = BLOCK_INDEX.torch;
 export const START_TORCH = BLOCK_INDEX.start_torch;
@@ -194,7 +208,7 @@ export function isChalkIndex(index: number): boolean {
 
 /** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板・しるしはちがう */
 export function isOpaqueIndex(index: number): boolean {
-  return index !== AIR && !isWaterIndex(index) && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index);
+  return index !== AIR && !isLiquidIndex(index) && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index);
 }
 
 /** 固いブロックか（番号で） */

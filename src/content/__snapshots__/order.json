@@ -432,7 +432,10 @@
       "house_roof",
       "shoji",
       "house_door",
-      "rope"
+      "rope",
+      "wakimizu",
+      "magma_wakimizu",
+      "kokuyouseki"
     ],
     "food": [
       "onion",
@@ -618,6 +621,8 @@
     "chalk",
     "shikkui",
     "rope",
+    "wakimizu",
+    "magma_wakimizu",
     "yumi_hemp",
     "mushi_ami_hemp",
     "rope_hemp"
@@ -882,7 +887,10 @@
     "house_roof",
     "shoji",
     "house_door",
-    "rope"
+    "rope",
+    "wakimizu",
+    "magma_wakimizu",
+    "kokuyouseki"
   ],
   "RARITY_ORDER": [
     "common",
