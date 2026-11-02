@@ -42,3 +42,8 @@
 - つなぎの なわ: くいの 上 から プレイヤーの こしまで 1 本の 線（#C9A46A。`src/world/render/tetherLine.ts`）。線の 太さは WebGL の 都合で 1 ピクセル。
 - 実ゲーム画面: /workspace/rope-shots/（1 つなぎ・2 ぶら下がり・3 のぼった あと）。
 - art-reviewer: 合格（軽微 A3: 線が 細く、遠いと 見えにくい。オーナー確認）。
+
+## 版 4: さく の ならび（art-director → pixel-artist → art-reviewer）
+- 絵は 版 3 の さく（fenceTile）の まま。くいから ねらった 所まで ならぶ ので、十字の 板が つながって 見える。L 字の かども 同じ 絵。
+- 実ゲーム画面: /workspace/rope-shots-v4/（1 つなぎ・2 まっすぐ・3 L 字・4 ぶら下がり・5 のぼった あと）。
+- art-reviewer: 合格（軽微 A4: かどで 十字の 板が かさなって 見える。ゲームで オーナー確認）。

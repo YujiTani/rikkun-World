@@ -37,7 +37,7 @@ class FakeWorld implements VoxelWorld {
 const SPAWN: SpawnPoint = { x: 32.5, y: 12, z: 32.5, yawDeg: 0, pitchDeg: 0 };
 
 /** 台地 x=0〜10・y=7〜30（上は y=31）。くい (5,31,5)。x=11 から 先は がけ（床は y=6） */
-function rig(ropes: number) {
+function rig() {
   const world = new FakeWorld();
   const actions = new ActionState();
   const look: LookSource = { consume: () => ({ dx: 0, dy: 0 }) };
@@ -45,7 +45,7 @@ function rig(ropes: number) {
   const player = new PlayerController(world, actions, look, lock, () => SPAWN);
   world.fill(0, 7, 0, 10, 30, 63, 'sand');
   world.setBlock(5, 31, 5, 'rope_stake');
-  tetherOf(world).tie({ x: 5, y: 31, z: 5 }, ropes);
+  tetherOf(world).tie({ x: 5, y: 31, z: 5 });
   player.set({ position: { x: 5.5, y: 31, z: 5.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0 });
   const step = (n = 1) => {
     for (let i = 0; i < n; i++) {
@@ -58,7 +58,7 @@ function rig(ropes: number) {
 
 describe('つなぎ（ROPE-1 版 3）', () => {
   it('たいらでは くいから 長さ（1 本 = 10 マス）より 先へ 行けない', () => {
-    const { player, actions, step } = rig(1);
+    const { player, actions, step } = rig();
     player.set({ yawDeg: 180 }); // +z へ
     actions.press('moveForward');
     step(600);
@@ -68,7 +68,7 @@ describe('つなぎ（ROPE-1 版 3）', () => {
   });
 
   it('がけから 落ちると 長さで ぶら下がる → スペースで のぼる （ダメージ 0）', () => {
-    const rig0 = rig(2);
+    const rig0 = rig();
     const { player, actions, step } = rig0;
     const combat = new PlayerCombatImpl({
       world: rig0.world,
@@ -108,7 +108,7 @@ describe('つなぎ（ROPE-1 版 3）', () => {
   });
 
   it('くいが なくなると つなぎは きれる', () => {
-    const { world, player, step } = rig(1);
+    const { world, player, step } = rig();
     world.setBlock(5, 31, 5, 'air');
     step(2);
     expect(tetherOf(world).anchor).toBeNull();

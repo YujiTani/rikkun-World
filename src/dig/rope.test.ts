@@ -126,14 +126,14 @@ describe('ロープを たらす（版 3: AC1・AC2・AC21〜AC23）', () => {
     expect(at(two, 3, 9)).toBe('rope_coil');
     expect(two.inv.count('rope')).toBe(1); // 13 マス = 2 本
   });
-  it('まえが がけで ない（たいら・かべ）: 足もとに くいを うって つなぐ（1 本。長さ = もって いた 本数 × 10）', () => {
+  it('まえが がけで ない（たいら・かべ）: 足もとに くいを うって つなぐ（1 本。半径 10 マス）', () => {
     const flat = new Rig(); // y=8 の 床の 上（まえも 床）
     flat.hold('rope', 3);
     flat.rightClick();
     expect(flat.world.getBlock(2, 9, 6)).toBe('rope_stake');
     expect(flat.inv.count('rope')).toBe(2);
     expect(tetherOf(flat.world).anchor).toEqual({ x: 2, y: 9, z: 6 });
-    expect(tetherOf(flat.world).len).toBe(30);
+    expect(tetherOf(flat.world).len).toBe(10); // 版 4: 半径 10 マス（本数に よらない）
     expect([...flat.world.blocks.values()].filter((b) => b === 'rope').length).toBe(0);
 
     const wall = new Rig();
@@ -164,85 +164,57 @@ describe('ロープを たらす（版 3: AC1・AC2・AC21〜AC23）', () => {
   });
 });
 
-describe('つなぎ と ロープの さく（版 3: AC26〜AC30）', () => {
+describe('つなぎ と ロープの さく（版 4: AC31〜AC36）', () => {
+  /** (2,9,6) に くいを うって つなぐ（床は y=8 の いし）。ロープは count 本 のこる まえに 1 本 つかう */
   function tied(count: number) {
     const r = new Rig();
     r.hold('rope', count);
-    r.rightClick(); // (2,9,6) に くい
-    r.player.position = { x: 5.5, y: 9, z: 6.5 };
-    r.step();
+    r.rightClick();
     return r;
   }
-  it('つないで いる 間の 右クリックは 足もとに さく 1 マス（1 本）。プレイヤーは さくの 上へ。上に つめる', () => {
-    const r = tied(4);
-    r.rightClick();
-    expect(r.world.getBlock(5, 9, 6)).toBe('rope_fence');
-    expect(r.player.position.y).toBe(10);
-    expect(r.inv.count('rope')).toBe(2);
-    r.rightClick();
-    expect(r.world.getBlock(5, 10, 6)).toBe('rope_fence');
-    expect(r.player.position.y).toBe(11);
-    expect(r.inv.count('rope')).toBe(1);
-    expect(r.world.getBlock(6, 9, 6)).toBe('air'); // くいと さくの 間に なわは わたらない
-  });
-  it('さく・つなぎの くいを こわすと それ だけ 消えて 1 本 もどる。くいなら つなぎも きれる', () => {
-    const r = tied(4);
-    r.rightClick();
-    r.rightClick();
-    const brk = (x: number, y: number) =>
-      (r.dig as unknown as { breaker: { breakBlock(t: unknown, g: boolean): string } }).breaker.breakBlock({ block: { x, y, z: 6 }, id: r.world.getBlock(x, y, 6), face: { x: 0, y: 1, z: 0 }, place: { x, y: y + 1, z: 6 }, distance: 1 }, false);
-    brk(5, 10);
-    expect(r.world.getBlock(5, 10, 6)).toBe('air');
-    expect(r.world.getBlock(5, 9, 6)).toBe('rope_fence');
-    expect(r.inv.count('rope')).toBe(2);
-    brk(2, 9);
-    expect(r.world.getBlock(2, 9, 6)).toBe('air');
-    expect(r.world.getBlock(5, 9, 6)).toBe('rope_fence');
-    expect(tetherOf(r.world).anchor).toBeNull();
-    expect(r.inv.count('rope')).toBe(3);
-  });
-});
-
-describe('ロープを こわす（AC6・AC7。くいも ふくむ）', () => {
-  for (const [name, x, y] of [['くい', 2, 15], ['まんなかの なわ', 3, 12], ['ロープだまり', 3, 9]] as const) {
-    it(`${name}を こわしても くい・なわ・ロープだまり ぜんぶ 消えて、つかった 本数が もどる`, () => {
-      const r = new Rig();
-      cliff(r, 15);
-      r.hold('rope', 1);
-      r.rightClick();
-      expect(r.inv.count('rope')).toBe(0);
-      r.player.position = { x: 2.5, y: 15, z: 6.5 };
-      r.hold('stone_pickaxe', 1);
-      // ねらう 代わりに こわす 先を 直接 わたす（ねらいの 計算は ほかの テストが 見る）
-      (r.dig as unknown as { breaker: { breakBlock(t: unknown, g: boolean): string } }).breaker.breakBlock({ block: { x, y, z: 6 }, id: at(r, x, y), face: { x: 0, y: 1, z: 0 }, place: { x, y: y + 1, z: 6 }, distance: 1 }, false);
-      for (let yy = 9; yy <= 15; yy++) expect(at(r, 3, yy), `${yy}`).toBe('air');
-      expect(at(r, 2, 15)).toBe('air');
-      expect(r.inv.count('rope')).toBe(1);
-    });
+  /** 床の 上面 (tx, 9, tz) を ねらって 右クリック（ねらいの 計算は ほかの テストが 見る ので、ねらった 先を 直接 わたす） */
+  function placeAt(r: Rig, tx: number, tz: number) {
+    const d = r.dig as unknown as { aim: { tgt: unknown }; placer: { tryPlace(): void } };
+    d.aim.tgt = { block: { x: tx, y: 8, z: tz }, id: 'stone', face: { x: 0, y: 1, z: 0 }, place: { x: tx, y: 9, z: tz }, distance: 3 };
+    d.placer.tryPlace();
   }
-});
+  const brk = (r: Rig, x: number, y: number, z: number) =>
+    (r.dig as unknown as { breaker: { breakBlock(t: unknown, g: boolean): string } }).breaker.breakBlock({ block: { x, y, z }, id: r.world.getBlock(x, y, z), face: { x: 0, y: 1, z: 0 }, place: { x, y: y + 1, z }, distance: 1 }, false);
+  const fences = (r: Rig) => [...r.world.blocks.entries()].filter(([, b]) => b === 'rope_fence').map(([k]) => k).sort();
 
-describe('あさ（hemp）が でる（AC14・AC15）', () => {
-  /** 目の 前（4,10,6）に id を おいて こわす を n 回。でた あさの 数 */
-  const breakMany = (id: 'leaves' | 'stone' | 'grass' | 'flower_y', n: number): number => {
-    const r = new Rig();
-    r.hold('iron_pickaxe', 1);
-    for (let i = 0; i < n; i++) {
-      r.world.setBlock(4, 10, 6, id);
-      r.step();
-      r.breakAimed();
-      r.step(7 * (i + 1)); // こわす 時こくを ずらす
-    }
-    return r.inv.count('hemp');
-  };
-  it('はっぱ・くさ・はなを 30 回 こわすと だいたい 1/3（3〜20 こ）', () => {
-    for (const id of ['leaves', 'grass', 'flower_y'] as const) {
-      const n = breakMany(id, 30);
-      expect(n, id).toBeGreaterThanOrEqual(3);
-      expect(n, id).toBeLessThanOrEqual(20);
-    }
+  it('まっすぐ: くいの となりから ねらった 列まで さく。1〜10 マスは 1 本', () => {
+    const r = tied(3);
+    r.player.position = { x: 2.5, y: 9, z: 8.5 };
+    placeAt(r, 6, 6);
+    expect(fences(r)).toEqual(['3,9,6', '4,9,6', '5,9,6', '6,9,6']);
+    expect(r.inv.count('rope')).toBe(1);
   });
-  it('いしからは でない', () => {
-    expect(breakMany('stone', 15)).toBe(0);
+  it('ななめ: さきに x、つぎに z の L 字（1 回 だけ まがる）', () => {
+    const r = tied(3);
+    r.player.position = { x: 2.5, y: 9, z: 2.5 };
+    placeAt(r, 4, 8);
+    expect(fences(r)).toEqual(['3,9,6', '4,9,6', '4,9,7', '4,9,8']);
+  });
+  it('おなじ 所を もう 1 回: その 上に 1 だん つむ（上を 歩ける）', () => {
+    const r = tied(3);
+    r.player.position = { x: 2.5, y: 9, z: 8.5 };
+    placeAt(r, 4, 6);
+    placeAt(r, 4, 6);
+    expect(fences(r)).toEqual(['3,10,6', '3,9,6', '4,10,6', '4,9,6']);
+    expect(r.inv.count('rope')).toBe(0);
+  });
+  it('さく 1 マスを こわすと その マス だけ 消える。ロープは 10 マス ごとに 1 本（1 マス目で 1 本）。くいを こわすと つなぎが きれて 1 本', () => {
+    const r = tied(2);
+    r.player.position = { x: 2.5, y: 9, z: 8.5 };
+    placeAt(r, 6, 6);
+    expect(r.inv.count('rope')).toBe(0);
+    brk(r, 4, 9, 6);
+    expect(fences(r)).toEqual(['3,9,6', '5,9,6', '6,9,6']);
+    expect(r.inv.count('rope')).toBe(1);
+    brk(r, 5, 9, 6);
+    expect(r.inv.count('rope')).toBe(1);
+    brk(r, 2, 9, 6);
+    expect(tetherOf(r.world).anchor).toBeNull();
+    expect(r.inv.count('rope')).toBe(2);
   });
 });

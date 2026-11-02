@@ -29,3 +29,7 @@
 - E2E: e2e/rope1.spec.ts（つなぎ → がけで ぶら下がり → スペースで のぼる。ROPE_SHOTS=dir で 画面を のこす）
 - 実画面: /workspace/rope-shots/1-tethered-flat.png・2-hanging.png・3-climbed.png
 - sectionMesher の golden を 作りなおした: タイルが 1 つ ふえて アトラスの 行の 数（ceil(タイル数/4)）が かわり、ぜんぶの V 座標が かわる ため（GOLDEN_WRITE=1）
+
+## 版 4（2026-11-02）
+- ユニット: world/blocks/ropeFence.test.ts（新。みち・だんさ・かべ・半径・本数・つむ）、dig/rope.test.ts（つなぎ 半径 10・まっすぐ・L 字・つむ・こわす）、player/tether.test.ts（半径 10 で ぶら下がり）
+- E2E: e2e/rope1.spec.ts（つなぎ → まっすぐ → L 字 → ぶら下がり → のぼる）。画面 /workspace/rope-shots-v4/

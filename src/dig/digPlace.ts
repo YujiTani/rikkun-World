@@ -8,6 +8,7 @@ import { HANGING_SUPPORT, isReplaceable, overlapsBody, type DigCore } from './di
 import { isWater } from '../world/blocks/water';
 import { ROPE, ROPE_FENCE, ROPE_STAKE, planRopeHere } from '../world/blocks/rope';
 import { tetherOf } from '../world/blocks/ropeTether';
+import { planFence, type FenceWorld } from '../world/blocks/ropeFence';
 
 /** 置く場所とブロック（置けないなら null）。tryPlace とヒントが同じ判定を使う */
 export interface PlaceSpot {
@@ -124,21 +125,28 @@ export class BlockPlacer {
     };
     const tether = tetherOf(c.world);
     if (tether.live((x, y, z) => c.world.getBlock(x, y, z), ROPE_STAKE)) {
-      // つないで いる 間: 足もとに ロープの さく（1 本）。さくの 上にも つめる。置いたら プレイヤーは さくの 上へ
-      const head = (dy: number): boolean => {
-        const cur = c.world.getBlock(feet.x, feet.y + dy, feet.z);
-        return cur === 'air' && free(feet.x, feet.y + dy, feet.z);
+      // 版 4: つないで いる 間は、はじめの くいから ねらった 列まで ロープの さく（L 字。くわしくは world/blocks/ropeFence.ts）
+      const t = c.tgt();
+      if (!t) return null;
+      const fw: FenceWorld = {
+        open: (x, y, z) => {
+          const cur = c.world.getBlock(x, y, z);
+          return (cur === 'air' || isReplaceable(cur)) && free(x, y, z) && !this.overlapsBody(x, y, z);
+        },
+        solid: (x, y, z) => c.world.isSolid(x, y, z),
+        fence: (x, y, z) => c.world.getBlock(x, y, z) === ROPE_FENCE,
       };
-      if (!(canStake() && head(1) && head(2) && p.onGround)) return null;
-      const { x, y, z } = feet;
-      return { x, y, z, block: ROPE_FENCE, after: () => { p.position.y = y + 1; p.velocity.y = 0; } };
+      const fp = planFence(tether.anchor!, t.place.x, t.place.z, have, fw);
+      if (!fp) return null;
+      const last = fp.cells[fp.cells.length - 1]!;
+      return { x: last.x, y: last.y, z: last.z, block: ROPE_FENCE, cells: fp.cells.map((k) => ({ ...k, block: ROPE_FENCE })), use: fp.used };
     }
     const plan = planRopeHere(feet, p.yawDeg, have, canStake, open);
     if (!plan) {
-      // がけで ない（たいら）: 足もとに くいを うって 体と つなぐ（くい 1 本。長さは もって いた 本数 × 10）
+      // がけで ない（たいら）: 足もとに くいを うって 体と つなぐ（くい 1 本。半径 10 マス）
       if (!canStake() || !p.onGround) return null;
       const { x, y, z } = feet;
-      return { x, y, z, block: ROPE_STAKE, after: () => tether.tie(feet, have) };
+      return { x, y, z, block: ROPE_STAKE, after: () => tether.tie(feet) };
     }
     const { x, y, z } = plan.stake;
     return { x, y, z, block: ROPE_STAKE, cells: [{ x, y, z, block: ROPE_STAKE }, ...plan.cells.map((k) => ({ x: plan.x, y: k.y, z: plan.z, block: k.block }))], use: plan.used };
