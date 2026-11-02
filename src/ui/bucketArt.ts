@@ -46,11 +46,15 @@ const WATER: Px[][] = [
 const toRgba = (rows: Px[][]): Rgba[] =>
   rows.flat().map((c): Rgba => (c === null ? [0, 0, 0, 0] : [(c >> 16) & 255, (c >> 8) & 255, c & 255, 255]));
 
-export const BUCKET_ITEMS = ['bucket', 'water_bucket'] as const;
+/** BUCKET-2: マグマの バケツ（みずの 絵の 水の 色を マグマの 色に かえる。ふち・てつは 同じ） */
+const MAGMA_OF: Record<number, number> = { 0x81d4fa: 0xffd54f, 0x4fc3f7: 0xff6d00 };
+const MAGMA: Px[][] = WATER.map((row, y) => row.map((c, x) => (c !== null && MAGMA_OF[c] !== undefined ? ((x + y) % 5 === 0 ? 0xd84315 : MAGMA_OF[c]!) : c)));
+
+export const BUCKET_ITEMS = ['bucket', 'water_bucket', 'magma_bucket'] as const;
 export type BucketItemId = (typeof BUCKET_ITEMS)[number];
 
 export function isBucketItem(item: string): item is BucketItemId {
-  return item === 'bucket' || item === 'water_bucket';
+  return item === 'bucket' || item === 'water_bucket' || item === 'magma_bucket';
 }
 
 const cache = new Map<BucketItemId, Rgba[]>();
@@ -59,7 +63,7 @@ const cache = new Map<BucketItemId, Rgba[]>();
 export function bucketItemPixels(item: BucketItemId): Rgba[] {
   let p = cache.get(item);
   if (!p) {
-    p = toRgba(item === 'bucket' ? EMPTY : WATER);
+    p = toRgba(item === 'bucket' ? EMPTY : item === 'magma_bucket' ? MAGMA : WATER);
     cache.set(item, p);
   }
   return p;

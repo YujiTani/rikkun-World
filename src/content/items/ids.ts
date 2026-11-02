@@ -79,7 +79,7 @@ export const FARM_TOOL_IDS = ['kuwa', 'watering_can', 'long_watering_can'] as co
 export type FarmToolId = (typeof FARM_TOOL_IDS)[number];
 
 /** バケツ（BUCKET-1）: から・みず（この順） */
-export const FARM_BUCKET_IDS = ['bucket', 'water_bucket'] as const;
+export const FARM_BUCKET_IDS = ['bucket', 'water_bucket', 'magma_bucket'] as const;
 export type FarmBucketId = (typeof FARM_BUCKET_IDS)[number];
 
 /** ようかいだま（M3 の 名残り。いまは 手に入らない 古い保存用）。ITEM_TYPES では ざいりょうの 先頭 */

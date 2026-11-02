@@ -165,4 +165,14 @@ export const BUCKETS = {
     info: { use: 'はたけ の そば に みず を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] },
     wear: 'permanent',
   },
+  // BUCKET-2: マグマを くむと できる（レシピ なし）
+  magma_bucket: {
+    name: 'マグマの バケツ',
+    zukan: 'あつい ［マグマ｜まぐま］が ［入｜はい］った バケツ。おいた ところは ［燃｜も］えるので ［気｜き］を つけて。',
+    maxStack: 1,
+    rarity: 'uncommon',
+    category: 'tool',
+    info: { use: 'マグマ を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] },
+    wear: 'permanent',
+  },
 } satisfies Record<FarmBucketId, ItemDef>;
