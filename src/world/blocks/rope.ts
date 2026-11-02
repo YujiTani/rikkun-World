@@ -12,6 +12,8 @@ export const ROPE_TUNING = {
   perRope: 10,
   /** のぼる・おりる 速さ（マス/秒） */
   climbSpeed: 3,
+  /** 版 4: つなぎの 半径（マス。持って いる 本数に よらない） */
+  tetherRadius: 10,
 } as const;
 
 export const ROPE: BlockId = 'rope';

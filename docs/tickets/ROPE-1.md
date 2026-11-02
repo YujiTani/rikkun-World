@@ -34,3 +34,4 @@
 | 2026-11-01 | design | 版 2 | あさを 足した |
 | 2026-11-01 | dev | 合格 |
 | 2026-11-01 夕 | design/art/dev/test | 版 3 | たらし方・操作・落下ダメージ。くいの 絵 | ratchet・eslint・check:fast 緑 |
+| 2026-11-02 | design/art/dev/test | 版 4 | つなぎ 半径 10・さく は くい → ねらった 所（L 字）。PR #380 の あとの 新しい ブランチ feat/rope-tether-fence |

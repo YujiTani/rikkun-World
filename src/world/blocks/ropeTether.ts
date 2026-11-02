@@ -3,7 +3,7 @@ import { ROPE_TUNING } from './rope';
 
 /**
  * ROPE-1 版 3（つなぎ）: たいらな ところで ロープを つかうと、足もとに くいを うって 体と つなぐ。
- * くい（アンカー）から ロープの 長さ（もって いた 本数 × 10 マス）より 先へは 行けない。
+ * 版 4: くい（アンカー）の まん中から 体の こし（足もと + 0.9）までの まっすぐな きょり（3D）が 半径 10 マス（ROPE_TUNING.tetherRadius。本数に よらない）より 先へは 行けない。
  * 世界 1 つに つなぎは 1 本。くいが なくなる・とても 遠くへ 飛ぶ（リスポーン など）と きれる。
  */
 export interface TetherAnchor {
@@ -19,9 +19,16 @@ export class RopeTether {
   anchor: TetherAnchor | null = null;
   len = 0;
 
-  tie(a: TetherAnchor, ropes: number): void {
+  tie(a: TetherAnchor): void {
     this.anchor = { ...a };
-    this.len = ropes * ROPE_TUNING.perRope;
+    this.len = ROPE_TUNING.tetherRadius;
+  }
+
+  /** 版 4: こわした さく の マスの 数（10 マス ごとに 1 本 もどす。1 マス目で 1 本） */
+  private fenceBroken = 0;
+  /** さく 1 マスを こわした: もどす 本数（0 か 1） */
+  fenceRefund(): number {
+    return this.fenceBroken++ % ROPE_TUNING.perRope === 0 ? 1 : 0;
   }
 
   clear(): void {

@@ -115,7 +115,7 @@ export class BlockBreaker {
     const get = (gx: number, gy: number, gz: number): string => w.getBlock(gx, gy, gz);
     const { x, y, z } = t.block;
     let n = 0;
-    // 版 3: さく・つなぎの くいは それ だけ 消えて 1 本 もどる（つなぎも きれる）
+    // 版 3・4: さく・つなぎの くいは それ だけ 消える（くいは 1 本 もどり つなぎが きれる。さくは 下で）
     const tether = tetherOf(w);
     const a = tether.anchor;
     const tied = a !== null && a.x === x && a.y === y && a.z === z;
@@ -130,9 +130,9 @@ export class BlockBreaker {
       if (stake) w.setBlock(stake.x, top, stake.z, 'air');
       for (let yy = bottom; yy <= top; yy++) w.setBlock(col.x, yy, col.z, 'air');
       n = ropesFor(top - bottom + 1);
-    } else n = 1; // くいだけ のこって いた（ロープが ない）: 1 本 もどす
-    giveStacks(c, [{ item: ROPE, count: n }], x, y, z);
-    c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: t.id, gotItem: true, count: n });
+    } else n = t.id === ROPE_FENCE ? tether.fenceRefund() : 1; // 版 4: さく は 10 マス ごとに 1 本（1 マス目で 1 本）。くい だけ は 1 本
+    if (n > 0) giveStacks(c, [{ item: ROPE, count: n }], x, y, z);
+    c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: t.id, gotItem: n > 0, count: n });
     return 'done';
   }
 
