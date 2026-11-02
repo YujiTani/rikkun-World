@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FarmEvent, ItemStack } from '../contracts';
-import { createBucket, isBucket, isFullBucket } from './bucket';
+import { createBucket, isBucket, isFullBucket, springBlockOf } from './bucket';
 import { magmaId } from '../world/blocks/magma';
 import { InventoryImpl as Inventory } from '../inventory/Inventory';
 import { bucketItemPixels } from '../ui/bucketArt';
@@ -45,13 +45,13 @@ describe('BUCKET-2', () => {
     expect(c.cells['0,0,0']).toBe(magmaId(4));
   });
 
-  it('AC3: からの バケツで わきどころ → 量 8 の バケツ、わきどころは 空気。入った バケツでは かわらない', () => {
-    for (const [spring, item] of [['wakimizu', 'water_bucket'], ['magma_wakimizu', 'magma_bucket']] as const) {
+  it('AC3（版 2）: からの バケツで わきどころ → わきどころの バケツ、わきどころは 空気。入った バケツでは かわらない', () => {
+    for (const [spring, item] of [['wakimizu', 'wakimizu_bucket'], ['magma_wakimizu', 'magma_wakimizu_bucket']] as const) {
       const a = make({ item: 'bucket', count: 1 }, { '0,0,0': spring });
       expect(a.port.fill(0, C)).toBe(true);
       expect(a.slots[0]).toEqual({ item, count: 1, water: 8 });
       expect(a.cells['0,0,0']).toBe('air');
-      const b = make({ item, count: 1, water: 2 }, { '0,0,0': spring });
+      const b = make({ item: item === 'wakimizu_bucket' ? 'water_bucket' : 'magma_bucket', count: 1, water: 2 }, { '0,0,0': spring });
       expect(b.port.fill(0, C)).toBe(false);
       expect(b.cells['0,0,0']).toBe(spring);
     }
@@ -66,6 +66,16 @@ describe('BUCKET-2', () => {
     expect(isBucket('magma_bucket') && isFullBucket('magma_bucket') && !isFullBucket('bucket')).toBe(true);
   });
 
+  it('AC7（版 2）: わきどころの バケツは いっぱい（水・マグマを 足せない）。置いた あと から・springBlockOf で 置く ブロック', () => {
+    const a = make({ item: 'wakimizu_bucket', count: 1 }, { '0,0,0': 'water' });
+    expect(a.port.fill(0, C)).toBe(false);
+    expect(a.port.placed(0, C)).toBe(true);
+    expect(a.slots[0]).toEqual({ item: 'bucket', count: 1 });
+    expect(springBlockOf('wakimizu_bucket')).toBe('wakimizu');
+    expect(springBlockOf('magma_wakimizu_bucket')).toBe('magma_wakimizu');
+    expect(springBlockOf('water_bucket')).toBeNull();
+  });
+
   it('AC5: 保存: マグマの バケツの 量が 読み直しで のこる', () => {
     const inv = new Inventory();
     inv.setSlot(0, { item: 'magma_bucket', count: 1, water: 5 });
@@ -75,7 +85,7 @@ describe('BUCKET-2', () => {
   });
 
   it('AC6: 絵: から・みず・マグマ の 3 つが ちがう', () => {
-    const k = (id: 'bucket' | 'water_bucket' | 'magma_bucket') => JSON.stringify(bucketItemPixels(id));
-    expect(new Set([k('bucket'), k('water_bucket'), k('magma_bucket')]).size).toBe(3);
+    const ids = ['bucket', 'water_bucket', 'magma_bucket', 'wakimizu_bucket', 'magma_wakimizu_bucket'] as const;
+    expect(new Set(ids.map((id) => JSON.stringify(bucketItemPixels(id)))).size).toBe(5);
   });
 });

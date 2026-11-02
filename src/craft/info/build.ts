@@ -13,7 +13,7 @@ import { ALL_RECIPES } from '../recipes';
 import { ARMOR_KIND, CLASS_TEXT, EGG_SOURCE, ITEM_INFO, HARAPAN_SOURCE, KIN_TAMAGO_SOURCE, MOMO_NAMA_SOURCE, MUSHI_SOURCE, ORB_SOURCE, STAT_MAX, YOKAI_NAME, type ButtonKey } from './table';
 
 /** BUCKET-1/2: 入った バケツの 手に 入れ方 */
-const FILL_HOW: Partial<Record<string, string>> = { water_bucket: 'みず', magma_bucket: 'マグマ' };
+const FILL_HOW: Partial<Record<string, string>> = { water_bucket: 'みず', magma_bucket: 'マグマ', wakimizu_bucket: 'わきどころ', magma_wakimizu_bucket: 'マグマの わきどころ' };
 
 export interface StatRow {
   key: string;

@@ -196,6 +196,8 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
   bucket: bucketParts(null),
   water_bucket: bucketParts(0x4fc3f7),
   magma_bucket: bucketParts(0xff6d00),
+  wakimizu_bucket: bucketParts(0x29b6f6),
+  magma_wakimizu_bucket: bucketParts(0xffab00),
   onion: [
     { size: [0.2, 0.2, 0.18], pos: [0, 0, -0.1], color: 0xf5f0dc },
     { size: [0.05, 0.05, 0.1], pos: [0, 0, -0.24], color: 0x43a047 },

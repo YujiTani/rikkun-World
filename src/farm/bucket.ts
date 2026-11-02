@@ -9,14 +9,20 @@ export function isBucket(item: string | undefined): item is BucketId {
 
 type Liquid = 'mizu' | 'magma';
 /** BUCKET-2: バケツ → 中の 液体（から は null）・液体 → 入った バケツ・わきどころ → 液体（表で 引く。id の 直書きを ふやさない） */
-const BUCKET_LIQUID: Record<BucketId, Liquid | null> = { bucket: null, water_bucket: 'mizu', magma_bucket: 'magma' };
-const FULL_OF: Record<Liquid, 'water_bucket' | 'magma_bucket'> = { mizu: 'water_bucket', magma: 'magma_bucket' };
+const BUCKET_LIQUID: Record<BucketId, Liquid | null> = { bucket: null, water_bucket: 'mizu', magma_bucket: 'magma', wakimizu_bucket: 'mizu', magma_wakimizu_bucket: 'magma' };
+type FullBucket = Exclude<BucketId, 'bucket'>;
+const FULL_OF: Record<Liquid, FullBucket> = { mizu: 'water_bucket', magma: 'magma_bucket' };
+/** 版 2: わきどころの バケツ → 置く ブロック。わきどころ → その バケツ */
+const SPRING_BLOCK_OF: Partial<Record<string, 'wakimizu' | 'magma_wakimizu'>> = { wakimizu_bucket: 'wakimizu', magma_wakimizu_bucket: 'magma_wakimizu' };
+const SPRING_BUCKET_OF: Record<Liquid, FullBucket> = { mizu: 'wakimizu_bucket', magma: 'magma_wakimizu_bucket' };
+/** わきどころの バケツが 置く ブロック（ふつうの バケツは null） */
+export const springBlockOf = (item: string | undefined): 'wakimizu' | 'magma_wakimizu' | null => (item !== undefined ? (SPRING_BLOCK_OF[item] ?? null) : null);
 const SPRING_OF: Partial<Record<string, Liquid>> = { wakimizu: 'mizu', magma_wakimizu: 'magma' };
 
 /** バケツの 中の 液体（から・バケツで ない は null） */
 export const bucketLiquid = (item: string | undefined): Liquid | null => (isBucket(item) ? BUCKET_LIQUID[item] : null);
 /** BUCKET-2: 液体が 入った バケツか */
-export const isFullBucket = (item: string | undefined): item is 'water_bucket' | 'magma_bucket' => bucketLiquid(item) !== null;
+export const isFullBucket = (item: string | undefined): item is FullBucket => bucketLiquid(item) !== null;
 /** わきどころ（水・マグマ）か */
 export const isSpringBlock = (id: string): boolean => SPRING_OF[id] !== undefined;
 
@@ -51,10 +57,6 @@ export interface BucketDeps {
  * 水の ブロックを 置く のは DigSystem（世界の 判定が いる）。
  */
 export function createBucket(d: BucketDeps): BucketPort {
-  const at = (slot: number, item: BucketId): ItemStack | null => {
-    const s = d.inventory.slots()[slot];
-    return s && s.item === item ? s : null;
-  };
   return {
     preview(held, ray, hasTarget, spot, repeat) {
       if (!held || !isBucket(held.item)) return null;
@@ -73,12 +75,13 @@ export function createBucket(d: BucketDeps): BucketPort {
       // BUCKET-2: 同じ 種類 だけ。わきどころは からの バケツで だけ（まるごと 8、マスは 空気）
       const liq = liquidOf(d.world.getBlock(cell.x, cell.y, cell.z));
       const inBucket = BUCKET_LIQUID[s.item as BucketId];
-      const kindOk = liq !== null && (inBucket === null || inBucket === liq.kind) && (!liq.spring || inBucket === null);
+      // 版 2: わきどころの バケツは いっぱい（何も 足せない）
+      const kindOk = liq !== null && (inBucket === null || (inBucket === liq.kind && springBlockOf(s.item) === null)) && (!liq.spring || inBucket === null);
       const have = inBucket === null ? 0 : Math.max(0, Math.min(BUCKET_TAKE, s.water ?? BUCKET_TAKE));
       const take = liq && kindOk ? Math.min(BUCKET_TAKE - have, liq.amount) : 0;
       const changed = take > 0;
       if (changed && liq) {
-        d.inventory.setSlot(slot, { item: FULL_OF[liq.kind], count: s.count, water: have + take });
+        d.inventory.setSlot(slot, { item: (liq.spring ? SPRING_BUCKET_OF : FULL_OF)[liq.kind], count: s.count, water: have + take });
         const left = liq.spring ? 0 : liq.amount - take;
         d.world.setBlock(cell.x, cell.y, cell.z, liq.kind === 'magma' ? magmaId(left) : waterId(left));
       }
@@ -86,7 +89,8 @@ export function createBucket(d: BucketDeps): BucketPort {
       return changed;
     },
     placed(slot, cell) {
-      const s = at(slot, 'water_bucket') ?? at(slot, 'magma_bucket');
+      const cur = d.inventory.slots()[slot];
+      const s = cur && isFullBucket(cur.item) ? cur : null;
       if (!s) return false;
       d.inventory.setSlot(slot, { item: 'bucket', count: s.count });
       d.emit({ type: 'bucketPlace', tick: d.tick(), x: cell.x, y: cell.y, z: cell.z, liquid: BUCKET_LIQUID[s.item as BucketId] === 'magma' ? 'magma' : 'water' });

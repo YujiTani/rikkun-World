@@ -85,7 +85,7 @@ async function open(page: Page, query = '?nosave=1') {
 const SHOTS = process.env.BK_SHOTS;
 
 test.describe('BUCKET-2 マグマの バケツ・わきどころ', () => {
-  test('AC3: からの バケツで わきどころ（水・マグマ）を くむ → 量 8 の バケツ、わきどころは 空気', async ({ page }) => {
+  test('AC3（版 2）: からの バケツで わきどころ（水・マグマ）を くむ → わきどころの バケツ。置くと わきどころ', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -99,11 +99,32 @@ test.describe('BUCKET-2 マグマの バケツ・わきどころ', () => {
         T.aim(6, 9, 6);
         T.tap();
         o[key] = { slot: T.slotW(), block: h.world.getBlock(6, 9, 6) };
+        T.aim(5, 8, 7);
+        const sp = h.farm.bucketSpot();
+        T.tap();
+        o[key + 'placed'] = sp ? h.world.getBlock(sp.x, sp.y, sp.z) : null;
+        o[key + 'after'] = T.slotW().item;
       }
       return o;
     });
-    expect(r.w).toEqual({ slot: { item: 'water_bucket', count: 1, water: 8 }, block: 'air' });
-    expect(r.m).toEqual({ slot: { item: 'magma_bucket', count: 1, water: 8 }, block: 'air' });
+    expect(r.w).toEqual({ slot: { item: 'wakimizu_bucket', count: 1, water: 8 }, block: 'air' });
+    expect(r.m).toEqual({ slot: { item: 'magma_wakimizu_bucket', count: 1, water: 8 }, block: 'air' });
+    expect([r.wplaced, r.mplaced, r.wafter, r.mafter]).toEqual(['wakimizu', 'magma_wakimizu', 'bucket', 'bucket']);
+    if (SHOTS) {
+      await page.evaluate(() => {
+        const h = (window as any).__rikkun;
+        const T = (window as any).T;
+        T.hold('bucket');
+        h.inventory.setSlot(1, { item: 'water_bucket', count: 1 });
+        h.inventory.setSlot(2, { item: 'wakimizu_bucket', count: 1 });
+        h.inventory.setSlot(3, { item: 'magma_bucket', count: 1 });
+        h.inventory.setSlot(4, { item: 'magma_wakimizu_bucket', count: 1 });
+        h.water.pause(false);
+        T.stand(2.5, 7, 90, -20);
+        h.step(120);
+      });
+      await page.screenshot({ path: `${SHOTS}/bucket-wakidokoro-placed.png` });
+    }
   });
 
   test('AC1・AC4: からの バケツで マグマを くみ、マグマの バケツで おく（量 8）。バケツは から', async ({ page }) => {

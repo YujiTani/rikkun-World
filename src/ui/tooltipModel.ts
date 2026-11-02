@@ -9,7 +9,7 @@ import { wearView } from './wearGauge';
 
 /** ツールチップの行につく小さな絵。アイテムの id か、かなづち・時計 */
 /** BUCKET-1/2: バケツの 1 行 */
-const BUCKET_TIP: Partial<Record<string, string>> = { bucket: 'みず・マグマ を くむ', water_bucket: 'みず を おく', magma_bucket: 'マグマ を おく' };
+const BUCKET_TIP: Partial<Record<string, string>> = { bucket: 'みず・マグマ を くむ', water_bucket: 'みず を おく', magma_bucket: 'マグマ を おく', wakimizu_bucket: 'わきどころ を おく', magma_wakimizu_bucket: 'マグマの わきどころ を おく' };
 
 export type TooltipIcon = ItemId | 'hammer' | 'clock';
 

@@ -70,7 +70,7 @@ export type FarmEvent =
   | { type: 'ripened'; tick: number; x: number; y: number; z: number; kind: CropKind };
 
 /** BUCKET-1: バケツ 2 しゅるい */
-export type BucketId = 'bucket' | 'water_bucket' | 'magma_bucket';
+export type BucketId = 'bucket' | 'water_bucket' | 'magma_bucket' | 'wakimizu_bucket' | 'magma_wakimizu_bucket';
 
 /** M7-2: じょうろ 2 しゅるい */
 export type WateringCanId = 'watering_can' | 'long_watering_can';

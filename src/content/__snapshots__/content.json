@@ -4409,6 +4409,40 @@
       "rarity": "uncommon",
       "recipes": []
     },
+    "wakimizu_bucket": {
+      "ITEM_INFO.wakimizu_bucket": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック で おく",
+        "use": "わきどころ を おく"
+      },
+      "category": "tool",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "わきどころの バケツ",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": []
+    },
+    "magma_wakimizu_bucket": {
+      "ITEM_INFO.magma_wakimizu_bucket": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック で おく",
+        "use": "マグマの わきどころ を おく"
+      },
+      "category": "tool",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "マグマの わきどころの バケツ",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": []
+    },
     "snow": {
       "DIG_DEFAULTS.hardness.snow": 0.5,
       "DIG_DEFAULTS.harvestLevel.snow": 0,

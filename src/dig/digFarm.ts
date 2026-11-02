@@ -5,7 +5,7 @@ import { itemDef } from '../content/items/registry';
 import { isFloraBlock } from '../world/blocks/flora';
 import { BUCKET_TAKE, isWater, waterId } from '../world/blocks/water';
 import { magmaAmount, magmaId } from '../world/blocks/magma';
-import { bucketLiquid, isBucket, isFullBucket, isSpringBlock } from '../farm/bucket';
+import { bucketLiquid, isBucket, isFullBucket, isSpringBlock, springBlockOf } from '../farm/bucket';
 import { overlapsBody, sameBlock, type DigCore } from './digCore';
 import { giveStacks, liftFlora } from './digBreak';
 import { lookDirection } from './raycast';
@@ -141,7 +141,9 @@ export class DigFarm {
     // BUCKET-2: マグマの バケツは マグマ（ふつうの 液体。わきどころには もどらない）
     const held = c.inventory.held();
     const amount = held?.water || BUCKET_TAKE;
-    if (!c.world.setBlock(spot.x, spot.y, spot.z, bucketLiquid(held?.item) === 'magma' ? magmaId(amount) : waterId(amount))) return;
+    // 版 2: わきどころの バケツは わきどころを 置く（64 この 上限は そのまま）
+    const block = springBlockOf(held?.item) ?? (bucketLiquid(held?.item) === 'magma' ? magmaId(amount) : waterId(amount));
+    if (!c.world.setBlock(spot.x, spot.y, spot.z, block)) return;
     c.m4.bucket.placed(c.inventory.selected(), spot);
     c.m4.tools?.pushSwing('place');
   }
