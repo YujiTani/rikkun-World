@@ -4392,6 +4392,23 @@
       "rarity": "common",
       "recipes": []
     },
+    "magma_bucket": {
+      "ITEM_INFO.magma_bucket": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック で おく",
+        "use": "マグマ を おく"
+      },
+      "category": "tool",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "マグマの バケツ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
     "snow": {
       "DIG_DEFAULTS.hardness.snow": 0.5,
       "DIG_DEFAULTS.harvestLevel.snow": 0,

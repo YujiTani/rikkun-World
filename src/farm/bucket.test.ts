@@ -118,7 +118,7 @@ describe('BUCKET-1 くむ・おく', () => {
     const a = make(wb);
     expect(a.port.placed(0, { x: 1, y: 2, z: 3 })).toBe(true);
     expect(a.slots[0]).toEqual(eb);
-    expect(a.events).toEqual([{ type: 'bucketPlace', tick: 7, x: 1, y: 2, z: 3 }]);
+    expect(a.events).toEqual([{ type: 'bucketPlace', tick: 7, x: 1, y: 2, z: 3, liquid: 'water' }]);
     expect(a.port.placed(0, { x: 1, y: 2, z: 3 })).toBe(false);
     expect(a.events).toHaveLength(1);
   });

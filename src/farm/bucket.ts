@@ -11,11 +11,11 @@ export function isBucket(item: string | undefined): item is BucketId {
 export const isFullBucket = (item: string | undefined): item is 'water_bucket' | 'magma_bucket' => item === 'water_bucket' || item === 'magma_bucket';
 
 /** BUCKET-2: マスの 液体（わきどころは 量 8 の もと）。液体で なければ null */
-function liquidOf(id: BlockId | 'outside'): { kind: 'water' | 'magma'; amount: number; spring: boolean } | null {
-  if (id === 'wakimizu') return { kind: 'water', amount: BUCKET_TAKE, spring: true };
+function liquidOf(id: BlockId | 'outside'): { kind: 'mizu' | 'magma'; amount: number; spring: boolean } | null {
+  if (id === 'wakimizu') return { kind: 'mizu', amount: BUCKET_TAKE, spring: true };
   if (id === 'magma_wakimizu') return { kind: 'magma', amount: BUCKET_TAKE, spring: true };
   const w = waterAmount(id);
-  if (w > 0) return { kind: 'water', amount: w, spring: false };
+  if (w > 0) return { kind: 'mizu', amount: w, spring: false };
   const m = magmaAmount(id);
   if (m > 0) return { kind: 'magma', amount: m, spring: false };
   return null;
@@ -62,14 +62,14 @@ export function createBucket(d: BucketDeps): BucketPort {
       // WATER-1 §4.4: マスの 液体から min(8 − 今の 量, マスの 量) を とる(欄 なしの 入った バケツは 量 8)
       // BUCKET-2: 同じ 種類 だけ。わきどころは からの バケツで だけ（まるごと 8、マスは 空気）
       const liq = liquidOf(d.world.getBlock(cell.x, cell.y, cell.z));
-      const kindOk = liq !== null && (s.item === 'bucket' || (s.item === 'water_bucket' ? liq.kind === 'water' : liq.kind === 'magma')) && (!liq.spring || s.item === 'bucket');
+      const kindOk = liq !== null && (s.item === 'bucket' || (s.item === 'water_bucket' ? liq.kind === 'mizu' : liq.kind === 'magma')) && (!liq.spring || s.item === 'bucket');
       const have = s.item === 'bucket' ? 0 : Math.max(0, Math.min(BUCKET_TAKE, s.water ?? BUCKET_TAKE));
       const take = liq && kindOk ? Math.min(BUCKET_TAKE - have, liq.amount) : 0;
       const changed = take > 0;
       if (changed && liq) {
-        d.inventory.setSlot(slot, { item: liq.kind === 'water' ? 'water_bucket' : 'magma_bucket', count: s.count, water: have + take });
+        d.inventory.setSlot(slot, { item: liq.kind === 'mizu' ? 'water_bucket' : 'magma_bucket', count: s.count, water: have + take });
         const left = liq.spring ? 0 : liq.amount - take;
-        d.world.setBlock(cell.x, cell.y, cell.z, liq.kind === 'water' ? waterId(left) : magmaId(left));
+        d.world.setBlock(cell.x, cell.y, cell.z, liq.kind === 'mizu' ? waterId(left) : magmaId(left));
       }
       d.emit({ type: 'bucketFill', tick: d.tick(), x: cell.x, y: cell.y, z: cell.z, item: s.item, changed });
       return changed;

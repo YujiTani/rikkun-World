@@ -97,7 +97,7 @@ describe('登録表（置けるブロック 22 個）', () => {
     const g = ids.indexOf('geyser_dirt');
     expect(ids.slice(g - 1, g + 2)).toEqual(['samurai_geta', 'geyser_dirt', 'lantern']);
     const s = ids.indexOf('snow');
-    expect(ids.slice(s - 1, s + 10)).toEqual(['water_bucket', 'snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'nobana', 'egg', 'mushi']);
+    expect(ids.slice(s - 2, s + 9)).toEqual(['water_bucket', 'magma_bucket', 'snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'nobana', 'egg']);
   });
 
   it('色分けの 並び: 古い表と 同じ', () => {

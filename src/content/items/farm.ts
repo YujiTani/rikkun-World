@@ -168,7 +168,7 @@ export const BUCKETS = {
   // BUCKET-2: マグマを くむと できる（レシピ なし）
   magma_bucket: {
     name: 'マグマの バケツ',
-    zukan: 'あつい ［マグマ｜まぐま］が ［入｜はい］った バケツ。おいた ところは ［燃｜も］えるので ［気｜き］を つけて。',
+    zukan: 'あつい ［マグマ｜まぐま］が ［入｜はい］った バケツ。おいた ところは もえるので ［気｜き］を つけて。',
     maxStack: 1,
     rarity: 'uncommon',
     category: 'tool',

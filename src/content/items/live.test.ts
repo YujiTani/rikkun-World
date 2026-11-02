@@ -69,7 +69,7 @@ describe('登録表（生き物 8 個）', () => {
     // MINE-1B: ざいりょうの 分けに いしばいが ふえる。今の 物〔TAKO-1 の すみ 込み〕の 並びは かわらない（新しい 物の 位置は 決めない）
     expect(CATEGORY_ITEMS.material.filter((id) => ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'sumi', 'kin_tamago'].includes(id))).toEqual(['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'sumi', 'kin_tamago']);
     const at = (cat: readonly string[], id: string, n: number) => cat.slice(cat.indexOf(id), cat.indexOf(id) + n);
-    expect(at(CATEGORY_ITEMS.tool, 'bucket', 3)).toEqual(['bucket', 'water_bucket', 'mushi_ami']);
+    expect(at(CATEGORY_ITEMS.tool, 'bucket', 4)).toEqual(['bucket', 'water_bucket', 'magma_bucket', 'mushi_ami']);
     expect(at(CATEGORY_ITEMS.home, 'sprinkler', 3)).toEqual(['sprinkler', 'nukunuku', 'toriya']);
     expect(CATEGORY_ITEMS.food.slice(0, 7)).toEqual(['onion', 'tomato', 'pumpkin', 'eggplant', 'egg', 'momo_nama', 'momo_yaki']);
   });
