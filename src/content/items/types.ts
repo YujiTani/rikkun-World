@@ -6,6 +6,7 @@ import { CHALK_MARK_IDS } from '../../world/blocks/chalkMark';
 import { KATAME_TSUCHI, SCAFFOLD_IDS } from '../../world/blocks/buildBlocks';
 import { FURN_VARIANT_IDS, HOUSE_DOOR_PART_IDS } from '../../world/blocks/houseBlocks';
 import { WATER_EXTRA_IDS } from '../../world/blocks/water';
+import { MAGMA_EXTRA_IDS } from '../../world/blocks/magma';
 
 /**
  * アイテムに ならない ブロック（持ち物に 入らない。みず・そこいし・作物・小屋の 部品 …）。
@@ -37,6 +38,10 @@ export const BLOCK_ONLY_IDS = [
   'rope_fence_post', // 版 5: さくの くい（はし・かど）
   'rope_fence', // 版 3: ロープの さく（こわすと 1 本 もどる）
   'rope_stake', // 版 3: くい（こわすと ロープ ぜんぶが もどる）
+  // WATERFALL-1: たきつぼ（水が つくる。ほると いし 1 こ）・予約と 量 1〜8 の マグマ（アイテムに ならない）
+  'takitsubo',
+  ...MAGMA_EXTRA_IDS,
+  'kogeta', // 版 2: マグマに 焼かれた ブロック（ほると すみ 1 こ）
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 

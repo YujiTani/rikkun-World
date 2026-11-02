@@ -1,4 +1,5 @@
 // main.ts の 流れ 4: 戦い・道具・レジェンダリー・たんす・作る・農業・掘る。
+import { BLOCK_INDEX } from '../../world/blocks/blockTypes';
 import { aimPivot } from '../../camera/pivot';
 import { PlayerCombatImpl } from '../../combat';
 import { ArmorSystemImpl, CraftSystemImpl } from '../../craft';
@@ -50,6 +51,9 @@ import { wireGadgets } from './gadgets';
 import { wireSeat } from './seat';
 import { playSleepJingle } from '../../fx/sleepJingle';
 import type { WiredDrops } from './inventory';
+
+const KOGETA = BLOCK_INDEX.kogeta;
+const SIDES: readonly (readonly [number, number])[] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
 export function wireWeapons(deps: WiredDrops) {
   const {
@@ -238,6 +242,22 @@ export function wireFighters(deps: WiredWeapons) {
     },
     requestSave: () => shared.requestSave(),
     drops,
+    // WATERFALL-1 版 2: こげた ブロック（足もとの 下・足もと と こしの 北東南西）に ふれて いるか。getIndex だけ（getBlock を ふやさない）
+    scorched: () => {
+      const p = controller.state.position;
+      const x = Math.floor(p.x);
+      const y = Math.floor(p.y + 1e-3);
+      const z = Math.floor(p.z);
+      if (world.getIndex(x, y - 1, z) === KOGETA) return true;
+      for (let dy = 0; dy < 2; dy++) {
+        for (const [dx, dz] of SIDES) {
+          // 体の はば（はし から 0.4 以内）で その 向きの かべに ふれて いる とき だけ
+          const near = dx > 0 ? x + 1 - p.x : dx < 0 ? p.x - x : dz > 0 ? z + 1 - p.z : p.z - z;
+          if (near < 0.4 && world.getIndex(x + dx, y + dy, z + dz) === KOGETA) return true;
+        }
+      }
+      return false;
+    },
   });
   shared.combat = combat;
   // たんす（M6 §2.9）と すてる（§2.8）

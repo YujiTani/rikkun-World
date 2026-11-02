@@ -1,5 +1,5 @@
 import type { ItemId, Recipe } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, KONGO_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, MINE_DEFS, ROPE_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, pickDefs, recipesOf } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, KONGO_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, MINE_DEFS, ROPE_DEFS, WATERFALL_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, pickDefs, recipesOf } from '../content/items/registry';
 
 const r = (
   id: ItemId,
@@ -72,6 +72,8 @@ const CRAFT_BASE: readonly Recipe[] = [
   ...recipesOf(pickDefs(MINE_DEFS, ['chalk', 'shikkui']), 'craft'),
   // ROPE-1: いと 3 → ロープ 4 本（いちばん うしろ）
   ...recipesOf(ROPE_DEFS, 'craft'),
+  // WATERFALL-1: わきみず・マグマの わきみず（いちばん うしろ）
+  ...recipesOf(WATERFALL_DEFS, 'craft'),
 ];
 export const CRAFT_RECIPES: readonly Recipe[] = [
   ...CRAFT_BASE,

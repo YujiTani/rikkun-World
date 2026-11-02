@@ -10,7 +10,7 @@ import { pushChalk } from '../chalkMesh';
 import { pushHouseProp, shojiAxisAt } from '../houseProp';
 import { pushKotatsuCell } from '../kotatsuMesh';
 import { FACES, FACE_UV, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, isCoopLineIndex, pushCoopPanels, pushCross, pushFace, pushProp, pushTorch, type MeshData } from '../meshChunk';
-import { isWaterIndex } from '../../blocks/water';
+import { isLiquidIndex } from '../../blocks/liquids';
 import { WATER_SPAN, waterFaceSpan } from '../waterFaces';
 
 /**
@@ -81,7 +81,7 @@ export function meshSectionExtras(
           continue;
         }
         if (isKotatsuBlock(BLOCK_TYPES[b].id) && pushKotatsuCell(opaque, world, light, x, y, z, BLOCK_TYPES[b].id)) continue;
-        const isWater = isWaterIndex(b);
+        const isWater = isLiquidIndex(b); // WATERFALL-1: マグマも 水と 同じ 液体の 面
         if (!isWater && hasLook(b)) continue; // 小ブロックの形で描く
         const uv = TILE_UV[b];
         if (!uv) continue;
@@ -93,7 +93,7 @@ export function meshSectionExtras(
           if (isWater) {
             // WATER-1: 水面の 高さ = 量 ÷ 8。高さの ちがう 水の 境は 高い ほうが 描く
             if (!waterFaceSpan(world, x, y, z, b, face, n)) continue;
-            pushFace(water, world, light, x, y, z, face, FACE_UV[b]?.[face.index] ?? uv[face.kind], false, WATER_SPAN.lo, WATER_SPAN.hi, WATER_SPAN.waveLo, WATER_SPAN.waveHi);
+            pushFace(water, world, light, x, y, z, face, WATER_SPAN.uv ?? FACE_UV[b]?.[face.index] ?? uv[face.kind], false, WATER_SPAN.lo, WATER_SPAN.hi, WATER_SPAN.waveLo, WATER_SPAN.waveHi);
             continue;
           }
           if (isOpaqueIndex(n) && (!hasLook(n) || (face.dir[1] !== 0 && occludes(n)))) continue;

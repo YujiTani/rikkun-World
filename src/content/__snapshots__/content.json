@@ -256,6 +256,48 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wakimizu"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "magma_wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 4,
+              "item": "coal_ore"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "magma_wakimizu"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -953,6 +995,29 @@
           "output": {
             "count": 4,
             "item": "torch"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "magma_wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 4,
+              "item": "coal_ore"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "magma_wakimizu"
           },
           "station": "craft",
           "works": true
@@ -1865,6 +1930,48 @@
           "output": {
             "count": 1,
             "item": "omamori"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wakimizu"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "magma_wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 4,
+              "item": "coal_ore"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "magma_wakimizu"
           },
           "station": "craft",
           "works": true
@@ -6523,6 +6630,110 @@
           "works": true
         }
       ]
+    },
+    "wakimizu": {
+      "DIG_DEFAULTS.hardness.wakimizu": 1.5,
+      "DIG_DEFAULTS.harvestLevel.wakimizu": 0,
+      "DIG_DEFAULTS.rarity.wakimizu": "uncommon",
+      "ITEM_INFO.wakimizu": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく。したか よこに みずが でる",
+        "use": "みずが ずっと わきでる"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "わきみず",
+      "placeBlock": "wakimizu",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wakimizu"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "magma_wakimizu": {
+      "DIG_DEFAULTS.hardness.magma_wakimizu": 1.5,
+      "DIG_DEFAULTS.harvestLevel.magma_wakimizu": 0,
+      "DIG_DEFAULTS.rarity.magma_wakimizu": "uncommon",
+      "ITEM_INFO.magma_wakimizu": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく。したか よこに マグマが でる",
+        "use": "マグマが わきでる（さわると いたい）"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "マグマの わきみず",
+      "placeBlock": "magma_wakimizu",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "magma_wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 4,
+              "item": "coal_ore"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "magma_wakimizu"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kokuyouseki": {
+      "DIG_DEFAULTS.hardness.kokuyouseki": 12,
+      "DIG_DEFAULTS.harvestLevel.kokuyouseki": 2,
+      "DIG_DEFAULTS.rarity.kokuyouseki": "rare",
+      "ITEM_INFO.kokuyouseki": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "とても かたい ブロック"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こくようせき",
+      "placeBlock": "kokuyouseki",
+      "rarity": "rare",
+      "recipes": []
     }
   },
   "yokai": {

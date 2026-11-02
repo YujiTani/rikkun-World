@@ -9,7 +9,7 @@ import { OPACITY } from '../light/opacity';
 import type { WorldLight } from '../light/WorldLight';
 import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
 import { AO_LEVELS, FACE_SHADE_BY_INDEX } from './config';
-import { isWaterIndex } from '../blocks/water';
+import { isLiquidIndex } from '../blocks/liquids';
 import { WATER_SPAN, waterFaceSpan } from './waterFaces';
 
 /** メッシュの材料（three に依存しない。テストしやすい） */
@@ -498,13 +498,13 @@ export function meshChunk(
         }
         const uv = TILE_UV[b];
         if (!uv) continue;
-        const isWater = isWaterIndex(b);
+        const isWater = isLiquidIndex(b); // WATERFALL-1: マグマも 水と 同じ 液体の 面
         for (const face of FACES) {
           const n = world.getIndex(x + face.dir[0], y + face.dir[1], z + face.dir[2]);
           if (n < 0) continue; // 世界の外へ向く面は見えない
           if (isWater) {
             if (!waterFaceSpan(world, x, y, z, b, face, n)) continue;
-            pushFace(water, world, light, x, y, z, face, FACE_UV[b]?.[face.index] ?? uv[face.kind], false, WATER_SPAN.lo, WATER_SPAN.hi, WATER_SPAN.waveLo, WATER_SPAN.waveHi);
+            pushFace(water, world, light, x, y, z, face, WATER_SPAN.uv ?? FACE_UV[b]?.[face.index] ?? uv[face.kind], false, WATER_SPAN.lo, WATER_SPAN.hi, WATER_SPAN.waveLo, WATER_SPAN.waveHi);
             continue;
           }
           if (isOpaqueIndex(n)) continue;

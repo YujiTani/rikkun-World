@@ -1,7 +1,8 @@
 import type { PerspectiveCamera, WebGLRenderer } from 'three';
 import { Vector3 } from 'three';
 import { BLOCK_TYPES, isOpaqueIndex } from '../blocks/blockTypes';
-import { WATER_EXTRA_IDS } from '../blocks/water'; // 水の 量 1〜7 と 予約は 平らな 箱では ない（水の 面・描かない）
+import { WATER_EXTRA_IDS } from '../blocks/water';
+import { MAGMA_EXTRA_IDS } from '../blocks/magma'; // マグマ（液体の 面）と 予約も 平らな 箱では ない // 水の 量 1〜7 と 予約は 平らな 箱では ない（水の 面・描かない）
 import { FURN_FACE_TILES } from '../blocks/houseTextures';
 import { TILE_NAMES, getTilePixels, type TileName } from '../blocks/textures';
 import { hasLook } from './looks';
@@ -265,7 +266,7 @@ export function createRenderHook(d: RenderHookDeps) {
     env: () => d.env(),
     faceShade: () => faceShadeTable(),
     /** 平らな箱で描く id（小ブロックの形を持たない固いブロック） */
-    flatBlocks: (): string[] => BLOCK_TYPES.filter((t, i) => isFlat(i) && !(WATER_EXTRA_IDS as readonly string[]).includes(t.id)).map((t) => t.id as string),
+    flatBlocks: (): string[] => BLOCK_TYPES.filter((t, i) => isFlat(i) && !(WATER_EXTRA_IDS as readonly string[]).includes(t.id) && !(MAGMA_EXTRA_IDS as readonly string[]).includes(t.id)).map((t) => t.id as string),
     texelAt,
     aoAt,
     toScreen,

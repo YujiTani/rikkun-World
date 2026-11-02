@@ -103,6 +103,8 @@
     "katame_tsuchi": 141,
     "kawara": 12,
     "kin_ore": 64,
+    "kogeta": 184,
+    "kokuyouseki": 167,
     "kusa": 39,
     "lantern": 50,
     "leaves": 6,
@@ -119,6 +121,15 @@
     "long_table_e": 132,
     "long_table_n": 131,
     "long_table_w": 130,
+    "magma": 183,
+    "magma_1": 176,
+    "magma_2": 177,
+    "magma_3": 178,
+    "magma_4": 179,
+    "magma_5": 180,
+    "magma_6": 181,
+    "magma_7": 182,
+    "magma_wakimizu": 168,
     "matsu_leaves": 33,
     "momiji_leaves": 32,
     "nendo": 60,
@@ -141,6 +152,13 @@
     "reserved_150": 150,
     "reserved_151": 151,
     "reserved_159": 159,
+    "reserved_169": 169,
+    "reserved_170": 170,
+    "reserved_171": 171,
+    "reserved_172": 172,
+    "reserved_173": 173,
+    "reserved_174": 174,
+    "reserved_175": 175,
     "rope": 160,
     "rope_coil": 161,
     "rope_fence": 163,
@@ -177,6 +195,7 @@
     "table_e": 116,
     "table_n": 115,
     "table_w": 114,
+    "takitsubo": 166,
     "tansu": 16,
     "tansu_e": 89,
     "tansu_n": 88,
@@ -186,6 +205,7 @@
     "toriya_fence": 42,
     "toriya_gate": 43,
     "toriya_nest": 44,
+    "wakimizu": 165,
     "water": 9,
     "water_1": 152,
     "water_2": 153,
@@ -1189,6 +1209,126 @@
       "id": "rope_fence_post",
       "name": "ロープの さくの くい",
       "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "wakimizu",
+      "name": "わきみず",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "takitsubo",
+      "name": "たきつぼ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "kokuyouseki",
+      "name": "こくようせき",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "magma_wakimizu",
+      "name": "マグマの わきみず",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "reserved_169",
+      "name": "くうき",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "reserved_170",
+      "name": "くうき",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "reserved_171",
+      "name": "くうき",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "reserved_172",
+      "name": "くうき",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "reserved_173",
+      "name": "くうき",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "reserved_174",
+      "name": "くうき",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "reserved_175",
+      "name": "くうき",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "magma_1",
+      "name": "マグマ",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "magma_2",
+      "name": "マグマ",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "magma_3",
+      "name": "マグマ",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "magma_4",
+      "name": "マグマ",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "magma_5",
+      "name": "マグマ",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "magma_6",
+      "name": "マグマ",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "magma_7",
+      "name": "マグマ",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "magma",
+      "name": "マグマ",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "kogeta",
+      "name": "こげた ブロック",
+      "solid": true
     }
   ],
   "DIG_DEFAULTS": {
@@ -1278,6 +1418,8 @@
       "katame_tsuchi": 0.5,
       "kawara": 4,
       "kin_ore": 15,
+      "kogeta": 1,
+      "kokuyouseki": 12,
       "kusa": 0.05,
       "lantern": 0.05,
       "leaves": 0.25,
@@ -1294,6 +1436,15 @@
       "long_table_e": 5,
       "long_table_n": 5,
       "long_table_w": 5,
+      "magma": null,
+      "magma_1": null,
+      "magma_2": null,
+      "magma_3": null,
+      "magma_4": null,
+      "magma_5": null,
+      "magma_6": null,
+      "magma_7": null,
+      "magma_wakimizu": 1.5,
       "matsu_leaves": 0.25,
       "momiji_leaves": 0.25,
       "nendo": 1,
@@ -1316,6 +1467,13 @@
       "reserved_150": null,
       "reserved_151": null,
       "reserved_159": null,
+      "reserved_169": null,
+      "reserved_170": null,
+      "reserved_171": null,
+      "reserved_172": null,
+      "reserved_173": null,
+      "reserved_174": null,
+      "reserved_175": null,
       "rope": 0.05,
       "rope_coil": 0.05,
       "rope_fence": 0.1,
@@ -1352,6 +1510,7 @@
       "table_e": 5,
       "table_n": 5,
       "table_w": 5,
+      "takitsubo": 0.5,
       "tansu": 5,
       "tansu_e": 5,
       "tansu_n": 5,
@@ -1361,6 +1520,7 @@
       "toriya_fence": 5,
       "toriya_gate": 5,
       "toriya_nest": 5,
+      "wakimizu": 1.5,
       "water": null,
       "water_1": null,
       "water_2": null,
@@ -1445,6 +1605,8 @@
       "katame_tsuchi": 0,
       "kawara": 0,
       "kin_ore": 2,
+      "kogeta": 0,
+      "kokuyouseki": 2,
       "kusa": 0,
       "lantern": 0,
       "leaves": 0,
@@ -1461,6 +1623,15 @@
       "long_table_e": 0,
       "long_table_n": 0,
       "long_table_w": 0,
+      "magma": 0,
+      "magma_1": 0,
+      "magma_2": 0,
+      "magma_3": 0,
+      "magma_4": 0,
+      "magma_5": 0,
+      "magma_6": 0,
+      "magma_7": 0,
+      "magma_wakimizu": 0,
       "matsu_leaves": 0,
       "momiji_leaves": 0,
       "nendo": 0,
@@ -1483,6 +1654,13 @@
       "reserved_150": 0,
       "reserved_151": 0,
       "reserved_159": 0,
+      "reserved_169": 0,
+      "reserved_170": 0,
+      "reserved_171": 0,
+      "reserved_172": 0,
+      "reserved_173": 0,
+      "reserved_174": 0,
+      "reserved_175": 0,
       "rope": 0,
       "rope_coil": 0,
       "rope_fence": 0,
@@ -1519,6 +1697,7 @@
       "table_e": 0,
       "table_n": 0,
       "table_w": 0,
+      "takitsubo": 0,
       "tansu": 0,
       "tansu_e": 0,
       "tansu_n": 0,
@@ -1528,6 +1707,7 @@
       "toriya_fence": 0,
       "toriya_gate": 0,
       "toriya_nest": 0,
+      "wakimizu": 0,
       "water": 0,
       "water_1": 0,
       "water_2": 0,
@@ -1613,6 +1793,8 @@
       "katame_tsuchi": "common",
       "kawara": "uncommon",
       "kin_ore": "epic",
+      "kogeta": "common",
+      "kokuyouseki": "rare",
       "kusa": "common",
       "lantern": "uncommon",
       "leaves": "common",
@@ -1629,6 +1811,15 @@
       "long_table_e": "common",
       "long_table_n": "common",
       "long_table_w": "common",
+      "magma": "common",
+      "magma_1": "common",
+      "magma_2": "common",
+      "magma_3": "common",
+      "magma_4": "common",
+      "magma_5": "common",
+      "magma_6": "common",
+      "magma_7": "common",
+      "magma_wakimizu": "uncommon",
       "matsu_leaves": "common",
       "momiji_leaves": "common",
       "nendo": "uncommon",
@@ -1651,6 +1842,13 @@
       "reserved_150": "common",
       "reserved_151": "common",
       "reserved_159": "common",
+      "reserved_169": "common",
+      "reserved_170": "common",
+      "reserved_171": "common",
+      "reserved_172": "common",
+      "reserved_173": "common",
+      "reserved_174": "common",
+      "reserved_175": "common",
       "rope": "common",
       "rope_coil": "common",
       "rope_fence": "common",
@@ -1687,6 +1885,7 @@
       "table_e": "common",
       "table_n": "common",
       "table_w": "common",
+      "takitsubo": "common",
       "tansu": "uncommon",
       "tansu_e": "uncommon",
       "tansu_n": "uncommon",
@@ -1696,6 +1895,7 @@
       "toriya_fence": "uncommon",
       "toriya_gate": "uncommon",
       "toriya_nest": "uncommon",
+      "wakimizu": "uncommon",
       "water": "common",
       "water_1": "common",
       "water_2": "common",
@@ -1773,9 +1973,21 @@
       "count": 1,
       "item": "dirt"
     },
+    "kogeta": {
+      "count": 1,
+      "item": "sumi"
+    },
+    "kokuyouseki": {
+      "count": 1,
+      "item": "kokuyouseki"
+    },
     "lantern": {
       "count": 1,
       "item": "lantern"
+    },
+    "magma_wakimizu": {
+      "count": 1,
+      "item": "magma_wakimizu"
     },
     "nobana": {
       "count": 1,
@@ -1788,6 +2000,14 @@
     "sprinkler": {
       "count": 1,
       "item": "sprinkler"
+    },
+    "takitsubo": {
+      "count": 1,
+      "item": "stone"
+    },
+    "wakimizu": {
+      "count": 1,
+      "item": "wakimizu"
     }
   },
   "NO_DROP_BLOCKS": [
