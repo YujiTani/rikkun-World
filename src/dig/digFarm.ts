@@ -4,14 +4,15 @@ import { MINE_ITEM } from '../content/items/ids';
 import { itemDef } from '../content/items/registry';
 import { isFloraBlock } from '../world/blocks/flora';
 import { BUCKET_TAKE, isWater, waterId } from '../world/blocks/water';
-
-const WATER_FULL = waterId(8);
 import { magmaAmount, magmaId } from '../world/blocks/magma';
 import { bucketLiquid, isBucket, isFullBucket, isSpringBlock } from '../farm/bucket';
 import { overlapsBody, sameBlock, type DigCore } from './digCore';
 import { giveStacks, liftFlora } from './digBreak';
 import { lookDirection } from './raycast';
 import { computeWaterRay, createWaterRay } from './rightClick';
+
+/** BUCKET-2: マグマを 液体の 線に 通す ときの 見せかけ（量 8 の 水） */
+const WATER_FULL = waterId(8);
 
 /** じょうろか（登録表の `can` 部品を持つ物 = じょうろ・ながい じょうろ） */
 const isCan = (item: string): boolean => itemDef(item)?.can !== undefined;

@@ -33,3 +33,8 @@
 - マグマは ねらいの 線で 固い あつかい（ねらいに なる）なので、からの バケツ・マグマの バケツで マグマを ねらうと その マスを くむ（digFarm.bucketPreview）。水を 通る 線は バケツ用に マグマも 通す（liquidGet）。
 - 置く 音: FarmEvent bucketPlace に liquid を 足し、step.ts が WaterSystem.noteSound → liquidSounds（同じ 間引き・距離）。
 - テスト: unit `src/farm/bucket2.test.ts`（AC1〜6）、E2E `e2e/bucket2.spec.ts`（AC1・3・4）。スクショは BK_SHOTS。
+
+## 5. レビュー（自己）
+- 仕様との 対応: くむ（わきどころ・ながれる 水 / マグマ）○、置く（ふつうの 液体）○、音 ○、マグマの しくみ（燃やす・あつさ）は 今の WaterSystem に まかせる ○、絵 3 つ ○、レシピ（バケツ＝てつ 3、そのまま）○、滝の エレベーター ×（やらない）。
+- 保存: id 追加 だけ。`water` 欄を マグマの 量にも 使う（readWater は 入った バケツ 両方を 読む）。
+- 気になる 点: マグマの バケツの 手に 持つ 形は 板 1 まいの 色 だけ。マグマを 置いた ときの つぶ（しずく）は なし。
