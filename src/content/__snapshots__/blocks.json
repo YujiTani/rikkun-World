@@ -129,6 +129,7 @@
     "magma_5": 180,
     "magma_6": 181,
     "magma_7": 182,
+    "magma_takitsubo": 185,
     "magma_wakimizu": 168,
     "matsu_leaves": 33,
     "momiji_leaves": 32,
@@ -1213,7 +1214,7 @@
     {
       "breakable": true,
       "id": "wakimizu",
-      "name": "わきみず",
+      "name": "わきどころ",
       "solid": true
     },
     {
@@ -1231,7 +1232,7 @@
     {
       "breakable": true,
       "id": "magma_wakimizu",
-      "name": "マグマの わきみず",
+      "name": "マグマの わきどころ",
       "solid": true
     },
     {
@@ -1328,6 +1329,12 @@
       "breakable": true,
       "id": "kogeta",
       "name": "こげた ブロック",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "magma_takitsubo",
+      "name": "マグマの たきつぼ",
       "solid": true
     }
   ],
@@ -1444,6 +1451,7 @@
       "magma_5": null,
       "magma_6": null,
       "magma_7": null,
+      "magma_takitsubo": 0.5,
       "magma_wakimizu": 1.5,
       "matsu_leaves": 0.25,
       "momiji_leaves": 0.25,
@@ -1631,6 +1639,7 @@
       "magma_5": 0,
       "magma_6": 0,
       "magma_7": 0,
+      "magma_takitsubo": 0,
       "magma_wakimizu": 0,
       "matsu_leaves": 0,
       "momiji_leaves": 0,
@@ -1819,6 +1828,7 @@
       "magma_5": "common",
       "magma_6": "common",
       "magma_7": "common",
+      "magma_takitsubo": "uncommon",
       "magma_wakimizu": "uncommon",
       "matsu_leaves": "common",
       "momiji_leaves": "common",
@@ -1885,7 +1895,7 @@
       "table_e": "common",
       "table_n": "common",
       "table_w": "common",
-      "takitsubo": "common",
+      "takitsubo": "uncommon",
       "tansu": "uncommon",
       "tansu_e": "uncommon",
       "tansu_n": "uncommon",
@@ -1985,9 +1995,9 @@
       "count": 1,
       "item": "lantern"
     },
-    "magma_wakimizu": {
+    "magma_takitsubo": {
       "count": 1,
-      "item": "magma_wakimizu"
+      "item": "magma_takitsubo"
     },
     "nobana": {
       "count": 1,
@@ -2003,16 +2013,14 @@
     },
     "takitsubo": {
       "count": 1,
-      "item": "stone"
-    },
-    "wakimizu": {
-      "count": 1,
-      "item": "wakimizu"
+      "item": "takitsubo"
     }
   },
   "NO_DROP_BLOCKS": [
     "kusa",
-    "susuki"
+    "magma_wakimizu",
+    "susuki",
+    "wakimizu"
   ],
   "fixedDrop": {
     "brick": 1,

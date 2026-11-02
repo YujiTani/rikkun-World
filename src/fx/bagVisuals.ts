@@ -187,7 +187,11 @@ export class BagVisuals {
     burn.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     burn.setColorAt(0, this.burnColor.set(0xffffff));
     burn.instanceColor!.setUsage(THREE.DynamicDrawUsage);
-    this.group.add(burn);
+    // 炎の つぶは 小さな 入れ物に 入れる（光の輪の InstancedMesh とは べつの 層）
+    const fire = new THREE.Group();
+    fire.name = 'bag-burn';
+    fire.add(burn);
+    this.group.add(fire);
     this.burnMesh = burn;
   }
 

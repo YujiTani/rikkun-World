@@ -6640,13 +6640,13 @@
           "1-9",
           "right"
         ],
-        "how": "てに もって みぎクリック で おく。したか よこに みずが でる",
+        "how": "てに もって みぎクリック で おく。した と よこ 4 ほうに みずが でる",
         "use": "みずが ずっと わきでる"
       },
       "category": "build",
       "durabilityClass": "consumable",
       "maxStack": 64,
-      "name": "わきみず",
+      "name": "わきどころ",
       "placeBlock": "wakimizu",
       "rarity": "uncommon",
       "recipes": [
@@ -6680,13 +6680,13 @@
           "1-9",
           "right"
         ],
-        "how": "てに もって みぎクリック で おく。したか よこに マグマが でる",
+        "how": "てに もって みぎクリック で おく。した と よこ 4 ほうに マグマが でる",
         "use": "マグマが わきでる（さわると いたい）"
       },
       "category": "build",
       "durabilityClass": "consumable",
       "maxStack": 64,
-      "name": "マグマの わきみず",
+      "name": "マグマの わきどころ",
       "placeBlock": "magma_wakimizu",
       "rarity": "uncommon",
       "recipes": [
@@ -6733,6 +6733,46 @@
       "name": "こくようせき",
       "placeBlock": "kokuyouseki",
       "rarity": "rare",
+      "recipes": []
+    },
+    "takitsubo": {
+      "DIG_DEFAULTS.hardness.takitsubo": 0.5,
+      "DIG_DEFAULTS.harvestLevel.takitsubo": 0,
+      "DIG_DEFAULTS.rarity.takitsubo": "uncommon",
+      "ITEM_INFO.takitsubo": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく。わきどころの まっすぐ したに",
+        "use": "わきどころの みずを ぐるぐる まわす"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "たきつぼ",
+      "placeBlock": "takitsubo",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "magma_takitsubo": {
+      "DIG_DEFAULTS.hardness.magma_takitsubo": 0.5,
+      "DIG_DEFAULTS.harvestLevel.magma_takitsubo": 0,
+      "DIG_DEFAULTS.rarity.magma_takitsubo": "uncommon",
+      "ITEM_INFO.magma_takitsubo": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく。マグマの わきどころの まっすぐ したに",
+        "use": "マグマの わきどころの マグマを ぐるぐる まわす"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "マグマの たきつぼ",
+      "placeBlock": "magma_takitsubo",
+      "rarity": "uncommon",
       "recipes": []
     }
   },

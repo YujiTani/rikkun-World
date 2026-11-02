@@ -58,7 +58,10 @@ describe.each(['magma', 'water'] as const)('自然の %s の 滝', (liquid) => {
     const f = p.fall!;
     expect(w.getBlock(f.x, f.top, f.z)).toBe(liquid === 'magma' ? 'magma_wakimizu' : 'wakimizu');
     expect(w.getBlock(f.x, f.top - 1, f.z)).toBe(liquid === 'magma' ? 'kokuyouseki' : 'stone');
-    expect(w.getBlock(f.x, p.level - p.depth - 2, f.z - 1)).toBe('takitsubo');
+    expect(w.getBlock(f.x, p.level - p.depth - 2, f.z - 1)).toBe(liquid === 'magma' ? 'magma_takitsubo' : 'takitsubo');
+    // WAKIDOKORO §5: T 字の はしら（わきどころの 東・西・南が ふさがって いる。出口は 北 だけ）
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1]] as const) expect(w.getBlock(f.x + dx, f.top, f.z + dz), `ふた ${dx},${dz}`).toBe(liquid === 'magma' ? 'kokuyouseki' : 'stone');
+    expect(w.getBlock(f.x, f.top, f.z - 1)).toBe('air');
     let tick = 0;
     const sys = createWaterSystem({ world: w, tick: () => tick, seed, springsIn: springsIn(seed) });
     for (let cz = (p.z0 - 4) >> 4; cz <= (p.z1 + 4) >> 4; cz++) for (let cx = (p.x0 - 4) >> 4; cx <= (p.x1 + 4) >> 4; cx++) sys.onColumnLoaded(cx, cz, 'generated');
@@ -112,5 +115,18 @@ describe('升目の いけ', () => {
       }
     }
     for (const k of ['magma', 'magma-fall', 'water-fall']) expect(kinds.has(k), k).toBe(true); // 滝が 立たない 場所の 水は ただの いけ（'water'）
+  });
+});
+
+describe('WAKIDOKORO §11 さがせば 見つかる 数', () => {
+  it('既定の シードで はじめから 200 マス 以内に 升目の いけ・滝が 8 こ 以上（溶岩・マグマの 滝・水の 滝 それぞれ 1 こ 以上）。いちばん 近い ものは spawnClear の 外', () => {
+    const tr = terrainFor(C.defaultSeed);
+    const sp = tr.spawn();
+    const ps = tr.liquid.pondsIn(sp.x - 200, sp.z - 200, sp.x + 200, sp.z + 200).filter((p) => !p.nearSpawn && Math.hypot((p.x0 + p.x1) / 2 - sp.x, (p.z0 + p.z1) / 2 - sp.z) <= 200);
+    expect(ps.length).toBeGreaterThanOrEqual(8);
+    expect(ps.some((p) => p.liquid === 'magma' && !p.fall)).toBe(true);
+    expect(ps.some((p) => p.liquid === 'magma' && p.fall)).toBe(true);
+    expect(ps.some((p) => p.liquid === 'water' && p.fall)).toBe(true);
+    for (const p of ps) expect(Math.max(Math.abs(p.x1 - sp.x), Math.abs(p.x0 - sp.x), Math.abs(p.z1 - sp.z), Math.abs(p.z0 - sp.z))).toBeGreaterThan(T.spawnClear - 8);
   });
 });

@@ -435,7 +435,9 @@
       "rope",
       "wakimizu",
       "magma_wakimizu",
-      "kokuyouseki"
+      "kokuyouseki",
+      "takitsubo",
+      "magma_takitsubo"
     ],
     "food": [
       "onion",
@@ -890,7 +892,9 @@
     "rope",
     "wakimizu",
     "magma_wakimizu",
-    "kokuyouseki"
+    "kokuyouseki",
+    "takitsubo",
+    "magma_takitsubo"
   ],
   "RARITY_ORDER": [
     "common",
