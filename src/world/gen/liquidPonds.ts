@@ -44,7 +44,7 @@ export const LIQUID_POND_TUNING = {
   spawnClear: 40,
   /** へりの 高さの 差が これ より 大きい 場所は やめる */
   maxSlope: 2,
-  /** はじめの そばの マグマの 滝: 広場（ringMax 6）の 外。候補を じゅんに しらべる（はじめの 場所から dx・dz） */
+  /** はじめの そばの 溶岩の いけ: 広場（ringMax 6）の 外。候補を じゅんに しらべる（はじめの 場所から dx・dz） */
   spawnCandidates: [[13, 0], [-13, 0], [0, 13], [13, 8], [-13, 8], [13, -8], [-13, -8], [8, 14], [-8, 14]] as const,
 };
 const T = LIQUID_POND_TUNING;
@@ -85,10 +85,9 @@ export class LiquidPonds {
     for (const [dx, dz] of T.spawnCandidates) {
       const cx = sp.x + dx;
       const cz = sp.z + dz;
-      const p = this.shape(cx - 3, cz - 2, 6, 5, 2, 'magma', 5, true);
+      const p = this.shape(cx - 3, cz - 2, 6, 5, 2, 'magma', 0, true); // 滝なし（はじめの そばで ずっと 動く 物を 置かない。滝は 升目の いけ と ?demo=magma）
       if (p === null) continue;
-      // 滝が 立たない 候補は 平らさに 10 を たして 後回し
-      const slope = this.slope(p) + (p.fall === null ? 10 : 0);
+      const slope = this.slope(p);
       if (best === null || slope < best.slope) best = { p, slope };
       if (slope <= T.maxSlope) break;
     }

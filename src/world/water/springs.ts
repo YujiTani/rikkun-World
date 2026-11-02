@@ -35,7 +35,7 @@ export function springRoll(seed: number, x: number, y: number, z: number, n: num
 
 interface Springs {
   onChange(x: number, y: number, z: number, prev: number, next: number): void;
-  update(tick: number): void;
+  update(tick: number, focus?: { x: number; z: number } | null): void;
   onColumnLoaded(cx: number, cz: number): void;
   onColumnUnloaded(cx: number, cz: number): void;
   count(): number;
@@ -156,16 +156,18 @@ export function createSprings(world: LiquidWorld, water: LiquidCore, magma: Liqu
       const nk = SPRING_OF.get(next);
       if (nk !== undefined) add(x, y, z, nk);
     },
-    update(tick) {
+    update(tick, focus) {
       if (list.size === 0) return;
       const w = tick % T.waterEvery === 0;
       const m = tick % T.magmaEvery === 0;
       if (!w && !m) return;
+      const R = T.activeRadius;
       for (const s of [...list.values()]) {
         if (world.getIndex(s.x, s.y, s.z) !== (s.magma ? MAGMA_WAKIMIZU : WAKIMIZU)) {
           list.delete(key(s.x, s.y, s.z));
           continue;
         }
+        if (focus && (Math.abs(s.x - focus.x) > R || Math.abs(s.z - focus.z) > R)) continue; // MAGMA-SPAWN: 遠い わきみずは 休む
         if (!s.magma && w) stepWater(s);
         else if (s.magma && m) stepMagma(s);
       }

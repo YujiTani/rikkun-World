@@ -17,6 +17,16 @@ import { Column, SEALS, columnKey } from './voxelColumn';
 import { countBlocks, fillFlat, hashColumn, hashWorld } from './voxelStats';
 import { WorldExposure } from './voxelExposure';
 import type { ChangeBox, ColumnEvent, SectionPos } from './voxelTypes';
+import { isMagmaIndex } from './blocks/magma';
+import { isWaterIndex } from './blocks/water';
+
+/**
+ * MAGMA-SPAWN: 同じ 液体の 量だけ かわった（水 → 水・マグマ → マグマ）。光を 弱める 量・出す 光が かわらない ので 光の 計算し直しに 知らせない
+ * （自然の マグマの 滝が ずっと 動いても 光の 仕事が ふえない）
+ */
+function sameLiquid(prev: number, next: number): boolean {
+  return (isMagmaIndex(prev) && isMagmaIndex(next)) || (isWaterIndex(prev) && isWaterIndex(next));
+}
 
 export { CHUNK_SIZE, SECTION_SIZE, WORLD_SIZE };
 export type { LoadedBounds };
@@ -318,7 +328,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
       this.noteSave(col, x, y, z, b);
       this.noteDirty(col, x, y, z);
       if (SEALS[b] === 0) this.exposure.noteDug(col, x, y, z);
-      this.noteChange(x, y, z, x, y, z);
+      if (!sameLiquid(prev, b)) this.noteChange(x, y, z, x, y, z);
       if (this.onBlockChange !== null) this.onBlockChange(x, y, z, prev, b);
       return true;
     }
@@ -327,7 +337,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     this.noteSave(col, x, y, z, b);
     this.noteDirty(col, x, y, z);
     if (SEALS[b] === 0) this.exposure.noteDug(col, x, y, z);
-    this.noteChange(x, y, z, x, y, z);
+    if (this.onBlockChange === null || !sameLiquid(prev, b)) this.noteChange(x, y, z, x, y, z);
     if (this.onBlockChange !== null) this.onBlockChange(x, y, z, prev, b);
     return true;
   }

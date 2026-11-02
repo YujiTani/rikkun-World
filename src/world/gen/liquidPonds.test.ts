@@ -17,8 +17,19 @@ function load(seed: number, p: LiquidPond): ArrayVoxelWorld {
   return w;
 }
 
-describe('はじめの そばの マグマの 滝', () => {
-  it.each(SEEDS)('seed %i: かならず ある・広場の 外（はじめの 場所から 9 マス 以上）・マグマ', (seed) => {
+/** シードの 中で いちばん はじめに 近い 滝の いけ（升目 ±6） */
+function firstFall(seed: number, liquid: 'magma' | 'water'): LiquidPond {
+  const t = terrainFor(seed);
+  for (let r = 0; r <= 6; r++) for (let i = -r; i <= r; i++) for (let j = -r; j <= r; j++) {
+    const p = t.liquid.ofCell(i, j);
+    if (p?.fall && p.liquid === liquid) return p;
+  }
+  throw new Error('no fall');
+}
+const springsIn = (seed: number) => (cx: number, cz: number) => terrainFor(seed).liquid.pondsIn(cx * 16, cz * 16, cx * 16 + 15, cz * 16 + 15).some((q) => q.fall !== null);
+
+describe('はじめの そばの 溶岩の いけ', () => {
+  it.each(SEEDS)('seed %i: かならず ある・広場の 外・マグマ・滝なし', (seed) => {
     const t = terrainFor(seed);
     const p = t.liquid.nearSpawn();
     expect(p).not.toBeNull();
@@ -26,39 +37,57 @@ describe('はじめの そばの マグマの 滝', () => {
     const near = Math.max(Math.abs(sp.x - Math.max(p!.x0 - 1, Math.min(sp.x, p!.x1 + 1))), Math.abs(sp.z - Math.max(p!.z0 - 1, Math.min(sp.z, p!.z1 + 1))));
     expect(near).toBeGreaterThan(C.plaza.ringMax);
     expect(p!.liquid).toBe('magma');
+    expect(p!.fall).toBeNull();
   });
-  it('いつもの 世界: 滝が 立ち、列の 中身に マグマ・マグマの わきみず・たきつぼ が ある', () => {
+  it('いつもの 世界: 列の 中身が マグマ（へりは いし）', () => {
     const seed = C.defaultSeed;
     const p = terrainFor(seed).liquid.nearSpawn()!;
-    expect(p.fall).not.toBeNull();
     const w = load(seed, p);
-    const f = p.fall!;
-    expect(w.getBlock(f.x, f.top, f.z)).toBe('magma_wakimizu');
-    expect(w.getBlock(f.x, p.level - p.depth - 2, f.z - 1)).toBe('takitsubo');
     let magma = 0;
     for (let x = p.x0; x <= p.x1; x++) for (let z = p.z0; z <= p.z1; z++) if (w.getBlock(x, p.level - 1, z) === 'magma') magma++;
     expect(magma).toBeGreaterThan(10);
+    expect(w.getBlock(p.x0 - 1, p.level, Math.floor((p.z0 + p.z1) / 2))).toBe('stone');
   });
-  it('マグマの 滝は たきつぼと つながって あふれない（量 かわらない）', () => {
+});
+
+describe.each(['magma', 'water'] as const)('自然の %s の 滝', (liquid) => {
+  it('はしらの 上に わきみず・くぼみに たきつぼ。つながって あふれない（量 かわらない）', () => {
     const seed = C.defaultSeed;
-    const p = terrainFor(seed).liquid.nearSpawn()!;
+    const p = firstFall(seed, liquid);
     const w = load(seed, p);
-    let tick = 0;
-    const sys = createWaterSystem({ world: w, tick: () => tick, seed, springsIn: (cx, cz) => terrainFor(seed).liquid.pondsIn(cx * 16, cz * 16, cx * 16 + 15, cz * 16 + 15).some((q) => q.fall !== null) });
-    for (let cz = (p.z0 - 4) >> 4; cz <= (p.z1 + 4) >> 4; cz++) for (let cx = (p.x0 - 4) >> 4; cx <= (p.x1 + 4) >> 4; cx++) sys.onColumnLoaded(cx, cz, 'generated');
     const f = p.fall!;
+    expect(w.getBlock(f.x, f.top, f.z)).toBe(liquid === 'magma' ? 'magma_wakimizu' : 'wakimizu');
+    expect(w.getBlock(f.x, f.top - 1, f.z)).toBe(liquid === 'magma' ? 'kokuyouseki' : 'stone');
+    expect(w.getBlock(f.x, p.level - p.depth - 2, f.z - 1)).toBe('takitsubo');
+    let tick = 0;
+    const sys = createWaterSystem({ world: w, tick: () => tick, seed, springsIn: springsIn(seed) });
+    for (let cz = (p.z0 - 4) >> 4; cz <= (p.z1 + 4) >> 4; cz++) for (let cx = (p.x0 - 4) >> 4; cx <= (p.x1 + 4) >> 4; cx++) sys.onColumnLoaded(cx, cz, 'generated');
     expect(sys.springLink(f.x, f.top, f.z)).toEqual({ x: f.x, y: p.level - p.depth - 2, z: f.z - 1 });
     const box = [p.x0 - 3, p.level - p.depth - 2, p.z0 - 3, p.x1 + 3, f.top + 1, p.z1 + 3] as const;
-    const t0 = sys.magma.total(...box);
+    const amt = liquid === 'magma' ? sys.magma : sys;
+    const t0 = amt.total(...box);
     for (let i = 0; i < 45 * 200; i++) {
       tick++;
       sys.update();
     }
-    expect(sys.magma.total(...box)).toBe(t0);
-    // へりの 外に マグマが 出て いない
+    expect(amt.total(...box)).toBe(t0);
     let outside = 0;
-    for (let x = box[0]; x <= box[3]; x++) for (let z = box[2]; z <= box[5]; z++) if (terrainFor(seed).liquid.pondAt(x, z) === null && sys.magma.amount(x, p.level, z) > 0) outside++;
+    for (let x = box[0]; x <= box[3]; x++) for (let z = box[2]; z <= box[5]; z++) if (terrainFor(seed).liquid.pondAt(x, z) === null && amt.amount(x, p.level, z) > 0) outside++;
     expect(outside).toBe(0);
+  });
+  it('プレイヤーが activeRadius より 遠いと わきみずは 休む', () => {
+    const seed = C.defaultSeed;
+    const p = firstFall(seed, liquid);
+    const w = load(seed, p);
+    let tick = 0;
+    const sys = createWaterSystem({ world: w, tick: () => tick, seed, springsIn: springsIn(seed) });
+    for (let cz = (p.z0 - 4) >> 4; cz <= (p.z1 + 4) >> 4; cz++) for (let cx = (p.x0 - 4) >> 4; cx <= (p.x1 + 4) >> 4; cx++) sys.onColumnLoaded(cx, cz, 'generated');
+    sys.setFocus(() => ({ x: p.x0 + 500, z: p.z0 }));
+    for (let i = 0; i < 45 * 20; i++) {
+      tick++;
+      sys.update();
+    }
+    expect(sys.computed()).toBe(0);
   });
 });
 

@@ -59,6 +59,8 @@ export interface WaterSystem {
   springLink(x: number, y: number, z: number): { x: number; y: number; z: number } | null;
   /** 版 2: (x, y, z) が こげた ブロックか（getIndex。プレイヤーの あつさ 用） */
   scorched(x: number, y: number, z: number): boolean;
+  /** MAGMA-SPAWN: プレイヤーの 場所を わたす（activeRadius より 遠い わきみずは 休む） */
+  setFocus(fn: () => { x: number; z: number }): void;
 }
 
 const KOKUYOUSEKI = 'kokuyouseki';
@@ -92,6 +94,8 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     return false;
   });
   const springs = createSprings(world, W, M, deps.seed ?? 0);
+  /** MAGMA-SPAWN: プレイヤーの 場所（わきみずが 休む 距離。なければ ぜんぶ 動く） */
+  let focusFn: (() => { x: number; z: number }) | null = null;
   // 版 2: 焼ける 見はり（計算した マグマの マスを 入れる。となりに 焼ける 物が なくなれば 外す）
   const hot = new Map<number, number>();
   let burnRolls = 0;
@@ -165,7 +169,7 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
       const t = tick();
       W.update(t);
       M.update(t);
-      springs.update(t);
+      springs.update(t, focusFn?.() ?? null);
       if (t % MAGMA_TUNING.burnEvery === 0 && hot.size > 0) burnPass();
     },
     set(x, y, z, n) {
@@ -184,6 +188,9 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     },
     waveTime: () => tick() / 60,
     computed: () => W.computed() + M.computed(),
+    setFocus(fn) {
+      focusFn = fn;
+    },
     magma: {
       set(x, y, z, n) {
         M.write(x, y, z, Math.max(0, Math.min(8, Math.floor(n))));
