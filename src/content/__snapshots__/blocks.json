@@ -103,6 +103,7 @@
     "katame_tsuchi": 141,
     "kawara": 12,
     "kin_ore": 64,
+    "kogeta": 184,
     "kokuyouseki": 167,
     "kusa": 39,
     "lantern": 50,
@@ -1322,6 +1323,12 @@
       "id": "magma",
       "name": "マグマ",
       "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "kogeta",
+      "name": "こげた ブロック",
+      "solid": true
     }
   ],
   "DIG_DEFAULTS": {
@@ -1411,6 +1418,7 @@
       "katame_tsuchi": 0.5,
       "kawara": 4,
       "kin_ore": 15,
+      "kogeta": 1,
       "kokuyouseki": 12,
       "kusa": 0.05,
       "lantern": 0.05,
@@ -1597,6 +1605,7 @@
       "katame_tsuchi": 0,
       "kawara": 0,
       "kin_ore": 2,
+      "kogeta": 0,
       "kokuyouseki": 2,
       "kusa": 0,
       "lantern": 0,
@@ -1784,6 +1793,7 @@
       "katame_tsuchi": "common",
       "kawara": "uncommon",
       "kin_ore": "epic",
+      "kogeta": "common",
       "kokuyouseki": "rare",
       "kusa": "common",
       "lantern": "uncommon",
@@ -1962,6 +1972,10 @@
     "katame_tsuchi": {
       "count": 1,
       "item": "dirt"
+    },
+    "kogeta": {
+      "count": 1,
+      "item": "sumi"
     },
     "kokuyouseki": {
       "count": 1,

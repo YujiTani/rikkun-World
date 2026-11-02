@@ -24,7 +24,7 @@ class W implements VoxelWorld {
   }
 }
 
-function rig() {
+function rig(scorched: () => boolean = () => false) {
   const player = { position: { x: 1, y: 1, z: 1 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, inMagma: false, moving: false, facingDeg: 0, running: false };
   const combat = new PlayerCombatImpl({
     world: new W(),
@@ -32,6 +32,7 @@ function rig() {
     inventory: new InventoryImpl(),
     yokai: () => ({ occupies: () => false }) as never,
     spawn: () => ({ x: 1, y: 1, z: 1, yawDeg: 0, pitchDeg: 0 }),
+    scorched,
   });
   return { combat, player };
 }
@@ -55,5 +56,27 @@ describe('マグマの ダメージ', () => {
     r.player.inMagma = false;
     for (let i = 0; i < 60; i++) r.combat.update();
     expect(r.combat.hp()).toBe(20 - 3 * MAGMA_TUNING.hurtAmount);
+  });
+});
+
+describe('版 2: こげた ブロックの ダメージ（1 秒に 1。マグマとは べつ）', () => {
+  it('ふれた すぐ 1、scorchHurtEvery ごとに 1。はなれると 止まる', () => {
+    let on = true;
+    const r = rig(() => on);
+    r.combat.update();
+    expect(r.combat.hp()).toBe(20 - MAGMA_TUNING.scorchHurtAmount);
+    for (let i = 1; i < MAGMA_TUNING.scorchHurtEvery; i++) r.combat.update();
+    expect(r.combat.hp()).toBe(20 - MAGMA_TUNING.scorchHurtAmount);
+    r.combat.update();
+    expect(r.combat.hp()).toBe(20 - 2 * MAGMA_TUNING.scorchHurtAmount);
+    on = false;
+    for (let i = 0; i < 200; i++) r.combat.update();
+    expect(r.combat.hp()).toBe(20 - 2 * MAGMA_TUNING.scorchHurtAmount);
+  });
+  it('マグマと こげた ブロックの 両方: それぞれ 数える', () => {
+    const r = rig(() => true);
+    r.player.inMagma = true;
+    for (let i = 0; i < MAGMA_TUNING.scorchHurtEvery; i++) r.combat.update();
+    expect(r.combat.hp()).toBe(20 - 2 * MAGMA_TUNING.hurtAmount - MAGMA_TUNING.scorchHurtAmount);
   });
 });
