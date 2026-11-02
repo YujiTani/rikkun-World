@@ -198,9 +198,10 @@ export class DigFarm {
     const held = this.d.inventory.held();
     if (!b || !held || !isBucket(held.item)) return null;
     const ray = this.waterRayNow(true);
-    // BUCKET-2: からの バケツで わきどころ（固い ブロック）を ねらうと くむ
+    // BUCKET-2: からの バケツで わきどころ（固い ブロック）を ねらうと くむ。
     const t = this.d.tgt();
-    if (!ray.throughWater && held.item === 'bucket' && t && (t.id === 'wakimizu' || t.id === 'magma_wakimizu')) {
+    // マグマの マスが ねらいに なる（固い あつかいの 線）ときも くむ（から・マグマの バケツ）
+    if (!ray.throughWater && t && ((held.item === 'bucket' && (t.id === 'wakimizu' || t.id === 'magma_wakimizu')) || (held.item !== 'water_bucket' && magmaAmount(t.id) > 0))) {
       ray.throughWater = true;
       ray.waterCell = { x: t.block.x, y: t.block.y, z: t.block.z };
     }

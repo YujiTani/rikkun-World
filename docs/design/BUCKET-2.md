@@ -28,3 +28,8 @@
 4. マグマの バケツで 置く → マグマ（量 = バケツ）、バケツは から。音 placeMagma。（unit・E2E）
 5. 保存: magma_bucket の 量が 読み直しで のこる。（unit）
 6. 絵: 3 つの 16x16 が ちがう。（unit・スクショ）
+
+## 4. 実装メモ
+- マグマは ねらいの 線で 固い あつかい（ねらいに なる）なので、からの バケツ・マグマの バケツで マグマを ねらうと その マスを くむ（digFarm.bucketPreview）。水を 通る 線は バケツ用に マグマも 通す（liquidGet）。
+- 置く 音: FarmEvent bucketPlace に liquid を 足し、step.ts が WaterSystem.noteSound → liquidSounds（同じ 間引き・距離）。
+- テスト: unit `src/farm/bucket2.test.ts`（AC1〜6）、E2E `e2e/bucket2.spec.ts`（AC1・3・4）。スクショは BK_SHOTS。
