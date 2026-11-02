@@ -109,7 +109,7 @@ export function wirePlayer(deps: WiredInput) {
     return { ...sp, y, pitchDeg: START_PITCH_DEG };
   };
   const controller = new PlayerController(world, game.input, look, lock, startPoint);
-  deps.water.setFocus(() => controller.state.position); // MAGMA-SPAWN: 遠い わきみずは 休む
+  deps.water.setFocus(() => controller.state.position); // MAGMA-SPAWN: 遠い わきどころは 休む
   shared.controller = controller;
   // CHAR-1 第 5 版: 一人称（V）はなくなった。CameraRig は受け取るだけの ActionState を使う
   // #276 手ごたえ: ヒットストップと 画面の ゆれ（ゆれは FX_SETTINGS.fxShake が 0 なら なし）

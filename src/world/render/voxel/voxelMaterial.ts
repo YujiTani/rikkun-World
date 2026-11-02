@@ -10,6 +10,7 @@ import { aoUniforms } from './aoUniforms';
 import { GLOW_PERIOD_SEC, glowUniforms } from './glowUniforms';
 import { FADE_FAR, FADE_NEAR, GRAIN_BODY_TILE, GRAIN_NEAR, KINDS, srgbToLinear, tileAverageTable, tileTable } from './projection';
 import { MAX_GRAINS, grainList } from '../looks';
+import { SWIRL_FPS, SWIRL_FRAMES } from '../../blocks/waterfallTextures';
 
 /**
  * 小ブロック・箱のメッシュ用の材料（TEX-A）。色 = 16×16 の絵（atlas）の画素 × 面の明るさ × 角の暗がり（AO）× 光。
@@ -115,6 +116,8 @@ const FRAG_BODY = `
   float u = face == 2 ? 1.0 - fr.z : (face == 3 ? fr.z : (face == 5 ? 1.0 - fr.x : fr.x));
   float v = face == 0 ? fr.z : (face == 1 ? 1.0 - fr.z : 1.0 - fr.y);
   float tile = vInfo.x;
+  // WAKIDOKORO §3: わきどころ 2 つは 渦の コマを 時間で すすめる（コマは アトラスに 連番。うごきを へらす〔uGlowAmp = 0〕では 1 コマ目）
+  if ((abs(vInfo.w - ${BLOCK_INDEX.wakimizu}.0) < 0.5 || abs(vInfo.w - ${BLOCK_INDEX.magma_wakimizu}.0) < 0.5) && uGlowAmp > 0.0) tile += floor(mod(uGlowTime * ${SWIRL_FPS}.0, ${SWIRL_FRAMES}.0));
   float py = floor(v * 16.0);
   if (vInfo.y < 254.5 && face >= 2) {
     // 小ブロック地形の横: 絵の行 = 地面のてっぺんからの深さ（16/9 行 / 小ブロック）

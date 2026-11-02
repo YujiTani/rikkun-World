@@ -72,7 +72,7 @@ const CRAFT_BASE: readonly Recipe[] = [
   ...recipesOf(pickDefs(MINE_DEFS, ['chalk', 'shikkui']), 'craft'),
   // ROPE-1: いと 3 → ロープ 4 本（いちばん うしろ）
   ...recipesOf(ROPE_DEFS, 'craft'),
-  // WATERFALL-1: わきみず・マグマの わきみず（いちばん うしろ）
+  // WATERFALL-1: わきどころ・マグマの わきどころ（いちばん うしろ）
   ...recipesOf(WATERFALL_DEFS, 'craft'),
 ];
 export const CRAFT_RECIPES: readonly Recipe[] = [

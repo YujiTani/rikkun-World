@@ -1,12 +1,22 @@
 /**
- * WATERFALL-1: わきみず・たきつぼ・こくようせき・マグマの わきみず・マグマの 16×16 絵（docs/art/waterfall-1/ の 案 A）。乱数なし（座標の まぜあわせ）。
+ * WATERFALL-1: わきどころ・たきつぼ・こくようせき・マグマの わきどころ・マグマの 16×16 絵（docs/art/waterfall-1/ の 案 A）。乱数なし（座標の まぜあわせ）。
  * マグマは 光る（opacity.ts の EMISSION）。色は 明るい だいだい〜きいろ の すじ。
  */
 import { MAGMA_IDS, MAGMA_RESERVED_IDS } from './magma';
 
 /** 煮えたぎる マグマの 4 コマ（アトラスの 1 だんの 左から。textures.ts が 位置を 確かめる） */
 export const BOIL_NAMES = ['magma_boil_0', 'magma_boil_1', 'magma_boil_2', 'magma_boil_3'] as const;
-export const WATERFALL_TILE_NAMES = ['wakimizu_top', 'wakimizu_side', 'takitsubo', 'kokuyouseki', 'magma_wakimizu_top', 'magma_wakimizu_side', 'magma', ...BOIL_NAMES, 'kogeta'] as const;
+/** WAKIDOKORO §3: わきどころの 渦の コマ（連番。小ブロックの shader が 時間で 0〜3 を 足す） */
+export const SWIRL_FRAMES = 4;
+/** 渦の コマの 速さ（コマ / 秒。ゆっくり） */
+export const SWIRL_FPS = 3;
+export const WAKIDOKORO_NAMES = ['wakidokoro_0', 'wakidokoro_1', 'wakidokoro_2', 'wakidokoro_3'] as const;
+export const MAGMA_WAKIDOKORO_NAMES = ['magma_wakidokoro_0', 'magma_wakidokoro_1', 'magma_wakidokoro_2', 'magma_wakidokoro_3'] as const;
+export const WATERFALL_TILE_NAMES = [
+  'wakimizu_top', 'wakimizu_side', 'takitsubo', 'kokuyouseki', 'magma_wakimizu_top', 'magma_wakimizu_side', 'magma', ...BOIL_NAMES, 'kogeta',
+  // WAKIDOKORO（うしろに 足す。今の 絵の 位置は かわらない）: たきつぼの 横・マグマの たきつぼ の 上・わきどころ 2 つの 渦 4 コマずつ
+  'takitsubo_side', 'magma_takitsubo', ...WAKIDOKORO_NAMES, ...MAGMA_WAKIDOKORO_NAMES,
+] as const;
 export type WaterfallTileName = (typeof WATERFALL_TILE_NAMES)[number];
 
 type Rgba = readonly [number, number, number, number];
@@ -34,7 +44,7 @@ const stone = (x: number, y: number, s: number): string => {
 };
 const dist = (x: number, y: number): number => Math.hypot(x - 7.5, y - 7.5);
 
-/** わきみずの 上: 石の まん中に 水が わく あな（3 だんの 青） */
+/** わきどころの 上: 石の まん中に 水が わく あな（3 だんの 青） */
 const wakimizuTop = (): Rgba[] => fill((x, y) => {
   const d = dist(x, y);
   if (d < 2.5) return '#9FD3FF';
@@ -42,19 +52,68 @@ const wakimizuTop = (): Rgba[] => fill((x, y) => {
   if (d < 5.2) return '#2F5FA8';
   return stone(x, y, 1);
 });
-/** わきみずの 横: 石に 青い すじ（水が しみでる） */
+/** わきどころの 横: 石に 青い すじ（水が しみでる） */
 const wakimizuSide = (): Rgba[] => fill((x, y) => {
   if ((x === 4 || x === 11) && y > 2 + (x % 3)) return y % 4 === 0 ? '#9FD3FF' : '#4F95E8';
   if (y < 2) return '#4F95E8';
   return stone(x, y, 2);
 });
-/** たきつぼ: ぬれた 暗い 石の わ と 深い 青の まん中（あわの 白） */
-const takitsubo = (): Rgba[] => fill((x, y) => {
-  const d = dist(x, y);
-  if (d < 4.5) return d > 3.3 && noise(x, y, 3) < 0.55 ? '#E8F4FF' : d < 2.5 ? '#173E78' : '#2A5CA8'; // ふちに あわの わ
-  if (d < 6.5) return noise(x, y, 4) < 0.3 ? '#3C4650' : '#4D5966';
-  return noise(x, y, 5) < 0.25 ? '#5F6870' : '#6E7A84';
+/**
+ * WAKIDOKORO §3: たきつぼの 上。いしの ブロックの まん中が くぼんで（内がわの ふちが 暗い かげ）、そこに 水（マグマ）が 入って いる。
+ * liquid = 中身の 色（[ふち, 中, 光る 点]）
+ */
+const takitsuboTop = (liquid: readonly [string, string, string], seed: number): Rgba[] => fill((x, y) => {
+  const inX = x >= 3 && x <= 12;
+  const inY = y >= 3 && y <= 12;
+  if (inX && inY) {
+    if (y === 3 || x === 3) return '#3C4046'; // くぼみの 奥の かげ（左上）
+    if (y === 12 || x === 12) return '#B4B4B4'; // くぼみの ふちの 光（右下）
+    if (x === 4 || y === 4 || x === 11 || y === 11) return liquid[0];
+    return noise(x, y, seed) < 0.12 ? liquid[2] : liquid[1];
+  }
+  if ((x === 2 || x === 13) && y >= 2 && y <= 13) return '#6E6E6E';
+  if ((y === 2 || y === 13) && x >= 2 && x <= 13) return '#6E6E6E';
+  return stone(x, y, seed + 1);
 });
+const takitsubo = (): Rgba[] => takitsuboTop(['#2A5CA8', '#3A7BD5', '#E8F4FF'], 3);
+const magmaTakitsubo = (): Rgba[] => takitsuboTop(['#B8200C', '#FF8A1F', '#FFE36B'], 14);
+/** たきつぼの 横・下: いし（上の ふちに 1 だん うすい かげ） */
+const takitsuboSide = (): Rgba[] => fill((x, y) => (y === 0 ? '#A5A5A5' : stone(x, y, 4)));
+/**
+ * WAKIDOKORO §3: 渦の 明るさ（0〜1）。まん中から 2 本の うでが のびる 渦。f コマ目は 45° ずつ 回す（2 本うで なので 4 コマで ひとまわり に 見える）
+ */
+function swirl(x: number, y: number, f: number): number {
+  const dx = x + 0.5 - 8;
+  const dy = y + 0.5 - 8;
+  const r = Math.hypot(dx, dy);
+  if (r > 7.6) return 0;
+  const th = Math.atan2(dy, dx) + (f * Math.PI) / 4;
+  const v = Math.cos(2 * th - r * 0.85);
+  return v * (1 - r / 9);
+}
+/** わきどころ（水）: ふつうの 水の 青を 土台に、白い あわの 渦 */
+function wakidokoro(f: number): Rgba[] {
+  return fill((x, y) => {
+    const s = swirl(x, y, f);
+    const r = Math.hypot(x + 0.5 - 8, y + 0.5 - 8);
+    if (r < 1.3) return '#E8F4FF';
+    if (s > 0.55) return noise(x, y, 20 + f) < 0.7 ? '#E8F4FF' : '#BFE3FF'; // あわ
+    if (s > 0.35) return '#7FB6F0';
+    const n = noise(x, y, 21);
+    return n < 0.15 ? '#3270C8' : n > 0.88 ? '#4A8ADE' : '#3A7BD5';
+  });
+}
+/** マグマの わきどころ: マグマの 絵を 土台に、きいろ〜白の 渦 */
+function magmaWakidokoro(f: number): Rgba[] {
+  return fill((x, y) => {
+    const s = swirl(x, y, f);
+    const r = Math.hypot(x + 0.5 - 8, y + 0.5 - 8);
+    if (r < 1.3) return '#FFF3B0';
+    if (s > 0.55) return noise(x, y, 22 + f) < 0.6 ? '#FFE36B' : '#FFF3B0';
+    if (s > 0.35) return '#FF8A1F';
+    return lavaPixel(x, y, 0.2);
+  });
+}
 /** こくようせき: 黒〜こい むらさき、ところどころ ひかる かけら */
 const kokuyouseki = (): Rgba[] => fill((x, y) => {
   const r = noise(x, y, 6);
@@ -63,7 +122,7 @@ const kokuyouseki = (): Rgba[] => fill((x, y) => {
   if ((x + 2 * y) % 7 === 0) return '#3C2C58';
   return '#17111F';
 });
-/** マグマの わきみずの 上: 石の まん中に マグマの あな */
+/** マグマの わきどころの 上: 石の まん中に マグマの あな */
 const magmaWakimizuTop = (): Rgba[] => fill((x, y) => {
   const d = dist(x, y);
   if (d < 2.5) return '#FFE36B';
@@ -71,7 +130,7 @@ const magmaWakimizuTop = (): Rgba[] => fill((x, y) => {
   if (d < 5.2) return '#B8320F';
   return stone(x, y, 7);
 });
-/** マグマの わきみずの 横: 石に だいだいの ひび */
+/** マグマの わきどころの 横: 石に だいだいの ひび */
 const magmaWakimizuSide = (): Rgba[] => fill((x, y) => {
   if ((x + Math.floor(y / 2)) % 6 === 0 && y > 3) return '#FF8A1F';
   if (y < 2) return '#E0561A';
@@ -151,6 +210,16 @@ const PAINT: Record<WaterfallTileName, () => Rgba[]> = {
   magma_boil_2: () => magmaBoil(2),
   magma_boil_3: () => magmaBoil(3),
   kogeta,
+  takitsubo_side: takitsuboSide,
+  magma_takitsubo: magmaTakitsubo,
+  wakidokoro_0: () => wakidokoro(0),
+  wakidokoro_1: () => wakidokoro(1),
+  wakidokoro_2: () => wakidokoro(2),
+  wakidokoro_3: () => wakidokoro(3),
+  magma_wakidokoro_0: () => magmaWakidokoro(0),
+  magma_wakidokoro_1: () => magmaWakidokoro(1),
+  magma_wakidokoro_2: () => magmaWakidokoro(2),
+  magma_wakidokoro_3: () => magmaWakidokoro(3),
 };
 
 export function isWaterfallTile(name: string): name is WaterfallTileName {
@@ -163,12 +232,14 @@ export function paintWaterfallTile(name: WaterfallTileName): Rgba[] {
 
 /** ブロックの [上, 下, 横] */
 export const WATERFALL_BLOCK_TILES = {
-  wakimizu: ['wakimizu_top', 'wakimizu_side', 'wakimizu_side'],
-  takitsubo: ['takitsubo', 'takitsubo', 'takitsubo'],
+  // WAKIDOKORO §3: わきどころは 6 面 同じ 渦（1 コマ目。shader が コマを すすめる）
+  wakimizu: ['wakidokoro_0', 'wakidokoro_0', 'wakidokoro_0'],
+  takitsubo: ['takitsubo', 'takitsubo_side', 'takitsubo_side'],
+  magma_takitsubo: ['magma_takitsubo', 'takitsubo_side', 'takitsubo_side'],
   kokuyouseki: ['kokuyouseki', 'kokuyouseki', 'kokuyouseki'],
   kogeta: ['kogeta', 'kogeta', 'kogeta'],
-  magma_wakimizu: ['magma_wakimizu_top', 'magma_wakimizu_side', 'magma_wakimizu_side'],
+  magma_wakimizu: ['magma_wakidokoro_0', 'magma_wakidokoro_0', 'magma_wakidokoro_0'],
   ...Object.fromEntries(MAGMA_IDS.map((id) => [id, ['magma', 'magma', 'magma'] as const])),
-  // 予約（世界に 置かない）は 水の 予約と 同じく 石の 絵（ここでは マグマの わきみずの 横で 代わり）
+  // 予約（世界に 置かない）は 水の 予約と 同じく 石の 絵（ここでは マグマの わきどころの 横で 代わり）
   ...Object.fromEntries(MAGMA_RESERVED_IDS.map((id) => [id, ['magma_wakimizu_side', 'magma_wakimizu_side', 'magma_wakimizu_side'] as const])),
 } as Readonly<Record<string, readonly [WaterfallTileName, WaterfallTileName, WaterfallTileName]>>;

@@ -7,7 +7,7 @@ import { hash01, subSeed } from './random';
  *   ・いけは だ円（inner）と まわり 1 マス（ring）。高さは inner = へり − 深さ − 1（底）、ring = へり。chunk.ts が 底の 上から へりの 1 つ下まで 液体で うめる
  *   ・場所は シードと 升目だけで きまる（列を 読まない。作る 順に よらない）
  *   ・へり と 底は いし（topBlock）。木・くさ・やさいは いけの 上に 出ない
- * 滝: いけの 南の へりに いしの はしら、上に わきみず（水 / マグマ）。わきみずの 出口は 下 → 北 → … の じゅん なので、下が はしら なら 北（いけの 上）へ 出る。
+ * 滝: いけの 南の へりに いしの はしら、上に わきどころ（水 / マグマ）。わきどころの 出口は 下 → 北 → … の じゅん なので、下が はしら なら 北（いけの 上）へ 出る。
  *     落ちる 先の 底が たきつぼ → はじめから つながって 量が かわらない（マグマの 滝も あふれない）。
  */
 export interface LiquidPond {
@@ -19,7 +19,7 @@ export interface LiquidPond {
   /** へりの 高さ */
   level: number;
   depth: number;
-  /** 滝（なければ null）: はしらの 場所と わきみずの 高さ */
+  /** 滝（なければ null）: はしらの 場所と わきどころの 高さ */
   fall: { x: number; z: number; top: number } | null;
   /** はじめの 場所の そばの いけ */
   nearSpawn: boolean;
@@ -163,7 +163,7 @@ export class LiquidPonds {
     const level = t.base(cx, Math.floor(z0 + wz / 2));
     const p: LiquidPond = { liquid, x0, z0, x1, z1, level, depth, fall: null, nearSpawn };
     if (fallH > 0) {
-      // はしらは cx の 列で いちばん 南の inner の 1 つ 南（へり）。わきみずは 下が はしら なので 北（いけの 上）へ 出す
+      // はしらは cx の 列で いちばん 南の inner の 1 つ 南（へり）。わきどころは 下が はしら なので 北（いけの 上）へ 出す
       let zi = z1;
       while (zi >= z0 && hitOf(p, cx, zi)?.kind !== 'inner') zi--;
       const fz = zi + 1;
@@ -201,26 +201,38 @@ function hitOf(p: LiquidPond, x: number, z: number): PondHit | null {
   return null;
 }
 
-/** 滝の ブロック（はしら・わきみず・たきつぼ・落ちる 道の 空気） */
-/** (x, z) が 滝の はしら（'pillar'）か 落ちる 道（'path'）か */
+/**
+ * (x, z) が 滝の はしら（'pillar'）か 落ちる 道（'path'）か。
+ * WAKIDOKORO §5: はしらは T 字（まん中 ＋ 東・西・南）。わきどころの 東・西・南を ふさいで 北（いけの 上）だけに 出す
+ */
 export function fallColumn(ponds: LiquidPonds, x: number, z: number): { kind: 'pillar' | 'path'; pond: LiquidPond } | null {
-  const h = ponds.pondAt(x, z);
-  const f = h?.pond.fall;
-  if (!h || !f || f.x !== x) return null;
-  if (f.z === z) return { kind: 'pillar', pond: h.pond };
-  if (f.z - 1 === z) return { kind: 'path', pond: h.pond };
+  for (const [dx, dz] of FALL_NEAR) {
+    const h = ponds.pondAt(x - dx, z - dz);
+    const f = h?.pond.fall;
+    if (!h || !f) continue;
+    const ox = x - f.x;
+    const oz = z - f.z;
+    if ((ox === 0 && (oz === 0 || oz === 1)) || (oz === 0 && (ox === 1 || ox === -1))) return { kind: 'pillar', pond: h.pond };
+    if (ox === 0 && oz === -1) return { kind: 'path', pond: h.pond };
+  }
   return null;
 }
+/** はしら（T 字）・道の 列から 滝の ある いけを さがす ずれ（まん中・道 は いけの 中、東・西・南の ふた は となり） */
+const FALL_NEAR: readonly (readonly [number, number])[] = [[0, 0], [1, 0], [-1, 0], [0, 1]];
 
-export function fallBlocks(p: LiquidPond): { x: number; y: number; z: number; b: 'stone' | 'kokuyouseki' | 'wakimizu' | 'magma_wakimizu' | 'takitsubo' | 'air' }[] {
+/** 滝の ブロック（はしら T 字・わきどころ・たきつぼ・落ちる 道の 空気）。height = 地形の 高さ（ふたの 列の 下から うめる） */
+export function fallBlocks(p: LiquidPond, height: (x: number, z: number) => number = () => p.level): { x: number; y: number; z: number; b: 'stone' | 'kokuyouseki' | 'wakimizu' | 'magma_wakimizu' | 'takitsubo' | 'magma_takitsubo' | 'air' }[] {
   const f = p.fall;
   if (f === null) return [];
-  const out: { x: number; y: number; z: number; b: 'stone' | 'kokuyouseki' | 'wakimizu' | 'magma_wakimizu' | 'takitsubo' | 'air' }[] = [];
+  const out: { x: number; y: number; z: number; b: 'stone' | 'kokuyouseki' | 'wakimizu' | 'magma_wakimizu' | 'takitsubo' | 'magma_takitsubo' | 'air' }[] = [];
   // マグマの 滝の はしらは こくようせき（となりの マグマで こげない）
   const pillar = p.liquid === 'magma' ? 'kokuyouseki' : 'stone';
   for (let y = p.level + 1; y < f.top; y++) out.push({ x: f.x, y, z: f.z, b: pillar });
+  for (const [cx, cz] of [[f.x + 1, f.z], [f.x - 1, f.z], [f.x, f.z + 1]] as const) {
+    for (let y = height(cx, cz) + 1; y <= f.top; y++) out.push({ x: cx, y, z: cz, b: pillar });
+  }
   out.push({ x: f.x, y: f.top, z: f.z, b: p.liquid === 'magma' ? 'magma_wakimizu' : 'wakimizu' });
   for (let y = p.level; y <= f.top + 1; y++) out.push({ x: f.x, y, z: f.z - 1, b: 'air' }); // 落ちる 道（はっぱ など を どける）
-  out.push({ x: f.x, y: p.level - p.depth - 2, z: f.z - 1, b: 'takitsubo' }); // くぼみの 底（terrain.ts の 高さと 同じ）
+  out.push({ x: f.x, y: p.level - p.depth - 2, z: f.z - 1, b: p.liquid === 'magma' ? 'magma_takitsubo' : 'takitsubo' }); // くぼみの 底（terrain.ts の 高さと 同じ）
   return out;
 }

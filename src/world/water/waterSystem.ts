@@ -21,7 +21,7 @@ export interface WaterSystemDeps {
   tick: () => number;
   /** 世界の シード（たきつぼの 確率。WATERFALL-1 §4.2）。なければ 0 */
   seed?: number;
-  /** MAGMA-SPAWN: 生成した 列 (cx, cz) に 滝の わきみずが あるか（ある 列だけ さがす。なければ 生成の 列は さがさない） */
+  /** MAGMA-SPAWN: 生成した 列 (cx, cz) に 滝の わきどころが あるか（ある 列だけ さがす。なければ 生成の 列は さがさない） */
   springsIn?: (cx: number, cz: number) => boolean;
 }
 
@@ -54,12 +54,12 @@ export interface WaterSystem {
   onColumnUnloaded(cx: number, cz: number): void;
   /** WATERFALL-1: マグマ */
   readonly magma: MagmaHook;
-  /** WATERFALL-1: わきみずの 数と、わきみずに つながった たきつぼ（なければ null） */
+  /** WATERFALL-1: わきどころの 数と、わきどころに つながった たきつぼ（なければ null） */
   springCount(): number;
   springLink(x: number, y: number, z: number): { x: number; y: number; z: number } | null;
   /** 版 2: (x, y, z) が こげた ブロックか（getIndex。プレイヤーの あつさ 用） */
   scorched(x: number, y: number, z: number): boolean;
-  /** MAGMA-SPAWN: プレイヤーの 場所を わたす（activeRadius より 遠い わきみずは 休む） */
+  /** MAGMA-SPAWN: プレイヤーの 場所を わたす（activeRadius より 遠い わきどころは 休む） */
   setFocus(fn: () => { x: number; z: number }): void;
 }
 
@@ -94,7 +94,7 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     return false;
   });
   const springs = createSprings(world, W, M, deps.seed ?? 0);
-  /** MAGMA-SPAWN: プレイヤーの 場所（わきみずが 休む 距離。なければ ぜんぶ 動く） */
+  /** MAGMA-SPAWN: プレイヤーの 場所（わきどころが 休む 距離。なければ ぜんぶ 動く） */
   let focusFn: (() => { x: number; z: number }) | null = null;
   // 版 2: 焼ける 見はり（計算した マグマの マスを 入れる。となりに 焼ける 物が なくなれば 外す）
   const hot = new Map<number, number>();
@@ -205,7 +205,7 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     onColumnLoaded(cx, cz, how) {
       if (how === 'generated' && deps.springsIn?.(cx, cz) === true) springs.onColumnLoaded(cx, cz); // MAGMA-SPAWN: 自然の 滝
       if (how === 'saved') {
-        springs.onColumnLoaded(cx, cz); // 保存から 読んだ 列は いつも さがす（置いた わきみず）
+        springs.onColumnLoaded(cx, cz); // 保存から 読んだ 列は いつも さがす（置いた わきどころ）
         saved.add(chunkId(cx, cz));
         wakeBoth(cx, cz, 0, 15, 0, 15); // 保存から 読んだ 列: 動く かも しれない 液体 ぜんぶ
       }

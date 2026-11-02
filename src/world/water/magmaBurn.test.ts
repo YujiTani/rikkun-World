@@ -44,7 +44,7 @@ describe('こげた ブロック', () => {
     };
     expect(trace(3)).toBe(trace(3));
   });
-  it('こくようせき・わきみず・たきつぼ・こげた ブロック・こわれない ブロックは こげない', () => {
+  it('こくようせき・わきどころ・たきつぼ・こげた ブロック・こわれない ブロックは こげない', () => {
     const r = pit();
     r.world.setBlock(16, 5, 15, 'kokuyouseki');
     r.world.setBlock(14, 5, 15, 'wakimizu');

@@ -79,7 +79,7 @@ test('MAGMA-SPAWN ①: はじめの そばの 溶岩の いけ（広場の 外�
   }
 });
 
-test('MAGMA-SPAWN ②: ?demo=magma で はじめの 前に 見本（いけ・こくようせき・わきみず 2 つ・こげた）', async ({ page }) => {
+test('MAGMA-SPAWN ②: ?demo=magma で はじめの 前に 見本（いけ・こくようせき・わきどころ 2 つ・こげた）', async ({ page }) => {
   test.setTimeout(180_000);
   await open(page, '/?nosave=1&demo=magma');
   const dir = process.env.MS_SHOTS;

@@ -26,19 +26,21 @@ export const LIQUID_KINDS: Readonly<Record<'water' | 'magma', LiquidKind>> = {
   magma: { name: 'magma', tickSteps: 45, search: 2, passMax: 256, amount: magmaAmount, id: magmaId },
 };
 
-/** WATERFALL-1 §4.2: わきみず・たきつぼの 数（1 か所） */
+/** WATERFALL-1 §4.2: わきどころ・たきつぼの 数（1 か所） */
 export const SPRING_TUNING = {
-  /** わきみずが 1 つぶ 出す 間かく（ステップ。水の パスと 同じ 0.25 秒） */
+  /** わきどころが 1 つぶ 出す 間かく（ステップ。水の パスと 同じ 0.25 秒） */
   waterEvery: WATER_TICK_STEPS,
-  /** マグマの わきみずが 1 つぶ 出す 間かく（マグマの パスと 同じ） */
+  /** マグマの わきどころが 1 つぶ 出す 間かく（マグマの パスと 同じ） */
   magmaEvery: 45,
   /** 水が 床に 落ちて いる とき、1 回（1 つぶ）ごとに たきつぼが できる 確率 */
   takiChance: 0.05,
+  /** WAKIDOKORO §5.1: たきつぼが できる 落ちる 高さ（出口の マスから 床の すぐ 上の マスまでの 列の マス数 = 出口の 高さ − 床の 高さ。とちゅうで 止まらず まっすぐ 落ちる）の 最低 */
+  minFall: 5,
   /** たきつぼが できる 前に 出す 最低の つぶの 数 = 列の 高さ ＋ これ（まわる 水が 列を うめて、たきつぼの 上に 1 マスぶん のこる） */
   minPool: 8,
-  /** わきみずの 出口から 下へ たどる 長さの 上限（マス。これより 深い 床には たきつぼが できない・つながらない） */
+  /** わきどころの 出口から 下へ たどる 長さの 上限（マス。これより 深い 床には たきつぼが できない・つながらない） */
   takiReach: 32,
-  /** MAGMA-SPAWN: プレイヤーから この 距離（チェビシェフ、マス）より 遠い わきみずは 休む（自然の 滝が 遠くで ずっと 仕事を しない） */
+  /** MAGMA-SPAWN: プレイヤーから この 距離（チェビシェフ、マス）より 遠い わきどころは 休む（自然の 滝が 遠くで ずっと 仕事を しない） */
   activeRadius: 32,
   /** たきつぼに なれる 床（自然の 地面だけ。家・家具・鉱石は ならない） */
   takiFloor: ['grass', 'dirt', 'stone', 'sand', 'snow', 'nendo', 'sekkaiseki', 'katame_tsuchi'] as readonly BlockId[],
@@ -60,8 +62,8 @@ export const MAGMA_TUNING = {
   /** 版 2: マグマに ふれた 固い ブロックが 焼ける（こげた ブロック）。burnEvery ステップごとに 1 マスずつ 確率 burnChance（シード つき） */
   burnEvery: 60,
   burnChance: 0.08,
-  /** 焼けない: こくようせき・こげた ブロック・わきみず 2 つ・たきつぼ（と こわれない・固くない ブロック） */
-  burnSkip: ['kokuyouseki', 'kogeta', 'wakimizu', 'magma_wakimizu', 'takitsubo'] as readonly BlockId[],
+  /** 焼けない: こくようせき・こげた ブロック・わきどころ 2 つ・たきつぼ（と こわれない・固くない ブロック） */
+  burnSkip: ['kokuyouseki', 'kogeta', 'wakimizu', 'magma_wakimizu', 'takitsubo', 'magma_takitsubo'] as readonly BlockId[],
   /** こげた ブロックに ふれて いる（足もと・体の となり）あいだ この ステップごとに ダメージ */
   scorchHurtEvery: 60,
   scorchHurtAmount: 1,

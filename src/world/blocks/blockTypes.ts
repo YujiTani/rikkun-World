@@ -112,16 +112,18 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'rope_stake', name: 'ロープの くい', solid: false, breakable: true }, // ROPE-1 版 3（番号は 後ろに 足す）
   { id: 'rope_fence', name: 'ロープの さく', solid: true, breakable: true }, // ROPE-1 版 3: 当たりは 1 マスの ブロック（とりごやの さくと 同じ）。版 5: くいの 間の よこに はった なわ
   { id: 'rope_fence_post', name: 'ロープの さくの くい', solid: true, breakable: true }, // ROPE-1 版 5: さくの はし・かど（くいと 同じ 絵）
-  // WATERFALL-1（番号は 後ろに 足す。165〜168）: わきみず・たきつぼ・こくようせき・マグマの わきみず
-  { id: 'wakimizu', name: 'わきみず', solid: true, breakable: true },
+  // WATERFALL-1（番号は 後ろに 足す。165〜168）: わきどころ・たきつぼ・こくようせき・マグマの わきどころ
+  { id: 'wakimizu', name: 'わきどころ', solid: true, breakable: true },
   { id: 'takitsubo', name: 'たきつぼ', solid: true, breakable: true },
   { id: 'kokuyouseki', name: 'こくようせき', solid: true, breakable: true },
-  { id: 'magma_wakimizu', name: 'マグマの わきみず', solid: true, breakable: true },
+  { id: 'magma_wakimizu', name: 'マグマの わきどころ', solid: true, breakable: true },
   // WATERFALL-1: 予約（169〜175。M0 を 8 の 倍数に そろえる）→ 量 1〜8 の マグマ（M0 = 176 から。固くない・こわれない）
   ...MAGMA_RESERVED_IDS.map((id): BlockType => ({ id, name: 'くうき', solid: false, breakable: false })),
   ...MAGMA_IDS.map((id): BlockType => ({ id, name: 'マグマ', solid: false, breakable: false })),
   // WATERFALL-1 版 2（番号は 後ろに 足す。184）: マグマに 焼かれた ブロック
   { id: 'kogeta', name: 'こげた ブロック', solid: true, breakable: true },
+  // WAKIDOKORO（番号は 後ろに 足す。185）: マグマの たきつぼ
+  { id: 'magma_takitsubo', name: 'マグマの たきつぼ', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(

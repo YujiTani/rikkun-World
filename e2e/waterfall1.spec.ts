@@ -3,12 +3,12 @@ import { installAimHelpers } from './helpers/aim';
 import { installArena } from './helpers/arena';
 
 /**
- * WATERFALL-1（docs/design/WATERFALL-1.md §6 AC2・AC5・AC6）: わきみずを 作る・置く → 空中の わきみずから 滝 → たきつぼが できて 合計が かわらない
+ * WATERFALL-1（docs/design/WATERFALL-1.md §6 AC2・AC5・AC6）: わきどころを 作る・置く → 空中の わきどころから 滝 → たきつぼが できて 合計が かわらない
  * → マグマが 光って 流れ、水に ふれて こくようせきに なる。WF_SHOTS=dir で 画面を のこす。
  * 場所: 床 `__arena.floor`（y=8 の 石、上面 y=9）。たきつぼの 池は (12, 9, 12) を まん中に 5×5（ふちは 石 1 だん、床は つち）。
  * 時間（ms）で 合否を 決めない。たきつぼが できる ステップは シードで 決まる ので 上限 まで すすめる。
  */
-test('WATERFALL-1: わきみず → 滝 → たきつぼ（量 かわらない）・マグマ → こくようせき', async ({ page }) => {
+test('WATERFALL-1: わきどころ → 滝 → たきつぼ（量 かわらない）・マグマ → こくようせき', async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto('/?nosave=1');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
@@ -42,7 +42,7 @@ test('WATERFALL-1: わきみず → 滝 → たきつぼ（量 かわらない�
   expect(made.ok).toBe(true);
   expect(made.have).toBe(1);
 
-  // 置く: 足もとの 前の 床（上面）を ねらって 右クリック → 床の 上に わきみず（よこに 水を 出す）
+  // 置く: 足もとの 前の 床（上面）を ねらって 右クリック → 床の 上に わきどころ（よこに 水を 出す）
   const placed = await page.evaluate(() => {
     const h = (window as any).__rikkun;
     h.inventory.clear();
@@ -62,10 +62,10 @@ test('WATERFALL-1: わきみず → 滝 → たきつぼ（量 かわらない�
   expect(placed.left).toBe(0);
   expect(placed.springs).toBe(1);
 
-  // 2) 空中の わきみず（y=20）から 滝。池は 5×5（ふち 石、床 つち）
+  // 2) 空中の わきどころ（y=20）から 滝。池は 5×5（ふち 石、床 つち）
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
-    h.world.setBlock(20, 9, 18, 'air'); // さっきの わきみずは かたづける
+    h.world.setBlock(20, 9, 18, 'air'); // さっきの わきどころは かたづける
     for (let n = 0; h.water.queue() > 0 && n < 3000; n++) h.step(1);
     h.world.fill(9, 9, 9, 15, 9, 15, 'stone');
     h.world.fill(10, 9, 10, 14, 9, 14, 'air');

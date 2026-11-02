@@ -5,7 +5,7 @@ import { sectionToArray } from '../sections';
 
 /**
  * WATER-1 §4.2・§4.3 の 流れ（セル・オートマトン＋起こす リスト）を 液体の 種類（blocks/liquids.ts）ごとに 動かす 芯。
- * 水も マグマも これ 1 つ（WATERFALL-1 §4.3）。乱数は 使わない。
+ * 水も マグマも これ 1 つ（WATERFALL-1 §4.3）。Math.random は 使わない（WAKIDOKORO §6 の 2 方向は 座標の まぜあわせ）。
  */
 
 /** 液体の 係が 世界に 求める もの（`ArrayVoxelWorld` が 満たす） */
@@ -45,6 +45,33 @@ export const DZ = [-1, 0, 1, 0] as const;
 export const PUSH_DX = [0, 0, 1, 0, -1, 0] as const;
 export const PUSH_DY = [1, 0, 0, 0, 0, -1] as const;
 export const PUSH_DZ = [0, -1, 0, 1, 0, 0] as const;
+
+/** WAKIDOKORO §6: ならしの となりの 量（calc の 中だけで 使う 入れ物） */
+const NB = [0, 0, 0, 0];
+
+/** WAKIDOKORO §6: 座標 ＋ パスの 回数 → 0〜2^32 の 整数（シード なしの 決まった まぜあわせ。同じ 手順なら 同じ） */
+export function flowRoll(x: number, y: number, z: number, pass: number): number {
+  let h = 0x2545f491;
+  h = Math.imul(h ^ (x | 0), 0x85ebca6b) >>> 0;
+  h = Math.imul(h ^ (y | 0) ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+  h = Math.imul(h ^ (z | 0) ^ (h >>> 16), 0x85ebca6b) >>> 0;
+  h = Math.imul(h ^ (pass | 0) ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+/** WAKIDOKORO §6: n 方向（ビット）から 2 つを えらぶ（r = flowRoll） */
+export function pickTwo(mask: number, n: number, r: number): number {
+  const i = r % n;
+  const j = (i + 1 + ((r >>> 8) % (n - 1))) % n;
+  let out = 0;
+  let k = 0;
+  for (let d = 0; d < 4; d++) {
+    if ((mask & (1 << d)) === 0) continue;
+    if (k === i || k === j) out |= 1 << d;
+    k++;
+  }
+  return out;
+}
 
 /** リストの マスの 形（§4.3）: key = chunk × 131072 + local。local は 17 ビット */
 const LOCAL = 131072;
@@ -122,17 +149,29 @@ export function createLiquidCore(world: LiquidWorld, kind: LiquidKind, react?: (
         return true;
       }
     }
-    // 3) 横の となりに 差が 2 以上 → 1 つぶ(北東南西の 順。a は そのつど へる)
+    // 3) 横の となりに 差が 2 以上 → 1 つぶ（北東南西の 順。a は そのつど へる）。
+    // WAKIDOKORO §6: 流せる 方向が 3 つ 以上 なら、ランダムに えらんだ 2 方向 だけ（座標 ＋ パスの 回数の まぜあわせ。読む マスは ふえない）
+    let cand = 0;
+    let n = 0;
+    for (let d = 0; d < 4; d++) {
+      const nb = room(world.getIndex(x + DX[d], y, z + DZ[d]));
+      NB[d] = nb;
+      if (nb >= 0 && a - nb >= 2) {
+        cand |= 1 << d;
+        n++;
+      }
+    }
+    if (n === 0) return false;
+    if (!apply) return true;
+    if (n > 2) cand = pickTwo(cand, n, flowRoll(x, y, z, passCount));
     let moved = false;
     for (let d = 0; d < 4; d++) {
-      const nx = x + DX[d];
-      const nz = z + DZ[d];
-      const nb = room(world.getIndex(nx, y, nz));
-      if (nb >= 0 && a - nb >= 2) {
-        if (!apply) return true;
+      if ((cand & (1 << d)) === 0) continue;
+      const nb = NB[d];
+      if (a - nb >= 2) {
         a--;
         write(x, y, z, a);
-        write(nx, y, nz, nb + 1);
+        write(x + DX[d], y, z + DZ[d], nb + 1);
         moved = true;
       }
     }

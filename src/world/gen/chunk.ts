@@ -354,9 +354,9 @@ export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCl
   placeTrees(out, T, x0, z0);
   placePlants(out, T, cx, cz, H);
 
-  // MAGMA-SPAWN: 滝（はしら・わきみず・ふた・たきつぼ）。木・草の あとに 置く（はっぱを どける）
+  // MAGMA-SPAWN: 滝（はしら・わきどころ・ふた・たきつぼ）。木・草の あとに 置く（はっぱを どける）
   for (const p of T.liquid.pondsIn(x0, z0, x0 + CHUNK_SIZE - 1, z0 + CHUNK_SIZE - 1)) {
-    for (const f of fallBlocks(p)) {
+    for (const f of fallBlocks(p, (x, z) => T.height(x, z))) {
       const lx = f.x - x0;
       const lz = f.z - z0;
       if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE || f.y < 1 || f.y >= WORLD_HEIGHT) continue;

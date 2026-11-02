@@ -51,7 +51,7 @@ describe('はじめの そばの 溶岩の いけ', () => {
 });
 
 describe.each(['magma', 'water'] as const)('自然の %s の 滝', (liquid) => {
-  it('はしらの 上に わきみず・くぼみに たきつぼ。つながって あふれない（量 かわらない）', () => {
+  it('はしらの 上に わきどころ・くぼみに たきつぼ。つながって あふれない（量 かわらない）', () => {
     const seed = C.defaultSeed;
     const p = firstFall(seed, liquid);
     const w = load(seed, p);
@@ -75,7 +75,7 @@ describe.each(['magma', 'water'] as const)('自然の %s の 滝', (liquid) => {
     for (let x = box[0]; x <= box[3]; x++) for (let z = box[2]; z <= box[5]; z++) if (terrainFor(seed).liquid.pondAt(x, z) === null && amt.amount(x, p.level, z) > 0) outside++;
     expect(outside).toBe(0);
   });
-  it('プレイヤーが activeRadius より 遠いと わきみずは 休む', () => {
+  it('プレイヤーが activeRadius より 遠いと わきどころは 休む', () => {
     const seed = C.defaultSeed;
     const p = firstFall(seed, liquid);
     const w = load(seed, p);

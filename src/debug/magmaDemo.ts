@@ -7,8 +7,8 @@ import { magmaBoilsAt } from '../world/blocks/liquids';
  *
  *   ・マグマの いけ 6×5（深さ 2。ぐつぐつ マスは 座標で きまる 15%）
  *   ・いけの 東どなりに 水の みぞ → ふれた マグマが こくようせきに
- *   ・マグマの わきみず（こくようせきの 2×2 の ます に 流れおちる。いっぱいに なると とまる）
- *   ・水の わきみず ＋ たきつぼ（さいしょから つながった 滝。量は かわらない）
+ *   ・マグマの わきどころ（こくようせきの 2×2 の ます に 流れおちる。いっぱいに なると とまる）
+ *   ・水の わきどころ ＋ たきつぼ（さいしょから つながった 滝。量は かわらない）
  *   ・こげた ブロックの 見本（床 5 マス ＋ はしら）。いけの まわりの いしも 時間で こげて いく
  * 保存の ある 世界でも 置ける（置いた ブロックは 保存される）。ためす だけなら `?nosave=1&demo=magma`。
  */
@@ -61,18 +61,20 @@ export function buildMagmaDemo(world: DemoWorld, liquids: DemoLiquids, sp: Pick<
   // 水の みぞ（いけの 東どなり）→ こくようせき
   world.fill(L.ditchX, g, pz0, L.ditchX, g, pz1, 'air');
   for (let z = pz0; z <= pz1; z++) liquids.set(L.ditchX, g, z, 8);
-  // マグマの わきみず: こくようせきの ます（中 2×2・高さ 5）の いちばん 上
+  // マグマの わきどころ: こくようせきの ます（中 2×2・高さ 5）の いちばん 上
   const [bx0, bz0, bx1, bz1] = L.magmaBasin;
-  // かべは わきみずと 同じ 高さまで（よこに あふれない。中が いっぱいに なると わきみずが とまる）
+  // かべは わきどころと 同じ 高さまで（よこに あふれない。中が いっぱいに なると わきどころが とまる）
   world.fill(bx0 - 1, g + 1, bz0 - 1, bx1 + 1, g + 5, bz1 + 1, 'kokuyouseki');
   world.fill(bx0, g + 1, bz0, bx1, g + 5, bz1, 'air');
   world.setBlock(L.magmaSpring.x, L.magmaSpring.y, L.magmaSpring.z, 'magma_wakimizu');
-  // 水の 滝: いけ 3×3（深さ 2、まん中の 底が たきつぼ）＋ 上空の わきみず
+  // 水の 滝: いけ 3×3（深さ 2、まん中の 底が たきつぼ）＋ 上空の わきどころ
   const [wx0, wz0, wx1, wz1] = L.waterPool;
   world.fill(wx0, g - 1, wz0, wx1, g, wz1, 'air');
   world.setBlock(L.waterSpring.x, g - 2, L.waterSpring.z, 'takitsubo');
   for (let x = wx0; x <= wx1; x++) for (let z = wz0; z <= wz1; z++) for (let y = g - 1; y <= g; y++) liquids.set(x, y, z, 8);
   world.setBlock(L.waterSpring.x, L.waterSpring.y, L.waterSpring.z, 'wakimizu');
+  // WAKIDOKORO §5: わきどころは 5 方向に 出る。東西南北を いしで ふさいで 下（たきつぼ）だけに 落とす
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) world.setBlock(L.waterSpring.x + dx, L.waterSpring.y, L.waterSpring.z + dz, 'stone');
   // こげた ブロックの 見本
   const [kx0, kz0, kx1, kz1] = L.kogeta;
   world.fill(kx0, g, kz0, kx1, g, kz1, 'kogeta');
