@@ -145,6 +145,8 @@ export interface DropFieldDeps {
 }
 
 const DT = 1 / 60;
+/** 水（深い）・マグマ（WAKIDOKORO §8: 液面に うかんで 燃える。見える ように）に うく */
+const floats = (id: string): boolean => isDeepWater(id) || isMagma(id);
 
 /** 落ちたアイテム: ばらまく・重力で落ちて止まる・水にうかぶ・拾う・10 分で消える・保存 */
 export class DropField {
@@ -325,7 +327,8 @@ export class DropField {
       this.step(b);
       // WAKIDOKORO §8: マグマの 中（体の まん中の マス）に ある あいだ 燃える。burnTicks で 消える。出たら 0 に もどる
       if (b.age % DROP.burnCheckEvery === 0) {
-        if (isMagma(this.d.world.getBlock(Math.floor(b.x), Math.floor(b.y + 0.05), Math.floor(b.z)))) {
+        // 液面に ういて いる ときは すぐ 下の マス（マグマの 面）
+        if (isMagma(this.d.world.getBlock(Math.floor(b.x), Math.floor(b.y - 0.05), Math.floor(b.z)))) {
           b.burn = (b.burn ?? 0) + DROP.burnCheckEvery;
           if (b.burn >= DROP.burnTicks) {
             b.ticksLeft = 0;
@@ -355,7 +358,7 @@ export class DropField {
   private waterSurface(x: number, y: number, z: number): number {
     const w = this.d.world;
     let yy = y;
-    while (yy < w.size.y && isDeepWater(w.getBlock(x, yy, z))) yy++;
+    while (yy < w.size.y && floats(w.getBlock(x, yy, z))) yy++;
     return yy;
   }
 
@@ -367,10 +370,10 @@ export class DropField {
       // 足もとが消えたら また落ちる（水にうかんでいるものは水がなくなったら）
       const yb = Math.floor(b.y - 1e-3);
       const below = w.getBlock(fx, yb, fz);
-      if (w.isSolid(fx, yb, fz) || below === 'outside' || isWater(below)) return;
+      if (w.isSolid(fx, yb, fz) || below === 'outside' || isWater(below) || isMagma(below)) return;
       b.resting = false;
     }
-    if (isDeepWater(w.getBlock(fx, Math.floor(b.y), fz))) {
+    if (floats(w.getBlock(fx, Math.floor(b.y), fz))) {
       const top = this.waterSurface(fx, Math.floor(b.y), fz);
       b.vx *= 0.9;
       b.vz *= 0.9;

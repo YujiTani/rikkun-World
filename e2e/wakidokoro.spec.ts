@@ -22,6 +22,7 @@ async function open(page: Page): Promise<void> {
     h.yokai.clear();
     h.time.set(12000);
     (window as any).__arena.floor(0, 0, 30, 30);
+    h.player.set({ position: { x: 15.5, y: 9, z: 15.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 }); // わきどころが 休まない（activeRadius）
     h.water.pause(false);
     for (let n = 0; h.water.queue() > 0 && n < 3000; n++) h.step(1);
   });
@@ -45,7 +46,7 @@ test.describe('WAKIDOKORO', () => {
       const h = (window as any).__rikkun;
       h.world.setBlock(20, 13, 10, 'magma_wakimizu');
       h.step(45 * 20);
-      h.player.set({ position: { x: 15.5, y: 9, z: 18.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: 10 });
+      h.player.set({ position: { x: 15.5, y: 9, z: 18.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 10 });
       h.step(2);
     });
     const magma = await page.evaluate(() => (window as any).__rikkun.water.magma.amount(20, 13, 9) as number);
@@ -58,12 +59,12 @@ test.describe('WAKIDOKORO', () => {
       h.world.fill(2, 9, 22, 6, 12, 26, 'air');
       h.world.setBlock(4, 9, 24, 'wakimizu');
       h.world.setBlock(6, 9, 24, 'magma_wakimizu');
-      h.player.set({ position: { x: 5.0, y: 9, z: 27.2 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: -35 });
+      h.player.set({ position: { x: 5.0, y: 9, z: 27.2 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -35 });
       h.step(2);
     });
     const a = await page.screenshot();
     if (shotDir) await page.screenshot({ path: `${shotDir}/2-swirl-frame-a.png` });
-    await page.evaluate(() => (window as any).__rikkun.step(12)); // 0.2 秒 → 3 コマ/秒 で 1 コマ 先
+    await page.evaluate(() => (window as any).__rikkun.step(30)); // 0.5 秒 → 3 コマ/秒 で 1〜2 コマ 先
     const b = await page.screenshot();
     if (shotDir) await page.screenshot({ path: `${shotDir}/2-swirl-frame-b.png` });
     expect(Buffer.compare(a, b), '渦の コマが かわる').not.toBe(0);
@@ -75,13 +76,17 @@ test.describe('WAKIDOKORO', () => {
     const dig = async (x: number, z: number) =>
       page.evaluate(([x, z]) => {
         const h = (window as any).__rikkun;
-        h.player.set({ position: { x: x + 0.5, y: 9, z: z + 2.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: -30 });
+        h.player.set({ position: { x: x + 0.5, y: 9, z: z + 2.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -30 });
         h.step(2);
         (window as any).__aim.solve(x, 9, z, 0.5);
         h.step(1);
+        // ひびが いっぱいに なるまで 押す → 押し直して こわす（houseSite.ts と 同じ）
+        h.input.release('primary');
         h.input.press('primary');
-        let n = 0;
-        for (; n < 900 && h.world.getBlock(x, 9, z) !== 'air'; n++) h.step(1);
+        for (let i = 0; i < 900 && !h.dig.get().ready; i++) h.step(1);
+        h.input.release('primary');
+        h.input.press('primary');
+        h.step(1);
         h.input.release('primary');
         h.step(30);
         return { gone: h.world.getBlock(x, 9, z) === 'air', bags: (h.combat.bags() as { slots: { item: string }[] }[]).map((b) => b.slots[0]!.item) };
@@ -116,9 +121,10 @@ test.describe('WAKIDOKORO', () => {
     // 置き直す
     const placed = await page.evaluate(() => {
       const h = (window as any).__rikkun;
-      const slot = (h.inventory.slots() as ({ item: string } | null)[]).findIndex((s) => s?.item === 'takitsubo');
-      h.inventory.select(slot);
-      h.player.set({ position: { x: 18.5, y: 9, z: 12.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: -40 });
+      h.inventory.clear();
+      h.inventory.setSlot(0, { item: 'takitsubo', count: 1 });
+      h.inventory.select(0);
+      h.player.set({ position: { x: 18.5, y: 9, z: 12.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -40 });
       h.step(2);
       (window as any).__aim.solve(18, 8, 10, 1);
       h.step(1);
@@ -132,7 +138,7 @@ test.describe('WAKIDOKORO', () => {
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.world.setBlock(20, 9, 10, 'magma_takitsubo');
-      h.player.set({ position: { x: 19.5, y: 10.5, z: 13.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: -50 });
+      h.player.set({ position: { x: 19.5, y: 10.5, z: 13.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -50 });
       h.step(3);
     });
     if (shotDir) await page.screenshot({ path: `${shotDir}/3-takitsubo-water-magma.png` });
@@ -143,15 +149,15 @@ test.describe('WAKIDOKORO', () => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
-      // 西が マグマの 列（x 10〜11）、プレイヤーは その 東の はし（x 11.8）
-      h.world.fill(8, 8, 8, 11, 8, 12, 'air');
-      for (let x = 8; x <= 11; x++) for (let z = 8; z <= 12; z++) h.water.magma.set(x, 8, z, 8);
+      // マグマの いけ（x 8〜15・深さ 1）。プレイヤーは 東より（x 13.8）→ まわりの マグマの まん中（x 13.5）より 東 → 東へ
+      h.world.fill(8, 8, 8, 15, 8, 12, 'air');
+      for (let x = 8; x <= 15; x++) for (let z = 8; z <= 12; z++) h.water.magma.set(x, 8, z, 8);
       h.water.pause(true);
       h.combat.setHp(20);
-      h.player.set({ position: { x: 11.8, y: 8.2, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+      h.player.set({ position: { x: 13.8, y: 8.2, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
       h.step(1);
       const s0 = h.combat.get();
-      const x0 = 11.8;
+      const x0 = 13.8;
       h.step(10);
       const p = h.player.get().position;
       return { hp1: s0.hp, inv: s0.invincibleTicks, dx: p.x - x0, hpAfter: h.combat.get().hp };
@@ -174,12 +180,12 @@ test.describe('WAKIDOKORO', () => {
       h.inventory.clear();
       h.inventory.setSlot(0, { item: 'dirt', count: 3 });
       h.inventory.select(0);
-      h.player.set({ position: { x: 12.5, y: 9, z: 16.2 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: -30 });
+      h.player.set({ position: { x: 12.5, y: 9, z: 16.2 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -30 });
       h.step(2);
       h.input.press('drop');
       h.step(1);
       h.input.release('drop');
-      h.player.set({ position: { x: 12.5, y: 9, z: 18.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: -35 });
+      h.player.set({ position: { x: 12.5, y: 9, z: 18.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -35 });
       h.step(120);
       const b = h.combat.bags() as { burning?: boolean }[];
       return { n: b.length, burning: b[0]?.burning === true };

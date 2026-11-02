@@ -29,10 +29,10 @@ const BURN_FX = {
   /** 炎の 1 まわりの 秒・のぼる 高さ（マス）・大きさ */
   flamePeriod: 0.6,
   flameRise: 0.45,
-  flameSize: 0.09,
+  flameSize: 0.14,
   smokePeriod: 1.4,
   smokeRise: 0.9,
-  smokeSize: 0.12,
+  smokeSize: 0.16,
   /** いちどに 出せる 燃える 落としもの */
   maxBags: 48,
 } as const;
