@@ -23,6 +23,8 @@ export interface WaterSystemDeps {
   seed?: number;
   /** MAGMA-SPAWN: 生成した 列 (cx, cz) に 滝の わきどころが あるか（ある 列だけ さがす。なければ 生成の 列は さがさない） */
   springsIn?: (cx: number, cz: number) => boolean;
+  /** WAKIDOKORO §10: いちどに 動かす わきどころの 上限（なければ SPRING_TUNING.maxActive。ベンチ・テスト用） */
+  springCap?: number;
 }
 
 /** WATERFALL-1: マグマ（水と 同じ しくみ。窓口 `__rikkun.water.magma`） */
@@ -34,6 +36,8 @@ interface MagmaHook {
 }
 
 export interface WaterSystem {
+  /** WAKIDOKORO §10: さいごの 出す ステップで 動いた わきどころの 数（上限 と 遠さで 休んだ ものを のぞく） */
+  springActive(): number;
   /** ゲームの 1 ステップごとに 1 回 */
   update(): void;
   /** マスを 量 n（0 = air、1〜8）に する。ふつうの `setBlock` と 同じく 起こす */
@@ -169,7 +173,7 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
       const t = tick();
       W.update(t);
       M.update(t);
-      springs.update(t, focusFn?.() ?? null);
+      springs.update(t, focusFn?.() ?? null, deps.springCap);
       if (t % MAGMA_TUNING.burnEvery === 0 && hot.size > 0) burnPass();
     },
     set(x, y, z, n) {
@@ -200,6 +204,7 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
       total: totalOf(magmaAmount),
     },
     springCount: () => springs.count(),
+    springActive: () => springs.active(),
     springLink: (x, y, z) => springs.linkOf(x, y, z),
     scorched: (x, y, z) => world.getIndex(x, y, z) === KOGETA_INDEX,
     onColumnLoaded(cx, cz, how) {

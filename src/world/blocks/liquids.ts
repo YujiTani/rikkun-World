@@ -42,6 +42,10 @@ export const SPRING_TUNING = {
   takiReach: 32,
   /** MAGMA-SPAWN: プレイヤーから この 距離（チェビシェフ、マス）より 遠い わきどころは 休む（自然の 滝が 遠くで ずっと 仕事を しない） */
   activeRadius: 32,
+  /** WAKIDOKORO §10: いちどに 動かす わきどころの 上限（activeRadius の 中で プレイヤーに 近い じゅん。こえた 遠い ものは 出さない）。ベンチ（springLoad.test.ts）で きめた */
+  maxActive: 64,
+  /** WAKIDOKORO §10: 上限の さかいで ちらつかない ゆとり（前に 動いて いた ものを この マス ぶん 近い あつかい） */
+  capHold: 2,
   /** たきつぼに なれる 床（自然の 地面だけ。家・家具・鉱石は ならない） */
   takiFloor: ['grass', 'dirt', 'stone', 'sand', 'snow', 'nendo', 'sekkaiseki', 'katame_tsuchi'] as readonly BlockId[],
 } as const;
@@ -67,6 +71,8 @@ export const MAGMA_TUNING = {
   /** こげた ブロックに ふれて いる（足もと・体の となり）あいだ この ステップごとに ダメージ */
   scorchHurtEvery: 60,
   scorchHurtAmount: 1,
+  /** WAKIDOKORO §7: 熱の ダメージの あとの むてき（ステップ。0.5 秒）。むてきは 妖怪の ダメージと 共用（熱は むてき中 受けない） */
+  heatInvincibleTicks: 30,
 } as const;
 
 /**

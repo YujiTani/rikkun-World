@@ -38,7 +38,9 @@ export function springRoll(seed: number, x: number, y: number, z: number, n: num
 
 interface Springs {
   onChange(x: number, y: number, z: number, prev: number, next: number): void;
-  update(tick: number, focus?: { x: number; z: number } | null): void;
+  update(tick: number, focus?: { x: number; z: number } | null, cap?: number): void;
+  /** WAKIDOKORO §10: さいごの 出す ステップで 動いた 数 */
+  active(): number;
   onColumnLoaded(cx: number, cz: number): void;
   onColumnUnloaded(cx: number, cz: number): void;
   count(): number;
@@ -52,6 +54,10 @@ interface Spring {
   z: number;
   magma: boolean;
   rolls: number;
+  /** WAKIDOKORO §10: さいごの 出す ステップで 動いた（上限の 内がわ）。ちらつき どめ の ゆとりに 使う */
+  on: boolean;
+  /** 並べかえ 用の 遠さ（その ステップだけ） */
+  d: number;
   /** つながる 前に 出した つぶの 数（たきつぼが できる 前に 列 ＋ 1 マスぶん は たまる ように。§4.2） */
   emitted: number;
 }
@@ -61,9 +67,12 @@ export function createSprings(world: LiquidWorld, water: LiquidCore, magma: Liqu
   const key = (x: number, y: number, z: number): string => `${x},${y},${z}`;
   const add = (x: number, y: number, z: number, magma: boolean): void => {
     const k = key(x, y, z);
-    if (!list.has(k)) list.set(k, { x, y, z, magma, rolls: 0, emitted: 0 });
+    if (!list.has(k)) list.set(k, { x, y, z, magma, rolls: 0, emitted: 0, on: false, d: 0 });
   };
   const out = { x: 0, y: 0, z: 0 };
+  /** その ステップで 動かす わきどころ（入れ物を 使いまわす） */
+  const run: Spring[] = [];
+  let lastActive = 0;
 
   /** WAKIDOKORO §5: 出口の 5 方向（下 → 北 → 東 → 南 → 西。上は 出さない） */
   const EX = [0, 0, 1, 0, -1] as const;
@@ -140,21 +149,41 @@ export function createSprings(world: LiquidWorld, water: LiquidCore, magma: Liqu
       const nk = SPRING_OF.get(next);
       if (nk !== undefined) add(x, y, z, nk);
     },
-    update(tick, focus) {
+    update(tick, focus, cap = T.maxActive) {
       if (list.size === 0) return;
       const w = tick % T.waterEvery === 0;
       const m = tick % T.magmaEvery === 0;
       if (!w && !m) return;
       const R = T.activeRadius;
+      run.length = 0;
       for (const s of [...list.values()]) {
         if (world.getIndex(s.x, s.y, s.z) !== (s.magma ? MAGMA_WAKIMIZU : WAKIMIZU)) {
           list.delete(key(s.x, s.y, s.z));
           continue;
         }
-        if (focus && (Math.abs(s.x - focus.x) > R || Math.abs(s.z - focus.z) > R)) continue; // MAGMA-SPAWN: 遠い わきどころは 休む
-        if ((!s.magma && w) || (s.magma && m)) step(s);
+        if (focus && (Math.abs(s.x - focus.x) > R || Math.abs(s.z - focus.z) > R)) {
+          s.on = false;
+          continue; // MAGMA-SPAWN: 遠い わきどころは 休む
+        }
+        if ((!s.magma && w) || (s.magma && m)) run.push(s);
+      }
+      // WAKIDOKORO §10: 上限より 多い ときは プレイヤーに 近い じゅん。前の ステップで 動いた ものは hold マス ぶん 近い あつかい（ちらつかない）。
+      // 同じ 遠さは 座標の じゅん（いつも 同じ 並び）
+      if (run.length > cap) {
+        const fx = focus?.x ?? 0;
+        const fz = focus?.z ?? 0;
+        for (const s of run) s.d = Math.hypot(s.x + 0.5 - fx, s.z + 0.5 - fz) - (s.on ? T.capHold : 0);
+        run.sort((a, b) => a.d - b.d || a.x - b.x || a.z - b.z || a.y - b.y);
+        for (let i = cap; i < run.length; i++) run[i].on = false;
+        run.length = cap;
+      }
+      lastActive = run.length;
+      for (const s of run) {
+        s.on = true;
+        step(s);
       }
     },
+    active: () => lastActive,
     onColumnLoaded(cx, cz) {
       for (let sy = 0; sy * 16 < world.size.y; sy++) {
         const sec = world.section(cx, sy, cz);

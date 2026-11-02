@@ -123,6 +123,8 @@ export interface CombatDeps {
   noFall?: () => boolean;
   /** WATERFALL-1 版 2: こげた ブロックに ふれて いるか（足もと・体の となり。なければ ふれない） */
   scorched?: () => boolean;
+  /** WAKIDOKORO §7: 熱の ダメージ源（ふれて いる マグマ・こげた マスの まん中）。ノックバックの 向き（ここから はなれる）。なければ プレイヤーの 場所（= うしろへ） */
+  heatFrom?: (kind: 'magma' | 'scorch') => Vec3 | null;
 }
 
 export interface CombatHookState {
@@ -505,28 +507,43 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   }
 
   /** 落ちた高さを見て、地面に着いたらダメージ。みず・ジャンプの着地は 0。ノックバックなし・防具でも減らない */
-  /** WATERFALL-1 §4.4: マグマに ふれて いる あいだ hurtEvery ステップごとに hurtAmount（はいった すぐ に 1 回。むてき中でも） */
+  /**
+   * WATERFALL-1 §4.4 ＋ WAKIDOKORO §7: マグマに ふれて いる あいだ hurtEvery ステップごとに hurtAmount（はいった すぐ に 1 回）。
+   * 熱の ダメージは むてき（妖怪と 共用）の 間は 受けない（その 回は 持ちこし、むてきが 切れたら すぐ）。受けると むてき heatInvincibleTicks（0.5 秒）と ノックバック
+   */
   private magmaTicks = 0;
+  private magmaDue = false;
   private magmaTick(): void {
     if (this.d.player.get().inMagma !== true) {
       this.magmaTicks = 0;
+      this.magmaDue = false;
       return;
     }
-    if (this.magmaTicks++ % MAGMA_TUNING.hurtEvery === 0 && this.hurt(MAGMA_TUNING.hurtAmount, null, null, true)) {
-      this.emit({ type: 'fallHurt', tick: this.tickCount, amount: MAGMA_TUNING.hurtAmount });
-    }
+    if (this.magmaTicks++ % MAGMA_TUNING.hurtEvery === 0) this.magmaDue = true;
+    if (this.magmaDue && this.heatHurt(MAGMA_TUNING.hurtAmount, 'magma')) this.magmaDue = false;
   }
 
-  /** 版 2: こげた ブロックに ふれて いる あいだ scorchHurtEvery ステップごとに 1（はじめて ふれた とき すぐ 1。マグマとは べつに 数える） */
+  /** 版 2: こげた ブロックに ふれて いる あいだ scorchHurtEvery ステップごとに 1（はじめて ふれた とき すぐ 1。マグマとは べつに 数える。むてきは 共用） */
   private scorchTicks = 0;
+  private scorchDue = false;
   private scorchTick(): void {
     if (this.d.scorched?.() !== true) {
       this.scorchTicks = 0;
+      this.scorchDue = false;
       return;
     }
-    if (this.scorchTicks++ % MAGMA_TUNING.scorchHurtEvery === 0 && this.hurt(MAGMA_TUNING.scorchHurtAmount, null, null, true)) {
-      this.emit({ type: 'fallHurt', tick: this.tickCount, amount: MAGMA_TUNING.scorchHurtAmount });
-    }
+    if (this.scorchTicks++ % MAGMA_TUNING.scorchHurtEvery === 0) this.scorchDue = true;
+    if (this.scorchDue && this.heatHurt(MAGMA_TUNING.scorchHurtAmount, 'scorch')) this.scorchDue = false;
+  }
+
+  /** WAKIDOKORO §7: 熱の ダメージ（むてき中は 受けない。受けたら むてき 0.5 秒〔のこりが 長ければ そのまま〕・ダメージ源から はなれる ノックバック） */
+  private heatHurt(amount: number, kind: 'magma' | 'scorch'): boolean {
+    if (this.invincible > 0) return false;
+    const from = this.d.heatFrom?.(kind) ?? this.d.player.get().position;
+    if (!this.hurt(amount, null, from, false)) return false;
+    this.invincible = MAGMA_TUNING.heatInvincibleTicks;
+    this.emit({ type: 'fallHurt', tick: this.tickCount, amount });
+    return true;
   }
 
   private fallTick(): void {
