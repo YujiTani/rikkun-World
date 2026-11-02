@@ -1,5 +1,18 @@
 import type { BlockId } from '../../contracts/world';
 import { ROPE_TUNING } from './rope';
+import { springAccel } from './ropeSpring';
+
+/** 版 5: プレイヤー がわの つなぎの ようす（PlayerController が もつ） */
+export interface TetherBody {
+  /** ゆれが おさまって ぶら下がって いる（重力 なし。Shift+スペース・Shift+C で のぼり おり） */
+  hanging: boolean;
+  /** ゴムで ゆれて いる */
+  bouncing: boolean;
+  /** しずかな ステップの かず（20 で ぶら下がりへ） */
+  calm: number;
+  /** ぶら下がった ときの くいからの きょり */
+  hangLen: number;
+}
 
 /**
  * ROPE-1 版 3（つなぎ）: たいらな ところで ロープを つかうと、足もとに くいを うって 体と つなぐ。
@@ -52,19 +65,19 @@ export class RopeTether {
    * 長さの 外へ 出る うごきから、アンカーから 遠ざかる 向きの ぶんを けす。けした あとの my を かえす。
    * もう 長さ + 余白 より 遠ければ きる。
    */
-  clampStep(c: { x: number; y: number; z: number }, p: { x: number; y: number; z: number }, v: { x: number; z: number }, my: number, dt: number): number {
+  clampStep(c: { x: number; y: number; z: number }, p: { x: number; y: number; z: number }, v: { x: number; z: number }, my: number, dt: number, len = this.len): number {
     const rx = p.x - c.x;
     const ry = p.y - c.y;
     const rz = p.z - c.z;
     const d = Math.hypot(rx, ry, rz);
-    if (d > this.len + SNAP_SLACK) {
+    if (d > len + ROPE_TUNING.springMaxStretch + SNAP_SLACK) {
       this.clear();
       return my;
     }
     const nx = rx + v.x * dt;
     const ny = ry + my;
     const nz = rz + v.z * dt;
-    if (d < 1e-6 || Math.hypot(nx, ny, nz) <= this.len) return my;
+    if (d < 1e-6 || Math.hypot(nx, ny, nz) <= len) return my;
     const ux = rx / d;
     const uy = ry / d;
     const uz = rz / d;
@@ -77,13 +90,61 @@ export class RopeTether {
       vy2 -= out * uy;
     }
     // まがりで 少しずつ はみ出す ぶんは 内がわへ もどす
-    const over = Math.hypot(rx + v.x * dt, ry + vy2 * dt, rz + v.z * dt) - this.len;
+    const over = Math.hypot(rx + v.x * dt, ry + vy2 * dt, rz + v.z * dt) - len;
     if (over > 0) {
       v.x -= (over / dt) * ux;
       v.z -= (over / dt) * uz;
       vy2 -= (over / dt) * uy;
     }
     return vy2 * dt;
+  }
+
+  /**
+   * 版 5: 1 ステップの つなぎの うごき。たいら・地面では 半径で しばる（clampStep）。
+   * くいより 1 マス 以上 下で 半径を こえたら ゴム（ばね-ダンパー。ROPE_TUNING.spring*）で ひっぱり かえし、ゆれが おさまったら ぶら下がり（重力 なし）。
+   * ぶら下がり・ゆれの 間は くいの 高さ（足もと）より 上へは 行かない。v.y は 新しい 縦の 速さ。かえすのは 縦の うごき。
+   */
+  step(c: { x: number; y: number; z: number }, p: { x: number; y: number; z: number }, v: { x: number; y: number; z: number }, my: number, dt: number, body: TetherBody, feetY: number): number {
+    const T = ROPE_TUNING;
+    const rx = p.x - c.x;
+    const ry = p.y - c.y;
+    const rz = p.z - c.z;
+    const d = Math.hypot(rx, ry, rz);
+    let out = my;
+    if (body.hanging) {
+      out = this.clampStep(c, p, v, my, dt, body.hangLen);
+    } else if (ry < -1 && d > this.len && d > 1e-6) {
+      // ゴム: のびた ぶん ext・外むきの 速さ vr。a = -k ext - c vr を 外むきの 向きに たす（半陰 オイラー）
+      const ux = rx / d;
+      const uy = ry / d;
+      const uz = rz / d;
+      const ext = d - this.len;
+      const vr = v.x * ux + v.y * uy + v.z * uz;
+      const dv = springAccel(ext, vr, T.springStiffness, T.springDamping) * dt;
+      v.x += dv * ux;
+      v.y += dv * uy;
+      v.z += dv * uz;
+      out = v.y * dt;
+      if (ext + (vr + dv) * dt > T.springMaxStretch) out = this.clampStep(c, p, v, out, dt, this.len + T.springMaxStretch);
+      body.bouncing = true;
+      body.calm = Math.abs(vr + dv) < 0.3 && Math.abs(v.x) + Math.abs(v.z) < 0.5 ? body.calm + 1 : 0;
+      if (body.calm >= 20) {
+        body.hanging = true;
+        body.bouncing = false;
+        body.hangLen = d;
+        v.x = v.y = v.z = 0;
+        out = 0;
+      }
+    } else {
+      out = this.clampStep(c, p, v, my, dt);
+      if (!body.bouncing) body.calm = 0;
+    }
+    // くいの 高さ（足もと）より 上へは 行かない（ぶら下がり・ゆれの 間）
+    if ((body.hanging || body.bouncing) && feetY + out > c.y - 0.5) {
+      out = Math.min(out, Math.max(0, c.y - 0.5 - feetY));
+      if (v.y > 0) v.y = 0;
+    }
+    return out;
   }
 
   /** p が くいより 1 マス 以上 下で、ロープの 長さ いっぱい（ぶら下がり の 判定。たいらで ジャンプ した ときは 入らない） */

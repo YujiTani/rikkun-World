@@ -61,14 +61,10 @@ function stakeTile(): Rgba[] {
   return t;
 }
 
-/** 版 3: ロープの さく。りょうはしの 木の くい 2 本に、なわが 3 だん わたる（A 案の 2 色） */
+/** 版 5: ロープの さく（くいの 間）。よこに はった 細い なわ 2 本（上寄り。A 案の 2 色の しま）。ほかは すけて いる */
 function fenceTile(): Rgba[] {
   const t = new Array<Rgba>(N * N).fill(CLEAR);
-  for (const x0 of [1, 12]) {
-    for (let y = 1; y < N; y++) for (let x = x0; x < x0 + 3; x++) t[y * N + x] = hex(x === x0 + 1 ? '#9A6B3C' : '#6B4523');
-    for (let x = x0; x < x0 + 3; x++) t[x0 === 1 ? N + x : N + x] = hex('#4A3218'); // くいの あたま
-  }
-  for (const y of [3, 4, 8, 9, 13]) for (let x = 4; x < 12; x++) t[y * N + x] = hex((x + y) % 2 ? LIGHT : DARK); // なわ 3 だん
+  for (const y of [4, 9]) for (let x = 0; x < N; x++) t[y * N + x] = hex((x + y) % 3 === 0 ? DARK : LIGHT);
   return t;
 }
 

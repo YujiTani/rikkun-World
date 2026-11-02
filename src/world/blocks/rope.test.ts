@@ -4,34 +4,36 @@ import { ROPE_TUNING, facingStep, isClimbBlock, isRopeBlock, planRope, planRopeH
 /** ROPE-1 AC2〜AC5（docs/design/ROPE-1.md）: たらす 長さ・ロープだまり・つかう 本数・つながった ロープの 見つけ方 */
 
 /** floor より 上が あいて いる たての 列（floor の 高さは ふさがって いる） */
+const L = ROPE_TUNING.perRope;
 const openAbove = (floor: number) => (y: number) => y > floor;
 
 describe('planRope（たらす 計画）', () => {
-  it('1 本で 10 マスまで。とちゅうで 床に とどかなければ ぜんぶ ロープ（ロープだまり なし）', () => {
+  it('1 本で L マスまで。とちゅうで 床に とどかなければ ぜんぶ ロープ（ロープだまり なし）', () => {
     const p = planRope(openAbove(-100), 50, 1)!;
     expect(p.cells).toHaveLength(ROPE_TUNING.perRope);
     expect(p.cells.every((c) => c.block === 'rope')).toBe(true);
     expect(p.cells[0].y).toBe(50);
     expect(p.used).toBe(1);
   });
-  it('10 マス 以内で 床に とどくと いちばん 下が ロープだまり。つかうのは 1 本', () => {
-    const p = planRope(openAbove(44), 50, 3)!; // 50〜45 の 6 マス
-    expect(p.cells.map((c) => c.y)).toEqual([50, 49, 48, 47, 46, 45]);
+  it('L マス 以内で 床に とどくと いちばん 下が ロープだまり。つかうのは 1 本（L = ROPE_TUNING.perRope = 5。版 5）', () => {
+    expect(L).toBe(5);
+    const p = planRope(openAbove(46), 50, 3)!; // 50〜47 の 4 マス
+    expect(p.cells.map((c) => c.y)).toEqual([50, 49, 48, 47]);
     expect(p.cells.at(-1)!.block).toBe('rope_coil');
     expect(p.cells.slice(0, -1).every((c) => c.block === 'rope')).toBe(true);
     expect(p.used).toBe(1);
   });
-  it('2 本 持つと 20 マス、3 本で 30 マスまで。つかう 本数は ⌈長さ ÷ 10⌉', () => {
-    expect(planRope(openAbove(-100), 50, 2)!.cells).toHaveLength(20);
-    expect(planRope(openAbove(-100), 50, 3)!.cells).toHaveLength(30);
-    const p = planRope(openAbove(35), 50, 3)!; // 50〜36 の 15 マス
-    expect(p.cells).toHaveLength(15);
+  it('N 本 持つと L × N マスまで。つかう 本数は ⌈長さ ÷ L⌉', () => {
+    expect(planRope(openAbove(-100), 50, 2)!.cells).toHaveLength(2 * L);
+    expect(planRope(openAbove(-100), 50, 3)!.cells).toHaveLength(3 * L);
+    const p = planRope(openAbove(50 - L - 2), 50, 3)!; // L + 2 マス
+    expect(p.cells).toHaveLength(L + 2);
     expect(p.cells.at(-1)!.block).toBe('rope_coil');
     expect(p.used).toBe(2);
   });
-  it('ちょうど 10 × N マスで 床に とどくと、ロープだまりに なって N 本', () => {
-    const p = planRope(openAbove(40), 50, 1)!; // 50〜41 = 10 マス、40 が 床
-    expect(p.cells).toHaveLength(10);
+  it('ちょうど L × N マスで 床に とどくと、ロープだまりに なって N 本', () => {
+    const p = planRope(openAbove(50 - L), 50, 1)!;
+    expect(p.cells).toHaveLength(L);
     expect(p.cells.at(-1)!.block).toBe('rope_coil');
     expect(p.used).toBe(1);
   });
@@ -56,8 +58,8 @@ describe('ropeColumn・ropesFor（こわすと ぜんぶ もどる）', () => {
     const id = col(30, 21, false);
     expect(ropeColumn(id, 25)).toEqual({ top: 30, bottom: 21 });
   });
-  it('もどる 本数 = ⌈長さ ÷ 10⌉（たらした ときと 同じ）', () => {
-    expect([1, 10, 11, 20, 21, 30].map(ropesFor)).toEqual([1, 1, 2, 2, 3, 3]);
+  it('もどる 本数 = ⌈長さ ÷ L⌉（たらした ときと 同じ）', () => {
+    expect([1, L, L + 1, 2 * L, 2 * L + 1].map(ropesFor)).toEqual([1, 1, 2, 2, 3]);
   });
   it('ロープの マスか', () => {
     expect(isRopeBlock('rope')).toBe(true);
@@ -75,11 +77,11 @@ describe('版 3: facingStep・planRopeHere・stakeRope', () => {
     expect(facingStep(60)).toEqual([1, 0]);
   });
   it('くいは 足もと、なわは まえの 列の 足もとの 高さから 下へ', () => {
-    const open = (x: number, y: number) => x === 6 && y > 2; // まえ（x=6）は y=3 より 上が あき
+    const open = (x: number, y: number) => x === 6 && y > 4; // まえ（x=6）は y=5 より 上が あき
     const p = planRopeHere({ x: 5, y: 8, z: 5 }, 90, 1, () => true, open)!;
     expect(p.stake).toEqual({ x: 5, y: 8, z: 5 });
     expect([p.x, p.z]).toEqual([6, 5]);
-    expect(p.cells.map((c) => c.y)).toEqual([8, 7, 6, 5, 4, 3]);
+    expect(p.cells.map((c) => c.y)).toEqual([8, 7, 6, 5]);
     expect(p.cells.at(-1)!.block).toBe('rope_coil');
   });
   it('まえの 1 つ下が ふさがって いる（がけで ない）・くいが おけない なら null', () => {
