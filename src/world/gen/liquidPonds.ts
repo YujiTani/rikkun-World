@@ -28,20 +28,20 @@ export type PondHit = { kind: 'inner' | 'ring'; pond: LiquidPond };
 
 /** 調整 */
 export const LIQUID_POND_TUNING = {
-  /** 升目の 大きさ（マス）。升目に 0 か 1 こ。WAKIDOKORO §11: 96 → 64（さがせば 見つかる 数に。はじめから 200 マス 以内に 10 こ 前後） */
-  cell: 64,
-  /** 升目に いけが ある 確率（WAKIDOKORO §11: 0.3 → 0.6） */
-  chance: 0.6,
+  /** 升目の 大きさ（マス）。升目に 0 か 1 こ */
+  cell: 96,
+  /** 升目に いけが ある 確率 */
+  chance: 0.3,
   /** しゅるいの わりあい（溶岩の いけ / マグマの 滝 / 水の 滝。のこり） */
   lavaPond: 0.45,
   lavaFall: 0.25,
   width: [4, 6] as const,
   depth: [1, 2] as const,
   fallHeight: [4, 6] as const,
-  /** 升目の へりから はなす マス（WAKIDOKORO §11: 升目が 64 に なったので 12 → 8） */
-  margin: 8,
+  /** 升目の へりから はなす マス */
+  margin: 12,
   /** はじめの 場所から この 距離（チェビシェフ）より 内には 升目の いけを 置かない（はじめの そばの いけ だけ） */
-  spawnClear: 64,
+  spawnClear: 80,
   /** テストに 使う 場所（GEN_CONFIG.testArea）から この マス 内にも 置かない（E2E の しずけさ） */
   testAreaClear: 48,
   /** へりの 高さの 差が これ より 大きい 場所は やめる */

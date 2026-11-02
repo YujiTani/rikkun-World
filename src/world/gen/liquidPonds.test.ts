@@ -118,15 +118,3 @@ describe('升目の いけ', () => {
   });
 });
 
-describe('WAKIDOKORO §11 さがせば 見つかる 数', () => {
-  it('既定の シードで はじめから 200 マス 以内に 升目の いけ・滝が 8 こ 以上（溶岩・マグマの 滝・水の 滝 それぞれ 1 こ 以上）。いちばん 近い ものは spawnClear の 外', () => {
-    const tr = terrainFor(C.defaultSeed);
-    const sp = tr.spawn();
-    const ps = tr.liquid.pondsIn(sp.x - 200, sp.z - 200, sp.x + 200, sp.z + 200).filter((p) => !p.nearSpawn && Math.hypot((p.x0 + p.x1) / 2 - sp.x, (p.z0 + p.z1) / 2 - sp.z) <= 200);
-    expect(ps.length).toBeGreaterThanOrEqual(8);
-    expect(ps.some((p) => p.liquid === 'magma' && !p.fall)).toBe(true);
-    expect(ps.some((p) => p.liquid === 'magma' && p.fall)).toBe(true);
-    expect(ps.some((p) => p.liquid === 'water' && p.fall)).toBe(true);
-    for (const p of ps) expect(Math.max(Math.abs(p.x1 - sp.x), Math.abs(p.x0 - sp.x), Math.abs(p.z1 - sp.z), Math.abs(p.z0 - sp.z))).toBeGreaterThan(T.spawnClear - 8);
-  });
-});

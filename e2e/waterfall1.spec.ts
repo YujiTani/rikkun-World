@@ -48,6 +48,7 @@ test('WATERFALL-1: わきどころ → 滝 → たきつぼ（量 かわらな�
     h.inventory.clear();
     h.inventory.add('wakimizu', 1); // 作った 1 こ と 同じ（スロット 0 に そろえる）
     h.inventory.select(0);
+    (window as any).__springs0 = h.water.springCount(); // 自然の 滝（生成）の わきどころも 数に 入る ので 置く 前と くらべる
     h.player.set({ position: { x: 20.5, y: 9, z: 20.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -40 });
     h.step(2);
     (window as any).__aim.solve(20, 8, 18, 1);
@@ -56,7 +57,7 @@ test('WATERFALL-1: わきどころ → 滝 → たきつぼ（量 かわらな�
     h.step(1);
     h.input.release('secondary');
     h.step(2);
-    return { block: h.world.getBlock(20, 9, 18) as string, left: h.inventory.count('wakimizu') as number, springs: h.water.springCount() as number };
+    return { block: h.world.getBlock(20, 9, 18) as string, left: h.inventory.count('wakimizu') as number, springs: (h.water.springCount() - (window as any).__springs0) as number };
   });
   expect(placed.block).toBe('wakimizu');
   expect(placed.left).toBe(0);
@@ -71,6 +72,8 @@ test('WATERFALL-1: わきどころ → 滝 → たきつぼ（量 かわらな�
     h.world.fill(10, 9, 10, 14, 9, 14, 'air');
     h.world.fill(10, 8, 10, 14, 8, 14, 'dirt');
     h.world.setBlock(12, 20, 12, 'wakimizu');
+    // WAKIDOKORO §5: わきどころは 5 方向に 出る。東西南北を いしで ふさいで 下 だけに 落とす
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) h.world.setBlock(12 + dx, 20, 12 + dz, 'stone');
     h.player.set({ position: { x: 12.5, y: 9, z: 2.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: 18 });
   });
   const formed = await page.evaluate(() => {
