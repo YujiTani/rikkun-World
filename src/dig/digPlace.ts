@@ -6,7 +6,7 @@ import { K_TANSU, doorId, doorInfo, furnInfo, furnPlaceCells, houseDropOf, isFur
 import { applyFlatten, planFlatten, type FlattenPlan } from '../world/flatten';
 import { HANGING_SUPPORT, isReplaceable, overlapsBody, type DigCore } from './digCore';
 import { isWater } from '../world/blocks/water';
-import { ROPE, ROPE_FENCE, ROPE_STAKE, planRopeHere } from '../world/blocks/rope';
+import { ROPE, ROPE_FENCE, ROPE_FENCE_POST, ROPE_STAKE, isFenceBlock, planRopeHere } from '../world/blocks/rope';
 import { tetherOf } from '../world/blocks/ropeTether';
 import { planFence, type FenceWorld } from '../world/blocks/ropeFence';
 
@@ -134,16 +134,32 @@ export class BlockPlacer {
           return (cur === 'air' || isReplaceable(cur)) && free(x, y, z) && !this.overlapsBody(x, y, z);
         },
         solid: (x, y, z) => c.world.isSolid(x, y, z),
-        fence: (x, y, z) => c.world.getBlock(x, y, z) === ROPE_FENCE,
+        fence: (x, y, z) => isFenceBlock(c.world.getBlock(x, y, z)),
       };
-      const fp = planFence(tether.anchor!, t.place.x, t.place.z, have, fw);
+      const a = tether.anchor!;
+      const fp = planFence(a, t.place.x, t.place.z, have, fw);
       if (!fp) return null;
-      const last = fp.cells[fp.cells.length - 1]!;
-      return { x: last.x, y: last.y, z: last.z, block: ROPE_FENCE, cells: fp.cells.map((k) => ({ ...k, block: ROPE_FENCE })), use: fp.used };
+      // 版 5: はし（はじめの くい・さいごの マス）と L 字の かどは くい（rope_fence_post。くいと 同じ 絵）、その 間は よこに はった なわ
+      const n = fp.cells.length;
+      const corner = t.place.x !== a.x && t.place.z !== a.z ? Math.abs(t.place.x - a.x) - 1 : -1;
+      const cells: Array<{ x: number; y: number; z: number; block: BlockId }> = fp.cells.map((k, i) => ({ ...k, block: i === n - 1 || i === corner ? ROPE_FENCE_POST : ROPE_FENCE }));
+      // はじめの くいも さくの くいに する（体と 重なる ときは 固くない くいの まま。絵は 同じ）
+      if (!this.overlapsBody(a.x, a.y, a.z)) cells.unshift({ ...a, block: ROPE_FENCE_POST });
+      const last = cells[cells.length - 1]!;
+      // 版 5: さくを つくったら つなぎは おわり
+      return { x: last.x, y: last.y, z: last.z, block: last.block, cells, use: fp.used, after: () => tether.clear() };
+    }
+    // 版 5: さくの くいの 上を ねらって 右クリック → その 上に くいを かさねて うち、つなぐ（つぎの さくは その 段に できる）
+    const aimed = c.tgt();
+    if (aimed && aimed.id === ROPE_FENCE_POST && aimed.face.y === 1) {
+      const { x, y, z } = aimed.place;
+      const cur = c.world.getBlock(x, y, z);
+      if (!((cur === 'air' || isReplaceable(cur)) && free(x, y, z))) return null;
+      return { x, y, z, block: ROPE_STAKE, after: () => tether.tie({ x, y, z }) };
     }
     const plan = planRopeHere(feet, p.yawDeg, have, canStake, open);
     if (!plan) {
-      // がけで ない（たいら）: 足もとに くいを うって 体と つなぐ（くい 1 本。半径 10 マス）
+      // がけで ない（たいら）: 足もとに くいを うって 体と つなぐ（くい 1 本。半径 ROPE_TUNING.tetherRadius）
       if (!canStake() || !p.onGround) return null;
       const { x, y, z } = feet;
       return { x, y, z, block: ROPE_STAKE, after: () => tether.tie(feet) };

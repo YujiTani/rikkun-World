@@ -18,7 +18,7 @@ import {
 } from './config';
 import { isDeepWater, isWater, waterAmount } from '../world/blocks/water';
 import { ROPE_STAKE, ROPE_TUNING, isClimbBlock } from '../world/blocks/rope';
-import { tetherOf } from '../world/blocks/ropeTether';
+import { tetherOf, type TetherBody } from '../world/blocks/ropeTether';
 
 const DEG = Math.PI / 180;
 /** ふみこみを 区切る 長さ（がけ・妖怪の 手前で 止める 細かさ） */
@@ -84,7 +84,7 @@ export class PlayerController {
   /** ねらう行動のあと、向きをねらいに合わせつづける残りステップ */
   private aimHold = 0;
   /** ROPE-1 版 3: つないだ ロープ いっぱいで ぶら下がって いる（のぼる・おりる・落ちない） */
-  private hanging = false;
+  readonly tetherBody: TetherBody = { hanging: false, bouncing: false, calm: 0, hangLen: 0 };
   /** ROPE-1: 足もと か こしが ロープの マス（updateWater で 水と いっしょに 読む） */
   private ropeCell = false;
 
@@ -253,8 +253,11 @@ export class PlayerController {
     }
     // ROPE-1 版 3: ロープに つかまって いる 間は スペース（jump）= のぼる、シフト（run）= おりる、どちらも なし = とまる。
     // まえ・うしろ・よこは ふつうに 歩く（がけの 上へ もどる・はなれる）。ロープの 上では 走らない
-    const climb = this.motion.hoverY === null && (this.onRope() || this.hanging);
-    const climbDir = !climb ? 0 : jumpHeld ? 1 : runHeld ? -1 : 0;
+    // 版 5: つないで ぶら下がって いる 間は Shift+スペース = のぼる、Shift+C（ropeDown）= おりる。スペース だけ・シフト だけ では うごかない
+    const hang = this.motion.hoverY === null && this.tetherBody.hanging && !this.ropeCell;
+    const climb = (this.motion.hoverY === null && this.ropeCell) || hang;
+    const downHeld = enabled && !this.motion.noMoveInput && this.actions.isHeld('ropeDown');
+    const climbDir = !climb ? 0 : hang ? (runHeld && jumpHeld ? 1 : runHeld && downHeld ? -1 : 0) : jumpHeld ? 1 : runHeld ? -1 : 0;
     if (climb) runHeld = false;
     const yaw = st.yawDeg * DEG;
     const sin = Math.sin(yaw);
@@ -326,19 +329,32 @@ export class PlayerController {
     const tether = tetherOf(this.world);
     const anchor = hover === null ? tether.live((x, y, z) => this.world.getBlock(x, y, z), ROPE_STAKE) : null;
     const waist = { x: p[0], y: p[1] + TETHER_WAIST, z: p[2] };
-    const moveY = anchor ? tether.clampStep(anchor, waist, st.velocity, moveY0, dt) : moveY0;
+    let vyStep = vyNew;
+    let moveY = moveY0;
+    if (anchor) {
+      const v = { x: st.velocity.x, y: vyNew, z: st.velocity.z };
+      moveY = tether.step(anchor, waist, v, moveY0, dt, this.tetherBody, p[1]);
+      st.velocity.x = v.x;
+      st.velocity.z = v.z;
+      vyStep = v.y;
+    } else this.tetherBody.hanging = this.tetherBody.bouncing = false;
     const hitX = this.sweep(0, st.velocity.x * dt);
     const hitZ = this.sweep(2, st.velocity.z * dt);
     const hitY = this.sweep(1, moveY);
     if (hitX) st.velocity.x = 0;
     if (hitZ) st.velocity.z = 0;
-    st.velocity.y = hitY ? 0 : vyNew;
+    st.velocity.y = hitY ? 0 : vyStep;
 
     st.position.x = p[0];
     st.position.y = p[1];
     st.position.z = p[2];
     st.onGround = hover === null && hitY && moveY < 0;
-    this.hanging = anchor !== null && tether.anchor !== null && !st.onGround && (this.hanging || tether.taut(anchor, { x: p[0], y: p[1] + TETHER_WAIST, z: p[2] }));
+    // 地面に ついたら ぶら下がり・ゆれ おわり
+    if (st.onGround || tether.anchor === null) {
+      this.tetherBody.hanging = false;
+      this.tetherBody.bouncing = false;
+      this.tetherBody.calm = 0;
+    }
     st.moving = wlen > 0 || Math.hypot(st.velocity.x, st.velocity.z) > MOVING_SPEED_EPS;
     this.updateWater();
 
@@ -455,7 +471,7 @@ export class PlayerController {
 
   /** ROPE-1: 体（足もと か こし）が ロープの マスに かかって いるか */
   onRope(): boolean {
-    return this.hanging || this.ropeCell;
+    return this.tetherBody.hanging || this.tetherBody.bouncing || this.ropeCell;
   }
 
   private updateWater(): void {

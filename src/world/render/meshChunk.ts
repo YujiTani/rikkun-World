@@ -337,10 +337,10 @@ export function crossTileName(b: number, stage: number): TileName {
   const id = BLOCK_TYPES[b].id;
   const k = cropKindOfBlock(id);
   if (k && !k.wild) return `crop_${k.kind}_${stage}` as TileName;
-  if (id === 'toriya_fence') return 'toriya_fence_x';
-  if (id === 'toriya_gate') return 'toriya_gate_x';
-  return id as TileName;
+  return CROSS_TILE_OF[id] ?? (id as TileName);
 }
+/** 十字の板で ほかの 絵を つかう ブロック（とりごや の さく・もん、ROPE-1 版 5 の さくの くい = くいと 同じ 絵） */
+const CROSS_TILE_OF: Readonly<Record<string, TileName>> = { toriya_fence: 'toriya_fence_x', toriya_gate: 'toriya_gate_x', rope_fence_post: 'rope_stake' };
 
 // 十字の板: 2 まいの対角の板。それぞれ表と裏を描く（4 面）
 const CROSS_QUADS: [number, number][][] = [

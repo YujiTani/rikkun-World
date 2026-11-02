@@ -154,6 +154,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     rope_coil: 0.05,
     rope_stake: 0.05,
     rope_fence: 0.1,
+    rope_fence_post: 0.1,
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -235,6 +236,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     rope_coil: 0,
     rope_stake: 0,
     rope_fence: 0,
+    rope_fence_post: 0,
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
   handLevel: 0,
@@ -330,6 +332,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     rope_coil: 'common',
     rope_stake: 'common',
     rope_fence: 'common',
+    rope_fence_post: 'common',
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };

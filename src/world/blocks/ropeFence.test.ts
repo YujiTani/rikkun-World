@@ -25,13 +25,14 @@ describe('fencePath', () => {
 });
 
 describe('planFence', () => {
-  it('たいら: ぜんぶ 地面の 上。本数は ⌈マス数 ÷ 10⌉', () => {
+  it('たいら: ぜんぶ 地面の 上。本数は ⌈マス数 ÷ 5⌉（版 5）', () => {
     const p = planFence(S, 3, 4, 5, flat())!;
     expect(p.cells.map((c) => [c.x, c.y, c.z])).toEqual([[1, 9, 0], [2, 9, 0], [3, 9, 0], [3, 9, 1], [3, 9, 2], [3, 9, 3], [3, 9, 4]]);
-    expect(p.used).toBe(1);
+    expect(p.used).toBe(2); // 7 マス ÷ 5 の 切り上げ
     expect(p.stop).toBeNull();
-    expect(fencesFor(10)).toBe(1);
-    expect(fencesFor(11)).toBe(2);
+    expect(fencesFor(1)).toBe(1);
+    expect(fencesFor(5)).toBe(1);
+    expect(fencesFor(6)).toBe(2);
   });
   it('だんさ: 上 1・下 3 までは そう。それ より 高い かべ で とまる', () => {
     const steps = world((x) => (x === 2 ? 9 : x === 3 ? 6 : x >= 4 ? 12 : 8));
@@ -39,22 +40,19 @@ describe('planFence', () => {
     expect(p.cells.map((c) => [c.x, c.y])).toEqual([[1, 9], [2, 10], [3, 7]]);
     expect(p.stop).toBe('wall');
   });
-  it('半径 10 を こえる マスで とまる', () => {
+  it('半径 5 を こえる マスで とまる（版 5）', () => {
     const p = planFence(S, 15, 0, 5, flat())!;
-    expect(p.cells.length).toBe(10);
+    expect(p.cells.length).toBe(5);
     expect(p.stop).toBe('radius');
-    const d = planFence(S, 8, 8, 5, flat())!; // L 字の かど (8,0) から (8,6) まで: hypot(8,6)=10
-    expect(d.cells.at(-1)).toEqual({ x: 8, y: 9, z: 6 });
+    const d = planFence(S, 4, 4, 5, flat())!; // L 字の かど (4,0) から (4,3) まで: hypot(4,3)=5
+    expect(d.cells.at(-1)).toEqual({ x: 4, y: 9, z: 3 });
+    expect(d.stop).toBe('radius');
   });
-  it('本数が 足りなければ 持って いる 本数 × 10 マス まで', () => {
-    const p = planFence(S, 0, -10, 1, flat())!;
-    expect(p.cells.length).toBe(10);
-    const q = planFence(S, 10, 0, 1, flat())!;
-    expect(q.stop).toBeNull();
-    const w = flat();
-    const r = planFence(S, 9, 9, 1, w)!;
-    expect(r.cells.length).toBe(10);
-    expect(r.stop).toBe('ropes');
+  it('本数が 足りなければ 持って いる 本数 × 5 マス まで', () => {
+    const p = planFence(S, 3, 3, 1, flat())!; // 6 マス ほしい・1 本
+    expect(p.cells.length).toBe(5);
+    expect(p.stop).toBe('ropes');
+    expect(planFence(S, 5, 0, 1, flat())!.stop).toBeNull();
   });
   it('さく が ある 所は その 上に つむ（地面は さくの 下で はかる）', () => {
     const w = flat();

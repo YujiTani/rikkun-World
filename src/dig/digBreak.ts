@@ -4,7 +4,7 @@ import { CHALK_FACES, CHALK_NORMAL, chalkInfo, isChalkMarkId } from '../world/bl
 import { futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
 import { K_TANSU, doorInfo, furnSiblings, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
-import { ROPE, ROPE_STAKE, ROPE_FENCE, isRopeBlock, ropeColumn, ropeStakeOf, ropesFor, stakeRope } from '../world/blocks/rope';
+import { ROPE, ROPE_STAKE, isFenceBlock, isRopeBlock, ropeColumn, ropeStakeOf, ropesFor, stakeRope } from '../world/blocks/rope';
 import { tetherOf } from '../world/blocks/ropeTether';
 import { HEMP } from '../craft/recipes';
 import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
@@ -120,7 +120,8 @@ export class BlockBreaker {
     const a = tether.anchor;
     const tied = a !== null && a.x === x && a.y === y && a.z === z;
     if (tied) tether.clear();
-    const lone = t.id === ROPE_FENCE || tied;
+    const fence = isFenceBlock(t.id);
+    const lone = fence || tied;
     // がけの くいを こわした: となりの ロープの 列を さがす
     const col = lone ? null : t.id === ROPE_STAKE ? stakeRope(get, x, y, z) : { x, z };
     if (lone || t.id === ROPE_STAKE) w.setBlock(x, y, z, 'air');
@@ -130,7 +131,7 @@ export class BlockBreaker {
       if (stake) w.setBlock(stake.x, top, stake.z, 'air');
       for (let yy = bottom; yy <= top; yy++) w.setBlock(col.x, yy, col.z, 'air');
       n = ropesFor(top - bottom + 1);
-    } else n = t.id === ROPE_FENCE ? tether.fenceRefund() : 1; // 版 4: さく は 10 マス ごとに 1 本（1 マス目で 1 本）。くい だけ は 1 本
+    } else n = fence ? tether.fenceRefund() : 1; // 版 4・5: さく（なわ・くい）は perRope マス ごとに 1 本（1 マス目で 1 本）。くい だけ は 1 本
     if (n > 0) giveStacks(c, [{ item: ROPE, count: n }], x, y, z);
     c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: t.id, gotItem: n > 0, count: n });
     return 'done';

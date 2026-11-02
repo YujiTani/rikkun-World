@@ -3,17 +3,25 @@ import type { BlockId } from '../../contracts';
 /**
  * ROPE-1: ロープ（がけの ふちから 下へ たらす 物）。数と きまりは ここ 1 か所。
  * - 版 3: がけに むかって 立って 右クリック。足もとの マスに くい（rope_stake）、向いて いる ほう（4 方向）の となりの マスから 下へ たれる（planRopeHere）。
- * - 1 本で 10 マスまで。持って いる 数 N 本で 10 × N マスまで。つかう 本数は ⌈長さ ÷ 10⌉（持って いる 数が 上限）。
- * - 10 × N マス 以内で 床に とどいたら、いちばん 下の マスは ロープだまり（rope_coil）。
+ * - 1 本で 5 マスまで（版 5。版 4 までは 10）。持って いる 数 N 本で 5 × N マスまで。つかう 本数は ⌈長さ ÷ 5⌉（持って いる 数が 上限）。
+ * - 5 × N マス 以内で 床に とどいたら、いちばん 下の マスは ロープだまり（rope_coil）。
  * - どの マスを こわしても たれた ロープ ぜんぶが 消え、つかった 本数が 持ち物に もどる。
  */
+/** 版 5: ロープ 1 本の 長さ（マス）。たらす ロープ・つなぎの 半径・さくの 本数・こわした ときの もどり、ぜんぶ これ 1 つ */
+const ROPE_LEN = 5;
 export const ROPE_TUNING = {
-  /** 1 本で たれる 長さ（マス） */
-  perRope: 10,
+  /** 1 本で たれる 長さ（マス）。さくは この マス数 ごとに 1 本（切り上げ）・こわすと この マス数 ごとに 1 本 もどる */
+  perRope: ROPE_LEN,
   /** のぼる・おりる 速さ（マス/秒） */
   climbSpeed: 3,
-  /** 版 4: つなぎの 半径（マス。持って いる 本数に よらない） */
-  tetherRadius: 10,
+  /** つなぎの 半径（マス。持って いる 本数に よらない） */
+  tetherRadius: ROPE_LEN,
+  /** 版 5: つないで がけから 落ちた ときの ゴムの かたさ（フックの 法則 F = -k x。質量 1） */
+  springStiffness: 100,
+  /** 版 5: ゴムの 減衰（-c v） */
+  springDamping: 5,
+  /** 版 5: ゴムが のびる 上限（マス。これ より 先は のびない） */
+  springMaxStretch: 2,
 } as const;
 
 export const ROPE: BlockId = 'rope';
@@ -23,7 +31,14 @@ export const ROPE_STAKE: BlockId = 'rope_stake';
 
 /** ROPE-1 版 3: ロープの さく（1 マス。よこから とおれない・上に のれる・ジャンプで こえる） */
 export const ROPE_FENCE: BlockId = 'rope_fence';
-const ROPE_PARTS: ReadonlySet<string> = new Set([ROPE, ROPE_COIL, ROPE_STAKE, ROPE_FENCE]);
+/** ROPE-1 版 5: さくの くい（はし・かど） */
+export const ROPE_FENCE_POST: BlockId = 'rope_fence_post';
+const ROPE_PARTS: ReadonlySet<string> = new Set([ROPE, ROPE_COIL, ROPE_STAKE, ROPE_FENCE, ROPE_FENCE_POST]);
+const FENCE_PARTS: ReadonlySet<string> = new Set([ROPE_FENCE, ROPE_FENCE_POST]);
+/** 版 5: さく の マス（なわ か くい） */
+export function isFenceBlock(id: string): boolean {
+  return FENCE_PARTS.has(id);
+}
 
 /** ロープの マス（たれた なわ・ロープだまり・くい）か */
 export function isRopeBlock(id: string): boolean {

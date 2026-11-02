@@ -551,6 +551,7 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   rope_coil: ['rope_coil', 'rope_coil', 'rope_coil'],
   rope_stake: ['rope_stake', 'rope_stake', 'rope_stake'],
   rope_fence: ['rope_fence', 'rope_fence', 'rope_fence'],
+  rope_fence_post: ['rope_stake', 'rope_stake', 'rope_stake'], // 版 5: くいと 同じ 絵
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */
