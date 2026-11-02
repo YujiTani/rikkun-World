@@ -65,6 +65,8 @@ async function swing(page: Page) {
 }
 
 test.describe('TAKO-1 うみの タコはちまき', () => {
+  // CI の シャードで 最初の 1 本目だけ 起動（ready）が 60 秒を こえる ことが ある（#386・#387 で 3 回。手元では 6/6 通る）。テストの 中身は かえない
+  test.setTimeout(120_000);
   test('AC13: 水の 中の タコはちまき を、同じ ふかさの りっくんが パンチ・かたなで たたける', async ({ page }) => {
     await open(page);
     const id = await spawnTako(page);
