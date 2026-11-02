@@ -78,12 +78,12 @@ describe('WAKIDOKORO §8 マグマで 燃える 落としもの', () => {
     expect(r.f.size()).toBe(0);
   });
 
-  it('見た目: 燃えて いる ものに 炎 2・けむり 1 の つぶ。燃えて いなければ 0（描かない）', () => {
+  it('見た目: 燃えて いる ものに 炎 2・黒い けむり 4・火の粉 1 の つぶ。燃えて いなければ 0（描かない）', () => {
     const scene = new THREE.Scene();
     const v = new BagVisuals(scene);
     const bag = { id: 1, position: { x: 1, y: 1, z: 1 }, slots: [{ item: 'dirt' as const, count: 1 }], ticksLeft: 100, burning: true };
     v.update(0.1, [bag]);
-    expect(v.burnParticles).toBe(3);
+    expect(v.burnParticles).toBe(7);
     v.update(0.1, [{ ...bag, burning: false }]);
     expect(v.burnParticles).toBe(0);
     v.dispose();

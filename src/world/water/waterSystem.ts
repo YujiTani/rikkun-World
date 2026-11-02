@@ -65,11 +65,19 @@ export interface WaterSystem {
   scorched(x: number, y: number, z: number): boolean;
   /** MAGMA-SPAWN: プレイヤーの 場所を わたす（activeRadius より 遠い わきどころは 休む） */
   setFocus(fn: () => { x: number; z: number }): void;
+  /** WAKIDOKORO §11: 液体の 音の できごと（置いた・しんしょく）。1 か所で 受ける */
+  setSound(fn: ((kind: LiquidSoundKind, x: number, y: number, z: number) => void) | null): void;
 }
+
+/** WAKIDOKORO §11: 水の わきどころを 置いた・マグマの わきどころを 置いた・液体が ブロックを かえた（こくようせき・こげた・流れこみ） */
+export type LiquidSoundKind = 'placeWater' | 'placeMagma' | 'erode';
 
 const KOKUYOUSEKI = 'kokuyouseki';
 /** 版 2: 焼ける ブロック（固い・こわれる・burnSkip で ない）。番号で 引く 表 */
 const KOGETA_INDEX = BLOCK_INDEX.kogeta;
+const KOKU_INDEX = BLOCK_INDEX.kokuyouseki;
+const WAKI_W = BLOCK_INDEX.wakimizu;
+const WAKI_M = BLOCK_INDEX.magma_wakimizu;
 const SKIP = new Set<string>(MAGMA_TUNING.burnSkip);
 const BURNABLE: readonly boolean[] = BLOCK_TYPES.map((t) => t.solid && t.breakable && !SKIP.has(t.id));
 const cellKey = (x: number, y: number, z: number): number => (x + 32768) * 4294967296 + (y & 1023) * 4194304 + ((z + 2097152) & 4194303);
@@ -108,6 +116,7 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
   world.onBlockChange = (x, y, z, prev, next) => {
     const wn = waterAmount(next);
     const mn = magmaAmount(next);
+    if (soundFn) soundOf(x, y, z, prev, next, wn, mn);
     if (wn > 0) W.wake(x, y, z);
     else if (mn > 0) M.wake(x, y, z);
     for (let i = 0; i < 6; i++) {
@@ -127,6 +136,15 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     }
     springs.onChange(x, y, z, prev, next);
   };
+
+  let soundFn: ((kind: LiquidSoundKind, x: number, y: number, z: number) => void) | null = null;
+  /** 番号の 比べだけ（getBlock は 呼ばない） */
+  function soundOf(x: number, y: number, z: number, prev: number, next: number, wn: number, mn: number): void {
+    if (next === WAKI_W && prev !== WAKI_W) soundFn!('placeWater', x, y, z);
+    else if (next === WAKI_M && prev !== WAKI_M) soundFn!('placeMagma', x, y, z);
+    else if (next === KOKU_INDEX || (next === KOGETA_INDEX && prev !== KOGETA_INDEX)) soundFn!('erode', x, y, z);
+    else if ((wn > 0 || mn > 0) && prev !== AIR && waterAmount(prev) === 0 && magmaAmount(prev) === 0) soundFn!('erode', x, y, z);
+  }
 
   /** 版 2: 見はりの マグマの まわり 6 マスの 焼ける ブロックを 確率で こげた ブロックに（getIndex だけ。getBlock は 呼ばない） */
   function burnPass(): void {
@@ -194,6 +212,9 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     computed: () => W.computed() + M.computed(),
     setFocus(fn) {
       focusFn = fn;
+    },
+    setSound(fn) {
+      soundFn = fn;
     },
     magma: {
       set(x, y, z, n) {

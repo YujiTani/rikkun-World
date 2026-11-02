@@ -23,22 +23,29 @@ export interface BagLike {
 
 /** WAKIDOKORO §8: 燃える 落としものの 炎・けむりの つぶ（1 か所の 表） */
 const BURN_FX = {
-  /** 1 つの 落としものに 出す つぶ: 炎 2・けむり 1 */
+  /** 1 つの 落としものに 出す つぶ: 炎 2・黒い けむり 4・火の粉 1（ゆず: 黒煙が 上がる） */
   flames: 2,
-  smokes: 1,
+  smokes: 4,
+  embers: 1,
+  /** 火の粉: 1 まわりの 秒・のぼる 高さ・大きさ */
+  emberPeriod: 1.1,
+  emberRise: 1.2,
+  emberSize: 0.05,
   /** 炎の 1 まわりの 秒・のぼる 高さ（マス）・大きさ */
   flamePeriod: 0.6,
   flameRise: 0.45,
   flameSize: 0.14,
-  smokePeriod: 1.4,
-  smokeRise: 0.9,
-  smokeSize: 0.16,
+  smokePeriod: 2.0,
+  smokeRise: 1.8,
+  smokeSize: 0.26,
   /** いちどに 出せる 燃える 落としもの */
   maxBags: 48,
 } as const;
-const BURN_PER = BURN_FX.flames + BURN_FX.smokes;
+const BURN_PER = BURN_FX.flames + BURN_FX.smokes + BURN_FX.embers;
 const FLAME_COLORS = [0xffb02e, 0xff6a1a] as const;
-const SMOKE_COLOR = 0x6b6b6b;
+/** 黒い けむり: 生まれは 黒、のぼると すこし 灰（pixelfx の SMOKE_RAMP を 逆に した 並び） */
+const SMOKE_RAMP = [0x141216, 0x1a171e, 0x2b2630, 0x433d48] as const;
+const EMBER_COLORS = [0xffe26b, 0xff8a2a, 0xc9281f] as const;
 
 const B = COMBAT_FX.bag;
 
@@ -195,19 +202,46 @@ export class BagVisuals {
     this.burnMesh = burn;
   }
 
-  /** WAKIDOKORO §8: 燃える 落としもの 1 つの つぶ（時間で のぼって 小さく なる。落としものごとに ずらす） */
+  /**
+   * WAKIDOKORO §8: 燃える 落としもの 1 つの つぶ（時間で のぼる。落としものごとに ずらす）。
+   * 動きと 色の 決め方は pixelfx（MIT, patch-gg/pixelfx `src/fx/fire/_lib.js` の smokePuff・ember）を 参考に した 自前の 箱つぶ:
+   * けむりは 生まれて すぐ ふくらみ（0.65 → +0.45、その後 ゆっくり）、終わりに 小さく なって きえる。色は 黒 → 灰。
+   * 火の粉は 熱い 黄 → 橙 → 赤 と さめて、終わりは ちらついて きえる。NOTICE.md に 表記。
+   */
   private addBurn(n: number, bag: BagLike): number {
     const F = BURN_FX;
     for (let k = 0; k < BURN_PER && n < this.burnMesh.instanceMatrix.count; k++) {
-      const flame = k < F.flames;
-      const period = flame ? F.flamePeriod : F.smokePeriod;
-      const t = ((this.time + bag.id * 0.37 + k * (period / BURN_PER)) % period) / period; // 0〜1
-      const size = (flame ? F.flameSize : F.smokeSize) * (flame ? 1 - t * 0.7 : 0.6 + t * 0.6);
-      const ox = flame ? (k === 0 ? -0.08 : 0.08) : Math.sin(t * 6.28) * 0.05;
-      const y = bag.position.y + 0.1 + t * (flame ? F.flameRise : F.smokeRise);
-      this.mtx.makeScale(size, size, size).setPosition(bag.position.x + ox, y, bag.position.z);
+      const kind = k < F.flames ? 0 : k < F.flames + F.smokes ? 1 : 2; // 0 炎・1 けむり・2 火の粉
+      const period = kind === 0 ? F.flamePeriod : kind === 1 ? F.smokePeriod : F.emberPeriod;
+      const age = ((this.time + bag.id * 0.37 + k * (period / BURN_PER)) % period) / period; // 0〜1
+      const left = 1 - age;
+      let size: number;
+      let ox: number;
+      let oz = 0;
+      let rise: number;
+      let color: number;
+      if (kind === 0) {
+        size = F.flameSize * (1 - age * 0.7);
+        ox = k === 0 ? -0.08 : 0.08;
+        rise = age * F.flameRise;
+        color = FLAME_COLORS[k % 2]!;
+      } else if (kind === 1) {
+        // smokePuff: r = size·(0.65 + min(1, age·2.5)·0.45 + age·0.5)、うすく なる かわりに 小さく
+        size = F.smokeSize * (0.65 + Math.min(1, age * 2.5) * 0.45 + age * 0.5) * Math.min(1, left * 2.4);
+        ox = Math.sin(age * 4.1 + k * 1.7) * (0.04 + age * 0.14);
+        oz = Math.cos(age * 3.3 + k * 2.3) * (0.03 + age * 0.1);
+        rise = age * F.smokeRise;
+        color = SMOKE_RAMP[Math.min(SMOKE_RAMP.length - 1, Math.floor(age * SMOKE_RAMP.length))]!;
+      } else {
+        // ember: 熱い ほど 明るい。のこり 0.25 から ちらつく
+        size = left < 0.25 && Math.sin(age * 40 + bag.id) < 0 ? 0 : F.emberSize;
+        ox = 0.12 * (Math.sin(age * 2.3 + bag.id) - Math.sin(bag.id));
+        rise = age * F.emberRise;
+        color = EMBER_COLORS[left > 0.6 ? 0 : left > 0.3 ? 1 : 2]!;
+      }
+      this.mtx.makeScale(size, size, size).setPosition(bag.position.x + ox, bag.position.y + 0.1 + rise, bag.position.z + oz);
       this.burnMesh.setMatrixAt(n, this.mtx);
-      this.burnMesh.setColorAt(n, this.burnColor.setHex(flame ? FLAME_COLORS[k % 2]! : SMOKE_COLOR));
+      this.burnMesh.setColorAt(n, this.burnColor.setHex(color));
       n++;
     }
     return n;
