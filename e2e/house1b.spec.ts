@@ -251,6 +251,8 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     e = await ed(page);
     expect(e.selected, 'ふとんを えらんだ').toEqual({ i: 0, x: 1, z: 1 });
     expect((await btnState(page, 'furniture-chair'))?.pressed, '置いた 家具を えらぶと 右の 家具の えらびは はずれる').toBe(false);
+    // そばの ボタンは ふわっと 出る（opacity の アニメ）ので、出きるまで まつ
+    await expect.poll(async () => (await readButtons(page)).filter((b) => ['take', 'turnRight', 'turnLeft'].includes(b.id)).length, { timeout: 5000 }).toBe(3);
     const beside = (await readButtons(page)).filter((b) => ['take', 'turnRight', 'turnLeft'].includes(b.id));
     expect(beside.map((b) => b.id).sort(), 'そばの ボタン 3 つ').toEqual(['take', 'turnLeft', 'turnRight']);
     expect(Object.fromEntries(beside.map((b) => [b.id, b.label])), '読み上げ用の 名前').toEqual({ take: 'とる', turnRight: 'みぎに まわす', turnLeft: 'ひだりに まわす' });
