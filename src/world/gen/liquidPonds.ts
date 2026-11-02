@@ -208,11 +208,13 @@ export function fallColumn(ponds: LiquidPonds, x: number, z: number): { kind: 'p
   return null;
 }
 
-export function fallBlocks(p: LiquidPond): { x: number; y: number; z: number; b: 'stone' | 'wakimizu' | 'magma_wakimizu' | 'takitsubo' | 'air' }[] {
+export function fallBlocks(p: LiquidPond): { x: number; y: number; z: number; b: 'stone' | 'kokuyouseki' | 'wakimizu' | 'magma_wakimizu' | 'takitsubo' | 'air' }[] {
   const f = p.fall;
   if (f === null) return [];
-  const out: { x: number; y: number; z: number; b: 'stone' | 'wakimizu' | 'magma_wakimizu' | 'takitsubo' | 'air' }[] = [];
-  for (let y = p.level + 1; y < f.top; y++) out.push({ x: f.x, y, z: f.z, b: 'stone' });
+  const out: { x: number; y: number; z: number; b: 'stone' | 'kokuyouseki' | 'wakimizu' | 'magma_wakimizu' | 'takitsubo' | 'air' }[] = [];
+  // マグマの 滝の はしらは こくようせき（となりの マグマで こげない）
+  const pillar = p.liquid === 'magma' ? 'kokuyouseki' : 'stone';
+  for (let y = p.level + 1; y < f.top; y++) out.push({ x: f.x, y, z: f.z, b: pillar });
   out.push({ x: f.x, y: f.top, z: f.z, b: p.liquid === 'magma' ? 'magma_wakimizu' : 'wakimizu' });
   for (let y = p.level; y <= f.top + 1; y++) out.push({ x: f.x, y, z: f.z - 1, b: 'air' }); // 落ちる 道（はっぱ など を どける）
   out.push({ x: f.x, y: p.level - p.depth - 2, z: f.z - 1, b: 'takitsubo' }); // くぼみの 底（terrain.ts の 高さと 同じ）
