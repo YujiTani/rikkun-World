@@ -139,3 +139,86 @@ test('WATERFALL-1: わきみず → 滝 → たきつぼ（量 かわらない�
   expect(stone.water).toBe(8);
   await shot('4-magma-water-obsidian');
 });
+
+/**
+ * WATERFALL-1 版 2: 新しい マグマ（黒い 地殻＋光る ひび）・ぐつぐつ マグマの コマ（時間で かわる）・こげた ブロック（とおくから 見て、ふむと 1 秒に 1）。
+ * WF_SHOTS=dir で 画面を のこす（v2-*）。ぐつぐつ の 場所は 座標で きまる（15%）。8×6 の 池なら かならず ある。
+ */
+test('WATERFALL-1 版 2: ぐつぐつ マグマ・こげた ブロック', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.goto('/?nosave=1');
+  await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await page.evaluate(() => (window.__rikkun as any).achievements.mute(true));
+  await installArena(page);
+  const dir = process.env.WF_SHOTS;
+  const shot = async (name: string) => {
+    if (dir) await page.screenshot({ path: `${dir}/${name}.png` });
+  };
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.pause();
+    h.lock.simulate(true);
+    h.input.releaseAll();
+    h.settings.set('yokaiAutoSpawn', false);
+    h.yokai.clear();
+    h.time.set(67400);
+    (window as any).__arena.floor(0, 0, 26, 26);
+    h.water.pause(false);
+    // 池 x 8〜15・z 10〜15（y 8。下と まわりは 石）
+    h.world.fill(7, 7, 9, 16, 8, 16, 'stone');
+    h.world.fill(8, 8, 10, 15, 8, 15, 'air');
+    for (let x = 8; x <= 15; x++) for (let z = 10; z <= 15; z++) h.water.magma.set(x, 8, z, 8);
+    h.player.set({ position: { x: 11.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: -40 });
+    h.step(45 * 4);
+  });
+  await shot('v2-1-magma-new');
+  // コマ: 5 コマ/秒 → 12 ステップごとに つぎの コマ
+  for (let f = 0; f < 4; f++) {
+    await page.evaluate(() => (window.__rikkun as any).step(12));
+    await shot(`v2-2-boil-frame-${['a', 'b', 'c', 'd'][f]}`);
+  }
+  // こげた ブロック: 池の まわりの 石が 時間と ともに こげる
+  const burned = await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    const count = (): number => {
+      let n = 0;
+      for (let x = 7; x <= 16; x++) for (let y = 7; y <= 8; y++) for (let z = 9; z <= 16; z++) if (h.world.getBlock(x, y, z) === 'kogeta') n++;
+      return n;
+    };
+    const early = count();
+    h.step(60 * 60);
+    return { early, later: count(), magma: h.water.magma.total(8, 8, 10, 15, 8, 15) as number };
+  });
+  expect(burned.later).toBeGreaterThan(burned.early);
+  expect(burned.later).toBeGreaterThan(10);
+  expect(burned.magma).toBe(48 * 8);
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.world.fill(8, 8, 10, 15, 8, 15, 'air'); // マグマを どけて こげた 床を 見せる
+    h.time.set(12000);
+    h.player.set({ position: { x: 11.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: -50 });
+    h.step(10);
+  });
+  await shot('v2-3-kogeta');
+  // ふむと 1 秒に 1（マグマとは べつ）
+  const hurt = await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.combat.setHp(20);
+    let fx = -1;
+    let fz = -1;
+    for (let x = 8; x <= 15 && fx < 0; x++) for (let z = 10; z <= 15; z++) if (h.world.getBlock(x, 7, z) === 'kogeta') { fx = x; fz = z; break; }
+    // まわりは 空気（となりの こげた かべに ふれない よう 1 マスの 上で しらべる）
+    h.player.set({ position: { x: fx + 0.5, y: 8, z: fz + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+    h.step(1);
+    const a = h.combat.get().hp as number;
+    h.step(60);
+    const b = h.combat.get().hp as number;
+    h.player.set({ position: { x: 20.5, y: 9, z: 20.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+    h.step(120);
+    return { found: fx >= 0, a, b, c: h.combat.get().hp as number };
+  });
+  expect(hurt.found).toBe(true);
+  expect(hurt.a).toBe(19);
+  expect(hurt.b).toBe(18);
+  expect(hurt.c).toBe(18);
+});

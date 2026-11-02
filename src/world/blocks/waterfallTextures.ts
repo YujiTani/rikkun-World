@@ -98,10 +98,9 @@ function crack(x: number, y: number): number {
 /** 版 2（yuzu の 見本「2 枚目」）: 黒〜すみ色の 冷えた 地殻に、あみめの ひびから 赤 → だいだい → きいろ に 光る 溶岩。ひびの まん中ほど きいろ〜白 */
 function lavaPixel(x: number, y: number, hot: number): string {
   const c = crack(x, y) - hot;
-  if (c < 0.35) return '#FFF3B0';
-  if (c < 0.9) return '#FFC43A';
-  if (c < 1.5) return '#FF7A1A';
-  if (c < 2.1) return '#C8240E';
+  if (c < 0.45) return noise(x, y, 13) < 0.35 ? '#FFF3B0' : '#FFD54A';
+  if (c < 0.95) return '#FF8A1F';
+  if (c < 1.4) return '#B8200C';
   const r = noise(x, y, 9);
   return r < 0.18 ? '#3A2A26' : r > 0.8 ? '#140F0E' : '#241B19';
 }
@@ -127,7 +126,7 @@ function magmaBoil(f: number): Rgba[] {
         for (const [sx, sy] of sp) if (x === bx + sx && y === by + sy) return '#FFE36B';
       }
     }
-    return lavaPixel(x, y, 0.8);
+    return lavaPixel(x, y, 0.3);
   });
 }
 /** 版 2: こげた ブロック。石の もようを まっ黒に こがし、ひびに 赤い 火種が ちらつく（火種は 動かない） */
