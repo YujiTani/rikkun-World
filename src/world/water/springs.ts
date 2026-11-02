@@ -1,5 +1,6 @@
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { SPRING_TUNING as T } from '../blocks/liquids';
+import { magmaAmount } from '../blocks/magma';
 import { waterAmount } from '../blocks/water';
 import { sectionToArray } from '../sections';
 import { DX, DZ, chunkId, type LiquidCore, type LiquidWorld } from './liquidCore';
@@ -85,7 +86,7 @@ export function createSprings(world: LiquidWorld, water: LiquidCore, magma: Liqu
     for (let yy = y - 1; yy >= y - T.takiReach && yy >= 0; yy--) {
       const i = world.getIndex(x, yy, z);
       if (i < 0) return -1;
-      if (i !== AIR && waterAmount(i) === 0) return yy;
+      if (i !== AIR && waterAmount(i) === 0 && magmaAmount(i) === 0) return yy;
     }
     return -1;
   }
@@ -122,8 +123,29 @@ export function createSprings(world: LiquidWorld, water: LiquidCore, magma: Liqu
     }
   }
 
+  /**
+   * MAGMA-SPAWN: マグマの わきみずも 真下の 床が たきつぼ なら つながる（たきつぼの 上の マグマ 1 つぶ → 出口。量は かわらない）。
+   * 自然に できる マグマの 滝が あふれない ため。マグマでは たきつぼは できない（置くか 生成だけ）
+   */
   function stepMagma(s: Spring): void {
     if (!exit(s, magma)) return;
+    const fy = floorBelow(out.x, out.y, out.z);
+    if (fy >= 0 && world.getIndex(out.x, fy, out.z) === TAKITSUBO) {
+      if (fy + 1 === out.y) return;
+      let ax = out.x;
+      let az = out.z;
+      let a = magmaAmount(world.getIndex(ax, fy + 1, az));
+      for (let d = 0; d < 4 && a === 0; d++) {
+        ax = out.x + DX[d];
+        az = out.z + DZ[d];
+        a = magmaAmount(world.getIndex(ax, fy + 1, az));
+      }
+      if (a === 0) return;
+      const r = magma.room(world.getIndex(out.x, out.y, out.z));
+      magma.write(ax, fy + 1, az, a - 1);
+      magma.write(out.x, out.y, out.z, r + 1);
+      return;
+    }
     magma.write(out.x, out.y, out.z, magma.room(world.getIndex(out.x, out.y, out.z)) + 1);
   }
 
@@ -168,7 +190,7 @@ export function createSprings(world: LiquidWorld, water: LiquidCore, magma: Liqu
     count: () => list.size,
     linkOf(x, y, z) {
       const s = list.get(key(x, y, z));
-      if (!s || s.magma || !exit(s, water)) return null;
+      if (!s || !exit(s, s.magma ? magma : water)) return null;
       const fy = floorBelow(out.x, out.y, out.z);
       return fy >= 0 && world.getIndex(out.x, fy, out.z) === TAKITSUBO ? { x: out.x, y: fy, z: out.z } : null;
     },

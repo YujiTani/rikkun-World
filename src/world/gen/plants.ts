@@ -123,7 +123,7 @@ function plantsRawUncached(T: Terrain, cx: number, cz: number): Plant[] {
       if (kind === 'take' && T.map.onTakePath(x, z, s)) continue;
       if (nearMouth(T, x, z, 2)) continue; // 洞くつの口の さか道・へやを ふさがない
       const h = T.height(x, z);
-      if (h < SEA_Y + C.strata.landFrom || T.topBlock(x, z, h) !== 'grass' || T.map.pondAt(x, z) !== null) continue;
+      if (h < SEA_Y + C.strata.landFrom || T.topBlock(x, z, h) !== 'grass' || T.map.pondAt(x, z) !== null || T.liquid.pondAt(x, z) !== null) continue;
       // たけ（かたい ブロック）は 横のとなりが 自分の根もとより高い地面だと 小ブロック地形の面と ぶつかる → 平らな所だけ
       if (kind === 'take' && (T.height(x + 1, z) > h || T.height(x - 1, z) > h || T.height(x, z + 1) > h || T.height(x, z - 1) > h)) continue;
       if (kind === 'flower') found.push({ p: { x, z, id: FLOWERS[Math.floor(hash01(sP, x, z, 2) * 3)]!, height: 1 }, r, kind, cap: def.cap?.flower ?? Infinity });
