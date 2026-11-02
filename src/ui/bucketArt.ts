@@ -54,16 +54,17 @@ export const BUCKET_ITEMS = ['bucket', 'water_bucket', 'magma_bucket'] as const;
 export type BucketItemId = (typeof BUCKET_ITEMS)[number];
 
 export function isBucketItem(item: string): item is BucketItemId {
-  return item === 'bucket' || item === 'water_bucket' || item === 'magma_bucket';
+  return (BUCKET_ITEMS as readonly string[]).includes(item);
 }
 
+const ART: Record<BucketItemId, Px[][]> = { bucket: EMPTY, water_bucket: WATER, magma_bucket: MAGMA };
 const cache = new Map<BucketItemId, Rgba[]>();
 
 /** バケツ（から・みず）の 16x16 */
 export function bucketItemPixels(item: BucketItemId): Rgba[] {
   let p = cache.get(item);
   if (!p) {
-    p = toRgba(item === 'bucket' ? EMPTY : item === 'magma_bucket' ? MAGMA : WATER);
+    p = toRgba(ART[item]);
     cache.set(item, p);
   }
   return p;

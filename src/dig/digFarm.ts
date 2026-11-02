@@ -4,8 +4,10 @@ import { MINE_ITEM } from '../content/items/ids';
 import { itemDef } from '../content/items/registry';
 import { isFloraBlock } from '../world/blocks/flora';
 import { BUCKET_TAKE, isWater, waterId } from '../world/blocks/water';
+
+const WATER_FULL = waterId(8);
 import { magmaAmount, magmaId } from '../world/blocks/magma';
-import { isBucket, isFullBucket } from '../farm/bucket';
+import { bucketLiquid, isBucket, isFullBucket, isSpringBlock } from '../farm/bucket';
 import { overlapsBody, sameBlock, type DigCore } from './digCore';
 import { giveStacks, liftFlora } from './digBreak';
 import { lookDirection } from './raycast';
@@ -138,7 +140,7 @@ export class DigFarm {
     // BUCKET-2: マグマの バケツは マグマ（ふつうの 液体。わきどころには もどらない）
     const held = c.inventory.held();
     const amount = held?.water || BUCKET_TAKE;
-    if (!c.world.setBlock(spot.x, spot.y, spot.z, held?.item === 'magma_bucket' ? magmaId(amount) : waterId(amount))) return;
+    if (!c.world.setBlock(spot.x, spot.y, spot.z, bucketLiquid(held?.item) === 'magma' ? magmaId(amount) : waterId(amount))) return;
     c.m4.bucket.placed(c.inventory.selected(), spot);
     c.m4.tools?.pushSwing('place');
   }
@@ -201,7 +203,7 @@ export class DigFarm {
     // BUCKET-2: からの バケツで わきどころ（固い ブロック）を ねらうと くむ。
     const t = this.d.tgt();
     // マグマの マスが ねらいに なる（固い あつかいの 線）ときも くむ（から・マグマの バケツ）
-    if (!ray.throughWater && t && ((held.item === 'bucket' && (t.id === 'wakimizu' || t.id === 'magma_wakimizu')) || (held.item !== 'water_bucket' && magmaAmount(t.id) > 0))) {
+    if (!ray.throughWater && t && ((bucketLiquid(held.item) === null && isSpringBlock(t.id)) || (bucketLiquid(held.item) !== 'mizu' && magmaAmount(t.id) > 0))) {
       ray.throughWater = true;
       ray.waterCell = { x: t.block.x, y: t.block.y, z: t.block.z };
     }
@@ -231,7 +233,7 @@ export class DigFarm {
   /** マグマを 水と 同じに 見せる getBlock（線が 最初に 通った 液体の マスを 返す。種類は bucket.fill が 読む） */
   private readonly liquidGet = (x: number, y: number, z: number) => {
     const id = this.d.world.getBlock(x, y, z);
-    return id !== 'outside' && !isWater(id) && magmaAmount(id) > 0 ? 'water' : id;
+    return magmaAmount(id) > 0 && !isWater(id) ? WATER_FULL : id;
   };
 
   /** liquids: BUCKET-2 バケツ用（マグマも 液体として 通す） */

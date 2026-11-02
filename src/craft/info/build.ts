@@ -12,6 +12,9 @@ import { CRAFT_DEFAULTS } from '../config';
 import { ALL_RECIPES } from '../recipes';
 import { ARMOR_KIND, CLASS_TEXT, EGG_SOURCE, ITEM_INFO, HARAPAN_SOURCE, KIN_TAMAGO_SOURCE, MOMO_NAMA_SOURCE, MUSHI_SOURCE, ORB_SOURCE, STAT_MAX, YOKAI_NAME, type ButtonKey } from './table';
 
+/** BUCKET-1/2: 入った バケツの 手に 入れ方 */
+const FILL_HOW: Partial<Record<string, string>> = { water_bucket: 'みず', magma_bucket: 'マグマ' };
+
 export interface StatRow {
   key: string;
   label: string;
@@ -161,8 +164,8 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
     if (vegKindOfItem(item) !== null) parts.push('はたけ で しゅうかく・やせいの やさい');
     const ys = sourceYokai(item);
     if (ys.length > 0) parts.push(`${ys.map((k) => YOKAI_NAME[k]).join('・')} が おとす`);
-    if (item === 'water_bucket') parts.push(`${d.nameOf('bucket')} で みず を くむ`);
-    if (item === 'magma_bucket') parts.push(`${d.nameOf('bucket')} で マグマ を くむ`);
+    const got = FILL_HOW[item];
+    if (got) parts.push(`${d.nameOf('bucket')} で ${got} を くむ`);
     for (const r of d.recipes()) {
       if (r.output.item !== item) continue;
       if (r.station === 'furnace') {
