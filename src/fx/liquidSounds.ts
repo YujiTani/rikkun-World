@@ -27,9 +27,8 @@ const BASE: Record<LiquidSoundKind, readonly Tone[]> = {
 
 const scaled = (tones: readonly Tone[], k: number): readonly Tone[] => tones.map((t) => ({ ...t, gain: t.gain * k }));
 /** TABLE[kind][段]（段 0 = いちばん 大きい） */
-const TABLE = Object.fromEntries(
-  (Object.keys(BASE) as LiquidSoundKind[]).map((k) => [k, Array.from({ length: LIQUID_SOUND_TUNING.steps }, (_, i) => scaled(BASE[k], 1 - i / LIQUID_SOUND_TUNING.steps))]),
-) as Record<LiquidSoundKind, readonly (readonly Tone[])[]>;
+const steps = (k: LiquidSoundKind): readonly (readonly Tone[])[] => Array.from({ length: LIQUID_SOUND_TUNING.steps }, (_, i) => scaled(BASE[k], 1 - i / LIQUID_SOUND_TUNING.steps));
+const TABLE: Record<LiquidSoundKind, readonly (readonly Tone[])[]> = { placeWater: steps('placeWater'), placeMagma: steps('placeMagma'), erode: steps('erode') };
 
 /** 距離 → 段（鳴らさない ときは -1） */
 export function liquidVolumeStep(dist: number): number {
