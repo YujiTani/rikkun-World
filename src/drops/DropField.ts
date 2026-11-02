@@ -6,6 +6,7 @@ import { isRarity, itemRarity, topRarity } from './rarity';
 import { cellInWall } from '../world/wall';
 import { createRng, type Rng } from '../world/gen/random';
 import { isDeepWater, isWater } from '../world/blocks/water';
+import { isMagma } from '../world/blocks/magma';
 
 /** 落ちたアイテムの数値。やられた落とし物も 妖怪のドロップも同じ部品を使う */
 export const DROP = {
@@ -28,6 +29,10 @@ export const DROP = {
   pickupDelay: 18,
   /** 向きのゆらぎ（360°/こ数 のうち 何割まで） */
   angleJitter: 0.35,
+  /** WAKIDOKORO §8: マグマの 中に ある あいだ これだけ たつと 燃えて 消える（ステップ。20 秒）。出たら 0 に もどる */
+  burnTicks: 1200,
+  /** マグマの 中か しらべる 間かく（ステップ。読む 数を へらす） */
+  burnCheckEvery: 10,
 } as const;
 
 /** ばらまき方（やられた = 大きく、妖怪 = 小さく） */
@@ -58,6 +63,8 @@ export interface DropView {
   resting: boolean;
   /** プレイヤーがすてたもの（M6） */
   thrown: boolean;
+  /** WAKIDOKORO §8: マグマの 中で 燃えて いる（炎・けむりの 見た目） */
+  burning?: boolean;
   /** 拾えるようになるまでの のこりステップ（0 なら拾える。M6） */
   pickupDelay: number;
 }
@@ -105,6 +112,8 @@ interface Entity {
   pickupAt: number;
   /** 妖怪の おとしもの（実績の「ようかいからたね」用。あふれ・すてたものは false） */
   yokai: boolean;
+  /** WAKIDOKORO §8: マグマの 中に いる ステップ（出たら 0。保存しない） */
+  burn?: number;
 }
 
 export interface DropFieldDeps {
@@ -131,6 +140,8 @@ export interface DropFieldDeps {
   onFull?: () => void;
   /** 拾って持ち物に入った（入った数）。拾ったログ用（M4） */
   onPickup?: (item: ItemStack['item'], count: number, fromYokai: boolean) => void;
+  /** WAKIDOKORO §8: マグマで 燃えて 消えた */
+  onBurn?: (item: ItemStack['item'], count: number) => void;
 }
 
 const DT = 1 / 60;
@@ -286,6 +297,7 @@ export class DropField {
       v.resting = b.resting;
       v.thrown = b.thrown;
       v.pickupDelay = Math.max(0, b.pickupAt - b.age);
+      v.burning = (b.burn ?? 0) > 0;
     }
     return this.views;
   }
@@ -311,6 +323,18 @@ export class DropField {
       if (!this.d.world.isLoaded(Math.floor(b.x), Math.floor(b.z))) continue;
       b.age++;
       this.step(b);
+      // WAKIDOKORO §8: マグマの 中（体の まん中の マス）に ある あいだ 燃える。burnTicks で 消える。出たら 0 に もどる
+      if (b.age % DROP.burnCheckEvery === 0) {
+        if (isMagma(this.d.world.getBlock(Math.floor(b.x), Math.floor(b.y + 0.05), Math.floor(b.z)))) {
+          b.burn = (b.burn ?? 0) + DROP.burnCheckEvery;
+          if (b.burn >= DROP.burnTicks) {
+            b.ticksLeft = 0;
+            changed = true;
+            this.d.onBurn?.(b.item.item, b.item.count);
+            continue;
+          }
+        } else b.burn = 0;
+      }
       if (!canPickup || b.age < b.pickupAt) continue;
       if (Math.hypot(p.x - b.x, p.z - b.z) <= radius && Math.abs(p.y - b.y) <= DROP.pickupHeight) {
         const left = addStack(this.d.inventory, b.item);

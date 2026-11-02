@@ -17,7 +17,28 @@ export interface BagLike {
   rarity?: Rarity;
   /** 止まっている（なければ止まっている扱い）。とんでいるあいだは くるくる回る */
   resting?: boolean;
+  /** WAKIDOKORO §8: マグマで 燃えて いる（小さな 炎・けむり） */
+  burning?: boolean;
 }
+
+/** WAKIDOKORO §8: 燃える 落としものの 炎・けむりの つぶ（1 か所の 表） */
+export const BURN_FX = {
+  /** 1 つの 落としものに 出す つぶ: 炎 2・けむり 1 */
+  flames: 2,
+  smokes: 1,
+  /** 炎の 1 まわりの 秒・のぼる 高さ（マス）・大きさ */
+  flamePeriod: 0.6,
+  flameRise: 0.45,
+  flameSize: 0.09,
+  smokePeriod: 1.4,
+  smokeRise: 0.9,
+  smokeSize: 0.12,
+  /** いちどに 出せる 燃える 落としもの */
+  maxBags: 48,
+} as const;
+const BURN_PER = BURN_FX.flames + BURN_FX.smokes;
+const FLAME_COLORS = [0xffb02e, 0xff6a1a] as const;
+const SMOKE_COLOR = 0x6b6b6b;
 
 const B = COMBAT_FX.bag;
 
@@ -131,6 +152,11 @@ export class BagVisuals {
   private ringN = 0;
   private readonly ringColor = new THREE.Color();
   private readonly mtx = new THREE.Matrix4();
+  /** WAKIDOKORO §8: 燃える つぶ（InstancedMesh 1 つ。燃えて いる ものが なければ 描かない） */
+  private readonly burnMesh: THREE.InstancedMesh;
+  private readonly burnColor = new THREE.Color();
+  /** いま 出て いる 燃える つぶの 数（テスト用） */
+  burnParticles = 0;
 
   /** onLand: 1 回の update で 着地があれば、いちばんめずらしいもの 1 つだけ呼ぶ（音用） */
   constructor(
@@ -152,6 +178,35 @@ export class BagVisuals {
     this.group.add(im);
     this.rings = im;
     this.ringMat = m;
+    const bm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false });
+    bm.userData.noDim = true;
+    const burn = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), bm, BURN_FX.maxBags * BURN_PER);
+    burn.count = 0;
+    burn.visible = false;
+    burn.frustumCulled = false;
+    burn.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    burn.setColorAt(0, this.burnColor.set(0xffffff));
+    burn.instanceColor!.setUsage(THREE.DynamicDrawUsage);
+    this.group.add(burn);
+    this.burnMesh = burn;
+  }
+
+  /** WAKIDOKORO §8: 燃える 落としもの 1 つの つぶ（時間で のぼって 小さく なる。落としものごとに ずらす） */
+  private addBurn(n: number, bag: BagLike): number {
+    const F = BURN_FX;
+    for (let k = 0; k < BURN_PER && n < this.burnMesh.instanceMatrix.count; k++) {
+      const flame = k < F.flames;
+      const period = flame ? F.flamePeriod : F.smokePeriod;
+      const t = ((this.time + bag.id * 0.37 + k * (period / BURN_PER)) % period) / period; // 0〜1
+      const size = (flame ? F.flameSize : F.smokeSize) * (flame ? 1 - t * 0.7 : 0.6 + t * 0.6);
+      const ox = flame ? (k === 0 ? -0.08 : 0.08) : Math.sin(t * 6.28) * 0.05;
+      const y = bag.position.y + 0.1 + t * (flame ? F.flameRise : F.smokeRise);
+      this.mtx.makeScale(size, size, size).setPosition(bag.position.x + ox, y, bag.position.z);
+      this.burnMesh.setMatrixAt(n, this.mtx);
+      this.burnMesh.setColorAt(n, this.burnColor.setHex(flame ? FLAME_COLORS[k % 2]! : SMOKE_COLOR));
+      n++;
+    }
+    return n;
   }
 
   /** いま出ている光の輪の数 */
@@ -178,7 +233,9 @@ export class BagVisuals {
     let landed = -1;
     this.sparkle.begin(dt);
     this.ringN = 0;
+    let burnN = 0;
     for (const bag of bags) {
+      if (bag.burning === true && bag.slots[0]) burnN = this.addBurn(burnN, bag);
       const slot = bag.slots[0];
       if (!slot) continue;
       seen.add(bag.id);
@@ -244,6 +301,13 @@ export class BagVisuals {
       v.tint?.dispose();
       this.group.remove(v.root);
       this.visuals.delete(id);
+    }
+    this.burnMesh.count = burnN;
+    this.burnMesh.visible = burnN > 0;
+    this.burnParticles = burnN;
+    if (burnN > 0) {
+      this.burnMesh.instanceMatrix.needsUpdate = true;
+      if (this.burnMesh.instanceColor) this.burnMesh.instanceColor.needsUpdate = true;
     }
     this.rings.count = this.ringN;
     this.rings.instanceMatrix.needsUpdate = true;
@@ -324,6 +388,8 @@ export class BagVisuals {
     this.sparkle.dispose();
     this.rings.dispose();
     this.ringMat.dispose();
+    this.burnMesh.geometry.dispose();
+    (this.burnMesh.material as THREE.Material).dispose();
     this.group.removeFromParent();
   }
 }
