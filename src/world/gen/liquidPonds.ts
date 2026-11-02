@@ -41,7 +41,9 @@ export const LIQUID_POND_TUNING = {
   /** 升目の へりから はなす マス */
   margin: 12,
   /** はじめの 場所から この 距離（チェビシェフ）より 内には 升目の いけを 置かない（はじめの そばの いけ だけ） */
-  spawnClear: 40,
+  spawnClear: 80,
+  /** テストに 使う 場所（GEN_CONFIG.testArea）から この マス 内にも 置かない（E2E の しずけさ） */
+  testAreaClear: 48,
   /** へりの 高さの 差が これ より 大きい 場所は やめる */
   maxSlope: 2,
   /** はじめの そばの 溶岩の いけ: 広場（ringMax 6）の 外。候補を じゅんに しらべる（はじめの 場所から dx・dz） */
@@ -138,6 +140,8 @@ export class LiquidPonds {
     const fh = withFall ? T.fallHeight[0] + Math.floor(hash01(s, i, j, 8) * (T.fallHeight[1] - T.fallHeight[0] + 1)) : 0;
     const sp = this.t.spawn();
     if (Math.max(Math.abs(x0 + wx / 2 - sp.x), Math.abs(z0 + wz / 2 - sp.z)) < T.spawnClear) return null;
+    const ta = C.testArea;
+    if (x0 + wx > ta.x0 - T.testAreaClear && x0 < ta.x1 + T.testAreaClear && z0 + wz > ta.z0 - T.testAreaClear && z0 < ta.z1 + T.testAreaClear) return null;
     const p = this.shape(x0, z0, wx, wz, depth, liquid, fh, false);
     if (p === null || this.slope(p) > T.maxSlope) return null;
     return p;
