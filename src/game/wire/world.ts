@@ -1,4 +1,5 @@
 // main.ts の 流れ 1: 起動・音・世界・保存の 読みこみ・描画と 時刻。作る順は そのまま（上から 順に 呼ぶ）。
+import { terrainFor } from '../../world/gen/terrain';
 import { preloadLegendSounds } from '../../fx/legendSounds';
 import { preloadGetaSounds } from '../../fx/getaSounds';
 import { playCraft } from '../../fx/craftSounds';
@@ -104,7 +105,9 @@ export async function wireBoot() {
   const seed = startPlan.seed;
   installMicroCountries(world, seed);
   // WATER-1: 水の 流れ(setBlock の フックを つなぐ。毎ステップ step.ts が update、列の 読みこみ・手放しは StreamHost が知らせる)
-  const water = createWaterSystem({ world, tick: () => game.tick, seed });
+  // MAGMA-SPAWN: 自然の 滝の ある 生成の 列だけ わきみずを さがす
+  const springsIn = (cx: number, cz: number): boolean => terrainFor(seed).liquid.pondsIn(cx * 16, cz * 16, cx * 16 + 15, cz * 16 + 15).some((p) => p.fall !== null);
+  const water = createWaterSystem({ world, tick: () => game.tick, seed, springsIn });
   const island = createWorldInfo(seed, world);
   // 保存（VOX-F）: IndexedDB から さわった列を 世界に入れる。描画の前に（光が 最初から 正しくなるように）
   // 前の世界（'main'・'seed-N'）とは別の名前。前の世界は読まず、消さない（VOX-B）

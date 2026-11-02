@@ -38,6 +38,8 @@ export const SPRING_TUNING = {
   minPool: 8,
   /** わきみずの 出口から 下へ たどる 長さの 上限（マス。これより 深い 床には たきつぼが できない・つながらない） */
   takiReach: 32,
+  /** MAGMA-SPAWN: プレイヤーから この 距離（チェビシェフ、マス）より 遠い わきみずは 休む（自然の 滝が 遠くで ずっと 仕事を しない） */
+  activeRadius: 32,
   /** たきつぼに なれる 床（自然の 地面だけ。家・家具・鉱石は ならない） */
   takiFloor: ['grass', 'dirt', 'stone', 'sand', 'snow', 'nendo', 'sekkaiseki', 'katame_tsuchi'] as readonly BlockId[],
 } as const;

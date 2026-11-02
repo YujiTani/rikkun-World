@@ -1,4 +1,5 @@
 import { SEA_Y, type BlockId } from '../../contracts';
+import { LiquidPonds } from './liquidPonds';
 import { clearCountryCache, countryMapFor, newSample, type BiomeSample, type CountryMap } from './biome';
 import { GEN_CONFIG as C, type CountryKind } from './config';
 import { hash01, subSeed } from './random';
@@ -44,9 +45,15 @@ export class Terrain {
   private spawnCache: SpawnResult | null = null;
   private rockCache: RockInfo | null = null;
   private hwin: Int16Array | null = null;
+  private liquidCache: LiquidPonds | null = null;
 
   constructor(readonly seed: number) {
     this.map = countryMapFor(seed);
+  }
+
+  /** MAGMA-SPAWN: 自然の 溶岩の いけ・滝（liquidPonds.ts） */
+  get liquid(): LiquidPonds {
+    return (this.liquidCache ??= new LiquidPonds(this));
   }
 
   biome(x: number, z: number, out: BiomeSample = this.tmp): BiomeSample {
@@ -57,6 +64,7 @@ export class Terrain {
   topBlock(x: number, z: number, h: number): BlockId {
     const sp = this.spawn();
     if (Math.max(Math.abs(x - sp.x), Math.abs(z - sp.z)) <= C.plaza.ringMax && h >= SEA_Y + C.strata.landFrom) return 'grass';
+    if (this.liquid.pondAt(x, z) !== null) return 'stone'; // MAGMA-SPAWN: いけの 底・へりは いし
     return this.map.topBlock(x, z, h);
   }
 
@@ -196,6 +204,14 @@ export class Terrain {
     // かっぱの ぬま の いけ（水の底・へり）
     const pd = this.map.pondAt(x, z);
     if (pd !== null) return pd.kind === 'inner' ? pd.level - pd.depth - 1 : pd.level;
+    const lp = this.liquid.pondAt(x, z);
+    if (lp !== null) {
+      if (lp.kind === 'ring') return lp.pond.level;
+      // 滝の 落ちる 道の 底は 1 つ 深い くぼみ（たきつぼ）。まわりの 底と 同じ 高さだと 地形の 小ブロックと かさなって 横の 面が ぬける
+      const f = lp.pond.fall;
+      const dip = f !== null && f.x === x && f.z - 1 === z ? 1 : 0;
+      return lp.pond.level - lp.pond.depth - 1 - dip;
+    }
     const b = this.base(x, z);
     const k = this.rock();
     const d = Math.hypot(x - k.cx, z - k.cz);

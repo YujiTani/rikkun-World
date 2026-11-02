@@ -104,6 +104,8 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
     let n = 0;
     for (const seed of G.seeds) {
       for (const [cx, cz, h] of G.columns[String(seed)]!) {
+        // MAGMA-SPAWN: 溶岩・滝の いけ（あとから 足した 地形）に かかる 列は くらべない（いけの ない 列は 前と 同じ）
+        if (terrainFor(seed).liquid.pondsIn(cx * 16, cz * 16, cx * 16 + 15, cz * 16 + 15).length > 0) continue;
         n++;
         const now = stoneHash(col(seed, cx, cz));
         if (now !== h) bad.push(`seed ${seed} 列 (${cx}, ${cz}): ${h} → ${now}`);

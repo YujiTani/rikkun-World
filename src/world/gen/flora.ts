@@ -65,7 +65,7 @@ function floraRawUncached(T: Terrain, cx: number, cz: number): Plant[] {
       // はじまりの岩山の まわり: 見える せきたん（空気に面した いし）を かくさない
       if (Math.hypot(x - rock.cx, z - rock.cz) <= rock.r + F.rockClear) continue;
       const h = T.height(x, z);
-      if (h < SEA_Y + C.strata.landFrom || T.topBlock(x, z, h) !== 'grass' || T.map.pondAt(x, z) !== null) continue;
+      if (h < SEA_Y + C.strata.landFrom || T.topBlock(x, z, h) !== 'grass' || T.map.pondAt(x, z) !== null || T.liquid.pondAt(x, z) !== null) continue;
       if (taken === null) taken = occupied(T, cx, cz);
       if (taken.has(k2(x, z))) continue;
       (isN ? ns : ks).push({ p: { x, z, id: isN ? 'nobana' : 'kusa', height: 1 }, r });

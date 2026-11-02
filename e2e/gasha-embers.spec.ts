@@ -202,6 +202,10 @@ test.describe('燃えかす', () => {
       for (let x = 20; x <= 110; x++) for (let z = 12; z <= 118; z++) {
         const y = gt.groundTop(x, z), m = (x + z) % 4;
         if (h.world.getBlock(x, y, z) !== 'air') continue;
+        // MAGMA-SPAWN: スポーン そばの 溶岩の いけ の ふち は 噴火と 関係なく 燃える ので 置かない
+        let lava = false;
+        for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (let dy = -1; dy <= 0; dy++) if (h.world.getBlock(x + dx, y + dy, z + dz) === 'magma') lava = true;
+        if (lava) continue;
         if (m === 0) { if (h.world.setBlock(x, y - 1, z, 'kawara')) out.push({ x, y: y - 1, z, b: 'kawara' }); }
         else if (m === 1) { if (h.world.setBlock(x, y, z, 'log')) out.push({ x, y, z, b: 'log' }); }
         else if (m === 2) { if (h.world.setBlock(x, y, z, 'tansu')) out.push({ x, y, z, b: 'tansu' }); }

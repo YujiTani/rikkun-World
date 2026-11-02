@@ -21,6 +21,8 @@ export interface WaterSystemDeps {
   tick: () => number;
   /** 世界の シード（たきつぼの 確率。WATERFALL-1 §4.2）。なければ 0 */
   seed?: number;
+  /** MAGMA-SPAWN: 生成した 列 (cx, cz) に 滝の わきみずが あるか（ある 列だけ さがす。なければ 生成の 列は さがさない） */
+  springsIn?: (cx: number, cz: number) => boolean;
 }
 
 /** WATERFALL-1: マグマ（水と 同じ しくみ。窓口 `__rikkun.water.magma`） */
@@ -57,6 +59,8 @@ export interface WaterSystem {
   springLink(x: number, y: number, z: number): { x: number; y: number; z: number } | null;
   /** 版 2: (x, y, z) が こげた ブロックか（getIndex。プレイヤーの あつさ 用） */
   scorched(x: number, y: number, z: number): boolean;
+  /** MAGMA-SPAWN: プレイヤーの 場所を わたす（activeRadius より 遠い わきみずは 休む） */
+  setFocus(fn: () => { x: number; z: number }): void;
 }
 
 const KOKUYOUSEKI = 'kokuyouseki';
@@ -90,6 +94,8 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     return false;
   });
   const springs = createSprings(world, W, M, deps.seed ?? 0);
+  /** MAGMA-SPAWN: プレイヤーの 場所（わきみずが 休む 距離。なければ ぜんぶ 動く） */
+  let focusFn: (() => { x: number; z: number }) | null = null;
   // 版 2: 焼ける 見はり（計算した マグマの マスを 入れる。となりに 焼ける 物が なくなれば 外す）
   const hot = new Map<number, number>();
   let burnRolls = 0;
@@ -163,7 +169,7 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
       const t = tick();
       W.update(t);
       M.update(t);
-      springs.update(t);
+      springs.update(t, focusFn?.() ?? null);
       if (t % MAGMA_TUNING.burnEvery === 0 && hot.size > 0) burnPass();
     },
     set(x, y, z, n) {
@@ -182,6 +188,9 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     },
     waveTime: () => tick() / 60,
     computed: () => W.computed() + M.computed(),
+    setFocus(fn) {
+      focusFn = fn;
+    },
     magma: {
       set(x, y, z, n) {
         M.write(x, y, z, Math.max(0, Math.min(8, Math.floor(n))));
@@ -194,8 +203,9 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     springLink: (x, y, z) => springs.linkOf(x, y, z),
     scorched: (x, y, z) => world.getIndex(x, y, z) === KOGETA_INDEX,
     onColumnLoaded(cx, cz, how) {
+      if (how === 'generated' && deps.springsIn?.(cx, cz) === true) springs.onColumnLoaded(cx, cz); // MAGMA-SPAWN: 自然の 滝
       if (how === 'saved') {
-        springs.onColumnLoaded(cx, cz); // わきみずは 生成では 置かない → 保存から 読んだ 列だけ さがす
+        springs.onColumnLoaded(cx, cz); // 保存から 読んだ 列は いつも さがす（置いた わきみず）
         saved.add(chunkId(cx, cz));
         wakeBoth(cx, cz, 0, 15, 0, 15); // 保存から 読んだ 列: 動く かも しれない 液体 ぜんぶ
       }

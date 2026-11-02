@@ -5,6 +5,7 @@ import { terrainFor, type Terrain } from './terrain';
 import { floraOfChunk } from './flora';
 import { plantsOfChunk } from './plants';
 import { treesInRect, type Tree } from './trees';
+import { fallColumn } from './liquidPonds';
 
 /**
  * ブロックを読みこまずに出す「地面・木・たいまつ」の答え（VOX-D G2）。
@@ -83,6 +84,8 @@ class SurfaceImpl implements Surface {
   }
 
   ground(x: number, z: number): number {
+    const fc = fallColumn(this.T.liquid, x, z);
+    if (fc?.kind === 'pillar') return fc.pond.fall!.top; // MAGMA-SPAWN: 滝の はしらの 上の わきみず
     const h = this.T.height(x, z);
     const r = this.mouthRange(x, z);
     if (r !== null && r[1] >= h) return r[0] - 1; // さか道の口: 床の下の いし
@@ -143,6 +146,12 @@ class SurfaceImpl implements Surface {
     const r = this.mouthRange(x, z);
     if (r !== null && y >= r[0] && y <= r[1]) return 'air';
     if (y <= h) return 'solid';
+    // MAGMA-SPAWN: 滝の はしら（いし ＋ わきみず）と 落ちる 道（はっぱを どけた 空気）。木より 先
+    const fc = fallColumn(this.T.liquid, x, z);
+    if (fc !== null && y >= fc.pond.level && y <= fc.pond.fall!.top + 1) {
+      if (fc.kind === 'pillar') return y <= fc.pond.fall!.top ? 'solid' : 'air';
+      if (y >= fc.pond.level) return 'air';
+    }
     const tb = this.treeBlock(x, y, z);
     if (tb !== null) return tb;
     if (x === this.torch.x && z === this.torch.z && y === this.torch.y) return 'torch';
@@ -155,6 +164,8 @@ class SurfaceImpl implements Surface {
     }
     const pd = this.T.map.pondAt(x, z);
     if (pd !== null && pd.kind === 'inner' && y < pd.level) return 'water';
+    const lp = this.T.liquid.pondAt(x, z);
+    if (lp !== null && lp.kind === 'inner' && y < lp.pond.level) return 'water'; // MAGMA-SPAWN: マグマも 液体（'water'）として 答える
     return y <= SEA_Y ? 'water' : 'air';
   }
 
@@ -163,6 +174,7 @@ class SurfaceImpl implements Surface {
     const h = this.T.height(x, z);
     if (h < SEA_Y) return true; // 水が かぶっている
     if (this.T.map.pondAt(x, z)?.kind === 'inner') return true; // いけの水
+    if (this.T.liquid.pondAt(x, z)?.kind === 'inner') return true; // MAGMA-SPAWN: 溶岩・滝の いけ
     if (this.plantHeight(x, z) > 0) return true;
     if (this.treeColumn(x, z, g)) return true;
     return x === this.torch.x && z === this.torch.z && this.torch.y > g;

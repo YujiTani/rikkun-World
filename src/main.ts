@@ -11,6 +11,7 @@ import { wireSave, wireFrame, wireLoop } from './game/wire/save';
 import { createStep } from './game/step';
 import { installGameHook } from './debug/installTestHook';
 import { wireGasha } from './game/wire/gasha';
+import { buildMagmaDemo, wantsMagmaDemo } from './debug/magmaDemo';
 
 const w1 = await wireBoot();
 const w2 = Object.assign(w1, wireRender(w1));
@@ -33,3 +34,10 @@ game.onUpdate(createStep(w16));
 const w17 = Object.assign(w16, wireLoop(w16));
 installGameHook(w17);
 wireGasha(w17);
+// MAGMA-SPAWN: ?demo=magma の ときだけ、はじめの 場所の 前に マグマの 見本を 1 回 置く（列が 読みこまれた ステップで）
+if (wantsMagmaDemo(location.search)) {
+  let done = false;
+  w17.game.onUpdate(() => {
+    if (!done) done = buildMagmaDemo(w17.world, w17.water, w17.spawnPlain());
+  });
+}
