@@ -72,7 +72,7 @@ export const MAGMA_TUNING = {
   scorchHurtEvery: 60,
   scorchHurtAmount: 1,
   /** WAKIDOKORO §7: 熱の ダメージの あとの むてき（ステップ。0.5 秒）。むてきは 妖怪の ダメージと 共用（熱は むてき中 受けない） */
-  heatInvincibleTicks: 30,
+  heatInvincibleTicks: 60,
 } as const;
 
 /**
