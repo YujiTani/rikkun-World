@@ -4,7 +4,7 @@ import { installArena } from './helpers/arena';
 
 /**
  * WAKIDOKORO（docs/design/WAKIDOKORO.md）: わきどころ（5 方向・渦の 見た目）・こわしても 落とさない・たきつぼは アイテムに なる・
- * マグマの ダメージで ノックバックと 0.5 秒の むてき・マグマに 落ちた アイテムは 20 秒で 燃えて 消える。WK_SHOTS=dir で 画面を のこす。
+ * マグマの ダメージで 1 秒の むてき（ノックバック なし）・マグマに 落ちた アイテムは 20 秒で 燃えて 消える。WK_SHOTS=dir で 画面を のこす。
  * 場所: 床 `__arena.floor`（y=8 の 石、上面 y=9）。時間（ms）で 合否を 決めない（ステップで すすめる）。
  */
 async function open(page: Page): Promise<void> {
@@ -144,7 +144,7 @@ test.describe('WAKIDOKORO', () => {
     if (shotDir) await page.screenshot({ path: `${shotDir}/3-takitsubo-water-magma.png` });
   });
 
-  test('マグマの ダメージ: ノックバック（はなれる 向き）と むてき 0.5 秒（30 ステップ）。0.5 秒に 1 回 まで', async ({ page }) => {
+  test('マグマの ダメージ: むてき 1 秒（60 ステップ）。ノックバック なし', async ({ page }) => {
     test.setTimeout(120_000);
     await open(page);
     const r = await page.evaluate(() => {
@@ -163,8 +163,8 @@ test.describe('WAKIDOKORO', () => {
       return { hp1: s0.hp, inv: s0.invincibleTicks, dx: p.x - x0, hpAfter: h.combat.get().hp };
     });
     expect(r.hp1, 'ふれた すぐ 1').toBe(19);
-    expect(r.inv, 'むてき 0.5 秒').toBe(30);
-    expect(r.dx, '東（マグマから はなれる 向き）へ おされる').toBeGreaterThan(0.2);
+    expect(r.inv, 'むてき 1 秒').toBe(60);
+    expect(Math.abs(r.dx), 'おされない').toBeLessThan(0.05);
   });
 
   test('マグマに 落ちた アイテムは 燃えて（炎・けむり）20 秒で 消える', async ({ page }) => {
