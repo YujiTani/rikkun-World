@@ -165,4 +165,33 @@ export const BUCKETS = {
     info: { use: 'はたけ の そば に みず を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] },
     wear: 'permanent',
   },
+  // BUCKET-2: マグマを くむと できる（レシピ なし）
+  magma_bucket: {
+    name: 'マグマの バケツ',
+    zukan: 'あつい ［マグマ｜まぐま］が ［入｜はい］った バケツ。おいた ところは もえるので ［気｜き］を つけて。',
+    maxStack: 1,
+    rarity: 'uncommon',
+    category: 'tool',
+    info: { use: 'マグマ を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] },
+    wear: 'permanent',
+  },
+  // BUCKET-2 版 2: わきどころを くむと できる（置くと わきどころ。レシピ なし）
+  wakimizu_bucket: {
+    name: 'わきどころの バケツ',
+    zukan: 'わきどころが まるごと ［入｜はい］った バケツ。おくと そこから ［水｜みず］が ずっと わきでる。',
+    maxStack: 1,
+    rarity: 'rare',
+    category: 'tool',
+    info: { use: 'わきどころ を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] },
+    wear: 'permanent',
+  },
+  magma_wakimizu_bucket: {
+    name: 'マグマの わきどころの バケツ',
+    zukan: 'マグマの わきどころが ［入｜はい］った バケツ。おくと マグマが ずっと わきでる。',
+    maxStack: 1,
+    rarity: 'rare',
+    category: 'tool',
+    info: { use: 'マグマの わきどころ を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] },
+    wear: 'permanent',
+  },
 } satisfies Record<FarmBucketId, ItemDef>;

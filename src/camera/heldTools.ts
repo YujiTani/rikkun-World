@@ -193,8 +193,11 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
   watering_can: wateringCan(0x5c9bd5, 0x3f78b0, 0x2f5f8f, 0.3, 0xb0bec5),
   long_watering_can: wateringCan(0x4caf50, 0x2e7d32, 0x1b5e20, 0.5, 0xffd54f),
   // BUCKET-1: てつの バケツ（みず は 口の 上に 水色の 板）
-  bucket: bucketParts(false),
-  water_bucket: bucketParts(true),
+  bucket: bucketParts(null),
+  water_bucket: bucketParts(0x4fc3f7),
+  magma_bucket: bucketParts(0xff6d00),
+  wakimizu_bucket: bucketParts(0x29b6f6),
+  magma_wakimizu_bucket: bucketParts(0xffab00),
   onion: [
     { size: [0.2, 0.2, 0.18], pos: [0, 0, -0.1], color: 0xf5f0dc },
     { size: [0.05, 0.05, 0.1], pos: [0, 0, -0.24], color: 0x43a047 },
@@ -226,7 +229,7 @@ function wateringCan(body: number, shade: number, handle: number, spout: number,
 }
 
 /** バケツ: どう体 ＋ ふち ＋ とって（上の 弓）。water = 口に 水 */
-function bucketParts(water: boolean): Part[] {
+function bucketParts(liquid: number | null): Part[] {
   const parts: Part[] = [
     { size: [0.16, 0.18, 0.16], pos: [0, 0, -0.1], color: 0xb0bec5 },
     { size: [0.18, 0.03, 0.18], pos: [0, 0.1, -0.1], color: 0x78909c },
@@ -234,7 +237,7 @@ function bucketParts(water: boolean): Part[] {
     { size: [0.02, 0.1, 0.02], pos: [0.08, 0.17, -0.1], color: 0x546e7a },
     { size: [0.18, 0.02, 0.02], pos: [0, 0.23, -0.1], color: 0x546e7a },
   ];
-  if (water) parts.push({ size: [0.13, 0.02, 0.13], pos: [0, 0.095, -0.1], color: 0x4fc3f7 });
+  if (liquid !== null) parts.push({ size: [0.13, 0.02, 0.13], pos: [0, 0.095, -0.1], color: liquid });
   return parts;
 }
 

@@ -230,7 +230,11 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       if (fe.length > 0) {
         for (const e of fe) {
           if (e.type === 'pour') waterFx.pour(farm.lastPourCells());
-          else if (e.type === 'bucketPlace') waterFx.pour([{ x: e.x, y: e.y - 1, z: e.z }]); // 置いた マスの 上から しずく
+          else if (e.type === 'bucketPlace') {
+            // BUCKET-2: 置いた 音（水・マグマ）。しずくは 水だけ
+            water.noteSound(e.liquid === 'magma' ? 'placeMagma' : 'placeWater', e.x, e.y, e.z);
+            if (e.liquid !== 'magma') waterFx.pour([{ x: e.x, y: e.y - 1, z: e.z }]); // 置いた マスの 上から しずく
+          }
         }
         farmFx.feed(fe);
       }

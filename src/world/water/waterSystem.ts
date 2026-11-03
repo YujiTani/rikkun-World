@@ -66,6 +66,8 @@ export interface WaterSystem {
   /** MAGMA-SPAWN: プレイヤーの 場所を わたす（activeRadius より 遠い わきどころは 休む） */
   setFocus(fn: () => { x: number; z: number }): void;
   /** WAKIDOKORO §11: 液体の 音の できごと（置いた・しんしょく）。1 か所で 受ける */
+  /** BUCKET-2: バケツで 置いた 音（setSound の 係に わたす。間引き・距離は そこ） */
+  noteSound(kind: LiquidSoundKind, x: number, y: number, z: number): void;
   setSound(fn: ((kind: LiquidSoundKind, x: number, y: number, z: number) => void) | null): void;
 }
 
@@ -212,6 +214,9 @@ export function createWaterSystem(deps: WaterSystemDeps): WaterSystem {
     computed: () => W.computed() + M.computed(),
     setFocus(fn) {
       focusFn = fn;
+    },
+    noteSound(kind, x, y, z) {
+      soundFn?.(kind, x, y, z);
     },
     setSound(fn) {
       soundFn = fn;

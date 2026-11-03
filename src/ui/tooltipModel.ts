@@ -8,6 +8,9 @@ import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { wearView } from './wearGauge';
 
 /** ツールチップの行につく小さな絵。アイテムの id か、かなづち・時計 */
+/** BUCKET-1/2: バケツの 1 行 */
+const BUCKET_TIP: Partial<Record<string, string>> = { bucket: 'みず・マグマ を くむ', water_bucket: 'みず を おく', magma_bucket: 'マグマ を おく', wakimizu_bucket: 'わきどころ を おく', magma_wakimizu_bucket: 'マグマの わきどころ を おく' };
+
 export type TooltipIcon = ItemId | 'hammer' | 'clock';
 
 export interface TooltipData {
@@ -94,8 +97,8 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
     add('はたけ を つくる', item);
   }
   if (item === 'watering_can' || item === 'long_watering_can') add('はたけ に みず を まく', item);
-  if (item === 'bucket') add('みず を くむ', item);
-  if (item === 'water_bucket') add('みず を おく', item);
+  const bk = BUCKET_TIP[item];
+  if (bk) add(bk, item);
   if (item === 'sprinkler') add('まわり の はたけ を しめらせる', item);
   if (seedKindOfItem(item) !== null) add('はたけ に まく', item);
   if (item === 'mushi') add('にわとり に あげる', item);
