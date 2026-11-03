@@ -1,6 +1,5 @@
 // main.ts の 流れ 4: 戦い・道具・レジェンダリー・たんす・作る・農業・掘る。
 import { BLOCK_INDEX } from '../../world/blocks/blockTypes';
-import { magmaAmount } from '../../world/blocks/magma';
 import { aimPivot } from '../../camera/pivot';
 import { PlayerCombatImpl } from '../../combat';
 import { ArmorSystemImpl, CraftSystemImpl } from '../../craft';
@@ -258,32 +257,6 @@ export function wireFighters(deps: WiredWeapons) {
         }
       }
       return false;
-    },
-    // WAKIDOKORO §7: 熱の ダメージ源（ノックバックの 向き）。足もと・こしの 高さと 足もとの 下で、体の まわり 3×3 の マグマ（こげた マス）の まん中の 平均。
-    // ダメージの ときだけ 読む（getIndex。毎ステップは 読まない）
-    heatFrom: (kind) => {
-      const p = controller.state.position;
-      const x = Math.floor(p.x);
-      const y = Math.floor(p.y + 1e-3);
-      const z = Math.floor(p.z);
-      let sx = 0;
-      let sy = 0;
-      let sz = 0;
-      let n = 0;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dz = -1; dz <= 1; dz++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const i = world.getIndex(x + dx, y + dy, z + dz);
-            if (kind === 'magma' ? magmaAmount(i) > 0 : i === KOGETA) {
-              sx += x + dx + 0.5;
-              sy += y + dy + 0.5;
-              sz += z + dz + 0.5;
-              n++;
-            }
-          }
-        }
-      }
-      return n > 0 ? { x: sx / n, y: sy / n, z: sz / n } : null;
     },
   });
   shared.combat = combat;
