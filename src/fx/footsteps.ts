@@ -36,7 +36,7 @@ const VOICES: Record<FootKind, readonly Tone[]> = {
 
 /** 毎ステップ step(state, 足もと)。鳴らした ときは 種類、鳴らさない ときは null */
 export function createFootsteps(sound: Pick<SoundFx, 'playTones'>) {
-  const c = new StepCounter();
+  const c = new StepCounter(false);
   return {
     step(p: GetaPlayer, groundId: () => string): FootKind | null {
       if (!c.tick(striding(p), p.running ? FOOTSTEP_TUNING.runTicks : FOOTSTEP_TUNING.walkTicks)) return null;

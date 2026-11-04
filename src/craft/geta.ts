@@ -18,12 +18,14 @@ export function striding(p: Omit<GetaPlayer, 'running'>): boolean {
   return p.onGround && !p.inWater && p.velocity.x * p.velocity.x + p.velocity.z * p.velocity.z >= min * min;
 }
 
-/** 歩いて いる ステップを 数え、every に なったら true を 返して 0 に もどす（歩いて いなければ 0）。下駄と 足音で 共用 */
+/** 歩いて いる ステップを 数え、every に なったら true を 返して 0 に もどす。下駄と 足音で 共用。
+ * reset: 歩いて いない ステップで 0 に もどす（下駄）。false なら 止めて おく だけ（足音: 地面の 判定が 1 ステップ ゆれても 歩が きえない） */
 export class StepCounter {
   n = 0;
+  constructor(private readonly reset = true) {}
   tick(going: boolean, every: number): boolean {
     if (!going) {
-      this.n = 0;
+      if (this.reset) this.n = 0;
       return false;
     }
     if (++this.n < every) return false;
