@@ -23,8 +23,10 @@ import { skyDarkness, darkenFromBrightness } from '../world/light';
 import { waterSettings, waterWaveUniforms } from '../world/render/waterWave';
 import { NO_DIG, NO_SWINGS, IDLE_THUNDER_LOOK, NO_PLATES } from './wire/shared';
 import type { WiredFrame } from './wire/save';
+import { createFootsteps } from '../fx/footsteps';
 
 export function createStep(deps: WiredFrame): (dt: number) => void {
+  const footsteps = createFootsteps(deps.fxSound);
   const {
     shared, game, water, streamFrame, audioStep, craft2Settings, time, dig, sprite, armor, parry, blade, tools,
     legend, controller, w2, inventory, rig, combat, timeSettings, worldReady, yokaiM, animals, waveSys,
@@ -188,7 +190,9 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     {
       const s = controller.state;
       const walking = screen.mode() === 'play' && !combat.dead() && !combat.flinching();
-      geta.step({ running: walking && s.running, onGround: s.onGround, inWater: s.inWater, velocity: s.velocity });
+      const gp = { running: walking && s.running, onGround: walking && s.onGround, inWater: s.inWater, velocity: s.velocity };
+      // FOOTSTEPS（#50）: 下駄で 走る ときは 下駄の 音 だけ。ほかは 足もとの ブロックの 足音
+      if (!geta.step(gp)) footsteps.step(gp, () => deps.world.getBlock(Math.floor(s.position.x), Math.floor(s.position.y - 0.05), Math.floor(s.position.z)));
     }
     combat.update();
     craft.update();
