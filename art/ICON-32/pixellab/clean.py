@@ -1,14 +1,14 @@
-"""下絵の 掃除: 透明の 背景・きっちり 64x64・色を へらす・外の ふち 1px。
-使い方: python3 art/ICON-64/pixellab/clean.py <入力 dir> <出力 dir> [色の 数=16]"""
+"""下絵の 掃除: 透明の 背景・きっちり 32x32・色を へらす・外の ふち 1px。
+使い方: python3 art/ICON-32/pixellab/clean.py <入力 dir> <出力 dir> [色の 数=16]"""
 import os, sys
 from PIL import Image
-N, OUTLINE = 64, (0x2A, 0x1E, 0x14, 255)
+N, OUTLINE = 32, (0x2A, 0x1E, 0x14, 255)
 
 def clean(img, colors=16):
     img = img.convert('RGBA')
     if img.size != (N, N):  # 中身の 箱を 切って 余白 2px で 64 に（ニアレスト）
         bb = img.getbbox() or (0, 0, *img.size); img = img.crop(bb)
-        s = (N - 4) / max(img.size); img = img.resize((max(1, round(img.width * s)), max(1, round(img.height * s))), Image.NEAREST)
+        s = (N - 2) / max(img.size); img = img.resize((max(1, round(img.width * s)), max(1, round(img.height * s))), Image.NEAREST)
         c = Image.new('RGBA', (N, N)); c.alpha_composite(img, ((N - img.width) // 2, (N - img.height) // 2)); img = c
     a = img.getchannel('A').point(lambda v: 255 if v >= 128 else 0)  # 半透明を なくす
     rgb = img.convert('RGB').quantize(colors, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).convert('RGBA')

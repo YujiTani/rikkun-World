@@ -1,5 +1,5 @@
 {
-  "_style": "64x64 pixel art game inventory icon, single object centered, 3/4 view, light from top-left, 1px dark brown outline (#2a1e14), 3-tone cel shading, limited palette, transparent background, Japanese folklore crafting game",
+  "_style": "32x32 pixel art game inventory icon, single object centered, 3/4 view, light from top-left, 1px dark brown outline (#2a1e14), 3-tone cel shading, limited palette, transparent background, Japanese folklore crafting game",
   "tool":     {"prompt": "{name}, a {desc}, handle diagonal bottom-left to top-right", "items": ["iron_pickaxe"]},
   "weapon":   {"prompt": "{name}, a {desc}, blade diagonal bottom-left to top-right", "items": ["katana"]},
   "material": {"prompt": "{name}, a {desc}, small chunky object", "items": ["iron_ingot", "rope"]},

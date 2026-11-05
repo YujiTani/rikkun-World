@@ -1,7 +1,7 @@
-"""PixelLab で 64x64 アイコンの 下絵を 作る（docs/design/ICON-64.md 9 章）。
+"""PixelLab で 32x32 アイコンの 下絵を 作る（docs/design/ICON-32.md 9 章）。
 要: 環境の 変数 PIXELLAB_SECRET（オーナーの API トークン）。ないと 何も しない。
 呼ぶ 前と 後に /balance を 記録。--max で 呼ぶ 回数の 上限（既定 0 = 見積もり だけ）。
-使い方: PIXELLAB_SECRET=... python3 art/ICON-64/pixellab/gen.py --max 8 [--endpoint create-image-pixflux]
+使い方: PIXELLAB_SECRET=... python3 art/ICON-32/pixellab/gen.py --max 8 [--endpoint create-image-pixflux]
 """
 import argparse, base64, json, os, sys, time, urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -30,7 +30,7 @@ def main():
     log = {'endpoint': a.endpoint, 'balance_before': call('GET', '/balance'), 'calls': []}
     os.makedirs(os.path.join(HERE, 'raw'), exist_ok=True)
     for iid, p in todo[:a.max]:
-        r = call('POST', '/' + a.endpoint, {'description': p, 'image_size': {'width': 64, 'height': 64}, 'no_background': True})
+        r = call('POST', '/' + a.endpoint, {'description': p, 'image_size': {'width': 32, 'height': 32}, 'no_background': True})
         job = r.get('background_job_id')
         while job:
             time.sleep(6); r = call('GET', f'/background-jobs/{job}')
