@@ -19,10 +19,10 @@ const FACE_LABEL: Record<PadFace, string> = {
   start: '＋',
   l3: 'L3',
   r3: 'R3',
-  dpadUp: '十字↑',
-  dpadDown: '十字↓',
-  dpadLeft: '十字←',
-  dpadRight: '十字→',
+  dpadUp: '↑',
+  dpadDown: '↓',
+  dpadLeft: '←',
+  dpadRight: '→',
 };
 
 const REBINDABLE: PadFace[] = [
@@ -41,11 +41,12 @@ export interface GamepadPanelUi {
 export function createGamepadPanel(reader: GamepadReader, parent?: HTMLElement): GamepadPanelUi {
   const el = document.createElement('div');
   el.className = 'gp-root';
+  // 開くボタンは「おと」列と同じ ss-open（UI ゲートの部品ルールに合わせる）
   el.innerHTML =
-    `<button type="button" class="gp-open" data-testid="gamepad-open">コントローラー</button>` +
+    `<button type="button" class="ss-open gp-open" data-testid="gamepad-open">ゲームパッド</button>` +
     `<div class="gp-panel" data-testid="gamepad-panel" hidden>` +
-    `<p class="gp-title">コントローラーかくにん</p>` +
-    `<div class="gp-row" data-testid="gp-id">パッド: （なし）</div>` +
+    `<p class="gp-title">ゲームパッドかくにん</p>` +
+    `<div class="gp-row" data-testid="gp-id">つながってる: （なし）</div>` +
     `<div class="gp-row" data-testid="gp-map">mapping: —</div>` +
     `<div class="gp-row">ひだりスティック</div><div class="gp-bar" data-ax="lx"><i></i></div>` +
     `<div class="gp-row">みぎスティック</div><div class="gp-bar" data-ax="rx"><i></i></div>` +
@@ -58,14 +59,30 @@ export function createGamepadPanel(reader: GamepadReader, parent?: HTMLElement):
     `<p class="gp-row">わりあてなおし（おしてから ボタン）</p>` +
     `<div class="gp-btns" data-testid="gp-rebind"></div>` +
     `</div>`;
-  parent?.appendChild(el);
+  const openBtnEl = el.querySelector<HTMLButtonElement>('.gp-open')!;
+  const panelEl = el.querySelector<HTMLElement>('.gp-panel')!;
+  // おとボタン列へ。なければ parent / body
+  const ssButtons = document.querySelector('.ss-buttons');
+  if (ssButtons) {
+    ssButtons.appendChild(openBtnEl);
+  } else {
+    el.appendChild(openBtnEl);
+    parent?.appendChild(el);
+  }
+  // パネルは body 直下（案内が隠れても確認画面を残せる）
+  document.body.appendChild(panelEl);
+  if (!ssButtons) {
+    /* el already appended */
+  } else if (parent) {
+    parent.appendChild(el);
+  }
 
-  const panel = el.querySelector<HTMLElement>('.gp-panel')!;
-  const openBtn = el.querySelector<HTMLButtonElement>('.gp-open')!;
-  const idEl = el.querySelector<HTMLElement>('[data-testid="gp-id"]')!;
-  const mapEl = el.querySelector<HTMLElement>('[data-testid="gp-map"]')!;
-  const facesEl = el.querySelector<HTMLElement>('[data-testid="gp-faces"]')!;
-  const rebindEl = el.querySelector<HTMLElement>('[data-testid="gp-rebind"]')!;
+  const panel = panelEl;
+  const openBtn = openBtnEl;
+  const idEl = panel.querySelector<HTMLElement>('[data-testid="gp-id"]')!;
+  const mapEl = panel.querySelector<HTMLElement>('[data-testid="gp-map"]')!;
+  const facesEl = panel.querySelector<HTMLElement>('[data-testid="gp-faces"]')!;
+  const rebindEl = panel.querySelector<HTMLElement>('[data-testid="gp-rebind"]')!;
   let waiting: PadFace | null = null;
   let raf = 0;
 
@@ -89,7 +106,7 @@ export function createGamepadPanel(reader: GamepadReader, parent?: HTMLElement):
   };
 
   const paintBar = (sel: string, v: number): void => {
-    const bar = el.querySelector<HTMLElement>(`.gp-bar[data-ax="${sel}"]`)!;
+    const bar = panel.querySelector<HTMLElement>(`.gp-bar[data-ax="${sel}"]`)!;
     const i = bar.querySelector('i')!;
     const a = Math.min(1, Math.abs(v));
     i.style.width = `${a * 100}%`;
@@ -100,11 +117,11 @@ export function createGamepadPanel(reader: GamepadReader, parent?: HTMLElement):
     if (panel.hidden) return;
     const s = reader.snapshot();
     if (!s) {
-      idEl.textContent = 'パッド: （なし）';
+      idEl.textContent = 'つながってる: （なし）';
       mapEl.textContent = 'mapping: —';
       facesEl.textContent = '';
     } else {
-      idEl.textContent = `パッド: ${s.id.slice(0, 80)}`;
+      idEl.textContent = `つながってる: ${s.id.slice(0, 80)}`;
       mapEl.textContent = `mapping: ${s.mapping || '（くう）'} / ひょう: ${s.kind}`;
       paintBar('lx', s.axes[0] ?? 0);
       paintBar('rx', s.axes[2] ?? 0);
@@ -158,12 +175,12 @@ export function createGamepadPanel(reader: GamepadReader, parent?: HTMLElement):
     el.addEventListener(ev, (e) => e.stopPropagation());
   }
   openBtn.addEventListener('click', () => setOpen(panel.hidden));
-  el.querySelector('[data-testid="gp-close"]')!.addEventListener('click', () => setOpen(false));
-  el.querySelector('[data-testid="gp-reset"]')!.addEventListener('click', () => {
+  panel.querySelector('[data-testid="gp-close"]')!.addEventListener('click', () => setOpen(false));
+  panel.querySelector('[data-testid="gp-reset"]')!.addEventListener('click', () => {
     reader.resetBinds();
     waiting = null;
   });
-  el.querySelector('[data-testid="gp-calib"]')!.addEventListener('click', () => {
+  panel.querySelector('[data-testid="gp-calib"]')!.addEventListener('click', () => {
     const s = reader.snapshot();
     if (!s) return;
     reader.calibrateFromAxes(s.axes[0] ?? 0, s.axes[1] ?? 0, s.axes[2] ?? 0, s.axes[3] ?? 0);
@@ -177,6 +194,8 @@ export function createGamepadPanel(reader: GamepadReader, parent?: HTMLElement):
     isOpen: () => !panel.hidden,
     dispose: () => {
       if (raf) cancelAnimationFrame(raf);
+      openBtn.remove();
+      panel.remove();
       el.remove();
     },
   };

@@ -25,12 +25,16 @@ export function wireGamepad(opts: {
   reader.bootstrap();
   opts.lock.setPadActive(reader.hasPad());
 
-  const onConn = (e: GamepadEvent) => {
-    reader.onConnected(e.gamepad.index);
+  const onConn = (e: Event) => {
+    const ge = e as GamepadEvent;
+    const idx = ge.gamepad?.index ?? 0;
+    reader.onConnected(idx);
     opts.lock.setPadActive(reader.hasPad());
   };
-  const onDisc = (e: GamepadEvent) => {
-    reader.onDisconnected(e.gamepad.index);
+  const onDisc = (e: Event) => {
+    const ge = e as GamepadEvent;
+    const idx = ge.gamepad?.index ?? 0;
+    reader.onDisconnected(idx);
     opts.lock.setPadActive(reader.hasPad());
   };
   window.addEventListener('gamepadconnected', onConn);
@@ -51,7 +55,9 @@ export function wireGamepad(opts: {
     const on = reader.hasPad();
     if (on !== opts.lock.isPadActive()) opts.lock.setPadActive(on);
   };
+  // 案内中（realtime オフ）でもパッドを読んで padActive にできるように idle でも回す
   opts.game.onUpdate(step);
+  opts.game.onIdle(step);
 
   // メニュー: 十字でフォーカス移動（簡易）
   opts.game.onUpdate(() => {
@@ -85,6 +91,17 @@ export function wireGamepad(opts: {
     look,
     slots,
     panel,
+    /** E2E: 偽パッドを差し込む */
+    injectPad(pad: Gamepad | null): void {
+      reader.getPads = () => (pad ? [pad] : []);
+      if (pad) {
+        reader.onConnected(pad.index);
+        opts.lock.setPadActive(true);
+      } else {
+        reader.onDisconnected(0);
+        opts.lock.setPadActive(reader.hasPad());
+      }
+    },
     dispose: () => {
       window.removeEventListener('gamepadconnected', onConn);
       window.removeEventListener('gamepaddisconnected', onDisc);

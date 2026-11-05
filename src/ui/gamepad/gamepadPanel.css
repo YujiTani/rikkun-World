@@ -1,24 +1,44 @@
-.gp-root { position: absolute; right: 12px; bottom: 12px; z-index: 40; font-family: sans-serif; }
-.gp-open {
-  min-height: 48px; min-width: 140px; font-size: 18px; padding: 8px 14px;
-  border-radius: 12px; border: 2px solid #333; background: #fff8e7; cursor: pointer;
+/* GAMEPAD-1: 案内の「おと」列と同じ部品ルール（ss-open）に合わせる */
+.gp-root {
+  display: contents;
 }
 .gp-panel {
-  position: absolute; right: 0; bottom: 56px; width: min(360px, 92vw);
-  max-height: 70vh; overflow: auto; background: #fffdf5; border: 3px solid #444;
-  border-radius: 16px; padding: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50;
+  width: min(360px, 92vw);
+  max-height: 70vh;
+  overflow: auto;
+  background: var(--rk-bg-900, #10141f);
+  color: var(--rk-text, #fff);
+  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  border: var(--rk-bw, 2px) solid var(--rk-accent, #ffc83d);
+  border-radius: var(--rk-r-l, 24px);
+  padding: var(--rk-sp-4, 16px);
+  box-shadow: var(--rk-shadow-2, 0 4px 12px rgb(0 0 0 / 0.4));
+  font-family: inherit;
 }
 .gp-panel[hidden] { display: none !important; }
-.gp-title { font-size: 20px; font-weight: bold; margin: 0 0 8px; }
+.gp-title { font-size: var(--rk-fs-body, 17px); font-weight: 800; margin: 0 0 8px; }
 .gp-row { font-size: 14px; margin: 4px 0; word-break: break-all; }
-.gp-bar { height: 10px; background: #ddd; border-radius: 5px; overflow: hidden; margin: 2px 0 6px; }
+.gp-bar { height: 10px; background: #252f47; border-radius: 5px; overflow: hidden; margin: 2px 0 6px; }
 .gp-bar > i { display: block; height: 100%; background: #5a8; width: 0%; }
-.gp-bar.dead > i { background: #aaa; }
-.gp-btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.gp-bar.dead > i { background: #555; }
+.gp-btns { display: flex; flex-wrap: wrap; gap: var(--rk-sp-2, 8px); margin: 8px 0; }
 .gp-btns button {
-  min-height: 44px; padding: 6px 10px; font-size: 14px; border-radius: 10px;
-  border: 2px solid #555; background: #eef; cursor: pointer;
+  min-height: 56px;
+  padding: 0 var(--rk-sp-4, 16px);
+  font: inherit;
+  font-size: var(--rk-fs-body, 17px);
+  font-weight: 800;
+  border-radius: var(--rk-r-pill, 999px);
+  border: var(--rk-bw, 2px) solid var(--rk-accent, #ffc83d);
+  background: var(--rk-bg-700, #252f47);
+  color: var(--rk-text, #fff);
+  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  cursor: pointer;
 }
 .gp-faces { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 13px; }
-.gp-faces span.on { background: #cfc; font-weight: bold; }
-.gp-faces span { padding: 4px 6px; border-radius: 6px; background: #f0f0f0; }
+.gp-faces span.on { background: #2a5; font-weight: bold; }
+.gp-faces span { padding: 4px 6px; border-radius: 6px; background: #252f47; }
