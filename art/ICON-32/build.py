@@ -33,6 +33,8 @@ ICONS = {
 LEAF_ = G.LEAF
 ICONS['grass'] = M.grass
 for _i in LG.IDS: ICONS[_i] = getattr(LG, _i)  # でんせつ 11 点は 1 点もの
+import hero as HR, armor_hero as AH
+ICONS.update(HR.IDS); ICONS.update(AH.IDS)  # 2 回目の 描きなおし（英雄っぽい 形・強い 明暗）
 
 def main():
     keep = set(open(os.path.join(HERE, 'keep.txt')).read().split()) if os.path.exists(os.path.join(HERE, 'keep.txt')) else set()
