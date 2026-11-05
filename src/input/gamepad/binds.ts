@@ -16,6 +16,16 @@ export function loadBinds(storage: Storage | null): BindMap {
   }
 }
 
+/** ユーザーが割り当てを保存したことがあるか */
+export function hasSavedBinds(storage: Storage | null): boolean {
+  if (!storage) return false;
+  try {
+    return !!storage.getItem(GAMEPAD_CONFIG.bindsKey);
+  } catch {
+    return false;
+  }
+}
+
 export function saveBinds(storage: Storage | null, binds: BindMap): void {
   if (!storage) return;
   try {

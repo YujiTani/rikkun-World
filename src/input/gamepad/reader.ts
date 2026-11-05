@@ -4,7 +4,7 @@
 import type { Action, ActionState } from '../actions';
 import type { LookSource } from '../../contracts';
 import { GAMEPAD_CONFIG, type GamepadSettings } from './config';
-import { applyDeadZone, loadBinds, loadCalib, saveBinds, saveCalib, type BindMap, type Calib } from './binds';
+import { applyDeadZone, hasSavedBinds, loadBinds, loadCalib, saveBinds, saveCalib, type BindMap, type Calib } from './binds';
 import {
   DEFAULT_PLAY_BINDS,
   axisLayout,
@@ -34,7 +34,10 @@ export class GamepadReader {
   private calib: Calib;
   private settings: GamepadSettings;
   private prev = new Map<number, boolean[]>();
-  private heldFaces = new Map<PadFace, boolean>();
+  /** 押したときに出した Action（はなすときはこれをはなす） */
+  private heldFaces = new Map<PadFace, Action>();
+  private bindsSaved: boolean;
+  private kind: MappingKind = 'standard';
   private dirHeld = new Set<string>();
   private assignedIndex: number | null = null;
   private lastInput: LastInput = 'keyboard';
@@ -50,6 +53,7 @@ export class GamepadReader {
     settings?: Partial<GamepadSettings>,
   ) {
     this.binds = loadBinds(storage);
+    this.bindsSaved = hasSavedBinds(storage);
     this.calib = loadCalib(storage);
     this.settings = {
       deadZone: settings?.deadZone ?? GAMEPAD_CONFIG.deadZone,
@@ -65,10 +69,12 @@ export class GamepadReader {
   }
   persistBinds(): void {
     saveBinds(this.storage, this.binds);
+    this.bindsSaved = true;
   }
   resetBinds(): void {
     this.binds = { ...DEFAULT_PLAY_BINDS };
     saveBinds(this.storage, this.binds);
+    this.bindsSaved = true;
   }
 
   getSettings(): GamepadSettings {
@@ -185,6 +191,7 @@ export class GamepadReader {
     }
 
     const kind = detectMappingKind(pad);
+    this.kind = kind;
     const table = faceTable(kind);
     const axes = axisLayout(kind);
     const dz = this.settings.deadZone;
@@ -260,23 +267,29 @@ export class GamepadReader {
     return b === undefined ? DEFAULT_PLAY_BINDS[face] : b;
   }
 
+  /** 知らない機種で、割り当てもまだのとき、面・肩ボタンは出さない（暴発よけ） */
+  private faceBlocked(face: PadFace): boolean {
+    if (this.kind !== 'fallback' || this.bindsSaved) return false;
+    return face === 'faceBottom' || face === 'faceRight' || face === 'faceLeft' || face === 'faceTop' ||
+      face === 'l1' || face === 'r1' || face === 'l2' || face === 'r2';
+  }
+
   private pressFace(face: PadFace, _nowMs: number): void {
-    this.heldFaces.set(face, true);
+    if (this.faceBlocked(face)) return;
     const a = this.actionForFace(face);
-    if (a) this.actions.press(a);
+    if (!a) return;
+    this.heldFaces.set(face, a);
+    this.actions.press(a);
   }
 
   private releaseFace(face: PadFace): void {
+    const a = this.heldFaces.get(face);
     this.heldFaces.delete(face);
-    const a = this.actionForFace(face);
     if (a) this.actions.release(a);
   }
 
   releaseAllPadActions(): void {
-    for (const face of [...this.heldFaces.keys()]) {
-      const a = this.actionForFace(face);
-      if (a) this.actions.release(a);
-    }
+    for (const a of this.heldFaces.values()) this.actions.release(a);
     this.heldFaces.clear();
     for (const act of [...this.dirHeld]) {
       this.actions.release(act as 'moveForward' | 'moveBack' | 'moveLeft' | 'moveRight');

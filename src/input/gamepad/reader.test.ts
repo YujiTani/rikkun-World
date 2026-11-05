@@ -143,3 +143,73 @@ describe('GamepadReader', () => {
     expect(c.dx).toBeGreaterThan(0);
   });
 });
+
+describe('GamepadReader: 後追いの直し', () => {
+  function setup(opts: { id?: string; mapping?: GamepadMappingType; storage?: Storage | null } = {}) {
+    const actions = new ActionState();
+    const look = new AlwaysLook();
+    const reader = new GamepadReader(actions, look, opts.storage ?? null);
+    const mk = (btn: number[] = [], axes = [0, 0, 0, 0]) => {
+      const b = Array(16).fill(false);
+      for (const i of btn) b[i] = true;
+      return fakePad({ id: opts.id, mapping: opts.mapping, buttons: b, axes });
+    };
+    const set = (pad: Gamepad) => {
+      reader.getPads = () => [pad];
+    };
+    set(mk());
+    reader.bootstrap();
+    reader.poll(0);
+    return { actions, look, reader, mk, set };
+  }
+
+  it('押したときの Action をはなす（途中でメニューが開いても）', () => {
+    const { actions, reader, mk, set } = setup();
+    set(mk([1])); // faceRight → run
+    reader.poll(16);
+    expect(actions.isHeld('run')).toBe(true);
+    reader.setMenuOpen(true);
+    set(mk([]));
+    reader.poll(32);
+    expect(actions.isHeld('run')).toBe(false);
+    expect(actions.isHeld('closeMenu')).toBe(false);
+  });
+
+  it('hanging が途中で変わっても ropeDown が残らない / releaseAll でも', () => {
+    const { actions, reader, mk, set } = setup();
+    reader.setHanging(true);
+    set(mk([1]));
+    reader.poll(16);
+    expect(actions.isHeld('ropeDown')).toBe(true);
+    reader.setHanging(false);
+    reader.releaseAllPadActions();
+    expect(actions.isHeld('ropeDown')).toBe(false);
+  });
+
+  it('知らない機種(予備)で割り当て前は、面・肩ボタンは出さず、スティックだけ有効', () => {
+    const { actions, look, reader, mk, set } = setup({ id: 'Generic USB Joystick', mapping: '' });
+    set(mk([0, 7], [0.9, 0, 0.9, 0]));
+    reader.poll(16);
+    expect(actions.isHeld('jump')).toBe(false);
+    expect(actions.isHeld('primary')).toBe(false);
+    expect(actions.isHeld('moveRight')).toBe(true);
+    expect(look.consume().dx).toBeGreaterThan(0);
+  });
+
+  it('知らない機種でも、割り当て直し(保存)したあとは面ボタンが使える', () => {
+    const store = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    } as unknown as Storage;
+    const first = setup({ id: 'Generic USB Joystick', mapping: '', storage });
+    first.reader.setBind('faceBottom', 'jump');
+    first.reader.persistBinds();
+    const again = setup({ id: 'Generic USB Joystick', mapping: '', storage });
+    again.set(again.mk([0]));
+    again.reader.poll(16);
+    expect(again.actions.isHeld('jump')).toBe(true);
+  });
+});
+
