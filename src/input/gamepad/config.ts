@@ -17,6 +17,3 @@ export type GamepadSettings = {
   lookSensitivity: number;
 };
 
-export function defaultGamepadSettings(): GamepadSettings {
-  return { deadZone: GAMEPAD_CONFIG.deadZone, lookSensitivity: GAMEPAD_CONFIG.lookSensitivity };
-}

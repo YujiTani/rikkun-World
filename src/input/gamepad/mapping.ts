@@ -22,7 +22,7 @@ export type PadFace =
 export type MappingKind = 'standard' | 'switch' | 'fallback';
 
 /** standard 番号 → 論理面 */
-export const STANDARD_FACE: Readonly<Record<number, PadFace>> = {
+const STANDARD_FACE: Readonly<Record<number, PadFace>> = {
   0: 'faceBottom',
   1: 'faceRight',
   2: 'faceLeft',
@@ -45,7 +45,7 @@ export const STANDARD_FACE: Readonly<Record<number, PadFace>> = {
  * 非 standard の Switch Pro 風でよくある並び（実機で微調整可）。
  * 推測: 多くの BT Pro 風は面ボタンが B A Y X の順、肩が L R ZL ZR。
  */
-export const SWITCH_FACE: Readonly<Record<number, PadFace>> = {
+const SWITCH_FACE: Readonly<Record<number, PadFace>> = {
   0: 'faceBottom', // B
   1: 'faceRight', // A
   2: 'faceLeft', // Y

@@ -25,11 +25,6 @@ export function saveBinds(storage: Storage | null, binds: BindMap): void {
   }
 }
 
-export function resetBinds(storage: Storage | null): BindMap {
-  const b = { ...DEFAULT_PLAY_BINDS };
-  saveBinds(storage, b);
-  return b;
-}
 
 export type Calib = { lx: number; ly: number; rx: number; ry: number };
 
