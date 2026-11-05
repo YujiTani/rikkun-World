@@ -14,17 +14,25 @@ def _blade(c, ramp, spine, w0, w1, bands=None):
     return b
 
 def raijin_ken():
-    """雷神: 太鼓の 輪（巴の もよう）を つばに、刀身に 金の いなずま"""
+    """雷神: 黒い 刀身に 銀の 刃、太鼓の 輪（巴）の つば、刀身の まわりに 黄色と 白の いなずま（オーナー見本の 感じ）"""
     c = Canvas(); c.ground(17, 26, 14, 3)
-    b = _blade(c, PURPLE, [(8, 23.5), (31, 0.8)], 1.9, 0.6)
-    pts = [(12, 15), (15, 15), (14, 12), (18, 11.5), (17, 8), (21, 7.5), (20, 4.5)]
-    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
-        for q in line_px(x0, y0, x1, y1): c.c[q] = [GOLD, 4, 99]
-    c.fix[(20, 4)] = CREAM
+    for cx, cy, r, a0 in ((19, 12, 8.5, 200), (17, 14, 6.5, 20)):  # うすい うずの オーラ
+        for q in {(round(cx + r * math.cos(math.radians(t))), round(cy + r * 0.8 * math.sin(math.radians(t)))) for t in range(a0, a0 + 120, 8)}:
+            if 0 <= q[0] < 32 and 0 <= q[1] < 32: c.c[q] = [PURPLE, 2, 1]
+    b = _blade(c, SUMI, [(8, 23.5), (31, 0.8)], 1.9, 0.6)
+    for (x, y) in b:  # 銀の 刃（右下がわ）
+        if (x + 1, y + 1) not in b and (x + 1, y) not in b: c.c[(x, y)] = [STEEL, 4, 99]
+    def bolt(pts, col):
+        for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+            for q in line_px(x0, y0, x1, y1): c.c[q] = [col, 4, 99]
+    bolt([(13, 13), (11, 10), (14, 9), (12, 5), (15, 4)], GOLD)      # 左の いなずま
+    bolt([(19, 18), (22, 17), (21, 14), (25, 13), (24, 10), (28, 9)], GOLD)  # 右の いなずま
+    bolt([(16, 11), (18, 9), (17, 7), (20, 6)], GOLD)                 # 刀身に そう 白い 光
+    for q in ((15, 4), (28, 9), (20, 6), (12, 5), (25, 13)): c.fix[q] = CREAM
     for k in range(6):  # 太鼓の 輪
         a = k * math.pi / 3; cx, cy = 7 + 4.6 * math.cos(a), 24.5 + 4.0 * math.sin(a)
         c.shape(LACQ, sphere(cx, cy, 1.9), bias=0.15)
-        c.fix[(round(cx), round(cy))] = GOLD[3]  # 巴の 点
+        c.fix[(round(cx), round(cy))] = GOLD[3]
     hl = tube([(1.6, 30.4), (5.0, 27.0)], 1.6); c.extrude(SUMI, hl); h = c.shape(SUMI, hl, bias=0.3)
     c.put({p for p in h if (p[0] + p[1]) % 2 == 0}, 4, GOLD)
     return c
