@@ -1,5 +1,6 @@
 // rikkun-World の 起動。上から 順に 実行される 1 本の流れを、係ごとの 関数（src/game/wire/*.ts）に 分けて、同じ 順に 呼ぶ。
 // 作る順・登録する順・乱数を 呼ぶ 順は 元の main.ts と 同じ。前の 段で 作った 物は w に たまっていく。
+import { loadIconAtlas } from './ui/iconAtlas';
 import { wireBoot, wireRender } from './game/wire/world';
 import { wireInput, wirePlayer } from './game/wire/player';
 import { wireInventory, wireDrops } from './game/wire/inventory';
@@ -13,6 +14,7 @@ import { installGameHook } from './debug/installTestHook';
 import { wireGasha } from './game/wire/gasha';
 import { buildMagmaDemo, wantsMagmaDemo } from './debug/magmaDemo';
 
+await loadIconAtlas().catch(() => undefined); // ICON-32: 32×32 の アイコン（失敗しても 16×16 で 動く）
 const w1 = await wireBoot();
 const w2 = Object.assign(w1, wireRender(w1));
 const w3 = Object.assign(w2, wireInput(w2));

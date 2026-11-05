@@ -20,6 +20,7 @@ import { axeItemPixels, isAxeItem } from './itemArtBal';
 import { isTakoItem, takoItemPixels } from './itemArtTako';
 import { isMineItem, mineItemPixels } from './itemArtMine';
 import { tansuPixels } from '../storage/tansuArt';
+import { atlasIconUrl } from './iconAtlas';
 import { BLOCK_TILES, TILE_SIZE, getTilePixels, type Rgba, type TileName } from '../world/blocks/textures';
 
 /** 16x16 のドット絵（コードで描く）。pixels[y * 16 + x]、y = 0 が上 */
@@ -180,6 +181,8 @@ const iconCache = new Map<string, string>();
 
 /** アイテムの絵を data URL にして使いまわす（img で出すため。DOM のある所でだけ呼ぶ） */
 export function itemIconUrl(item: ItemId): string {
+  const big = atlasIconUrl(item); // ICON-32: 32×32 が あれば そちら
+  if (big) return big;
   let url = iconCache.get(item);
   if (!url) {
     const c = document.createElement('canvas');

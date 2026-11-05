@@ -35,6 +35,11 @@ jobs:
       # ラチェット（#310）: コードのきまり違反の数が ratchet.json の上限より ふえたら 失敗。約 25 秒
       - name: コードのきまり（ラチェット）
         run: npm run check:ratchet
+      # ICON-32: art/icons32/*.png から アトラスを 作りなおして 差分が ないか（作り忘れの 検出）
+      - name: アイコンの アトラス
+        run: |
+          python3 -m pip install --quiet --break-system-packages pillow
+          python3 art/ICON-32/pack.py --check
 
   # PR の 変更が ドキュメントだけ（docs/・.md・.claude/）なら E2E を とばす。main への push は いつも 全部 回す
   changes:
