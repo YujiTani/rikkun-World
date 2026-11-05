@@ -18,6 +18,10 @@ describe('ICON-32 アトラス', () => {
     expect(w).toBe(index.cols * ICON_SIZE);
     expect(h).toBe(Math.ceil(index.ids.length / index.cols) * ICON_SIZE);
   });
+  it('バッチ 2 で 全アイテムに 32×32 が ある（139/139）', () => {
+    const miss = (Object.keys(ITEM_DEFS) as ItemId[]).filter((id) => !hasAtlasIcon(id));
+    expect(miss).toEqual([]);
+  });
   it('どの アイテムも 32×32 か 16×16 の 代わりが ある', () => {
     for (const id of Object.keys(ITEM_DEFS) as ItemId[]) {
       if (!hasAtlasIcon(id)) expect(itemIconPixels(id).length, id).toBe(256);

@@ -17,9 +17,9 @@ ICONS = {
     'wakimizu_bucket': lambda: G.bucket(G.WATER, True), 'magma_wakimizu_bucket': lambda: G.bucket(G.LAVA, True),
     'mushi_ami': G.mushi_ami, 'mizumori': G.mizumori, 'dotsuki': G.dotsuki, 'chalk': G.chalk,
     # 武器
-    'bokuto': lambda: G.sword(G.WOOD, hilt=G.LACQ, wood=True), 'katana': lambda: G.sword(G.STEEL),
-    'crystal_katana': lambda: G.sword(G.CRYS, guard=G.GEM), 'kin_katana': lambda: G.sword(G.GOLD, hilt=G.SHADE, sp=True),
-    'kongo_katana': lambda: G.sword(G.GEM, guard=G.CHALK, sp=True), 'raijin_ken': lambda: G.sword(G.PURPLE, deco=G._bolt, curve=False),
+    'bokuto': lambda: G.sword(G.WOOD, hilt=G.LACQ, wood=True), 'katana': lambda: G.sword(G.STEEL, guard=G.IRON, hilt=G.SUMI),
+    'crystal_katana': lambda: G.sword(G.CRYS, guard=G.GEM, hilt=G.PURPLE), 'kin_katana': lambda: G.sword(G.GOLD, hilt=G.SHADE, sp=True),
+    'kongo_katana': lambda: G.sword(G.GEM, guard=G.CHALK, hilt=G.WATER, sp=True), 'raijin_ken': lambda: G.sword(G.PURPLE, deco=G._bolt, curve=False),
     'fujin_ken': lambda: G.sword(G.WIND, guard=G.CHALK, deco=G._wind, curve=False), 'niji': lambda: G.sword(G.STEEL, deco=G._rainbow, guard=G.CHALK),
     'naginata': G.naginata, 'yumi': G.bow, 'kin_yumi': lambda: G.bow(G.GOLD, G.SHADE, G.CRIMSON, True), 'kongo_yumi': lambda: G.bow(G.GEM, G.NAVY, G.CHALK, True), 'ya': G.ya,
     # 防具
@@ -35,6 +35,8 @@ ICONS['grass'] = M.grass
 for _i in LG.IDS: ICONS[_i] = getattr(LG, _i)  # でんせつ 11 点は 1 点もの
 import hero as HR, armor_hero as AH
 ICONS.update(HR.IDS); ICONS.update(AH.IDS)  # 2 回目の 描きなおし（英雄っぽい 形・強い 明暗）
+import batch2 as B2
+for _i in B2.IDS: ICONS.setdefault(_i, getattr(B2, _i))  # バッチ 2
 
 def main():
     keep = set(open(os.path.join(HERE, 'keep.txt')).read().split()) if os.path.exists(os.path.join(HERE, 'keep.txt')) else set()
@@ -45,7 +47,7 @@ def main():
     out = sys.argv[1] if len(sys.argv) > 1 else '/tmp/icon32-final'
     os.makedirs(out, exist_ok=True)
     cats = json.load(open(os.path.join(HERE, 'ref', 'categories.json')))
-    for name, want in (('tools', {'tool'}), ('weapons', {'weapon'}), ('armor', {'armor'}), ('blocks', None), ('protos', {'food', 'metal', 'build-proto'})):
+    for name, want in (('tools', {'tool'}), ('weapons', {'weapon'}), ('armor', {'armor'}), ('blocks', None), ('protos', {'food', 'metal', 'build-proto'}), ('food', {'food'}), ('materials', {'material', 'metal'}), ('home', {'home'}), ('build', {'build'}), ('light', {'light'}), ('plant', {'plant'})):
         ids = [i for i in ICONS if (want is None and i in M.TILES) or (want and cats.get(i) in want and i not in M.TILES)]
         if name == 'protos': ids = ['iron_ingot', 'diamond', 'rope', 'momo_yaki', 'tomato', 'grass']
         sheet(ids, imgs, os.path.join(out, f'{name}.png'))

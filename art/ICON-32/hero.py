@@ -96,7 +96,7 @@ def _zig(h, pts, col, hi):
     for q in pts[1:-1]: h.set((round(q[0]), round(q[1])), hi)
 
 THUNDER = R('3a2a10', '8a6a10', 'e8c020', 'fff060', 'fffff0')
-GALE = R('1c3a14', '3a7a20', '78b838', 'b8e878', 'eaffd0')
+GALE = R('143010', '2e6a18', '8ad040', 'd8f890', 'fbffe8')   # 草の 背景でも 見えるよう 明るめ
 RAIN = [R('3a1038', '7a1c6a', 'd040a8', 'f080d0', 'ffd0f0'), R('3a1a10', '8a3a10', 'f07a20', 'ffb050', 'ffe8c0'),
         R('3a3010', '8a7010', 'f0d030', 'fff070', 'fffff0'), R('103a20', '1e7a3a', '40c860', '90f090', 'e0ffe0'),
         R('102a5a', '1a5aa0', '38a0f0', '80d8ff', 'e0f8ff'), R('2a1848', '4a2a80', '8a58e0', 'b890ff', 'e8d8ff')]
