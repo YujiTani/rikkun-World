@@ -15,6 +15,7 @@ import { type BgmSceneInput, screenLevel } from '../../fx/bgm/scene';
 import { createSoundSettings } from '../../ui/soundSettings';
 import { isBodyPlaceable } from '../../save';
 import { bindKeyboardAndMouse } from '../../input/actions';
+import { wireGamepad } from './gamepad';
 import { LockController, WheelAccumulator, MouseLook, bindPointerLock } from '../../input';
 import { PlayerController } from '../../player/PlayerController';
 import { PlayOverlay } from '../../ui/playOverlay';
@@ -33,8 +34,11 @@ export function wireInput(deps: WiredRender) {
   // 本（BOOK-1）が 出ている間だけ Backspace を 止める（ブラウザの「前のページへ」にならないように）
   let bookRef: Book | null = null;
   bindKeyboardAndMouse(window, game.input, wheel, { preventExtra: () => bookRef?.active() === true });
-  const look = new MouseLook(lock);
-  const pointerLock = bindPointerLock(document, window, game.renderer.domElement, lock, look, game.input);
+  const mouseLook = new MouseLook(lock);
+  const pointerLock = bindPointerLock(document, window, game.renderer.domElement, lock, mouseLook, game.input);
+  // GAMEPAD-1: パッド＋合成 look（下で panel を案内に載せるため playOverlay のあとで wire）
+  let look: import('../../contracts').LookSource = mouseLook;
+  let gamepadApi: ReturnType<typeof wireGamepad> | null = null;
   // BOOK-1: あそびかたの 3D の 本。出ている間は 世界が 止まり、景色は 描きなおさない
   const book = new Book({
     parent: document.body,
@@ -58,6 +62,23 @@ export function wireInput(deps: WiredRender) {
   const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => book.open());
   startPlan.close(); // スタートメニューを 消す（今の「じゅんびちゅう」→「あそぼう」の 案内画面へ）
   const soundSettingsUi = createSoundSettings({ audio: audioSettings, fx: FX_SETTINGS, onChange: () => audioSync() }, playOverlay.el);
+  gamepadApi = wireGamepad({
+    game,
+    lock,
+    mouseLook,
+    actions: game.input,
+    overlayParent: playOverlay.el,
+    menuOpen: () => {
+      try {
+        return shared.screen.inventoryOpen() || book.active() || shared.houseFrozen();
+      } catch {
+        return book.active() || shared.houseFrozen();
+      }
+    },
+    hanging: () => shared.controller?.tetherBody.hanging === true,
+    onToggleView: () => { /* rig は wirePlayer で繋ぐ */ },
+  });
+  look = gamepadApi.look;
   // 最初のクリック・キーで音が使えるようになる（ブラウザのきまり）
   for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, () => mixer.unlock(), true);
   document.addEventListener('visibilitychange', () => mixer.setHidden(document.hidden));
@@ -86,7 +107,7 @@ export function wireInput(deps: WiredRender) {
     mixer.holdDuck(shared.celebrate.bandModel.toast.isOpen());
     if (mode !== 'guide' && soundSettingsUi.isOpen()) soundSettingsUi.close();
   }
-  return { lock, wheel, look, pointerLock, book, playOverlay, soundSettingsUi, audioStep };
+  return { lock, wheel, look, pointerLock, book, playOverlay, soundSettingsUi, audioStep, gamepadApi };
 }
 
 type WiredInput = WiredRender & ReturnType<typeof wireInput>;
@@ -124,6 +145,10 @@ export function wirePlayer(deps: WiredInput) {
   });
   const titleOfYokai = (id: number) => shared.yokaiManager?.list().find((q) => q.id === id)?.title ?? 'none';
   const rig = new CameraRig(game.camera, game.scene, world, () => controller.state, game.input);
+  // GAMEPAD-1: V / パッド上面 → toggleView（本体は CameraRig 内 TODO no-op）
+  game.input.onPress((action) => {
+    if (action === 'toggleView') rig.toggleView();
+  });
   lighting.registerTree(rig.doll.group, 'doll');
   // キャラは 8 方向のドット絵の板。?char=block のときだけ 箱人形（描画回数を比べるため）
   const blockDollOnly = useBlockDoll(location.search);

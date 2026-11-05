@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { ActionState, DEFAULT_KEY_BINDINGS, actionForKey, bindKeyboardAndMouse } from './actions';
 
-describe('CHAR-1: V と 走る', () => {
-  it('AC2: KeyV には どの Action も割り当てられていない', () => {
-    expect(DEFAULT_KEY_BINDINGS.KeyV).toBeUndefined();
-    expect(actionForKey('KeyV', false)).toBeUndefined();
-    expect(actionForKey('KeyV', true)).toBeUndefined();
+describe('CHAR-1 / GAMEPAD-1: V と 走る', () => {
+  it('GAMEPAD-1: KeyV は toggleView', () => {
+    expect(DEFAULT_KEY_BINDINGS.KeyV).toBe('toggleView');
+    expect(actionForKey('KeyV', false)).toBe('toggleView');
   });
 
   it('AC41: run は ShiftLeft・ShiftRight。シフト＋Q は dropStack 1 回・drop なし・run は押されたまま', () => {

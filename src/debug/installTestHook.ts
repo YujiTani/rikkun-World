@@ -321,7 +321,7 @@ export function installGameHook(deps: WiredLoop): void {
       bookStats: () => book.renderInfo(),
       get: () => ({ ...lockHook.get(), ...book.state() }),
     },
-    input: createInputHook(game.input, look, wheel),
+    input: createInputHook(game.input, look as unknown as { push(dx: number, dy: number): void }, wheel),
     audio: createAudioHook({
       mixer,
       bgm,

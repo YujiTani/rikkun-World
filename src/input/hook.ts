@@ -1,6 +1,6 @@
 import { ACTIONS } from './actions';
 import type { Action, ActionState } from './actions';
-import type { LockController, MouseLook } from './lockController';
+import type { LockController } from './lockController';
 import type { WheelAccumulator } from './wheel';
 
 /** `lock.*`（M1-02 §6.1） */
@@ -21,7 +21,7 @@ function toAction(name: string): Action {
 }
 
 /** `input.*`（M1-02 §6.1, M2 §6.1）。press/release はキーボードと同じ ActionState に入る */
-export function createInputHook(actions: ActionState, look: MouseLook, wheel: WheelAccumulator) {
+export function createInputHook(actions: ActionState, look: { push(dx: number, dy: number): void }, wheel: WheelAccumulator) {
   return {
     press: (action: string) => actions.press(toAction(action)),
     release: (action: string) => actions.release(toAction(action)),

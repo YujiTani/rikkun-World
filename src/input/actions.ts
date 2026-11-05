@@ -14,7 +14,7 @@ export const ACTIONS = [
   'jump',
   'primary', // 掘る・攻撃
   'secondary', // 置く・食べる
-  'toggleView', // 一人称 / 三人称（CHAR-1 第 5 版で割り当てをなくした。名前は後始末まで残す）
+  'toggleView', // 一人称 / 三人称（GAMEPAD-1: キー V とパッド上面。カメラ本体は後続チケット）
   'run', // 走る（シフト。CHAR-1）
   'ropeDown', // ROPE-1 版 5: つないで ぶら下がって いる 間 Shift と いっしょに おりる（C）
   'toggleDebug', // 性能表示
@@ -74,6 +74,7 @@ export const DEFAULT_KEY_BINDINGS: Readonly<Record<string, Action>> = {
   KeyR: 'stanceNext',
   KeyL: 'openLog',
   KeyC: 'ropeDown',
+  KeyV: 'toggleView',
 };
 
 /**
