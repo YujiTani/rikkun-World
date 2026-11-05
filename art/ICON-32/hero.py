@@ -3,7 +3,7 @@
 乱数なし（同じ 入力 → 同じ 画素）。"""
 import math
 from PIL import Image
-from lib import N, OUT, CREAM, R, GOLD, SUMI, STEEL, CHALK, LACQ
+from lib import N, P, RNG, fit, OUT, CREAM, R, GOLD, SUMI, STEEL, CHALK, LACQ
 
 S2 = math.sqrt(2)
 O = (6.0, 26.0)  # つばの 中心
@@ -16,23 +16,24 @@ class Hero:
     def __init__(self):
         self.px = {}; self.glow = {}
     def set(self, p, col):
-        if 0 <= p[0] < N and 0 <= p[1] < N: self.px[p] = col
+        if -P <= p[0] < N + P and -P <= p[1] < N + P: self.px[p] = col
     def render(self):
-        img = Image.new('RGBA', (N, N))
-        for y in range(N):  # 地面の かげ
-            for x in range(N):
+        img = Image.new('RGBA', (N + 2 * P, N + 2 * P))
+        put = lambda p, c: img.putpixel((p[0] + P, p[1] + P), c)
+        for y in RNG:  # 地面の かげ
+            for x in RNG:
                 d = ((x + .5 - 17) / 14) ** 2 + ((y + .5 - 27) / 3) ** 2
-                if d <= 1: img.putpixel((x, y), (24, 14, 34, 110 if d < .5 else 60))
+                if d <= 1: put((x, y), (24, 14, 34, 110 if d < .5 else 60))
         for p, c in self.glow.items():
-            if p not in self.px: img.putpixel(p, c)
+            if p not in self.px and -P <= p[0] < N + P and -P <= p[1] < N + P: put(p, c)
         solid = set(self.px)
-        for y in range(N):
-            for x in range(N):
+        for y in RNG:
+            for x in RNG:
                 if (x, y) in solid: continue
                 if any((x + dx, y + dy) in solid for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
-                    img.putpixel((x, y), OUT)
-        for p, c in self.px.items(): img.putpixel(p, c)
-        return img
+                    put((x, y), OUT)
+        for p, c in self.px.items(): put(p, c)
+        return fit(img)
 
 def sword(core, edge, glow, W=2.2, curve=0.0, fuller=None, guard=GOLD, gem=None, wrap=SUMI, motif=None):
     h = Hero()
@@ -42,15 +43,15 @@ def sword(core, edge, glow, W=2.2, curve=0.0, fuller=None, guard=GOLD, gem=None,
         if s > L1 - 5: return max(0.0, W * (L1 - s) / 5)
         return W - 0.3 * (s - L0) / (L1 - L0)
     # オーラ（半とうめいの 光）
-    for y in range(N):
-        for x in range(N):
+    for y in RNG:
+        for x in RNG:
             s, t = _st(x + .5, y + .5); t += bend(s)
             if L0 < s < L1 + 1.5:
                 d = abs(t) - half(s)
                 if 0.4 < d < 2.4: h.glow[(x, y)] = glow[3][:3] + (120 if d < 1.4 else 60,)
     # 刀身
-    for y in range(N):
-        for x in range(N):
+    for y in RNG:
+        for x in RNG:
             s, t = _st(x + .5, y + .5); t += bend(s); w = half(s)
             if not (L0 <= s <= L1) or abs(t) > w: continue
             if t > w - 0.7: col = CREAM if s > 6 else edge[4]               # 刃の 白い 線
@@ -65,8 +66,8 @@ def sword(core, edge, glow, W=2.2, curve=0.0, fuller=None, guard=GOLD, gem=None,
     h.glow[(round(tx + 2), round(ty))] = CREAM[:3] + (150,); h.glow[(round(tx), round(ty - 2))] = CREAM[:3] + (150,)
     if motif: motif(h, bend, half)
     # つば（大きく 横に はる 金の 十字。はしは 丸く ふくらむ）
-    for y in range(N):
-        for x in range(N):
+    for y in RNG:
+        for x in RNG:
             s, t = _st(x + .5, y + .5)
             bar = -0.4 <= s <= 2.0 and abs(t) <= 5.0
             knob = (s - 0.8) ** 2 + (abs(t) - 5.2) ** 2 <= 2.4
@@ -74,13 +75,13 @@ def sword(core, edge, glow, W=2.2, curve=0.0, fuller=None, guard=GOLD, gem=None,
                 k = guard[4] if (s > 1.2 and t < -1) else guard[3] if s > 0.6 else guard[2] if t < 1.5 else guard[1]
                 h.set((x, y), k)
     if gem:
-        for x in range(N):
-            for y in range(N):
+        for x in RNG:
+            for y in RNG:
                 s, t = _st(x + .5, y + .5)
                 if (s - 0.8) ** 2 + t ** 2 <= 2.2: h.set((x, y), gem[1] if t > 0.6 else gem[4] if (t < -0.3 and s > 0.8) else gem[2])
     # つか（ひし形の まき）
-    for y in range(N):
-        for x in range(N):
+    for y in RNG:
+        for x in RNG:
             s, t = _st(x + .5, y + .5)
             if -6.0 <= s < -0.6 and abs(t) <= 1.5:
                 h.set((x, y), CHALK[2] if (round(s * 1.4) + (t > 0)) % 2 == 0 else wrap[1] if t > 0 else wrap[2])
@@ -113,8 +114,8 @@ def fujin_ken():
     """風神剣: 雷神剣の 兄弟。銀の 刀身、みどりに 光る みぞ、刀身に まきつく 風の リボン 2 本"""
     def motif(h, bend, half):  # 刀身を つつむ 2 本の 風の 帯（はしが 細く なる 三日月。外が 白、内が みどり）
         for (cx, cy, r, a0, a1, tk, front) in ((16, 15, 10.5, 160, 330, 2.6, False), (18, 13, 10.0, -20, 150, 2.6, True), (21, 10, 5.5, 200, 330, 1.6, False)):
-            for y in range(N):
-                for x in range(N):
+            for y in RNG:
+                for x in RNG:
                     dx, dy = x + .5 - cx, y + .5 - cy; d = math.hypot(dx, dy)
                     ang = math.degrees(math.atan2(dy, dx)) % 360; rel = (ang - a0) % 360
                     if rel > (a1 - a0): continue

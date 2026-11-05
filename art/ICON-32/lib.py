@@ -5,6 +5,8 @@ import math
 from PIL import Image
 
 N = 32
+P = 8  # はみ出しを 失わない ための よゆう（描いてから fit で 枠に おさめる）
+RNG = range(-P, 32 + P)
 OUT = (0x2A, 0x1A, 0x24, 255)
 
 def hx(s): s = s.lstrip('#'); return tuple(int(s[i:i + 2], 16) for i in (0, 2, 4)) + (255,)
@@ -47,8 +49,8 @@ class Canvas:
     def shape(self, ramp, f, bias=0.0, spec=0.0, flat=None, sub=3):
         """f(x,y) -> 法線 or None（マスの 中の 3x3 点で しらべ、半分 以上で 入れる）"""
         p = self.parts; self.parts += 1; got = {}
-        for y in range(N):
-            for x in range(N):
+        for y in RNG:
+            for x in RNG:
                 hits = []
                 for sy in range(sub):
                     for sx in range(sub):
@@ -77,7 +79,10 @@ class Canvas:
         self.grounds.append((cx, cy, rx, ry))
 
     def render(self, rim=True):
-        img = Image.new('RGBA', (N, N))
+        return fit(self.render_big(rim))
+
+    def render_big(self, rim=True):
+        img = Image.new('RGBA', (N + 2 * P, N + 2 * P))
         px = {}
         for (x, y), (r, t, p) in self.c.items():
             col = CREAM if t >= 5 else r[max(0, t)]
@@ -93,7 +98,7 @@ class Canvas:
             if rim and t <= 2 and ((x + 1, y) not in self.c or (x, y + 1) not in self.c) and ((x - 1, y) in self.c and (x, y - 1) in self.c):
                 col = r[3]
             px[(x, y)] = col
-        for (x, y) in [(x, y) for y in range(N) for x in range(N) if (x, y) not in self.c]:
+        for (x, y) in [(x, y) for y in RNG for x in RNG if (x, y) not in self.c]:
             nb = [(dx, dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)) if (x + dx, y + dy) in self.c]
             if not nb: continue
             # 下・右の ふち（中身が 上か 左に ある）→ こい ふち色
@@ -102,13 +107,13 @@ class Canvas:
                 r = self.c[(x + nb[0][0], y + nb[0][1])][0]; px[(x, y)] = r[0]
         px.update(self.fix)
         for (gx, gy, rx, ry) in self.grounds:
-            for y in range(N):
-                for x in range(N):
+            for y in RNG:
+                for x in RNG:
                     if (x, y) in px: continue
                     d = ((x + .5 - gx) / rx) ** 2 + ((y + .5 - gy) / ry) ** 2
                     if d <= 1: px[(x, y)] = (24, 14, 34, 110 if d < .5 else 60)
         for (x, y), c in px.items():
-            if 0 <= x < N and 0 <= y < N: img.putpixel((x, y), c)
+            if -P <= x < N + P and -P <= y < N + P: img.putpixel((x + P, y + P), c)
         return img
 
 # ---------- 形（法線を かえす） ----------
@@ -170,3 +175,28 @@ def sparkle(c, x, y, big=True):
     c.fix[(x, y)] = CREAM
     for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)) + (((2, 0), (-2, 0), (0, 2), (0, -2)) if big else ()):
         c.fix[(x + dx, y + dy)] = (255, 240, 170, 255) if abs(dx) + abs(dy) == 1 else (255, 226, 140, 200)
+
+
+def fit(big):
+    """はみ出し なし（ICON-32 §12）: 大きく 描いた 絵を、ふち線ごと 1..30 に おさまるよう 動かす。
+    30 より 大きい ときだけ 最近傍で ちぢめる。かげ（半とうめい）は いっしょに 動き、枠の 外は 切る。"""
+    a = big.split()[3]
+    sol = a.point(lambda v: 255 if v == 255 else 0).getbbox()
+    out = Image.new('RGBA', (N, N))
+    if not sol: return out
+    x0, y0, x1, y1 = sol; w, h = x1 - x0, y1 - y0
+    if w > N - 2 or h > N - 2:
+        src, k = big, (N - 2) / max(w, h)
+        while True:
+            big = src.resize((max(1, round(src.width * k)), max(1, round(src.height * k))), Image.NEAREST)
+            a = big.split()[3]; sol = a.point(lambda v: 255 if v == 255 else 0).getbbox(); x0, y0, x1, y1 = sol
+            if x1 - x0 <= N - 2 and y1 - y0 <= N - 2: break
+            k -= 0.01
+    # もとの 位置（P ずらし）を できるだけ たもち、はみ出す 分だけ 動かす
+    ox = -P if big.width == N + 2 * P else -(big.width - N) // 2
+    oy = -P if big.height == N + 2 * P else -(big.height - N) // 2
+    sx0, sx1 = x0 + ox, x1 + ox; sy0, sy1 = y0 + oy, y1 + oy
+    dx = (1 - sx0) if sx0 < 1 else ((N - 1) - sx1 if sx1 > N - 1 else 0)
+    dy = (1 - sy0) if sy0 < 1 else ((N - 1) - sy1 if sy1 > N - 1 else 0)
+    out.alpha_composite(big, (ox + dx, oy + dy)) if False else out.paste(big, (ox + dx, oy + dy))
+    return out

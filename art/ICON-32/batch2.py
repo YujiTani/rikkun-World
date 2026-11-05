@@ -328,19 +328,45 @@ def futon():
     box(c, CHALK, -9, -5, 3, 3, 10, 2.6, t=(4, 3, 2), cy=13)                      # まくら
     return c
 
+DULLRED = R('4a1a20', '7a2a30', 'a8484a', 'c86a64', 'e09a90')   # やぶれた おまもり（色あせた 赤）
+DULLGOLD = R('4a3420', '7a5a30', 'a88a50', 'c8a870', 'e0cca0')
+CORD = R('3a2a5a', '5a4a8a', '8a7ac0', 'b8acf0', 'e8e0ff')       # むらさきの ひも
+
 def omamori(torn=False):
-    c = Canvas(); c.ground(16, 29.5, 10, 2)
-    body = poly_f([(8, 9), (24, 9), (24, 27), (8, 27)] if not torn else [(8, 9), (24, 9), (24, 22), (21, 27), (18, 23), (14, 28), (11, 24), (8, 27)], (-0.2, -0.1, 0.95))
-    c.extrude(REDP, body, 1, 1); s = c.shape(REDP, body, bias=0.1 if torn else 0.25)
-    c.put({(x, y) for (x, y) in s if (x + y) % 4 == 0 and 10 < y < 26}, 4 if not torn else 1, GOLD if not torn else None)   # にしき もよう
-    c.shape(CHALK, poly_f([(12, 14), (20, 14), (20, 22), (12, 22)]), flat=3 if not torn else 2)   # おふだ の まど
-    for x, y0 in ((15, 16), (17, 16)):
-        for y in range(y0, y0 + 4): c.fix[(x, y)] = REDP[1]
-    c.shape(GOLD, tube([(13, 9), (12, 3), (16, 1.5), (20, 3), (19, 9)], 0.9), bias=0.3 if not torn else 0)
+    """おまもり: たて長で 平たい にしきの ふくろ、まん中に 金糸の たての 字、金の ふち、上で ひもを むすんだ 結び目と わ（大英博物館の 収蔵品の 説明の 特ちょう）。
+    やぶれ: 同じ 形と 色の 色あせ、右下が さけて 中の 白い 紙が 見え、ひもが 切れて ほつれ、糸くず"""
+    red, gold = (DULLRED, DULLGOLD) if torn else (REDP, GOLD)
+    c = Canvas(); c.ground(16, 29.5, 9, 1.8)
+    out = [(9, 12), (12, 9.5), (20, 9.5), (23, 12), (23, 29), (9, 29)]
+    if torn: out = [(9, 12), (12, 9.5), (20, 9.5), (23, 12), (23, 19), (20, 21), (22, 23), (18, 25), (19.5, 27), (16, 27.5), (15, 29), (9, 29)]
+    body = poly_f(out, (-0.2, -0.1, 0.95))
+    c.extrude(red, body, 1, 1); s = c.shape(red, body, bias=-0.05 if torn else 0.05)
+    edge = {(x, y) for (x, y) in s if any((x + dx, y + dy) not in s for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))}
+    c.put(edge, 3, gold)                                                              # 金の ふち
+    for (x, y) in s - edge:                                                            # にしきの もよう（ひし形の 点）
+        if (x + y) % 4 == 0 and (x - y) % 4 == 0: c.c[(x, y)] = [gold, 2 if torn else 3, 90]
+    panel = {(x, y) for (x, y) in s if 13 <= x <= 18 and 12 <= y <= 26}
+    for p in panel: c.c[p] = [red, 1, 91]                                              # まん中の たての 字の 帯
+    c.shape(gold, sphere(16, 15, 2.2), flat=4 if not torn else 3)                       # 金の 紋
+    c.c[(16, 15)] = [red, 1, 93]
+    for k, (y, w) in enumerate(((19, 2), (21, 1), (23, 2), (25, 1))):                       # 金糸の 字（たてに）
+        if torn and y > 22: continue
+        for x in range(16 - w, 16 + w): c.c[(x, y)] = [gold, 3, 92]
+        c.c[(15 + k % 2, y + 1)] = [gold, 3, 92]
     if torn:
-        for p in ((10, 12), (22, 15), (14, 25)): c.fix[p] = SUMI[0]
+        for (x, y) in ((19, 21), (20, 22), (19, 22), (18, 23), (19, 24), (17, 25), (17, 26), (18, 26)): c.fix[(x, y)] = CHALK[3 + (x + y) % 2]      # さけめから 見える 白い 紙
+        for p in ((10, 15), (12, 24), (19, 13)): c.fix[p] = DULLRED[0]                        # しみ・すれ
+        c.shape(CORD, tube([(16, 9.5), (14, 6), (11, 4.5)], 0.9), bias=0.0)                   # 切れた ひも（片がわ だけ）
+        c.shape(CORD, tube([(16, 9.5), (19, 7.5), (20, 5)], 0.9), bias=0.0)
+        c.fix.update({(10, 4): CORD[2], (9, 3): CORD[1], (21, 4): CORD[2], (21, 3): CORD[1]})  # ほつれた はし
+        c.fix.update({(24, 20): DULLGOLD[3], (25, 21): DULLGOLD[2], (24, 22): DULLGOLD[3], (21, 28): DULLGOLD[3], (22, 29): DULLGOLD[2], (17, 29): DULLRED[3]})      # 糸くず
     else:
-        glint(c, (10, 11))
+        c.shape(CORD, tube(arc_pts(16, 3.6, 2.6, 0, 360, 20, 2.4), 0.8), bias=0.3)          # ひもの わ
+        for sg in (-1, 1):                                                               # 結び目の 左右の わ
+            c.shape(CORD, sphere(16 + 3 * sg, 7.8, 2.0, 1.5), bias=0.35)
+            c.shape(CORD, tube([(16, 8.5), (16 + 2.5 * sg, 12.5)], 0.8), bias=0.3)        # たれ
+        c.shape(CORD, sphere(16, 8.2, 1.5), bias=0.45, spec=0.2)
+        glint(c, (11, 13), (10, 14))
     return c
 
 def omamori_torn(): return omamori(True)
