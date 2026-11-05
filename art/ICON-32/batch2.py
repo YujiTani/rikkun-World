@@ -134,13 +134,17 @@ def mushi():
     return c
 
 def harapan_mimizu():
-    c = Canvas(); c.ground(16, 27, 13, 2.6)
-    pts = [(4, 24), (8, 26), (12, 23), (15, 18), (19, 16), (23, 18), (26, 14), (27, 8)]
-    s = c.shape(WORM, tube(pts, 2.6, 2.2), bias=0.2, spec=0.05)
-    c.put({(x, y) for (x, y) in s if (x + y) % 4 == 0 and c.c[(x, y)][1] >= 2}, 1)      # ふし
-    c.shape(WORM, sphere(15, 18.5, 3.2), bias=0.3)                                     # おなか（はらぱん）
-    c.fix.update({(26, 8): SUMI[0], (28, 8): SUMI[0]})
-    sparkle(c, 7, 7)
+    """はらぱんみみず（epic）: 頭から しっぽまで ぜんぶ 見える S 字の みみず。まん中の おなかが ぱんぱんに ふくらむ、頭の 近くに うすい 色の 帯（環帯）、にこにこ顔、きらり"""
+    c = Canvas(); c.ground(16, 28.5, 12, 2.4)
+    pts = [(5, 26.5), (9, 27.5), (14, 26), (17, 22), (15.5, 17), (12, 13.5), (12, 9), (16, 6), (21, 5.5)]
+    s = c.shape(WORM, tube(pts, 1.4, 2.6), bias=0.25, spec=0.05)          # しっぽ（細い）→ 頭（太い）
+    c.put({(x, y) for (x, y) in s if (x * 2 + y * 3) % 5 == 0 and c.c[(x, y)][1] >= 2}, 2)   # ふし
+    c.shape(WORM, sphere(16, 19.5, 5.2, 4.6), bias=0.3, spec=0.08)        # ぱんぱんの おなか
+    c.shape(PINKM, tube([(11, 11.5), (13.5, 9.5)], 2.0), flat=4)           # 環帯（うすい 帯）
+    c.shape(WORM, sphere(22.5, 6, 3.4, 3.0), bias=0.3, spec=0.06)          # 頭
+    c.fix.update({(22, 5): SUMI[0], (24, 5): SUMI[0], (23, 7): WORM[1], (21, 7): (255, 150, 160, 255)})
+    glint(c, (14, 17), (15, 16))
+    sparkle(c, 27, 13)
     return c
 
 # ---------------- 食べもの ----------------
