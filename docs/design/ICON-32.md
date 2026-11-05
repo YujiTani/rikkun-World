@@ -147,4 +147,5 @@
 
 - はきもの（下駄・足袋・すねあて 3 つ）は 1 つ だけ に 描きなおした（オーナー 2026-11-05）。
 - まえ・あと: `/workspace/icon32-shots/batch1-legendary-before-after.png`・`batch1-footwear-before-after.png`・`batch1-niji-before-after.png`・`batch1-iga-before-after.png`。
+- 侍（明珍）4 点は オーナーの 見本 https://connietarte.com/2018/03/18/post-2414/ （明珍シリーズ: 深みの ある 赤の 羽織・着物の ししゅう・ところどころの 金属の かざり・陣笠・手甲・下駄・幕末の 志士の ふんいき）の 感じ だけ 参考: 羽織に 金の ししゅうと かたの 鉄の 金具、手甲の 布を 深い 赤に、下駄の 鼻緒も 深い 赤。
 - 見本の 絵（ゲームの 絵・イラスト）は 形・色の 感じ だけ 参考に し、絵そのもの・キャラは 写して いない。

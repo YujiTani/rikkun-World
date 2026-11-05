@@ -72,7 +72,7 @@ def samurai_jingasa():
     c = Canvas(); c.ground(16, 27, 14, 3)
     c.shape(LACQ, lambda x, y: sphere(16, 18.5, 14.5, 6.2)(x, y) if y > 22 else None, flat=2)  # うらの 朱が ふちに 見える
     cone = lambda x, y: (lambda d: ((x - 16) / 14, (y - 17) / 6 - 0.6, 0.6) if d <= 1 else None)(((x - 16) / 14.5) ** 2 + ((y - 17) / 7) ** 2)
-    s = c.shape(SUMI, cone, bias=0.4, spec=0.04)
+    s = c.shape(SUMI, cone, bias=0.12, spec=0.06)
     c.put({(x, y) for (x, y) in s if ((x - 16) / 14.5) ** 2 + ((y - 17) / 7) ** 2 > 0.82}, 4, GOLD)
     for k in range(3):  # 家紋: 三つ星（金）
         cx, cy = 16 + 3.2 * math.cos(k * 2.094 - 1.57), 19 + 2.2 * math.sin(k * 2.094 - 1.57)
@@ -88,15 +88,17 @@ def samurai_haori():
     c.put({(x, y) for (x, y) in s if any((x + dx, y + dy) not in s for dx, dy in ((1, 0), (-1, 0), (0, 1)))}, 4, GOLD)
     c.shape(SUMI, poly_f([(13, 4), (19, 4), (17, 27), (15, 27)]), bias=0.35)  # 前の あわせ
     c.put({(x, y) for (x, y) in c.c if c.c[(x, y)][0] is SUMI and x in (14, 18)}, 4, GOLD)
-    for cx in (9.5, 22.5):  # かたの 家紋（白い 丸に 金）
-        c.shape(CHALK, sphere(cx, 9, 2.6), flat=3)
-        c.shape(GOLD, sphere(cx, 9, 1.2), flat=3)
+    for cx in (9.5, 22.5):  # かたの 金具（明珍の 見本: ところどころに 金属の かざり）
+        c.shape(STEEL, sphere(cx, 8.5, 2.4), bias=0.15, spec=0.12)
+        c.shape(GOLD, sphere(cx, 8.5, 1.0), flat=3)
+    for (x, y) in list(c.c):  # すその ししゅう（金の つる もよう）
+        if c.c[(x, y)][0] is CRIMSON and 21 <= y <= 25 and (x * 2 + y * 3) % 7 == 0: c.c[(x, y)] = [GOLD, 3, 97]
     return c
 
 def samurai_tekko():
     """明珍の 手甲: 鉄さび地の 板に 筋（すじ）と 金の びょう"""
     c = Canvas(); c.ground(16, 28, 13, 3)
-    G._guard(c, RUSSET, GOLD, SUMI)
+    G._guard(c, RUSSET, GOLD, CRIMSON)
     hand = sphere(8.5, 23, 5.6, 4.6)
     for q in ((6, 21), (11, 21), (6, 25), (11, 25)): c.fix[q] = GOLD[4]   # びょう
     c.shape(GOLD, sphere(8.5, 23, 1.8), spec=0.12)
