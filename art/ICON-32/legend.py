@@ -37,16 +37,27 @@ def raijin_ken():
     c.put({p for p in h if (p[0] + p[1]) % 2 == 0}, 4, GOLD)
     return c
 
+GALE = R('1c3a14', '3a7a20', '78b838', 'b8e070', 'eaffc8')   # 風神: 見本の うすい みどりの 風
+
 def fujin_ken():
-    """風神: 風ぶくろ（口を しばった ふくろ）を つばに、みどりの 刀身と 白い 風の すじ"""
+    """風神: 雷神剣と 同じ 形の 兄弟。銀の 刀身、金と 黒の つば（風ぶくろ）、刀身に まきつく うすい みどりの 風の リボン（オーナー見本の 感じ）"""
     c = Canvas(); c.ground(17, 26, 14, 3)
-    b = _blade(c, WIND, [(9, 22.5), (16, 15), (23, 7.5), (31, 1)], 1.9, 0.5)
-    bag = sphere(7.5, 24.5, 5.4, 4.6)
-    c.extrude(LEAF, bag, 0, 1); c.shape(LEAF, bag, bias=0.15, spec=0.04)
-    c.shape(GOLD, tube([(10, 20.5), (12.5, 19)], 0.9), bias=0.2)  # しばった ひも
-    for cx, cy, r, a0 in ((14, 9, 3.2, 90), (21, 14, 2.8, 270), (24, 21, 2.2, 90)):  # 風の すじ（うず）
-        for q in {(round(cx + r * math.cos(math.radians(a))), round(cy + r * 0.7 * math.sin(math.radians(a)))) for a in range(a0, a0 + 270, 12)}:
-            if q not in c.c: c.c[q] = [CHALK, 4, 99]
+    back = []
+    for cx, cy, r, a0, a1 in ((19, 12, 9, 150, 330), (18, 13, 6, 330, 500)):
+        back.append([(cx + r * math.cos(math.radians(t)), cy + r * 0.75 * math.sin(math.radians(t))) for t in range(a0, a1, 15)])
+    for pts in back[:1]:  # 刀身の うしろの 風（こい みどり）
+        c.shape(GALE, tube(pts, 0.9), bias=0.2)
+    b = _blade(c, STEEL, [(8, 23.5), (31, 0.8)], 1.9, 0.6)
+    for (x, y) in b:  # 刃の 白い 光
+        if (x + 1, y + 1) not in b and (x + 1, y) not in b: c.c[(x, y)] = [CHALK, 4, 99]
+    for pts in back[1:]:  # 刀身の まえの 風（明るい みどり）
+        c.shape(GALE, tube(pts, 0.9), bias=0.6, spec=0.1)
+    for q in ((10, 10), (27, 12), (24, 18), (14, 8)): c.fix[q] = CREAM  # 風の きらめき
+    bag = sphere(7, 25, 4.6, 4.0)  # つば: 風ぶくろ（黒）と 金の ひも
+    c.extrude(SUMI, bag, 0, 1); c.shape(SUMI, bag, bias=0.2, spec=0.06)
+    c.shape(GOLD, tube([(4, 23), (10, 27)], 0.8), bias=0.3)
+    hl = tube([(1.6, 30.4), (4.0, 28.0)], 1.6); c.extrude(SUMI, hl); h = c.shape(SUMI, hl, bias=0.3)
+    c.put({p for p in h if (p[0] + p[1]) % 2 == 0}, 4, GOLD)
     return c
 
 MAGENTA = R('3a1038', '7a1c6a', 'c03aa0', 'e870c8', 'ffc0ec')   # 虹: オーナーの 見本（玉虫色の 刀身）の 色だけ 参考
