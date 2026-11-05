@@ -96,3 +96,20 @@
 1. 絵柄（プロトの 8 点）で よいか。
 2. PNG 方式で よいか（自分で 直す ときの エディタ）。
 3. ブロックの アイテムは 斜めの 箱で よいか（今は 正面の タイル）。
+
+## 9. PixelLab で 作る（オーナー指示 2026-11-05）
+
+手で 描く 代わりに PixelLab の 下絵 → 掃除 → PNG → アトラス。4 章の PNG 方式と そのまま つながる。
+
+```
+families.json（なかまごとの 文と 共通の 絵柄の 文）→ gen.py（PixelLab v2・64x64・背景なし）→ raw/<id>.png
+→ clean.py（透明・きっちり 64x64・色を 16 色に・ふち 1px #2a1e14）→ 人の 手直し（ピクセルエディタ）→ art/icons64/<id>.png → アトラス
+```
+
+- ブロックの アイテム（約 40）は PixelLab を 使わない（タイルから 斜めの 箱、`build.py`）。
+- 呼ぶ 前後に `/balance` を `log.json` へ（PIPELINE 1.1 の きまり）。`--max` で 回数の 上限、既定 0 は 呼ばない。
+- **止まって いる 所**: この箱には `PIXELLAB_SECRET` が ない（`GET /v2/balance` は 401）。ART-PIPE-1 は クラウドの 自動認証（`Bearer dummy`）で 動いて いたが、ここでは 使えない。
+- オーナーに 決めて ほしい こと:
+  1. API トークン（https://pixellab.ai の アカウント ページ）を 安全な 入力で `PIXELLAB_SECRET` に。
+  2. 使う 呼び方と 予算。PIPELINE の 決まりは「1 回 1 generation より 高い 物は 使わない」。64x64 の アイテムに 向くのは `create-image-pixflux` / `bitforge` / `pro-flash`。値段は 呼ぶ 前に `/pro-flash/cost` や 説明で たしかめる。お試しの 残りは 34 generations（2026-10-21 時点）。全部（約 110 点 ＋ 作りなおし）では 足りない 見こみ → 有料プランか、なかまの 代表だけ PixelLab で 作り のこりは 手直しで 広げるか。
+  3. PixelLab の 規約（作った 絵を ゲームで 公開して よいか、PIPELINE 6 章 5）。
