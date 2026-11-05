@@ -280,12 +280,15 @@ def fude():
     return c
 
 def kuwa():
+    """くわ: 長い 柄の 先に、下へ たれる 平たい 刃（斧と ちがう 形）"""
     c = Canvas(); c.ground(16, 27, 13, 3)
-    h = tube([(5, 28), (23, 9)], 1.8)
-    c.extrude(WOOD, h); c.shape(WOOD, h, bias=0.08)
-    bl = poly_f([(19, 7), (27, 5), (29, 15), (21, 17.5)], (0.2, -0.2, 0.95))
-    c.extrude(IRON, bl, 0, 2); b = c.shape(IRON, bl, bias=0.1, spec=0.05)
-    c.put({(x, y) for (x, y) in b if (x, y + 1) not in b}, 4)
+    h = tube([(4, 29), (21, 6)], 1.7)
+    c.extrude(WOOD, h); c.shape(WOOD, h, bias=0.12)
+    bl = poly_f([(19, 4), (25, 5.5), (29.5, 22), (22, 23)], (0.3, -0.1, 0.95))
+    c.extrude(IRON, bl, 1, 1); b = c.shape(IRON, bl, bias=0.15, spec=0.05)
+    c.put({(x, y) for (x, y) in b if (x, y + 1) not in b or (x, y + 2) not in b}, 4)    # 研いだ 刃
+    c.put({(x, y) for (x, y) in b if (x - 1, y) not in b and y < 20}, 1)
+    c.shape(IRON, sphere(21, 6, 2.6, 2.2), bias=0.1, spec=0.1)                           # 柄を とめる 金具
     return c
 
 def watering_can(color=WATER, long=False):
@@ -349,17 +352,20 @@ def mizumori():
     return c
 
 def dotsuki():
-    c = Canvas(); c.ground(16, 28, 10, 3)
+    """どうつき: 太い 丸太に 横の とって 2 本と なわ"""
+    c = Canvas(); c.ground(16, 28, 12, 3)
     def log_(x, y):
-        if not (8 <= y <= 26): return None
+        if not (9 <= y <= 27): return None
         u = (x - 16) / 6.5
         return (u, 0.1, math.sqrt(max(0, 1 - u * u))) if abs(u) <= 1 else None
-    c.shape(WOOD, log_, bias=0.15)
-    c.shape(WOOD, sphere(16, 8, 6.5, 2.8, 0.2), flat=3)
-    c.put({(x, y) for (x, y) in c.c if ((x - 16) ** 2 / 20 + (y - 8) ** 2 / 3) < 1 and (x + y) % 3 == 0}, 2)  # 年輪
-    for cx in (6, 26):
-        c.shape(WOOD, tube([(cx, 12), (cx, 20)], 1.6), bias=0.2)
-    c.shape(ROPE, sphere(16, 18, 6.6, 1.0), flat=3)
+    s_ = c.shape(WOOD, log_, bias=0.15)
+    c.put({(x, y) for (x, y) in s_ if (x * 2 + y) % 7 == 0}, 1)                          # 木目
+    c.shape(WOOD, sphere(16, 9, 6.5, 2.8, 0.2), flat=3)
+    c.put({(x, y) for (x, y) in c.c if ((x - 16) ** 2 / 20 + (y - 9) ** 2 / 3) < 1 and (x + y) % 3 == 0}, 2)
+    for sg in (-1, 1):  # とって（ななめ 上へ）
+        h = tube([(16 + 6 * sg, 13), (16 + 12.5 * sg, 13)], 1.5)
+        c.extrude(WOOD, h); c.shape(WOOD, h, bias=0.25)
+    for y in (14, 21): c.shape(ROPE, lambda x, yy, y=y: ((x - 16) / 7, 0, 0.7) if abs(x - 16) <= 6.8 and abs(yy - y) <= 1 else None, bias=0.2)
     return c
 
 def chalk():
