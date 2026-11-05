@@ -54,6 +54,7 @@ export function installGameHook(deps: WiredLoop): void {
     currentKitRows, animalFx, animalHint, aimPointInto, combat, lockHook, book, look, wheel, mixer, bgm,
     bgmScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
     m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets, seat, water,
+    gamepadApi,
   } = deps;
   installTestHook(game, overlay, () => host.everReady, {
     start: startBoot.hook,
@@ -321,7 +322,16 @@ export function installGameHook(deps: WiredLoop): void {
       bookStats: () => book.renderInfo(),
       get: () => ({ ...lockHook.get(), ...book.state() }),
     },
-    input: createInputHook(game.input, look, wheel),
+    input: createInputHook(game.input, look as unknown as { push(dx: number, dy: number): void }, wheel),
+    gamepad: gamepadApi
+      ? {
+          injectPad: (pad: Gamepad | null) => gamepadApi!.injectPad(pad),
+          hasPad: () => gamepadApi!.reader.hasPad(),
+          snapshot: () => gamepadApi!.reader.snapshot(),
+          openPanel: () => gamepadApi!.panel.open(),
+          closePanel: () => gamepadApi!.panel.close(),
+        }
+      : null,
     audio: createAudioHook({
       mixer,
       bgm,

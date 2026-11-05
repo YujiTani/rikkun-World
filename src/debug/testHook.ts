@@ -84,6 +84,13 @@ export interface TestHook {
   /** CHAR-1 第 5.2 版 §4.9: ねらいの点 X・ねらい補助で えらんだ妖怪の id */
   aim: { point(): { x: number; y: number; z: number }; assist(): number | null };
   input: ReturnType<typeof createInputHook>;
+  gamepad?: {
+    injectPad(pad: Gamepad | null): void;
+    hasPad(): boolean;
+    snapshot(): unknown;
+    openPanel(): void;
+    closePanel(): void;
+  } | null;
   lock: ReturnType<typeof createLockHook> & { tab(name: string): void; book(target: string): void; bookStats(): { calls: number; triangles: number } };
   settings: ReturnType<typeof createSettingsHook>;
   target: ReturnType<typeof createDigHook>['target'];
@@ -204,7 +211,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

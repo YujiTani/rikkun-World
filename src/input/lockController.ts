@@ -17,6 +17,8 @@ export class LockController implements LockStatus {
   private everLocked = false;
   private inventoryOpen = false;
   private relocking = false;
+  /** GAMEPAD-1: パッド割当中はロック無しでも遊ぶ */
+  private padActive = false;
   private listeners: Array<(locked: boolean) => void> = [];
 
   /** 本物のポインターロックの状態を伝える */
@@ -61,6 +63,17 @@ export class LockController implements LockStatus {
     this.afterChange(before);
   }
 
+  /** GAMEPAD-1: コントローラーで遊んでいる */
+  setPadActive(on: boolean): void {
+    const before = this.snapshot();
+    this.padActive = on;
+    this.afterChange(before);
+  }
+
+  isPadActive(): boolean {
+    return this.padActive;
+  }
+
   /** 状態が変わったら呼ばれる。戻り値で解除 */
   onChange(fn: (locked: boolean) => void): () => void {
     this.listeners.push(fn);
@@ -73,20 +86,20 @@ export class LockController implements LockStatus {
     return this.simulated ?? this.real;
   }
   overlayVisible(): boolean {
-    return !this.locked() && !this.inventoryOpen && !this.relocking;
+    return !this.locked() && !this.inventoryOpen && !this.relocking && !this.padActive;
   }
   realtimeAllowed(): boolean {
-    return this.locked() || this.inventoryOpen || this.relocking;
+    return this.locked() || this.inventoryOpen || this.relocking || this.padActive;
   }
   playInputEnabled(): boolean {
-    return this.locked() && !this.inventoryOpen;
+    return (this.locked() || this.padActive) && !this.inventoryOpen;
   }
   overlayText(): string {
     return this.everLocked ? INPUT_CONFIG.textResume : INPUT_CONFIG.textFirst;
   }
 
   private snapshot(): number {
-    return (this.locked() ? 1 : 0) | (this.inventoryOpen ? 2 : 0) | (this.relocking ? 4 : 0);
+    return (this.locked() ? 1 : 0) | (this.inventoryOpen ? 2 : 0) | (this.relocking ? 4 : 0) | (this.padActive ? 8 : 0);
   }
 
   private afterChange(before: number): void {

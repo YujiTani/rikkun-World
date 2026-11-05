@@ -253,8 +253,13 @@ export class CameraRig {
     return !this.overviewOn;
   }
 
-  /** 古い呼び出しのために残す。何もしない（一人称はなくなった） */
-  toggleView(): void {}
+  /**
+   * GAMEPAD-1 / 付録 A: 一人称↔三人称の本体は後続チケット。
+   * TODO(CHAR-revert): ViewMode に 'first' を戻し、切替を実装する。入力の Action は届く。
+   */
+  toggleView(): void {
+    /* no-op until CHAR box-doll + first-person restore */
+  }
 
   overview(on: boolean): void {
     if (on === this.overviewOn) return;
