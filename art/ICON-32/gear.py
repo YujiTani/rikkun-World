@@ -184,20 +184,20 @@ def kote(mat='iron'):
     return c
 
 def suneate(mat='iron'):
+    """すねあて（1 つ）: たての 板・ひざの 金具・ひも"""
     main, metal, cloth = ARM[mat]
-    c = Canvas(); c.ground(16, 28.5, 14, 2.6)
-    for cx in (10, 21):
-        def shin(x, y, cx=cx):
-            if not (6 <= y <= 26): return None
-            u = (x - cx) / 4.8
-            return (u, -0.1, math.sqrt(max(0.05, 1 - u * u))) if abs(u) <= 1 else None
-        c.extrude(main, shin, 1, 1); s = c.shape(main, shin, bias=0.15, spec=0.03)
-        c.put({(x, y) for (x, y) in s if (x - cx) % 3 == 1 and y > 8}, 1)  # 縦の すじ
-        for y0 in (9, 23):
-            c.put({(x, y) for (x, y) in s if y == y0}, 4, metal)
-        c.shape(cloth if mat != 'iron' else ROPE, sphere(cx, 15.5, 4.2, 1.0), flat=3)  # ひも
-        c.shape(metal, sphere(cx, 6.5, 4.6, 3.4), spec=0.08, bias=0.1)  # ひざの 金具
-    if mat != 'iron': sparkle(c, 28, 6)
+    c = Canvas(); c.ground(16, 28.5, 11, 2.6)
+    def shin(x, y):
+        if not (7 <= y <= 27): return None
+        hw = 7.5 - (y - 7) * 0.12; u = (x - 16) / hw
+        return (u, -0.1, math.sqrt(max(0.05, 1 - u * u))) if abs(u) <= 1 else None
+    c.extrude(main, shin, 1, 1); s = c.shape(main, shin, bias=0.15, spec=0.03)
+    c.put({(x, y) for (x, y) in s if (x - 16) % 4 == 2 and y > 10}, 1)          # たての すじ
+    c.put({(x, y) for (x, y) in s if y == 26}, 4, metal)
+    c.shape(cloth if mat != 'iron' else ROPE, sphere(16, 19, 7.8, 0.8), flat=3)  # ひも
+    c.shape(metal, sphere(16, 6.5, 7.2, 4.8), spec=0.08, bias=0.1)               # ひざの 金具
+    c.shape(main, sphere(16, 6.5, 3.0, 2.0), bias=0.2)
+    if mat != 'iron': sparkle(c, 27, 8)
     return c
 
 def ninja_zukin():

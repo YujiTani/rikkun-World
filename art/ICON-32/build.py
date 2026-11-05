@@ -4,7 +4,7 @@ python3 art/ICON-32/build.py [シートの 出力 dir]
 import json, os, sys
 from PIL import Image, ImageDraw
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
-import gear as G, misc as M
+import gear as G, misc as M, legend as LG
 OUT = os.path.join(HERE, '..', 'icons32')
 os.makedirs(OUT, exist_ok=True)
 
@@ -32,6 +32,7 @@ ICONS = {
 }
 LEAF_ = G.LEAF
 ICONS['grass'] = M.grass
+for _i in LG.IDS: ICONS[_i] = getattr(LG, _i)  # でんせつ 11 点は 1 点もの
 
 def main():
     keep = set(open(os.path.join(HERE, 'keep.txt')).read().split()) if os.path.exists(os.path.join(HERE, 'keep.txt')) else set()
