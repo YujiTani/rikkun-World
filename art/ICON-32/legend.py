@@ -41,21 +41,30 @@ def fujin_ken():
             if q not in c.c: c.c[q] = [CHALK, 4, 99]
     return c
 
+MAGENTA = R('3a1038', '7a1c6a', 'c03aa0', 'e870c8', 'ffc0ec')   # 虹: オーナーの 見本（玉虫色の 刀身）の 色だけ 参考
+PINK = R('4a1830', '9a3060', 'e06090', 'f898b8', 'ffd8e6')
+
 def niji():
-    """天の浮橋（にじの はし）: 弧を えがく 刀身に 7 色の 帯（長さに そって）、つばに 雲"""
+    """虹（天浮橋）: 大きく そった 刀身に 玉虫色の うず もよう（マゼンタ・ピンク・むらさき・青・水色・みどり）、刃に 白い 光、黒い つばと つか"""
     c = Canvas(); c.ground(17, 27, 14, 3)
-    spine = arc_pts(31, 33, 28, 186, 262, 16)
-    bl = tube(spine, 2.6, 0.8)
-    c.extrude(STEEL, bl, 0, 1, 1); b = c.shape(STEEL, bl, flat=2)
-    bands = [FRUIT, LAVA, GOLD, LEAF, WATER, NAVY, PURPLE]
-    for (x, y) in b:
-        d = math.hypot(x + .5 - 31, y + .5 - 33) - 28   # 弧からの きょり（-2.6〜2.6）
-        k = min(6, max(0, int((d + 2.6) / 5.2 * 7)))
-        c.c[(x, y)][0] = bands[k]; c.c[(x, y)][1] = 3
-    c.put({(x, y) for (x, y) in b if (x - 1, y - 1) not in b}, 4)
-    for cx, cy in ((4.5, 26.5), (7.5, 27.5), (6, 24.5)):  # 雲の つば
-        c.shape(CHALK, sphere(cx, cy, 2.4), bias=0.25)
-    hl = tube([(1.4, 30.6), (3.6, 28.6)], 1.4); c.shape(STEEL, hl, bias=0.2)
+    spine = arc_pts(32, 31, 26, 190, 266, 18)        # 強い そり
+    bl = tube(spine, 2.4, 0.6)
+    c.extrude(PURPLE, bl, 0, 1, 1); b = c.shape(PURPLE, bl, flat=3)
+    hues = [MAGENTA, PINK, PURPLE, WATER, WIND, LEAF]
+    for (x, y) in b:   # うず: 2 つの 波を かさねて 色を えらぶ（乱数なし）
+        v = math.sin(x * 0.55 + y * 0.35 + 2.2 * math.sin(y * 0.45 - x * 0.2)) + 0.6 * math.sin((x - y) * 0.4)
+        k = int((v + 1.6) / 3.2 * 6) % 6
+        c.c[(x, y)][0] = hues[k]
+        c.c[(x, y)][1] = 2 if (x * 3 + y) % 4 else 3
+    d = {(x, y): math.hypot(x + .5 - 32, y + .5 - 31) - 26 for (x, y) in b}
+    c.put({p for p, v in d.items() if v < -1.2}, 2)                       # 峰がわ すこし こく
+    edge = {(x, y) for (x, y) in b if (x + 1, y + 1) not in b and ((x, y + 1) not in b or (x + 1, y) not in b)}
+    for p in edge: c.c[p][1] = 5                                          # 刃の 白い 光
+    tsuba = sphere(6.6, 25.4, 3.2, 2.6)
+    c.extrude(SUMI, tsuba, 0, 1); c.shape(SUMI, tsuba, bias=0.0, spec=0.03)  # 黒い つば
+    for q in ((5, 24), (8, 24), (5, 27), (8, 27)): c.fix[q] = GOLD[3]       # すかしの 金
+    hl = tube([(1.6, 30.4), (4.6, 27.4)], 1.7); c.extrude(SUMI, hl); h = c.shape(SUMI, hl, bias=0.1)
+    c.put({p for p in h if (p[0] + p[1]) % 2 == 0}, 4)                     # つか巻き
     return c
 
 def samurai_jingasa():
@@ -106,52 +115,61 @@ def samurai_geta():
     c.shape(GOLD, sphere(19.5, 8.5, 1.4), spec=0.1)
     return c
 
+VIOLET = R('1e1a40', '3a3080', '5a50b8', '8a80e0', 'c4bcff')   # 伊賀の 差し色（青むらさき。オーナーの 見本から）
+MAIL = R('1a1c28', '2e3242', '4a5062', '6e7486', '9aa0b0')     # くさりかたびら
+
 def ninja_zukin():
-    """黒頭巾: 藍の ずきん・目だけ 出す・うしろの 結び目"""
-    c = Canvas(); c.ground(16, 28, 12, 3)
-    c.shape(INDIGO, tube([(23, 18), (28, 25)], 1.8), bias=0.3); c.shape(INDIGO, tube([(23, 18), (29, 20)], 1.6), bias=0.3)
-    c.shape(INDIGO, sphere(15.5, 15, 11, 11), bias=0.3, spec=0.03)
-    c.shape(SKIN, poly_f([(8, 13), (23, 13), (22, 17.5), (9, 17.5)]), flat=3)
+    """伊賀の 頭巾: 角の ような 2 つの とんがり・目だけ 出す・青むらさきの えりまき"""
+    c = Canvas(); c.ground(16, 28.5, 12, 2.6)
+    for sgn in (-1, 1):  # 角
+        c.shape(INDIGO, tube([(16 + 5 * sgn, 9), (16 + 8.5 * sgn, 3), (16 + 9.5 * sgn, 1)], 2.4, 0.8), bias=0.3)
+    c.shape(INDIGO, sphere(16, 14, 10.5, 10), bias=0.3, spec=0.03)
+    c.shape(SKIN, poly_f([(8, 12), (24, 12), (23, 16.5), (9, 16.5)]), flat=3)
     for x0 in (11, 18):
-        c.fix.update({(x0, 15): SUMI[0], (x0 + 1, 15): SUMI[0], (x0, 16): SUMI[0], (x0 + 1, 16): SUMI[0]})
-        c.fix[(x0, 15)] = (255, 250, 240, 255)
+        c.fix.update({(x0, 14): (255, 250, 240, 255), (x0 + 1, 14): SUMI[0], (x0, 15): SUMI[0], (x0 + 1, 15): SUMI[0]})
+    sc = c.shape(VIOLET, lambda x, y: sphere(16, 23, 11.5, 4.2)(x, y), bias=0.2, spec=0.03)   # えりまき
+    c.put({(x, y) for (x, y) in sc if y == 23}, 1)
+    c.shape(VIOLET, tube([(23, 24), (28, 28.5)], 1.8, 1.2), bias=0.2)   # はし
     return c
 
 def ninja_shozoku():
-    """忍び装束: 藍の うわぎ（前を 合わせる）・おび・くないの え"""
-    c = Canvas(); c.ground(16, 29, 13, 2.4)
-    c.shape(INDIGO, tube([(9, 8), (4, 18)], 3.2), bias=0.3); c.shape(INDIGO, tube([(23, 8), (28, 18)], 3.2), bias=0.25)
-    body = poly_f([(9, 6), (23, 6), (25, 27), (7, 27)])
+    """伊賀の 忍着: 藍の うわぎ・むねに くさりかたびら・青むらさきの えりまき・せなかの 小太刀と 長い 半マント"""
+    c = Canvas(); c.ground(16, 29.5, 13, 2.2)
+    c.shape(SUMI, poly_f([(5, 9), (27, 9), (29, 29), (3, 29)]), bias=0.2)                 # 半マント（うしろ）
+    c.shape(SUMI, tube([(23, 10), (29, 2)], 1.3), bias=0.3); c.shape(LACQ, tube([(27, 4.5), (29.5, 1.5)], 1.3), bias=0.3)   # 小太刀の つか
+    c.shape(INDIGO, tube([(9, 9), (5, 18)], 3.0), bias=0.3); c.shape(INDIGO, tube([(23, 9), (27, 18)], 3.0), bias=0.25)
+    body = poly_f([(9, 7), (23, 7), (24, 26), (8, 26)])
     c.shape(INDIGO, lambda x, y: body(x, y) and ((x - 16) / 9, -0.1, 0.9), bias=0.3, spec=0.02)
-    for q in line_px(11, 6, 18, 17) | line_px(21, 6, 15, 15): c.c[q] = [INDIGO, 1, 98]   # 前の 合わせ
-    c.shape(SUMI, poly_f([(7.5, 17), (24.5, 17), (24.5, 19.5), (7.5, 19.5)]), bias=0.35)
-    c.shape(STEEL, tube([(19, 18), (24, 13)], 0.9), bias=0.2, spec=0.1)   # くない
-    c.shape(LACQ, sphere(18.5, 18.5, 1.1), flat=3)
+    m = c.shape(MAIL, poly_f([(12, 8), (20, 8), (18.5, 16), (13.5, 16)]), flat=2)          # くさりかたびら
+    c.put({(x, y) for (x, y) in m if (x + y) % 2 == 0}, 3)
+    c.shape(VIOLET, sphere(16, 7.5, 8, 2.8), bias=0.25, spec=0.04)                        # えりまき
+    c.shape(VIOLET, poly_f([(7.5, 17), (24.5, 17), (24.5, 19.5), (7.5, 19.5)]), bias=0.2)  # おび
     return c
 
 def ninja_tekko():
-    """忍びの 手甲: 藍の 布・こはぜ・かくした 小太刀が しゅっと 出る"""
+    """伊賀の 手甲: ごつい 鉄の 板・青むらさきの まき・手首から 出る 小太刀"""
     c = Canvas(); c.ground(16, 28, 13, 3)
-    bl = tube([(10, 23), (29, 26)], 1.3, 0.4)   # 小太刀（手首から よこへ）
+    bl = tube([(10, 23), (29, 26)], 1.3, 0.4)
     c.extrude(STEEL, bl); b = c.shape(STEEL, bl, flat=3)
     c.put({(x, y) for (x, y) in b if (x + 1, y + 1) not in b}, 5)
-    G._guard(c, INDIGO, IRON, INDIGO, plates=False)
-    c.put({(x, y) for (x, y) in c.c if c.c[(x, y)][0] is INDIGO and (x - y) % 4 == 0 and x > 11}, 1)
-    for q in ((14, 16), (16, 14), (18, 12)): c.fix[q] = GOLD[3]   # こはぜ
-    c.shape(IRON, poly_f([(5, 20.5), (11.5, 19.5), (12, 25), (5.5, 26.5)], (-0.3, -0.4, 0.9)), bias=0.1, spec=0.08)
+    G._guard(c, MAIL, VIOLET, INDIGO)
+    c.shape(IRON, sphere(8.5, 23, 5.8, 4.8), bias=0.15, spec=0.08)
+    c.shape(VIOLET, sphere(8.5, 23, 2.0), bias=0.2)
     return c
 
 def ninja_tabi():
-    """忍びの 足袋（1 つ）: 藍の たび・親ゆびが わかれる・白い こはぜ"""
+    """伊賀の 脚絆と 足袋（1 つ）: 藍の たび・すねに まいた 脚絆・ななめの 青むらさきの かざり（左右ちがい）"""
     c = Canvas(); c.ground(17, 28.5, 13, 2.6)
-    shaft = tube([(11, 4), (12, 18)], 4.6)
-    c.extrude(INDIGO, shaft, 1, 0); c.shape(INDIGO, shaft, bias=0.3, spec=0.03)
+    shaft = tube([(11, 3), (12, 18)], 4.8)
+    c.extrude(INDIGO, shaft, 1, 0); s = c.shape(INDIGO, shaft, bias=0.3, spec=0.03)
+    c.put({(x, y) for (x, y) in s if (y + x // 3) % 3 == 0}, 1)                              # 脚絆の まき
+    for q in line_px(7, 12, 16, 6) | line_px(7, 13, 16, 7): 
+        if q in c.c: c.c[q] = [VIOLET, 3, 98]                                                # ななめの かざり
     foot = sphere(15, 22, 9.5, 5.2)
     c.extrude(INDIGO, foot, 0, 1); c.shape(INDIGO, foot, bias=0.3, spec=0.03)
-    c.shape(INDIGO, sphere(25.5, 22.5, 3.0, 3.6), bias=0.35)            # 親ゆび
-    for y in range(19, 27): c.fix[(23, y)] = INDIGO[0]                  # われめ
-    for k in range(4): c.fix[(15, 6 + k * 3)] = CHALK[3]; c.fix[(15, 7 + k * 3)] = CHALK[2]   # こはぜ
-    c.shape(SUMI, poly_f([(6, 26), (28, 26), (28, 27.5), (6, 27.5)]), flat=2)   # 底
+    c.shape(INDIGO, sphere(25.5, 22.5, 3.0, 3.6), bias=0.35)
+    for y in range(19, 27): c.fix[(23, y)] = INDIGO[0]
+    c.shape(SUMI, poly_f([(6, 26), (28, 26), (28, 27.5), (6, 27.5)]), flat=2)
     return c
 
 IDS = ['raijin_ken', 'fujin_ken', 'niji', 'samurai_jingasa', 'samurai_haori', 'samurai_tekko', 'samurai_geta', 'ninja_zukin', 'ninja_shozoku', 'ninja_tekko', 'ninja_tabi']

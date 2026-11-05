@@ -135,15 +135,16 @@
 |---|---|---|---|
 | raijin_ken | 雷神（風神雷神図屏風・俵屋宗達、建仁寺）: 太鼓の 輪を せおい、巴の もようの 太鼓を ばちで 打つ | https://thedeityproject.com/pages/deities/raijin-and-fujin ・ https://japonista.com/fujin-raijin | つばを 太鼓の 輪（6 つ・金の 巴の 点）、むらさきの 刀身に 金の いなずま |
 | fujin_ken | 風神: みどりの 体、ふくらんだ 風ぶくろ（口を ひもで しばる） | 同上 | つばを みどりの 風ぶくろ＋金の ひも、青みどりの 刀身、白い 風の うず |
-| niji | 天浮橋（あめのうきはし）: 天と 地を つなぐ はし、にじと 考えられる | https://en.wikipedia.org/wiki/Ame-no-ukihashi | 弧を えがく 刀身に 7 色の 帯（長さに そって）、雲の つば |
+| niji | 天浮橋（あめのうきはし）: 天と 地を つなぐ はし、にじと 考えられる。絵柄は オーナーの 見本（`/workspace/refs/rainbow-katana-ref.png`、玉虫色の 刀）の 感じ だけ 参考 | https://en.wikipedia.org/wiki/Ame-no-ukihashi | 強く そった 刀身・玉虫色の うず（マゼンタ・ピンク・むらさき・青・水色・みどり）・刃に 白い 光・黒い つば（金の すかし）・黒い つか巻き |
 | samurai_jingasa | 陣笠: 平たい 円すいの 笠、黒うるし、金の 家紋、てっぺんの 八幡座、うらは 朱 | https://www.meihaku.jp/art-knowledge/about-jingasa/ ・ https://searchcollection.asianart.org/objects/18647 | 黒うるしの 円すい・金の ふち・三つ星の 家紋・金の 八幡座・ふちの 下に 朱 |
 | samurai_haori | 陣羽織: そでなし・広い うでの 穴・えりと ふちに 金・家紋 | https://samuraimuseum.de/en/learn/jinbaori/ | そでなしの 深い 赤・金の ふち・黒の 合わせ・かたに 白丸の 家紋 |
 | samurai_tekko | 明珍（みょうちん）: 鉄の 板を 筋で つなぐ 名人の 家、金の 金具 | https://samuraimuseum.de/en/learn/kabuto-the-helmet-of-the-samurai-history-anatomy/ | 黒鉄（くろがね）の 板＋金の 帯・手の 甲に 金の びょう 4 つ |
 | samurai_geta | 下駄: 木の 台・下に 2 まいの 歯・鼻緒（指の 間を 通る V 字） | https://en.wikipedia.org/wiki/Geta_(footwear) | 1 つの 下駄を ななめに、下に 歯 2 まい、赤い 鼻緒、金の 前つぼ |
-| ninja_zukin | 忍び頭巾: 頭・首を おおい 目だけ 出す。じっさいは 黒より 藍 | https://www.ninja-museum.com/ninja-database-en/?p=517 | 藍の ずきん・目の 帯・うしろの 結び目 |
-| ninja_shozoku | 忍び装束: 前を 合わせる うわぎ・おび（道具を さす） | https://www.ninjutsushop.com/en/ninjutsu-equipment/ninjutsu-guide/shinobi-shozoku/how-to-choose-your-traditional-ninja-uniform-shinobi-shozoku.html | 藍の うわぎ・合わせの 線・黒い おび・くない |
-| ninja_tekko | 手甲: うで・手の 甲を おおう 布、こはぜ。ゲームでは かくした 小太刀が 出る | https://www.ninja-museum.com/ninja-database-en/?p=529 | 藍の 布・金の こはぜ・鉄の 甲・手首から 出る 小太刀 |
-| ninja_tabi | 足袋: 親ゆびが わかれた たび、こはぜで とめる | https://en.wikipedia.org/wiki/Geta_(footwear)（たびと 鼻緒）・上の 忍び装束の 出典 | 1 つの 藍の たび・親ゆびの われめ・白い こはぜ |
+| ninja_zukin | 伊賀の 頭巾（オーナーの 見本 https://ff14.norirow.com/note/84844 の 「角の ある 頭巾・首の スカーフ・青むらさきの 差し色」を 感じ だけ 参考）／ 忍び頭巾: 頭・首を おおい 目だけ 出す。じっさいは 黒より 藍 | https://www.ninja-museum.com/ninja-database-en/?p=517 | 藍の ずきん・角の ような 2 つの とんがり・目の 帯・青むらさきの えりまき |
+| ninja_shozoku | 忍び装束: 前を 合わせる うわぎ・おび（道具を さす） | https://www.ninjutsushop.com/en/ninjutsu-equipment/ninjutsu-guide/shinobi-shozoku/how-to-choose-your-traditional-ninja-uniform-shinobi-shozoku.html | 藍の うわぎ・むねに くさりかたびら・青むらさきの えりまきと おび・せなかの 小太刀・長い 半マント（伊賀の 見本: 鎖帷子・小太刀・半マント） |
+| ninja_tekko | 手甲: うで・手の 甲を おおう 布、こはぜ。ゲームでは かくした 小太刀が 出る | https://www.ninja-museum.com/ninja-database-en/?p=529 | ごつい 鉄の 板（伊賀の 見本: ごつめの 籠手）・青むらさきの まき・手首から 出る 小太刀 |
+| ninja_tabi | 足袋: 親ゆびが わかれた たび、こはぜで とめる | https://en.wikipedia.org/wiki/Geta_(footwear)（たびと 鼻緒）・上の 忍び装束の 出典 | 1 つの 藍の たび・すねの 脚絆・ななめの 青むらさきの かざり（伊賀の 見本: 左右ちがいの かざり）・親ゆびの われめ |
 
 - はきもの（下駄・足袋・すねあて 3 つ）は 1 つ だけ に 描きなおした（オーナー 2026-11-05）。
-- まえ・あと: `/workspace/icon32-shots/batch1-legendary-before-after.png`・`batch1-footwear-before-after.png`。
+- まえ・あと: `/workspace/icon32-shots/batch1-legendary-before-after.png`・`batch1-footwear-before-after.png`・`batch1-niji-before-after.png`・`batch1-iga-before-after.png`。
+- 見本の 絵（ゲームの 絵・イラスト）は 形・色の 感じ だけ 参考に し、絵そのもの・キャラは 写して いない。
