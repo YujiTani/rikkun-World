@@ -2,7 +2,6 @@
 import math, os, json, sys
 from lib import *
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, '..', 'v5'))
 
 def iron_ingot():
     c = Canvas(); c.ground(16, 25, 14, 3.5)
@@ -66,8 +65,35 @@ def tomato():
     c.fix.update({(9, 17): CREAM, (10, 16): CREAM, (9, 18): FRUIT[4], (11, 16): FRUIT[4]})
     return c
 
+# ---------- 草ブロック（手で 描いた 箱。v5 で 決まった 形） ----------
+def grass(old=None):
+    c = Canvas(); c.ground(16, 28, 14, 3)
+    top = [(16, 3), (29, 9.5), (16, 16), (3, 9.5)]
+    left = [(3, 9.5), (16, 16), (16, 29), (3, 22.5)]
+    right = [(16, 16), (29, 9.5), (29, 22.5), (16, 29)]
+    L_ = c.shape(SOIL, poly_f(left), flat=2); R_ = c.shape(SOIL, poly_f(right), flat=1)
+    T_ = c.shape(LEAF, poly_f(top), flat=2)
+    # 横の 面: 上は 草の たれ、下は 土の 層・小石
+    for S, base in ((L_, 0), (R_, -1)):
+        for (x, y) in S:
+            ytop = 9.5 + (x - 3) * 6.5 / 13 if x < 16 else 16 - (x - 16) * 6.5 / 13
+            d = y - ytop
+            drip = 3 + ((x * 7) % 3 == 0)
+            if d < drip: c.c[(x, y)][0] = LEAF; c.c[(x, y)][1] = 2 + base + (1 if d < 1.5 else 0)
+            elif int(d) in (9,): c.c[(x, y)][1] = 1 + base
+            else: c.c[(x, y)][1] = 2 + base
+    for p in ((7, 19), (8, 19), (12, 24), (21, 21), (25, 17), (22, 25)):
+        if p in c.c: c.c[p][0] = STONE; c.c[p][1] = 3 if p[0] < 16 else 2
+    # 上の 面: 草の 房（明るい 点と こい 根元）
+    for (x, y) in T_:
+        h = (x * 73 + y * 151 + x * y * 7) % 23
+        if h == 0 and (x, y + 1) in T_: c.c[(x, y)][1] = 4; c.c[(x, y + 1)][1] = 1   # 草の 房: 先が 明るく 根元が こい
+        elif x + y < 19: c.c[(x, y)][1] = 3
+    return c
+
+
 # ---------- ブロック（タイルから 箱） ----------
-TILES = json.load(open(os.path.join(HERE, '..', 'ref', 'tiles.json')))
+TILES = json.load(open(os.path.join(HERE, 'ref', 'tiles.json')))
 CROSS = {'flower_y', 'flower_o', 'flower_p', 'nobana'}
 
 def _tile(px, u, v):
