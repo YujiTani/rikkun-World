@@ -52,6 +52,36 @@ function oneArgCalls(src: string): number[] {
   return out;
 }
 
+/**
+ * 呼び出しの 引数の 文字を 外側の コンマで 分けて 返す〔関数の 定義は とばす〕。
+ *   ・`shaftWorldFor(seed, undefined)` ＝ 2 つ目が 文字どおり undefined
+ *   ・`surfaceFor(` で 引数に `shafts` の 文字が ない
+ */
+function looseCalls(src: string): number[] {
+  const out: number[] = [];
+  const re = /\b(shaftWorldFor|surfaceFor)\(/g;
+  for (let m = re.exec(src); m !== null; m = re.exec(src)) {
+    if (/function\s+$/.test(src.slice(Math.max(0, m.index - 16), m.index))) continue; // 定義
+    let depth = 1;
+    let i = m.index + m[0].length;
+    const args: string[] = [];
+    let from = i;
+    for (; i < src.length && depth > 0; i++) {
+      const ch = src[i]!;
+      if (ch === '(' || ch === '[' || ch === '{') depth++;
+      else if (ch === ')' || ch === ']' || ch === '}') depth--;
+      else if (ch === ',' && depth === 1) {
+        args.push(src.slice(from, i).trim());
+        from = i + 1;
+      }
+    }
+    args.push(src.slice(from, i - 1).trim());
+    const hit = m[1] === 'shaftWorldFor' ? args[1] === 'undefined' : !/\bshafts\b/.test(args.slice(1).join(','));
+    if (hit) out.push(src.slice(0, m.index).split('\n').length);
+  }
+  return out;
+}
+
 describe('R3〔重大 3〕: 古い 列の 一覧なしの ShaftWorld を ゲームの 中で 使わない', () => {
   it('見張りの 形が 1 引数の 呼び出しを みつける', () => {
     expect(oneArgCalls('const a = shaftWorldFor(seed).inBottom(1, 2, 3);')).toHaveLength(1);
@@ -61,13 +91,26 @@ describe('R3〔重大 3〕: 古い 列の 一覧なしの ShaftWorld を ゲー�
     expect(oneArgCalls('export function shaftWorldFor(seed: number, oldCols?: OldCols): ShaftWorld {')).toHaveLength(0);
   });
 
-  it('本番の コード〔テスト いがい〕に、古い 列の 一覧を わたさない shaftWorldFor(seed) が ない', () => {
+  it('呼び出しの 形を みつける〔2 つ目が undefined の shaftWorldFor・shafts なしの surfaceFor〕', () => {
+    expect(looseCalls('shaftWorldFor(seed, undefined)')).toHaveLength(1);
+    expect(looseCalls('shaftWorldFor(seed, restored.oldCols)')).toHaveLength(0);
+    expect(looseCalls('s = new X(seed, flora, opts.shafts ?? shaftWorldFor(seed, undefined));')).toHaveLength(1);
+    expect(looseCalls('surfaceFor(seed).ground(x, z)')).toHaveLength(1);
+    expect(looseCalls('surfaceFor(seed, { flora: false })')).toHaveLength(1);
+    expect(looseCalls('surfaceFor(seed, { shafts })')).toHaveLength(0);
+    expect(looseCalls('surfaceFor(seed, { flora: false, shafts: world })')).toHaveLength(0);
+    expect(looseCalls('export function surfaceFor(seed: number, opts: { flora?: boolean; shafts?: ShaftWorld } = {}): Surface {')).toHaveLength(0);
+  });
+
+  it('本番の コード〔テスト・キット いがい〕に、古い 列の 一覧を わたさない shaftWorldFor(seed)・shaftWorldFor(seed, undefined)・shafts なしの surfaceFor( が ない', () => {
     const bad: string[] = [];
     for (const f of files(ROOT)) {
-      if (f.endsWith('mineShafts.ts')) continue;
-      for (const line of oneArgCalls(readFileSync(f, 'utf8'))) bad.push(`${f}:${line}`);
+      if (f.endsWith('mineShafts.ts') || /Kit\.ts$/.test(f)) continue;
+      const src = readFileSync(f, 'utf8');
+      for (const line of oneArgCalls(src)) bad.push(`${f}:${line}`);
+      for (const line of looseCalls(src)) bad.push(`${f}:${line}`);
     }
-    expect(bad, '世界ごとに 1 つ 作った ShaftWorld〔restored.oldCols つき〕を 実績・surface・窓口に わたす').toEqual([]);
+    expect(bad, '世界ごとに 1 つ 作った ShaftWorld〔restored.oldCols つき〕を 実績・surface・窓口に わたす〔surfaceFor は { shafts } も わたす〕').toEqual([]);
   });
 });
 

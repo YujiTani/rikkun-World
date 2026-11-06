@@ -18,6 +18,8 @@ test.describe.configure({ timeout: 300_000 });
 
 const SPOT_BLOCK = { x: SPOT.x, y: SPOT.y, z: SPOT.z };
 /** 配置 A: 南西から見る → 上・西・南の面が見える。配置 B: 北東から見る → 上・東・北 */
+/** はじまりの 坑道〔地下の セクションの たいまつ・わく・地形〕の ぶんの 描画回数の 上限の ふえ〔回〕。CI 094818d で 144〔141 ＋ 3〕。決定 13 */
+const START_SHAFT_DRAWS = 3;
 const VIEW_A = { dx: -3, dz: 3 };
 const VIEW_B = { dx: 3, dz: -3 };
 
@@ -558,7 +560,7 @@ test.describe('TEX-A', () => {
     // VOX-B の新しい地形で決め直し（docs/perf-reports/VOX-B.md）: 測った値（start 944,272 / 117、high 1,120,094 / 139）の 1.2 倍
     expect(got.start.triangles).toBeLessThanOrEqual(1_140_000);
     expect(got.high.triangles).toBeLessThanOrEqual(1_350_000);
-    expect(got.start.drawCalls).toBeLessThanOrEqual(141);
+    expect(got.start.drawCalls).toBeLessThanOrEqual(141 + START_SHAFT_DRAWS);
     expect(got.high.drawCalls).toBeLessThanOrEqual(168);
     const sp = await page.evaluate(() => (window as any).__rikkun.world.spawn() as { x: number; y: number; z: number });
     for (const [dx, dz] of [[-34, -34], [34, -34], [34, 34]]) {
