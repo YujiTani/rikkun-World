@@ -1,6 +1,7 @@
 import type { ChunkColumn } from '../../contracts';
 import { COUNT_LIGHT_TOTAL_MAX, COUNT_MESH_MAX, type FrameClock } from '../frameClock';
-import { MAX_COLUMNS, R_DRAW, R_GEN, R_LIGHT, canLight, cheb, colKey, compareNear, getRing, ringCount } from './ring';
+import { RingLayout, type RingCenter } from './layout';
+import { MAX_COLUMNS, R_DRAW, R_GEN, R_LIGHT, canLight, colKey, getRing, ringCount, setRing, type RingSpec } from './ring';
 
 /**
  * 列の読みこみ・捨て・光・メッシュの進め方（VOX-D §2・§8。docs/tickets/VOX-D.md）。three を使わない。
@@ -28,6 +29,8 @@ export interface StreamLight {
 export interface StreamMesh {
   /** 描く輪の中心（プレイヤーのいる列）を伝える */
   setRing(pcx: number, pcz: number): void;
+  /** 中心が 2 つ以上 あるとき・輪の 大きさが かわったとき（COOP-1。layout.ts）。無ければ setRing(centers[0]) で 代える */
+  setLayout?(centers: readonly RingCenter[], spec: RingSpec): void;
   /** 光ずみで、まだ作っていない仕事の数 */
   pendingJobs(): number;
   /** 次の仕事の近さ（チェビシェフ。プレイヤーが変えた所は −1）。無ければ null */
@@ -122,6 +125,12 @@ export class ChunkStream {
   private readonly arrivals: { cx: number; cz: number; col: ChunkColumn | null }[] = [];
   private cx = 0;
   private cz = 0;
+  /** 輪の 中心（COOP-1）。[0] = 1P（cx, cz と 同じ）、[1] = 2P（あれば）。1 人のときは 長さ 1 */
+  private centers: RingCenter[] = [{ cx: 0, cz: 0 }];
+  /** centers と 今の 輪(getRing())から 作った 判定。中心か 輪が かわったら 作りなおす */
+  private lay: RingLayout | null = null;
+  /** 生成の 輪の 列(近い順)。lay と 同じ 時に 作りなおす */
+  private genList: ReadonlyArray<{ cx: number; cz: number; dist: number }> = [];
   private _ready = false;
   private _phase: Phase = 'boot';
   private _progress = 0;
@@ -150,17 +159,49 @@ export class ChunkStream {
 
   /** 歩いて中心の列が変わった（開始のやりなおしはしない）。待っている仕事は新しい中心で並べなおされる（S5） */
   setCenter(cx: number, cz: number): void {
-    if (cx === this.cx && cz === this.cz) return;
-    this.cx = cx;
-    this.cz = cz;
-    this.d.mesh.setRing(cx, cz);
+    if (this.centers.length === 1 && cx === this.cx && cz === this.cz) return;
+    this.setLayout([{ cx, cz }], getRing());
+  }
+
+  /**
+   * 輪の 中心（1 つか 2 つ）と 大きさを まとめて かえる（COOP-1 §5。遊んでいる 最中に 呼んでよい）。
+   * centers[0] = 1P。setCenter(cx, cz) は setLayout([{cx, cz}], 今の 輪) と 同じ。外に なった 列は update の 仕事の 中で 少しずつ 捨てる。
+   */
+  setLayout(centers: readonly RingCenter[], spec: RingSpec): void {
+    const first = centers[0];
+    if (first === undefined) return;
+    this.centers = centers.map((c) => ({ cx: c.cx, cz: c.cz }));
+    this.cx = first.cx;
+    this.cz = first.cz;
+    if (spec !== getRing()) setRing(spec);
+    this.lay = null;
+    if (this.d.mesh.setLayout) this.d.mesh.setLayout(this.centers, spec);
+    else this.d.mesh.setRing(first.cx, first.cz);
+  }
+
+  /** 今の 輪の 中心（読むだけ。COOP-1） */
+  ringCenters(): readonly RingCenter[] {
+    return this.centers;
+  }
+
+  /** 今の 中心と 輪の 判定（中心か 輪が かわったときだけ 作りなおす） */
+  private layout(): RingLayout {
+    const spec = getRing();
+    if (this.lay === null || this.lay.spec !== spec) {
+      this.lay = new RingLayout(this.centers, spec);
+      this.genList = this.lay.genColumns().map((c) => ({ cx: c.cx, cz: c.cz, dist: this.lay!.dist(c.cx, c.cz) }));
+    }
+    return this.lay;
   }
 
   /** 中心を変えて 開始をやりなおす（起動・テレポート・遠くへもどる）。進みぐあいは 0 から */
   restart(cx: number, cz: number, kind: 'boot' | 'wait'): void {
     this.cx = cx;
     this.cz = cz;
-    this.d.mesh.setRing(cx, cz);
+    this.centers = [{ cx, cz }, ...this.centers.slice(1)];
+    this.lay = null;
+    if (this.centers.length > 1 && this.d.mesh.setLayout) this.d.mesh.setLayout(this.centers, getRing());
+    else this.d.mesh.setRing(cx, cz);
     this._ready = false;
     this._phase = kind;
     this._progress = 0;
@@ -199,7 +240,7 @@ export class ChunkStream {
   stageOf(cx: number, cz: number): Stage {
     const c = this.cols.get(colKey(cx, cz));
     if (c === undefined) return 'none';
-    if (c.stage === 'lit' && cheb(cx, cz, this.cx, this.cz) <= getRing().draw && this.d.mesh.columnState(cx, cz) !== 'none') return 'meshed';
+    if (c.stage === 'lit' && this.layout().inDraw(cx, cz) && this.d.mesh.columnState(cx, cz) !== 'none') return 'meshed';
     return c.stage;
   }
 
@@ -361,17 +402,15 @@ export class ChunkStream {
   }
 
   private pickStreamJob(): StreamJob | null {
-    const pcx = this.cx;
-    const pcz = this.cz;
-    const w = this.d.world;
+    const lay = this.layout();
     if (!this._ready) for (const r of this.d.required?.() ?? []) this.reqSeen.add(colKey(r.cx, r.cz)); // 1 回だけ作る
     // 1. 捨てる（いちばん遠いものから。保存を待つものは とばす）
     let far: Col | null = null;
     let farD = -1;
     for (const c of this.cols.values()) {
       if (c.stage === 'loading') continue;
-      const dd = cheb(c.cx, c.cz, pcx, pcz);
-      if (dd <= getRing().keep) continue;
+      const dd = lay.dist(c.cx, c.cz);
+      if (dd <= lay.spec.keep) continue;
       if (!this.canDiscard(c.cx, c.cz) || this.isRequiredNow(c.cx, c.cz)) continue;
       if (dd > farD) {
         far = c;
@@ -387,25 +426,21 @@ export class ChunkStream {
         if (!this.cols.has(colKey(r.cx, r.cz))) return { kind: 'gen', cx: r.cx, cz: r.cz, dist: -1, col: r.cx, row: r.cz };
       }
     }
-    // 3. 生成・光（近い順）
+    // 3. 生成・光（近い順。genList は 近い順なので、いちばん 近い 距離の 組だけ 見れば よい）
     let best: StreamJob | null = null;
-    for (let dz = -getRing().gen; dz <= getRing().gen; dz++) {
-      for (let dx = -getRing().gen; dx <= getRing().gen; dx++) {
-        const cx = pcx + dx;
-        const cz = pcz + dz;
-        const dist = Math.max(Math.abs(dx), Math.abs(dz));
-        const c = this.cols.get(colKey(cx, cz));
-        let cand: StreamJob | null = null;
-        if (c === undefined) {
-          cand = { kind: 'gen', cx, cz, dist, col: cx, row: cz };
-        } else if (c.stage === 'generated' && dist <= getRing().light && !(this.d.holdLight?.(cx, cz) ?? false) && canLight((a, b) => this.isGenerated(a, b), cx, cz)) {
-          cand = { kind: 'light', c, dist, col: cx, row: cz };
-        }
-        if (cand === null) continue;
-        if (best === null || betterJob(pcx, pcz, cand, best)) best = cand;
+    for (const e of this.genList) {
+      if (best !== null && e.dist > best.dist) break;
+      const { cx, cz, dist } = e;
+      const c = this.cols.get(colKey(cx, cz));
+      let cand: StreamJob | null = null;
+      if (c === undefined) {
+        cand = { kind: 'gen', cx, cz, dist, col: cx, row: cz };
+      } else if (c.stage === 'generated' && dist <= lay.spec.light && !(this.d.holdLight?.(cx, cz) ?? false) && canLight((a, b) => this.isGenerated(a, b), cx, cz)) {
+        cand = { kind: 'light', c, dist, col: cx, row: cz };
       }
+      if (cand === null) continue;
+      if (best === null || (cand.dist === best.dist && cand.kind === 'light' && best.kind !== 'light')) best = cand;
     }
-    void w;
     if (best === null && far !== null) return { kind: 'unload', c: far, dist: farD, col: far.cx, row: far.cz };
     return best;
   }
@@ -471,7 +506,7 @@ export class ChunkStream {
       const k = colKey(a.cx, a.cz);
       const c = this.cols.get(k);
       if (c === undefined || c.stage !== 'loading') continue;
-      if (cheb(a.cx, a.cz, this.cx, this.cz) > getRing().keep && !this.isRequiredNow(a.cx, a.cz)) {
+      if (!this.layout().inKeep(a.cx, a.cz) && !this.isRequiredNow(a.cx, a.cz)) {
         this.cols.delete(k); // 輪の外になった: 取り消す
         continue;
       }
@@ -510,9 +545,10 @@ export class ChunkStream {
   private countUnloadWait(): void {
     let n = 0;
     let blocked = 0;
+    const lay = this.layout();
     for (const c of this.cols.values()) {
       if (c.stage === 'loading') continue;
-      if (cheb(c.cx, c.cz, this.cx, this.cz) <= getRing().keep) continue;
+      if (lay.inKeep(c.cx, c.cz)) continue;
       n++;
       if (!this.canDiscard(c.cx, c.cz)) {
         blocked++;
@@ -527,10 +563,11 @@ export class ChunkStream {
 
   info(): StreamInfo {
     const columns = { loading: 0, generated: 0, lit: 0, meshed: 0 };
+    const lay = this.layout();
     for (const c of this.cols.values()) {
       if (c.stage === 'loading') columns.loading++;
       else if (c.stage === 'generated') columns.generated++;
-      else if (cheb(c.cx, c.cz, this.cx, this.cz) <= getRing().draw && this.d.mesh.columnState(c.cx, c.cz) !== 'none') columns.meshed++;
+      else if (lay.inDraw(c.cx, c.cz) && this.d.mesh.columnState(c.cx, c.cz) !== 'none') columns.meshed++;
       else columns.lit++;
     }
     return {
@@ -550,18 +587,14 @@ export class ChunkStream {
   /** 待っている仕事の数（0 = 輪が ぜんぶそろった） */
   queuedCount(): number {
     let n = 0;
-    const pcx = this.cx;
-    const pcz = this.cz;
-    for (let dz = -getRing().gen; dz <= getRing().gen; dz++) {
-      for (let dx = -getRing().gen; dx <= getRing().gen; dx++) {
-        const dist = Math.max(Math.abs(dx), Math.abs(dz));
-        const c = this.cols.get(colKey(pcx + dx, pcz + dz));
-        if (c === undefined) n++;
-        else if (c.stage === 'loading') n++;
-        else if (c.stage === 'generated' && dist <= getRing().light) n++;
-      }
+    const lay = this.layout();
+    for (const e of this.genList) {
+      const c = this.cols.get(colKey(e.cx, e.cz));
+      if (c === undefined) n++;
+      else if (c.stage === 'loading') n++;
+      else if (c.stage === 'generated' && e.dist <= lay.spec.light) n++;
     }
-    for (const c of this.cols.values()) if (c.stage !== 'loading' && cheb(c.cx, c.cz, pcx, pcz) > getRing().keep) n++;
+    for (const c of this.cols.values()) if (c.stage !== 'loading' && !lay.inKeep(c.cx, c.cz)) n++;
     return n + this.d.mesh.pendingJobs();
   }
 
@@ -574,10 +607,3 @@ type StreamJob =
   | { kind: 'unload'; c: Col; dist: number; col: number; row: number }
   | { kind: 'light'; c: Col; dist: number; col: number; row: number }
   | { kind: 'gen'; cx: number; cz: number; dist: number; col: number; row: number };
-
-/** a が b より先か（距離 → 光が生成より先 → S3 の並び） */
-function betterJob(pcx: number, pcz: number, a: StreamJob, b: StreamJob): boolean {
-  if (a.dist !== b.dist) return a.dist < b.dist;
-  if (a.kind !== b.kind) return a.kind === 'light';
-  return compareNear(pcx, pcz, { cx: a.col, cz: a.row }, { cx: b.col, cz: b.row }) < 0;
-}

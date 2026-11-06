@@ -1,8 +1,8 @@
 import { DUO_TUNING } from '../../duo/tuning';
-import type { ColPos, RingSpec } from './ring';
+import { RING_SMALL, colKey, type ColPos, type RingSpec } from './ring';
 
 /**
- * COOP-1 作業 2（#399）: 輪の 切りかえと 中心 2 つ（§5・AC27・AC28）。宣言だけ（実装は developer）。
+ * COOP-1 作業 2（#399）: 輪の 切りかえと 中心 2 つ（§5・AC27・AC28）。
  * テストは layout.test.ts（純粋な 部分）と ChunkStream.duo.test.ts（遊んでいる 最中の 切りかえ）。
  *
  * ---- つなぎ目の 約束 ----
@@ -35,44 +35,85 @@ export interface RingCenter {
 
 export const LAYOUT_MAX_COLUMNS: number = DUO_TUNING.layoutMaxColumns;
 
-export function decideRings(_prev: 1 | 2, _distance: number): 1 | 2 {
-  throw new Error('COOP-1 作業 2: decideRings は まだ 実装されていない');
+/** 輪の 数（幅つき。§5）。1 のとき 48 より 遠くて 2、2 のとき 32 より 近くて 1 */
+export function decideRings(prev: 1 | 2, distance: number): 1 | 2 {
+  if (prev === 1) return distance > DUO_TUNING.ringsUpAt ? 2 : 1;
+  return distance < DUO_TUNING.ringsDownAt ? 1 : 2;
 }
 
-export function ringSpecFor(_rings: 1 | 2, _base: RingSpec): RingSpec {
-  throw new Error('COOP-1 作業 2: ringSpecFor は まだ 実装されていない');
+/** 輪の 大きさ。1 つは 起動で 決めた 輪、2 つは 小さい 輪 */
+export function ringSpecFor(rings: 1 | 2, base: RingSpec): RingSpec {
+  return rings === 1 ? base : RING_SMALL;
+}
+
+const cheb = (cx: number, cz: number, c: RingCenter): number => Math.max(Math.abs(cx - c.cx), Math.abs(cz - c.cz));
+
+/** 近い 中心との ユークリッド距離の 2 乗（同じ チェビシェフ距離の 並び用） */
+function nearestEuclid(centers: readonly RingCenter[], cx: number, cz: number): number {
+  let best = Infinity;
+  for (const c of centers) {
+    const e = (cx - c.cx) ** 2 + (cz - c.cz) ** 2;
+    if (e < best) best = e;
+  }
+  return best;
 }
 
 export class RingLayout {
   constructor(
     readonly centers: readonly RingCenter[],
     readonly spec: RingSpec,
-  ) {
-    throw new Error('COOP-1 作業 2: RingLayout は まだ 実装されていない');
+  ) {}
+
+  /** どの 中心からでも いい、いちばん 近い 中心との チェビシェフ距離 */
+  dist(cx: number, cz: number): number {
+    let best = Infinity;
+    for (const c of this.centers) {
+      const d = cheb(cx, cz, c);
+      if (d < best) best = d;
+    }
+    return best;
   }
-  dist(_cx: number, _cz: number): number {
-    throw new Error('未実装');
+  inDraw(cx: number, cz: number): boolean {
+    return this.dist(cx, cz) <= this.spec.draw;
   }
-  inDraw(_cx: number, _cz: number): boolean {
-    throw new Error('未実装');
+  inLight(cx: number, cz: number): boolean {
+    return this.dist(cx, cz) <= this.spec.light;
   }
-  inLight(_cx: number, _cz: number): boolean {
-    throw new Error('未実装');
+  inGen(cx: number, cz: number): boolean {
+    return this.dist(cx, cz) <= this.spec.gen;
   }
-  inGen(_cx: number, _cz: number): boolean {
-    throw new Error('未実装');
+  inKeep(cx: number, cz: number): boolean {
+    return this.dist(cx, cz) <= this.spec.keep;
   }
-  inKeep(_cx: number, _cz: number): boolean {
-    throw new Error('未実装');
+  shouldDropMesh(cx: number, cz: number): boolean {
+    return this.dist(cx, cz) > this.spec.drawDrop;
   }
-  shouldDropMesh(_cx: number, _cz: number): boolean {
-    throw new Error('未実装');
-  }
+  /** 残す 輪に 入る 列を 1 回ずつ。近い順 */
   keepColumns(): ColPos[] {
-    throw new Error('未実装');
+    return this.columnsWithin(this.spec.keep);
   }
+  /** 生成する 輪に 入る 列を 1 回ずつ。近い順 */
   genColumns(): ColPos[] {
-    throw new Error('未実装');
+    return this.columnsWithin(this.spec.gen);
+  }
+
+  private columnsWithin(r: number): ColPos[] {
+    const seen = new Set<number>();
+    const out: Array<ColPos & { d: number; e: number }> = [];
+    for (const c of this.centers) {
+      for (let dz = -r; dz <= r; dz++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const cx = c.cx + dx;
+          const cz = c.cz + dz;
+          const k = colKey(cx, cz);
+          if (seen.has(k)) continue;
+          seen.add(k);
+          out.push({ cx, cz, d: this.dist(cx, cz), e: nearestEuclid(this.centers, cx, cz) });
+        }
+      }
+    }
+    out.sort((a, b) => a.d - b.d || a.e - b.e || a.cz - b.cz || a.cx - b.cx);
+    return out.map((o) => ({ cx: o.cx, cz: o.cz }));
   }
 }
 

@@ -1,7 +1,8 @@
 import { columnKey } from '../VoxelWorld';
 import type { FrameClock } from '../frameClock';
 import type { StreamLight, StreamMesh } from '../stream/ChunkStream';
-import { cheb, getRing } from '../stream/ring';
+import type { RingCenter } from '../stream/layout';
+import { getRing, type RingSpec } from '../stream/ring';
 import { CHUNK_DRAW_DISTANCE } from './config';
 import type { SectionMeshStore } from './sectionMeshStore';
 import type { ColState, SecState } from './sectionState';
@@ -32,6 +33,8 @@ interface StreamHost {
   build(st: SecState, boxOnly: boolean, deadline?: number): void;
   rebuildLod(col: ColState): void;
   updateLod(col: ColState): void;
+  /** 全部の列の 段(小ブロック・箱・LOD)を 決めなおす */
+  retier(): void;
 }
 
 /**
@@ -41,7 +44,12 @@ interface StreamHost {
 export class StreamDriver {
   /** ストリーミングにしたか */
   on = false;
-  private ringC = { cx: 0, cz: 0 };
+  /** 描く輪の 中心（COOP-1: 1P と、いれば 2P。1 人のときは 長さ 1） */
+  private centers: RingCenter[] = [{ cx: 0, cz: 0 }];
+  /** setLayout で もらった 輪。無ければ getRing() */
+  private spec: RingSpec | null = null;
+  /** 2P の 正しい 位置（水平。COOP-1）。無ければ 2 つ目の 中心の 列の まん中 */
+  private viewer2: { x: number; z: number } | null = null;
   /** 光を計算ずみの列 */
   private readonly litCols = new Set<number>();
   /** 箱から小ブロックへの差しかえを してよいか（ストリーミングでは ready のあと） */
@@ -75,6 +83,7 @@ export class StreamDriver {
   streamMesh(): StreamMesh {
     return {
       setRing: (cx, cz) => this.setRing(cx, cz),
+      setLayout: (centers, spec) => this.setLayout(centers, spec),
       pendingJobs: () => this.pendingJobs(),
       nextJobDist: () => this.nextJobDist(),
       runJob: (deadline) => this.runJob(deadline),
@@ -130,17 +139,54 @@ export class StreamDriver {
   }
 
   private setRingOf(col: ColState): void {
-    col.ring = cheb(col.cx, col.cz, this.ringC.cx, this.ringC.cz);
-    col.inDraw = col.ring <= getRing().draw;
+    let best = Infinity;
+    for (const c of this.centers) {
+      const d = Math.max(Math.abs(col.cx - c.cx), Math.abs(col.cz - c.cz));
+      if (d < best) best = d;
+    }
+    col.ring = best; // どの 中心からでも いい、いちばん 近い 中心との チェビシェフ距離（COOP-1 §5）
+    col.inDraw = col.ring <= (this.spec ?? getRing()).draw;
   }
 
-  /** 描く輪の中心（プレイヤーのいる列）。輪の外（> R_DRAW_DROP）になった列の絵は捨てる */
+  /** 中心との ユークリッド距離の 2 乗（近い 方の 中心。同じ 輪の 距離の 並び用） */
+  private nearEuclid(col: ColState): number {
+    let best = Infinity;
+    for (const c of this.centers) {
+      const e = (col.cx - c.cx) ** 2 + (col.cz - c.cz) ** 2;
+      if (e < best) best = e;
+    }
+    return best;
+  }
+
+  /** 描く輪の中心（プレイヤーのいる列）。輪の外（> R_DRAW_DROP）になった列の絵は捨てる。setLayout の 中心 1 つの ばん */
   setRing(cx: number, cz: number): void {
-    this.ringC = { cx, cz };
+    this.setLayout([{ cx, cz }], getRing());
+  }
+
+  /** 1P の ほかに 絵の 段(小ブロック・箱・LOD)を 決める 点（2P。無ければ null） */
+  extraViewer(): { x: number; z: number } | null {
+    if (this.viewer2 !== null) return this.viewer2;
+    const c = this.centers[1];
+    return c === undefined ? null : { x: c.cx * 16 + 8, z: c.cz * 16 + 8 };
+  }
+
+  /** 2P の 正しい 位置（水平）。null = いない。動いたら 段を 決めなおす */
+  setViewer2(p: { x: number; z: number } | null): void {
+    const v = this.viewer2;
+    if (p === null ? v === null : v !== null && v.x === p.x && v.z === p.z) return;
+    this.viewer2 = p === null ? null : { x: p.x, z: p.z };
+    this.host.retier();
+  }
+
+  /** 描く輪の 中心（1 つか 2 つ）と 大きさ（COOP-1）。どの 中心からも 遠い（> drawDrop）列の 絵は 捨てる */
+  setLayout(centers: readonly RingCenter[], spec: RingSpec): void {
+    const hadTwo = this.centers.length > 1;
+    this.centers = centers.map((c) => ({ cx: c.cx, cz: c.cz }));
+    this.spec = spec;
     for (const col of this.cols.values()) {
       const was = col.inDraw;
       this.setRingOf(col);
-      if (col.ring > getRing().drawDrop) {
+      if (col.ring > spec.drawDrop) {
         for (const st of col.secs) {
           if (st.built !== null || st.voxel || st.extras || st.water) this.host.dropMeshes(st);
           st.built = null;
@@ -157,6 +203,7 @@ export class StreamDriver {
         for (const st of col.secs) this.host.dequeue(st);
       }
     }
+    if (hadTwo || this.centers.length > 1) this.host.retier(); // 2P の まわりも 近い 段(小ブロック・箱)で 描く
   }
 
   /** この列の LOD を いま作る仕事があるか */
@@ -186,7 +233,6 @@ export class StreamDriver {
     let best: { col: ColState; st: SecState | null; p: number } | null = null;
     let bd = Infinity;
     let be = Infinity;
-    const { cx: pcx, cz: pcz } = this.ringC;
     for (const col of this.cols.values()) {
       if (!col.inDraw || !col.meshable) continue;
       let p = Infinity;
@@ -210,7 +256,7 @@ export class StreamDriver {
         bs = null;
       }
       if (p === Infinity) continue;
-      const e = (col.cx - pcx) ** 2 + (col.cz - pcz) ** 2;
+      const e = this.nearEuclid(col);
       const better = best === null || p < best.p || (p === best.p && jobBefore(col, e, bd, be, best.col));
       if (better) {
         best = { col, st: bs, p };

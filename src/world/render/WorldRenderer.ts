@@ -114,6 +114,7 @@ export class WorldRenderer {
       build: (st, boxOnly, deadline) => this.build(st, boxOnly, deadline),
       rebuildLod: (col) => this.rebuildLod(col),
       updateLod: (col) => this.updateLod(col),
+      retier: () => this.retier(),
     });
     this.syncColumns();
   }
@@ -169,6 +170,8 @@ export class WorldRenderer {
   private setTier(col: ColState): boolean {
     const v = this.viewer;
     col.dist = v ? columnDistance(col.cx, col.cz, v.x, v.z) : 0;
+    const v2 = this.stream.extraViewer(); // 2P（COOP-1）の まわりも 近い 段で 描く: 近い 方の 点から 数える
+    if (v && v2) col.dist = Math.min(col.dist, columnDistance(col.cx, col.cz, v2.x, v2.z));
     const next = nextTier(col.dist, col.tier, this.microR);
     if (next === col.tier) return false;
     const was = col.tier;
@@ -584,6 +587,11 @@ export class WorldRenderer {
   /** 描く輪の中心（プレイヤーのいる列）。輪の外（> R_DRAW_DROP）になった列の絵は捨てる */
   setRing(cx: number, cz: number): void {
     this.stream.setRing(cx, cz);
+  }
+
+  /** 2P の 正しい 位置（水平。COOP-1）。null = いない */
+  setViewer2(p: { x: number; z: number } | null): void {
+    this.stream.setViewer2(p);
   }
 
   /** 光ずみで まだ作っていない仕事の数（セクション 1 つ・LOD 1 列が 1 つ） */
