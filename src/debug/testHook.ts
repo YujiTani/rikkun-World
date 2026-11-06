@@ -35,6 +35,7 @@ import type { WorkHook } from './workHook';
 import type { WaterHook } from '../world/water/waterSystem';
 import type { GashaHook } from '../gasha/release';
 import type { HouseHook } from '../house/hook';
+import type { DuoHook } from '../duo/types';
 
 type CameraHook = ReturnType<typeof createCameraHook>;
 type PlayerHook = {
@@ -84,8 +85,12 @@ export interface TestHook {
   /** CHAR-1 第 5.2 版 §4.9: ねらいの点 X・ねらい補助で えらんだ妖怪の id */
   aim: { point(): { x: number; y: number; z: number }; assist(): number | null };
   input: ReturnType<typeof createInputHook>;
+  /** COOP-1（#395。docs/design/COOP-1.md §12.0）: 2 人で あそぶ。join・place は ?duo=dev の ときだけ 効く */
+  duo: DuoHook;
   gamepad?: {
     injectPad(pad: Gamepad | null): void;
+    /** COOP-1: 偽パッドを 何本でも（null は ぬけた）。injectPad(pad) は injectPads([pad]) と 同じ */
+    injectPads(pads: Array<Gamepad | null>): void;
     hasPad(): boolean;
     snapshot(): unknown;
     openPanel(): void;
@@ -211,7 +216,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house' | 'duo'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

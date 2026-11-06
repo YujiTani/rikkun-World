@@ -1,7 +1,7 @@
 // GAMEPAD-1: パッド読み・確認画面・ロック連携
 import type { Game } from '../Game';
 import type { LockController, MouseLook } from '../../input';
-import { AlwaysLook, CombinedLook, GamepadReader, PlayerInputSlots } from '../../input/gamepad';
+import { AlwaysLook, CombinedLook, DuoPadRouter, PlayerInputSlots } from '../../input/gamepad';
 import { createGamepadPanel } from '../../ui/gamepad/gamepadPanel';
 import type { ActionState } from '../../input/actions';
 
@@ -19,22 +19,25 @@ export function wireGamepad(opts: {
   onToggleView: () => void;
 }) {
   const padLook = new AlwaysLook();
+  const padLook2 = new AlwaysLook(); // COOP-1: 2P の 右スティック
   const look = new CombinedLook(opts.mouseLook, padLook);
-  const slots = new PlayerInputSlots(opts.actions);
-  const reader = new GamepadReader(slots.get(0), padLook, typeof localStorage !== 'undefined' ? localStorage : null);
-  reader.bootstrap();
+  const slots = new PlayerInputSlots(opts.actions, 1); // slot 0 = 1P（キー・マウスと 同じ）、slot 1 = 2P（COOP-1）
+  // COOP-1: パッドは ルーターが 1P・2P に 振り分ける。1P の 読み（reader）は 今までと 同じ
+  const router = new DuoPadRouter({ p1: slots.get(0), p2: slots.get(1), look1: padLook, look2: padLook2, storage: typeof localStorage !== 'undefined' ? localStorage : null });
+  const reader = router.reader1;
+  router.bootstrap();
   opts.lock.setPadActive(reader.hasPad());
 
   const onConn = (e: Event) => {
     const ge = e as GamepadEvent;
     const idx = ge.gamepad?.index ?? 0;
-    reader.onConnected(idx);
+    router.onConnected(idx);
     opts.lock.setPadActive(reader.hasPad());
   };
   const onDisc = (e: Event) => {
     const ge = e as GamepadEvent;
     const idx = ge.gamepad?.index ?? 0;
-    reader.onDisconnected(idx);
+    router.onDisconnected(idx);
     opts.lock.setPadActive(reader.hasPad());
   };
   window.addEventListener('gamepadconnected', onConn);
@@ -48,10 +51,13 @@ export function wireGamepad(opts: {
     if (action === 'toggleView') opts.onToggleView();
   });
 
+  /** COOP-1: 参加の 求め（2 本目の ＋）と 2P の もちもの画面は wireDuo が つなぐ */
+  const duo = { onJoinRequested: (): void => undefined, menuOpen2: (): boolean => false };
   const step = (): void => {
     reader.setMenuOpen(opts.menuOpen());
     reader.setHanging(opts.hanging());
-    reader.poll(performance.now());
+    router.setMenuOpen2(duo.menuOpen2());
+    if (router.poll(performance.now()).joinRequested) duo.onJoinRequested();
     const on = reader.hasPad();
     if (on !== opts.lock.isPadActive()) opts.lock.setPadActive(on);
   };
@@ -88,12 +94,15 @@ export function wireGamepad(opts: {
 
   return {
     reader,
+    router,
+    duo,
     look,
     slots,
+    look2: padLook2,
     panel,
     /** E2E: 偽パッドを差し込む */
     injectPad(pad: Gamepad | null): void {
-      reader.getPads = () => (pad ? [pad] : []);
+      router.getPads = () => (pad ? [pad] : []);
       if (pad) {
         reader.onConnected(pad.index);
         opts.lock.setPadActive(true);
@@ -101,6 +110,12 @@ export function wireGamepad(opts: {
         reader.onDisconnected(0);
         opts.lock.setPadActive(reader.hasPad());
       }
+    },
+    /** E2E: 偽パッドを 何本でも（null は ぬけた）。injectPad(pad) は injectPads([pad]) と 同じ 動き */
+    injectPads(pads: Array<Gamepad | null>): void {
+      router.getPads = () => pads;
+      router.bootstrap();
+      opts.lock.setPadActive(reader.hasPad());
     },
     dispose: () => {
       window.removeEventListener('gamepadconnected', onConn);

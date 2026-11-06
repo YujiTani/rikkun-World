@@ -361,7 +361,18 @@ export class SaveManager {
     } catch {
       this.d.house?.deserialize(null);
     }
+    // COOP-1 §6: 2P の 持ち物・レベル。窓口が ない 起動（?duo の ない ふだんの 起動）は 読んだ 値を そのまま 次の 保存へ ひきつぐ
+    if (this.d.p2) {
+      try {
+        this.d.p2.deserialize(data.p2);
+      } catch {
+        this.d.p2.deserialize(null);
+      }
+    } else this.carriedP2 = data.p2 ?? null;
   }
+
+  /** COOP-1: p2 の 窓口が ない 起動で、読んだ 保存の p2（そのまま 書きもどす） */
+  private carriedP2: unknown = null;
 
   /** すぐ保存する。書き終わると解決する（失敗しても 解決する） */
   now(): Promise<void> {
@@ -534,6 +545,9 @@ export class SaveManager {
       return { ...f, crops: zeroLast(f.crops, 5), watered: zeroLast(f.watered, 4), happy: zeroLast(f.happy, 4) };
     })();
     const sp = this.d.spawn();
+    // COOP-1: 2P が 一度も 参加して いない 世界は p2 の キーを 書かない（古い セーブと 同じ 形）
+    const p2Value = this.d.p2 ? this.d.p2.serialize() : this.carriedP2;
+    const p2Part = p2Value === null || p2Value === undefined ? {} : { p2: p2Value };
     const make = (bags: unknown, farm: unknown): StoredMeta => ({
       v: SAVE_VERSION,
       gen: SAVE_GEN,
@@ -560,6 +574,7 @@ export class SaveManager {
       gasha: this.d.gasha?.serialize() ?? null,
       house: this.d.house?.serialize() ?? null,
       farm,
+      ...p2Part,
       ...(this.d.strength ? { strength: this.d.strength } : {}),
     });
     // inventory などは 2 回 serialize しない: 比べる側の meta から 取りだす

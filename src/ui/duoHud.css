@@ -1,0 +1,224 @@
+/*
+ * COOP-1（docs/design/COOP-1.md §3.1・§9.4）: 2 人のときの HUD。
+ * 1 人のときは html[data-duo] が ないので、ここの 規則は 何も 効かない（今までと 同じ）。
+ * 色は src/duo/tuning.ts の DUO_COLORS と そろえる（--duo-* は duoHud.ts が 置く）。
+ */
+html[data-duo] {
+  --duo-scale: 0.9; /* ホットバーを 縮める 倍。duoHud.ts が 画面の 幅から 決めなおす */
+}
+
+/* 1P: 左半分の まん中。2P: 右半分の まん中。縮めても 下はしは 動かさない */
+html[data-duo] #hotbar,
+html[data-duo] #hotbar-p2 {
+  transform: scale(var(--duo-scale));
+  transform-origin: 50% 100%;
+}
+html[data-duo] #hotbar {
+  left: calc(25% - var(--hb-w) / 2);
+}
+html[data-duo] #hotbar-p2 {
+  left: calc(75% - var(--hb-w) / 2);
+}
+#hotbar-p2[hidden] {
+  display: none;
+}
+
+/* ハート（A じぶん の かたまり）も ホットバーの 左はしに そろえて 縮める */
+html[data-duo] #hud-self,
+html[data-duo] #hud-self-p2 {
+  transform: scale(var(--duo-scale));
+  transform-origin: 0 100%;
+  bottom: calc(var(--hb-bottom) + var(--rk-slot-hotbar) * var(--duo-scale) + var(--rk-sp-3));
+}
+html[data-duo] #hud-self {
+  left: calc(25% - var(--hb-w) * var(--duo-scale) / 2);
+}
+#duo-p2-root[hidden] {
+  display: none;
+}
+html[data-duo] #hud-self-p2 {
+  left: calc(75% - var(--hb-w) * var(--duo-scale) / 2);
+}
+
+/* 1P・2P を わける 色の ふち（ホットバーの 下に 細い 線） */
+html[data-duo] #hotbar::after,
+html[data-duo] #hotbar-p2::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * var(--rk-sp-2));
+  height: var(--rk-sp-1);
+  border-radius: var(--rk-r-pill);
+}
+html[data-duo] #hotbar::after {
+  background: var(--duo-p1, #3a8dff);
+}
+html[data-duo] #hotbar-p2::after {
+  background: var(--duo-p2, #ff5fa2);
+}
+
+/* 距離メーター: 上の 中央。棒は 距離に 比例して 左から のびる */
+.duo-meter {
+  position: fixed;
+  top: var(--rk-sp-3);
+  left: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  padding: calc(var(--rk-fs-small) * 1.3) var(--rk-sp-3) var(--rk-sp-2);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-m);
+  text-shadow: var(--rk-text-outline);
+  pointer-events: none;
+  z-index: 6;
+}
+.duo-meter[hidden] {
+  display: none;
+}
+.duo-track {
+  position: relative;
+  width: 30vw; /* いちばん 長い とき 画面の 幅の 30%（§9.4） */
+  height: var(--rk-sp-3);
+  border-radius: var(--rk-r-pill);
+  background: var(--rk-line);
+}
+.duo-bar {
+  height: 100%;
+  width: calc(var(--duo-meter, 0) * 100%);
+  border-radius: var(--rk-r-pill);
+  background: #ffffff;
+}
+.duo-meter[data-tier='1'] .duo-bar {
+  background: #ffd23f;
+}
+.duo-meter[data-tier='2'] .duo-bar {
+  background: #ff9a1f;
+}
+/* 分かれる 印（24 マス = 真ん中） */
+.duo-mark {
+  position: absolute;
+  left: 50%;
+  top: calc(-0.35 * var(--rk-sp-3));
+  bottom: calc(-0.35 * var(--rk-sp-3));
+  width: 3px;
+  margin-left: -1.5px;
+  background: var(--rk-text);
+  border-radius: 2px;
+}
+.duo-pin {
+  position: absolute;
+  bottom: calc(100% + var(--rk-sp-1));
+  font-size: var(--rk-fs-small);
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--rk-text);
+}
+.duo-pin-1 {
+  left: 0;
+  transform: translateX(-50%);
+  color: var(--duo-p1, #3a8dff);
+}
+.duo-pin-2 {
+  left: calc(var(--duo-meter, 0) * 100%);
+  transform: translateX(-50%);
+  color: var(--duo-p2, #ff5fa2);
+}
+.duo-more {
+  position: absolute;
+  right: calc(-1 * var(--rk-sp-4));
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--rk-fs-small);
+  color: var(--rk-text);
+}
+.duo-more[hidden] {
+  display: none;
+}
+
+/* 2P の パッドが ぬけた: 右半分の 2P の ホットバーの 上 */
+.duo-pad-lost {
+  position: fixed;
+  left: 75%;
+  transform: translateX(-50%);
+  bottom: calc(var(--hb-bottom) + var(--rk-slot-hotbar) + var(--rk-sp-7) * 2);
+  max-width: 45vw;
+  padding: var(--rk-sp-2) var(--rk-sp-4);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-m);
+  border: var(--rk-bw) solid var(--duo-p2, #ff5fa2);
+  color: var(--rk-text);
+  font-size: var(--rk-fs-head);
+  font-weight: 800;
+  text-align: center;
+  text-shadow: var(--rk-text-outline);
+  pointer-events: none;
+  z-index: 7;
+}
+.duo-pad-lost[hidden] {
+  display: none;
+}
+
+/* 2P の もちもの: 右半分の 画面（1P の 画面は ひらかない） */
+.duo-inv {
+  position: fixed;
+  left: 50%;
+  right: 0;
+  top: 14%;
+  bottom: calc(var(--hb-bottom) + var(--rk-slot-hotbar) * 1.6);
+  box-sizing: border-box;
+  margin: 0 var(--rk-sp-4);
+  padding: var(--rk-sp-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rk-sp-3);
+  overflow: hidden;
+  background: var(--rk-panel-bg);
+  border: var(--rk-bw) solid var(--duo-p2, #ff5fa2);
+  border-radius: var(--rk-r-l);
+  color: var(--rk-text);
+  text-shadow: var(--rk-text-outline);
+  pointer-events: none;
+  z-index: 8;
+}
+.duo-inv[hidden] {
+  display: none;
+}
+.duo-inv-title {
+  font-size: var(--rk-fs-head);
+  font-weight: 800;
+}
+.duo-inv-grid {
+  display: grid;
+  grid-template-columns: repeat(9, auto);
+  gap: var(--rk-sp-1);
+}
+.duo-inv-grid .slot {
+  width: calc(var(--rk-slot-hotbar) * 0.62);
+  height: calc(var(--rk-slot-hotbar) * 0.62);
+}
+/* やめる: 長押しで ゲージが 左から 右へ たまる */
+.duo-quit {
+  position: relative;
+  overflow: hidden;
+  min-width: 14em;
+  padding: var(--rk-sp-2) var(--rk-sp-4);
+  font: inherit;
+  font-size: var(--rk-fs-small);
+  font-weight: 800;
+  color: var(--rk-text);
+  background: var(--rk-bg-700);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+}
+.duo-quit-fill {
+  position: absolute;
+  inset: 0;
+  width: calc(var(--duo-quit, 0) * 100%);
+  background: var(--duo-p2, #ff5fa2);
+  opacity: 0.55;
+}
+.duo-quit-text {
+  position: relative;
+}

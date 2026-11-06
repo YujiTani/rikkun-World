@@ -32,6 +32,8 @@ import { computeFarmPlacement, applyFarmPlacement } from '../../world/gen/farmPl
 import { createFarmVisual } from '../../world/render/farmVisual';
 import type { WiredAchievements } from './ui';
 import { isWaterIndex } from '../../world/blocks/water';
+import { readP2Save } from '../../duo/p2State';
+import { duoTimeScale } from '../../duo/rules';
 
 export function wireSave(deps: WiredAchievements) {
   const {
@@ -98,6 +100,13 @@ export function wireSave(deps: WiredAchievements) {
     gasha: { serialize: () => shared.gashaRelease?.serialize() ?? shared.gashaSavedPending, deserialize: (d) => { shared.gashaSavedPending = d; shared.gashaRelease?.deserialize(d); } },
     // 農業: 作物・印。前の保存（印なし）には 読んだあとに 置きものを置く
     farm,
+    // COOP-1 §6: 2P の 持ち物とレベル。参加中は 今の 中身、いないときは 最後の 保存。一度も 参加していない 世界は null（p2 の キーを 書かない）
+    p2: {
+      serialize: () => (shared.duoJoined() ? shared.p2.serialize() : shared.p2Store.saved),
+      deserialize: (d) => {
+        shared.p2Store.saved = readP2Save(d);
+      },
+    },
     // VOX-D: 列は stream が読みこむ。保険から戻したときの最初の保存は ready のあと
     streaming: true,
     onWritten: (cols) => columnIO.noteWritten(cols),
@@ -389,7 +398,10 @@ export function wireLoop(deps: WiredFrame) {
   // ロックがないあいだは時間を止める。F3 だけは効く（M1-02 §2.4）
   game.setRealtimeGate(() => lock.realtimeAllowed());
   // おめでとう画面の中の時間は 実時間で進める（世界は上で止めてある）
-  game.setTimeScale(() => screen.timeScale() * (screen.mode() === 'play' ? parry.state().timeScale : 1));
+  // COOP-1: 2 人のときは もちもの画面でも ゆっくりに しない（もう 1 人が 遊んでいる）
+  const gameTimeScale = (): number => duoTimeScale(screen.timeScale(), shared.duoJoined()) * (screen.mode() === 'play' ? parry.state().timeScale : 1);
+  game.setTimeScale(gameTimeScale);
+  shared.gameTimeScale = gameTimeScale;
   game.onIdle((dt) => overlay.update(dt));
 
   const cameraHook = createCameraHook(rig);
