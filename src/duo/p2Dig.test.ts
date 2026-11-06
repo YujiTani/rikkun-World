@@ -3,6 +3,13 @@ import type { BlockId, LockStatus, PlayerState, Vec3, VoxelWorld } from '../cont
 import { DigSystemImpl } from '../dig/DigSystem';
 import { ActionState, type Action } from '../input/actions';
 import { InventoryImpl } from '../inventory/Inventory';
+import { FakeYokaiWorld, P, at, settingsW3 } from '../combat/attackTestKit';
+import { PlayerCombatImpl } from '../combat/PlayerCombat';
+import { createDigConfig } from '../dig/config';
+import { PlayerController } from '../player/PlayerController';
+import { createBladeSystem } from '../tools/blade/BladeSystem';
+import { ArrayVoxelWorld } from '../world/VoxelWorld';
+import { bindWho } from './credit';
 import { createP2Dig } from './p2Dig';
 import { P2State } from './p2State';
 
@@ -10,10 +17,14 @@ import { P2State } from './p2State';
  * COOP-1 作業 3a（#416）の 先行テスト（赤）。AC35（2P が ほる・おく）・AC36（同じ ブロックを 2 人で ほる）・AC38（仲間の 体の ある 所に 置けない）・AC15（2P の ZL は かまど／たんすで 何も 開かず、置かない）。
  *
  * ---- 実装への 約束（developer が 作る 名前・形）----
- *   src/duo/p2Dig.ts  `createP2Dig(d: P2DigDeps): DigSystemImpl`
+ *   src/duo/p2Dig.ts  `createP2Dig(d: P2DigDeps): DigSystemImpl`  （AC15 の Y: 返った 物の `tryOpenAimedStorage()` は いつも false・storage.open は 呼ばない）
  *     2P 用の ほる・おく係。1P と 同じ `DigSystemImpl` を もう 1 つ 作って 返す（2P の ActionState・2P の 持ち物 `p2.inventory`・2P の 位置を 渡す）。
  *     P2DigDeps = { world: VoxelWorld; p2: P2State; actions: ActionState; position: () => PlayerState; lock: LockStatus;
- *                   eyeHeight: () => number; partner: () => Vec3 | null; m4?: DigM4Deps; config?: DigConfig; rng?: Rng }
+ *                   eyeHeight: () => number; partner: () => Vec3 | null; gate?: PunchGate | null; m4?: DigM4Deps; config?: DigConfig; rng?: Rng }
+ *     - gate = 2P 自分の ふつうの こうげき係（1P の PlayerCombatImpl と 同じ 物を 2P の 位置・持ち物で もう 1 つ。PunchGate）。DigSystemImpl の 第 9 引数に 渡す。
+ *     - 2P の「ふつうの こうげき」= 1P と 同じ: 手に もっている 物で パンチ・刀の ふり・弓。レジェンダリーの わざ・パリィは 段階 2（2P の m4 には 入れない）。
+ *     - m4.yokai・gate の 妖怪の 世界は `bindWho(y, 2)`（src/duo/credit.ts。下の credit.test.ts）で 包んだ 物を 渡す。1P は `bindWho(y, 1)`。
+ *     - 刀・弓の 2P 分: m4.blade・m4.tools を 2P の 持ち物で 作って 渡す（テストは パンチ 1 本。刀は 同じ 道なので 実装の 確認で 見る）
  *     - 2P の ZR（primary）＝ほる・ZL（secondary）＝おく。持ち物は p2.inventory だけを 使う（1P の 持ち物は 見ない）。
  *     - m4.partner = partner を そのまま 渡す。
  *     - 2P は 画面を 開かない（AC15）: m4 に craft.openFurnace・storage.open が 来ても 呼ばない。
@@ -280,9 +291,10 @@ describe('AC15（ブロックを 置かない ほう）: 2P が かまど・た�
     };
     return { world, p2, calls, press, dig };
   }
-  it.each(['furnace', 'tansu'] as const)('%s: 開く 口は 呼ばれず、ブロックも 増えず、持ち物も へらない', (id) => {
+  it.each(['furnace', 'tansu'] as const)('%s: 開く 口は 呼ばれず、ブロックも 増えず、持ち物も へらない（Y = tryOpenAimedStorage も false）', (id) => {
     const r = setup2(id);
     r.press();
+    expect(r.dig.tryOpenAimedStorage()).toBe(false);
     expect(r.dig.target()?.block).toEqual({ x: 5, y: 10, z: 6 });
     expect(r.calls).toEqual({ openFurnace: 0, openTansu: 0 });
     expect(r.world.getBlock(4, 10, 6)).toBe('air');
@@ -307,6 +319,81 @@ describe('AC15（ブロックを 置かない ほう）: 2P が かまど・た�
     expect(world.getBlock(4, 10, 6)).toBe('air');
     expect(p2.inventory.count('dirt')).toBe(5);
   });
+});
+
+// ------------------------------------------------------------------ 2P の ふつうの こうげき
+
+class WhoYokai extends FakeYokaiWorld {
+  whos: Array<1 | 2 | undefined> = [];
+  override damage(id: number, amount: number, from: Vec3, _knock?: unknown, _by?: unknown, who?: 1 | 2): void {
+    super.damage(id, amount, from);
+    this.whos.push(who);
+  }
+}
+
+function punchRig(who: 1 | 2) {
+  const world = new ArrayVoxelWorld({ x: 32, y: 24, z: 32 });
+  for (let x = 0; x < 32; x++) for (let z = 0; z < 32; z++) world.setBlock(x, 8, z, 'dirt');
+  const actions = new ActionState();
+  const p2 = new P2State();
+  const inv = who === 2 ? p2.inventory : new InventoryImpl();
+  inv.select(0);
+  const controller = new PlayerController(world, actions, { consume: () => ({ dx: 0, dy: 0 }) }, lock, () => ({ x: P.x, y: P.y, z: P.z, yawDeg: 0, pitchDeg: -25 }));
+  const raw = new WhoYokai();
+  const yokai = bindWho(raw, who);
+  const tools = { current: () => ({ item: null, kind: 'hand' as const, power: 1, level: 0, damage: 1, reach: 3.5, ticks: 30 }), step() {}, pushSwing() {}, swingWhiff() {}, onPunchStart() {}, punchParams: () => ({ damage: 1, reach: 3.5, ticks: 30 }) };
+  const settings = settingsW3();
+  const combat = new PlayerCombatImpl({
+    world, player: { get: () => controller.state, set: (v) => controller.set(v) }, inventory: inv, yokai: () => yokai,
+    spawn: () => ({ x: 1.5, y: 9, z: 1.5, yawDeg: 0, pitchDeg: 0 }), tool: tools, settings,
+  });
+  let tick = 0;
+  const blade = createBladeSystem({ world, yokai: () => yokai, settings, weaponDamage: () => 4, onHit: () => {}, lunge: (dx, dz) => controller.lunge(dx, dz), tick: () => tick });
+  const m4 = { tools, blade, w2: settings, yokai: () => yokai };
+  const dig: DigSystemImpl & { attackFaceDeg(): number | null; attackPreview(): { use: string } } = (
+    who === 2
+      ? createP2Dig({ world, p2, actions, position: () => controller.state, lock, eyeHeight: () => EYE, partner: () => null, gate: combat, m4 })
+      : new DigSystemImpl(world, () => controller.state, actions, lock, inv, () => EYE, createDigConfig(), undefined, combat, m4)) as never;
+  controller.set({ pitchDeg: -25, yawDeg: 0, facingDeg: 90 });
+  const step = (n = 1) => {
+    for (let i = 0; i < n; i++) {
+      tick++;
+      const bm = blade.motion();
+      controller.motion.speedMul = bm.speedMul;
+      controller.motion.jumpLocked = bm.jumpLocked;
+      controller.motion.faceDeg = dig.attackFaceDeg();
+      const use = dig.attackPreview().use;
+      (controller.motion as { leftAims?: boolean }).leftAims = !(use === 'attack' || use === 'whiff');
+      controller.update(1 / 60);
+      dig.update();
+      const f = dig.attackFaceDeg();
+      if (f !== null) controller.set({ facingDeg: f });
+      combat.update();
+      actions.endFrame();
+    }
+  };
+  step(2);
+  return { raw, dig, actions, step, inv, world };
+}
+
+describe('2P の ふつうの こうげき: ZR で とどく 妖怪を たたくと damage が who=2 で 呼ばれ、うしろの ブロックは ほらない。1P は who=1', () => {
+  for (const who of [2, 1] as const) {
+    it(`${who}P: 東 2.0 の 妖怪を ZR/左クリックで たたく → damage の who = ${who}・ほった量 0・土は 持ち物に 入らない`, () => {
+      const r = punchRig(who);
+      const y = r.raw.add('karakasa', at(90, 2.0));
+      r.actions.press('primary' as Action);
+      let maxProgress = 0;
+      for (let i = 0; i < 35; i++) {
+        r.step();
+        maxProgress = Math.max(maxProgress, r.dig.state().progress);
+      }
+      r.actions.release('primary' as Action);
+      expect(r.raw.damaged.map((c) => c.id)).toEqual([y.id]);
+      expect(r.raw.whos).toEqual([who]);
+      expect(maxProgress).toBe(0);
+      expect(r.inv.count('dirt')).toBe(0);
+    });
+  }
 });
 
 // 型の 使い道（未使用 import を 避ける）

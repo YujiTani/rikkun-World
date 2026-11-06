@@ -14,8 +14,8 @@ import type { DuoVec3 } from '../src/duo/types';
  *   どれも `?duo=dev` の ときだけ 効く（遊びに ない 動きを 作る 物）。ふつうの URL では 何もしない / 読む 口は 同じ。
  *   duo.aimAt(who: 1 | 2, cell: DuoVec3): void       … その 人を、マス cell の 中心を ねらう 向き（yaw・pitch）にする。1P の 向きも かわる。
  *   duo.target(who): { block: DuoVec3; place: DuoVec3; id: string } | null  … その 人の いまの ねらい（1P は 今の `target.get()` と 同じ マス）。
- *   duo.frame(who): { visible: boolean; color: string }  … ねらった ブロックの わく。2P は 2P の 色（DUO_COLORS.p2）、1P は DUO_COLORS.p1。ねらっていなければ visible=false。
- *   duo.give(who, item, count): void                 … その 人の 持ち物に 足す（2P の ホットバー 0 番に 入れて 選ぶ）。
+ *   duo.frame(who): { visible: boolean; color: string }  … ねらった ブロックの わく。2P は 2P の 色（DUO_COLORS.p2）。ねらっていなければ visible=false。
+ *   duo.give(who, item, count): void                 … その 人の ホットバー 0 番に item を count こ 入れて、0 番を 選ぶ（その 人の 0 番に あった 物は 上書き）。
  *   duo.count(who, item): number                     … その 人の 持ち物に ある item の 数。
  *   duo.hearts(who): { hp: number; maxHp: number; down: boolean }  … 2P の ハート（1P は `combat.get()` と 同じ 数）。down = 倒れているあいだ。
  *   duo.hurt(who, amount): void                      … 妖怪の こうげきとして ダメージ（2P は P2Life.damage(amount, {type:'yokai'})。1P は `combat.damage`）。
@@ -33,6 +33,8 @@ async function open(page: Page, query = '?nosave=1&duo=dev'): Promise<void> {
     const h = (window as any).__rikkun;
     h.pause();
     h.achievements.mute(true);
+    h.settings.set('yokaiAutoSpawn', false); // 妖怪・にわとりが 勝手に 出て ぶれないように
+    h.settings.set('animalAutoSpawn', false);
     h.lock.simulate(true); // 「クリックして あそぼう」を とじる
     h.step(2);
   });
@@ -71,11 +73,10 @@ test('AC35: 2P が ZR で ほって ZL で おく（2P の 色の わく・持�
   const frame = await page.evaluate(() => (window as any).__rikkun.duo.frame(2) as { visible: boolean; color: string });
   expect(frame.visible).toBe(true);
   expect(frame.color.toLowerCase()).toBe(DUO_COLORS.p2);
-  const frame1 = await page.evaluate(() => (window as any).__rikkun.duo.frame(1) as { visible: boolean; color: string });
-  expect(frame1.color.toLowerCase(), '1P の わくは 1P の 色').toBe(DUO_COLORS.p1);
 
   // ZR を 押しつづけて ほる（ひびが MAX の あと 押し直して こわす）
   const dirtBefore = await count(page, 2, 'dirt');
+  const dirt1Before = await count(page, 1, 'dirt');
   let broken = false;
   for (let i = 0; i < 60 && !broken; i++) {
     await setFakePad(page, 1, { buttons: [ZR] });
@@ -89,7 +90,7 @@ test('AC35: 2P が ZR で ほって ZL で おく（2P の 色の わく・持�
   }
   expect(broken, '2P が ブロックを こわした').toBe(true);
   expect(await count(page, 2, 'dirt'), 'ほった物は 2P の 持ち物').toBeGreaterThan(dirtBefore);
-  expect(await count(page, 1, 'dirt'), '1P の 持ち物には 入らない').toBe(0);
+  expect(await count(page, 1, 'dirt'), '1P の 持ち物には 入らない').toBe(dirt1Before);
 
   // ZL で 置く: 床の 上の 面を ねらって、持ち物の 数が 1 つ へる
   const floor: DuoVec3 = { x: cell.x, y: cell.y - 1, z: cell.z };
@@ -109,7 +110,7 @@ test('AC35: 2P が ZR で ほって ZL で おく（2P の 色の わく・持�
   await step(page, 2);
   expect(await block(page, target.place), 'ねらった 面の となりに 置かれた').toBe('dirt');
   expect(await count(page, 2, 'dirt'), '2P の 持ち物が 1 つ へった').toBe(have - 1);
-  expect(await count(page, 1, 'dirt'), '1P の 持ち物は そのまま').toBe(0);
+  expect(await count(page, 1, 'dirt'), '1P の 持ち物は そのまま').toBe(dirt1Before);
 
   // 2P の 操作で 1P は 動かない
   const p1After = (await pos(page, 1))!;

@@ -59,9 +59,9 @@ function rig(w1: Where, w2: Where | null) {
     player: () => pos1,
     rng: createRng(3),
     partner: () => (pos2 ? { position: pos2, inventory: inv2 as Inventory } : null),
-    onPickup: ((item: string, count: number, _y: boolean, who?: unknown) => log.push({ item, count, who })) as never,
+    onPickup: (item, count, _fromYokai, who) => void log.push({ item, count, who }),
     onFull: () => full++,
-  } as never);
+  });
   const moveNear = (p: Vec3): void => {
     const at = f.list()[0]!.position;
     p.x = at.x;

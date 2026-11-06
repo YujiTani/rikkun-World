@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DayPhase, Inventory, PlayerCombat, TimeOfDay, Vec3, YokaiKind } from '../../contracts';
 import { ArrayVoxelWorld } from '../../world/VoxelWorld';
 import { SENSE } from './senseTuning';
+import { AI_CONST } from './config';
 import { YokaiManager } from './YokaiManager';
 import { createYokaiConfig, type YokaiConfig } from './config';
 import type { YokaiManagerOptions } from './managerTypes';
@@ -11,15 +12,18 @@ import type { YokaiManagerOptions } from './managerTypes';
  * 数は 決め打ちせず `createYokaiConfig()` と 感知の 表（SENSE）から 読む（#311）。
  *
  * ---- 実装への 約束（developer が 作る 名前・形）----
- *   YokaiManagerOptions.partner?: () => { position: Vec3; targetable: boolean } | null
+ *   YokaiManagerOptions.partner?: () => { position: Vec3; targetable: boolean; hurt(amount: number, kind: YokaiKind, from: Vec3): boolean } | null
  *     … 仲間（2P）。null / なし = 1 人のときと 同じ。targetable=false（パッドが ぬけている）の 2P は ねらわない・数えない。
  *     - ねらう 相手: 1P と（targetable な）2P の うち 近い方（同じ 近さなら 1P）。気づく・追う・あきらめる の 距離は 今の 感知の 表のまま、その 相手との 距離で 決める。
  *     - 消える（farTick）: 気づける 全員から 64 マスより 遠いとき。targetable=false の 2P は 数えない。
  *     - 出る 場所: プレイヤーごと（地上・地下は その人の 足もとで 決める）。出る 位置は いま 数が 少ない方の まわり（同じなら 1P）。
  *     - 数: 「その人の まわり」＝その 妖怪から いちばん 近い プレイヤー。プレイヤーごとの 上限 = 地上なら yokaiMax・地下なら yokaiMaxUnder（今の 値のまま）、
  *       世界全体 = 新しい 設定 `YokaiConfig.yokaiMaxTotal`（`createYokaiConfig` の 1 か所。いま 5）。どちらかの 上限に 届いていたら 出さない。
- *     - 妖怪の ダメージ・つかまえる 相手は 今の まま（combat は 1P の 物。2P が 受ける ダメージは 別の 子 issue）。
- *   YokaiManager.damage(id, amount, from, knock?, by = 'player', who: 1 | 2 = 1)  … 6 つめの 引数。たおしたら onDefeat(kind, info) の info.by = who（DefeatInfo に `by: 1 | 2` を 足す）。
+ *     - ダメージ: 妖怪の 攻撃（体当たり・火の玉・およぎの ぺちん）は「ねらっている 相手」の 箱で 当たりを 見て、2P に 当たったら partner.hurt(amount, kind, from) を 呼ぶ（1P の combat.damage は 呼ばない）。
+ *       1P に 当たったら 今までどおり combat.damage。hurt が false（むてき など）なら 当たらなかった ことに する。どの 道（体当たり・火の玉・およぎ）も 同じ 口に 通す。
+ *       配線: hurt = P2Life.damage(amount, {type:'yokai'}) の applied > 0。targetable = !P2Life.down && パッドが ある。
+ *     - 「その人の まわり」の 近さは 3 次元（水平だけでなく 高さも 入れる）。
+ *   YokaiManager.damage(id, amount, from, knock?, by = 'player', who: 1 | 2 = 1)  … 6 つめの 引数。たおしたら onDefeat(kind, info) の info.who = who（DefeatInfo に `who: 1 | 2` を 足す）。
  */
 
 const SIZE = { x: 200, y: 40, z: 64 };
@@ -29,8 +33,8 @@ function makeTime(phase: DayPhase): TimeOfDay {
   const t = { dayTick: () => 0, day: () => 0, phase: () => phase, skyColor: () => '#000000', brightness: () => 1, dollBrightness: () => 1, set: () => {}, update: () => {}, onPhaseChange: () => () => {} };
   return t;
 }
-function makeCombat(): PlayerCombat {
-  const c: PlayerCombat = { hp: () => 20, maxHp: () => 20, dead: () => false, invincibleTicks: () => 0, damage: () => true, heal: () => 0, drainEvents: () => [] };
+function makeCombat(hits?: unknown[]): PlayerCombat {
+  const c: PlayerCombat = { hp: () => 20, maxHp: () => 20, dead: () => false, invincibleTicks: () => 0, damage: (a, by) => (hits?.push({ a, by }), true), heal: () => 0, drainEvents: () => [] };
   return c;
 }
 const inv = { add: () => 0 } as unknown as Inventory;
@@ -38,12 +42,15 @@ const inv = { add: () => 0 } as unknown as Inventory;
 interface Partner {
   position: Vec3;
   targetable: boolean;
+  hurt(amount: number, kind: YokaiKind, from: Vec3): boolean;
 }
 interface Rig {
   m: YokaiManager;
   p1: { position: Vec3 };
   p2: Partner;
   step(n?: number): void;
+  hits1: unknown[];
+  hits2: Array<{ amount: number; kind: YokaiKind }>;
 }
 
 function flat(): ArrayVoxelWorld {
@@ -54,24 +61,31 @@ function flat(): ArrayVoxelWorld {
 
 function rig(o: { p1: Vec3; p2: Vec3 | null; targetable?: boolean; config?: Partial<YokaiConfig>; world?: ArrayVoxelWorld; extra?: Partial<YokaiManagerOptions> }): Rig {
   const p1 = { position: { ...o.p1 } };
-  const p2: Partner = { position: { ...(o.p2 ?? { x: 0, y: 0, z: 0 }) }, targetable: o.targetable ?? true };
+  const hits1: unknown[] = [];
+  const hits2: Array<{ amount: number; kind: YokaiKind }> = [];
+  const p2: Partner = {
+    position: { ...(o.p2 ?? { x: 0, y: 0, z: 0 }) },
+    targetable: o.targetable ?? true,
+    hurt: (amount, kind) => (hits2.push({ amount, kind }), true),
+  };
   const config = { ...createYokaiConfig(), yokaiAutoSpawn: false, yokaiWander: false, ...o.config } as YokaiConfig;
   const m = new YokaiManager({
     world: o.world ?? flat(),
     time: makeTime('night'),
     getPlayer: () => p1,
-    combat: makeCombat(),
+    combat: makeCombat(hits1),
     inventory: inv,
     seed: 5,
     config,
     ...(o.p2 ? { partner: () => p2 } : {}),
     ...o.extra,
-  } as YokaiManagerOptions);
-  return { m, p1, p2, step: (n = 1) => void Array.from({ length: n }, () => m.update(1 / 60)) };
+  });
+  return { m, p1, p2, hits1, hits2, step: (n = 1) => void Array.from({ length: n }, () => m.update(1 / 60)) };
 }
 
 const dist = (a: Vec3, b: Vec3): number => Math.hypot(a.x - b.x, a.z - b.z);
 const SIGHT = SENSE.kinds.karakasa.sight;
+const FAR = AI_CONST.farRemoveDist;
 const FOUND: ReadonlySet<string> = new Set(['chase', 'attack', 'search', 'retreat']);
 
 describe('AC39: 妖怪は 近い方の プレイヤーを 追う', () => {
@@ -106,32 +120,35 @@ describe('AC39: 妖怪は 近い方の プレイヤーを 追う', () => {
   });
 });
 
-describe('AC39: 消える 距離は 2 人の 両方から 遠いとき（1P から 70 マス・2P から 10 マスの 妖怪は 消えない）', () => {
+describe('AC39: 消える 距離は 2 人の 両方から 遠いとき（消える 距離より 遠い 1P・近い 2P の 妖怪は 消えない）', () => {
   const spawnFar = (r: Rig, x: number) => r.m.spawn('karakasa', x, 9, WIDE_Z, { ai: false });
-  it('1P から 70・2P から 10 → 消えない', () => {
+  it('1P から 遠く・2P から 10 → 消えない', () => {
     const X = 100.5;
-    const r = rig({ p1: { x: X - 70, y: 9, z: WIDE_Z }, p2: { x: X - 10, y: 9, z: WIDE_Z } });
+    // 前提: 1P からは 消える 距離より 遠く（FAR + 6）、2P からは 近い（10）
+    expect(FAR + 6).toBeGreaterThan(FAR);
+    expect(10).toBeLessThan(FAR);
+    const r = rig({ p1: { x: X - (FAR + 6), y: 9, z: WIDE_Z }, p2: { x: X - 10, y: 9, z: WIDE_Z } });
     const id = spawnFar(r, X);
     r.step(5);
     expect(r.m.list().map((e) => e.id)).toContain(id);
   });
   it('2P が いなければ（1 人）同じ 妖怪は 消える（今までどおり）', () => {
     const X = 100.5;
-    const r = rig({ p1: { x: X - 70, y: 9, z: WIDE_Z }, p2: null });
+    const r = rig({ p1: { x: X - (FAR + 6), y: 9, z: WIDE_Z }, p2: null });
     const id = spawnFar(r, X);
     r.step(5);
     expect(r.m.list().map((e) => e.id)).not.toContain(id);
   });
   it('2 人の 両方から 64 より 遠ければ 消える', () => {
     const X = 150.5;
-    const r = rig({ p1: { x: X - 70, y: 9, z: WIDE_Z }, p2: { x: X - 66, y: 9, z: WIDE_Z } });
+    const r = rig({ p1: { x: X - (FAR + 6), y: 9, z: WIDE_Z }, p2: { x: X - (FAR + 2), y: 9, z: WIDE_Z } });
     const id = spawnFar(r, X);
     r.step(5);
     expect(r.m.list().map((e) => e.id)).not.toContain(id);
   });
   it('パッドが ぬけた 2P の そばでは 消える（数えない）', () => {
     const X = 100.5;
-    const r = rig({ p1: { x: X - 70, y: 9, z: WIDE_Z }, p2: { x: X - 10, y: 9, z: WIDE_Z }, targetable: false });
+    const r = rig({ p1: { x: X - (FAR + 6), y: 9, z: WIDE_Z }, p2: { x: X - 10, y: 9, z: WIDE_Z }, targetable: false });
     const id = spawnFar(r, X);
     r.step(5);
     expect(r.m.list().map((e) => e.id)).not.toContain(id);
@@ -164,6 +181,33 @@ describe('AC40: 2P の パッドが ぬけている あいだ、妖怪は 2P を
     r.step(150);
     const y = r.m.list().find((e) => e.id === id)!;
     expect(dist(y.position, r.p1.position)).toBeLessThan(start1 - 2);
+  });
+});
+
+describe('2P が 妖怪から ダメージを 受ける（ねらっている 相手の 箱で 当たりを 見る）', () => {
+  const X = 100.5;
+  it('① 1P が 遠く・2P の となりで 妖怪が こうげき → partner.hurt が 呼ばれ、1P の combat.damage は 呼ばれない', () => {
+    const r = rig({ p1: { x: X - SIGHT * 2.5, y: 9, z: WIDE_Z }, p2: { x: X + 1.2, y: 9, z: WIDE_Z } });
+    r.m.spawn('karakasa', X, 9, WIDE_Z, { ai: true });
+    for (let i = 0; i < 900 && r.hits2.length === 0; i++) r.step(1);
+    expect(r.hits2.length).toBeGreaterThan(0);
+    expect(r.hits2[0]!.amount).toBeGreaterThan(0);
+    expect(r.hits2[0]!.kind).toBe('karakasa');
+    expect(r.hits1).toHaveLength(0);
+  });
+  it('② 反対: 2P が 遠く・1P の となりで こうげき → 1P の combat.damage だけ。hurt は 呼ばれない', () => {
+    const r = rig({ p1: { x: X + 1.2, y: 9, z: WIDE_Z }, p2: { x: X - SIGHT * 2.5, y: 9, z: WIDE_Z } });
+    r.m.spawn('karakasa', X, 9, WIDE_Z, { ai: true });
+    for (let i = 0; i < 900 && r.hits1.length === 0; i++) r.step(1);
+    expect(r.hits1.length).toBeGreaterThan(0);
+    expect(r.hits2).toHaveLength(0);
+  });
+  it('③ targetable=false（倒れている・パッドなし）の 2P には 当たらない', () => {
+    const r = rig({ p1: { x: X - SIGHT * 2.5, y: 9, z: WIDE_Z }, p2: { x: X + 1.2, y: 9, z: WIDE_Z }, targetable: false });
+    r.m.spawn('karakasa', X, 9, WIDE_Z, { ai: true });
+    r.step(900);
+    expect(r.hits2).toHaveLength(0);
+    expect(r.hits1).toHaveLength(0);
   });
 });
 
@@ -253,24 +297,23 @@ describe('AC41: 妖怪の 同時の 数は プレイヤーごとの 上限と �
   });
 });
 
-describe('AC45（たおした人）: たおしたら onDefeat の info.by が さいごの 1 発を 当てた人', () => {
+describe('AC45（たおした人）: たおしたら onDefeat の info.who が さいごの 1 発を 当てた人', () => {
   function killed(who?: 1 | 2): number | undefined {
-    const seen: Array<{ by?: number }> = [];
+    const seen: Array<{ who?: number }> = [];
     const r = rig({
       p1: { x: 20.5, y: 9, z: WIDE_Z },
       p2: { x: 24.5, y: 9, z: WIDE_Z },
-      extra: { onDefeat: ((_k: YokaiKind, info: { by?: number }) => seen.push(info)) as never },
+      extra: { onDefeat: ((_k: YokaiKind, info: { who?: number }) => seen.push(info)) },
     });
     const id = r.m.spawn('karakasa', 30.5, 9, WIDE_Z, { ai: false });
-    const dmg = r.m.damage as (id: number, amount: number, from: Vec3, knock?: undefined, by?: 'player', who?: 1 | 2) => number;
-    dmg.call(r.m, id, 9999, { x: 24.5, y: 9, z: WIDE_Z }, undefined, 'player', who);
+    r.m.damage(id, 9999, { x: 24.5, y: 9, z: WIDE_Z }, undefined, 'player', who);
     r.step(200);
-    return seen[0]?.by;
+    return seen[0]?.who;
   }
-  it('2P が たおした → by = 2', () => {
+  it('2P が たおした → who = 2', () => {
     expect(killed(2)).toBe(2);
   });
-  it('1P が たおした・指定なし → by = 1（今までの 呼びかたは 1P）', () => {
+  it('1P が たおした・指定なし → who = 1（今までの 呼びかたは 1P）', () => {
     expect(killed(1)).toBe(1);
     expect(killed()).toBe(1);
   });

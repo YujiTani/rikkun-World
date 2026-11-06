@@ -3,7 +3,8 @@ import { ACHIEVEMENT_DEFS } from '../achievements/defs';
 import { AchievementSystem, type StepContext } from '../achievements/AchievementSystem';
 import { M6_SETTING_DEFAULTS } from '../contracts';
 import { LevelSystem } from '../level/LevelSystem';
-import { creditDefeat, sharedLevel } from './credit';
+import type { Vec3, YokaiWorld } from '../contracts';
+import { bindWho, creditDefeat, sharedLevel } from './credit';
 import { P2State } from './p2State';
 
 /**
@@ -17,9 +18,12 @@ import { P2State } from './p2State';
  *     `creditDefeat(d: CreditDeps, who: 1 | 2, kind: YokaiKind, xp: number): void`
  *       CreditDeps = { level1: LevelSystem; level2: LevelSystem; feedDefeat(who: 1 | 2, kind: YokaiKind): void }
  *       さいごの 1 発を 当てた人（who）の LevelSystem にだけ onDefeat(kind, xp) する。feedDefeat は どちらの人でも 1 回 呼ぶ（実績は 世界で 1 つ）。
- *       配線: YokaiManager の onDefeat の info.by（下）から 呼ぶ。
+ *       配線: YokaiManager の onDefeat の info.who（`DefeatInfo.who: 1 | 2`）から 呼ぶ。
+ *     `bindWho(y: YokaiWorld, who: 1 | 2): YokaiWorld`  … damage(id, amount, from, knock?, by?) を damage(id, amount, from, knock, by, who) に して 元の y へ わたす。
+ *       ほかの 口（list・raycast・occupies・pull・drainEvents）は そのまま とおす。配線: 1P の PlayerCombat・DigSystem には bindWho(y, 1)、2P には bindWho(y, 2)。
+ *   src/contracts/yokai.ts  `YokaiWorld.damage(id, amount, from, knock?, by?, who?: 1 | 2)`（省くと 1）
  *     `sharedLevel(level1: number, level2: number | null): number`  … 実績の「レベル」に 渡す 数 = 2 人の 大きい方（2P が いなければ level1）。
- *   src/yokai/ai/YokaiManager.ts  → 下の duo.test.ts（`info.by`）
+ *   src/yokai/ai/YokaiManager.ts  → 下の duo.test.ts（`info.who`）
  */
 
 const ach = () => new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
@@ -109,8 +113,30 @@ describe('AC45b: 2P の レベルは セーブして 読み直すと 戻る（p2
     const p = new P2State({ onLevelUp: () => ups++ });
     p.deserialize({ inventory: [], level: { level: 'x', xp: 1 } });
     expect(p.levels.level()).toBe(1);
-    p.deserialize({ inventory: null, level: { level: 5, xp: 3 } });
+    p.deserialize({ inventory: [], level: { level: 5, xp: 3 } });
     expect(ups).toBe(0);
+  });
+});
+
+describe('bindWho: ダメージに だれが 当てたかを つける', () => {
+  function fake() {
+    const calls: Array<{ id: number; who: unknown; by: unknown }> = [];
+    const w: YokaiWorld = {
+      list: () => [],
+      raycast: () => null,
+      damage: (id: number, _a: number, _f: Vec3, _k?: unknown, by?: unknown, who?: 1 | 2) => void calls.push({ id, who, by }),
+      occupies: () => true,
+      drainEvents: () => [],
+    };
+    return { w, calls };
+  }
+  it.each([1, 2] as const)('who=%i を そえて 元の damage を 呼ぶ。ほかの 口は とおす', (who) => {
+    const { w, calls } = fake();
+    const b = bindWho(w, who);
+    b.damage(7, 3, { x: 0, y: 0, z: 0 }, undefined, 'player');
+    expect(calls).toEqual([{ id: 7, who, by: 'player' }]);
+    expect(b.occupies(0, 0, 0)).toBe(true);
+    expect(b.list()).toEqual([]);
   });
 });
 

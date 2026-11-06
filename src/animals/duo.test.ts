@@ -43,11 +43,13 @@ function setup(o: { p1: Vec3; p2: Vec3 | null; phase?: DayPhase }) {
       phase: () => phase,
       countryAt: () => ({ kind: 'harappa' }),
     },
-  } as never);
+  });
   return { m, p1, p2, settings, step: (n: number) => void Array.from({ length: n }, () => m.update()) };
 }
 
 const hd = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
+/** 消える 距離より 少し 遠い 間かく（設定から 読む） */
+const FARD = createLiveSettings().animalRemoveDist + 6;
 const P1: Vec3 = { x: 30.5, y: 9, z: 50.5 };
 const P2: Vec3 = { x: 170.5, y: 9, z: 50.5 };
 
@@ -91,8 +93,8 @@ describe('§9.5 野生の動物の数は 近い方の プレイヤーの まわ�
 });
 
 describe('§2.6 野生の 動物が 消えるのは 2 人とも 遠いとき', () => {
-  const FAR_FROM_P1: Vec3 = { x: 30.5 + 70, y: 9, z: 50.5 }; // 1P から 70（removeDist 64 より 遠い）
-  it('1P から 70・2P から 10 の にわとりは 消えない', () => {
+  const FAR_FROM_P1: Vec3 = { x: 30.5 + FARD, y: 9, z: 50.5 }; // 1P から animalRemoveDist より 遠い
+  it('1P から 遠く・2P から 10 の にわとりは 消えない', () => {
     const s = setup({ p1: P1, p2: { x: FAR_FROM_P1.x + 10, y: 9, z: 50.5 } });
     const id = s.m.spawn(FAR_FROM_P1.x, 9, FAR_FROM_P1.z)!;
     s.step(5);
@@ -106,7 +108,7 @@ describe('§2.6 野生の 動物が 消えるのは 2 人とも 遠いとき', (
   });
   it('2 人の 両方から 遠ければ 消える', () => {
     const s = setup({ p1: P1, p2: { x: 30.5, y: 9, z: 20.5 } });
-    const id = s.m.spawn(FAR_FROM_P1.x + 30, 9, FAR_FROM_P1.z)!;
+    const id = s.m.spawn(FAR_FROM_P1.x + FARD / 2, 9, FAR_FROM_P1.z)!;
     s.step(5);
     expect(s.m.list().map((e) => e.id)).not.toContain(id);
   });
