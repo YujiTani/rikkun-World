@@ -97,9 +97,17 @@
 .ss-mute:active {
   transform: translateY(2px);
 }
+/* コントローラー列は、絵も文字も枠の横中央。枠の大きさ（押せる範囲）は変えない */
+.set-bind,
 .set-fixed {
   display: flex;
   align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+.set-fixed {
   cursor: default;
 }
 .gp-g {
