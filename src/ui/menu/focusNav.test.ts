@@ -44,4 +44,19 @@ describe('メニューのフォーカス', () => {
       expect(pickNext(grouped, 'next', 'left')).toBe('tile');
     });
   });
+  // COOP-1 4a（§3.3・AC78・AC88）: 2 人用 もちもの画面の「やめる」（パネルの はばいっぱいの ボタン）へ、はしの マスからも 十字の 下で 行ける
+  describe('はばの 広い ボタンは 今の 物の まっすぐ 先に 入っていれば 行ける', () => {
+    const wide: FocusBox[] = [
+      { id: 'slot0', l: 20, t: 400, w: 48, h: 48 },
+      { id: 'slot8', l: 420, t: 400, w: 48, h: 48 },
+      { id: 'quit', l: 10, t: 520, w: 480, h: 56 },
+    ];
+    it('左はしの マスからも 右はしの マスからも 下で やめる に 行ける（中心が 遠くても）', () => {
+      expect(pickNext(wide, 'slot0', 'down')).toBe('quit');
+      expect(pickNext(wide, 'slot8', 'down')).toBe('quit');
+    });
+    it('やめる から 上へ もどれる', () => {
+      expect(['slot0', 'slot8']).toContain(pickNext(wide, 'quit', 'up'));
+    });
+  });
 });

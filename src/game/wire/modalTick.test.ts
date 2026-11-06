@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createGameModal, type ModalParts } from './modalTick';
 
+/**
+ * COOP-1 4a（AC75・AC84 の 直し）: 世界を 止める 画面は 本と 建築士さん（HOUSE-1A）の 2 つ だけ。
+ * 2 人で 1P の 全面の もちもの画面が 世界を 止める 道（AC84）は なくなった ので、ModalParts から
+ * `duoFrozen`・`padStep`・`inventoryUiTick` を なくす（もちもの画面は 世界を 止めない。updaters が 動くので 画面まわりも 1P の パッドも そこで 回る）。
+ * 残る 部品: bookActive／bookTick／bookRender／houseFrozen／houseTick／houseRender／duoModalTick（2P の 側の「ちょっと まってね」などの 1 コマ）。
+ */
 function make(over: Partial<ModalParts> = {}) {
   const calls: string[] = [];
   const parts: ModalParts = {
@@ -10,47 +16,37 @@ function make(over: Partial<ModalParts> = {}) {
     houseFrozen: () => false,
     houseTick: () => calls.push('house'),
     houseRender: () => calls.push('houseRender'),
-    duoFrozen: () => true,
-    padStep: () => calls.push('pad'),
-    inventoryUiTick: () => calls.push('inv'),
     duoModalTick: () => calls.push('duo'),
     ...over,
   };
   return { modal: createGameModal(parts), calls };
 }
 
-describe('createGameModal（COOP-1 AC84・2 人で 1P の 全面の もちもの画面）', () => {
-  it('modal の tick から もちもの画面まわりが 1 コマに 1 回 呼ばれる（開いた コマにも）', () => {
+describe('createGameModal（COOP-1 4a。世界を 止めるのは 本・建築士さん だけ）', () => {
+  it('どちらも 開いて いなければ modal は 動かない（2 人で もちもの画面を 開いても 止めない）', () => {
     const { modal, calls } = make();
-    modal.tick(true);
-    expect(calls.filter((c) => c === 'inv')).toHaveLength(1);
-    modal.tick(true);
-    expect(calls.filter((c) => c === 'inv')).toHaveLength(2);
-  });
-
-  it('1 人の ときは modal が 動かない（active が false）ので updaters からだけ', () => {
-    const { modal, calls } = make({ duoFrozen: () => false });
     expect(modal.active()).toBe(false);
     expect(calls).toEqual([]); // Game は active でない modal の tick を 呼ばない
   });
 
-  it('本・建築士さんの あいだは もちもの画面まわりを 呼ばない', () => {
-    const a = make({ bookActive: () => true });
-    a.modal.tick(true);
-    expect(a.calls).toEqual(['book', 'duo']);
-    const b = make({ houseFrozen: () => true });
-    b.modal.tick(false);
-    expect(b.calls).toEqual(['house', 'duo']);
+  it('本が 開いている あいだ: active。tick は 本の 1 コマと 2P の 側の 1 コマ', () => {
+    const { modal, calls } = make({ bookActive: () => true });
+    expect(modal.active()).toBe(true);
+    modal.tick(true);
+    expect(calls).toEqual(['book', 'duo']);
   });
 
-  it('実時間の コマ（inFrame）では パッドを 読まない（idle が 1 回 読む）。step() の 道では 毎 tick 読む', () => {
-    const { modal, calls } = make();
-    modal.tick(true);
-    modal.tick(true);
-    modal.tick(true);
-    expect(calls.filter((c) => c === 'pad')).toHaveLength(0);
-    modal.tick();
+  it('建築士さんの あいだ: active。tick は 建築士さんの 1 コマと 2P の 側の 1 コマ', () => {
+    const { modal, calls } = make({ houseFrozen: () => true });
+    expect(modal.active()).toBe(true);
     modal.tick(false);
-    expect(calls.filter((c) => c === 'pad')).toHaveLength(2);
+    expect(calls).toEqual(['house', 'duo']);
+  });
+
+  it('もちもの画面まわり・パッドを 読む 道は modal に ない（古い 部品を 残さない）', () => {
+    // 古い 部品（duoFrozen）を 渡しても 世界は 止まらない。型でも 落とす: ModalParts に これらは ない
+    // @ts-expect-error duoFrozen は 4a で なくなった
+    const bad: ModalParts = { bookActive: () => false, bookTick() {}, bookRender() {}, houseFrozen: () => false, houseTick() {}, houseRender() {}, duoFrozen: () => true, duoModalTick() {} };
+    expect(createGameModal(bad).active()).toBe(false);
   });
 });
