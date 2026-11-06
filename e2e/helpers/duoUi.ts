@@ -465,12 +465,12 @@ export async function duoUsePadIssues(page: Page, opts: { pads: number; pending?
       const panel = r('ctrl-panel-use');
       return { noteTop: note?.top ?? null, noteH: note?.height ?? null, panelH: panel?.height ?? null };
     });
-  // 待ちの 前(ほかの タブを おして 待ちを やめた 状態)を 基準に、待ちの あいだ・ボタンで 光らせた あとの 3 つを くらべる。大きさは 今の まま
+  // 待ちの 前(Esc で 待ちを やめた 状態)を 基準に、待ちの あいだ・ボタンで 光らせた あとの 3 つを くらべる。大きさは 今の まま
   const prevStates: Array<{ name: string; m: Awaited<ReturnType<typeof measure>> }> = [];
   if (opts.pads > 0) {
     const stepN = () => page.evaluate(() => (window as any).__rikkun.step(2));
     if (opts.pending) {
-      await page.getByTestId('ctrl-tab-use').click();
+      await page.keyboard.press('Escape');
       await stepN();
     }
     const base = await measure();
