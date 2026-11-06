@@ -5,6 +5,9 @@
  */
 html[data-duo] {
   --duo-scale: 0.9; /* ホットバーを 縮める 倍。duoHud.ts が 画面の 幅から 決めなおす */
+  /* 1P の 上の 帯（実績・テロップ）の 上はし = 距離メーターの 下（メーターの 上の すき間 + 上の バッジの ぶん + 棒 + 下の すき間）+ すき間 sp-3 */
+  --duo-band-top: calc(var(--rk-sp-3) + var(--rk-sp-6) + var(--rk-sp-3) + var(--rk-sp-2) + var(--rk-sp-3));
+  --duo-band-w: 45vw; /* 1P の 帯の いちばん 広い はば = 半分の 90%（ホットバーと 同じ。まん中の 線から 5% あける） */
 }
 
 /* 1P: 左半分の まん中。2P: 右半分の まん中。縮めても 下はしは 動かさない */
@@ -32,6 +35,35 @@ html[data-duo] #hud-self-p2 {
 }
 html[data-duo] #hud-self {
   left: calc(25% - var(--hb-w) * var(--duo-scale) / 2);
+}
+/* 1P の おしらせ（メダルの 印・つくれる マーク）は 1P の ホットバーの 右はしの 上。まん中に 置くと 2P の ハートに かさなる */
+html[data-duo] #hud-notice {
+  right: calc(75% - var(--hb-w) * var(--duo-scale) / 2);
+  bottom: calc(var(--hb-bottom) + var(--rk-slot-hotbar) * var(--duo-scale) + var(--rk-sp-3));
+  transform: scale(var(--duo-scale));
+  transform-origin: 100% 100%;
+}
+
+/* 1P の 上の 帯（実績の おしらせ・テロップ・家の 名前）: 1P の 半分の まん中。2P の 側と メーターに かからない。JS は translate(-50%, ..) で 中心に そろえる */
+html[data-duo] .cel-band {
+  left: 25%;
+  top: var(--duo-band-top);
+  max-width: var(--duo-band-w);
+  /* せまい 半分に 入れるため、すき間を 狭める */
+  gap: var(--rk-sp-3);
+  padding-right: var(--rk-sp-4);
+  padding-left: var(--rk-sp-4);
+}
+/* テロップの 字は 20px（UI の 字の 段） */
+html[data-duo] .cel-telop .cel-band__head,
+html[data-duo] .cel-telop.cel-telop--long .cel-band__head {
+  font-size: 20px;
+}
+html[data-duo] .cel-telop .cel-band__text {
+  white-space: normal; /* 1024 の 半分（約 460px）では 長い 文は 2 行に 折り返す（はみ出さない） */
+}
+html[data-duo] .cel-telop rt {
+  font-size: 12px; /* ルビは 12px より 小さく しない（20px の 半分は 10px） */
 }
 #duo-p2-root[hidden] {
   display: none;

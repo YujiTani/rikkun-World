@@ -575,3 +575,64 @@ export async function duoUsePadIssues(page: Page, opts: { pads: number; pending?
   for (const t of info.tags) if (t.h > t.lh * 1.6) add('wrap', 'use-tag', '「コントローラーなし(キーボードだけ)」の 札が 2 行に なっている');
   return out;
 }
+
+/**
+ * 2 人あそびの 1P の 上の 帯・おしらせが 2P の HUD に かからない（yuzu 2026-11-06）。
+ * 2 人で 参加した まま 実績の おしらせ(toast)か テロップ(telop)を 出す。おしらせの ときは メダルの 印（#medal-badge・#hud-notice）も 出る。
+ */
+export async function openDuoBand(page: Page, kind: 'toast' | 'telop'): Promise<void> {
+  await openDuoHud(page);
+  await page.evaluate((kind) => {
+    const h = (window as any).__rikkun;
+    if (kind === 'toast') {
+      h.achievements.record('level', 5);
+      h.step(2);
+      h.achievements.flush();
+      h.step(70);
+    } else {
+      h.ui.telop('samurai_haori', 'chest');
+      for (let i = 0; i < 90 && h.ui.topBand().kind !== 'telop'; i++) h.step(1);
+      h.step(60);
+    }
+  }, kind);
+}
+
+const boxOfSel = (page: Page, sel: string): Promise<Box | null> =>
+  page.evaluate((sel) => {
+    const el = document.querySelector(sel) as HTMLElement | null;
+    if (!el || el.hidden) return null;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) return null;
+    return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height };
+  }, sel);
+
+/** 1P の 帯・おしらせは 左半分の 中。2P の HUD と 距離メーターに かさならない（出ていない 物は 見ない。帯と 印は 出ているか 確かめる） */
+export async function duoBandIssues(page: Page, band: '.cel-toast' | '.cel-telop'): Promise<DuoUiIssue[]> {
+  const out: DuoUiIssue[] = [];
+  const add = (kind: string, target: string, detail: string) => out.push({ kind, target, detail });
+  const vw: number = await page.evaluate(() => innerWidth);
+  const half = vw / 2;
+  const lineGap = half * 0.05;
+  const mine: Array<[string, Box | null]> = [
+    [band, await boxOfSel(page, band)],
+    // メダルの 印は 実績の おしらせの ときに 出る（テロップの 検査では 見ない）
+    ...(band === '.cel-toast' ? ([['#hud-notice', await boxOfSel(page, '#hud-notice')]] as Array<[string, Box | null]>) : []),
+  ];
+  const others: Array<[string, Box | null]> = [
+    ['duo-meter', await boxOf(page, 'duo-meter')],
+    ['duo-hearts-p2', await boxOf(page, 'duo-hearts-p2')],
+    ['duo-hotbar-p2', await boxOf(page, 'duo-hotbar-p2')],
+    ['hud-self-p2', await boxOfSel(page, '#hud-self-p2')],
+  ];
+  for (const [name, b] of mine) {
+    if (!b) {
+      add('missing', name, `${name} が 出ていない（検査が 空に ならない ため）`);
+      continue;
+    }
+    if (b.l < -0.5 || b.r > half - lineGap + 0.5) add('half', name, `${name} ${b.l.toFixed(0)}〜${b.r.toFixed(0)} が 1P の 左半分（〜${(half - lineGap).toFixed(0)}）に おさまらない`);
+    for (const [on, o] of others) {
+      if (o && overlap(b, o)) add('overlap', `${name}/${on}`, `1P の ${name} が ${on} に かさなる`);
+    }
+  }
+  return out;
+}
