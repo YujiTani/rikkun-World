@@ -81,3 +81,15 @@ describe('つかう コントローラー の ヘルプの文（AC62 の 文字�
     expect(table.useRowP1).toContain('1P');
   });
 });
+
+describe('#401 直し 3: ふだんの ヘルプ帯は tabUse に つづけて useLitHint', () => {
+  it('useHelpKey(null,false) の 文は tabUse の あとに useLitHint を 出す。お知らせ・0 本は そのまま', async () => {
+    const { useHelpKey } = await import('./usePadPanel');
+    const text = helpFor(useHelpKey(null, false));
+    expect(text.startsWith(UI_HELP.tabUse)).toBe(true);
+    expect(text.endsWith(UI_HELP.useLitHint)).toBe(true);
+    expect(helpFor(useHelpKey('decided', false))).toBe(UI_HELP.useDecided);
+    expect(helpFor(useHelpKey(null, true))).toBe(UI_HELP.useNone);
+    expect(helpFor('ui:tabUse')).toBe(UI_HELP.tabUse);
+  });
+});

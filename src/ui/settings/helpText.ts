@@ -82,6 +82,7 @@ export function actionHelp(action: Action): string {
 /** data-help の値 → 文。`ui:<キー>` か `act:<そうさ>` */
 export function helpFor(key: string): string {
   if (key.startsWith('act:')) return actionHelp(key.slice(4) as Action);
+  if (key === 'ui:useIdle') return `${UI_HELP.tabUse}。${UI_HELP.useLitHint}`; // つかう コントローラーの ふだんの 帯
   const text = (UI_HELP as Record<string, string>)[key.replace(/^ui:/, '')];
   return text ?? '';
 }

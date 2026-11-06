@@ -11,8 +11,8 @@ export interface UsePadPanel {
   readonly el: HTMLElement;
   /** タブが 見えている あいだだけ true にする（false にすると 待ちも やめる） */
   setActive(on: boolean): void;
-  /** 固定ステップ 1 回ぶん（active = true）か、世界が 止まっている あいだの 経過 秒（active = false） */
-  pump(active: boolean, dt: number): void;
+  /** 固定ステップ 1 回ぶん（active = true）か、世界が 止まっている あいだの 経過 秒（active = false）。1P の パッドで 待ちを やめたら true（その 回は フォーカスを 動かさない） */
+  pump(active: boolean, dt: number): boolean;
   /** 見た目だけ 直す（毎フレーム） */
   paint(): void;
   pending(): boolean;
@@ -24,7 +24,7 @@ export interface UsePadPanel {
 const NOTICE_HELP: Record<PickNotice, string> = { decided: 'ui:useDecided', swapped: 'ui:useSwapped', timeout: 'ui:useTimeout' };
 /** ヘルプ帯の 文の キー（お知らせが 出ている とき・0 本の とき・ふだん） */
 export function useHelpKey(notice: PickNotice | null, none: boolean): string {
-  return notice ? NOTICE_HELP[notice] : none ? 'ui:useNone' : 'ui:tabUse';
+  return notice ? NOTICE_HELP[notice] : none ? 'ui:useNone' : 'ui:useIdle';
 }
 
 const WHO = [1, 2] as const;
@@ -68,13 +68,18 @@ export function createUsePadPanel(router: DuoPadRouter, onChange: () => void): U
   const noteEl = el.querySelector<HTMLElement>('[data-testid="use-note"]')!;
   const NOTE_IDLE = 'キーボードと マウスは いつも 1P だよ';
   let active = false;
-  let signature = '';
+  /** 今 ボタンを 作っている パッドの 番号(名前は 並びで きまるので 番号だけ くらべる) */
+  const sigIdx: number[] = [];
+  let sigValid = false;
+  const tagEls: HTMLElement[] = [];
+  const btnEls: HTMLElement[][] = [[], []];
   let lastNotice: PickNotice | null = null;
   let noteKey = '';
 
   const rebuild = (who: 1 | 2, views: readonly PadButtonView[]): void => {
     const box = rows[who - 1]!.querySelector<HTMLElement>('.up-btns')!;
     box.replaceChildren();
+    btnEls[who - 1] = [];
     views.forEach((v, n) => {
       const b = document.createElement('button');
       b.type = 'button';
@@ -89,6 +94,7 @@ export function createUsePadPanel(router: DuoPadRouter, onChange: () => void): U
         onChange();
       });
       box.append(b);
+      btnEls[who - 1]!.push(b);
     });
   };
 
@@ -98,19 +104,25 @@ export function createUsePadPanel(router: DuoPadRouter, onChange: () => void): U
     noneEl.hidden = !none;
     rowsEl.hidden = none;
     const first = picker.buttons(1);
-    const sig = first.map((v) => v.index).join(',') + '/' + first.map((v) => v.name).join(',');
+    let changed = !sigValid || sigIdx.length !== first.length;
+    for (let n = 0; !changed && n < first.length; n++) if (sigIdx[n] !== first[n]!.index) changed = true;
+    if (changed) {
+      sigIdx.length = first.length;
+      first.forEach((v, n) => (sigIdx[n] = v.index));
+      sigValid = true;
+    }
     const pend = picker.pending();
     WHO.forEach((who, r) => {
       const views = picker.buttons(who);
-      if (sig !== signature) rebuild(who, views);
+      if (changed) rebuild(who, views);
       const row = rows[r]!;
       setAttr(row, 'data-waiting', pend && pend.who === who ? 'true' : null);
-      const tag = row.querySelector<HTMLElement>('.up-tag')!;
+      const tag = tagEls[r] ?? (tagEls[r] = row.querySelector<HTMLElement>('.up-tag')!);
       const hasChosen = views.some((v) => v.chosen);
       const noPad = !hasChosen && router.effectiveChoice()[who === 1 ? 'p1' : 'p2'] === null;
       tag.hidden = !noPad;
       if (noPad) tag.textContent = who === 1 ? 'コントローラーなし（キーボードだけ）' : 'コントローラーなし';
-      const btns = row.querySelectorAll<HTMLElement>('.up-btn');
+      const btns = btnEls[r]!;
       views.forEach((v, n) => {
         const b = btns[n];
         if (!b) return;
@@ -120,7 +132,6 @@ export function createUsePadPanel(router: DuoPadRouter, onChange: () => void): U
         setAttr(b, 'data-lit-color', v.lit ? picker.litColor(v.index) : null);
       });
     });
-    signature = sig;
     // 下の 1 行: ふだんの ひとこと と 待ちの 文を 入れかえる
     const key = pend ? `wait:${pend.who}:${pend.index}` : 'idle';
     if (key !== noteKey) {
@@ -148,16 +159,17 @@ export function createUsePadPanel(router: DuoPadRouter, onChange: () => void): U
       active = on;
       el.hidden = !on;
       if (on) {
-        signature = '';
+        sigValid = false;
         noteKey = '';
         paint();
       }
     },
     pump(isActive, dt) {
-      if (!active) return;
+      if (!active) return false;
       if (isActive) picker.step();
       else picker.advanceTime(dt);
       paint();
+      return picker.endedByPad();
     },
     paint,
     pending: () => picker.pending() !== null,

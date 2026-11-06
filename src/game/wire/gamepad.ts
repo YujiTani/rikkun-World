@@ -51,7 +51,7 @@ export function wireGamepad(opts: {
     if (action === 'toggleView') opts.onToggleView();
   });
 
-  let pumpUi: (active: boolean, dt: number) => void = () => {};
+  let pumpUi: (active: boolean, dt: number) => boolean = () => false;
   /** COOP-1: 参加の 求め（2 本目の ＋）と 2P の もちもの画面は wireDuo が つなぐ */
   const duo = { onJoinRequested: (): void => undefined, menuOpen2: (): boolean => false };
   const step = (active: boolean, dt: number): void => {
@@ -59,10 +59,10 @@ export function wireGamepad(opts: {
     reader.setHanging(opts.hanging());
     router.setMenuOpen2(duo.menuOpen2());
     if (router.poll(performance.now(), active).joinRequested) duo.onJoinRequested();
-    pumpUi(active, dt);
+    const padEnded = pumpUi(active, dt); // 1P の パッドで 待ちを やめた 回は フォーカスを 動かさない
     const on = reader.hasPad();
     if (on !== opts.lock.isPadActive()) opts.lock.setPadActive(on);
-    if (!opts.menuOpen() || reader.isCapturing()) return;
+    if (padEnded || !opts.menuOpen() || reader.isCapturing()) return;
     const root = activeMenuRoot();
     if (!root) return;
     const a = opts.actions;
@@ -82,7 +82,7 @@ export function wireGamepad(opts: {
     duo,
     look,
     slots,
-    setPump(fn: (active: boolean, dt: number) => void): void {
+    setPump(fn: (active: boolean, dt: number) => boolean): void {
       pumpUi = fn;
     },
     look2: padLook2,

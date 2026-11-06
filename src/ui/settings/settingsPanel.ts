@@ -22,7 +22,8 @@ export interface SettingsPanel {
   cancelCapture(): void;
   refreshAudio(): void;
   /** 固定ステップごと（active = true）か、世界が 止まっている あいだ 毎コマ（active = false。dt = 経過 秒） */
-  pump(active?: boolean, dt?: number): void;
+  /** 1P の パッドで「えらぶ」の 待ちを やめた ステップは true（呼んだ 側は その 回 フォーカスを 動かさない） */
+  pump(active?: boolean, dt?: number): boolean;
   dispose(): void;
 }
 
@@ -352,7 +353,7 @@ export function createSettingsPanel(
     refreshAudio: () => sound.refresh(),
     pump: (active = true, dt = 0) => {
       pad.pump();
-      use?.pump(active, dt);
+      return use?.pump(active, dt) ?? false;
     },
     dispose() {
       if (raf) cancelAnimationFrame(raf);
