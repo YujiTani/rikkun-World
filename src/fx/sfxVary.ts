@@ -37,6 +37,8 @@ export const VARY: Readonly<Record<string, Vary>> = {
   pickup: tones({ cents: 0, gain: 0.08, dur: 0 }),
   levelUp: root({ cents: 0, gain: 0, dur: 0, big: true }),
   whiff: plain({ cents: 60, gain: 0.15 }),
+  // COOP-1 3c: 2P が 参加して 分かれる「しゅっ」。根音に 合わせる（高さは ゆらさない）。big に しない
+  duoSplit: root(),
   // WEAPON-5: パリィ（案 A）。成功は 3 つの高さ（ド・ミ・ソ）から 直前と ちがう物。big にしない
   parry: tones({ cents: 0, gain: 0.05, dur: 0 }),
   parryEarly: plain(),

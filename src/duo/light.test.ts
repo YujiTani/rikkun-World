@@ -4,8 +4,11 @@ import { DUO_TUNING } from './tuning';
 import type { DuoView } from './types';
 
 /**
- * COOP-1 作業 2（#399）の 先行テスト（赤）。AC30（分割の あいだだけ 軽くする 工夫が 入り、1 画面に 戻って 2 秒後に 元に もどる）。
- * つなぎ目の 約束: src/duo/light.ts の `DuoLightGate`（宣言と 約束は light.ts の 先頭）。
+ * COOP-1 作業 2（#399）の 先行テスト。AC30（2P が いる あいだ ずっと 軽くする 工夫が 入り、2P が いなく なって 2 秒後に 元に もどる）。
+ * 作業 3e（#422。1.8）: 'loupe' の ケースを 消した。口は そのまま `DuoLightGate.step(view)`（view は 'one' | 'split'。2P が いれば いつも 'split'）。
+ * 配線の 約束（3e の コードレビュー）: DuoLightGate は 2P が いなくても 毎ステップ step('one') を 呼ぶ（やめた ときに 作りなおさない）。
+ *   やめた 直後も `duo.state().light` は true（参加して いなくても）で、120 ステップ目に false（e2e/duo2.spec.ts の AC30）。
+ * 「2P が 近くても 遠くても 入る」(距離で かわらない)は 画面の ようす 'split' が 距離で かわらない こと（view.test.ts の AC21）と E2E（duo2.spec.ts の AC30）で 見る。
  */
 
 function drive() {
@@ -19,27 +22,25 @@ function drive() {
 }
 
 describe('AC30: 軽くする 工夫の 入り切り', () => {
-  it('1 画面・ルーペでは 入らない', () => {
+  it('2P が いない（one）あいだは 入らない', () => {
     const { run } = drive();
     expect(run(DUO_LIGHT.restoreSteps - 20, 'one')).toBe(false);
-    expect(run(100, 'loupe')).toBe(false);
+    expect(run(300, 'one')).toBe(false);
   });
   it('分割に なった その ステップから 入る', () => {
     const { run } = drive();
     run(10, 'one');
     expect(run(1, 'split')).toBe(true);
   });
-  it('分割を 出ても 120 ステップ(2 秒)は 入ったまま、120 ステップ目に 切れる', () => {
+  it('分割の あいだは ずっと 入ったまま（何ステップ たっても）', () => {
+    const { run } = drive();
+    expect(run(2000, 'split')).toBe(true);
+  });
+  it('1 人に もどっても 120 ステップ(2 秒)は 入ったまま、120 ステップ目に 切れる', () => {
     const { run } = drive();
     run(30, 'split');
     expect(run(DUO_LIGHT.restoreSteps - 1, 'one')).toBe(true);
     expect(run(1, 'one')).toBe(false);
-  });
-  it('ルーペに 戻っても 同じ(2 秒あと)', () => {
-    const { run } = drive();
-    run(30, 'split');
-    expect(run(DUO_LIGHT.restoreSteps - 1, 'loupe')).toBe(true);
-    expect(run(1, 'loupe')).toBe(false);
   });
   it('2 秒の とちゅうで また 分割に なれば 入ったまま・数えなおし', () => {
     const { run } = drive();

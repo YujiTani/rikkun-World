@@ -18,7 +18,6 @@ function make() {
     look2: new AlwaysLook(),
     storage: null,
     choiceStorage: new FakeStorage(),
-    choiceEnabled: true,
   });
   let pads: (Gamepad | null)[] = [];
   router.getPads = () => pads;

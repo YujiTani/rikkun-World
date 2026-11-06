@@ -1,3 +1,5 @@
+import type { BladeEvent, BowEvent } from '../contracts';
+import { playCombat } from './combatSounds';
 import type { SoundFx, Tone } from './sound';
 import { box, hz, mar, noise, powan, swish, wood, xylo } from './sfxVoices';
 import { logSound } from './soundLog';
@@ -72,4 +74,60 @@ export function playKodachi(sound: Pick<SoundFx, 'playTones'>): void {
 export function playWeapon(sound: Pick<SoundFx, 'playTones'>, name: WeaponSoundName): void {
   sound.playTones(WEAPON_SOUNDS[name] as readonly Tone[]);
   logSound(...weaponSoundLogNames(name));
+}
+
+/**
+ * 刀の 出来事の 音（1P の WeaponFx と 2P の P2Sounds が 同じ 音を 鳴らす ための 共通。COOP-1 3c）。
+ * techStart: わざの 音（2 段目は ＋ combo2・3 段目は ＋ combo3）／ techHit: kesa は kesaHit・ほかは hit／ stance: かまえ／ 他は 鳴らさない。
+ * 虹の 刀が 斬撃音を 入れかえる 枝（replaceTechSound）は WeaponFx に のこす（呼ぶ 前に 分ける）
+ */
+export function playBladeSound(sound: Pick<SoundFx, 'playTones'>, e: BladeEvent): void {
+  switch (e.type) {
+    case 'techStart':
+      playWeapon(sound, e.tech);
+      if (e.step === 2) playWeapon(sound, 'combo2');
+      else if (e.step === 3) playWeapon(sound, 'combo3');
+      break;
+    case 'techHit':
+      if (e.tech === 'kesa') playWeapon(sound, 'kesaHit');
+      else playCombat(sound, 'hit');
+      break;
+    case 'stance':
+      playWeapon(sound, 'stance');
+      break;
+    case 'techMiss':
+    case 'cancel':
+      break;
+  }
+}
+
+/** 弓の 出来事の 音（WeaponFx.onBow の 音の 部分。2P も 使う）。ひく・とばす・あたる・ささる・からうち・やが ない・ひろう。ほか（drawStart・arrowEnd）は 鳴らさない */
+export function playBowSound(sound: Pick<SoundFx, 'play' | 'playTones'>, e: BowEvent): void {
+  switch (e.type) {
+    case 'stage':
+      playWeapon(sound, e.stage === 1 ? 'drawStage1' : e.stage === 2 ? 'drawStage2' : 'drawStage3');
+      break;
+    case 'arrowShot':
+      playWeapon(sound, e.stage === 1 ? 'shoot1' : e.stage === 2 ? 'shoot2' : 'shoot3');
+      break;
+    case 'arrowHit':
+      playWeapon(sound, 'arrowHit');
+      playCombat(sound, 'hit');
+      break;
+    case 'arrowStick':
+      playWeapon(sound, 'arrowStick');
+      break;
+    case 'dryRelease':
+      playWeapon(sound, 'dry');
+      break;
+    case 'noArrow':
+      sound.play('clink');
+      break;
+    case 'pickup':
+      sound.play('pickup');
+      break;
+    case 'drawStart':
+    case 'arrowEnd':
+      break;
+  }
 }

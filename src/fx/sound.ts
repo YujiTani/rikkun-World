@@ -163,6 +163,17 @@ export const SOUNDS = {
     sine(hz('C7'), hz('C7'), 0.39, 0.7, 0.1),
     sine(hz('E7'), hz('E7'), 0.47, 0.6, 0.06),
   ],
+  /**
+   * COOP-1 3c: 2P が 参加して 左右に 分かれる「しゅっ」（案 C「わかれる オルゴール」。yuzu 2026-11-06）。
+   * 風の 下しき ＋ オルゴール 1 つ（ミ）が 2 つ（ド・ソ）に 分かれて ひろがる。小さく 1 秒より みじかい。big に しない
+   */
+  duoSplit: [
+    noise(0, 0.28, 0.0375, { type: 'bandpass', freq: 800, freq1: 1600, q: 0.8 }, 0.05),
+    ...box(hz('E6'), hz('C6'), 0.02, 0.16, 0.094),
+    ...box(hz('E6'), hz('G6'), 0.02, 0.16, 0.094),
+    sine(hz('C6'), hz('C6'), 0.06, 0.34, 0.0517, 0.03),
+    sine(hz('G6'), hz('G6'), 0.06, 0.34, 0.0423, 0.03),
+  ],
 } as const satisfies Record<string, readonly Tone[]>;
 
 export type SoundName = keyof typeof SOUNDS;

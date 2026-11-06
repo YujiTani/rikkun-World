@@ -36,7 +36,7 @@ const w16 = Object.assign(w15, wireFrame(w15));
 const { game } = w16;
 game.onUpdate(createStep(w16));
 const w17 = Object.assign(w16, wireLoop(w16));
-const w18 = Object.assign(w17, wireDuo(w17)); // 2 人で あそぶ（COOP-1。?duo=dev の ときだけ 2P が 出る）
+const w18 = Object.assign(w17, wireDuo(w17)); // 2 人で あそぶ（COOP-1。2 本目の ＋ で 2P が 参加する。?duo=dev は E2E 用）
 const w19 = Object.assign(w18, wireMine(w18)); // 坑道の 宝箱（MINE-1C）
 installGameHook(w19);
 wireGasha(w19);

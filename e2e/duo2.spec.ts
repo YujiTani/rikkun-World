@@ -1,17 +1,23 @@
 import { expect, test, type Page } from '@playwright/test';
 import { standOnGround } from './helpers/aim';
 import { DUO_RENDER_BUDGET, DUO_RENDER_MIN, measureDuoRender, measureRender } from './helpers/duoBudget';
-import type { DuoState, DuoVec3, DuoViewport } from '../src/duo/types';
+import { DUO_COLORS } from '../src/duo/tuning';
+import type { DuoArrow, DuoState, DuoVec3, DuoViewport } from '../src/duo/types';
 
 /**
- * COOP-1 作業 2（#399。docs/design/COOP-1.md §2.3〜2.5・§5・§7.2・§12.0・AC25・AC26・AC27・AC29・AC30・AC31）の E2E。実装の 前に 書いた 赤の テスト。
+ * COOP-1 作業 2（#399。docs/design/COOP-1.md §2.3〜2.5・§5・§7.2・§12.0・AC25・AC26・AC27・AC29・AC30・AC31）の E2E。
+ * 作業 3e（#422。1.8）で 「2P が いる あいだ ずっと 左右」・矢印・「しゅっ」の 形に 直した（1 画面・ルーペ・色の 段の テストは 消した）。実装の 前に 書いた 赤の テスト。
  * 数・座標は 決め打ちせず、ゲーム（window.__rikkun.duo）に 聞く。進めるのは step の 数で、時間（ms）では 合否を 決めない（#255）。
- * ルーペ・色の 段・ようすの 切りかえ の 細かい 数は ユニット（src/duo/view.test.ts ほか）。画面の 重なり・色は UI 検査（e2e/ui-gate.spec.ts の duo-loupe など）。
+ * 矢印の 細かい 数（18 ステップ・90%／80%・4 マス・置き場・色）は ユニット（src/duo/arrow.test.ts）。画面の 重なり・色は UI 検査（e2e/ui-gate.spec.ts の duo-split など）。
  *
  * ---- 開発への つなぎ目の 約束 ----
  *   duo.viewports()   いま 描いている 区画の 一覧（型は src/duo/types.ts の DuoViewport / DuoViewportsHook）。
- *                     'one' = [1P 全面]、'loupe' = [1P 全面, 2P の ルーペ]、'split' = [1P 左半分, 2P 右半分]。camera = その 区画を 描く カメラの 世界の 位置、yawDeg = 向き。
- *   duo.state()       view・tier・rings・columns・light・loupe は 仕様 §12.0 のとおり。rings は 距離 > 48 で 2・< 32 で 1（あいだは 今のまま）。
+ *                     2P が いなければ [1P 全面]、いれば いつも [1P 左半分, 2P 右半分]（近くても 遠くても）。camera = その 区画を 描く カメラの 世界の 位置、yawDeg = 向き。
+ *   duo.state()       view（'one' | 'split'）・rings・columns・light は 仕様 §12.0 のとおり。`tier`・`loupe` は ない。rings は 距離 > 48 で 2・< 32 で 1（あいだは 今のまま）。
+ *   duo.arrow(who)    仕様 §12.0（1.8）。{ x, y, angle, color } か null。画面の 目印は data-testid="duo-arrow-p1"（1P の 半分の 矢印）・"duo-arrow-p2"。
+ *   AC69（「しゅっ」duoSplit）は 3c の テスト（wip-3c-tests。createSplitSound の onJoined／onLeft）に まかせる。ここでは 見ない。
+ *   AC30（軽くする 工夫）の 配線: やめた ときも view machine と light gate は 毎ステップ step({ joined: false }) を 呼ぶ（reset() で 作りなおさない）。
+ *     やめた 瞬間に 輪・2P の 区画は 1 人の ものに もどり、`duo.state().light` は 参加して いなくても 119 ステップ目まで true、120 ステップ目に false。
  *   向き              yaw 90 の とき 前が +x・右が +z（PlayerController と 同じ 決まり）。2P を 1P の「左」に 置く = z を 減らす。
  *   ゲームの 起動      ?duo=dev（作業 1 と 同じ）。E2E の サーバーは 小さい 輪（RING_SMALL）。
  */
@@ -29,6 +35,7 @@ const step = (page: Page, n: number) => page.evaluate((n) => (window as any).__r
 const duoState = (page: Page) => page.evaluate(() => (window as any).__rikkun.duo.state() as DuoState);
 const pos = (page: Page, who: 1 | 2) => page.evaluate((who) => (window as any).__rikkun.duo.pos(who) as DuoVec3 | null, who);
 const viewports = (page: Page) => page.evaluate(() => (window as any).__rikkun.duo.viewports() as DuoViewport[]);
+const arrow = (page: Page, who: 1 | 2) => page.evaluate((who) => (window as any).__rikkun.duo.arrow(who) as DuoArrow | null, who);
 
 /** 2P を 1P から (前, 右) マスの 所に 置く。足もとは 平らに ならす(地形の ちがいを なくす)。1P の 向きは yaw 90（前 = +x・右 = +z） */
 async function placeP2(page: Page, fwd: number, right: number, flat = true): Promise<void> {
@@ -59,25 +66,24 @@ async function startDuo(page: Page, query?: string): Promise<void> {
 const dist3 = (a: DuoVec3, b: DuoVec3) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 const angleDiff = (a: number, b: number) => Math.abs((((a - b) % 360) + 540) % 360 - 180);
 
-test('AC25・AC26: 分割のとき 左半分が 1P、右半分が 2P のカメラ（2P が 左にいても 入れかわらない）。2P の 向きは その前の 画面の 向きと 同じ', async ({ page }) => {
+test('AC25・AC26: 2P が いる あいだは 近くても 遠くても 左半分が 1P、右半分が 2P のカメラ（2P が 左にいても 入れかわらない）。2P の 向きは 参加した 瞬間の 画面の 向きと 同じ', async ({ page }) => {
   await startDuo(page);
   const vw: number = await page.evaluate(() => innerWidth);
   const yawBefore: number = await page.evaluate(() => (window as any).__rikkun.player.get().yawDeg);
-  expect((await viewports(page)).map((v) => v.who), '近いときは 1P の 全面だけ').toEqual([1]);
-  const oneDraw = await measureDuoRender(page, { dx: 0, dz: 2 });
-  expect(oneDraw.view).toBe('one');
-
-  await placeP2(page, 0, -40); // 1P の 左 40 マス
-  await step(page, 100);
-  expect((await duoState(page)).view).toBe('split');
-  for (const side of ['左', '右'] as const) {
-    if (side === '右') {
-      await placeP2(page, 0, 40); // 1P の 右 40 マスに うつしても 入れかわらない
+  const cases = [
+    { name: '近い（参加した ところ。1P の 右 2 マス）', place: null },
+    { name: '1P の 左 40 マス', place: [0, -40] },
+    { name: '1P の 右 40 マス', place: [0, 40] },
+    { name: '1P の うしろ 60 マス（輪 2 つ）', place: [-60, 0] },
+  ] as const;
+  for (const c of cases) {
+    if (c.place) {
+      await placeP2(page, c.place[0], c.place[1]);
       await step(page, 20);
-      expect((await duoState(page)).view).toBe('split');
     }
+    expect((await duoState(page)).view, c.name).toBe('split');
     const vps = await viewports(page);
-    expect(vps, `2P が 1P の ${side}`).toHaveLength(2);
+    expect(vps, c.name).toHaveLength(2);
     expect(vps[0]!.who).toBe(1);
     expect(vps[0]!.x).toBeCloseTo(0, 0);
     expect(vps[0]!.w).toBeCloseTo(vw / 2, 0);
@@ -86,16 +92,12 @@ test('AC25・AC26: 分割のとき 左半分が 1P、右半分が 2P のカメ�
     expect(vps[1]!.w).toBeCloseTo(vw / 2, 0);
     const p1 = (await pos(page, 1))!;
     const p2 = (await pos(page, 2))!;
-    expect(dist3(vps[0]!.camera, p1), '左の カメラは 1P の そば').toBeLessThan(10);
-    expect(dist3(vps[1]!.camera, p2), '右の カメラは 2P の そば').toBeLessThan(10);
-    expect(dist3(vps[1]!.camera, p1), '右の カメラは 1P から 遠い').toBeGreaterThan(20);
-    expect(angleDiff(vps[1]!.yawDeg, yawBefore), '分割した 瞬間の 2P の 向き').toBeLessThanOrEqual(1);
+    expect(dist3(vps[0]!.camera, p1), `${c.name}: 左の カメラは 1P の そば`).toBeLessThan(10);
+    expect(dist3(vps[1]!.camera, p2), `${c.name}: 右の カメラは 2P の そば`).toBeLessThan(10);
+    if (c.place) expect(dist3(vps[1]!.camera, p1), `${c.name}: 右の カメラは 1P から 遠い`).toBeGreaterThan(20);
+    expect(angleDiff(vps[1]!.yawDeg, yawBefore), `${c.name}: 2P の カメラの 向き（回していない）`).toBeLessThanOrEqual(1);
     expect(angleDiff(vps[0]!.yawDeg, yawBefore)).toBeLessThanOrEqual(1);
   }
-  // 画面を 2 回 描いている: 1 画面のときより 描画回数が ふえる(床は 両方 平ら)
-  const splitDraw = await measureDuoRender(page, { dx: 0, dz: -40 });
-  expect(splitDraw.view).toBe('split');
-  expect(splitDraw.drawCalls, `分割 ${splitDraw.drawCalls} は 1 画面 ${oneDraw.drawCalls} の ${DUO_RENDER_MIN.split.drawCalls} 倍以上`).toBeGreaterThanOrEqual(Math.ceil(oneDraw.drawCalls * DUO_RENDER_MIN.split.drawCalls));
 });
 
 test('AC29: 2P だけが 1P から 200 マス 行っても 落ちない(読みこみ中は 止まって 待ち、読みこまれたら 着地)。見えない 壁は ない。1P は 遊べる', async ({ page }) => {
@@ -171,79 +173,116 @@ test('AC27: 輪の 数は 48 より 遠いと 2・32 より 近いと 1(あい�
   }
 });
 
-test('AC21〜AC24・AC30（通し）: 1 画面 → ルーペ → 分割 → 1 画面。ルーペは 2P の 方向の はし・分割の あいだだけ 軽くする 工夫が 入り、戻って 2 秒後に 元', async ({ page }) => {
-  await startDuo(page);
+test('AC21・AC30・AC85（通し）: 参加 → いつも 左右 → 遠いと 矢印 → 近いと 消える → やめる → 1 人の 全面。軽くする 工夫は 2 秒あとに 元に もどる', async ({ page }) => {
+  await open(page);
+  await standOnGround(page, 100.5, 100.5, { yaw: 90 });
   const vw: number = await page.evaluate(() => innerWidth);
   const vh: number = await page.evaluate(() => innerHeight);
   let s = await duoState(page);
   expect(s.view).toBe('one');
   expect(s.light).toBe(false);
-  expect(s.loupe).toBeNull();
+  expect((await viewports(page)).map((v) => v.who)).toEqual([1]);
+  expect(await arrow(page, 1)).toBeNull();
+  expect(await arrow(page, 2)).toBeNull();
+  expect(s).not.toHaveProperty('tier');
+  expect(s).not.toHaveProperty('loupe');
 
-  // 2P が 1P の うしろ 21 マス(画面の 外・24 より 近い): ルーペ。2 段目 = 20 以上
-  await placeP2(page, -21, 0);
-  await step(page, 40);
-  s = await duoState(page);
-  expect(s.view).toBe('loupe');
-  expect(s.tier).toBe(2);
-  expect(s.light, 'ルーペでは 軽くしない').toBe(false);
-  expect(s.loupe).not.toBeNull();
-  const lp = s.loupe!;
-  expect(lp.d).toBeCloseTo(vh * 0.2, 0);
-  expect(lp.y - lp.d / 2).toBeGreaterThanOrEqual(vh * 0.12 - 1);
-  expect(lp.y + lp.d / 2).toBeLessThanOrEqual(vh * 0.78 + 1);
-  expect(lp.x - lp.d / 2).toBeGreaterThanOrEqual(15);
-  expect(lp.x + lp.d / 2).toBeLessThanOrEqual(vw - 15);
-  expect((await viewports(page)).map((v) => v.who)).toEqual([1, 2]);
-
-  // 遠く(24 以上): 分割。分割の あいだだけ 軽く する
-  await placeP2(page, 0, -40);
-  await step(page, 80);
+  // 参加: その ステップから 左右。軽くする 工夫が 入る
+  expect(await page.evaluate(() => (window as any).__rikkun.duo.join())).toBe(true);
+  await step(page, 1);
   s = await duoState(page);
   expect(s.view).toBe('split');
   expect(s.light).toBe(true);
-  expect(s.loupe).toBeNull();
-  expect(s.tier).toBe(2);
+  expect((await viewports(page)).map((v) => v.who)).toEqual([1, 2]);
+  await step(page, 60);
+  expect(await arrow(page, 1), '2 マスの すぐ 横: 矢印は いらない').toBeNull();
+  expect(await arrow(page, 2)).toBeNull();
 
-  // 近く: 17 以下が 60 ステップで 1 画面に 戻る。軽くする 工夫は まだ 入ったまま
+  // 距離を かえても いつも 分割（23.9／24.1 のような ゆれ止めは ない）
+  for (const fwd of [8, 17, 23.9, 24.1, 60, 3]) {
+    await placeP2(page, 0, -fwd);
+    await step(page, 5);
+    s = await duoState(page);
+    expect(s.view, `距離 ${fwd}`).toBe('split');
+    expect(s.light, `距離 ${fwd}`).toBe(true);
+  }
+
+  // 遠く（1P の 左 40 マス）: 18 ステップあとに 両方の 半分に 矢印。1P の 矢印は 2P（左）を さす・2P の 矢印は 1P（右）を さす。色は 相手の 色
+  await placeP2(page, 0, -40);
+  await step(page, 40);
+  const a1 = await arrow(page, 1);
+  const a2 = await arrow(page, 2);
+  expect(a1, '1P の 半分: 2P を さす').not.toBeNull();
+  expect(a2, '2P の 半分: 1P を さす').not.toBeNull();
+  expect(angleDiff(a1!.angle, 270), '2P は 1P の 左').toBeLessThanOrEqual(45);
+  expect(angleDiff(a2!.angle, 90), '1P は 2P の 右').toBeLessThanOrEqual(45);
+  expect(a1!.x).toBeGreaterThanOrEqual(0);
+  expect(a1!.x).toBeLessThanOrEqual(vw / 2);
+  expect(a2!.x).toBeGreaterThanOrEqual(vw / 2);
+  expect(a2!.x).toBeLessThanOrEqual(vw);
+  await expect(page.getByTestId('duo-arrow-p1')).toBeVisible();
+  await expect(page.getByTestId('duo-arrow-p2')).toBeVisible();
+  expect(a1!.color.toLowerCase(), '1P の 半分の 矢印は 2P の 色').toBe(DUO_COLORS.p2.toLowerCase());
+  expect(a2!.color.toLowerCase(), '2P の 半分の 矢印は 1P の 色').toBe(DUO_COLORS.p1.toLowerCase());
+
+  // 1P の うしろ 21 マス: 1P の 矢印は 下向き（まうしろ ≒ 180°）で 下の 22% には かからない
+  await placeP2(page, -21, 0);
+  await step(page, 40);
+  const back = await arrow(page, 1);
+  expect(back).not.toBeNull();
+  expect(angleDiff(back!.angle, 180), 'まうしろ').toBeLessThanOrEqual(20);
+  expect(back!.y).toBeLessThanOrEqual(vh * 0.78 + 1);
+
+  // 近づく（2 マス）: その ステップで 両方 消える（4 マス以下）
   await placeP2(page, 0, 2);
-  await step(page, 59);
-  expect((await duoState(page)).view, '59 ステップでは 分割の まま').toBe('split');
-  await step(page, 6);
+  await step(page, 1);
+  expect(await arrow(page, 1)).toBeNull();
+  expect(await arrow(page, 2)).toBeNull();
+  expect((await duoState(page)).view).toBe('split');
+
+  // やめる: 1 人の 全面。輪・2P の 区画は すぐ もどり、矢印は ない。軽くする 工夫は 120 ステップ あとに 元に もどる（AC30）
+  await page.evaluate(() => (window as any).__rikkun.duo.leave());
+  await step(page, 1);
   s = await duoState(page);
+  expect(s.joined).toBe(false);
   expect(s.view).toBe('one');
-  expect(s.tier, '分割から 戻る とき 1 段目 以下').toBeLessThan(2);
-  expect(s.light, '戻って すぐは まだ 軽い').toBe(true);
-  await step(page, 130);
-  s = await duoState(page);
-  expect(s.light, '2 秒後に 元').toBe(false);
-  expect(s.view).toBe('one');
+  expect(s.rings).toBe(1);
+  expect((await viewports(page)).map((v) => v.who)).toEqual([1]);
+  expect(await arrow(page, 1)).toBeNull();
+  expect(await arrow(page, 2)).toBeNull();
+  expect(s.light, 'やめた 直後は まだ 軽い').toBe(true);
+  await step(page, 117); // やめてから 118 ステップ
+  expect((await duoState(page)).light, '118 ステップでは まだ 軽い').toBe(true);
+  await step(page, 12); // 130 ステップ
+  expect((await duoState(page)).light, '2 秒後に 元').toBe(false);
+
+  // また 参加: また 左右
+  expect(await page.evaluate(() => (window as any).__rikkun.duo.join())).toBe(true);
+  await step(page, 1);
+  expect((await duoState(page)).view).toBe('split');
 });
 
-test('AC31: 1 画面・ルーペ・分割の 描画回数と 三角形が DUO_RENDER_BUDGET の 倍率以下(同じ テストの 中で 1 人のときと くらべる)', async ({ page }) => {
+test('AC31: 2P が 近い（2 マス・輪 1 つ）時と 遠い（60 マス・輪 2 つ）時の 描画回数と 三角形が DUO_RENDER_BUDGET の 倍率以下（同じ テストの 中で 1 人のときと くらべる）', async ({ page }) => {
   await open(page, '?nosave=1&ring=small&duo=dev');
   const solo = await measureRender(page);
   expect(await page.evaluate(() => (window as any).__rikkun.duo.join())).toBe(true);
   await step(page, 30);
   test.info().annotations.push({ type: 'solo', description: JSON.stringify(solo) });
   const cases = [
-    { name: 'one', rel: { dx: 0, dz: 2 } },
-    { name: 'loupe', rel: { dx: -21, dz: 0 } },
-    { name: 'split', rel: { dx: 0, dz: -40 } },
+    { name: 'near', rel: { dx: 0, dz: 2 }, rings: 1 },
+    { name: 'far', rel: { dx: 0, dz: -60 }, rings: 2 },
   ] as const;
   for (const c of cases) {
     const m = await measureDuoRender(page, c.rel);
     test.info().annotations.push({ type: c.name, description: JSON.stringify(m) });
-    expect(m.view, `${c.name} の ようすで 測れて いる`).toBe(c.name);
-    if (c.name !== 'one') {
-      expect(m.viewports, `${c.name}: 2 つの 区画を 描く`).toBe(2);
-      const lo = DUO_RENDER_MIN[c.name];
-      expect(m.drawCalls, `${c.name} 描画回数の 下限（1 人 ${solo.drawCalls} の ${lo.drawCalls} 倍以上 = 2 回 描いて いる）`).toBeGreaterThanOrEqual(Math.ceil(solo.drawCalls * lo.drawCalls));
-    } else expect(m.viewports).toBe(1);
-    const b = DUO_RENDER_BUDGET[c.name];
+    expect(m.view, `${c.name}: 近くても 遠くても 分割で 測れて いる`).toBe('split');
+    expect(m.viewports, `${c.name}: 2 つの 区画を 描く`).toBe(2);
+    expect((await duoState(page)).rings, `${c.name} の 輪の 数`).toBe(c.rings);
+    const lo = DUO_RENDER_MIN.split;
+    expect(m.drawCalls, `${c.name} 描画回数の 下限（1 人 ${solo.drawCalls} の ${lo.drawCalls} 倍以上 = 2 回 描いて いる）`).toBeGreaterThanOrEqual(Math.ceil(solo.drawCalls * lo.drawCalls));
+    const b = DUO_RENDER_BUDGET.split;
     expect(m.drawCalls, `${c.name} 描画回数（1 人 ${solo.drawCalls} の ${b.drawCalls} 倍まで）`).toBeLessThanOrEqual(Math.ceil(solo.drawCalls * b.drawCalls));
     expect(m.triangles, `${c.name} 三角形（1 人 ${solo.triangles} の ${b.triangles} 倍まで）`).toBeLessThanOrEqual(Math.ceil(solo.triangles * b.triangles));
+    expect((await duoState(page)).columns, `${c.name} 列`).toBeLessThanOrEqual(595);
   }
-  const s = await duoState(page);
-  expect(s.columns).toBeLessThanOrEqual(595);
 });

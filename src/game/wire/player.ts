@@ -8,6 +8,7 @@ import { AimMarks } from '../../ui/aimMarks';
 import { createCrosshair } from '../../camera/crosshair';
 import { Book } from '../../ui/book/Book';
 import { playBook } from '../../fx/bookSounds';
+import { nearestEar } from '../../duo/hearing';
 import { createLiquidSounds } from '../../fx/liquidSounds';
 import { FX_SETTINGS } from '../../fx/config';
 import { ImpactBus } from '../../fx/impact';
@@ -18,6 +19,7 @@ import { createDialogStack, mountChoiceDialog } from '../../ui/menu/choiceDialog
 import { TITLE_RETURN_STAY } from '../../ui/menu/titleReturn';
 import { ruby } from '../../ui/text';
 import { isBodyPlaceable } from '../../save';
+import { duoWorldFrozen } from '../../duo/rules';
 import { bindKeyboardAndMouse } from '../../input/actions';
 import { wireGamepad } from './gamepad';
 import { LockController, WheelAccumulator, MouseLook, bindPointerLock } from '../../input';
@@ -55,16 +57,26 @@ export function wireInput(deps: WiredRender) {
     beforeOpen: () => game.flushRender(),
   });
   bookRef = book;
-  // 世界を 止める 画面は 2 つ: 本と、建築士さんの メニュー（HOUSE-1A。時刻・妖怪も 止まる）。建築士さんの 画面は HTML なので 描く 物は ない
+  // 世界を 止める 画面は 3 つ: 本と、建築士さんの メニュー（HOUSE-1A。時刻・妖怪も 止まる）と、2 人で あそぶ とき 1P の 全面の もちもの画面（COOP-1 AC84）。
+  // 建築士さんと もちもの画面は HTML なので 描く 物は ない
+  const duoFrozen = (): boolean => {
+    try {
+      return duoWorldFrozen({ joined: shared.duoJoined(), mode: shared.screen.mode() });
+    } catch {
+      return false; // screen を 作る 前
+    }
+  };
   game.setModal({
-    active: () => book.active() || shared.houseFrozen(),
+    active: () => book.active() || shared.houseFrozen() || duoFrozen(),
     tick: () => {
       if (book.active()) book.tick();
-      else shared.houseModal.tick();
+      else if (shared.houseFrozen()) shared.houseModal.tick();
+      else gamepadApi?.modalStep(); // 1P の パッドで もちもの画面を とじられる ように（updaters は 動かない）
+      shared.duoModalTick();
     },
     render: () => {
       if (book.active()) book.render();
-      else shared.houseModal.render();
+      else if (shared.houseFrozen()) shared.houseModal.render();
     },
   });
   game.input.onPress((action) => book.onAction(action));
@@ -185,7 +197,7 @@ export function wirePlayer(deps: WiredInput) {
   };
   const controller = new PlayerController(world, game.input, look, lock, startPoint);
   deps.water.setFocus(() => controller.state.position); // MAGMA-SPAWN: 遠い わきどころは 休む
-  deps.water.setSound(createLiquidSounds(deps.fxSound, () => game.tick, () => controller.state.position)); // WAKIDOKORO §11
+  deps.water.setSound(createLiquidSounds(deps.fxSound, () => game.tick, (at) => nearestEar(controller.state.position, shared.duoMate()?.position ?? null, at))); // WAKIDOKORO §11。COOP-1 3c: 2P が いれば 近い 方の 人から の 距離
   shared.controller = controller;
   // CHAR-1 第 5 版: 一人称（V）はなくなった。CameraRig は受け取るだけの ActionState を使う
   // #276 手ごたえ: ヒットストップと 画面の ゆれ（ゆれは FX_SETTINGS.fxShake が 0 なら なし）
