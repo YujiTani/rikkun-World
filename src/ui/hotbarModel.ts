@@ -41,6 +41,21 @@ export function gainedSlots(
   return out;
 }
 
+/** ふえた マスと その アイテム（宝箱の 中身を 「あけた コマ」で 取っておき、ふたの あとで ぽんと 出す ため） */
+export interface HotbarGain {
+  index: number;
+  item: string;
+}
+
+/** gainedSlots と おなじ 判定で、マスの 番号に アイテムも つけて 返す */
+export function gainedItems(
+  prev: ReadonlyArray<ItemStack | null>,
+  next: ReadonlyArray<ItemStack | null>,
+  limit = HOTBAR_SIZE,
+): HotbarGain[] {
+  return gainedSlots(prev, next, limit).map((index) => ({ index, item: next[index]!.item }));
+}
+
 /** マスのコピー（前の状態と比べるため） */
 export function snapshotSlots(slots: ReadonlyArray<ItemStack | null>): Array<ItemStack | null> {
   return slots.map((s) => (s ? { item: s.item, count: s.count } : null));

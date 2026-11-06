@@ -1,12 +1,23 @@
 import type { ItemId } from '../contracts';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings } from '../fx/craftConfig';
 
-/** ひろった／たんす から つかった（CRAFT-2 §2.5。2 しゅるいで 5 行を 分け合う） */
-export type LiveKind = 'pickup' | 'fromTansu';
+/** ひろった／たんす から つかった／宝箱の 中身（CRAFT-2 §2.5。3 しゅるいで 5 行を 分け合う） */
+export type LiveKind = 'pickup' | 'fromTansu' | 'chest';
 
-/** 行の 文（`つち ×2`・`たんす から き ×1`） */
-export function liveRowText(kind: LiveKind, name: string, count: number): string {
-  return kind === 'fromTansu' ? `たんす から ${name} ×${count}` : `${name} ×${count}`;
+/** 行の 文（`つち ×2`・`たんす から き ×1`）。'chest' は 文を そのまま（`text`。たからばこ から ◯◯ など を てにいれた！） */
+export function liveRowText(kind: LiveKind, name: string, count: number, text?: string): string {
+  switch (kind) {
+    case 'fromTansu':
+      return `たんす から ${name} ×${count}`;
+    case 'pickup':
+      return `${name} ×${count}`;
+    case 'chest':
+      return text ?? name;
+    default: {
+      const never: never = kind;
+      return never;
+    }
+  }
 }
 
 export interface PickupRow {
@@ -16,6 +27,10 @@ export interface PickupRow {
   ticksLeft: number;
   /** 数を足した回数（画面が「ぴょこん」をやり直す目印） */
   bump: number;
+  /** 'chest' の 行の 文（ほかは なし） */
+  text?: string;
+  /** 行の 通し番号（'chest' の 行は まとめないので、画面の 行の 目印に 使う） */
+  id: number;
 }
 
 /**
@@ -24,20 +39,22 @@ export interface PickupRow {
  */
 export class PickupLogModel {
   private readonly rows_: PickupRow[] = [];
+  private nextId = 0;
 
   constructor(private readonly cfg: CraftUiSettings = CRAFT_UI_SETTINGS) {}
 
   /** 拾って持ち物に入った（入りきらなかった分は ふくめない）。0 以下は無視 */
-  push(item: ItemId, count: number, kind: LiveKind = 'pickup'): void {
+  push(item: ItemId, count: number, kind: LiveKind = 'pickup', text?: string): void {
     if (!(count > 0)) return;
-    const row = this.rows_.find((r) => r.item === item && r.kind === kind);
+    // 宝箱の 行は ほかの 行と まとめない〔1 回 あけるごとに 1 行〕
+    const row = kind === 'chest' ? undefined : this.rows_.find((r) => r.item === item && r.kind === kind);
     if (row) {
       row.count += count;
       row.ticksLeft = this.cfg.pickupLogTicks;
       row.bump++;
       return;
     }
-    this.rows_.push({ kind, item, count, ticksLeft: this.cfg.pickupLogTicks, bump: 0 });
+    this.rows_.push({ kind, item, count, ticksLeft: this.cfg.pickupLogTicks, bump: 0, text, id: this.nextId++ });
     while (this.rows_.length > this.cfg.pickupLogMax) this.rows_.shift();
   }
 
@@ -58,8 +75,8 @@ export class PickupLogModel {
   }
 
   /** 2 しゅるい ぜんぶ（上＝古い） */
-  listAll(): { kind: LiveKind; item: ItemId; count: number; ticksLeft: number }[] {
-    return this.rows_.map((r) => ({ kind: r.kind, item: r.item, count: r.count, ticksLeft: r.ticksLeft }));
+  listAll(): { kind: LiveKind; item: ItemId; count: number; ticksLeft: number; text?: string }[] {
+    return this.rows_.map((r) => ({ kind: r.kind, item: r.item, count: r.count, ticksLeft: r.ticksLeft, text: r.text }));
   }
 
   /** うすくなる度合い 0〜1（最後の pickupLogFadeTicks で 1 → 0） */

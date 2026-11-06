@@ -135,7 +135,7 @@ export class ChestLidFx {
     root.matrixWorldNeedsUpdate = true;
     const pivot = new Object3D();
     pivot.position.set(0, 4, 3);
-    const mat = new MeshBasicMaterial({ vertexColors: true, side: DoubleSide });
+    const mat = new MeshBasicMaterial({ vertexColors: true, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }) // 手前に ずらす〔区の メッシュと かさなっても ちらつかない〕;
     const mesh = new Mesh(g, mat);
     mesh.frustumCulled = false;
     pivot.add(mesh);

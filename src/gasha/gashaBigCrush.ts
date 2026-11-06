@@ -5,9 +5,8 @@
  *   こわした マスは onBlocks へ（ぬりかべと おなじく くだける つぶと 音は 呼ぶ 側）。
  * 数は gashaBigTuning.ts の slam.crush*。
  */
-import { doorInfo } from '../world/blocks/houseBlocks';
+import { canCrushBlock } from '../world/blocks/crushable';
 import { TUNE as T } from './gashaBigTuning';
-import { isWater } from '../world/blocks/water';
 
 export interface CrushIO {
   /** ブロックの 名前 */
@@ -18,9 +17,9 @@ export interface CrushIO {
   onBlocks?(cells: { x: number; y: number; z: number; from: string; to: 'air' }[]): void;
 }
 
-/** ぬりかべと おなじ: こわして よい ブロックか */
+/** ぬりかべと おなじ きまり〔canCrushBlock。宝箱も よける〕: こわして よい ブロックか */
 export function crushable(block: string, y: number): boolean {
-  return y > 0 && block !== 'air' && block !== 'outside' && !isWater(block) && block !== 'start_torch' && doorInfo(block) === null;
+  return y > 0 && canCrushBlock(block);
 }
 
 /** 手の ひらの まんなか（x, z）と 立つ 面の 高さ y の まわりを こわす。こわした マスを 返す。S を 省くと 前進の たたきつけ（slam）、両手たたきつけは T.slam2 */

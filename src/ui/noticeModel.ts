@@ -3,8 +3,23 @@ import type { SignalKind } from './itemIcon';
 
 /** 「いっぱい」は絵ではなく文字で出す */
 export const FULL_TEXT = 'もちものが いっぱい！';
+/** 宝箱が からっぽ〔MINE-1C。あいた 宝箱を 右クリック〕 */
+const CHEST_EMPTY_TEXT = 'からっぽ だよ';
 export function signalText(kind: SignalKind): string | null {
-  return kind === 'full' ? FULL_TEXT : null;
+  switch (kind) {
+    case 'full':
+      return FULL_TEXT;
+    case 'chestEmpty':
+      return CHEST_EMPTY_TEXT;
+    case 'needTool':
+    case 'needIron':
+    case 'noArrow':
+      return null;
+    default: {
+      const never: never = kind;
+      return never;
+    }
+  }
 }
 
 /** 合図のアイコンとブロックの名前を「何秒出すか」だけ持つ（DOM なしでテストできる） */

@@ -98,7 +98,7 @@ export function wireHud(deps: WiredAnimalView) {
   hudSignal.full = () => notice.showSignal('full');
   // CRAFT-2: 合図が 出はじめたとき 1 件だけ 履歴へ（出たままの 同じ合図では 足さない）
   notice.onSignalStart = (k) => {
-    if (!shared.skipSignalLog) log.signal(k);
+    if (!shared.skipSignalLog && k !== 'chestEmpty') log.signal(k);
   };
   // 時計の ひる の分け方（settings の clockPhases）
   const bladeHud = new BladeHud(hud, () => w2);

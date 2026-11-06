@@ -1,6 +1,5 @@
 import type { BlockId, VoxelWorld } from '../../contracts';
-import { chestBlockInfo } from '../../world/blocks/chestBlock';
-import { doorInfo } from '../../world/blocks/houseBlocks';
+import { canCrushBlock } from '../../world/blocks/crushable';
 import { applyDollBrightness } from './brightness';
 import { forCells } from './body';
 import { AI_CONST } from './config';
@@ -63,7 +62,7 @@ export class YokaiStone {
     forCells(e, lying, lo - 1, hi, (x, y, z) => {
       if (y <= 0) return;
       const b = world.getBlock(x, y, z);
-      if (b === 'air' || b === 'outside' || isWater(b) || b === 'start_torch' || doorInfo(b) !== null || chestBlockInfo(b) !== null) return;
+      if (b === 'outside' || !canCrushBlock(b)) return;
       if (world.setBlock(x, y, z, 'air')) changed.push({ x, y, z, from: b, to: 'air' });
     });
     if (changed.length > 0) this.d.opts.onBlocks?.(changed, 'crush');
