@@ -16,7 +16,7 @@ import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid
 import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house';
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
-import { duoHudIssues, openDuoHud } from './helpers/duoUi';
+import { duoHudIssues, duoPadLostIssues, duoViewIssues, openDuoHud, openDuoLoupe, openDuoPadLost, openDuoSplit } from './helpers/duoUi';
 import { PICK_ROOTS, SITE_NEED_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen, siteNeedIssues } from './helpers/houseSite';
 
 /**
@@ -538,8 +538,41 @@ SCREENS.push({
   id: 'duo-hud',
   roots: ['#hud', '[data-testid="duo-hotbar-p1"]', '[data-testid="duo-hotbar-p2"]', '[data-testid="duo-meter"]'],
   open: openDuoHud,
-  extra: duoHudIssues,
+  extra: async (page: Page) => [...(await duoHudIssues(page)), ...(await duoViewIssues(page, 'one'))],
 });
+
+/**
+ * COOP-1 作業 2（#399）AC24・AC33・AC33b: ルーペ(2 段目 = わく 8px)・左右分割・パッドが ぬけた 画面(1 画面と 分割)。
+ * 3 つの 大きさで メーター・ホットバー・ハート・ルーペ・「つないでね」・2P の「？」が 重ならない。色は 案 B。
+ * 部品の 名前(data-testid)は e2e/helpers/duoUi.ts の 先頭。
+ */
+const DUO_HUD_ROOTS = ['#hud', '[data-testid="duo-hotbar-p1"]', '[data-testid="duo-hotbar-p2"]', '[data-testid="duo-meter"]'];
+SCREENS.push(
+  {
+    id: 'duo-loupe',
+    roots: [...DUO_HUD_ROOTS, '[data-testid="duo-loupe"]'],
+    open: openDuoLoupe,
+    extra: (page: Page) => duoViewIssues(page, 'loupe'),
+  },
+  {
+    id: 'duo-split',
+    roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]'],
+    open: openDuoSplit,
+    extra: (page: Page) => duoViewIssues(page, 'split'),
+  },
+  {
+    id: 'duo-pad-lost-one',
+    roots: [...DUO_HUD_ROOTS, '[data-testid="duo-pad-lost"]', '[data-testid="duo-p2-question"]'],
+    open: (page: Page) => openDuoPadLost(page, 'one'),
+    extra: (page: Page) => duoPadLostIssues(page, 'one'),
+  },
+  {
+    id: 'duo-pad-lost-split',
+    roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-pad-lost"]', '[data-testid="duo-p2-question"]'],
+    open: (page: Page) => openDuoPadLost(page, 'split'),
+    extra: (page: Page) => duoPadLostIssues(page, 'split'),
+  },
+);
 
 /**
  * CHAR-4 AC18: 刀の軌跡が 出ている 場面で HUD の はみ出し・重なりが 0。

@@ -38,6 +38,26 @@ export interface DuoVec3 {
  * 〔約束〕2P の「コントローラーを つないでね」は data-testid="duo-pad-lost"(padLost の あいだ だけ 見える)。
  * `join()` と `place()` は `?duo=dev` の ときだけ 使える（作業 3 まで。§8）。
  */
+/**
+ * `duo.viewports()` が 返す、いま 描いている 画面の 区画(作業 2。AC25・AC26)。CSS px(画面の 左上が 0,0)。
+ * 'one' = [1P の 全面]、'loupe' = [1P の 全面, 2P の ルーペ(外接の 四角)]、'split' = [1P の 左半分, 2P の 右半分]。
+ * camera = その 区画を 描く カメラの 位置(世界)、yawDeg = 向き(`player.get().yawDeg` と 同じ 決まり)。
+ */
+export interface DuoViewport {
+  who: 1 | 2;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  camera: DuoVec3;
+  yawDeg: number;
+}
+
+/** 作業 2 で `DuoHook` に 足す 口(〔tester が 足した 口〕仕様 §12.0 の 表に 足してほしい)。developer は DuoHook に `viewports` を 足して 使う */
+export interface DuoViewportsHook {
+  viewports(): DuoViewport[];
+}
+
 export interface DuoHook {
   join(): boolean;
   place(who: 1 | 2, pos: DuoVec3): void;

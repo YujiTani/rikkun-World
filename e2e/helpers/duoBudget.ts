@@ -26,14 +26,22 @@ export const SOLO_MAX = {
 } as const;
 
 /**
- * 2 人のときの 上限（AC31。作業 2 で 使う）: 「同じテストの 中で 1 人のときと くらべた 何倍まで」。
- * 数は §7.1 の 決め方（D が A の 描画回数 2.0 倍・三角形 1.8 倍 以下）を 分割の 上限に した 仮の 値。
- * 1 画面・ルーペの 値は 試作の 測り（作業 2 の 前）で デザインが 決める。数を 変えるときは デザインへ 差し戻す。
+ * 2 人のときの 上限（AC31。作業 2）: 「同じテストの 中で 1 人のときと くらべた 何倍まで」。
+ * 決め方（重さの 試作 /mnt/project-files/coop/perf/README.md の 数と、E2E の 条件の ちがいから）:
+ *   - 試作の 数は 「ふだんの 輪(full)・小ブロックあり」の 1 人に 対する 倍。E2E は 小さい 輪・小ブロックなし・影なし・平らな 床なので、
+ *     同じ 倍に ならない。分かる 範囲で 試作の 構造(2 回 描く)から 上限を 決め、数が 合わなければ デザインへ 差し戻す。
+ *   - 1 画面: 絵を 増やさない(2P の 人形 1 体と 色わくぶん)。1.2 倍。
+ *   - ルーペ: 試作 B は 描画回数 1.78・三角形 1.72 倍(ルーペを 大きく 描いた とき)。ルーペは「近い 16 マスだけ」描く(§7.2-3)ので、
+ *     回数は B の 1.8 倍まで、三角形は 1.5 倍まで(B より へらす = ルーペの 近く だけ という 工夫が 要る)。
+ *   - 分割: 描画回数・三角形とも 2.0・1.8 倍(§7.1 の 合格の 線)。試作 D は 回数 1.45・三角形 0.63 倍で 十分 入る。
+ *     E2E は 小ブロックが なく 三角形の 工夫(micro16)が 効かないので、三角形は 仕様の 線 1.8 の まま。影を 切る 効きは 試作で ほぼ 0(数 %)。
+ *   - 持つ 列: 595 以下(列の 上限。AC27)は 別に 見る。
+ * 数を 変えるときは デザインへ 差し戻す。
  */
 export const DUO_RENDER_BUDGET = {
-  one: { drawCalls: 1.2, triangles: 1.2 }, // 仮: 1 画面は 絵を 増やさない（2P の 人形 1 体ぶんの ゆとり）
-  loupe: { drawCalls: 1.6, triangles: 1.5 }, // 仮
-  split: { drawCalls: 2.0, triangles: 1.8 }, // §7.1 の 決め方
+  one: { drawCalls: 1.2, triangles: 1.2 },
+  loupe: { drawCalls: 1.8, triangles: 1.5 },
+  split: { drawCalls: 2.0, triangles: 1.8 },
 } as const;
 
 export interface RenderCount {
@@ -60,4 +68,39 @@ export async function measureRender(page: Page, at: { x: number; z: number; yaw:
     const s = h.renderStats(); // たまった 描画を 流して から 数える
     return { drawCalls: s.drawCalls as number, triangles: s.triangles as number };
   }, at);
+}
+
+/**
+ * 2 人のときの 数を 測る(AC31): 1P を 決まった 場所・向きに 置き、2P を 1P から (dx, dz) マス はなれた 所に 置く。
+ * 1P と 2P の まわりの 25×25 を 石の 床に して 上を 空気に する(地形の ちがいで 数が ゆれないように)。
+ * 120 ステップ 進めて(ようすの 切りかえの 待ち 60 ステップと 見せ方を すぎる)から、`duo.state().view` が 思った とおりか 確かめ、renderStats を 数える。
+ * 返す view は 実際の ようす。
+ */
+export async function measureDuoRender(
+  page: Page,
+  rel: { dx: number; dz: number },
+  at: { x: number; z: number; yaw: number; pitch: number } = SOLO_BASELINE.at,
+): Promise<RenderCount & { view: string }> {
+  return page.evaluate(
+    ({ at, rel }) => {
+      const h = (window as any).__rikkun;
+      h.pause();
+      const flat = (cx: number, cz: number) => {
+        const fy: number = h.world.groundHeight(Math.floor(cx), Math.floor(cz));
+        const x0 = Math.floor(cx) - 12;
+        const z0 = Math.floor(cz) - 12;
+        h.world.fill(x0, fy, z0, x0 + 24, fy, z0 + 24, 'stone');
+        h.world.fill(x0, fy + 1, z0, x0 + 24, fy + 20, z0 + 24, 'air');
+        return fy;
+      };
+      const fy1 = flat(at.x, at.z);
+      const fy2 = flat(at.x + rel.dx, at.z + rel.dz);
+      h.player.set({ position: { x: at.x, y: fy1 + 1, z: at.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: at.yaw, pitch: at.pitch });
+      h.duo.place(2, { x: at.x + rel.dx, y: fy2 + 1, z: at.z + rel.dz });
+      h.step(120);
+      const s = h.renderStats();
+      return { drawCalls: s.drawCalls as number, triangles: s.triangles as number, view: h.duo.state().view as string };
+    },
+    { at, rel },
+  );
 }
