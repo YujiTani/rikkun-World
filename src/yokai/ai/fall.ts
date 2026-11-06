@@ -10,6 +10,7 @@ import { DEG, HEAVY_G, type Ent } from './entity';
 import type { YokaiEvents } from './events';
 import type { YokaiPresenter } from './presenter';
 import { flySurface, settleGround } from './terrain';
+import { isDeepWater } from '../../world/blocks/water';
 
 interface FallDeps {
   world: VoxelWorld;
@@ -81,7 +82,7 @@ export class YokaiFall {
     if (!world.isLoaded(Math.floor(nx), Math.floor(nz))) return;
     if (!boxFreeAt(world, nx - r, e.y + 0.05, nz - r, nx + r, e.y + ai.height, nz + r)) return;
     const g = settleGround(world, nx, nz, e.y, ai);
-    if (!Number.isFinite(g) || world.getBlock(Math.floor(nx), Math.floor(g), Math.floor(nz)) === 'water') return;
+    if (!Number.isFinite(g) || isDeepWater(world.getBlock(Math.floor(nx), Math.floor(g), Math.floor(nz)))) return;
     e.x = nx;
     e.z = nz;
   }
@@ -91,7 +92,7 @@ export class YokaiFall {
     const { world } = this.d;
     const ix = Math.floor(e.x);
     const iz = Math.floor(e.z);
-    return world.getBlock(ix, Math.floor(e.y + 1e-6), iz) === 'water' || world.getBlock(ix, Math.floor(e.y + 0.9), iz) === 'water';
+    return isDeepWater(world.getBlock(ix, Math.floor(e.y + 1e-6), iz)) || isDeepWater(world.getBlock(ix, Math.floor(e.y + 0.9), iz));
   }
 
   /** 歩く速さ（みず の中は ×waterSpeedMul） */
@@ -117,7 +118,7 @@ export class YokaiFall {
       return;
     }
     if (Number.isNaN(from) || !Number.isFinite(ground)) return;
-    if (world.getBlock(Math.floor(e.x), Math.floor(ground), Math.floor(e.z)) === 'water') return;
+    if (isDeepWater(world.getBlock(Math.floor(e.x), Math.floor(ground), Math.floor(e.z)))) return;
     const dmg = fallDamage(from - ground, config.safeFallHeight, config.fallDamagePerBlock);
     if (dmg <= 0) return;
     e.hp = Math.max(0, e.hp - dmg);

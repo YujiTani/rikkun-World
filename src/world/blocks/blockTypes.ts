@@ -1,5 +1,11 @@
 import type { BlockId, BlockType } from '../../contracts';
+import { KATAME_TSUCHI, SCAFFOLD_IDS } from './buildBlocks';
 import { CHALK_MARK_IDS, isChalkMarkId } from './chalkMark';
+import { FURNITURE } from '../../house/editor/furniture';
+import { FLAT_FURN_KINDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from './houseBlocks';
+import { isLiquidIndex } from './liquids';
+import { MAGMA_IDS, MAGMA_M0, MAGMA_RESERVED_IDS } from './magma';
+import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL_INDEX, WATER_PARTIAL_IDS, WATER_W0 } from './water';
 
 /** M1-01 4-2 のブロック 11 種 + M4 の 3 種。配列の順番が内部の番号（air = 0） */
 export const BLOCK_TYPES: readonly BlockType[] = [
@@ -83,6 +89,41 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'diamond_ore', name: 'ダイヤの いし', solid: true, breakable: true },
   // チョークの しるし 12 こ（面 × 向き。固くない。名前は ぜんぶ 同じ。`chalkMark.ts`）
   ...CHALK_MARK_IDS.map((id): BlockType => ({ id, name: 'チョークの しるし', solid: false, breakable: true })),
+  // HOUSE-1C PR-1（#340。番号は 後ろに 足す）: 家の ブロック 5 つ（ゆか・かべ・やね・しょうじは 固い。戸は しまって いる ときだけ 固い〔`solid` は しまった 形。あけた 戸は 世界側で 通す〕）
+  { id: 'house_floor', name: 'いえの ゆか', solid: true, breakable: true },
+  { id: 'house_wall', name: 'いえの かべ', solid: true, breakable: true },
+  { id: 'house_roof', name: 'いえの やね', solid: true, breakable: true },
+  { id: 'shoji', name: 'しょうじ', solid: true, breakable: true },
+  { id: 'house_door', name: 'いえの と', solid: true, breakable: true },
+  // 戸の のこり 3 マス（上の 半分・あけた 下・あけた 上）。あけた 戸は 通れる
+  ...HOUSE_DOOR_PART_IDS.map((id): BlockType => ({ id, name: 'いえの と', solid: !id.includes('open'), breakable: true })),
+  // 向きの ある 家具（向き × マス。今の `tansu`・`furnace` は 向き 0 の ひとつ め）。動かない 机・いす・たなは 固い。あんどん・まるいすも 固い（ぶつかる）
+  ...NEW_FURN_BLOCK_IDS.map((id): BlockType => ({ id, name: FURNITURE[furnInfo(id)!.kind].name, solid: true, breakable: true })),
+  // HOUSE-1C PR-2（#340。番号は 後ろに 足す）: かためた つち（ふつうに ほれる）と 足場 5 つ（建築中の 場所だけ。固い・ほれない・アイテムに ならない）
+  { id: KATAME_TSUCHI, name: 'かためた つち', solid: true, breakable: true },
+  ...SCAFFOLD_IDS.map((id): BlockType => ({ id, name: 'あしば', solid: true, breakable: false })),
+  // WATER-1（#376。番号は 後ろに 足す）: 空きの 予約 → 量 1〜7 の 水（W0 = 152 から）→ W0 + 7 の 予約。次の ブロックは W0 + 8 から
+  ...RESERVED_BEFORE_IDS.map((id): BlockType => ({ id, name: 'くうき', solid: false, breakable: false })),
+  ...WATER_PARTIAL_IDS.map((id): BlockType => ({ id, name: 'みず', solid: false, breakable: false })),
+  { id: RESERVED_AFTER_ID, name: 'くうき', solid: false, breakable: false },
+  // ROPE-1（番号は 後ろに 足す。W0 + 8）: ロープ。固くない・十字の 板で 描く・つかまって のぼれる（player/climb.ts）
+  { id: 'rope', name: 'ロープ', solid: false, breakable: true },
+  { id: 'rope_coil', name: 'ロープだまり', solid: false, breakable: true },
+  { id: 'rope_stake', name: 'ロープの くい', solid: false, breakable: true }, // ROPE-1 版 3（番号は 後ろに 足す）
+  { id: 'rope_fence', name: 'ロープの さく', solid: true, breakable: true }, // ROPE-1 版 3: 当たりは 1 マスの ブロック（とりごやの さくと 同じ）。版 5: くいの 間の よこに はった なわ
+  { id: 'rope_fence_post', name: 'ロープの さくの くい', solid: true, breakable: true }, // ROPE-1 版 5: さくの はし・かど（くいと 同じ 絵）
+  // WATERFALL-1（番号は 後ろに 足す。165〜168）: わきどころ・たきつぼ・こくようせき・マグマの わきどころ
+  { id: 'wakimizu', name: 'わきどころ', solid: true, breakable: true },
+  { id: 'takitsubo', name: 'たきつぼ', solid: true, breakable: true },
+  { id: 'kokuyouseki', name: 'こくようせき', solid: true, breakable: true },
+  { id: 'magma_wakimizu', name: 'マグマの わきどころ', solid: true, breakable: true },
+  // WATERFALL-1: 予約（169〜175。M0 を 8 の 倍数に そろえる）→ 量 1〜8 の マグマ（M0 = 176 から。固くない・こわれない）
+  ...MAGMA_RESERVED_IDS.map((id): BlockType => ({ id, name: 'くうき', solid: false, breakable: false })),
+  ...MAGMA_IDS.map((id): BlockType => ({ id, name: 'マグマ', solid: false, breakable: false })),
+  // WATERFALL-1 版 2（番号は 後ろに 足す。184）: マグマに 焼かれた ブロック
+  { id: 'kogeta', name: 'こげた ブロック', solid: true, breakable: true },
+  // WAKIDOKORO（番号は 後ろに 足す。185）: マグマの たきつぼ
+  { id: 'magma_takitsubo', name: 'マグマの たきつぼ', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -91,11 +132,20 @@ export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries
 
 export const AIR = BLOCK_INDEX.air;
 export const WATER = BLOCK_INDEX.water;
+// 水の 番号の 約束（water.ts）が 並びと ずれて いないか 起動時に 確かめる
+if (BLOCK_INDEX.water !== WATER_FULL_INDEX || BLOCK_INDEX.water_1 !== WATER_W0 || BLOCK_INDEX.reserved_147 !== BLOCKS_BEFORE_WATER) {
+  throw new Error('water block index mismatch (WATER-1 §4.6)');
+}
+// マグマの 番号の 約束（magma.ts）も 同じく 確かめる
+if (BLOCK_INDEX.magma_1 !== MAGMA_M0 || BLOCK_INDEX.magma !== MAGMA_M0 + 7 || BLOCK_TYPES.length < MAGMA_M0 + 8) {
+  throw new Error('magma block index mismatch (WATERFALL-1 §4)');
+}
 export const TORCH = BLOCK_INDEX.torch;
 export const START_TORCH = BLOCK_INDEX.start_torch;
 export const SPRINKLER = BLOCK_INDEX.sprinkler;
 export const LANTERN = BLOCK_INDEX.lantern;
 export const HOTARUISHI = BLOCK_INDEX.hotaruishi;
+export const SHOJI = BLOCK_INDEX.shoji;
 
 /** たいまつの なかまか（細い棒＋炎の形で描く。光る） */
 export function isTorchIndex(index: number): boolean {
@@ -103,7 +153,14 @@ export function isTorchIndex(index: number): boolean {
 }
 
 /** 小物の置き物（ITEM-FX-1: ちょうちん・ふとん・はにわ）。固くない・光を通す・箱の組み合わせで描く（絵は meshChunk の pushProp） */
-const PROP_IDS: ReadonlySet<string> = new Set(['lantern', 'futon', 'futon_s', 'futon_w', 'futon_n', 'futon_foot_e', 'futon_foot_s', 'futon_foot_w', 'futon_foot_n', 'haniwa']);
+const PROP_IDS: ReadonlySet<string> = new Set([
+  'lantern', 'futon', 'futon_s', 'futon_w', 'futon_n', 'futon_foot_e', 'futon_foot_s', 'futon_foot_w', 'futon_foot_n', 'haniwa',
+  // HOUSE-1C: しょうじ・戸（あけしめ 4 つ）・新しい 家具 8 しゅるい。固いが 光を 通す（箱の 形で 描く）。かべ・ゆか・やね・たんす・かまどは 平らな 箱
+  'shoji', 'house_door', ...HOUSE_DOOR_PART_IDS,
+  ...NEW_FURN_BLOCK_IDS.filter((id) => !FLAT_FURN_KINDS.has(furnInfo(id)!.kind)),
+  // HOUSE-1C PR-2: 足場（固いが 光を 通す。細い 箱で 描く）
+  ...SCAFFOLD_IDS,
+]);
 const PROP = BLOCK_TYPES.map((t) => PROP_IDS.has(t.id));
 export function isPropIndex(index: number): boolean {
   return PROP[index] === true;
@@ -125,6 +182,7 @@ const CROSS_IDS: ReadonlySet<string> = new Set([
   'kakashi', 'kakashi_head', 'saku',
   'toriya_fence', 'toriya_gate', // LIVE-2.1: とりごや の さく・もん（当たり は 今 の まま ブロック）
   'flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana',
+  'rope', 'rope_coil', 'rope_stake', 'rope_fence', 'rope_fence_post', // ROPE-1: ロープ（たてに たれる なわ）・ロープだまり（下の まき）
 ]);
 const CROSS = BLOCK_TYPES.map((t) => CROSS_IDS.has(t.id));
 /** 十字の板で描くブロックか（作物・やせいの やさい・かかし・さく）。固くない・光を通す・まわりの面を隠さない */
@@ -154,7 +212,7 @@ export function isChalkIndex(index: number): boolean {
 
 /** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板・しるしはちがう */
 export function isOpaqueIndex(index: number): boolean {
-  return index !== AIR && index !== WATER && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index);
+  return index !== AIR && !isLiquidIndex(index) && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index);
 }
 
 /** 固いブロックか（番号で） */

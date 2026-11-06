@@ -14,8 +14,9 @@ export const ACTIONS = [
   'jump',
   'primary', // 掘る・攻撃
   'secondary', // 置く・食べる
-  'toggleView', // 一人称 / 三人称（CHAR-1 第 5 版で割り当てをなくした。名前は後始末まで残す）
+  'toggleView', // 一人称 / 三人称（GAMEPAD-1: キー V とパッド上面。カメラ本体は後続チケット）
   'run', // 走る（シフト。CHAR-1）
+  'ropeDown', // ROPE-1 版 5: つないで ぶら下がって いる 間 Shift と いっしょに おりる（C）
   'toggleDebug', // 性能表示
   'cycleMicroR', // 性能表示 (F3) を出しているとき: 小ブロックの半径 16 → 24 → 32（F4。VOX-E）
   'hotbar1', // ホットバーのマスをえらぶ（数字キー 1〜9）
@@ -38,6 +39,7 @@ export const ACTIONS = [
   'pagePrev', // 本の ◀（←。BOOK-1。遊びの moveLeft にも なる）
   'pageNext', // 本の ▶（→。BOOK-1。遊びの moveRight にも なる）
   'bookBack', // 本の もどる（Backspace。BOOK-1）
+  'confirm', // きめる（Enter。上空の 視点の 決定。HOUSE-1C PR-2）
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];
@@ -71,6 +73,8 @@ export const DEFAULT_KEY_BINDINGS: Readonly<Record<string, Action>> = {
   KeyQ: 'drop',
   KeyR: 'stanceNext',
   KeyL: 'openLog',
+  KeyC: 'ropeDown',
+  KeyV: 'toggleView',
 };
 
 /**
@@ -81,6 +85,9 @@ export const EXTRA_KEY_BINDINGS: Readonly<Record<string, Action>> = {
   ArrowLeft: 'pagePrev',
   ArrowRight: 'pageNext',
   Backspace: 'bookBack',
+  // 上空の 視点の 決定（HOUSE-1C PR-2）。主な Action では ない ので ふだんは ブラウザの Enter〔ボタンを 押す〕を 止めない
+  Enter: 'confirm',
+  NumpadEnter: 'confirm',
 };
 
 /**

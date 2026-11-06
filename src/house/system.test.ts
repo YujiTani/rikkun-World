@@ -7,7 +7,7 @@ import { createHouseHook } from './hook';
 import { HouseSystem, TALK_RANGE, type HouseSystemDeps } from './system';
 import { GREET_STEPS, SAY } from './talk';
 
-/** HOUSE-1A: 建築士さん・話す 流れ・くら・窓口の つなぎ。AC3・AC41 の 通し（ゲームの 時計を まねた 小さな ループで） */
+/** HOUSE-1A: 建築士さん・話す 流れ・窓口の つなぎ。AC3・AC41 の 通し（ゲームの 時計を まねた 小さな ループで）。HOUSE-1E: くらを なくした〔メニューの ボタンは 5 つ・kura／deposit／withdraw は ない〕 */
 
 const SPAWN = { x: 64.5, z: 64.5, yawDeg: 0 };
 
@@ -59,22 +59,23 @@ describe('話す 通し（右クリック 〜 メニュー）', () => {
     expect(sys.talkTo(a.id)).toBe(true);
     expect(calls).toEqual(['voice']);
     expect(sys.menu().bubble).toBe(SAY.hello);
-    let atOpen: { buttons: string[]; m: number; d: number } | null = null;
+    let atOpen: { buttons: string[]; m: number; d: number; f: number } | null = null;
     let steps = 0;
     while (!sys.menu().open && steps < 300) {
       g.step(1);
       steps++;
-      if (sys.menu().open) atOpen = { buttons: sys.menu().buttons.map((b) => b.id), m: bag.count('mizumori' as ItemId), d: bag.count('dotsuki' as ItemId) };
+      if (sys.menu().open) atOpen = { buttons: sys.menu().buttons.map((b) => b.id), m: bag.count('mizumori' as ItemId), d: bag.count('dotsuki' as ItemId), f: bag.count('fude' as ItemId) };
     }
     expect(steps).toBe(NOD_STEPS + GREET_STEPS * 2);
-    expect(atOpen).toEqual({ buttons: ['kura', 'editor', 'build', 'rename', 'close'], m: 1, d: 1 });
+    expect(atOpen, '1E: くらの ボタンは ない').toEqual({ buttons: ['editor', 'build', 'rename', 'close'], m: 1, d: 1, f: 1 });
     expect(calls.filter((c) => c === 'voice')).toHaveLength(1);
-    expect(calls).toEqual(['voice', 'gave:mizumori', 'gave:dotsuki', 'open']);
+    expect(calls).toEqual(['voice', 'gave:mizumori', 'gave:dotsuki', 'gave:fude', 'open']);
   });
 
   it('2 回目: うなずき 22 ステップで メニュー（21 ステップ目までは まだ）', () => {
     const { sys } = make();
     sys.state.record.toolsGiven = true;
+    sys.state.record.fudeGiven = true;
     const g = stepper(sys);
     g.step(1);
     const a = sys.architects()[0]!;
@@ -88,9 +89,10 @@ describe('話す 通し（右クリック 〜 メニュー）', () => {
     expect(sys.menu().page).toBe('top');
   });
 
-  it('AC41: メニューが 開いて いる 間は step(600) しても 時刻・妖怪が 動かない。とじると また 進む（くらの 画面でも）', () => {
+  it('AC41: メニューが 開いて いる 間は step(600) しても 時刻・妖怪が 動かない。とじると また 進む（エディターの 画面でも）', () => {
     const { sys, calls } = make();
     sys.state.record.toolsGiven = true;
+    sys.state.record.fudeGiven = true;
     const g = stepper(sys);
     g.step(1);
     sys.talkTo(sys.architects()[0]!.id);
@@ -100,10 +102,10 @@ describe('話す 通し（右クリック 〜 メニュー）', () => {
     g.step(600);
     expect(g.w.time, 'メニューの 間 時刻').toBe(t0.time);
     expect(g.w.yokai, 'メニューの 間 妖怪').toBe(t0.yokai);
-    sys.press('kura');
+    sys.press('editor');
     g.step(600);
-    expect(g.w.time, 'くらの 間 時刻').toBe(t0.time);
-    expect(g.w.yokai, 'くらの 間 妖怪').toBe(t0.yokai);
+    expect(g.w.time, 'エディターの 間 時刻').toBe(t0.time);
+    expect(g.w.yokai, 'エディターの 間 妖怪').toBe(t0.yokai);
     sys.press('close');
     expect(sys.frozen()).toBe(false);
     g.step(60);
@@ -124,7 +126,7 @@ describe('話す 通し（右クリック 〜 メニュー）', () => {
     expect(g.w.time).toBe(t0 + 50);
   });
 
-  it('talking(): 話しかけてから とじるまで true（うなずき・あいさつ・メニュー・くら）。frozen() は メニューが 開いて いる 間だけ', () => {
+  it('talking(): 話しかけてから とじるまで true（うなずき・あいさつ・メニュー・エディター）。frozen() は メニューが 開いて いる 間だけ', () => {
     const { sys } = make();
     const g = stepper(sys);
     g.step(1);
@@ -135,7 +137,7 @@ describe('話す 通し（右クリック 〜 メニュー）', () => {
     g.step(NOD_STEPS + GREET_STEPS * 2);
     expect(sys.frozen()).toBe(true);
     expect(sys.talking()).toBe(true);
-    sys.press('kura');
+    sys.press('editor');
     expect(sys.talking()).toBe(true);
     sys.close();
     expect(sys.talking()).toBe(false);
@@ -197,9 +199,10 @@ describe('話しが 中断される とき', () => {
 });
 
 describe('画面への 合図（onChange）', () => {
-  it('ふきだし・ページ・くらの 中身が かわる たびに 呼ばれる。何も かわらない ステップでは 呼ばれない', () => {
-    const { sys, bag } = make();
+  it('ふきだし・ページ・エディターの 中身が かわる たびに 呼ばれる。何も かわらない ステップでは 呼ばれない', () => {
+    const { sys } = make();
     sys.state.record.toolsGiven = true;
+    sys.state.record.fudeGiven = true;
     let n = 0;
     sys.setOnChange(() => n++);
     const g = stepper(sys);
@@ -211,10 +214,9 @@ describe('画面への 合図（onChange）', () => {
     expect(n).toBe(1);
     g.step(1); // メニューが 開く
     expect(n).toBe(2);
-    sys.press('kura');
+    sys.press('editor');
     expect(n).toBe(3);
-    bag.add('log', 5);
-    sys.deposit('log', 3);
+    sys.edit({ op: 'windows', delta: 1 });
     expect(n).toBe(4);
     sys.press('close');
     expect(n).toBe(5);
@@ -222,8 +224,8 @@ describe('画面への 合図（onChange）', () => {
 });
 
 describe('窓口 window.__rikkun.house', () => {
-  it('architects・talk・menu・press・kura・deposit・withdraw が 仕様どおりの 形で 動く', () => {
-    const { sys, bag } = make();
+  it('architects・talk・menu・press・legacyKura が 仕様どおりの 形で 動く。kura・deposit・withdraw は ない〔1E〕', () => {
+    const { sys } = make();
     const hook = createHouseHook(sys);
     const g = stepper(sys);
     g.step(1);
@@ -234,20 +236,14 @@ describe('窓口 window.__rikkun.house', () => {
     hook.talk(list[0]!.id);
     g.step(NOD_STEPS + GREET_STEPS * 2);
     expect(hook.menu().open).toBe(true);
-    expect(hook.menu().buttons.map((b) => b.id)).toEqual(['kura', 'editor', 'build', 'rename', 'close']);
-    hook.press('kura');
-    expect(hook.menu().page).toBe('kura');
-    bag.add('log', 20);
-    expect(hook.deposit('log', 10)).toBe(10);
-    expect(hook.kura()).toEqual({ log: 10 });
-    expect(hook.withdraw('log', 4)).toBe(4);
-    expect(hook.kura()).toEqual({ log: 6 });
-    expect(bag.count('log')).toBe(14);
+    expect(hook.menu().buttons.map((b) => b.id), '1E: editor・build・rename・（tools）・close の 順。くらの ボタンは ない').toEqual(['editor', 'build', 'rename', 'close']);
+    for (const gone of ['kura', 'deposit', 'withdraw']) expect(gone in hook, `${gone} は 窓口から なくなる`).toBe(false);
+    expect(typeof (hook as unknown as { legacyKura: unknown }).legacyKura).toBe('function');
+    expect((hook as unknown as { legacyKura(): unknown }).legacyKura(), 'くらの 記録の ない 世界').toBeNull();
+    hook.press('kura'); // 知らない ボタン ＝ 何も おきない
+    expect(hook.menu().page).toBe('top');
     hook.press('close', undefined);
     expect(hook.menu().open).toBe(false);
-    // メニューが とじて いても 出し入れは 動く
-    expect(hook.deposit('log', 14)).toBe(14);
-    expect(hook.kura()).toEqual({ log: 20 });
     // JSON を 通しても 同じ（page.evaluate で 返せる）
     expect(JSON.parse(JSON.stringify(hook.menu()))).toEqual(hook.menu());
     expect(JSON.parse(JSON.stringify(hook.architects()))).toEqual(hook.architects());
@@ -261,5 +257,315 @@ describe('窓口 window.__rikkun.house', () => {
     expect(sys.talk.current()).toBeNull();
     hook.talk(hook.architects()[0]!.id);
     expect(sys.talk.current()).toBe('first');
+  });
+});
+
+describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
+  function opened() {
+    const rig = make();
+    rig.sys.state.record.toolsGiven = true;
+    rig.sys.state.record.fudeGiven = true;
+    const g = stepper(rig.sys);
+    g.step(1);
+    rig.sys.talkTo(rig.sys.architects()[0]!.id);
+    g.step(NOD_STEPS);
+    return { ...rig, g, hook: createHouseHook(rig.sys) };
+  }
+
+  it('エディターが 開いて いない とき editor() は null・edit() は false・menu の page は top', () => {
+    const { sys, hook } = opened();
+    expect(hook.editor()).toBeNull();
+    expect(hook.edit({ op: 'windows', delta: 1 })).toBe(false);
+    sys.press('editor');
+    expect(sys.menu().page).toBe('editor');
+    expect(hook.editor()).toMatchObject({ step: 'soto', size: { w: 5, d: 5 }, windows: 0, windowMax: 9, windowKind: 'shoji', roof: 'flat', light: 'lantern', canUndo: false, confirm: null, selected: null, preview: null });
+    expect(hook.edit({ op: 'windows', delta: 1 })).toBe(true);
+    expect(hook.editor()).toMatchObject({ windows: 1, windowCells: [{ wall: 'back', i: 2 }], canUndo: true });
+  });
+
+  it('保存から 読みこむ（load）と、作りかけは 保存の とおりに なり、もどす・すすむ の 記録は すてられる', () => {
+    const { sys, hook } = opened();
+    sys.press('editor');
+    for (const op of [{ op: 'windows', delta: 1 }, { op: 'size', w: 7 }, { op: 'windows', delta: 1 }]) expect(hook.edit(op)).toBe(true);
+    const saved = sys.state.serialize();
+    expect(hook.edit({ op: 'undo' })).toBe(true);
+    expect(hook.editor()).toMatchObject({ canUndo: true, canRedo: true });
+    sys.load(saved);
+    expect(hook.editor(), '読みこんだ 作りかけ（もどす の 記録は ない）').toMatchObject({ size: { w: 7, d: 5 }, windows: 2, canUndo: false, canRedo: false });
+    sys.load(null);
+    expect(hook.editor(), '保存が 空なら はじめの 形').toMatchObject({ size: { w: 5, d: 5 }, windows: 0, canUndo: false, canRedo: false });
+  });
+
+  /** つないだ つもりの 見本（呼ばれた 順を 記録）。向き・見おろす 角度は ドラッグで かわる */
+  function fakePreview(sys: HouseSystem) {
+    const log: string[] = [];
+    const v = { outside: { yaw: 28, elev: 26 }, inside: { yaw: 40, elev: 50 } };
+    const touched = { outside: false, inside: false };
+    sys.preview = {
+      info: (mode) => ({ yaw: v[mode].yaw, elev: v[mode].elev, touched: touched[mode], wait: touched[mode] ? 600 : null, builds: 3, furniture: 2, glow: null }),
+      drag: (dx, dy) => {
+        const m = sys.previewMode()!;
+        v[m].yaw -= dx / 2;
+        v[m].elev += dy / 2;
+        touched[m] = true;
+        log.push(`drag ${dx},${dy}`);
+        return true;
+      },
+      wheel: (dx, dy) => {
+        const m = sys.previewMode()!;
+        v[m].yaw -= (dx + dy) / 2;
+        touched[m] = true;
+        log.push(`wheel ${dx},${dy}`);
+        return true;
+      },
+      hover: (on) => void log.push(`hover ${on}`),
+    };
+    return log;
+  }
+
+  it('見本の 情報（preview）は ① ② だけ（③ は null）。つないだ 見本から angle・pitch・touched・wait・builds・glow を もらう', () => {
+    const { sys, hook } = opened();
+    fakePreview(sys);
+    sys.press('editor');
+    expect(hook.editor()?.preview, '1E: furniture は 見本が 出して いる 家具の 数（見本から もらう）').toEqual({ mode: 'outside', roof: true, angle: 28, pitch: 26, touched: false, wait: null, builds: 3, furniture: 2, glow: null });
+    sys.press('next');
+    expect(hook.editor()?.preview).toMatchObject({ mode: 'inside', roof: false, angle: 40, pitch: 50 });
+    sys.press('next');
+    expect(hook.editor()?.step).toBe('namae');
+    expect(hook.editor()?.preview).toBeNull();
+  });
+
+  it('previewDrag・previewWheel: 今の { angle, pitch } を 返す。エディターが 開いて いない・③ は null で 何も かえない', () => {
+    const { sys, hook } = opened();
+    const log = fakePreview(sys);
+    expect(hook.previewDrag(10, 10), 'エディターが 開いて いない').toBeNull();
+    sys.press('editor');
+    expect(hook.previewDrag(100, 40)).toEqual({ angle: -22, pitch: 46 });
+    expect(hook.previewWheel(40, 60)).toEqual({ angle: -72, pitch: 46 });
+    expect(hook.editor()?.preview).toMatchObject({ angle: -72, pitch: 46, touched: true, wait: 600 });
+    sys.press('next');
+    sys.press('next');
+    expect(sys.editor.s.step).toBe('namae');
+    expect(hook.previewDrag(10, 10), '③ では 見本が ない').toBeNull();
+    expect(log).toEqual(['drag 100,40', 'wheel 40,60']);
+  });
+
+  it('ひつような もの・確かめの まどが 出て いる 間は まわせない（今の 値は 返す）', () => {
+    const { sys, hook } = opened();
+    const log = fakePreview(sys);
+    sys.press('editor');
+    sys.press('need');
+    expect(sys.editor.needOpen).toBe(true);
+    expect(hook.previewDrag(100, 40)).toEqual({ angle: 28, pitch: 26 });
+    sys.press('needClose');
+    sys.press('new');
+    expect(sys.editor.confirm).toBe('reset');
+    expect(hook.previewWheel(100, 0)).toEqual({ angle: 28, pitch: 26 });
+    expect(log).toEqual([]);
+  });
+
+  it('見本を まわすと 置いた 家具の えらびは はずれる（AC57）。家具は のこる・もどす の 記録は ふえない', () => {
+    const { sys, hook } = opened();
+    fakePreview(sys);
+    sys.press('editor');
+    sys.press('next');
+    expect(hook.edit({ op: 'place', kind: 'futon', x: 1, z: 1 })).toBe(true);
+    expect(hook.edit({ op: 'select', x: 1, z: 1 })).toBe(true);
+    expect(hook.editor()?.selected, '1E: i と もとの マス').toEqual({ i: 0, x: 1, z: 1 });
+    const undo = sys.editor.canUndo();
+    hook.previewDrag(10, 0);
+    expect(hook.editor()?.selected).toBeNull();
+    expect(hook.editor()?.furniture).toHaveLength(1);
+    expect(sys.editor.canUndo()).toBe(undo);
+  });
+
+  it('hover: まどの かず・しゅるいの ボタン だけ 光る（① で）。ほかの ボタン・null・② は 消す', () => {
+    const { sys, hook } = opened();
+    const log = fakePreview(sys);
+    sys.press('editor');
+    for (const id of ['windowsUp', 'windowsDown', 'windowKind', 'windowKind-shoji']) hook.hover(id);
+    for (const id of ['next', 'width-7', 'depth-9', 'roof-flat', 'undo', null]) hook.hover(id);
+    expect(log).toEqual(['hover true', 'hover true', 'hover true', 'hover true', 'hover false', 'hover false', 'hover false', 'hover false', 'hover false', 'hover false']);
+    log.length = 0;
+    sys.press('next');
+    hook.hover('windowsUp');
+    expect(log, '② には 窓の ボタンが ない').toEqual(['hover false']);
+  });
+
+  it('メニューが ひらいた まま 時間は 止まる（エディターの 間も）。Esc は エディターの 順、最後に 全部 とじる', () => {
+    const { sys, g, calls } = opened();
+    sys.press('editor');
+    const t = g.w.time;
+    g.step(600);
+    expect(g.w.time).toBe(t);
+    sys.press('need');
+    expect(sys.menu().page).toBe('need');
+    sys.escape();
+    expect(sys.menu().page).toBe('editor');
+    sys.escape();
+    expect(sys.menu().open).toBe(false);
+    expect(sys.editing()).toBe(false);
+    expect(calls.at(-1)).toBe('close');
+  });
+
+  it('できた！ → せっけいずが 持ち物に（番号つき）・blueprints()・need(source)・メニューは top に もどる・もう 1 まいで 番号 2', () => {
+    const { sys, bag, hook } = opened();
+    bag.add('paper', 3);
+    bag.add('fude', 1);
+    sys.press('editor');
+    for (const op of [{ op: 'size', w: 7 }, { op: 'windows', delta: 1 }, { op: 'place', kind: 'futon', x: 0, z: 0 }, { op: 'place', kind: 'chair', x: 3, z: 0 }]) expect(hook.edit(op)).toBe(true);
+    sys.press('next');
+    sys.press('next');
+    for (const ch of 'ひみつ') expect(hook.edit({ op: 'char', ch })).toBe(true);
+    sys.press('done');
+    expect(sys.menu()).toMatchObject({ open: true, page: 'top', bubble: 'せっけいずが できたよ！' });
+    expect(bag.count('paper')).toBe(2);
+    const bps = hook.blueprints();
+    expect(bps).toHaveLength(1);
+    expect(bps[0]).toMatchObject({ number: 1, name: { front: 'ひみつ', back: 'のいえ' }, w: 7, d: 5, windows: 1, windowKind: 'shoji', roof: 'flat', light: 'lantern' });
+    expect(bps[0]!.furniture).toEqual([{ kind: 'futon', x: 0, z: 0, rot: 0 }, { kind: 'chair', x: 3, z: 0, rot: 0 }]);
+    expect(sys.planName(1)).toBe('ひみつのいえの せっけいず');
+    // 作りかけは のこる。持ち物の せっけいずの 必要な 材料を 聞ける
+    expect(hook.need(bps[0]!.slot).find((r) => r.item === 'log')).toMatchObject({ need: 2 * (7 + 5) + 4 + 2, have: 0, bonus: 0 });
+    sys.press('editor');
+    expect(hook.editor()).toMatchObject({ step: 'namae', name: { front: 'ひみつ', back: 'のいえ' } });
+    sys.press('done');
+    expect(bag.count('sekkeizu')).toBe(2);
+    expect(hook.blueprints().map((b) => b.number)).toEqual([1, 2]);
+    expect(hook.need(999), '知らない マス').toEqual([]);
+  });
+
+  it('1E AC13c・AC57: furniture[].origin・bad・selected {i, x, z}。place の x・z は もとの マス。↻ ↺ で もとの マスは うごかず、赤く なる 向きにも まわる', () => {
+    const { sys, hook } = opened();
+    sys.press('editor');
+    sys.press('next');
+    expect(hook.edit({ op: 'place', kind: 'futon', x: 4, z: 4 }), '5×5 の 右下の すみ').toBe(true);
+    expect(hook.editor()?.furniture).toEqual([{ kind: 'futon', x: 4, z: 4, rot: 0, origin: { x: 4, z: 4 }, bad: 'out' }]);
+    expect(hook.edit({ op: 'select', x: 4, z: 4 })).toBe(true);
+    expect(hook.editor()?.selected).toEqual({ i: 0, x: 4, z: 4 });
+    const turns = [
+      ['turnRight', { x: 3, z: 4, rot: 1, bad: null }], ['turnRight', { x: 4, z: 3, rot: 2, bad: null }], ['turnRight', { x: 4, z: 4, rot: 3, bad: 'out' }], ['turnRight', { x: 4, z: 4, rot: 0, bad: 'out' }],
+      ['turnLeft', { x: 4, z: 4, rot: 3, bad: 'out' }], ['turnLeft', { x: 4, z: 3, rot: 2, bad: null }],
+    ] as const;
+    for (const [id, want] of turns) {
+      sys.press(id);
+      expect(hook.editor()?.furniture[0], `${id} → rot ${want.rot}`).toEqual({ kind: 'futon', ...want, origin: { x: 4, z: 4 } });
+      expect(hook.editor()?.selected, 'どの まわしでも えらびの x・z（もとの マス）は 同じ').toEqual({ i: 0, x: 4, z: 4 });
+    }
+    // 置く 前の 向きが ある place も 押した マスが もとの マス
+    expect(hook.edit({ op: 'place', kind: 'table', x: 0, z: 0, rot: 2 })).toBe(true);
+    expect(hook.editor()?.furniture[1]).toEqual({ kind: 'table', x: -1, z: 0, rot: 2, origin: { x: 0, z: 0 }, bad: 'out' });
+  });
+
+  it('1E AC13d: 重なりは 両方 overlap・select は あとから 置いた 方（i: 1）・まわして ほどくと 両方 null・とると もう 片方も null・bad は もどす でも 形から 決まる', () => {
+    const { sys, hook } = opened();
+    sys.press('editor');
+    sys.press('next');
+    hook.edit({ op: 'place', kind: 'futon', x: 1, z: 0 });
+    hook.edit({ op: 'place', kind: 'table', x: 0, z: 1 });
+    const bads = (): unknown[] => (hook.editor()?.furniture ?? []).map((f) => (f as unknown as { bad: unknown }).bad);
+    expect(bads()).toEqual(['overlap', 'overlap']);
+    expect(hook.edit({ op: 'select', x: 1, z: 1 })).toBe(true);
+    expect(hook.editor()?.selected).toEqual({ i: 1, x: 0, z: 1 });
+    expect(hook.edit({ op: 'select', x: 1, z: 0 })).toBe(true);
+    expect(hook.editor()?.selected).toEqual({ i: 0, x: 1, z: 0 });
+    expect(hook.edit({ op: 'rotate', x: 1, z: 1, dir: 'right' }), '重なる マスは あとから 置いた テーブル').toBe(true);
+    expect(bads()).toEqual([null, null]);
+    expect(hook.edit({ op: 'undo' })).toBe(true);
+    expect(bads()).toEqual(['overlap', 'overlap']);
+    expect(hook.edit({ op: 'remove', x: 1, z: 0 })).toBe(true); // ふとんを とる
+    expect(bads()).toEqual([null]);
+    expect(hook.edit({ op: 'undo' })).toBe(true);
+    expect(bads()).toEqual(['overlap', 'overlap']);
+    expect(hook.edit({ op: 'redo' })).toBe(true);
+    expect(bads()).toEqual([null]);
+  });
+
+  it('1E AC13e: 9×9 → 5×5 を size 1 回で。ながい テーブルは (−2, 2)・out、いすは (2, 4)・door で のこり、(0, 0) の いすだけ 消えて ふきだし。もどす 1 回で 3 つ とも もとに。まわせない 家具は false ＋ flash', () => {
+    const { sys, hook } = opened();
+    sys.press('editor');
+    expect(hook.edit({ op: 'size', w: 9, d: 9 })).toBe(true);
+    sys.press('next');
+    for (const op of [{ op: 'place', kind: 'long_table', x: 0, z: 4 }, { op: 'place', kind: 'chair', x: 4, z: 6 }, { op: 'place', kind: 'chair', x: 0, z: 0 }]) expect(hook.edit(op)).toBe(true);
+    expect(hook.edit({ op: 'size', w: 5, d: 5 })).toBe(true);
+    expect(hook.editor()?.furniture).toEqual([
+      { kind: 'long_table', x: -2, z: 2, rot: 0, origin: { x: -2, z: 2 }, bad: 'out' },
+      { kind: 'chair', x: 2, z: 4, rot: 0, origin: { x: 2, z: 4 }, bad: 'door' },
+    ]);
+    expect(sys.menu().bubble).toBe('はいらない かぐを かたづけたよ');
+    const shape = JSON.stringify(hook.editor()?.furniture);
+    expect(hook.editor()).toMatchObject({ canUndo: true, flash: null });
+    expect(hook.edit({ op: 'rotate', x: 0, z: 2, dir: 'right' }), 'もとの マス (−2, 2) は 方眼の 外 → 1 マスも 入らない').toBe(false);
+    expect(hook.editor()).toMatchObject({ canUndo: true, flash: { items: [0], seq: 1 } });
+    expect(hook.edit({ op: 'rotate', x: 0, z: 2, dir: 'left' })).toBe(false);
+    expect(hook.editor()).toMatchObject({ flash: { items: [0], seq: 2 } });
+    expect(JSON.stringify(hook.editor()?.furniture)).toBe(shape);
+    expect(hook.edit({ op: 'size', w: 9, d: 9 })).toBe(true);
+    expect(hook.editor()?.furniture).toEqual([
+      { kind: 'long_table', x: 0, z: 4, rot: 0, origin: { x: 0, z: 4 }, bad: null },
+      { kind: 'chair', x: 4, z: 6, rot: 0, origin: { x: 4, z: 6 }, bad: null },
+    ]);
+    expect(hook.edit({ op: 'undo' })).toBe(true); // 9×9 に もどした のを もどす
+    expect(hook.edit({ op: 'undo' })).toBe(true); // 小さく した のを もどす
+    expect(hook.editor()?.size).toEqual({ w: 9, d: 9 });
+    expect(hook.editor()?.furniture.map((f) => [f.kind, f.x, f.z])).toEqual([['long_table', 0, 4], ['chair', 4, 6], ['chair', 0, 0]]);
+  });
+
+  it('1E AC13f・AC44: 赤い 家具が ある 間の next（② → ③）と done は 進まない。ふきだし・flash（赤い 家具 ぜんぶ・seq が 1 ずつ）。せっけいずは ふえず、かみ・ふでは へらない。なおすと 進む', () => {
+    const { sys, bag, hook } = opened();
+    bag.add('paper', 3);
+    bag.add('fude', 1);
+    sys.press('editor');
+    sys.press('next');
+    for (const op of [{ op: 'place', kind: 'chair', x: 0, z: 0 }, { op: 'place', kind: 'futon', x: 4, z: 4 }, { op: 'place', kind: 'chair', x: 2, z: 4 }]) expect(hook.edit(op)).toBe(true);
+    const shape = JSON.stringify(hook.editor()?.furniture);
+    const undo = sys.editor.canUndo();
+    sys.press('next');
+    expect(hook.editor()).toMatchObject({ step: 'naka', canUndo: undo, flash: { items: [1, 2], seq: 1 } });
+    expect(sys.menu().bubble).toBe('あかい かぐを なおしてね');
+    sys.press('done');
+    expect(hook.editor()).toMatchObject({ step: 'naka', flash: { items: [1, 2], seq: 2 } });
+    expect(sys.menu().bubble).toBe('あかい かぐを なおしてね');
+    expect(JSON.stringify(hook.editor()?.furniture)).toBe(shape);
+    expect(hook.blueprints()).toHaveLength(0);
+    expect([bag.count('paper'), bag.count('fude'), bag.count('sekkeizu')]).toEqual([3, 1, 0]);
+    // ① からの done も 止まって ② に なる
+    sys.press('prev');
+    sys.press('done');
+    expect(hook.editor()).toMatchObject({ step: 'naka', flash: { items: [1, 2], seq: 3 } });
+    // ① の next ・② の prev は すすむ
+    sys.press('prev');
+    expect(hook.editor()?.step).toBe('soto');
+    sys.press('next');
+    expect(hook.editor()?.step).toBe('naka');
+    // なおして すすむ
+    hook.edit({ op: 'rotate', x: 4, z: 4, dir: 'right' });
+    hook.edit({ op: 'remove', x: 2, z: 4 });
+    sys.press('next');
+    expect(hook.editor()?.step).toBe('namae');
+  });
+
+  it('1E AC13g: 赤い 家具が ある まま セーブして 読みこむと 同じ furniture（x・z・rot・origin・bad）。① で とじた 形でも 開くと naka。blueprints() の 家具は 赤を ふくまない', () => {
+    const { sys, hook, bag } = opened();
+    sys.press('editor');
+    sys.press('next');
+    for (const op of [{ op: 'place', kind: 'chair', x: 0, z: 0 }, { op: 'place', kind: 'futon', x: 4, z: 4 }]) expect(hook.edit(op)).toBe(true);
+    const before = hook.editor()?.furniture;
+    expect(before?.map((f) => (f as unknown as { bad: unknown }).bad)).toEqual([null, 'out']);
+    sys.press('prev'); // ① で とじる
+    const saved = sys.state.serialize();
+    sys.load(saved);
+    expect(hook.editor()?.step, '赤い 家具が あれば ② で 開く').toBe('naka');
+    expect(hook.editor()?.furniture).toEqual(before);
+    expect(JSON.stringify(saved)).not.toMatch(/"bad"|"origin"/);
+    // 赤い まま できた！は 止まる ので せっけいずに 赤い 家具は 入らない。なおして 作る（かみ・ふでは もちものに 用意）
+    bag.add('paper', 1);
+    bag.add('fude', 1);
+    hook.edit({ op: 'rotate', x: 4, z: 4, dir: 'right' });
+    sys.press('next');
+    for (const ch of 'ひみつ') hook.edit({ op: 'char', ch });
+    sys.press('done');
+    expect(hook.blueprints()).toHaveLength(1);
+    expect(hook.blueprints()[0]!.furniture).toEqual([{ kind: 'chair', x: 0, z: 0, rot: 0 }, { kind: 'futon', x: 3, z: 4, rot: 1 }]);
   });
 });

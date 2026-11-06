@@ -1,6 +1,7 @@
-import { AIR, BLOCK_INDEX, WATER, isCrossIndex, isLeafIndex, isPropIndex, isTorchIndex } from '../blocks/blockTypes';
+import { AIR, BLOCK_INDEX, isCrossIndex, isLeafIndex, isPropIndex, isTorchIndex } from '../blocks/blockTypes';
 import type { ArrayVoxelWorld } from '../VoxelWorld';
 import { MICRO_PARAMS, type ColumnSource } from './microSurface';
+import { isWaterIndex } from '../blocks/water';
 
 /** 小ブロック地形の「地面」にする種類（建物・畑・たいまつ などは ふつうのブロックのまま） */
 const GROUND = new Set<number>(
@@ -37,13 +38,13 @@ export function scanColumn(world: Pick<ArrayVoxelWorld, 'topY' | 'getIndex'>, wx
   for (let y = world.topY(wx, wz); y >= 0; y--) {
     const k = world.getIndex(wx, y, wz);
     if (k < 0) return;
-    if (k === AIR || k === WATER || isLeafIndex(k) || k === LOG || k === BAMBOO || isCrossIndex(k) || isTorchIndex(k) || isPropIndex(k)) continue;
+    if (k === AIR || isWaterIndex(k) || isLeafIndex(k) || k === LOG || k === BAMBOO || isCrossIndex(k) || isTorchIndex(k) || isPropIndex(k)) continue;
     if (!GROUND.has(k)) return; // 建物・畑など
     out.ty = y;
     out.kind = k;
     const above = world.getIndex(wx, y + 1, wz);
     out.reach =
-      above === AIR ? MICRO_PARAMS.reachAir : isCrossIndex(above) ? MICRO_PARAMS.reachCross : above === WATER || above < 0 ? 0 : -1;
+      above === AIR ? MICRO_PARAMS.reachAir : isCrossIndex(above) ? MICRO_PARAMS.reachCross : isWaterIndex(above) || above < 0 ? 0 : -1;
     out.rockOk = ROCKABLE.has(k);
     return;
   }

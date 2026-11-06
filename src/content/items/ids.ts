@@ -79,7 +79,7 @@ export const FARM_TOOL_IDS = ['kuwa', 'watering_can', 'long_watering_can'] as co
 export type FarmToolId = (typeof FARM_TOOL_IDS)[number];
 
 /** バケツ（BUCKET-1）: から・みず（この順） */
-export const FARM_BUCKET_IDS = ['bucket', 'water_bucket'] as const;
+export const FARM_BUCKET_IDS = ['bucket', 'water_bucket', 'magma_bucket', 'wakimizu_bucket', 'magma_wakimizu_bucket'] as const;
 export type FarmBucketId = (typeof FARM_BUCKET_IDS)[number];
 
 /** ようかいだま（M3 の 名残り。いまは 手に入らない 古い保存用）。ITEM_TYPES では ざいりょうの 先頭 */
@@ -87,7 +87,7 @@ export const ORB_IDS = ['yokai_orb'] as const;
 export type OrbId = (typeof ORB_IDS)[number];
 
 /** ざいりょう 6 つ（M3・M4）: かみ・あぶら・いと・ぬの・ねんど・すいしょう（この順が ITEM_TYPES の 並び。ようかいだまの 次） */
-export const MATERIAL_ITEM_IDS = ['paper', 'oil', 'string', 'cloth', 'clay', 'crystal', 'sumi'] as const;
+export const MATERIAL_ITEM_IDS = ['paper', 'oil', 'string', 'cloth', 'clay', 'crystal', 'sumi', 'hemp'] as const; // hemp = あさ（ROPE-1。くさ・はっぱ・はなから。いとの かわり）
 export type MaterialId = (typeof MATERIAL_ITEM_IDS)[number];
 
 /** てつの かたまり（M4。かまどで 鉄鉱石を やく。ITEM_TYPES では つるはし・おのの 次） */
@@ -120,3 +120,14 @@ const MINE_ITEM_IDS = ['chalk', 'ishibai'] as const;
 export type MineItemId = (typeof MINE_ITEM_IDS)[number];
 /** 名前で 読む（`MINE_ITEM.chalk`）。コードの 中で id を 文字で 書かずに 済む（id は 上の 表の 1 回だけ） */
 export const MINE_ITEM = Object.fromEntries(MINE_ITEM_IDS.map((id) => [id, id])) as { readonly [K in MineItemId]: K };
+
+/**
+ * 家の 新しい 家具（HOUSE-1B #339。案 A「ごつごつの くりの 木」。2.4 で ながい テーブル・まるい テーブル・まるいす〔stool〕を 足した。
+ * 置いて ブロックに なるのは HOUSE-1C、はたらきは HOUSE-1D）。ITEM_TYPES では MINE-1B の 次
+ */
+export const HOUSE_FURNITURE_IDS = ['table', 'chair', 'andon', 'shelf', 'ofuro', 'long_table', 'round_table', 'stool'] as const;
+export type HouseFurnitureId = (typeof HOUSE_FURNITURE_IDS)[number];
+
+/** せっけいず（HOUSE-1B #339。1 マスに 1 こ。中身〔形・名前・番号〕は 1 こずつ 持つ）。ITEM_TYPES では 新しい 家具の 次 */
+export const HOUSE_PLAN_IDS = ['sekkeizu'] as const;
+export type HousePlanId = (typeof HOUSE_PLAN_IDS)[number];

@@ -1,4 +1,5 @@
 import { createRng, hashInts, type Rng } from '../world/gen/random';
+import { ARCHITECT_WORK } from './build/tuning';
 import { ARCHITECT_BODY, Footing, standY, type HouseWorld } from './ground';
 
 /**
@@ -38,6 +39,9 @@ const RISE = 0.18;
 const FALL = 0.35;
 /** 足もとが 立てない まま これだけ たつと 自分の 列の 地面に あわせ直す */
 const STUCK_STEPS = 30;
+/** 建築中の とんかち（HOUSE-1C PR-2。数は build/tuning.ts の ARCHITECT_WORK） */
+const WORK = ARCHITECT_WORK;
+
 /** ぶらぶらしても 体の 四すみが とどく はんい（home から マス）。この 中の 列の 足もとを おぼえて おく */
 const FOOT_REACH = WANDER_RADIUS + ARCHITECT_BODY.radius;
 
@@ -58,8 +62,9 @@ const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
 export class Architect {
   readonly id: string;
   readonly first: boolean;
-  readonly homeX: number;
-  readonly homeZ: number;
+  /** 自分の 場所（ぶらぶらする まん中）。建築で 戸の 前に うつる と かわる（relocate） */
+  homeX: number;
+  homeZ: number;
   /** 足もと */
   x: number;
   y: number;
@@ -75,11 +80,18 @@ export class Architect {
   /** おっとっとの コマ（0〜WOBBLE_STEPS）。なければ −1。向き wobbleDir（かたむく 方向のラジアン） */
   wobble = -1;
   wobbleDir = 0;
+  /** 建築中（HOUSE-1C PR-2）か。建築中は 1 秒ごとに とんかちを ふる（hammer = ふる コマ。ふって いなければ −1）。完成の ばんざい（cheer = コマ。なければ −1） */
+  busy = false;
+  hammer = -1;
+  cheer = -1;
 
   private readonly rng: Rng;
   /** 足もとの しらべの おぼえ書き（立って いる 間・歩く 間・行き先を えらぶ 時も 世界を 読まない。`groundChanged` で かわった ことを 知らされる） */
-  private readonly foot: Footing;
+  private foot: Footing;
   private wait: number;
+  /** 建築中: 次の とんかちまでの ステップ・うちおろす コマに なった（takeHit で 読む） */
+  private swingClock = 0;
+  private hitNow = false;
   private tx = 0;
   private tz = 0;
   private stuck = 0;
@@ -98,6 +110,39 @@ export class Architect {
     this.rng = createRng(hashInts(o.seed, Math.floor(o.x * 2), Math.floor(o.z * 2), 0x4b1d));
     this.foot = new Footing(Math.floor(o.x - FOOT_REACH), Math.floor(o.z - FOOT_REACH), Math.floor(o.x + FOOT_REACH), Math.floor(o.z + FOOT_REACH));
     this.wait = SETTLE_MIN + Math.floor(this.rng() * SETTLE_SPAN);
+  }
+
+  /** 建築で 場所を うつす: 足もと (x, y, z) へ。ここが あたらしい 自分の 場所（ぶらぶらの まん中）。足もとの おぼえ書きも 作りなおす */
+  relocate(x: number, y: number, z: number): void {
+    this.homeX = x;
+    this.homeZ = z;
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.foot = new Footing(Math.floor(x - FOOT_REACH), Math.floor(z - FOOT_REACH), Math.floor(x + FOOT_REACH), Math.floor(z + FOOT_REACH));
+    this.state = this.state === 'talk' ? 'talk' : 'idle';
+    this.wait = SETTLE_MIN;
+    this.hammer = -1;
+    this.swingClock = 0;
+  }
+
+  /** 建築中か そうで ないかを きめる（建築中は とんかちを ふる） */
+  setBusy(on: boolean): void {
+    this.busy = on;
+    if (!on) this.hammer = -1;
+    this.swingClock = 0;
+  }
+
+  /** 完成の ばんざい（腕を 上げて はねる） */
+  startCheer(): void {
+    this.cheer = 0;
+  }
+
+  /** とんかちを うちおろした コマだった か（読むと 消える。音を 鳴らす 側が 読む） */
+  takeHit(): boolean {
+    const h = this.hitNow;
+    this.hitNow = false;
+    return h;
   }
 
   /** 話しかけられた: その場で 止まって こちら（px, pz）を 向き、うなずく。もう 話して いれば 何もしない */
@@ -140,9 +185,15 @@ export class Architect {
       this.wobble++;
       if (this.wobble > WOBBLE_STEPS) this.wobble = -1;
     }
-    if (this.state === 'talk') this.updateTalk(look);
-    else if (this.state === 'walk') this.updateWalk(world);
-    else this.updateIdle(world);
+    if (this.cheer >= 0 && ++this.cheer > WORK.cheerFrames) this.cheer = -1;
+    if (this.state === 'talk') {
+      this.hammer = -1;
+      this.updateTalk(look);
+    } else if (this.state === 'walk') this.updateWalk(world);
+    else {
+      this.updateHammer();
+      if (this.hammer < 0) this.updateIdle(world);
+    }
     const moving = this.state === 'walk';
     this.gaitAmp += ((moving ? 1 : 0) - this.gaitAmp) * 0.2;
     if (moving || this.gaitAmp > 0.02) this.gait = (this.gait + Math.PI / GAIT_HALF) % (Math.PI * 2);
@@ -157,6 +208,24 @@ export class Architect {
     }
     this.turnTo(Math.atan2(this.lookX - this.x, -(this.lookZ - this.z)));
     if (this.nod >= 0 && this.nod < NOD_STEPS) this.nod++;
+  }
+
+  /** 建築中の とんかち: 立って いる 間だけ 1 秒に 1 回。うちおろす コマで hitNow が 立つ */
+  private updateHammer(): void {
+    if (!this.busy) {
+      this.hammer = -1;
+      return;
+    }
+    if (this.hammer < 0) {
+      if (++this.swingClock >= WORK.hammerEvery) {
+        this.swingClock = 0;
+        this.hammer = 0;
+      }
+      return;
+    }
+    this.hammer++;
+    if (this.hammer === WORK.hammerHitFrame) this.hitNow = true;
+    if (this.hammer > WORK.hammerFrames) this.hammer = -1;
   }
 
   private updateIdle(world: HouseWorld): void {

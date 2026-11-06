@@ -158,6 +158,30 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
       case 'ripen':
         out.right = { icon: right.item!, word: 'まく' };
         break;
+      // HOUSE-1C: 家の 戸（しまって いる = あける・あいて いる = しめる。絵は 戸）
+      case 'doorOpen':
+        out.right = { icon: 'house_door', word: 'あける' };
+        break;
+      case 'doorClose':
+        out.right = { icon: 'house_door', word: 'しめる' };
+        break;
+      // HOUSE-1D: 家具の はたらき（絵は その 家具）
+      case 'sit':
+        out.right = { icon: 'chair', word: 'すわる' };
+        break;
+      case 'bath':
+        out.right = { icon: 'ofuro', word: 'はいる' };
+        break;
+      case 'read':
+        out.right = { icon: 'shelf', word: 'よむ' };
+        break;
+      // HOUSE-1C PR-2: みずもり（きじゅんを きめる）・どうづき（じがため）。持っている 物の 絵
+      case 'level':
+        out.right = { icon: right.item!, word: 'はかる' };
+        break;
+      case 'tamp':
+        out.right = { icon: right.item!, word: 'かためる' };
+        break;
       // HOUSE-1A: 建築士さんを ねらって いる = ふきだし ＋ はなす（左の「ほる」は DigSystem.previewLeftClick が 出さない）
       case 'talk':
         out.right = { icon: 'talk', word: 'はなす' };

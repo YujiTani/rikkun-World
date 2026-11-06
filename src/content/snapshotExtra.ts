@@ -27,6 +27,7 @@ import { CLOCK_PHASES } from '../ui/clockModel';
 import { CATEGORY_ITEMS, ITEM_CATEGORIES } from '../ui/itemCategory';
 import { BLOCK_INDEX, BLOCK_TYPES } from '../world/blocks/blockTypes';
 import { COUNTRY_TABLE } from '../world/gen/countryTable';
+import { waterSettings } from '../world/render/waterWave';
 import { DEFAULT_MICRO_R } from '../world/render/voxel/tier';
 import { AI_CONST, ATTACK_DAMAGE, KIND_AI, YOKAI_DROPS, createYokaiConfig } from '../yokai/ai/config';
 import { SENSE } from '../yokai/ai/senseTuning';
@@ -149,6 +150,7 @@ export function buildSettingsSnapshot(): object {
     yokai: createYokaiConfig(),
     time: createTimeSettings(),
     renderer: { microRadius: DEFAULT_MICRO_R },
+    water: { ...waterSettings },
   }) as object;
 }
 

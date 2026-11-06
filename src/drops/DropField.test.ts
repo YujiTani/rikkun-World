@@ -100,6 +100,22 @@ describe('DropField', () => {
     }
   });
 
+  it('HOUSE-1B: せっけいずの 番号（plan）は 落ちた あと・保存して 読みなおした あと・拾った あとも のこる', () => {
+    const r = rig();
+    r.f.scatter({ x: 10.5, y: 9, z: 10.5 }, [{ item: 'sekkeizu', count: 1, plan: 7 }, { item: 'dirt', count: 1 }]);
+    const saved: Array<{ item: string; plan?: number }> = JSON.parse(JSON.stringify(r.f.serialize()));
+    expect(saved.find((d) => d.item === 'sekkeizu')?.plan, '保存の 形に plan').toBe(7);
+    expect(saved.find((d) => d.item === 'dirt')?.plan, 'ほかの アイテムには つかない').toBeUndefined();
+    const g = rig();
+    g.f.deserialize(saved);
+    expect(g.f.list().map((d) => d.slots[0]!.item), '読みなおしても 2 つ 落ちて いる').toEqual(['sekkeizu', 'dirt']);
+    g.player.x = 10.5;
+    g.player.y = 9;
+    g.player.z = 10.5;
+    for (let i = 0; i < 60; i++) g.f.update(true);
+    expect(g.inv.slots().find((s) => s?.item === 'sekkeizu'), '拾った 持ち物の マス').toMatchObject({ item: 'sekkeizu', count: 1, plan: 7 });
+  });
+
   it('1 回のばらまきは同じ batch・柱の色はいちばんめずらしいもの', () => {
     const r = rig();
     r.f.scatter({ x: 10.5, y: 9, z: 10.5 }, [{ item: 'dirt', count: 2 }, { item: 'iron_ore', count: 1 }]);

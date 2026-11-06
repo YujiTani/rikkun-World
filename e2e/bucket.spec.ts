@@ -7,6 +7,8 @@ import { installArena } from './helpers/arena';
  * AC2・AC4・AC5・AC6・AC7・AC9・AC10）。実装の前に書いたテスト（落ちるのが正しい）。
  * 数・座標は決め打ちせず、設定（reach・farmWetRange…）と窓口（target.get()・farm.bucketSpot()）に聞く。
  * 床は __arena.floor（y=8）。置く水のマスは bucketSpot() が返した物を使う。
+ * WATER-1（#376）: AC4・AC5・AC6・AC10 は 有限の 水に 合わせて 書きかえた（くむと へる・バケツの 量・流れない くぼみ）。
+ * 水を 置いて 動かさない ので T.base() の あたまで `water.pause(true)`。流れる 所だけ pause(false)。
  */
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
@@ -27,6 +29,7 @@ async function open(page: Page, query = '?nosave=1') {
         (window as any).__arena.floor(0, 0, 20, 20);
         h.inventory.clear();
         h.time.set(12000);
+        h.water.pause(true); // WATER-1: 水を 置いて 動かさない
         T.stand(2.5, 6.5, 90, -30);
         h.step(10);
         h.farm.fxReset();
@@ -49,15 +52,21 @@ async function open(page: Page, query = '?nosave=1') {
         h.input.release(a);
         h.step(1);
       },
-      hold(item: string) {
+      hold(item: string, extra: any = {}) {
         h.inventory.clear();
-        h.inventory.add(item, 1);
+        if (Object.keys(extra).length > 0) h.inventory.setSlot(0, { item, count: 1, ...extra });
+        else h.inventory.add(item, 1);
         h.inventory.select(0);
         h.step(1);
       },
       slot0() {
         const s = h.inventory.get().slots[0];
         return s ? { item: s.item, count: s.count } : null;
+      },
+      /** 持つ マスの 水の 量つき（欄 なしの みずの バケツ = 8、バケツ = 0） */
+      slotW() {
+        const s = h.inventory.get().slots[0];
+        return s ? { item: s.item, count: s.count, water: s.water ?? (s.item === 'water_bucket' ? 8 : 0) } : null;
       },
       /** このステップまでの出来事の数を覚えて、あとの分だけ返す */
       mark() {
@@ -67,10 +76,9 @@ async function open(page: Page, query = '?nosave=1') {
         const l = h.farm.events().slice(T._n ?? 0);
         return type ? l.filter((e: any) => e.type === type) : l;
       },
+      /** 広場の 水の 量の 合計（WATER-1: 量 1〜8 の 水ぜんぶ） */
       waterCount() {
-        let n = 0;
-        for (let x = 0; x <= 20; x++) for (let z = 0; z <= 20; z++) for (let y = 8; y <= 12; y++) if (h.world.getBlock(x, y, z) === 'water') n++;
-        return n;
+        return h.water.total(0, 8, 0, 20, 12, 20);
       },
       soil(x: number, z: number, y = 8) {
         h.world.setBlock(x, y, z, 'dirt');
@@ -126,43 +134,67 @@ test.describe('BUCKET-1 バケツ', () => {
     expect(r.stat).toBe(1);
   });
 
-  test('AC4 くむ: 1 回で みず・水は そのまま・みずで もう 1 回は かわらず・とどかない水・押しつづけても 1 回', async ({ page }) => {
+  test('AC4 くむ（WATER-1）: 量 8 → みずの バケツ(8)・マスは air。量 3 → 3。量 5 の バケツで 量 8 → 8・マス 5。8 で もう 1 回は かわらず。とどかない水。押しつづけても 1 回', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       const o: any = {};
+      // 量 8 を くむ
       T.base();
-      h.world.setBlock(6, 8, 6, 'water');
+      h.water.set(6, 8, 6, 8);
       h.step(1);
       T.hold('bucket');
       T.aim(6, 8, 6);
       T.mark();
       T.tap();
-      o.slot = T.slot0();
+      o.slot = T.slotW();
       o.block = h.world.getBlock(6, 8, 6);
+      o.amount = h.water.amount(6, 8, 6);
       o.fill = T.evs('bucketFill');
-      // みずの バケツで もう 1 回
+      // みずの バケツ(8) で もう 1 回: かわらない（マスも へらない）
+      h.water.set(6, 8, 6, 8);
       T.mark();
       T.tap();
-      o.slot2 = T.slot0();
-      o.block2 = h.world.getBlock(6, 8, 6);
+      o.slot2 = T.slotW();
+      o.amount2 = h.water.amount(6, 8, 6);
       o.changed2 = T.evs('bucketFill').filter((e: any) => e.changed).length;
+      // 量 3 の マス
+      T.base();
+      h.water.set(6, 8, 6, 3);
+      h.step(1);
+      T.hold('bucket');
+      T.aim(6, 8, 6);
+      T.tap();
+      o.slot3 = T.slotW();
+      o.block3 = h.world.getBlock(6, 8, 6);
+      o.amount3 = h.water.amount(6, 8, 6);
+      // 量 5 の バケツで 量 8 の マス → バケツ 8・マス 量 5
+      T.base();
+      h.water.set(6, 8, 6, 8);
+      h.step(1);
+      T.hold('water_bucket', { water: 5 });
+      T.aim(6, 8, 6);
+      T.mark();
+      T.tap();
+      o.slot58 = T.slotW();
+      o.amount58 = h.water.amount(6, 8, 6);
+      o.changed58 = T.evs('bucketFill').filter((e: any) => e.changed).length;
       // とどかない水（reach + 1 マス先）
       const reach: number = h.settings.get('reach');
       const fx = 2 + reach + 2;
       T.base();
-      h.world.setBlock(fx, 8, 6, 'water');
+      h.water.set(fx, 8, 6, 8);
       h.step(1);
       T.hold('bucket');
       T.aim(fx, 8, 6);
       T.mark();
       T.tap();
-      o.far = { slot: T.slot0(), fills: T.evs('bucketFill').filter((e: any) => e.changed).length };
+      o.far = { slot: T.slot0(), fills: T.evs('bucketFill').filter((e: any) => e.changed).length, amount: h.water.amount(fx, 8, 6) };
       // 押しつづけ
       const rep: number = h.settings.get('farmPourRepeatTicks');
       T.base();
-      h.world.setBlock(6, 8, 6, 'water');
+      h.water.set(6, 8, 6, 8);
       h.step(1);
       T.hold('bucket');
       T.aim(6, 8, 6);
@@ -172,23 +204,31 @@ test.describe('BUCKET-1 バケツ', () => {
       h.input.release('secondary');
       h.step(1);
       o.heldChanged = T.evs('bucketFill').filter((e: any) => e.changed).length;
-      o.heldSlot = T.slot0();
+      o.heldSlot = T.slotW();
       return o;
     });
-    expect(r.slot).toEqual({ item: 'water_bucket', count: 1 });
-    expect(r.block).toBe('water');
+    expect(r.slot).toEqual({ item: 'water_bucket', count: 1, water: 8 });
+    expect(r.block, '水の マスは air に へる').toBe('air');
+    expect(r.amount).toBe(0);
     expect(r.fill).toHaveLength(1);
     expect(r.fill[0].changed).toBe(true);
-    expect(r.slot2).toEqual({ item: 'water_bucket', count: 1 });
-    expect(r.block2).toBe('water');
+    expect(r.slot2).toEqual({ item: 'water_bucket', count: 1, water: 8 });
+    expect(r.amount2, '満杯の バケツでは マスを へらさない').toBe(8);
     expect(r.changed2).toBe(0);
+    expect(r.slot3).toEqual({ item: 'water_bucket', count: 1, water: 3 });
+    expect(r.block3).toBe('air');
+    expect(r.amount3).toBe(0);
+    expect(r.slot58).toEqual({ item: 'water_bucket', count: 1, water: 8 });
+    expect(r.amount58, '8 − 5 = 3 とって のこりは 5').toBe(5);
+    expect(r.changed58).toBe(1);
     expect(r.far.slot).toEqual({ item: 'bucket', count: 1 });
     expect(r.far.fills).toBe(0);
+    expect(r.far.amount, 'とどかない水は へらない').toBe(8);
     expect(r.heldChanged).toBe(1);
-    expect(r.heldSlot).toEqual({ item: 'water_bucket', count: 1 });
+    expect(r.heldSlot).toEqual({ item: 'water_bucket', count: 1, water: 8 });
   });
 
-  test('AC5 おく: bucketSpot の マスが water・bucket に もどる・bucketPlace・押しつづけても 1 マス', async ({ page }) => {
+  test('AC5 おく（WATER-1）: bucketSpot の マスが water（量 8）・bucket に もどる・bucketPlace。量 3 なら water_3。押しつづけても バケツ 1 杯 分 だけ', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -203,10 +243,21 @@ test.describe('BUCKET-1 バケツ', () => {
       T.mark();
       T.tap();
       o.after = s ? h.world.getBlock(s.x, s.y, s.z) : null;
-      o.slot = T.slot0();
+      o.amount = s ? h.water.amount(s.x, s.y, s.z) : null;
+      o.slot = T.slotW();
       o.place = T.evs('bucketPlace');
       o.stat = h.achievements.stats()['bucketPlace'] ?? 0;
       o.water = T.waterCount();
+      // 量 3 の バケツ
+      T.base();
+      T.hold('water_bucket', { water: 3 });
+      T.aim(6, 8, 6);
+      const s3 = h.farm.bucketSpot();
+      T.tap();
+      o.block3 = s3 ? h.world.getBlock(s3.x, s3.y, s3.z) : null;
+      o.amount3 = s3 ? h.water.amount(s3.x, s3.y, s3.z) : null;
+      o.slot3 = T.slotW();
+      o.water3 = T.waterCount();
       // 押しつづけ（とちゅうで ねらいを 動かす）
       const rep: number = h.settings.get('farmPourRepeatTicks');
       T.base();
@@ -228,15 +279,20 @@ test.describe('BUCKET-1 バケツ', () => {
     expect(r.spot).not.toBeNull();
     expect(r.before).toBe('air');
     expect(r.after).toBe('water');
-    expect(r.slot).toEqual({ item: 'bucket', count: 1 });
+    expect(r.amount).toBe(8);
+    expect(r.slot).toEqual({ item: 'bucket', count: 1, water: 0 });
     expect(r.place).toHaveLength(1);
     expect(r.stat).toBe(1);
-    expect(r.water).toBe(1);
-    expect(r.heldWater).toBe(1);
+    expect(r.water, '水は バケツ 1 杯 分').toBe(8);
+    expect(r.block3).toBe('water_3');
+    expect(r.amount3).toBe(3);
+    expect(r.slot3).toEqual({ item: 'bucket', count: 1, water: 0 });
+    expect(r.water3).toBe(3);
+    expect(r.heldWater, '押しつづけても バケツ 1 杯 分 だけ').toBe(8);
     expect(r.heldPlace).toBe(1);
   });
 
-  test('AC6 しめって 育つ: 横 R-1 の はたけは しめる・R+1 は かわいたまま・いしで ふさいで ほると かわく', async ({ page }) => {
+  test('AC6 しめって 育つ（WATER-1）: 流れない くぼみの 水で 横 R-1 の はたけは しめる・R+1 は かわいたまま・その 水を バケツで くむと かわく', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -259,25 +315,23 @@ test.describe('BUCKET-1 バケツ', () => {
       o.dry0 = { near: h.farm.soil(s.x, s.y - 1, nearZ).wet, far: h.farm.soil(s.x, s.y - 1, farZ).wet };
       T.tap();
       o.placed = h.world.getBlock(s.x, s.y, s.z);
+      // 置いた 水の まわり 4 つを 石に して、下も 横も 固い 1 マスの くぼみに する（パスを 止めた まま）
+      const walls = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (const [dx, dz] of walls) h.world.setBlock(s.x + dx, s.y, s.z + dz, 'stone');
+      h.water.pause(false);
       h.step(recheck);
       o.near = h.farm.soil(s.x, s.y - 1, nearZ).wet;
       o.crop = h.farm.crop(s.x, s.y, nearZ)?.wet;
       o.far = h.farm.soil(s.x, s.y - 1, farZ).wet;
-      // いしを おいて ほる
-      T.hold('stone');
-      T.aim(s.x, s.y - 1, s.z);
+      o.stay = { amount: h.water.amount(s.x, s.y, s.z), queue: h.water.queue(), stable: h.water.stable(s.x, s.y, s.z, s.x, s.y, s.z) };
+      // バケツで くむ（石を 置くと 押し出されて のこる ため）。ねらいの 側の かべを あけて、止めた まま くむ
+      h.water.pause(true);
+      h.world.setBlock(s.x - 1, s.y, s.z, 'air');
+      T.hold('bucket');
+      T.aim(s.x, s.y, s.z, 0.9);
       T.tap();
-      o.stone = h.world.getBlock(s.x, s.y, s.z);
-      T.aim(s.x, s.y, s.z, 0.5);
-      h.input.press('primary');
-      for (let i = 0; i < 600 && !h.dig.get().ready; i++) h.step(1);
-      h.input.release('primary');
-      h.step(2);
-      h.input.press('primary');
-      h.step(3);
-      h.input.release('primary');
+      o.taken = { slot: T.slotW(), amount: h.water.amount(s.x, s.y, s.z), block: h.world.getBlock(s.x, s.y, s.z) };
       h.step(recheck + 2);
-      o.after = h.world.getBlock(s.x, s.y, s.z);
       o.dried = h.farm.soil(s.x, s.y - 1, nearZ).wet;
       return o;
     });
@@ -286,8 +340,10 @@ test.describe('BUCKET-1 バケツ', () => {
     expect(r.near).toBe(true);
     expect(r.crop).toBe(true);
     expect(r.far).toBe(false);
-    expect(r.stone).toBe('stone');
-    expect(r.after).toBe('air');
+    expect(r.stay.amount, 'くぼみの 水は 流れない').toBe(8);
+    expect(r.stay.stable).toBe(true);
+    expect(r.taken.slot).toEqual({ item: 'water_bucket', count: 1, water: 8 });
+    expect(r.taken.block).toBe('air');
     expect(r.dried).toBe(false);
   });
 
@@ -436,7 +492,7 @@ test.describe('BUCKET-1 バケツ', () => {
     expect(r.last).toBeNull();
   });
 
-  test('AC10 保存: water_bucket と 置いた 水が 読み直しても そのまま', async ({ page }) => {
+  test('AC10 保存（WATER-1）: 量 8 と 3 の みずの バケツ と 置いた 水（water_3）が 読み直しても そのまま', async ({ page }) => {
     await open(page, '?seed=7');
     await page.evaluate(() => localStorage.clear());
     await page.reload();
@@ -450,9 +506,10 @@ test.describe('BUCKET-1 バケツ', () => {
       h.pause();
       h.lock.simulate(true);
       (window as any).__arena.floor(0, 0, 14, 14);
+      h.water.pause(true); // 置いた 水を 動かさない（まわりを 石で かこむ まで）
       h.inventory.clear();
-      h.inventory.add('water_bucket', 1);
-      h.inventory.add('water_bucket', 1);
+      h.inventory.setSlot(0, { item: 'water_bucket', count: 1, water: 3 });
+      h.inventory.setSlot(1, { item: 'water_bucket', count: 1, water: 8 });
       h.inventory.select(0);
       A.standForS(2.5, 6.5, 90, -30, 9);
       h.step(2);
@@ -463,9 +520,14 @@ test.describe('BUCKET-1 バケツ', () => {
       h.step(1);
       h.input.release('secondary');
       h.step(2);
-      (window as any).spot = s;
+      // 流れない くぼみに する（まわり 4 つが 石）
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) h.world.setBlock(s.x + dx, s.y, s.z + dz, 'stone');
+      const slots = h.inventory.get().slots;
       localStorage.setItem('__spot', JSON.stringify(s));
-      localStorage.setItem('__before', JSON.stringify({ wb: h.inventory.count('water_bucket'), b: h.inventory.count('bucket') }));
+      localStorage.setItem(
+        '__before',
+        JSON.stringify({ wb: h.inventory.count('water_bucket'), b: h.inventory.count('bucket'), placed: h.world.getBlock(s.x, s.y, s.z), amount: h.water.amount(s.x, s.y, s.z), slot1: slots[1]?.water ?? (slots[1]?.item === 'water_bucket' ? 8 : 0) }),
+      );
       await h.save.now();
     });
     await page.reload();
@@ -475,17 +537,24 @@ test.describe('BUCKET-1 バケツ', () => {
       h.pause();
       h.step(0);
       const s = JSON.parse(localStorage.getItem('__spot')!);
+      const slots = h.inventory.get().slots;
       return {
         before: JSON.parse(localStorage.getItem('__before')!),
         wb: h.inventory.count('water_bucket'),
         b: h.inventory.count('bucket'),
         block: h.world.getBlock(s.x, s.y, s.z),
+        amount: h.water.amount(s.x, s.y, s.z),
+        left: slots.filter((x: any) => x && x.item === 'water_bucket').map((x: any) => x.water ?? 8),
       };
     });
     expect(r.before.wb + r.before.b).toBe(2);
+    expect(r.before.placed).toBe('water_3');
+    expect(r.before.amount).toBe(3);
     expect(r.wb).toBe(r.before.wb);
     expect(r.b).toBe(r.before.b);
     expect(r.b).toBeGreaterThanOrEqual(1);
-    expect(r.block).toBe('water');
+    expect(r.left, '残った みずの バケツは 量 8').toEqual([8]);
+    expect(r.block, '置いた 水も 読み直し後 同じ').toBe('water_3');
+    expect(r.amount).toBe(3);
   });
 });

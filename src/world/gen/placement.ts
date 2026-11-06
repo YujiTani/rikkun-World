@@ -87,7 +87,7 @@ export function findSpacing(
         const x = x0 + i * CHUNK_SIZE + 8;
         const z = z0 + j * CHUNK_SIZE + 8;
         const h = T.height(x, z);
-        if (h < SEA_Y + C.strata.landFrom || T.topBlock(x, z, h) !== 'grass' || T.map.pondAt(x, z) !== null) return false;
+        if (h < SEA_Y + C.strata.landFrom || T.topBlock(x, z, h) !== 'grass' || T.map.pondAt(x, z) !== null || T.liquid.pondAt(x, z) !== null) return false;
       }
     }
     const pts = [24, 0, 47, 8, 16, 32, 40];

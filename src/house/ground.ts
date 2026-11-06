@@ -1,5 +1,6 @@
 import { surfaceY, type AnimalWorld } from '../animals/terrain';
 import { cellInWall } from '../world/wall';
+import { ALL_WATER_IDS, isWater } from '../world/blocks/water';
 
 /**
  * 建築士さんが 立てる 地面の しらべ方（読みこんだ 世界の 実際の ブロックを 見る）。
@@ -11,7 +12,7 @@ export const ARCHITECT_BODY = { radius: 0.3, height: 1.7, stepUp: 1, stepDown: 2
 /** 頭の 上まで あける マス数（足もとを ふくむ） */
 const ROOM_CELLS = 2;
 /** 立つ 地面に しない ブロック */
-const NOT_GROUND = new Set<string>(['log', 'bamboo', 'water']);
+const NOT_GROUND = new Set<string>(['log', 'bamboo', ...ALL_WATER_IDS]);
 
 /** 世界の 窓口（`AnimalWorld` が 合う） */
 export type HouseWorld = AnimalWorld;
@@ -26,7 +27,7 @@ export function standY(world: HouseWorld, ix: number, iz: number): number | null
   if (NOT_GROUND.has(String(world.getBlock(ix, top, iz)))) return null;
   const y = top + 1;
   for (let k = 0; k < ROOM_CELLS; k++) {
-    if (world.isSolid(ix, y + k, iz) || String(world.getBlock(ix, y + k, iz)) === 'water') return null;
+    if (world.isSolid(ix, y + k, iz) || isWater(String(world.getBlock(ix, y + k, iz)))) return null;
   }
   return y;
 }

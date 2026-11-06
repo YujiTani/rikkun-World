@@ -3,6 +3,10 @@
  */
 
 import type { ChalkMarkId } from '../world/blocks/chalkMark';
+import type { KATAME_TSUCHI, ScaffoldId } from '../world/blocks/buildBlocks';
+import type { ReservedId, WaterPartialId } from '../world/blocks/water';
+import type { MagmaExtraId } from '../world/blocks/magma';
+import type { FurnBlockId, HouseBlockId, HouseDoorPartId } from '../world/blocks/houseBlocks';
 
 export interface Vec3 {
   x: number;
@@ -89,7 +93,33 @@ export type BlockId =
   | 'suisho_ore' // すいしょうの いし（ほると すいしょう `crystal`）
   | 'diamond_ore' // ダイヤの いし（ほると ダイヤ `diamond`）
   // チョークの しるし 12 こ（面 × やじるしの 向き。持ち物に 入らない。`src/world/blocks/chalkMark.ts`）
-  | ChalkMarkId;
+  | ChalkMarkId
+  // HOUSE-1C PR-1（#340。うしろに足す）: 家の ブロック 5 つ・戸の のこり 3 マス・向きの ある 家具（向き × マスごとの id。`src/world/blocks/houseBlocks.ts`）
+  | HouseBlockId
+  | HouseDoorPartId
+  | FurnBlockId
+  // HOUSE-1C PR-2（#340。うしろに足す）: かためた つち・足場 5 つ（`src/world/blocks/buildBlocks.ts`）
+  | typeof KATAME_TSUCHI
+  | ScaffoldId
+  // WATER-1（#376。うしろに足す）: 量 1〜7 の 水と 予約の 番号（`src/world/blocks/water.ts`）
+  | WaterPartialId
+  | ReservedId
+  // ROPE-1（うしろに足す）: ロープ（固くない。つかまって のぼり おり できる）
+  | 'rope'
+  | 'rope_fence_post' // ROPE-1 版 5: ロープの さくの くい（はし・かど。くいと 同じ 絵。当たりは 1 マス）
+  | 'rope_fence' // ROPE-1 版 3: ロープの さく（つないで いる 間に 足もとへ。よこから とおれない・上に のれる）
+  | 'rope_stake' // ROPE-1 版 3: ロープを まきつけた くい（ロープの いちばん 上。足もと）
+  | 'rope_coil' // ロープ溜まり（ロープの いちばん 下。床に とどいた とき）
+  // WATERFALL-1（うしろに足す）: わきどころ・たきつぼ・こくようせき・マグマの わきどころ、予約、量 1〜8 の マグマ（`src/world/blocks/magma.ts`）
+  | 'wakimizu'
+  | 'takitsubo'
+  | 'kokuyouseki'
+  | 'magma_wakimizu'
+  | MagmaExtraId
+  // WATERFALL-1 版 2（うしろに足す）: マグマに 焼かれた ブロック（184。さわると あつい）
+  | 'kogeta'
+  // WAKIDOKORO（うしろに足す。185）: マグマの たきつぼ
+  | 'magma_takitsubo';
 
 export interface BlockType {
   id: BlockId;

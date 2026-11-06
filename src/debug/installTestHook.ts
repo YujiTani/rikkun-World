@@ -25,6 +25,7 @@ import { createSaveHook } from '../save';
 import { colKey } from '../world/stream/ring';
 import { createWorkHook } from '../debug/workHook';
 import { installTestHook, type TestHookGroups, withSpriteDoll } from '../debug/testHook';
+import { waterSettings } from '../world/render/waterWave';
 import { createSettingsHook } from '../game/settings';
 import { createInputHook } from '../input';
 import { createPlayerHook } from '../player/hook';
@@ -52,11 +53,25 @@ export function installGameHook(deps: WiredLoop): void {
     waterFx, drops, store, level, yokaiM, blade, weaponFx, animals, deliverAnimalEvents, animalEvents,
     currentKitRows, animalFx, animalHint, aimPointInto, combat, lockHook, book, look, wheel, mixer, bgm,
     bgmScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
-    m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets,
+    m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets, seat, water,
+    gamepadApi,
   } = deps;
   installTestHook(game, overlay, () => host.everReady, {
     start: startBoot.hook,
-    work: createWorkHook(() => game.tick, world),
+    work: createWorkHook(() => game.tick, world, () => water.computed()),
+    water: {
+      set: (x, y, z, n) => water.set(x, y, z, n),
+      amount: (x, y, z) => water.amount(x, y, z),
+      queue: () => water.queue(),
+      passes: () => water.passes(),
+      total: (x0, y0, z0, x1, y1, z1) => water.total(x0, y0, z0, x1, y1, z1),
+      stable: (x0, y0, z0, x1, y1, z1) => water.stable(x0, y0, z0, x1, y1, z1),
+      pause: (on) => water.pause(on),
+      waveTime: () => water.waveTime(),
+      magma: water.magma,
+      springCount: () => water.springCount(),
+      springLink: (x, y, z) => water.springLink(x, y, z),
+    },
     char: charCtl,
     shadow: createShadowHook({
       system: shared.shadowSystem,
@@ -193,7 +208,7 @@ export function installGameHook(deps: WiredLoop): void {
       trauma: () => rig.traumaNow(),
       log: () => impactBus.log.map((l) => ({ ...l })),
     },
-    ui: { telop: (item: ItemId, source: 'nushi' | 'gasha' | 'chest' = 'nushi') => celebrate.enqueueTelop(item, source), coopMenu: () => coopMenu.model.info(), coopMenuPress: (button: string, id?: number) => coopMenu.press(button as never, id), meatText: () => itadakimasu.text(), alpha: () => uiAlpha(), topBand: () => celebrate.topBand(), buffs: () => buffModel.list().map((b) => ({ ...b })) },
+    ui: { telop: (item: ItemId, source: 'nushi' | 'gasha' | 'chest' = 'nushi') => celebrate.enqueueTelop(item, source), coopMenu: () => coopMenu.model.info(), coopMenuPress: (button: string, id?: number) => coopMenu.press(button as never, id), meatText: () => itadakimasu.text(), alpha: () => uiAlpha(), topBand: () => celebrate.topBand(), buffs: () => buffModel.list().map((b) => ({ ...b })), houseNameBand: () => celebrate.houseNameBand() },
     craft: {
       ...craftHook,
       ...craftUiHook.craft,
@@ -307,7 +322,16 @@ export function installGameHook(deps: WiredLoop): void {
       bookStats: () => book.renderInfo(),
       get: () => ({ ...lockHook.get(), ...book.state() }),
     },
-    input: createInputHook(game.input, look, wheel),
+    input: createInputHook(game.input, look as unknown as { push(dx: number, dy: number): void }, wheel),
+    gamepad: gamepadApi
+      ? {
+          injectPad: (pad: Gamepad | null) => gamepadApi!.injectPad(pad),
+          hasPad: () => gamepadApi!.reader.hasPad(),
+          snapshot: () => gamepadApi!.reader.snapshot(),
+          openPanel: () => gamepadApi!.panel.open(),
+          closePanel: () => gamepadApi!.panel.close(),
+        }
+      : null,
     audio: createAudioHook({
       mixer,
       bgm,
@@ -319,7 +343,7 @@ export function installGameHook(deps: WiredLoop): void {
       sfxVoices: () => fxSound.activeVoices(),
     }),
     rarity: createRarityHook(() => dig.config.dropMax),
-    house: createHouseHook(house),
+    house: createHouseHook(house, seat),
     settings: createSettingsHook(controller.settings, rig.config, [
         digSettingsView(dig.config),
         ITEM_RARITY_SETTINGS,
@@ -335,6 +359,7 @@ export function installGameHook(deps: WiredLoop): void {
         aimCfg,
         live,
         { clockPhases },
+        house.settings, // HOUSE-1C PR-2: houseBuildTicks（0 ＝ 仕様の 式）
         FX_SETTINGS,
         audioSettings,
         sharedSettingsView('knockback', [combat.config, yokaiM.config]),
@@ -346,6 +371,7 @@ export function installGameHook(deps: WiredLoop): void {
         yokaiM.config,
         timeSettings,
         renderer.config,
+        waterSettings, // WATER-1 §4.1: waveAmp
       ]),
   }, frameClock);
 }

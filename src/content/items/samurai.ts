@@ -13,6 +13,7 @@ import type { ItemDef } from './types';
 export const SAMURAI = {
   samurai_jingasa: {
     name: '［明珍｜みょうちん］［陣笠｜じんがさ］',
+    zukan: 'むかし、［明珍｜みょうちん］と いう よろいづくりの めいじんの ［家｜いえ］が あった。その ［家｜いえ］に つたわる ［陣笠｜じんがさ］。ひのたまを ふせぎ、パリィで はじく ［時間｜じかん］が ［長｜なが］く なる。かぶると、まるで ［一｜ひと］つ ［一｜ひと］つの こうげきが ゆっくり ［見｜み］える らしい。',
     maxStack: 1,
     rarity: 'legendary', // 7 段目
     category: 'armor',
@@ -22,6 +23,7 @@ export const SAMURAI = {
   },
   samurai_haori: {
     name: '［明珍｜みょうちん］［羽織｜はおり］',
+    zukan: '［明珍｜みょうちん］の ［家｜いえ］に つたわる、さむらいの たいしょうが はおった ［羽織｜はおり］。ようかいに ぶつかられても びくとも せず、とばされにくい。',
     maxStack: 1,
     rarity: 'legendary',
     category: 'armor',
@@ -31,6 +33,7 @@ export const SAMURAI = {
   },
   samurai_tekko: {
     name: '［明珍｜みょうちん］［手甲｜てっこう］',
+    zukan: '［明珍｜みょうちん］の めいじんが ひと はり ひと はり きたえた ［手甲｜てっこう］。［刀｜かたな］の あつかいが うまく なって、かたい あいてにも よく きく。',
     maxStack: 1,
     rarity: 'legendary',
     category: 'armor',
@@ -40,6 +43,7 @@ export const SAMURAI = {
   },
   samurai_geta: {
     name: '［明珍｜みょうちん］［下駄｜げた］',
+    zukan: '［明珍｜みょうちん］の ［家｜いえ］に つたわる ふしぎな ［下駄｜げた］。おちた ときの いたさを へらし、［走｜はし］ると カランコロンと ここちよい ［音｜おと］が ［鳴｜な］る。その ［足｜あし］［音｜おと］は、ようかいたちが いちばん こわがる ［音｜おと］ だった と いう。',
     maxStack: 1,
     rarity: 'legendary',
     category: 'armor',

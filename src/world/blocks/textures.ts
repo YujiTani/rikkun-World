@@ -1,12 +1,16 @@
 import { DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType } from 'three';
 import type { BlockId } from '../../contracts';
 import { CHALK_MARK_IDS } from './chalkMark';
+import { RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_PARTIAL_IDS } from './water';
 import { tansuPixels } from '../../storage/tansuArt';
 import { FARM_TILE_NAMES, paintFarmTile } from './farmTextures';
 import { GADGET_TILE_NAMES, isGadgetTile, paintGadgetTile, type GadgetTileName } from './gadgetTextures';
 import { KOTATSU_ART_ROWS, kotatsuTileOrder, paintKotatsuArt, type KotatsuTileName } from './kotatsuArt';
 import { LIVE_TILE_NAMES, paintLiveTile, type LiveTileName } from './liveTextures';
 import { MINE_TILE_NAMES, isMineTile, paintMineTile, type MineTileName } from './mineTextures';
+import { ROPE_TILE_NAMES, isRopeTile, paintRopeTile, type RopeTileName } from './ropeTextures';
+import { BOIL_NAMES, WATERFALL_BLOCK_TILES, WATERFALL_TILE_NAMES, isWaterfallTile, paintWaterfallTile, type WaterfallTileName } from './waterfallTextures';
+import { HOUSE_ATLAS_TILE_NAMES, HOUSE_BLOCK_TILES, isHouseTile, paintHouseTile, type HouseAtlasTile } from './houseTextures';
 
 /** 16x16 ドット絵をコードで描く（M1-01 4-2 の色）。 */
 export const TILE_SIZE = 16;
@@ -39,7 +43,10 @@ export type TileName =
   | KotatsuTileName
   | 'geyser_dirt_top' | 'geyser_dirt_side'
   | GadgetTileName
-  | MineTileName;
+  | MineTileName
+  | HouseAtlasTile
+  | RopeTileName
+  | WaterfallTileName;
 
 /** VOX-I-1（12 の国）のふつうの絵（一ひねりの絵は #185） */
 export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y' | 'flower_o' | 'flower_p' | 'bamboo' | 'susuki' | 'kusa' | 'nobana';
@@ -90,7 +97,15 @@ export const TILE_NAMES: readonly TileName[] = [
   ...kotatsuTileOrder(TILE_NAMES_BASE.length).map((n): TileName => (n.startsWith('kotatsu_pad') && gadgetAt < GADGET_TILE_NAMES.length ? GADGET_TILE_NAMES[gadgetAt++]! : n)),
   // MINE-1B（#349）: 鉱物・ねんど・チョークの しるしの 絵。さいごに 足す（今の 絵の 位置は かわらない。アトラスが 下に のびる）
   ...MINE_TILE_NAMES,
+  // HOUSE-1C PR-1（#340）: 家の ブロック 12 まい・家具 20 まい。さいごに 足す（今の 絵の 位置は かわらない。アトラスが 下に のびる）
+  ...HOUSE_ATLAS_TILE_NAMES,
+  // ROPE-1: ロープ・ロープだまり。さいごに 足す
+  ...ROPE_TILE_NAMES,
+  // WATERFALL-1: わきどころ・たきつぼ・こくようせき・マグマ。さいごに 足す
+  ...WATERFALL_TILE_NAMES,
 ];
+// WATERFALL-1 版 2: 煮えたぎる マグマの 4 コマは アトラスの 1 だんの 左から（shader が 1 コマ = 1/ATLAS_COLS だけ 横に ずらす）
+if (TILE_NAMES.indexOf(BOIL_NAMES[0]) % ATLAS_COLS !== 0 || BOIL_NAMES.length !== ATLAS_COLS) throw new Error('magma boil frames must fill one atlas row');
 export const ATLAS_ROWS = Math.ceil(TILE_NAMES.length / ATLAS_COLS);
 export const ATLAS_WIDTH = ATLAS_COLS * TILE_SIZE;
 export const ATLAS_HEIGHT = ATLAS_ROWS * TILE_SIZE;
@@ -330,6 +345,9 @@ function geyserDirt(top: boolean): Tile {
 function paintTile(name: TileName): Tile {
   if (isGadgetTile(name)) return paintGadgetTile(name).slice(); // ITEM-FX-1: 置き物の 絵
   if (isMineTile(name)) return paintMineTile(name).slice(); // MINE-1B: 鉱物・ねんど・チョークの しるし
+  if (isRopeTile(name)) return paintRopeTile(name).slice(); // ROPE-1
+  if (isWaterfallTile(name)) return paintWaterfallTile(name).slice(); // WATERFALL-1
+  if (isHouseTile(name)) return paintHouseTile(name).map((c): Rgba => [(c >> 16) & 255, (c >> 8) & 255, c & 255, 255]); // HOUSE-1C: 家の ブロック・家具
   switch (name) {
     case 'grass_top':
       return calm(speckle('#5DBB3F', ['#4CA332', '#73CC52'], 11), '#5DBB3F');
@@ -463,6 +481,10 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   coal_ore: ['coal_ore_b', 'coal_ore_b', 'coal_ore_b'],
   iron_ore: ['iron_ore_b', 'iron_ore_b', 'iron_ore_b'],
   water: ['water', 'water', 'water'],
+  // WATER-1: 量 1〜7 も 同じ 絵（高さだけが ちがう）
+  ...Object.fromEntries(WATER_PARTIAL_IDS.map((id) => [id, ['water', 'water', 'water'] as const])),
+  // 予約の 番号(世界に 置かない。型と テストの そろえのため)
+  ...Object.fromEntries([...RESERVED_BEFORE_IDS, RESERVED_AFTER_ID].map((id) => [id, ['stone', 'stone', 'stone'] as const])),
   bedrock: ['bedrock', 'bedrock', 'bedrock'],
   furnace: ['furnace_top', 'furnace_top', 'furnace_side'],
   kawara: ['kawara', 'kawara', 'kawara'],
@@ -529,6 +551,16 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   diamond_ore: ['diamond_ore', 'diamond_ore', 'diamond_ore'],
   // チョークの しるし 12 こ: 立方体では ない（面に はる 板。render/chalkMesh.ts）。ここは かけらの 色・アイテムの 絵などの ため
   ...CHALK_BLOCK_TILES,
+  // HOUSE-1C PR-1（#340）: ゆか・かべ・やね・向きごとの たんす・かまど（平らな 箱。しょうじ・戸・ほかの 家具は 箱の 組み合わせ〔render/houseProp.ts〕）
+  ...HOUSE_BLOCK_TILES,
+  // ROPE-1: 十字の 板
+  rope: ['rope', 'rope', 'rope'],
+  rope_coil: ['rope_coil', 'rope_coil', 'rope_coil'],
+  rope_stake: ['rope_stake', 'rope_stake', 'rope_stake'],
+  rope_fence: ['rope_fence', 'rope_fence', 'rope_fence'],
+  rope_fence_post: ['rope_stake', 'rope_stake', 'rope_stake'], // 版 5: くいと 同じ 絵
+  // WATERFALL-1: わきどころ・たきつぼ・こくようせき・マグマの わきどころ・マグマ（量 1〜8 は 同じ 絵）
+  ...WATERFALL_BLOCK_TILES,
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */

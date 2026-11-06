@@ -2,7 +2,6 @@ import type { CropStageSource } from '../../../contracts';
 import { LOOK_VOLUME, fillBlockLookKata, hasLook, kataOf } from '../looks';
 import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from '../../micro/microSurface';
 import { scanColumn, type ColumnInfo } from '../../micro/worldColumns';
-import { WATER } from '../../blocks/blockTypes';
 import { OCC_BYTES, OCC_NY, packOccupancy } from './ao';
 import { ROW_NONE, rowCodeOf, terrainKindOf } from './projection';
 import type { WorldLight } from '../../light/WorldLight';
@@ -14,6 +13,7 @@ import { BoxMesher } from './sectionBox';
 import * as K from './sectionConsts';
 import { emitGreedy } from './sectionGreedy';
 import { QuadBuilder, type VoxelPiece } from './sectionQuads';
+import { isWaterIndex } from '../../blocks/water';
 
 // vitest の import は 読むたびに getter を通って 遅い。内側のループが読む定数は このファイルの const に写す（本番のビルドでは同じ）
 const {
@@ -457,7 +457,7 @@ export class SectionMesher {
           for (let f = 0; f < 6; f++) {
             const n = cube.kindNear(bxi, byi, bzi, f);
             if (n >= 0 && OCC[n] === 0) e |= 1 << f;
-            if (n === WATER) wet = true;
+            if (isWaterIndex(n)) wet = true;
           }
           this.uniq[i] = e === 0 ? 0 : wet ? 1 : LEAF[k] === 0 && kataOf(k) > 0 && this.underground(bxi, byi, bzi, e) ? 2 : 0;
           if (e === 0 && terrain && OCC[k] === 1) {

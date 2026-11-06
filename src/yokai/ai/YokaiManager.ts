@@ -230,6 +230,22 @@ export class YokaiManager implements YokaiWorld {
     syncTransform(e);
   }
 
+  /** HOUSE-1C PR-2: 建築が はじまる 場所から 外へ うつす（箱 x0〜x1・z0〜z1・y0〜y1 の 中に いる 妖怪を 立てる 場所 spots へ。足りなければ くりかえす）。うつした 数 */
+  evictFrom(box: { x0: number; z0: number; x1: number; z1: number; y0: number; y1: number }, spots: readonly Vec3[]): number {
+    let n = 0;
+    for (const e of this.ents) {
+      if (e.state === 'dying' || e.state === 'leaving' || e.remove) continue;
+      if (e.x < box.x0 || e.x >= box.x1 || e.z < box.z0 || e.z >= box.z1 || e.y < box.y0 - 1 || e.y >= box.y1) continue;
+      const to = spots[n % spots.length]!;
+      e.x = to.x;
+      e.y = to.y;
+      e.z = to.z;
+      syncTransform(e);
+      n++;
+    }
+    return n;
+  }
+
   occupies(x: number, y: number, z: number): boolean {
     const cell: Aabb = { minX: x, maxX: x + 1, minY: y, maxY: y + 1, minZ: z, maxZ: z + 1 };
     for (const e of this.ents) {

@@ -11,6 +11,7 @@ import type { ItemDef } from './types';
 export const GADGETS = {
   lantern: {
     name: 'ちょうちん',
+    zukan: '［紙｜かみ］と ［木｜き］で ［作｜つく］った ちょうちん。たいまつより もっと ［明｜あか］るく、まわりに ようかいを よせつけない。けんちくしさんの おうちの てんじょうにも さがって いる。',
     maxStack: 64,
     rarity: 'uncommon',
     category: 'light',
@@ -21,6 +22,7 @@ export const GADGETS = {
   },
   kite: {
     name: 'たこ',
+    zukan: '［紙｜かみ］と ［糸｜いと］で ［作｜つく］った たこ。［風｜かぜ］に のせて ［空｜そら］［高｜たか］く あげよう。どこまで あがるかな。',
     maxStack: 1,
     rarity: 'uncommon',
     category: 'home',
@@ -30,6 +32,7 @@ export const GADGETS = {
   },
   futon: {
     name: 'ふとん',
+    zukan: 'ふかふかの ふとん。ゆうがたや ［夜｜よる］に ねむると、あっという ［間｜ま］に ［朝｜あさ］が くる。おやすみなさい。',
     maxStack: 64, // 置けるブロックなので ブロックと 同じ（PO 判断）
     rarity: 'uncommon',
     category: 'home',
@@ -40,6 +43,7 @@ export const GADGETS = {
   },
   omamori: {
     name: 'おまもり',
+    zukan: 'すいしょうと ［金｜きん］を ぬのに つつんだ おまもり。もって いれば、ようかいに やられても もちものを まもって くれる。まもって くれた ときは、かわりに やぶれて しまう。',
     maxStack: 1,
     maxOwned: GADGET_TUNING.omamori.maxOwned, // もちもの ぜんぶ で 1 こ だけ
     rarity: 'superRare',
@@ -50,6 +54,7 @@ export const GADGETS = {
   },
   omamori_torn: {
     name: 'やぶれた おまもり',
+    zukan: 'あなたを まもって くれた おまもりの、やぶれた すがた。もう ［力｜ちから］は ないけれど、たいせつな きねんの しな。',
     maxStack: 64,
     rarity: 'common',
     category: 'home',
@@ -58,6 +63,7 @@ export const GADGETS = {
   },
   waraji: {
     name: 'わらじ',
+    zukan: '［草｜くさ］を あんで ［作｜つく］った わらじ。はくと ［足｜あし］が かるく なって、ジャンプが すこし ［高｜たか］く なる。',
     maxStack: 1,
     rarity: 'common',
     category: 'home',
@@ -68,6 +74,7 @@ export const GADGETS = {
   },
   haniwa: {
     name: 'はにわ',
+    zukan: 'ねんどを やいて ［作｜つく］った はにわ。おいて かざると、なんだか おうちを みまもって くれて いる みたい。',
     maxStack: 64,
     rarity: 'uncommon',
     category: 'home',

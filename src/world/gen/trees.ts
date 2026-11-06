@@ -52,6 +52,7 @@ export function treeGround(T: Terrain, x: number, z: number, nearStart = true): 
   if (h < SEA_Y + C.strata.landFrom) return -1;
   if (T.topBlock(x, z, h) === 'stone') return -1; // いしの山の上には 立てない
   if (T.map.pondAt(x, z) !== null) return -1;
+  if (T.liquid.pondAt(x, z) !== null) return -1;
   if (T.inRock(x, z, 3.5)) return -1;
   const s = C.trees.maxSlope;
   if (Math.abs(T.height(x + 1, z) - h) >= s || Math.abs(T.height(x - 1, z) - h) >= s) return -1;

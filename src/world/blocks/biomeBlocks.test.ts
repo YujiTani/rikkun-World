@@ -49,8 +49,8 @@ describe('#184-AC10: 新しいブロックの役わり', () => {
     expect(itemType('susuki')?.placeBlock ?? null).toBeNull();
   });
 
-  it('ほかのブロックは 持ち物がふえる（NO_DROP_BLOCKS は すすき と くさ だけ。FLORA-75）', () => {
+  it('ほかのブロックは 持ち物がふえる（NO_DROP_BLOCKS は すすき と くさ と わきどころ 2 つ だけ。FLORA-75・WAKIDOKORO §4）', () => {
     // MINE-1B: チョークの しるし〔chalk_mark〕も こわすと 何も 出ない。この 表に 入れても、べつの 持ち方でも よい（出ない ことは src/dig/chalk.test.ts）
-    expect([...NO_DROP_BLOCKS].filter((id) => (id as string) !== 'chalk_mark')).toEqual(['susuki', 'kusa']);
+    expect([...NO_DROP_BLOCKS].filter((id) => (id as string) !== 'chalk_mark')).toEqual(['susuki', 'kusa', 'wakimizu', 'magma_wakimizu']);
   });
 });

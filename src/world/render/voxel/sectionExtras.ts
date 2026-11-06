@@ -1,14 +1,17 @@
 import type { CropStageSource } from '../../../contracts';
 import { cropKindOfBlock } from '../../../contracts';
 import { hasLook, occludes } from '../looks';
-import { AIR, BLOCK_TYPES, WATER, isChalkIndex, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../../blocks/blockTypes';
+import { AIR, BLOCK_TYPES, SHOJI, isChalkIndex, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../../blocks/blockTypes';
 import type { TileName } from '../../blocks/textures';
 import type { WorldLight } from '../../light/WorldLight';
 import type { ArrayVoxelWorld } from '../../VoxelWorld';
 import { isKotatsuBlock } from '../../blocks/kotatsu';
 import { pushChalk } from '../chalkMesh';
+import { pushHouseProp, shojiAxisAt } from '../houseProp';
 import { pushKotatsuCell } from '../kotatsuMesh';
-import { FACES, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, isCoopLineIndex, pushCoopPanels, pushCross, pushFace, pushProp, pushTorch, type MeshData } from '../meshChunk';
+import { FACES, FACE_UV, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, isCoopLineIndex, pushCoopPanels, pushCross, pushFace, pushProp, pushTorch, type MeshData } from '../meshChunk';
+import { isLiquidIndex } from '../../blocks/liquids';
+import { WATER_SPAN, waterFaceSpan } from '../waterFaces';
 
 /**
  * セクション 1 つぶんの「絵（atlas）で描くもの」: チョークの しるし〔MINE-1B。うかせた 板〕・たいまつ・十字の板（作物・やせいの やさい・かかし・さく）・
@@ -35,6 +38,7 @@ export function meshSectionExtras(
 ): SectionExtras {
   const opaque = emptyMesh();
   const water = emptyMesh();
+  water.waves = []; // WATER-1: ゆらめきの 印
   const x0 = cx * 16;
   const y0 = sy * 16;
   const z0 = cz * 16;
@@ -49,7 +53,11 @@ export function meshSectionExtras(
           continue;
         }
         if (isPropIndex(b)) {
-          pushProp(opaque, x, y, z, BLOCK_TYPES[b].id, light ? light.skyAt(x, y, z) / LIGHT_MAX : 1, light ? light.blockAt(x, y, z) / LIGHT_MAX : 0);
+          const id = BLOCK_TYPES[b].id;
+          const sky = light ? light.skyAt(x, y, z) / LIGHT_MAX : 1;
+          const blk = light ? light.blockAt(x, y, z) / LIGHT_MAX : 0;
+          // HOUSE-1C: 戸・しょうじ・家具は 家の 箱の 形（しょうじの 向きは となりの かべから）。ほかの 小物は 今まで どおり
+          if (!pushHouseProp(opaque, x, y, z, id, sky, blk, b === SHOJI ? shojiAxisAt((ax, ay, az) => world.getIndex(ax, ay, az), x, y, z) : 'z')) pushProp(opaque, x, y, z, id, sky, blk);
           continue;
         }
         if (isCoopLineIndex(b)) {
@@ -73,7 +81,7 @@ export function meshSectionExtras(
           continue;
         }
         if (isKotatsuBlock(BLOCK_TYPES[b].id) && pushKotatsuCell(opaque, world, light, x, y, z, BLOCK_TYPES[b].id)) continue;
-        const isWater = b === WATER;
+        const isWater = isLiquidIndex(b); // WATERFALL-1: マグマも 水と 同じ 液体の 面
         if (!isWater && hasLook(b)) continue; // 小ブロックの形で描く
         const uv = TILE_UV[b];
         if (!uv) continue;
@@ -82,8 +90,14 @@ export function meshSectionExtras(
           if (n < 0) continue; // 世界の外へ向く面は見えない
           // となりが 絵のブロックなら 面はかくれる。小ブロックの形のとなりは、横は 地形のへこみから見えることがあるので 描く。
           // 上下は となりの面が ぜんぶ つまっている（箱でふさがれた面は へこまない）ので かくれる
-          if (isWater ? n !== AIR : isOpaqueIndex(n) && (!hasLook(n) || (face.dir[1] !== 0 && occludes(n)))) continue;
-          pushFace(isWater ? water : opaque, world, light, x, y, z, face, uv[face.kind], ao && !isWater);
+          if (isWater) {
+            // WATER-1: 水面の 高さ = 量 ÷ 8。高さの ちがう 水の 境は 高い ほうが 描く
+            if (!waterFaceSpan(world, x, y, z, b, face, n)) continue;
+            pushFace(water, world, light, x, y, z, face, WATER_SPAN.uv ?? FACE_UV[b]?.[face.index] ?? uv[face.kind], false, WATER_SPAN.lo, WATER_SPAN.hi, WATER_SPAN.waveLo, WATER_SPAN.waveHi);
+            continue;
+          }
+          if (isOpaqueIndex(n) && (!hasLook(n) || (face.dir[1] !== 0 && occludes(n)))) continue;
+          pushFace(opaque, world, light, x, y, z, face, FACE_UV[b]?.[face.index] ?? uv[face.kind], ao);
         }
       }
     }

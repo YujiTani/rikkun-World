@@ -1,7 +1,10 @@
 import type { PerspectiveCamera, WebGLRenderer } from 'three';
 import { Vector3 } from 'three';
 import { BLOCK_TYPES, isOpaqueIndex } from '../blocks/blockTypes';
-import { TILE_NAMES, getTilePixels } from '../blocks/textures';
+import { WATER_EXTRA_IDS } from '../blocks/water';
+import { MAGMA_EXTRA_IDS } from '../blocks/magma'; // マグマ（液体の 面）と 予約も 平らな 箱では ない // 水の 量 1〜7 と 予約は 平らな 箱では ない（水の 面・描かない）
+import { FURN_FACE_TILES } from '../blocks/houseTextures';
+import { TILE_NAMES, getTilePixels, type TileName } from '../blocks/textures';
 import { hasLook } from './looks';
 import { sampleSurface, newSample } from '../micro/microSurface';
 import { microTerrain, scanColumn, worldColumnSource, type ColumnInfo } from '../micro/worldColumns';
@@ -156,6 +159,9 @@ export function createRenderHook(d: RenderHookDeps) {
     if (!cell) cell = [inside[0] * 9 + 4, inside[1] * 9 + 4, inside[2] * 9 + 4];
     const { kind, rowCode } = isFlat(blockKind) ? { kind: blockKind, rowCode: null } : cellKind(cell[0], cell[1], cell[2]);
     let tile = tileIndexOf(kind, tileSlot(f));
+    // HOUSE-1C: 向きごとの たんす・かまどは 面ごとに 絵が ちがう（前・うしろ・よこ。FURN_FACE_TILES。世界の 描画〔FACE_UV〕と 同じ 表）
+    const faceTile = isFlat(blockKind) ? FURN_FACE_TILES[BLOCK_TYPES[kind]?.id ?? '']?.[f] : undefined;
+    if (faceTile) tile = TILE_NAMES.indexOf(faceTile as TileName);
     if (tile < 0) return none;
     const q = [x - n[0] * 0.001, y - n[1] * 0.001, z - n[2] * 0.001];
     const fr = [q[0] - Math.floor(q[0]), q[1] - Math.floor(q[1]), q[2] - Math.floor(q[2])];
@@ -260,7 +266,7 @@ export function createRenderHook(d: RenderHookDeps) {
     env: () => d.env(),
     faceShade: () => faceShadeTable(),
     /** 平らな箱で描く id（小ブロックの形を持たない固いブロック） */
-    flatBlocks: (): string[] => BLOCK_TYPES.filter((_, i) => isFlat(i)).map((t) => t.id as string),
+    flatBlocks: (): string[] => BLOCK_TYPES.filter((t, i) => isFlat(i) && !(WATER_EXTRA_IDS as readonly string[]).includes(t.id) && !(MAGMA_EXTRA_IDS as readonly string[]).includes(t.id)).map((t) => t.id as string),
     texelAt,
     aoAt,
     toScreen,

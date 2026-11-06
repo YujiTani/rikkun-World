@@ -56,20 +56,23 @@ const EXPECT: Record<string, Expect> = {
   },
   bucket: { name: 'バケツ', maxStack: 1, rarity: 'common', category: 'tool', info: { use: 'みず を くんで はこぶ', how: 'みず に みぎクリック で くむ', buttons: ['1-9', 'right'] } },
   water_bucket: { name: 'みずの バケツ', maxStack: 1, rarity: 'common', category: 'tool', info: { use: 'はたけ の そば に みず を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] } },
+  magma_bucket: { name: 'マグマの バケツ', maxStack: 1, rarity: 'uncommon', category: 'tool', info: { use: 'マグマ を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] } },
+  wakimizu_bucket: { name: 'わきどころの バケツ', maxStack: 1, rarity: 'rare', category: 'tool', info: { use: 'わきどころ を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] } },
+  magma_wakimizu_bucket: { name: 'マグマの わきどころの バケツ', maxStack: 1, rarity: 'rare', category: 'tool', info: { use: 'マグマの わきどころ を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] } },
 };
 
 const FARM_IDS = Object.keys(EXPECT);
 
 describe('登録表（畑 14 個）', () => {
   it('14 個すべてに ItemDef が ある（id は ids.ts の 1 回。スプリンクラーだけ ブロック側）', () => {
-    expect(FARM_IDS).toHaveLength(14);
+    expect(FARM_IDS).toHaveLength(17);
     expect([...SEED_ITEM_IDS, ...VEG_ITEM_IDS, ...FARM_TOOL_IDS, 'sprinkler', ...FARM_BUCKET_IDS]).toEqual(FARM_IDS);
     for (const id of FARM_IDS) expect(itemDef(id), id).toBeDefined();
   });
 
   it('SPRINKLER のキーは sprinkler だけ（ブロック側の id。ほかの 物を まぜない）', () => {
     expect(Object.keys(SPRINKLER)).toEqual(['sprinkler']);
-    expect(Object.keys({ ...SEEDS, ...VEGGIES, ...FARM_TOOLS, ...BUCKETS })).toHaveLength(13);
+    expect(Object.keys({ ...SEEDS, ...VEGGIES, ...FARM_TOOLS, ...BUCKETS })).toHaveLength(16);
   });
 
   it.each(FARM_IDS)('%s: 名前・重ね数・置くブロック・レア度・分類・説明が 今の表と同じ', (id) => {
@@ -105,13 +108,13 @@ describe('登録表（畑 14 個）', () => {
       expect(r.works, id).toBe(true);
       expect(r.station, id).toBe('craft');
     }
-    for (const id of ['onion', 'tomato', 'pumpkin', 'eggplant', 'water_bucket']) expect(ALL_RECIPES.some((x) => x.id === id), id).toBe(false);
+    for (const id of ['onion', 'tomato', 'pumpkin', 'eggplant', 'water_bucket', 'magma_bucket', 'wakimizu_bucket', 'magma_wakimizu_bucket']) expect(ALL_RECIPES.some((x) => x.id === id), id).toBe(false);
   });
 
   it('たいきゅう: くわは 131 で へる。じょうろ・バケツは こわれない。たね・やさい・スプリンクラーは つかうと 1 こ へる', () => {
     expect(W2_SETTING_DEFAULTS.toolDurability.kuwa).toBe(131);
     expect(itemClassOf('kuwa')).toBe('durable');
-    for (const id of ['watering_can', 'long_watering_can', 'bucket', 'water_bucket'] as const) expect(itemClassOf(id), id).toBe('permanent');
+    for (const id of ['watering_can', 'long_watering_can', 'bucket', 'water_bucket', 'magma_bucket', 'wakimizu_bucket', 'magma_wakimizu_bucket'] as const) expect(itemClassOf(id), id).toBe('permanent');
     for (const id of ['seed_onion', 'onion', 'sprinkler'] as const) expect(itemClassOf(id), id).toBe('consumable');
   });
 
@@ -125,13 +128,13 @@ describe('登録表（畑 14 個）', () => {
   it('ITEM_TYPES は たね 4 → やさい 4 → くわ → じょうろ 2 → スプリンクラー → バケツ 2 の 順に つづく', () => {
     const ids = ITEM_TYPES.map((t) => t.id as string);
     const i = ids.indexOf('seed_onion');
-    expect(ids.slice(i, i + 14)).toEqual(FARM_IDS);
+    expect(ids.slice(i, i + 17)).toEqual(FARM_IDS);
   });
 
   it('色分け: たねは くさの なかま、やさいは たべもの、道具は つるはし・おの → くわ → じょうろ → バケツ → むしとりあみ', () => {
     expect(CATEGORY_ITEMS.plant.slice(3, 7)).toEqual([...SEED_ITEM_IDS]);
     expect(CATEGORY_ITEMS.food.slice(0, 5)).toEqual([...VEG_ITEM_IDS, 'egg']);
-    expect(CATEGORY_ITEMS.tool.slice(7, 13)).toEqual([...FARM_TOOL_IDS, ...FARM_BUCKET_IDS, 'mushi_ami']);
+    expect(CATEGORY_ITEMS.tool.slice(7, 16)).toEqual([...FARM_TOOL_IDS, ...FARM_BUCKET_IDS, 'mushi_ami']);
     expect(CATEGORY_ITEMS.home).toContain('sprinkler');
   });
 

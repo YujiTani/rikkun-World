@@ -7,6 +7,7 @@ import { inFootprint, inInterior } from './coop';
 import type { Ent } from './animalTypes';
 import { DT, FALL_G, FLUTTER_MIN_VY, FRIEND_MIN_GAP, HOME_RADIUS, KID_MARGIN, ROLL_MIN_DROP, ROLL_TICKS, TAU } from './animalConsts';
 import { angleDiff, dist2d, FOLLOW_OFFS, SEP_OFFS, yawTo } from './animalMath';
+import { isDeepWater } from '../world/blocks/water';
 
 /** この 係 が 使う ものだけ（`AnimalCore` の 一部） */
 type MoveCtx = Pick<AnimalCore, 'coopById' | 'coopList' | 'ents' | 'push' | 'rng' | 'setState' | 'settings' | 'world'>;
@@ -15,7 +16,7 @@ type MoveCtx = Pick<AnimalCore, 'coopById' | 'coopList' | 'ents' | 'push' | 'rng
 export function clear2(core: MoveCtx, ix: number, y: number, iz: number): boolean {
   const w = core.world;
   for (let k = 0; k < 2; k++) {
-    if (w.isSolid(ix, y + k, iz) || w.getBlock(ix, y + k, iz) === 'water') return false;
+    if (w.isSolid(ix, y + k, iz) || isDeepWater(w.getBlock(ix, y + k, iz))) return false;
   }
   return true;
 }
@@ -65,7 +66,7 @@ export function tryMove(core: MoveCtx, e: Ent, dx: number, dz: number, maxDrop: 
   if (!bodyFree(w, nx, nz, top)) return false;
   if (!allowWater) {
     const tc = columnTop(w, ix, iz, Math.floor(e.y + BODY.stepUp + 1e-6) - 1, BODY.stepUp + maxDrop + 1);
-    if (tc !== null && w.getBlock(ix, tc, iz) === 'water') return false;
+    if (tc !== null && isDeepWater(w.getBlock(ix, tc, iz))) return false;
   }
   e.x = nx;
   e.z = nz;
@@ -95,8 +96,8 @@ export function settleOnGround(core: MoveCtx, e: Ent): void {
   const ix = Math.floor(e.x);
   const iz = Math.floor(e.z);
   let cy = Math.floor(e.y + 0.3);
-  if (w.getBlock(ix, cy, iz) === 'water') {
-    while (w.getBlock(ix, cy + 1, iz) === 'water') cy++;
+  if (isDeepWater(w.getBlock(ix, cy, iz))) {
+    while (isDeepWater(w.getBlock(ix, cy + 1, iz))) cy++;
     const target = cy + 1 - 0.45;
     e.y += Math.max(-0.08, Math.min(0.08, target - e.y));
     e.vy = 0;

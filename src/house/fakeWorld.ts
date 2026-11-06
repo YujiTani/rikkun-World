@@ -1,5 +1,6 @@
 import type { AnimalWorld } from '../animals/terrain';
 import type { BlockId } from '../contracts';
+import { ALL_WATER_IDS } from '../world/blocks/water';
 
 /**
  * 建築士さんの ユニットテスト用の 小さな 世界（テストだけが 使う）。
@@ -16,11 +17,13 @@ export interface FakeWorldOpts {
 export type FakeWorld = AnimalWorld & {
   topY(x: number, z: number): number;
   set(x: number, y: number, z: number, id: BlockId): void;
+  /** 本物の 世界と 同じ 名前の 書きかえ（`HouseSystem.buildNow` が 使う。いつも 置ける） */
+  setBlock(x: number, y: number, z: number, id: BlockId): boolean;
   /** 世界を 読んだ 回数。テストが 0 に もどして 数え なおして よい */
   reads: number;
 };
 
-const SOFT = new Set<string>(['air', 'water', 'torch', 'kusa', 'flower_y', 'flower_o', 'flower_p', 'nobana', 'susuki', 'saku']);
+const SOFT = new Set<string>(['air', ...ALL_WATER_IDS, 'torch', 'kusa', 'flower_y', 'flower_o', 'flower_p', 'nobana', 'susuki', 'saku']);
 
 export function makeFakeWorld(o: FakeWorldOpts = {}): FakeWorld {
   const height = o.height ?? (() => 10);
@@ -59,6 +62,10 @@ export function makeFakeWorld(o: FakeWorldOpts = {}): FakeWorld {
     },
     set(x, y, z, id) {
       edits.set(key(x, y, z), id);
+    },
+    setBlock(x, y, z, id) {
+      edits.set(key(x, y, z), id);
+      return true;
     },
   };
   return w;

@@ -13,6 +13,7 @@ import type { ItemDef } from './types';
 export const NINJA = {
   ninja_zukin: {
     name: '［黒頭巾｜くろずきん］',
+    zukan: 'むかし、［夜｜よる］の やみに まぎれて ［国｜くに］を まもった しのびの ものたちが いた。その かしらが かぶって いたと いう まっ［黒｜くろ］な ずきん。ひのたまを ふせぎ、［水｜みず］の ［中｜なか］でも いきが ［長｜なが］く つづく。しのびの ものは ［水｜みず］の そこに ［何｜なん］［時間｜じかん］も かくれて いられたと いう。',
     maxStack: 1,
     rarity: 'legendary', // 7 段目
     category: 'armor',
@@ -22,6 +23,7 @@ export const NINJA = {
   },
   ninja_shozoku: {
     name: '［忍｜しの］び［装束｜しょうぞく］',
+    zukan: 'しのびの ものが きて いた、［夜｜よる］の ［色｜いろ］の きもの。きて いると ［足｜あし］［音｜おと］も けはいも きえて、ようかいに ［気｜き］づかれにくく なる。かくれんぼの めいじんに なれる。',
     maxStack: 1,
     rarity: 'legendary',
     category: 'armor',
@@ -31,6 +33,7 @@ export const NINJA = {
   },
   ninja_tekko: {
     name: '［忍｜しの］びの ［手甲｜てっこう］',
+    zukan: 'しのびの ものが うでに まいて いた てっこう。［刀｜かたな］や すでで こうげき すると、かくし もって いた ［小太刀｜こだち］が しゅっと とびだして おいうち する。',
     maxStack: 1,
     rarity: 'legendary',
     category: 'armor',
@@ -40,6 +43,7 @@ export const NINJA = {
   },
   ninja_tabi: {
     name: '［忍｜しの］びの ［足袋｜たび］',
+    zukan: 'しのびの ものが はいて いた たび。おしろの ［石｜いし］がきから とびおりても、ねこの ように ふわりと ちゃくちして いたく ない。',
     maxStack: 1,
     rarity: 'legendary', // #293 試作 → NINJA-1
     category: 'armor',

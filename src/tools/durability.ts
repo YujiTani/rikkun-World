@@ -1,6 +1,9 @@
 import type { Inventory, ItemClass, ItemId, ItemStack } from '../contracts';
 import { M7_SETTING_DEFAULTS, W2_SETTING_DEFAULTS } from '../contracts';
+import { HOUSE_PLAN_IDS } from '../content/items/ids';
 import { registryPermanent } from '../content/items/registry';
+import { BUCKET_TAKE } from '../world/blocks/water';
+import { isFullBucket } from '../farm/bucket';
 
 /** ずっと へらない もの（§4.6 (1)）。登録表（content/items/）で wear: 'permanent' の 物 */
 const PERMANENT: ReadonlySet<ItemId> = new Set<ItemId>(registryPermanent());
@@ -35,6 +38,8 @@ export function canCapacity(item: ItemId): number | null {
 
 /** 保存から 読んだ みず の 量（M7-2 §4.6）。整数に して 0〜入る回数 に おさめる。おかしい 値・じょうろ でない = 0 */
 export function readWater(raw: unknown, item: ItemId): number {
+  // WATER-1 §4.4: みずの バケツの 量(1〜8)。欄 なし・おかしい 値は 0 = 書かない(読む 側が 8 と みなす)
+  if (isFullBucket(item)) return typeof raw === 'number' && Number.isFinite(raw) ? Math.max(0, Math.min(BUCKET_TAKE, Math.floor(raw))) : 0;
   const cap = canCapacity(item);
   if (cap === null || typeof raw !== 'number' || !Number.isFinite(raw)) return 0;
   return Math.max(0, Math.min(cap, Math.floor(raw)));
@@ -54,12 +59,19 @@ export function readPower(raw: unknown, item: ItemId): number {
   return Math.max(r[0], Math.min(r[1], Math.round(raw)));
 }
 
+/** せっけいずの 番号（HOUSE-1B）。せっけいず だけが 持つ。1 以上の 整数。おかしい 値・せっけいず でない = 0（番号なし） */
+export function readPlan(raw: unknown, item: ItemId): number {
+  if (!(HOUSE_PLAN_IDS as readonly string[]).includes(item)) return 0;
+  return typeof raw === 'number' && Number.isInteger(raw) && raw >= 1 ? raw : 0;
+}
+
 /** へった 量・みず の 量を もつ 形で 写す（0・なしは 新品／からっぽ = つけない） */
 export function copyStack(s: ItemStack): ItemStack {
   const out: ItemStack = { item: s.item, count: s.count };
   if (s.wear && s.wear > 0) out.wear = s.wear;
   if (s.water && s.water > 0) out.water = s.water;
   if (s.power && s.power > 0) out.power = s.power;
+  if (s.plan && s.plan > 0) out.plan = s.plan;
   return out;
 }
 
@@ -79,7 +91,7 @@ export function isLow(left: number, max: number, ratio: number): boolean {
  * 入らなかった 数を 返す
  */
 export function addStack(inv: Inventory, st: ItemStack): number {
-  if (!((st.wear && st.wear > 0) || (st.water && st.water > 0) || (st.power && st.power > 0)) || st.count !== 1) return inv.add(st.item, st.count);
+  if (!((st.wear && st.wear > 0) || (st.water && st.water > 0) || (st.power && st.power > 0) || (st.plan && st.plan > 0)) || st.count !== 1) return inv.add(st.item, st.count);
   const slots = inv.slots();
   for (let i = 0; i < inv.size; i++) {
     if (!slots[i]) {

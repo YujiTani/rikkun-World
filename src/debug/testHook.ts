@@ -32,6 +32,7 @@ import type { CharSprite, SpriteInfo } from '../char';
 import type { SpriteMotion } from '../char';
 import type { StartHook } from '../start/startBoot';
 import type { WorkHook } from './workHook';
+import type { WaterHook } from '../world/water/waterSystem';
 import type { GashaHook } from '../gasha/release';
 import type { HouseHook } from '../house/hook';
 
@@ -65,6 +66,8 @@ export interface TestHook {
   perfOverlayVisible(): boolean;
   /** #255: 重さを 仕事の数で 見る（start → step → read → stop。docs/tickets/PERF-255.md） */
   work: WorkHook;
+  /** WATER-1 §6.1: 水の 量・リスト・パス・止める（グループ water） */
+  water: WaterHook;
   world: WorldHook;
   /** VOX-I-1 §8.1: 12 の国（at・here・find・take.path） */
   biome: BiomeHook;
@@ -81,6 +84,13 @@ export interface TestHook {
   /** CHAR-1 第 5.2 版 §4.9: ねらいの点 X・ねらい補助で えらんだ妖怪の id */
   aim: { point(): { x: number; y: number; z: number }; assist(): number | null };
   input: ReturnType<typeof createInputHook>;
+  gamepad?: {
+    injectPad(pad: Gamepad | null): void;
+    hasPad(): boolean;
+    snapshot(): unknown;
+    openPanel(): void;
+    closePanel(): void;
+  } | null;
   lock: ReturnType<typeof createLockHook> & { tab(name: string): void; book(target: string): void; bookStats(): { calls: number; triangles: number } };
   settings: ReturnType<typeof createSettingsHook>;
   target: ReturnType<typeof createDigHook>['target'];
@@ -175,7 +185,7 @@ export interface TestHook {
   /** CRAFT-2 §6.1: 画面の不透明度 */
   /** #276 手ごたえ: ヒットストップの のこり（ステップ）・画面の ゆれの 量（0〜1）・最近の 当たり（tick・段） */
   impact: { stopLeft(): number; trauma(): number; log(): { tick: number; level: string }[] };
-  ui: { /** LIVE-3: とりごや の メニュー の ようす */ coopMenu(): { open: boolean; coop: number | null; page: 'top' | 'pick' | 'confirm'; kids: number[]; selected: number | null; eggs: number; meatDisabled: boolean }; /** LIVE-3: メニュー の ボタン を 押す（'collect'｜'meat'｜'back'｜'cancel'｜'ok'｜'close'｜'card'｜'hover'） */ coopMenuPress(button: string, id?: number): void; /** LIVE-3: いただきます の 一言（出て いなければ 空） */ meatText(): string; alpha(): UiAlpha; /** NINJA-1: 上の 帯の テロップを 列に 入れる（テストの 準備用。source = 'nushi' | 'gasha' | 'chest'） */ telop(item: string, source?: 'nushi' | 'gasha' | 'chest'): void; /** WEAPON-7 §9: 画面の 上の 帯 */ topBand(): { kind: 'achieve' | 'telop' | 'appear' | null; item: string | null; source: 'nushi' | 'gasha' | 'chest' | null; age: number; leftSteps: number; queue: string[] }; /** WEAPON-8 §7: 速さバフの アイコン */ buffs(): unknown[] };
+  ui: { /** LIVE-3: とりごや の メニュー の ようす */ coopMenu(): { open: boolean; coop: number | null; page: 'top' | 'pick' | 'confirm'; kids: number[]; selected: number | null; eggs: number; meatDisabled: boolean }; /** LIVE-3: メニュー の ボタン を 押す（'collect'｜'meat'｜'back'｜'cancel'｜'ok'｜'close'｜'card'｜'hover'） */ coopMenuPress(button: string, id?: number): void; /** LIVE-3: いただきます の 一言（出て いなければ 空） */ meatText(): string; alpha(): UiAlpha; /** NINJA-1: 上の 帯の テロップを 列に 入れる（テストの 準備用。source = 'nushi' | 'gasha' | 'chest'） */ telop(item: string, source?: 'nushi' | 'gasha' | 'chest'): void; /** WEAPON-7 §9: 画面の 上の 帯 */ topBand(): { kind: 'achieve' | 'telop' | 'appear' | 'house' | null; item: string | null; source: 'nushi' | 'gasha' | 'chest' | null; age: number; leftSteps: number; queue: string[] }; /** WEAPON-8 §7: 速さバフの アイコン */ buffs(): unknown[]; /** HOUSE-1C: 家の 名前の 帯（戸を 外から 通って 中に 入った とき 180 ステップ。上の 帯の 列に ならぶ。出て いなければ null） */ houseNameBand(): { text: string; ticksLeft: number } | null };
   /** WEAPON-7 §9: レジェンダリー武器（ため・ためわざ） */
   legend: {
     state(): unknown;
@@ -189,7 +199,7 @@ export interface TestHook {
   };
   /** ART-PIPE-1: 雷 B の 見た目（コマ・板の 向き・輪・つぶ・まわりの 明るさ・絵の 読み方）。型は e2e/helpers/thunder.ts */
   thunder: ThunderHook;
-  /** HOUSE-1A（#338）: 建築士さん・メニュー・くら（docs/design/HOUSE-1.md §6.1。src/house/hook.ts） */
+  /** HOUSE-1A（#338）: 建築士さん・メニュー・エディター（docs/design/HOUSE-1.md §6.1。src/house/hook.ts。1E: くらは ない。前の セーブの 物は legacyKura()） */
   house: HouseHook;
   /** #293 リリース: がしゃどくろ（いま すぐ 出す・たおした ことに する・調整表。src/gasha/release.ts）。起動の おわりに 足される */
   gasha?: GashaHook;
@@ -201,7 +211,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

@@ -37,6 +37,7 @@ describe('gashaBigCrush（#293 たたきつけた 手の 下と まわりを こ
     expect(crushable('stone', 0)).toBe(false);
     expect(crushable('water', 3)).toBe(false);
     expect(crushable('start_torch', 3)).toBe(false);
+    for (const id of ['house_door', 'house_door_top', 'house_door_open', 'house_door_open_top']) expect(crushable(id, 3), `${id}（家の 戸。AC24）`).toBe(false);
     expect(crushable('air', 3)).toBe(false);
     expect(crushable('outside', 3)).toBe(false);
     const w = world();

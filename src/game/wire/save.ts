@@ -22,7 +22,8 @@ import { createLockHook } from '../../input';
 import { peakNear } from '../../world/gen/peak';
 import { MICRO_RADII } from '../../world/render/voxel/tier';
 import { groundBelow } from '../../fx/blobShadow';
-import { WATER, isSolidIndex } from '../../world/blocks/blockTypes';
+import { isSolidIndex } from '../../world/blocks/blockTypes';
+import { createTetherLine } from '../../world/render/tetherLine';
 import { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
 import { saveShadowPref } from '../../world/render/shadow/shadowPref';
 import { createShadowSetting } from '../../ui/shadowSetting';
@@ -30,10 +31,11 @@ import { START_PITCH_DEG } from '../../player/config';
 import { computeFarmPlacement, applyFarmPlacement } from '../../world/gen/farmPlacement';
 import { createFarmVisual } from '../../world/render/farmVisual';
 import type { WiredAchievements } from './ui';
+import { isWaterIndex } from '../../world/blocks/water';
 
 export function wireSave(deps: WiredAchievements) {
   const {
-    shared, world, seed, saveId, idb, restored, inventory, controller, spawnPlain, store, game,
+    shared, world, water, seed, saveId, idb, restored, inventory, controller, spawnPlain, store, game,
     strengthToWrite, screenSettings, combat, time, craft, armor, level, storage, achievements,
     countryWatch, animals, deliverAnimalEvents, legendBook, ninjaBook, kodachi, ninjaHave, samuraiBook,
     samuraiHave, farm, saveOptions, island, hud, renderer, frameClock, raiseAboveBlocks, startPoint,
@@ -86,8 +88,8 @@ export function wireSave(deps: WiredAchievements) {
       },
     },
     legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
-    // HOUSE-1A: くら・建築士さんの 記録。前の 保存（キーなし）は 空の くら・最初の 1 人は 決まった 場所に 出る
-    house: { serialize: () => house.state.serialize(), deserialize: (d) => house.state.deserialize(d) },
+    // HOUSE-1A: 建築士さんの 記録。前の 保存（キーなし）は 最初の 1 人は 決まった 場所に 出る・かえす くらの 物は なし（1E: 前の 保存の `kura` は 次に 話した とき もちものへ もどす）
+    house: { serialize: () => house.serialize(), deserialize: (d) => house.load(d) },
     // NINJA-1: 忍者帳。前の 保存（帳なし）は 空。読んだ とき もちもの・防具の マスに ある 忍者装備は 帳に 入れる（#298 で もう 足袋を 持って いる 人に 2 こ目を 出さない）
     ninja: { serialize: () => ninjaBook.serialize(), deserialize: (d) => { kodachi.clear(); ninjaBook.deserialize(d, ninjaHave()); const k = ninjaBook.got().length; if (k > 0) achievements.feedNinja('', k); } },
     // SAMURAI-1: 侍帳。前の 保存（帳なし）は 空。読んだ とき もちもの・防具の マスに ある 侍装備は 帳に 入れる
@@ -153,6 +155,7 @@ export function wireSave(deps: WiredAchievements) {
     newWorld: !loadedSave,
     applyPlacement: applyPlacementNow,
     pending: restored.pending,
+    water,
     clock: frameClock,
     placePlayer: (p) => controller.set({ position: { x: p.x, y: raiseAboveBlocks(p.x, p.y, p.z), z: p.z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: p.yawDeg, pitchDeg: p.pitchDeg }),
     onColumnsLoaded: () => farm.rescan(),
@@ -369,13 +372,15 @@ export function wireLoop(deps: WiredFrame) {
     const p = controller.state.position;
     renderer.update({ x: p.x, z: p.z });
   });
+  const tetherLine = createTetherLine(game.scene, world); // ROPE-1 版 3: つなぎの なわ
   game.onUpdate(() => {
     const p = controller.state.position;
+    tetherLine.update(p);
     const bx = Math.floor(p.x);
     const bz = Math.floor(p.z);
     const ground = groundBelow(p.y, (y) => {
       const b = world.getIndex(bx, y, bz);
-      return b === WATER ? 'water' : b > 0 && isSolidIndex(b) ? 'solid' : 'other';
+      return isWaterIndex(b) ? 'water' : b > 0 && isSolidIndex(b) ? 'solid' : 'other';
     });
     // #293: がしゃどくろの 体・ガラスの 雲・置いた ブロックの 上でも 足もとに 丸い 影（真下の いちばん 近い 体の 上面の 高さ。ワールドの 地面より 高い ほうを 使う）
     const onBody = shared.gashaBodyBlocks?.surfaceBelow(p.x, p.y, p.z) ?? null;

@@ -6,14 +6,12 @@ import { BOOK_CHAPTERS, BOOK_ITEMS } from './bookData';
 import type { BookLayout, Rect } from './bookLayout';
 import type { BookModel } from './bookModel';
 import { listSpreads } from './bookNav';
-import { ZUKAN_GROUPS, ZUKAN_LEFT, ZUKAN_NO_SOURCE, ZUKAN_NO_USE, ZUKAN_SECRET, type ZukanGroup } from './zukanData';
+import { ZUKAN_GROUPS, ZUKAN_LEFT, ZUKAN_NO_SOURCE, ZUKAN_SECRET, zukanBodyHtml, type ZukanGroup } from './zukanData';
 import './book.css';
 import './zukan.css';
 
-/** ZUKAN-1: アイテムの 説明と てに いれかた（作る画面の 説明と 同じ データ） */
+/** ZUKAN-1: アイテムの てに いれかた（作る画面の 説明と 同じ データ）。「どんな もの」は 登録表の 読み物の 文〔ZukanEntry.text〕 */
 interface ZukanInfo {
-  use: string;
-  special?: string;
   source: string;
 }
 
@@ -65,6 +63,8 @@ export class BookUi {
   private readonly buttons = {} as Record<BtnName, HTMLButtonElement>;
   private key = '';
   private gridKey = '';
+  /** ずかんの 文の 大きさを 決めた ときの key（key が かわる たびに 決めなおす） */
+  private fitKey = '';
 
   constructor(parent: HTMLElement, private readonly h: BookUiHandlers) {
     this.layer = document.createElement('div');
@@ -165,6 +165,7 @@ export class BookUi {
     if (key !== this.key && m.view !== 'closed') {
       this.key = key;
       this.gridKey = '';
+      this.fitKey = '';
       this.content.innerHTML = this.pagesHtml(m);
     }
     // ZUKAN-1: 一覧の マスだけ 作りなおす（さがす 字の らんは そのまま。入力中の 字が 消えない）
@@ -178,6 +179,11 @@ export class BookUi {
     // 動きの 間は 字と リンクを かくす
     this.content.hidden = moving || m.view === 'closed';
     for (const el of this.content.querySelectorAll<HTMLElement>('[data-book-link], [data-item-id]')) el.hidden = moving;
+    // ZUKAN-1: 読み物の 文が 右の ページに はいる 大きさに する（止まって 見えて いる 間に 1 回）
+    if (!moving && m.view === 'zukanItem' && this.fitKey !== this.key) {
+      this.fitKey = this.key;
+      this.fitZukanText();
+    }
     // ボタン
     const a = m.arrows();
     const inBook = m.isOpen && m.view !== 'closed';
@@ -194,6 +200,17 @@ export class BookUi {
   }
 
   // ------------------------------------------------------------------ ページの 中
+
+  /** 右の ページの 文を、はいる いちばん 大きい 字（24 → 20 → 16px）に する。16px でも はいらない 小さい 画面は スクロール（zukan.css） */
+  private fitZukanText(): void {
+    const it = this.content.querySelector<HTMLElement>('.zk-item');
+    if (!it) return;
+    for (const cls of ['', 'zk-s20', 'zk-s16']) {
+      it.classList.remove('zk-s20', 'zk-s16');
+      if (cls) it.classList.add(cls);
+      if (it.scrollHeight <= it.clientHeight) break;
+    }
+  }
 
   private pagesHtml(m: BookModel): string {
     if (m.view === 'toc') return this.tocHtml(m);
@@ -319,7 +336,6 @@ export class BookUi {
     if (!e) return '';
     const t = rarityTier(e.rarity);
     const info = this.h.info(e.id);
-    const use = info.use || ZUKAN_NO_USE;
     const source = e.shadow ? ZUKAN_SECRET : info.source || ZUKAN_NO_SOURCE;
     const ids = m.zukanIds();
     const k = ids.indexOf(e.id);
@@ -328,9 +344,7 @@ export class BookUi {
       `<div class="zk-big" style="--zk-r: var(${t.cssVar})"><img class="zk-bigicon${e.shadow ? ' zk-shadow' : ''}" src="${itemIconUrl(e.id)}" alt=""></div>` +
       `<h2 class="bk-title zk-title">${withRuby(e.name)}</h2>` +
       `<div class="zk-stars" style="--zk-r: var(${t.cssVar})">${'★'.repeat(t.stars)}<span class="zk-word">${escapeHtml(t.word)}</span></div></div>` +
-      `<div class="bk-pg bk-pg-r"><div class="bk-item zk-item" data-item-id="${e.id}">` +
-      `<h3 class="zk-h">どんな もの</h3><p class="bk-cap zk-cap" data-zukan-use>${withRuby(use)}${info.special ? `<br>${withRuby(info.special)}` : ''}</p>` +
-      `<h3 class="zk-h">てに いれかた</h3><p class="bk-cap zk-cap" data-zukan-source>${withRuby(source)}</p></div>` +
+      `<div class="bk-pg bk-pg-r">${zukanBodyHtml(e, source)}` +
       `<div class="bk-dots"><span class="bk-count">${k + 1} / ${ids.length}</span></div></div>`
     );
   }

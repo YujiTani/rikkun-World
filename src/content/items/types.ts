@@ -3,6 +3,10 @@ import type { InfoRow } from '../../craft/info/table';
 import type { ToolFamily } from '../../dig/toolFamily';
 import type { ItemCategory } from '../../ui/itemCategory';
 import { CHALK_MARK_IDS } from '../../world/blocks/chalkMark';
+import { KATAME_TSUCHI, SCAFFOLD_IDS } from '../../world/blocks/buildBlocks';
+import { FURN_VARIANT_IDS, HOUSE_DOOR_PART_IDS } from '../../world/blocks/houseBlocks';
+import { WATER_EXTRA_IDS } from '../../world/blocks/water';
+import { MAGMA_EXTRA_IDS } from '../../world/blocks/magma';
 
 /**
  * アイテムに ならない ブロック（持ち物に 入らない。みず・そこいし・作物・小屋の 部品 …）。
@@ -21,6 +25,22 @@ export const BLOCK_ONLY_IDS = [
   // MINE-1B（#349）: 持てない ブロック。ねんど（ほると ねんど `clay`）・すいしょうの いし（ほると `crystal`）・ダイヤの いし（ほると `diamond`）・チョークの しるし 12 こ
   'nendo', 'suisho_ore', 'diamond_ore',
   ...CHALK_MARK_IDS,
+  // HOUSE-1C PR-1（#340）: 戸の のこり 3 マス・向きの ある 家具の 向き ちがい／2 つ目 いこうの マス（ほると 元の アイテム〔`tansu`・`table` …〕 1 こ）。向き 0 の 1 つ目〔`tansu`・`table` …〕は アイテムの id と 同じ ので ここには 入れない
+  ...HOUSE_DOOR_PART_IDS,
+  ...FURN_VARIANT_IDS,
+  // HOUSE-1C PR-2（#340）: かためた つち（ほると つち `dirt` 1 こ。FARM_BREAK_DROP）・足場 5 つ（ほれない・置けない）
+  KATAME_TSUCHI,
+  ...SCAFFOLD_IDS,
+  // WATER-1（#376）: 量 1〜7 の 水と 予約の 番号（アイテムに ならない）
+  ...WATER_EXTRA_IDS,
+  // ROPE-1: ロープだまり（ロープの いちばん 下。こわすと ロープ ぜんぶが もどる。world/blocks/rope.ts）
+  'rope_coil',
+  'rope_fence_post', // 版 5: さくの くい（はし・かど）
+  'rope_fence', // 版 3: ロープの さく（こわすと 1 本 もどる）
+  'rope_stake', // 版 3: くい（こわすと ロープ ぜんぶが もどる）
+  // WATERFALL-1: 予約と 量 1〜8 の マグマ（アイテムに ならない）。WAKIDOKORO: たきつぼ 2 つは アイテム（ほると その たきつぼ）
+  ...MAGMA_EXTRA_IDS,
+  'kogeta', // 版 2: マグマに 焼かれた ブロック（ほると すみ 1 こ）
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 
@@ -36,6 +56,8 @@ export type ItemDefId = Exclude<ItemId, BlockOnlyId>;
 export interface ItemDef {
   /** 画面に出す名前（ひらがな。漢字は ［漢字｜よみ］。今の ITEM_TYPES の name） */
   name: string;
+  /** ずかんの「どんな もの」に 出す 読み物の 文。できる ことを 楽しく。内部の 数は 書かない。漢字は ［漢字｜よみ］ */
+  zukan: string;
   /** 1 マスに 重ねられる数 */
   maxStack: number;
   /** 持ち物 全体で 持てる 数（なし = 制限なし。おまもり = 1。ITEM-FX-1） */

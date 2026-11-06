@@ -1,7 +1,8 @@
 import type { TansuMaterialStore, Inventory, ItemId, ItemStack, StorageEvent, Vec3, VoxelWorld } from '../contracts';
+import { K_TANSU, furnRotFromYaw, isFurnKind } from '../world/blocks/houseBlocks';
 import { addInto } from '../inventory/Inventory';
 import { itemType } from '../inventory/items';
-import { addStack, copyStack, readPower, readWater, readWear, maxDurability } from '../tools/durability';
+import { addStack, copyStack, readPlan, readPower, readWater, readWear, maxDurability } from '../tools/durability';
 import { W2_SETTING_DEFAULTS } from '../contracts';
 
 /** たんす 1 つの中身（M6 §2.9）。場所ごとにべつべつ */
@@ -69,13 +70,12 @@ export function clickRule(slot: TansuSlot, cur: ItemStack | null): { slot: Tansu
   return { slot: cur, cur: slot };
 }
 
-/** 向き: プレイヤーが向いている方（yaw）から、前の面が向く方（プレイヤーの方）を決める */
+/** 家具の 向き rot（0 ＝ 前が 南 → 1 ＝ 西 → 2 ＝ 北 → 3 ＝ 東。world/blocks/houseBlocks.ts）→ 前の 面が 向く 方 */
+const FACING_OF_ROT: readonly Facing[] = ['s', 'w', 'n', 'e'];
+
+/** 向き: プレイヤーが向いている方（yaw）から、前の面が向く方（プレイヤーの方）を決める。置いた たんすの ブロックの 向きと 同じ 決め方〔furnRotFromYaw〕を 読む */
 export function facingFromYaw(yawDeg: number): Facing {
-  const r = (yawDeg * Math.PI) / 180;
-  const dx = Math.sin(r);
-  const dz = -Math.cos(r);
-  if (Math.abs(dz) >= Math.abs(dx)) return dz < 0 ? 's' : 'n';
-  return dx > 0 ? 'w' : 'e';
+  return FACING_OF_ROT[furnRotFromYaw(yawDeg)]!;
 }
 
 /**
@@ -104,13 +104,13 @@ export class StorageSystem implements TansuMaterialStore {
   }
 
   isTansu(x: number, y: number, z: number): boolean {
-    return this.d.world.getBlock(x, y, z) === 'tansu';
+    return isFurnKind(this.d.world.getBlock(x, y, z), K_TANSU);
   }
 
   /** そのマスが 読みこまれていて、たんす でなくなった（読みこんでいない列は 'outside' = まだ分からない。記録は消さない。VOX-D） */
   private changedAway(x: number, y: number, z: number): boolean {
     const b = this.d.world.getBlock(x, y, z);
-    return b !== 'tansu' && b !== 'outside';
+    return !isFurnKind(b, K_TANSU) && b !== 'outside';
   }
 
   /** そこの たんす の記録。たんす でなければ null。記録がなければ（テストで置いた）空で作る */
@@ -243,7 +243,7 @@ export class StorageSystem implements TansuMaterialStore {
     if (from === 'inv') {
       const s = inv.slots()[i];
       if (!s) return { moved: 0, reason: null };
-      const left = addInto(r.slots, s.item, s.count, 0, r.slots.length, s.wear ?? 0, s.water ?? 0, s.power ?? 0);
+      const left = addInto(r.slots, s.item, s.count, 0, r.slots.length, s.wear ?? 0, s.water ?? 0, s.power ?? 0, s.plan ?? 0);
       const moved = s.count - left;
       if (moved === 0) {
         this.d.onFull?.('tansu');
@@ -276,7 +276,7 @@ export class StorageSystem implements TansuMaterialStore {
     const inv = this.d.inventory;
     const s = inv.slots()[i];
     if (!s) return 0;
-    const left = addInto(r.slots, s.item, s.count, 0, r.slots.length, s.wear ?? 0, s.water ?? 0, s.power ?? 0);
+    const left = addInto(r.slots, s.item, s.count, 0, r.slots.length, s.wear ?? 0, s.water ?? 0, s.power ?? 0, s.plan ?? 0);
     const moved = s.count - left;
     if (moved <= 0) return 0;
     inv.setSlot(i, left > 0 ? { ...s, count: left } : null);
@@ -542,10 +542,10 @@ export class StorageSystem implements TansuMaterialStore {
       const slots = new Array<TansuSlot>(n).fill(null);
       if (Array.isArray(r.slots)) {
         for (let i = 0; i < Math.min(n, r.slots.length); i++) {
-          const s = r.slots[i] as { item?: unknown; count?: unknown; wear?: unknown; water?: unknown; power?: unknown } | null;
+          const s = r.slots[i] as { item?: unknown; count?: unknown; wear?: unknown; water?: unknown; power?: unknown; plan?: unknown } | null;
           const t = s && typeof s.item === 'string' ? itemType(s.item) : undefined;
           if (!s || !t || typeof s.count !== 'number' || !Number.isInteger(s.count) || s.count < 1 || s.count > t.maxStack) continue;
-          slots[i] = copyStack({ item: t.id, count: s.count, wear: readWear(s.wear, maxDurability(t.id, W2_SETTING_DEFAULTS.toolDurability)), water: readWater(s.water, t.id), power: readPower(s.power, t.id) });
+          slots[i] = copyStack({ item: t.id, count: s.count, wear: readWear(s.wear, maxDurability(t.id, W2_SETTING_DEFAULTS.toolDurability)), water: readWater(s.water, t.id), power: readPower(s.power, t.id), plan: readPlan(s.plan, t.id) });
         }
       }
       const f = r.facing;

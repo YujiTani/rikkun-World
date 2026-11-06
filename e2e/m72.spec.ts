@@ -101,6 +101,7 @@ test.describe('M7-2 じょうろ', () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
+      h.water.pause(true); // WATER-1: 水を 置いて 動かさない（流れの テストは water1.spec.ts）
       const o: any = {};
       h.world.setBlock(6, 8, 6, 'water');
       h.step(1);
@@ -118,6 +119,7 @@ test.describe('M7-2 じょうろ', () => {
       o.waterLong = T.water0();
       // 目が みず の マス: water 5 で はたけ をねらうと くまずに まく
       T.base();
+      h.water.pause(true); // WATER-1: 水を 置いて 動かさない（流れの テストは water1.spec.ts）
       T.soil(5, 6);
       h.world.setBlock(2, 10, 6, 'water'); // 目の マス
       h.step(1);
@@ -128,6 +130,7 @@ test.describe('M7-2 じょうろ', () => {
       o.eyeWet = h.farm.soil(5, 8, 6).wet;
       // みずごし の はたけ: かべ の みず を 通る → くむ
       T.base();
+      h.water.pause(true); // WATER-1: 水を 置いて 動かさない（流れの テストは water1.spec.ts）
       T.soil(6, 6);
       h.world.fill(3, 10, 5, 4, 10, 7, 'water');
       h.step(1);
@@ -138,6 +141,7 @@ test.describe('M7-2 じょうろ', () => {
       o.overWet = h.farm.soil(6, 8, 6).wet;
       // 6 マス先 の みず
       T.base();
+      h.water.pause(true); // WATER-1: 水を 置いて 動かさない（流れの テストは water1.spec.ts）
       h.world.setBlock(9, 8, 6, 'water');
       h.step(1);
       T.hold('watering_can');
@@ -163,6 +167,7 @@ test.describe('M7-2 じょうろ', () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
+      h.water.pause(true); // WATER-1: 水を 置いて 動かさない（流れの テストは water1.spec.ts）
       T.soil3();
       T.hold('watering_can', { water: 10 });
       T.aim(5, 8, 6);
@@ -342,6 +347,7 @@ test.describe('M7-2 じょうろ', () => {
       const T = (window as any).T;
       const o: any = {};
       T.base();
+      h.water.pause(true); // WATER-1: 水を 置いて 動かさない（流れの テストは water1.spec.ts）
       T.soil3();
       h.world.setBlock(7, 8, 1, 'water');
       h.step(1);
@@ -363,6 +369,7 @@ test.describe('M7-2 じょうろ', () => {
       o.wet = Object.keys(w).filter((k) => w[k]).sort();
       // 30 ステップ目 に みず を 通る
       T.base();
+      h.water.pause(true); // WATER-1: 水を 置いて 動かさない（流れの テストは water1.spec.ts）
       T.soil3();
       h.world.setBlock(3, 8, 1, 'water');
       h.world.fill(6, 8, 3, 6, 8, 3, 'water');
@@ -757,6 +764,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       const T = (window as any).T;
       const o: any = {};
       T.base();
+      h.water.pause(true); // WATER-1: 水を 置いて 動かさない（流れの テストは water1.spec.ts）
       T.soil(5, 6);
       h.farm.plant(5, 8, 6, 'tomato');
       h.step(1);
@@ -810,6 +818,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       const T = (window as any).T;
       const o: any = {};
       T.base();
+      h.water.pause(true); // WATER-1: 水を 置いて 動かさない（流れの テストは water1.spec.ts）
       T.soil(5, 6);
       h.world.setBlock(6, 8, 4, 'water');
       h.farm.plant(5, 8, 6, 'tomato');

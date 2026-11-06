@@ -112,7 +112,7 @@ export interface SaveDeps {
   saveOverrides?: () => readonly SaveBlockOverride[];
   /** #293: がしゃどくろを たおした 回数（{ v: 2, kills }。ボス本体は 保存しない。前の 版の 宝箱の 一覧は 読みこんでも むし）。前の 保存に ない ときは null */
   gasha?: SaveExtra;
-  /** HOUSE-1A: くら・建築士さんの 記録（`{ v: 1, kura, first, toolsGiven }`）。前の 保存に ない ときは 初期の まま（くら 空） */
+  /** HOUSE-1A: 建築士さんの 記録（`{ v: 2, first, toolsGiven, … }`。1E: `kura` は 前の セーブの まだ かえして いない 物が ある ときだけ）。前の 保存に ない ときは 初期の まま */
   house?: SaveExtra;
   /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
   farm?: SaveFarm;

@@ -8,6 +8,7 @@ import type { WorldRenderer } from '../render/WorldRenderer';
 import type { ChunkedVoxelWorld } from '../VoxelWorld';
 import { ChunkStream, type StreamInfo, type StreamIO } from './ChunkStream';
 import { colKey } from './ring';
+import type { WaterSystem } from '../water/waterSystem';
 
 /** プレイヤーを どこへ どう立たせるか */
 export interface StandPoint {
@@ -44,6 +45,8 @@ export interface StreamHostDeps {
   /** 列を読みこんだコマに 1 回（農業の数えなおし） */
   onColumnsLoaded?: () => void;
   onReady?: (kind: 'boot' | 'wait') => void;
+  /** WATER-1: 列を 読みこんだ・手放した ことを 水の 係に 知らせる */
+  water?: Pick<WaterSystem, 'onColumnLoaded' | 'onColumnUnloaded'>;
   now?: () => number;
   /** #179: E2E のサーバーは count（1 コマの仕事を数で決める） */
   clock?: FrameClock;
@@ -74,7 +77,9 @@ export class StreamHost {
         loadColumn: (c: ChunkColumn) => d.world.loadColumn(c),
         unloadColumn: (cx, cz) => {
           d.renderer.noteUnloaded(cx, cz);
-          return d.world.unloadColumn(cx, cz);
+          const ok = d.world.unloadColumn(cx, cz);
+          if (ok) d.water?.onColumnUnloaded(cx, cz);
+          return ok;
         },
         column: (cx, cz) => d.world.column(cx, cz),
         isSaveDirty: (cx, cz) => d.world.isSaveDirty(cx, cz),
@@ -86,7 +91,7 @@ export class StreamHost {
       now: d.now,
       clock: d.clock,
       holdLight: (cx, cz) => !this.placed && this.holdCols.has(colKey(cx, cz)),
-      onLoaded: (cx, cz) => {
+      onLoaded: (cx, cz, how) => {
         this.rescanNeeded = true;
         const k = colKey(cx, cz);
         const p = pending?.get(k);
@@ -94,6 +99,7 @@ export class StreamHost {
           applyPendingColumn(d.world, p);
           pending!.delete(k);
         }
+        d.water?.onColumnLoaded(cx, cz, how);
       },
       required: pending ? () => [...pending.values()].map((p) => ({ cx: p.cx, cz: p.cz })) : undefined,
       onReady: (kind) => this.onReady(kind),

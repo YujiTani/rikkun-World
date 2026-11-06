@@ -12,6 +12,7 @@ import { plantsOfChunk } from './plants';
 import { hash01, subSeed, valueNoise3 } from './random';
 import { Terrain, terrainFor } from './terrain';
 import { treesInRect } from './trees';
+import { fallBlocks } from './liquidPonds';
 
 /**
  * 列 1 つ（16×WORLD_HEIGHT×16）を作る（VOX-B）。`generateChunk(seed, cx, cz)` は同じ入力なら いつも同じ中身。
@@ -27,6 +28,7 @@ const LOG = BLOCK_INDEX.log;
 const COAL = BLOCK_INDEX.coal_ore;
 const IRON = BLOCK_INDEX.iron_ore;
 const WATER = BLOCK_INDEX.water;
+const MAGMA = BLOCK_INDEX.magma;
 const BEDROCK = BLOCK_INDEX.bedrock;
 const START_TORCH = BLOCK_INDEX.start_torch;
 const SNOW = BLOCK_INDEX.snow;
@@ -167,6 +169,7 @@ function placeVisibleOres(out: Uint8Array, T: Terrain, x0: number, z0: number, H
       const i = (lz + 1) * HW + lx + 1;
       const h = H[i]!;
       if (h < SEA_Y) continue;
+      if (T.liquid.pondAt(x0 + lx, z0 + lz) !== null) continue; // MAGMA-SPAWN: いけの 底・へりの いしに 見える 鉱石は 出さない
       const a = Math.min(airFrom(H[i - 1]!), airFrom(H[i + 1]!), airFrom(H[i - HW]!), airFrom(H[i + HW]!), airFrom(h));
       let k = 0; // 国ごとの倍（いわやま 3 倍 など）。いしが 見えている列だけ しらべる
       for (let y = Math.max(1, a); y <= h; y++) {
@@ -304,6 +307,12 @@ export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCl
       // かっぱの ぬま の いけ: 底から へりの高さの 1 つ下まで 水
       const pd = T.map.pondAt(x, z);
       if (pd !== null && pd.kind === 'inner') for (let y = h + 1; y < pd.level; y++) out[y * LAYER + lz * CHUNK_SIZE + lx] = WATER;
+      // MAGMA-SPAWN: 溶岩の いけ・滝の いけ（同じ 作り。底の 上から へりの 1 つ下まで マグマ / 水）
+      const lp = T.liquid.pondAt(x, z);
+      if (lp !== null && lp.kind === 'inner') {
+        const b = lp.pond.liquid === 'magma' ? MAGMA : WATER;
+        for (let y = h + 1; y < lp.pond.level; y++) out[y * LAYER + lz * CHUNK_SIZE + lx] = b;
+      }
     }
   }
 
@@ -344,6 +353,16 @@ export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCl
 
   placeTrees(out, T, x0, z0);
   placePlants(out, T, cx, cz, H);
+
+  // MAGMA-SPAWN: 滝（はしら・わきどころ・ふた・たきつぼ）。木・草の あとに 置く（はっぱを どける）
+  for (const p of T.liquid.pondsIn(x0, z0, x0 + CHUNK_SIZE - 1, z0 + CHUNK_SIZE - 1)) {
+    for (const f of fallBlocks(p, (x, z) => T.height(x, z))) {
+      const lx = f.x - x0;
+      const lz = f.z - z0;
+      if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE || f.y < 1 || f.y >= WORLD_HEIGHT) continue;
+      out[f.y * LAYER + lz * CHUNK_SIZE + lx] = BLOCK_INDEX[f.b];
+    }
+  }
 
   // スタートの こわれない たいまつ（P5）
   const sp = T.spawn();

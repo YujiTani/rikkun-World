@@ -62,7 +62,7 @@ export type FarmEvent =
   /** バケツ で 水を くんだ（x,y,z = 水の マス。`item` = くむ ときに 持っていた バケツ。`changed` = から → みず に かわった） */
   | { type: 'bucketFill'; tick: number; x: number; y: number; z: number; item: BucketId; changed: boolean }
   /** バケツ で 水を おいた（x,y,z = 水の マス） */
-  | { type: 'bucketPlace'; tick: number; x: number; y: number; z: number }
+  | { type: 'bucketPlace'; tick: number; x: number; y: number; z: number; liquid?: 'water' | 'magma' }
   /** みずの バケツ が 置けない（コン） */
   | { type: 'bucketNo'; tick: number; x: number; y: number; z: number }
   // ---- MINE-1B
@@ -70,7 +70,7 @@ export type FarmEvent =
   | { type: 'ripened'; tick: number; x: number; y: number; z: number; kind: CropKind };
 
 /** BUCKET-1: バケツ 2 しゅるい */
-export type BucketId = 'bucket' | 'water_bucket';
+export type BucketId = 'bucket' | 'water_bucket' | 'magma_bucket' | 'wakimizu_bucket' | 'magma_wakimizu_bucket';
 
 /** M7-2: じょうろ 2 しゅるい */
 export type WateringCanId = 'watering_can' | 'long_watering_can';
@@ -380,7 +380,13 @@ export type RightClickKind =
   // HOUSE-1A: 建築士さんを ねらって いる（右クリック = はなす。置く・耕す などの 案内は 出さない）
   | 'talk'
   // MINE-1B: チョークで かく・いしばいを まく
-  | 'chalkDraw' | 'ripen';
+  | 'chalkDraw' | 'ripen'
+  // HOUSE-1C PR-1: 家の 戸を あける・しめる（上下 どちらを ねらっても 2 マス いっしょ）
+  | 'doorOpen' | 'doorClose'
+  // HOUSE-1D: 家具の はたらき（いす・まるいすで すわる／おふろに はいる／ほんだなで ルールブックを よむ）
+  | 'sit' | 'bath' | 'read'
+  // HOUSE-1C PR-2: みずもりで きじゅんを きめる・どうづきで じがため
+  | 'level' | 'tamp';
 
 // ---------------------------------------------------------------- 設定（§4.3・§4.4・§4.5）
 

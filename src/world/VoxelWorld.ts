@@ -17,6 +17,16 @@ import { Column, SEALS, columnKey } from './voxelColumn';
 import { countBlocks, fillFlat, hashColumn, hashWorld } from './voxelStats';
 import { WorldExposure } from './voxelExposure';
 import type { ChangeBox, ColumnEvent, SectionPos } from './voxelTypes';
+import { isMagmaIndex } from './blocks/magma';
+import { isWaterIndex } from './blocks/water';
+
+/**
+ * MAGMA-SPAWN: 同じ 液体の 量だけ かわった（水 → 水・マグマ → マグマ）。光を 弱める 量・出す 光が かわらない ので 光の 計算し直しに 知らせない
+ * （自然の マグマの 滝が ずっと 動いても 光の 仕事が ふえない）
+ */
+function sameLiquid(prev: number, next: number): boolean {
+  return (isMagmaIndex(prev) && isMagmaIndex(next)) || (isWaterIndex(prev) && isWaterIndex(next));
+}
 
 export { CHUNK_SIZE, SECTION_SIZE, WORLD_SIZE };
 export type { LoadedBounds };
@@ -52,6 +62,8 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   private readonly exposure = new WorldExposure(this.columns, this);
   /** 小ブロック地形の「森の重み」（0〜1）を ブロックの列 (bx, bz) で返す窓口。生成がつなぐ。なければ 草原（0） */
   microForest: ((bx: number, bz: number) => number) | null = null;
+  /** WATER-1 §4.3: `setBlock` で マスの ブロックが かわった あとに 呼ぶ（水の 係が つなぐ。かわる 前の 番号 prev と 今の 番号 next）。`fill` では 呼ばない */
+  onBlockChange: ((x: number, y: number, z: number, prev: number, next: number) => void) | null = null;
   private lastCx = NaN;
   private lastCz = NaN;
   private lastCol: Column | null = null;
@@ -310,19 +322,23 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     if (d !== null) {
       // いちばん多い道: full のセクションの中を 同じセクションのまま 書きつづける
       const li = ((y & 15) << 8) | ((z & 15) << 4) | (x & 15);
-      if (d[li] === b) return true;
+      const prev = d[li];
+      if (prev === b) return true;
       d[li] = b;
       this.noteSave(col, x, y, z, b);
       this.noteDirty(col, x, y, z);
       if (SEALS[b] === 0) this.exposure.noteDug(col, x, y, z);
-      this.noteChange(x, y, z, x, y, z);
+      if (!sameLiquid(prev, b)) this.noteChange(x, y, z, x, y, z);
+      if (this.onBlockChange !== null) this.onBlockChange(x, y, z, prev, b);
       return true;
     }
+    const prev = this.onBlockChange !== null ? sectionGet(col.sections[sy], ((y & 15) << 8) | ((z & 15) << 4) | (x & 15)) : 0;
     if (!this.put(col, x, y, z, b)) return true;
     this.noteSave(col, x, y, z, b);
     this.noteDirty(col, x, y, z);
     if (SEALS[b] === 0) this.exposure.noteDug(col, x, y, z);
-    this.noteChange(x, y, z, x, y, z);
+    if (this.onBlockChange === null || !sameLiquid(prev, b)) this.noteChange(x, y, z, x, y, z);
+    if (this.onBlockChange !== null) this.onBlockChange(x, y, z, prev, b);
     return true;
   }
 

@@ -3,10 +3,14 @@ import { LIVE_SETTING_DEFAULTS, seedKindOfItem, vegKindOfItem, type ItemId, type
 import { CRAFT_UI_SETTINGS, TOOL_NUMBERS, type CraftUiSettings, type ToolNumbers } from '../fx/craftConfig';
 import { RARITY_COLOR, RARITY_TIERS } from '../drops/rarity';
 import { ITEM_INFO, SPECIAL_HEAD } from '../craft/info/table';
+import { planNameOf } from '../inventory/planName';
 import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { wearView } from './wearGauge';
 
 /** ツールチップの行につく小さな絵。アイテムの id か、かなづち・時計 */
+/** BUCKET-1/2: バケツの 1 行 */
+const BUCKET_TIP: Partial<Record<string, string>> = { bucket: 'みず・マグマ を くむ', water_bucket: 'みず を おく', magma_bucket: 'マグマ を おく', wakimizu_bucket: 'わきどころ を おく', magma_wakimizu_bucket: 'マグマの わきどころ を おく' };
+
 export type TooltipIcon = ItemId | 'hammer' | 'clock';
 
 export interface TooltipData {
@@ -93,8 +97,8 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
     add('はたけ を つくる', item);
   }
   if (item === 'watering_can' || item === 'long_watering_can') add('はたけ に みず を まく', item);
-  if (item === 'bucket') add('みず を くむ', item);
-  if (item === 'water_bucket') add('みず を おく', item);
+  const bk = BUCKET_TIP[item];
+  if (bk) add(bk, item);
   if (item === 'sprinkler') add('まわり の はたけ を しめらせる', item);
   if (seedKindOfItem(item) !== null) add('はたけ に まく', item);
   if (item === 'mushi') add('にわとり に あげる', item);
@@ -117,7 +121,8 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
   }
   if (recipes.some((r) => r.output.item === item && !r.works)) add('もうすぐ つかえる', 'clock');
   const rarity = d.rarityOf(item);
-  return { item, name: d.nameOf(item), rarity, stars: STARS[rarity], lines, icons, desc: ITEM_INFO[item]?.use ?? '', special: ITEM_INFO[item]?.special ?? null, specialHead: SPECIAL_HEAD };
+  const name = (stack && stack.item === item ? planNameOf(stack) : null) ?? d.nameOf(item); // HOUSE-1B: せっけいずは「<名前>の せっけいず」
+  return { item, name, rarity, stars: STARS[rarity], lines, icons, desc: ITEM_INFO[item]?.use ?? '', special: ITEM_INFO[item]?.special ?? null, specialHead: SPECIAL_HEAD };
 }
 
 /** ★ を数だけ並べた文字 */

@@ -1,5 +1,6 @@
-import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../blocks/blockTypes';
+import { AIR, BLOCK_TYPES, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../blocks/blockTypes';
 import { BLOCK_TILES, TORCH_PX, tileSubUv, tileUv, type TileName } from '../blocks/textures';
+import { FURN_FACE_TILES } from '../blocks/houseTextures';
 import type { CropStageSource } from '../../contracts';
 import { cropKindOfBlock } from '../../contracts';
 import { GADGET_ID } from '../../content/items/gadgetTuning';
@@ -8,6 +9,8 @@ import { OPACITY } from '../light/opacity';
 import type { WorldLight } from '../light/WorldLight';
 import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
 import { AO_LEVELS, FACE_SHADE_BY_INDEX } from './config';
+import { isLiquidIndex } from '../blocks/liquids';
+import { WATER_SPAN, waterFaceSpan } from './waterFaces';
 
 /** メッシュの材料（three に依存しない。テストしやすい） */
 export interface MeshData {
@@ -20,6 +23,8 @@ export interface MeshData {
   darks: number[];
   indices: number[];
   faceCount: number;
+  /** WATER-1: 水の メッシュだけ。頂点ごとの ゆらめきの 印(1 = 水面の 頂点 → シェーダーが 下に ゆらす)。ほかは なし */
+  waves?: number[];
 }
 
 export interface ChunkMeshData {
@@ -62,6 +67,9 @@ export const TILE_UV: ([number, number, number, number][] | undefined)[] = BLOCK
   const tiles = BLOCK_TILES[t.id];
   return tiles ? tiles.map((n) => tileUv(n)) : undefined;
 });
+
+/** 面ごとに 絵を かえる ブロック（向きごとの たんす・かまど。HOUSE-1C）の [上, 下, +x, −x, +z, −z] の UV。ほかは undefined（TILE_UV の [上, 下, 横] を 使う） */
+export const FACE_UV: ([number, number, number, number][] | undefined)[] = BLOCK_TYPES.map((t) => FURN_FACE_TILES[t.id]?.map((n) => tileUv(n as TileName)));
 
 export const LIGHT_MAX = 15;
 
@@ -183,19 +191,25 @@ export function pushFace(
   uvRect: [number, number, number, number],
   /** true: 角の暗がり（AO）を 頂点に入れる（平らな箱の面） */
   ao = false,
+  /** WATER-1: 水の 面の 下の 辺・上の 辺の 高さ(マスの 底から 0〜1)と、頂点が 水面かの 印(ゆらめき。`waves` に 入れる) */
+  yLo = 0,
+  yHi = 1,
+  waveLo = 0,
+  waveHi = 0,
 ): void {
   const base = mesh.positions.length / 3;
   const b = FACE_SHADE_BY_INDEX[face.index];
   if (ao) flatAoLevels(world, x, y, z, face, AO_TMP);
   for (let i = 0; i < 4; i++) {
     const v = face.verts[i];
-    mesh.positions.push(x + v[0], y + v[1], z + v[2]);
+    mesh.positions.push(x + v[0], y + (v[1] === 0 ? yLo : yHi), z + v[2]);
     const c = CORNER_UV[i];
     mesh.uvs.push(c[0] === 0 ? uvRect[0] : uvRect[2], c[1] === 0 ? uvRect[1] : uvRect[3]);
     mesh.colors.push(b, b, b);
     cornerLight(world, light, x, y, z, face, v, LIGHT_TMP);
     mesh.lights.push(LIGHT_TMP[0], LIGHT_TMP[1]);
     mesh.darks.push(ao ? 1 - AO_LEVELS[AO_TMP[i]] : 0);
+    mesh.waves?.push(v[1] === 0 ? waveLo : waveHi);
   }
   if (ao && flatAoFlip(AO_TMP)) mesh.indices.push(base + 1, base + 2, base + 3, base + 1, base + 3, base);
   else mesh.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
@@ -323,10 +337,10 @@ export function crossTileName(b: number, stage: number): TileName {
   const id = BLOCK_TYPES[b].id;
   const k = cropKindOfBlock(id);
   if (k && !k.wild) return `crop_${k.kind}_${stage}` as TileName;
-  if (id === 'toriya_fence') return 'toriya_fence_x';
-  if (id === 'toriya_gate') return 'toriya_gate_x';
-  return id as TileName;
+  return CROSS_TILE_OF[id] ?? (id as TileName);
 }
+/** 十字の板で ほかの 絵を つかう ブロック（とりごや の さく・もん、ROPE-1 版 5 の さくの くい = くいと 同じ 絵） */
+const CROSS_TILE_OF: Readonly<Record<string, TileName>> = { toriya_fence: 'toriya_fence_x', toriya_gate: 'toriya_gate_x', rope_fence_post: 'rope_stake' };
 
 // 十字の板: 2 まいの対角の板。それぞれ表と裏を描く（4 面）
 const CROSS_QUADS: [number, number][][] = [
@@ -449,6 +463,7 @@ export function meshChunk(
 ): ChunkMeshData {
   const opaque = emptyMesh();
   const water = emptyMesh();
+  water.waves = []; // WATER-1: ゆらめきの 印
   const x0 = cx * CHUNK_SIZE;
   const z0 = cz * CHUNK_SIZE;
   const x1 = x0 + CHUNK_SIZE; // 読みこんでいないマスは getIndex が -1 を返す
@@ -483,12 +498,17 @@ export function meshChunk(
         }
         const uv = TILE_UV[b];
         if (!uv) continue;
-        const isWater = b === WATER;
+        const isWater = isLiquidIndex(b); // WATERFALL-1: マグマも 水と 同じ 液体の 面
         for (const face of FACES) {
           const n = world.getIndex(x + face.dir[0], y + face.dir[1], z + face.dir[2]);
           if (n < 0) continue; // 世界の外へ向く面は見えない
-          if (isWater ? n !== AIR : isOpaqueIndex(n)) continue;
-          pushFace(isWater ? water : opaque, world, light, x, y, z, face, uv[face.kind]);
+          if (isWater) {
+            if (!waterFaceSpan(world, x, y, z, b, face, n)) continue;
+            pushFace(water, world, light, x, y, z, face, WATER_SPAN.uv ?? FACE_UV[b]?.[face.index] ?? uv[face.kind], false, WATER_SPAN.lo, WATER_SPAN.hi, WATER_SPAN.waveLo, WATER_SPAN.waveHi);
+            continue;
+          }
+          if (isOpaqueIndex(n)) continue;
+          pushFace(opaque, world, light, x, y, z, face, FACE_UV[b]?.[face.index] ?? uv[face.kind]);
         }
       }
     }

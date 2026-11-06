@@ -1,5 +1,6 @@
 import type { BlockId, VoxelWorld } from '../contracts';
 import { isChalkMarkId } from './blocks/chalkMark';
+import { isWater } from './blocks/water';
 
 /**
  * 置き物（何マス も ある とりごや・こたつ）を 置く とき の「たいら に する」計算（LIVE-2.1 §2.1）。
@@ -102,7 +103,7 @@ export function planFlatten(world: FlattenWorld, s: FlattenSpec): FlattenPlan | 
       if (isObjectBlock(String(world.getBlock(ix, floorY, iz)))) return null;
       for (let fy = floorY + 1; fy <= y - 1; fy++) {
         const fb = String(world.getBlock(ix, fy, iz));
-        if (fb !== 'air' && fb !== 'water' && !clearable(fb)) return null; // たいまつ・作物 など を 土で つぶさない
+        if (fb !== 'air' && !isWater(fb) && !clearable(fb)) return null; // たいまつ・作物 など を 土で つぶさない
         plan.edits.push({ x: ix, y: fy, z: iz, block: fy === y - 1 ? 'grass' : 'dirt' });
         plan.filled++;
         touched = true;

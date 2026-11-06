@@ -3,10 +3,16 @@ import { LIVE_SETTING_DEFAULTS, cropKindOfBlock, seedKindOfItem, vegKindOfItem }
 import { MINE_ITEM } from '../content/items/ids';
 import { itemDef } from '../content/items/registry';
 import { isFloraBlock } from '../world/blocks/flora';
+import { BUCKET_TAKE, isWater, waterId } from '../world/blocks/water';
+import { magmaAmount, magmaId } from '../world/blocks/magma';
+import { bucketLiquid, isBucket, isFullBucket, isSpringBlock, springBlockOf } from '../farm/bucket';
 import { overlapsBody, sameBlock, type DigCore } from './digCore';
 import { giveStacks, liftFlora } from './digBreak';
 import { lookDirection } from './raycast';
 import { computeWaterRay, createWaterRay } from './rightClick';
+
+/** BUCKET-2: マグマを 液体の 線に 通す ときの 見せかけ（量 8 の 水） */
+const WATER_FULL = waterId(8);
 
 /** じょうろか（登録表の `can` 部品を持つ物 = じょうろ・ながい じょうろ） */
 const isCan = (item: string): boolean => itemDef(item)?.can !== undefined;
@@ -131,7 +137,13 @@ export class DigFarm {
     const c = this.d;
     const spot = this.bucketSpotCell();
     if (!spot || !c.m4.bucket) return;
-    if (!c.world.setBlock(spot.x, spot.y, spot.z, 'water')) return;
+    // WATER-1 §4.4: バケツの 量ぶん(欄 なしは 8)の 水を 置く
+    // BUCKET-2: マグマの バケツは マグマ（ふつうの 液体。わきどころには もどらない）
+    const held = c.inventory.held();
+    const amount = held?.water || BUCKET_TAKE;
+    // 版 2: わきどころの バケツは わきどころを 置く（64 この 上限は そのまま）
+    const block = springBlockOf(held?.item) ?? (bucketLiquid(held?.item) === 'magma' ? magmaId(amount) : waterId(amount));
+    if (!c.world.setBlock(spot.x, spot.y, spot.z, block)) return;
     c.m4.bucket.placed(c.inventory.selected(), spot);
     c.m4.tools?.pushSwing('place');
   }
@@ -189,16 +201,23 @@ export class DigFarm {
   bucketPreview(repeat: boolean): BucketPreview | null {
     const b = this.d.m4.bucket;
     const held = this.d.inventory.held();
-    if (!b || !held || (held.item !== 'bucket' && held.item !== 'water_bucket')) return null;
-    const ray = this.waterRayNow();
-    const spot = held.item === 'water_bucket' && !ray.throughWater ? this.bucketSpotCell() : null;
+    if (!b || !held || !isBucket(held.item)) return null;
+    const ray = this.waterRayNow(true);
+    // BUCKET-2: からの バケツで わきどころ（固い ブロック）を ねらうと くむ。
+    const t = this.d.tgt();
+    // マグマの マスが ねらいに なる（固い あつかいの 線）ときも くむ（から・マグマの バケツ）
+    if (!ray.throughWater && t && ((bucketLiquid(held.item) === null && isSpringBlock(t.id)) || (bucketLiquid(held.item) !== 'mizu' && magmaAmount(t.id) > 0))) {
+      ray.throughWater = true;
+      ray.waterCell = { x: t.block.x, y: t.block.y, z: t.block.z };
+    }
+    const spot = isFullBucket(held.item) && !ray.throughWater ? this.bucketSpotCell() : null;
     return b.preview(held, ray, this.d.tgt() !== null, spot, repeat);
   }
 
   /** `farm.bucketSpot()`: 今の ねらいで 4e が 水を 置く マス（置けない・水を ねらう ときは null） */
   bucketSpot(): Vec3 | null {
     if (!this.d.lock.playInputEnabled() || this.d.gate?.blocksInput()) return null;
-    if (this.d.inventory.held()?.item !== 'water_bucket' || this.waterRayNow().throughWater) return null;
+    if (!isFullBucket(this.d.inventory.held()?.item) || this.waterRayNow(true).throughWater) return null;
     return this.bucketSpotCell();
   }
 
@@ -214,13 +233,20 @@ export class DigFarm {
     return { x, y, z };
   }
 
-  private waterRayNow(): WaterRay {
+  /** マグマを 水と 同じに 見せる getBlock（線が 最初に 通った 液体の マスを 返す。種類は bucket.fill が 読む） */
+  private readonly liquidGet = (x: number, y: number, z: number) => {
+    const id = this.d.world.getBlock(x, y, z);
+    return magmaAmount(id) > 0 && !isWater(id) ? WATER_FULL : id;
+  };
+
+  /** liquids: BUCKET-2 バケツ用（マグマも 液体として 通す） */
+  private waterRayNow(liquids = false): WaterRay {
     const c = this.d;
     const p = c.player();
     const d = lookDirection(p.yawDeg, p.pitchDeg, c.dir);
     const o = c.origin(p, c.originScratch);
     return computeWaterRay(
-      (x, y, z) => c.world.getBlock(x, y, z),
+      liquids ? this.liquidGet : (x, y, z) => c.world.getBlock(x, y, z),
       o.x,
       o.y,
       o.z,
@@ -242,7 +268,7 @@ export class DigFarm {
     const ck = cropKindOfBlock(t.id);
     if (!ck) return null;
     const h = c.inventory.held()?.item;
-    if ((h !== undefined && isCan(h)) || h === 'bucket' || h === 'water_bucket') return null;
+    if ((h !== undefined && isCan(h)) || isBucket(h)) return null;
     if (!farm.crop(t.block.x, t.block.y, t.block.z)) return null;
     return ck.kind;
   }

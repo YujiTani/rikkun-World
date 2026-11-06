@@ -4,6 +4,7 @@
  * cells × cells マスが ぜんぶ「地表の くさ・つち」で、平らで、上が あいていて、体の 下でも ほかの 間欠泉の そばでも ない 所だけ 通す。
  */
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
+import { isWater } from '../world/blocks/water';
 
 export interface SpawnTune {
   radius: number;
@@ -33,7 +34,7 @@ const SOLID = new Set<string>(BLOCK_TYPES.filter((t) => t.solid).map((t) => t.id
 
 /** 柱が 立つ 上の あき（水・かたい ブロックが ない） */
 export function isClearAbove(id: string): boolean {
-  return id !== 'water' && id !== 'outside' && !SOLID.has(id);
+  return !isWater(id) && id !== 'outside' && !SOLID.has(id);
 }
 
 /** 1 か所を えらぶ。見つからなければ null。rnd は 0〜1 の 乱数 */

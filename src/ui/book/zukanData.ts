@@ -1,12 +1,12 @@
 import type { ItemId, Rarity } from '../../contracts';
 import { itemDef } from '../../content/items/registry';
 import { rarityIndex } from '../../drops/rarityTable';
-import { yomiOf } from '../text';
+import { withRuby, yomiOf } from '../text';
 import { CATEGORY_ITEMS, ITEM_CATEGORIES, type ItemCategory } from '../itemCategory';
 
 /**
  * ZUKAN-1: 本の 「アイテム ずかん」の データ（DOM なし）。
- * アイテムは 登録表（content/items/）から 色分けの 並び（`CATEGORY_ITEMS`）で ぜんぶ のる。id を ここに 書かない。
+ * アイテムは 登録表（content/items/）から ぜんぶ のる（並びは `zukanEntries`）。id を ここに 書かない。
  * レア度 7（レジェンダリー）以上は 絵が ずっと 影で、てに いれかた は 「？？？」（yuzu 2026-10-29）。
  */
 export type ZukanGroup = 'weapon' | 'armor' | 'tool' | 'food' | 'plant' | 'block' | 'home' | 'material';
@@ -49,6 +49,8 @@ export interface ZukanEntry {
   id: ItemId;
   /** 名前（ルビ記法 `［漢字｜よみ］` のまま） */
   name: string;
+  /** 「どんな もの」に 出す 読み物の 文（登録表の `zukan`。ルビ記法 `［漢字｜よみ］` のまま） */
+  text: string;
   /** さがす ための よみ（ひらがな・空白なし） */
   key: string;
   group: ZukanGroup;
@@ -65,14 +67,19 @@ export function normalizeKana(s: string): string {
     .toLowerCase();
 }
 
-/** 全アイテム（色分けの 並び） */
+/**
+ * 全アイテム。並びは「レア度の 低い 順 → 同じ レア度の 中は 組（`ZUKAN_GROUPS` の 並び）の 順 → 同じ 組の 中は あいうえお 順（`key`）」（オーナー 2026-10-31）。
+ * 組で しぼっても 同じ 並び（`filterZukan` は 順を かえない）。同じ よみの 物は 登録表の 色分けの 並び（`CATEGORY_ITEMS`）の ままの 順（sort は 安定）
+ */
 export function zukanEntries(): ZukanEntry[] {
-  return ITEM_CATEGORIES.flatMap((cat) =>
+  const list = ITEM_CATEGORIES.flatMap((cat) =>
     CATEGORY_ITEMS[cat].map((id) => {
       const d = itemDef(id)!;
-      return { id: id as ItemId, name: d.name, key: normalizeKana(yomiOf(d.name)), group: GROUP_OF[cat], rarity: d.rarity, shadow: rarityIndex(d.rarity) >= ZUKAN_SHADOW_INDEX };
+      return { id: id as ItemId, name: d.name, text: d.zukan, key: normalizeKana(yomiOf(d.name)), group: GROUP_OF[cat], rarity: d.rarity, shadow: rarityIndex(d.rarity) >= ZUKAN_SHADOW_INDEX };
     }),
   );
+  const groupOrder = (g: ZukanGroup): number => ZUKAN_GROUPS.findIndex((x) => x.id === g);
+  return list.sort((a, b) => rarityIndex(a.rarity) - rarityIndex(b.rarity) || groupOrder(a.group) - groupOrder(b.group) || a.key.localeCompare(b.key, 'ja'));
 }
 
 /** 名前の 一部（ひらがな・カタカナ どちらでも）と 組で しぼる。どちらも 空なら ぜんぶ */
@@ -91,6 +98,16 @@ export function zukanPages(n: number): number {
   return Math.max(1, Math.ceil(n / ZUKAN_SPREAD));
 }
 
-/** 説明が 空の とき（地形・かざり）の 文 */
-export const ZUKAN_NO_USE = 'せかい の どこか に ある';
 export const ZUKAN_NO_SOURCE = 'せかい で みつけて ほる';
+
+/**
+ * 右の ページの 中身（どんな もの・てに いれかた）の HTML。DOM を 使わない（テストできる）。
+ * 「どんな もの」は 登録表の 読み物の 文 `zukan`（ルビ記法 → ルビ）。「てに いれかた」は 呼ぶ 側が 決めた 文（影は ？？？）
+ */
+export function zukanBodyHtml(e: ZukanEntry, source: string): string {
+  return (
+    `<div class="bk-item zk-item" data-item-id="${e.id}">` +
+    `<h3 class="zk-h">どんな もの</h3><p class="bk-cap zk-cap" data-zukan-use>${withRuby(e.text)}</p>` +
+    `<h3 class="zk-h">てに いれかた</h3><p class="bk-cap zk-cap" data-zukan-source>${withRuby(source)}</p></div>`
+  );
+}

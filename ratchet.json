@@ -1,10 +1,10 @@
 {
-  "idCompare": 277,
+  "idCompare": 230,
   "idCase": 85,
-  "switchExhaustive": 21,
+  "switchExhaustive": 20,
   "cycles": 6,
-  "unusedExports": 422,
-  "unusedTypes": 162,
+  "unusedExports": 419,
+  "unusedTypes": 161,
   "eslintDisable": 1,
   "filesOver800": 0,
   "protoImports": 0

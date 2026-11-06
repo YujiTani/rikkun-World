@@ -12,6 +12,7 @@ export const KONGO = {
   // ダイヤ: そうびの ざいりょう（炭鉱の ふかい 層の 鉱石から。MINE-1B）
   diamond: {
     name: 'ダイヤ',
+    zukan: '［地｜ち］［下｜か］の いちばん ふかい ところで、［長｜なが］い ［長｜なが］い ［時間｜じかん］を かけて できた ダイヤ。せかいで いちばん かたい ［石｜いし］。「こんごう」とも よばれ、こわれない そうびの もとに なる。',
     maxStack: 64,
     rarity: 'mythic', // ほし 6
     category: 'metal',
@@ -20,6 +21,7 @@ export const KONGO = {
   },
   kongo_katana: {
     name: 'こんごうの かたな',
+    zukan: 'ダイヤで きたえた「こんごう」の ［刀｜かたな］。どんな ようかいにも まけない、いちばん ［強｜つよ］い ［刀｜かたな］。',
     maxStack: 1,
     rarity: 'mythic',
     category: 'weapon',
@@ -32,6 +34,7 @@ export const KONGO = {
   },
   kongo_yumi: {
     name: 'こんごうの ゆみ',
+    zukan: 'ダイヤで ［作｜つく］った「こんごう」の ［弓｜ゆみ］。どこまでも まっすぐ とぶ ［矢｜や］を はなつ。',
     maxStack: 1,
     rarity: 'mythic',
     category: 'weapon',
@@ -47,6 +50,7 @@ export const KONGO = {
   },
   kongo_pickaxe: {
     name: 'こんごうの つるはし',
+    zukan: 'ダイヤで ［作｜つく］った「こんごう」の つるはし。どんな ［石｜いし］にも まけない、いちばん すごい つるはし。［地｜ち］［下｜か］の いちばん ふかい ［石｜いし］だって へっちゃら。',
     maxStack: 1,
     rarity: 'mythic',
     category: 'tool',
@@ -58,6 +62,7 @@ export const KONGO = {
   },
   kongo_axe: {
     name: 'こんごうの おの',
+    zukan: 'ダイヤで ［作｜つく］った「こんごう」の おの。どんな ［太｜ふと］い ［木｜き］も いっしゅんで ［切｜き］れる。',
     maxStack: 1,
     rarity: 'mythic',
     category: 'tool',
@@ -68,6 +73,7 @@ export const KONGO = {
   },
   kongo_kabuto: {
     name: 'こんごうの かぶと',
+    zukan: 'ダイヤの「こんごう」の かぶと。せかいで いちばん かたい ［石｜いし］で、［頭｜あたま］を しっかり まもる。',
     maxStack: 1,
     rarity: 'mythic',
     category: 'armor',
@@ -78,6 +84,7 @@ export const KONGO = {
   },
   kongo_yoroi: {
     name: 'こんごうの よろい',
+    zukan: 'ダイヤの「こんごう」の よろい。どんな こうげきも はねかえしそうな、いちばん ［強｜つよ］い よろい。',
     maxStack: 1,
     rarity: 'mythic',
     category: 'armor',
@@ -88,6 +95,7 @@ export const KONGO = {
   },
   kongo_kote: {
     name: 'こんごうの こて',
+    zukan: 'ダイヤの「こんごう」の こて。うでを しっかり まもって くれる。',
     maxStack: 1,
     rarity: 'mythic',
     category: 'armor',
@@ -98,6 +106,7 @@ export const KONGO = {
   },
   kongo_suneate: {
     name: 'こんごうの すねあて',
+    zukan: 'ダイヤの「こんごう」の すねあて。［高｜たか］い ところから おちても へっちゃら。',
     maxStack: 1,
     rarity: 'mythic',
     category: 'armor',

@@ -1,5 +1,6 @@
 // rikkun-World の 起動。上から 順に 実行される 1 本の流れを、係ごとの 関数（src/game/wire/*.ts）に 分けて、同じ 順に 呼ぶ。
 // 作る順・登録する順・乱数を 呼ぶ 順は 元の main.ts と 同じ。前の 段で 作った 物は w に たまっていく。
+import { loadIconAtlas } from './ui/iconAtlas';
 import { wireBoot, wireRender } from './game/wire/world';
 import { wireInput, wirePlayer } from './game/wire/player';
 import { wireInventory, wireDrops } from './game/wire/inventory';
@@ -11,7 +12,9 @@ import { wireSave, wireFrame, wireLoop } from './game/wire/save';
 import { createStep } from './game/step';
 import { installGameHook } from './debug/installTestHook';
 import { wireGasha } from './game/wire/gasha';
+import { buildMagmaDemo, wantsMagmaDemo } from './debug/magmaDemo';
 
+await loadIconAtlas().catch(() => undefined); // ICON-32: 32×32 の アイコン（失敗しても 16×16 で 動く）
 const w1 = await wireBoot();
 const w2 = Object.assign(w1, wireRender(w1));
 const w3 = Object.assign(w2, wireInput(w2));
@@ -33,3 +36,10 @@ game.onUpdate(createStep(w16));
 const w17 = Object.assign(w16, wireLoop(w16));
 installGameHook(w17);
 wireGasha(w17);
+// MAGMA-SPAWN: ?demo=magma の ときだけ、はじめの 場所の 前に マグマの 見本を 1 回 置く（列が 読みこまれた ステップで）
+if (wantsMagmaDemo(location.search)) {
+  let done = false;
+  w17.game.onUpdate(() => {
+    if (!done) done = buildMagmaDemo(w17.world, w17.water, w17.spawnPlain());
+  });
+}

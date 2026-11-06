@@ -11,6 +11,7 @@ import type { ItemDef } from './types';
 export const ARMOR = {
   kabuto: {
     name: 'かぶと',
+    zukan: 'てつの かぶと。［頭｜あたま］を まもって、ようかいの ひのたまの あつさを へらして くれる。',
     maxStack: 1,
     rarity: 'rare',
     category: 'armor',
@@ -21,6 +22,7 @@ export const ARMOR = {
   },
   yoroi: {
     name: 'よろい',
+    zukan: 'てつの よろい。［体｜からだ］を まもって、ようかいの こうげきを へらして くれる。きると ちょっと おもいけど たのもしい。',
     maxStack: 1,
     rarity: 'rare',
     category: 'armor',
@@ -31,6 +33,7 @@ export const ARMOR = {
   },
   kote: {
     name: 'こて',
+    zukan: 'てつの こて。うでを まもって、ようかいの こうげきを へらして くれる。',
     maxStack: 1,
     rarity: 'rare',
     category: 'armor',
@@ -41,6 +44,7 @@ export const ARMOR = {
   },
   suneate: {
     name: 'すねあて',
+    zukan: 'てつの すねあて。［足｜あし］を まもって、［高｜たか］い ところから おちた ときの いたさを へらして くれる。',
     maxStack: 1,
     rarity: 'rare',
     category: 'armor',

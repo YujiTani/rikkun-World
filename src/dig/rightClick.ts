@@ -1,6 +1,9 @@
 import { GADGET_ID } from '../content/items/gadgetTuning';
 import { isFutonId } from '../world/blocks/futon';
+import { furnUseOf } from '../world/blocks/furnUse';
+import { doorInfo } from '../world/blocks/houseBlocks';
 import type { BucketPreview, BlockId, ItemId, RightClickKind, TargetInfo, WaterPreview, WaterRay } from '../contracts';
+import { isWater } from '../world/blocks/water';
 export type { RightClickKind };
 
 /**
@@ -52,6 +55,8 @@ export interface RightClickCtx {
   coop?(): { eggs: number; /** LIVE-3: えらべる 子 が 1 わ 以上 いる（メニュー を ひらく） */ menu?: boolean } | null;
   /** LIVE-2 §2.11 の 10a: `toriya` を 持って 地面 を ねらって いる とき の 答え。'ok' = 置ける、'noRoom' = どこ も 入らない、'max' = 3 つ まで。ねらって いなければ null */
   coopSpot?(): 'ok' | 'noRoom' | 'max' | null;
+  /** HOUSE-1C PR-2: みずもり（'level'）・どうづき（'tamp'）を 持って、ブロックを ねらっている。そうでなければ null */
+  siteTool?(): 'level' | 'tamp' | null;
   /** 持っているものを、ねらっている所の前に置けるか */
   canPlace(): boolean;
   /** MINE-1B: チョークを 持って、かける 面（ゆか・かべ）か かきなおせる しるしを ねらっている */
@@ -76,7 +81,7 @@ export function isKitEgg(item: ItemId | null): boolean {
   return item === 'egg' || item === 'kin_tamago';
 }
 
-/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → ふとん（ねる）→ たこ → 防具 → チョーク（かく）→ バケツ → じょうろ（4a くむ・4b まく・4c 合図）→ いしばい（まく）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
+/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → 家の 戸 → 家具（すわる・はいる・よむ）→ ふとん（ねる）→ たこ → みずもり・どうづき → 防具 → チョーク（かく）→ バケツ → じょうろ（4a くむ・4b まく・4c 合図）→ いしばい（まく）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
 export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   const t = c.target;
   if (c.carrying?.()) return { kind: c.throwKind?.() ?? 'putDown', item: null };
@@ -94,9 +99,18 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   if (coop && coop.eggs >= 1) return { kind: 'coopCollect', item: null };
   if (t && c.isTansu(t.block.x, t.block.y, t.block.z)) return { kind: 'storage', item: null };
   if (t && c.isFurnace(t.block.x, t.block.y, t.block.z)) return { kind: 'furnace', item: null };
+  // HOUSE-1C: 家の 戸（あける・しめる。置くより 先。上下 どちらを ねらっても 同じ）
+  const door = t ? doorInfo(t.id) : null;
+  if (door) return { kind: door.open ? 'doorClose' : 'doorOpen', item: null };
+  // HOUSE-1D: 家具の はたらき（すわる・はいる・よむ。置くより 先。持ち物に よらない。どの マス・どの 向きでも 同じ）
+  const furn = t ? furnUseOf(t.id) : null;
+  if (furn) return { kind: furn, item: null };
   // ITEM-FX-1: ふとん（ねる。置くより 先）・たこ（持って 右クリック。ねらいが なくても）
   if (t && isFutonId(t.id)) return { kind: 'sleep', item: null };
   if (c.held === GADGET_ID.kite) return { kind: 'kite', item: c.held };
+  // HOUSE-1C PR-2: みずもり・どうづき（置けない 道具。ブロックを ねらって いる とき）
+  const tool = t ? c.siteTool?.() : null;
+  if (tool) return { kind: tool, item: c.held };
   if (c.held && c.canEquip(c.held)) return { kind: 'armor', item: c.held };
   if (t && c.canChalk?.()) return { kind: 'chalkDraw', item: c.held }; // MINE-1B: たんす・かまど・ふとん の あと（そちらの 働きが 先）
   const b = c.bucket?.();
@@ -183,7 +197,7 @@ export function computeWaterRay(
       tMaxZ += tDeltaZ;
     }
     if (t > reach || (hit ? t >= limit : t > limit)) return out;
-    if (getBlock(x, y, z) === 'water') {
+    if (isWater(getBlock(x, y, z))) {
       out.throughWater = true;
       out.waterCell = { x, y, z };
       return out;

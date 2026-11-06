@@ -1,11 +1,36 @@
 import { defaultDropMax } from '../drops/rarityTable';
 import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
+import { SCAFFOLD_IDS, type ScaffoldId } from '../world/blocks/buildBlocks';
 import { CHALK_MARK_IDS, type ChalkMarkId } from '../world/blocks/chalkMark';
+import { forWaterExtra } from '../world/blocks/water';
+import { forMagmaExtra } from '../world/blocks/magma';
+import { HOUSE_BLOCK_IDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, houseDropOf, type HouseBase, type HouseBlockId, type HouseDoorPartId, type NewFurnBlockId } from '../world/blocks/houseBlocks';
 
 /** チョークの しるし 12 こ ぜんぶに 同じ 値を 入れる（`satisfies Record<BlockId, …>` が 12 こ そろって いることを 見る） */
 function forChalkMarks<T>(value: T): Record<ChalkMarkId, T> {
   return Object.fromEntries(CHALK_MARK_IDS.map((id) => [id, value])) as Record<ChalkMarkId, T>;
 }
+
+/** 足場 5 つ（HOUSE-1C PR-2）ぜんぶに 同じ 値を 入れる */
+function forScaffold<T>(value: T): Record<ScaffoldId, T> {
+  return Object.fromEntries(SCAFFOLD_IDS.map((id) => [id, value])) as Record<ScaffoldId, T>;
+}
+
+/**
+ * 家の ブロック 5 つ・戸の のこり 3 マス・向きの ある 家具の 新しい id（HOUSE-1C）に、元の アイテム（`HouseBase`。戸の どの マスも `house_door`・家具は しゅるい）の 値を 入れる。
+ * `satisfies Record<BlockId, …>` が 全部 そろって いることを 見る
+ */
+function forHouse<T>(byBase: Record<HouseBase, T>): Record<HouseBlockId | HouseDoorPartId | NewFurnBlockId, T> {
+  const ids: readonly string[] = [...HOUSE_BLOCK_IDS, ...HOUSE_DOOR_PART_IDS, ...NEW_FURN_BLOCK_IDS];
+  return Object.fromEntries(ids.map((id) => [id, byBase[houseDropOf(id)!]])) as Record<HouseBlockId | HouseDoorPartId | NewFurnBlockId, T>;
+}
+
+/** 今ある 家具〔たんす・かまど〕の ほる 秒数・めずらしさ。向きちがいの id〔forHouse〕も 同じ 数を 読む（二重に 書かない） */
+const OLD_FURN = { tansuHardness: 5, furnaceHardness: 6, rarity: 'uncommon' } as const satisfies { tansuHardness: number; furnaceHardness: number; rarity: Rarity };
+/** き〔log〕の 秒数。家の ゆか・かべ・やね・戸・新しい 家具は これと 同じ（HOUSE-1 §2.13 ③） */
+const WOOD_HARDNESS = 5;
+/** ほぼ すぐ こわれる 秒数（たいまつ・ちょうちん・しょうじ） */
+const QUICK_HARDNESS = 0.05;
 
 /**
  * ほる・おくの数値（M2 §4.1・§4.3）。ここ 1 か所にまとめる。
@@ -35,18 +60,18 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     grass: 0.5,
     dirt: 0.5,
     sand: 0.5,
-    log: 5,
+    log: WOOD_HARDNESS,
     stone: 6,
     coal_ore: 10,
     iron_ore: 15,
     // M4（§4.4）
-    furnace: 6,
-    torch: 0.05, // ほぼすぐこわれる
+    furnace: OLD_FURN.furnaceHardness,
+    torch: QUICK_HARDNESS, // ほぼすぐこわれる
     start_torch: null, // こわれない
     kawara: 4,
     brick: 6,
     // M6
-    tansu: 5,
+    tansu: OLD_FURN.tansuHardness,
     // LIVE-2（§2.3）: こたつ は ふとん で やわらかい（手 で 2 秒）。小屋 の ブロック は たんす と 同じ 時間
     nukunuku: 2,
     nukunuku_e: 2,
@@ -103,6 +128,42 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     suisho_ore: 12, // てつの つるはしで 2 秒
     diamond_ore: 18, // てつの つるはしで 3 秒（こんごうの つるはし 強さ 8 で 2.25 秒）
     ...forChalkMarks(0), // しるしは さわると すぐ こわれる（1 ステップ）
+    // HOUSE-1C（素手の 秒数。HOUSE-1 §2.13 ③: ゆか・かべ・やね・戸・新しい 家具 ＝ き と 同じ、しょうじ ＝ すぐ〔たいまつと 同じ〕。
+    // 戸は 上下 どちらも 同じ。家具は 向き・マスが ちがっても 同じ。たんす・かまどは 今の 数）
+    ...forHouse<number>({
+      house_floor: WOOD_HARDNESS,
+      house_wall: WOOD_HARDNESS,
+      house_roof: WOOD_HARDNESS,
+      shoji: QUICK_HARDNESS,
+      house_door: WOOD_HARDNESS,
+      tansu: OLD_FURN.tansuHardness,
+      furnace: OLD_FURN.furnaceHardness,
+      table: WOOD_HARDNESS,
+      long_table: WOOD_HARDNESS,
+      round_table: WOOD_HARDNESS,
+      chair: WOOD_HARDNESS,
+      stool: WOOD_HARDNESS,
+      andon: WOOD_HARDNESS,
+      shelf: WOOD_HARDNESS,
+      ofuro: WOOD_HARDNESS,
+    }),
+    // HOUSE-1C PR-2（#340）: かためた つちは つち と おなじ。足場は ほれない（建築が 終わると 消える）
+    katame_tsuchi: 0.5,
+    ...forScaffold<null>(null),
+    ...forWaterExtra<null>(null),
+    rope: 0.05, // ROPE-1: すぐ とれる（すすきと 同じ）
+    rope_coil: 0.05,
+    rope_stake: 0.05,
+    rope_fence: 0.1,
+    rope_fence_post: 0.1,
+    // WATERFALL-1: わきどころ 2 つは いしと 同じ。たきつぼは つちと 同じ。こくようせきは とても かたい。マグマは ほれない
+    wakimizu: 1.5,
+    magma_wakimizu: 1.5,
+    takitsubo: 0.5,
+    kokuyouseki: 12,
+    ...forMagmaExtra<null>(null),
+    kogeta: 1.0, // 版 2: もろい
+    magma_takitsubo: 0.5, // WAKIDOKORO: たきつぼと 同じ
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -175,6 +236,23 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     suisho_ore: 2,
     diamond_ore: 2, // ダイヤの いしも 2（こんごうの つるはしの レベルは 2 の まま。KONGO-1）
     ...forChalkMarks(0),
+    // HOUSE-1C: 家の ブロック・家具は すでで ほれる
+    ...forHouse<number>({ house_floor: 0, house_wall: 0, house_roof: 0, shoji: 0, house_door: 0, tansu: 0, furnace: 0, table: 0, long_table: 0, round_table: 0, chair: 0, stool: 0, andon: 0, shelf: 0, ofuro: 0 }),
+    katame_tsuchi: 0,
+    ...forScaffold(0),
+    ...forWaterExtra(0),
+    rope: 0,
+    rope_coil: 0,
+    rope_stake: 0,
+    rope_fence: 0,
+    rope_fence_post: 0,
+    wakimizu: 0,
+    magma_wakimizu: 0,
+    takitsubo: 0,
+    kokuyouseki: 2, // てつの つるはし から
+    ...forMagmaExtra(0),
+    kogeta: 0,
+    magma_takitsubo: 0,
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
   handLevel: 0,
@@ -197,12 +275,12 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     coal_ore: 'uncommon',
     iron_ore: 'rare',
     // M4（docs/design/M4-craft.md §4.4）
-    furnace: 'uncommon',
+    furnace: OLD_FURN.rarity,
     torch: 'common',
     start_torch: 'common',
     kawara: 'uncommon',
     brick: 'uncommon',
-    tansu: 'uncommon',
+    tansu: OLD_FURN.rarity,
     nukunuku: 'uncommon',
     nukunuku_e: 'uncommon',
     nukunuku_s: 'uncommon',
@@ -257,6 +335,27 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     suisho_ore: 'superRare',
     diamond_ore: 'mythic',
     ...forChalkMarks<Rarity>('common'),
+    // HOUSE-1C（家具は アイテムの めずらしさ〔content/items/houseEditor.ts が ここから 読む〕。たんす・かまどの 向き 0 は 上の 表）
+    ...forHouse<Rarity>({
+      house_floor: 'common', house_wall: 'common', house_roof: 'common', shoji: 'uncommon', house_door: 'uncommon',
+      tansu: OLD_FURN.rarity, furnace: OLD_FURN.rarity, table: 'common', long_table: 'common', round_table: 'common', chair: 'common', stool: 'common', andon: 'uncommon', shelf: 'uncommon', ofuro: 'rare',
+    }),
+    // HOUSE-1C PR-2: かためた つち・足場（ほると 手に 入る 数の 上限。かためた つちは FARM_BREAK_DROP で いつも 1 こ）
+    katame_tsuchi: 'common',
+    ...forScaffold<Rarity>('common'),
+    ...forWaterExtra<Rarity>('common'),
+    rope: 'common',
+    rope_coil: 'common',
+    rope_stake: 'common',
+    rope_fence: 'common',
+    rope_fence_post: 'common',
+    wakimizu: 'uncommon',
+    magma_wakimizu: 'uncommon',
+    takitsubo: 'uncommon',
+    kokuyouseki: 'rare',
+    ...forMagmaExtra<Rarity>('common'),
+    kogeta: 'common',
+    magma_takitsubo: 'uncommon',
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };
@@ -275,6 +374,8 @@ export function createDigConfig(): DigConfig {
 export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; count: number }>>> = {
   farmland: { item: 'dirt', count: 1 },
   farmland_wet: { item: 'dirt', count: 1 },
+  // HOUSE-1C PR-2（#340）: かためた つちを ほると つち 1 こ
+  katame_tsuchi: { item: 'dirt', count: 1 },
   saku: { item: 'log', count: 1 },
   sprinkler: { item: 'sprinkler', count: 1 },
   // #293 試作: 間欠泉の つちは いつも 1 こ（そのまま 置きなおせる）
@@ -292,6 +393,12 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   haniwa: { item: 'haniwa', count: 1 },
   // FLORA-75: のばな は いつも 1 こ（ランダムな数にしない）
   nobana: { item: 'nobana', count: 1 },
+  // WATERFALL-1: こくようせきは いつも 1 こ。WAKIDOKORO: たきつぼ 2 つは その たきつぼ 1 こ（置き直せる）。わきどころ 2 つは 何も 落とさない（NO_DROP_BLOCKS。バケツ だけで 回収）
+  kokuyouseki: { item: 'kokuyouseki', count: 1 },
+  takitsubo: { item: 'takitsubo', count: 1 },
+  magma_takitsubo: { item: 'magma_takitsubo', count: 1 },
+  // 版 2: こげた ブロックは すみ 1 こ（元の ブロックには もどらない）
+  kogeta: { item: 'sumi', count: 1 },
 };
 
 /**
@@ -300,8 +407,22 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
  */
 export const DUG_ALWAYS_ONE: ReadonlySet<BlockId> = new Set<BlockId>(['suisho_ore', 'diamond_ore']);
 
+/**
+ * ROPE-1: こわすと ときどき あさ（hemp）が でる ブロック と その 確率。いつもの ドロップに 足すだけ（いつもの 数・乱数は かえない）。
+ * くさ = grass・kusa、はっぱ = leaves・momiji_leaves・matsu_leaves、はな = flower_y・flower_o・flower_p・nobana
+ */
+export const HEMP_DROP = {
+  /** でる 確率（1 回 こわすごと。1/3 = 約 33%） */
+  chance: 1 / 3,
+  /** 1 回に でる 数（こ） */
+  count: 1,
+  blocks: new Set<BlockId>(['grass', 'kusa', 'leaves', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'nobana']) as ReadonlySet<BlockId>,
+  /** くじの 種（ほかの ドロップの 乱数と わける） */
+  seed: 0x4a5e,
+} as const;
+
 /** VOX-I-1: こわすと 持ち物がふえない ブロック（すすき・FLORA-75 の くさ。ふえるのは ひろえる物だけ） */
-export const NO_DROP_BLOCKS: ReadonlySet<BlockId> = new Set<BlockId>(['susuki', 'kusa']);
+export const NO_DROP_BLOCKS: ReadonlySet<BlockId> = new Set<BlockId>(['susuki', 'kusa', 'wakimizu', 'magma_wakimizu']); // WAKIDOKORO: わきどころは こわしても 何も 落とさない
 
 /** 体の箱（M1-02 §4.1）。置く判定に使う */
 export const BODY_W = 0.6;

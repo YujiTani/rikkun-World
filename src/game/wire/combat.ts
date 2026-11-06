@@ -1,4 +1,5 @@
 // main.ts の 流れ 4: 戦い・道具・レジェンダリー・たんす・作る・農業・掘る。
+import { BLOCK_INDEX } from '../../world/blocks/blockTypes';
 import { aimPivot } from '../../camera/pivot';
 import { PlayerCombatImpl } from '../../combat';
 import { ArmorSystemImpl, CraftSystemImpl } from '../../craft';
@@ -47,8 +48,12 @@ import { pickAimAssist } from '../../camera/aimAssist';
 import { computeFarmPlacement } from '../../world/gen/farmPlacement';
 import { NO_SWINGS } from './shared';
 import { wireGadgets } from './gadgets';
+import { wireSeat } from './seat';
 import { playSleepJingle } from '../../fx/sleepJingle';
 import type { WiredDrops } from './inventory';
+
+const KOGETA = BLOCK_INDEX.kogeta;
+const SIDES: readonly (readonly [number, number])[] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
 export function wireWeapons(deps: WiredDrops) {
   const {
@@ -227,7 +232,8 @@ export function wireFighters(deps: WiredWeapons) {
     spawn: startPoint,
     // WEAPON-9: シャイニング中は 受ける ダメージ 1/3・落下ダメージなし
     takenMul: () => legend.takenMul(),
-    noFall: () => legend.noFall() || shared.protoNoFall,
+    // ROPE-1 版 3: ロープに つかまって いる 間は 落ちた 高さを ためない（ゆっくり おりて 着地しても・とちゅうで はなしても、はなした 所から 数える）
+    noFall: () => legend.noFall() || shared.protoNoFall || controller.onRope(),
     // 妖怪のねらい（CHAR-1 第 5.2 版 §4.5）: 届く距離は P から。S からの線で当たらないときは やさしい ねらい補助
     reachOrigin: (out) => aimPivot(world, controller.state.position, out),
     assist: (eye, dir, reach) => aimAssistPick(eye, dir, reach),
@@ -236,6 +242,22 @@ export function wireFighters(deps: WiredWeapons) {
     },
     requestSave: () => shared.requestSave(),
     drops,
+    // WATERFALL-1 版 2: こげた ブロック（足もとの 下・足もと と こしの 北東南西）に ふれて いるか。getIndex だけ（getBlock を ふやさない）
+    scorched: () => {
+      const p = controller.state.position;
+      const x = Math.floor(p.x);
+      const y = Math.floor(p.y + 1e-3);
+      const z = Math.floor(p.z);
+      if (world.getIndex(x, y - 1, z) === KOGETA) return true;
+      for (let dy = 0; dy < 2; dy++) {
+        for (const [dx, dz] of SIDES) {
+          // 体の はば（はし から 0.4 以内）で その 向きの かべに ふれて いる とき だけ
+          const near = dx > 0 ? x + 1 - p.x : dx < 0 ? p.x - x : dz > 0 ? z + 1 - p.z : p.z - z;
+          if (near < 0.4 && world.getIndex(x + dx, y + dy, z + dz) === KOGETA) return true;
+        }
+      }
+      return false;
+    },
   });
   shared.combat = combat;
   // たんす（M6 §2.9）と すてる（§2.8）
@@ -331,6 +353,8 @@ export function wireFighters(deps: WiredWeapons) {
       return n;
     };
   }
+  // HOUSE-1D: 家具の はたらき（いす・おふろ・ほんだな）
+  const furniture = wireSeat({ game, world, controller, combat, rig, book: deps.book, lock, pointerLock: deps.pointerLock });
   // #293 試作: 体の 上に ブロックを 置く 口（?proto=gashaBig の ときだけ 後から 入る）
   const dig = new DigSystemImpl(
     world,
@@ -372,7 +396,7 @@ export function wireFighters(deps: WiredWeapons) {
       harapan: (id, y) => harapanRoll.block(id, y),
       farm,
       water: createWatering({ farm, inventory, settings: m7, tick: () => game.tick }),
-      bucket: createBucket({ inventory, emit: (e) => farm.emit(e), tick: () => game.tick }),
+      bucket: createBucket({ inventory, emit: (e) => farm.emit(e), tick: () => game.tick, world }),
       pet,
       animals,
       eggHeal: () => live.animalEggHeal,
@@ -384,6 +408,12 @@ export function wireFighters(deps: WiredWeapons) {
         talk: (id) => shared.house?.talkTo(id) ?? false,
         hit: (id) => shared.house?.hit(id),
       },
+      // HOUSE-1C PR-2: 建築中の 場所の 守りと みずもり・どうづき（wireHouse で あとから 作る ので 関数で 包む）
+      build: {
+        locked: (x, y, z) => shared.house?.build.builder.locked(x, y, z) ?? false,
+        level: (x, y, z) => shared.house?.build.useLevel(x, y, z),
+        tamp: (x, y, z) => shared.house?.build.useTamp(x, y, z),
+      },
       live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks, coopCountMax: live.coopCountMax, coopMax: live.coopMax, kitEggMax: live.kitEggMax }),
       emitFarm: (e) => farm.emit(e),
       nowTick: () => game.tick,
@@ -394,6 +424,7 @@ export function wireFighters(deps: WiredWeapons) {
       w2,
       yokai: () => shared.yokaiManager!,
       gadgets: gadgets.port,
+      furniture: furniture.port,
     },
   );
   // ねらいの線・矢・刀・パンチの出どころは 目でなく 回転の中心 P（CHAR-1 §4.5）
@@ -459,6 +490,7 @@ export function wireFighters(deps: WiredWeapons) {
   }
   return {
     combat, storage, craft, dropper, dropController, sprinklers, pet, farm, dig, aimCfg, aimPointInto, gadgets,
+    seat: furniture.seat,
   };
 }
 

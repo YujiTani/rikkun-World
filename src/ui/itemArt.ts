@@ -21,6 +21,28 @@ interface Art {
 }
 
 const ART: Record<MaterialItemId, Art> = {
+  // あさ（ROPE-1）: たばねた くさいろの せんい。まん中を こい ちゃいろの ひもで しばる。上と 下が ほうきの ように ひろがる
+  hemp: {
+    palette: { K: 0x4a3a18, L: 0xd8c98a, M: 0xb9a86a, D: 0x8a7a3e, T: 0x6a4a22 },
+    rows: [
+      '................',
+      '...K.K..K.K.K...',
+      '..KLKMKLKMKLK...',
+      '...KLMLMLMLDK...',
+      '....KLMLMLDK....',
+      '.....KLMLDK.....',
+      '.....KMLMDK.....',
+      '....KTTTTTTK....',
+      '....KTTTTTTK....',
+      '.....KMLMDK.....',
+      '.....KLMLDK.....',
+      '....KLMLMLDK....',
+      '...KLMLMLMLDK...',
+      '..KLKMKLKMKLDK..',
+      '...K.K..K.K.K...',
+      '................',
+    ],
+  },
   // かみ: 白い紙。右上がおれて、文字の線
   paper: {
     palette: { K: 0x555555, W: 0xffffff, G: 0xd8d8d8, L: 0x9aa7b8 },
@@ -198,5 +220,6 @@ export const HELD_MATERIAL: Record<MaterialItemId, { color: number; size: readon
   cloth: { color: 0xd8485f, size: [0.34, 0.26, 0.05] },
   clay: { color: 0xb5764a, size: [0.26, 0.2, 0.26] },
   crystal: { color: 0x6fd8ff, size: [0.18, 0.3, 0.18] },
+  hemp: { color: 0xb9a86a, size: [0.22, 0.3, 0.1] },
   sumi: { color: 0x2c2840, size: [0.24, 0.16, 0.24] },
 };

@@ -32,7 +32,7 @@ describe('work 窓口（#255）', () => {
     target.getBlock(0, 0, 0);
     advance(2);
     hook.start();
-    expect(hook.read()).toEqual({ steps: 0, getBlock: 0 });
+    expect(hook.read()).toEqual({ steps: 0, getBlock: 0, water: 0 });
     target.getBlock(0, 0, 0);
     expect(hook.read().getBlock).toBe(1);
     hook.stop();
@@ -81,5 +81,31 @@ describe('work 窓口: クラスの メソッド', () => {
     w.getBlock(0, 0, 0);
     hook.stop();
     expect(Object.prototype.hasOwnProperty.call(w, 'getBlock')).toBe(false);
+  });
+});
+
+describe('work 窓口: 水（WATER-1 §6.1）', () => {
+  it('3 つ目に 計算した 数を わたすと、read().water は start からの ふえ。start し直すと 0', () => {
+    let computed = 100;
+    const target = { getBlock: (_x: number, _y: number, _z: number) => 'air' as string };
+    const hook = createWorkHook(() => 0, target, () => computed);
+    hook.start();
+    expect(hook.read().water).toBe(0);
+    computed += 30;
+    expect(hook.read().water).toBe(30);
+    computed += 482;
+    expect(hook.read().water).toBe(512);
+    hook.start();
+    expect(hook.read().water).toBe(0);
+    computed += 5;
+    expect(hook.read().water).toBe(5);
+    hook.stop();
+  });
+
+  it('3 つ目を 書かなければ いつも 0', () => {
+    const { hook } = make();
+    hook.start();
+    expect(hook.read().water).toBe(0);
+    hook.stop();
   });
 });

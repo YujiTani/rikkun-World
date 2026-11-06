@@ -16,7 +16,8 @@ const SEEDS = [20261012, 1, 2];
 const FLORA = ['kusa', 'nobana'].map((id) => (BLOCK_INDEX as Record<string, number | undefined>)[id]).filter((i): i is number => i !== undefined);
 const PLANTS = [BLOCK_INDEX.flower_y, BLOCK_INDEX.flower_o, BLOCK_INDEX.flower_p, BLOCK_INDEX.susuki, BLOCK_INDEX.bamboo, ...FLORA];
 const LEAVES = [BLOCK_INDEX.leaves, BLOCK_INDEX.momiji_leaves, BLOCK_INDEX.matsu_leaves];
-const SOFT = new Set<number>([BLOCK_INDEX.air, BLOCK_INDEX.water, BLOCK_INDEX.log, BLOCK_INDEX.start_torch, ...LEAVES, ...PLANTS]);
+// MAGMA-SPAWN: マグマ（量 8）も 水と 同じ 液体
+const SOFT = new Set<number>([BLOCK_INDEX.air, BLOCK_INDEX.water, BLOCK_INDEX.magma, BLOCK_INDEX.log, BLOCK_INDEX.start_torch, ...LEAVES, ...PLANTS]);
 
 function realColumns(seed: number) {
   const R = regionRect(seed);
@@ -53,7 +54,7 @@ describe.each(SEEDS)('surface seed=%i', (seed) => {
 
   it('地面の上の 空気・みず・木 が 本当の列と同じ（地面から 12 マス上まで）', () => {
     let bad = 0;
-    const kind = (b: number): string => (b === BLOCK_INDEX.air ? 'air' : b === BLOCK_INDEX.water ? 'water' : b === BLOCK_INDEX.log ? 'log' : LEAVES.includes(b) ? 'leaves' : PLANTS.includes(b) ? 'plant' : b === BLOCK_INDEX.start_torch ? 'torch' : 'solid');
+    const kind = (b: number): string => (b === BLOCK_INDEX.air ? 'air' : b === BLOCK_INDEX.water || b === BLOCK_INDEX.magma ? 'water' : b === BLOCK_INDEX.log ? 'log' : LEAVES.includes(b) ? 'leaves' : PLANTS.includes(b) ? 'plant' : b === BLOCK_INDEX.start_torch ? 'torch' : 'solid');
     for (let z = R.z0; z < R.z1; z += 3)
       for (let x = R.x0; x < R.x1; x += 3) {
         const g = S.ground(x, z);

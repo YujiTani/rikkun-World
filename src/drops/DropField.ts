@@ -1,10 +1,12 @@
 import { W2_SETTING_DEFAULTS } from '../contracts';
-import { addStack, copyStack, maxDurability, readPower, readWater, readWear } from '../tools/durability';
+import { addStack, copyStack, maxDurability, readPlan, readPower, readWater, readWear } from '../tools/durability';
 import type { Inventory, ItemStack, Rarity, Vec3, VoxelWorld } from '../contracts';
 import { itemType } from '../inventory/items';
 import { isRarity, itemRarity, topRarity } from './rarity';
 import { cellInWall } from '../world/wall';
 import { createRng, type Rng } from '../world/gen/random';
+import { isDeepWater, isWater } from '../world/blocks/water';
+import { isMagma } from '../world/blocks/magma';
 
 /** 落ちたアイテムの数値。やられた落とし物も 妖怪のドロップも同じ部品を使う */
 export const DROP = {
@@ -27,6 +29,10 @@ export const DROP = {
   pickupDelay: 18,
   /** 向きのゆらぎ（360°/こ数 のうち 何割まで） */
   angleJitter: 0.35,
+  /** WAKIDOKORO §8: マグマの 中に ある あいだ これだけ たつと 燃えて 消える（ステップ。20 秒）。出たら 0 に もどる */
+  burnTicks: 1200,
+  /** マグマの 中か しらべる 間かく（ステップ。読む 数を へらす） */
+  burnCheckEvery: 10,
 } as const;
 
 /** ばらまき方（やられた = 大きく、妖怪 = 小さく） */
@@ -57,6 +63,8 @@ export interface DropView {
   resting: boolean;
   /** プレイヤーがすてたもの（M6） */
   thrown: boolean;
+  /** WAKIDOKORO §8: マグマの 中で 燃えて いる（炎・けむりの 見た目） */
+  burning?: boolean;
   /** 拾えるようになるまでの のこりステップ（0 なら拾える。M6） */
   pickupDelay: number;
 }
@@ -76,6 +84,8 @@ export type DropSave = {
   water?: number;
   /** WEAPON-9: 虹の 強さ */
   power?: number;
+  /** HOUSE-1B: せっけいずの 番号（なし = せっけいず じゃない） */
+  plan?: number;
   /** 妖怪の おとしもの */
   yokai?: boolean;
 };
@@ -102,6 +112,8 @@ interface Entity {
   pickupAt: number;
   /** 妖怪の おとしもの（実績の「ようかいからたね」用。あふれ・すてたものは false） */
   yokai: boolean;
+  /** WAKIDOKORO §8: マグマの 中に いる ステップ（出たら 0。保存しない） */
+  burn?: number;
 }
 
 export interface DropFieldDeps {
@@ -128,9 +140,13 @@ export interface DropFieldDeps {
   onFull?: () => void;
   /** 拾って持ち物に入った（入った数）。拾ったログ用（M4） */
   onPickup?: (item: ItemStack['item'], count: number, fromYokai: boolean) => void;
+  /** WAKIDOKORO §8: マグマで 燃えて 消えた */
+  onBurn?: (item: ItemStack['item'], count: number) => void;
 }
 
 const DT = 1 / 60;
+/** 水（深い）・マグマ（WAKIDOKORO §8: 液面に うかんで 燃える。見える ように）に うく */
+const floats = (id: string): boolean => isDeepWater(id) || isMagma(id);
 
 /** 落ちたアイテム: ばらまく・重力で落ちて止まる・水にうかぶ・拾う・10 分で消える・保存 */
 export class DropField {
@@ -283,6 +299,7 @@ export class DropField {
       v.resting = b.resting;
       v.thrown = b.thrown;
       v.pickupDelay = Math.max(0, b.pickupAt - b.age);
+      v.burning = (b.burn ?? 0) > 0;
     }
     return this.views;
   }
@@ -308,6 +325,19 @@ export class DropField {
       if (!this.d.world.isLoaded(Math.floor(b.x), Math.floor(b.z))) continue;
       b.age++;
       this.step(b);
+      // WAKIDOKORO §8: マグマの 中（体の まん中の マス）に ある あいだ 燃える。burnTicks で 消える。出たら 0 に もどる
+      if (b.age % DROP.burnCheckEvery === 0) {
+        // 液面に ういて いる ときは すぐ 下の マス（マグマの 面）
+        if (isMagma(this.d.world.getBlock(Math.floor(b.x), Math.floor(b.y - 0.05), Math.floor(b.z)))) {
+          b.burn = (b.burn ?? 0) + DROP.burnCheckEvery;
+          if (b.burn >= DROP.burnTicks) {
+            b.ticksLeft = 0;
+            changed = true;
+            this.d.onBurn?.(b.item.item, b.item.count);
+            continue;
+          }
+        } else b.burn = 0;
+      }
       if (!canPickup || b.age < b.pickupAt) continue;
       if (Math.hypot(p.x - b.x, p.z - b.z) <= radius && Math.abs(p.y - b.y) <= DROP.pickupHeight) {
         const left = addStack(this.d.inventory, b.item);
@@ -328,7 +358,7 @@ export class DropField {
   private waterSurface(x: number, y: number, z: number): number {
     const w = this.d.world;
     let yy = y;
-    while (yy < w.size.y && w.getBlock(x, yy, z) === 'water') yy++;
+    while (yy < w.size.y && floats(w.getBlock(x, yy, z))) yy++;
     return yy;
   }
 
@@ -340,10 +370,10 @@ export class DropField {
       // 足もとが消えたら また落ちる（水にうかんでいるものは水がなくなったら）
       const yb = Math.floor(b.y - 1e-3);
       const below = w.getBlock(fx, yb, fz);
-      if (w.isSolid(fx, yb, fz) || below === 'outside' || below === 'water') return;
+      if (w.isSolid(fx, yb, fz) || below === 'outside' || isWater(below) || isMagma(below)) return;
       b.resting = false;
     }
-    if (w.getBlock(fx, Math.floor(b.y), fz) === 'water') {
+    if (floats(w.getBlock(fx, Math.floor(b.y), fz))) {
       const top = this.waterSurface(fx, Math.floor(b.y), fz);
       b.vx *= 0.9;
       b.vz *= 0.9;
@@ -414,6 +444,7 @@ export class DropField {
       ...(b.yokai ? { yokai: true } : {}),
       ...(b.item.wear && b.item.wear > 0 ? { wear: b.item.wear } : {}),
       ...(b.item.water && b.item.water > 0 ? { water: b.item.water } : {}),
+      ...(b.item.plan && b.item.plan > 0 ? { plan: b.item.plan } : {}),
       ...(b.item.power && b.item.power > 0 ? { power: b.item.power } : {}),
     }));
   }
@@ -448,7 +479,7 @@ export class DropField {
           resting: false,
           age: DROP.pickupDelay,
           bounces: DROP.bounce.maxCount,
-          item: copyStack({ item: ty.id, count: c, wear: readWear(r.wear, maxDurability(ty.id, W2_SETTING_DEFAULTS.toolDurability)), water: readWater(r.water, ty.id), power: readPower(r.power, ty.id) }),
+          item: copyStack({ item: ty.id, count: c, wear: readWear(r.wear, maxDurability(ty.id, W2_SETTING_DEFAULTS.toolDurability)), water: readWater(r.water, ty.id), power: readPower(r.power, ty.id), plan: readPlan(r.plan, ty.id) }),
           ticksLeft: Math.min(Math.floor(t), this.life),
           batch,
           rarity,

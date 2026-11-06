@@ -12,6 +12,7 @@ import type { ItemDef } from './types';
 export const TOOLS = {
   wood_pickaxe: {
     name: 'きの つるはし',
+    zukan: '［木｜き］で ［作｜つく］った はじめての つるはし。すでより ずっと ［早｜はや］く ほれる。ここから ぼうけんが はじまる。',
     maxStack: 1,
     rarity: 'common',
     category: 'tool',
@@ -22,6 +23,7 @@ export const TOOLS = {
   },
   stone_pickaxe: {
     name: 'いしの つるはし',
+    zukan: '［先｜さき］を ［石｜いし］に した つるはし。かたい ［石｜いし］も ざくざく ほれて、てつの ［石｜いし］も ほれるように なる。',
     maxStack: 1,
     rarity: 'common',
     category: 'tool',
@@ -32,6 +34,7 @@ export const TOOLS = {
   },
   iron_pickaxe: {
     name: 'てつの つるはし',
+    zukan: 'てつで きたえた つるはし。［地｜ち］［下｜か］の ふかい ところの ［金｜きん］や ダイヤも ほりだせる。たんけんの たのもしい あいぼう。',
     maxStack: 1,
     rarity: 'rare',
     category: 'tool',
@@ -43,6 +46,7 @@ export const TOOLS = {
   // BAL-D: おの 3 本（作業台では てつの つるはしの すぐ後ろ）
   wood_axe: {
     name: 'きの おの',
+    zukan: '［木｜き］で ［作｜つく］った おの。［木｜き］を すでより ［早｜はや］く ［切｜き］れる。まるたを たくさん あつめよう。',
     maxStack: 1,
     rarity: 'common',
     category: 'tool',
@@ -53,6 +57,7 @@ export const TOOLS = {
   },
   stone_axe: {
     name: 'いしの おの',
+    zukan: 'はを ［石｜いし］に した おの。もっと ［早｜はや］く ［木｜き］が ［切｜き］れる。［森｜もり］の きこりに なった きぶん。',
     maxStack: 1,
     rarity: 'common',
     category: 'tool',
@@ -63,6 +68,7 @@ export const TOOLS = {
   },
   iron_axe: {
     name: 'てつの おの',
+    zukan: 'てつで きたえた おの。［太｜ふと］い ［木｜き］も あっという ［間｜ま］に ［切｜き］れる。',
     maxStack: 1,
     rarity: 'rare',
     category: 'tool',
@@ -75,6 +81,7 @@ export const TOOLS = {
   // たいきゅう 5 は ここ 1 か所（せっけいず 1 まいで 1 へらす 処理は #339 が この 数を 読んで 作る。TAKO-1 では へらさない）
   fude: {
     name: 'ふで',
+    zukan: '［竹｜たけ］の えに すみを すいこませた ふで。けんちくしさんの エディターで、［紙｜かみ］に せっけいずを かく。なんまいも かくと すりへって しまう。',
     maxStack: 1,
     rarity: 'uncommon',
     category: 'tool',

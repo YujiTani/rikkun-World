@@ -1,9 +1,14 @@
-import type { BlockId } from '../contracts';
+import type { BlockId, TargetInfo } from '../contracts';
 import { itemType } from '../inventory/items';
 import { FUTON_HEAD, futonDirFromYaw, futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS } from '../world/blocks/kotatsu';
+import { K_TANSU, doorId, doorInfo, furnInfo, furnPlaceCells, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
 import { applyFlatten, planFlatten, type FlattenPlan } from '../world/flatten';
 import { HANGING_SUPPORT, isReplaceable, overlapsBody, type DigCore } from './digCore';
+import { isWater } from '../world/blocks/water';
+import { ROPE, ROPE_FENCE, ROPE_FENCE_POST, ROPE_STAKE, isFenceBlock, planRopeHere } from '../world/blocks/rope';
+import { tetherOf } from '../world/blocks/ropeTether';
+import { planFence, type FenceWorld } from '../world/blocks/ropeFence';
 
 /** 置く場所とブロック（置けないなら null）。tryPlace とヒントが同じ判定を使う */
 export interface PlaceSpot {
@@ -11,8 +16,13 @@ export interface PlaceSpot {
   y: number;
   z: number;
   block: BlockId;
-  cells?: ReadonlyArray<{ x: number; z: number; block: BlockId }>;
+  /** ふとん・こたつ・家具・戸の ぜんぶの マス。y を 書かない マスは 置く 高さ y */
+  cells?: ReadonlyArray<{ x: number; y?: number; z: number; block: BlockId }>;
   plan?: FlattenPlan;
+  /** ROPE-1: つかう ロープの 本数（ふつうは 1 こ） */
+  use?: number;
+  /** ROPE-1 版 3: 置いた あとに する こと（つなぐ・さくの 上に のる） */
+  after?: () => void;
 }
 
 /** ブロックを 置く（右クリック）。置ける場所の判定・こたつ 2×2・たいらに する・置く の実行までを 受け持つ */
@@ -22,11 +32,19 @@ export class BlockPlacer {
 
   constructor(private readonly c: DigCore) {}
 
+  /** ROPE-1 版 3: ロープを 持って いるか（右クリックは ねらいを 見ずに 足もとから たらす） */
+  holdingRope(): boolean {
+    const held = this.c.inventory.held();
+    return held !== null && itemType(held.item)?.placeBlock === ROPE;
+  }
+
   /** 置く場所とブロック（置けないなら null） */
   spot(): PlaceSpot | null {
     const c = this.c;
     const t = c.tgt();
     const held = c.inventory.held();
+    // ROPE-1 版 3: ロープは ねらいを 見ない（足もとから 向いた ほうへ たらす）
+    if (held && itemType(held.item)?.placeBlock === ROPE) return this.ropeHere(held.count);
     if (!t || !held) return null;
     const block = itemType(held.item)?.placeBlock;
     if (!block) return null;
@@ -39,12 +57,16 @@ export class BlockPlacer {
     }
     // FLORA-75: くさ を ねらって 置くと、くさ の マスに 置ける（くさ は 消える）。MINE-1B: チョークの しるしも 同じ
     const { x, y, z } = isReplaceable(t.id) ? t.block : t.place;
+    if (this.lockedCell(x, y, z)) return null; // HOUSE-1C PR-2: 建築中の 場所には 置けない
     const cur = c.world.getBlock(x, y, z);
-    if (cur !== 'air' && cur !== 'water' && !(isReplaceable(cur) && cur === t.id)) return null; // 世界の外・ほかのブロック
+    if (cur !== 'air' && !isWater(cur) && !(isReplaceable(cur) && cur === t.id)) return null; // 世界の外・ほかのブロック
     if (block === 'nukunuku') {
       const k = this.kotatsuSpot(x, y, z);
       return k ? { x: k.x, y, z: k.z, block, cells: k.cells, plan: k.plan } : null;
     }
+    // HOUSE-1C: 向きの ある 家具（プレイヤーの ほうを 向く）・戸（2 マス。いつも 南向き）
+    if (furnInfo(block)) return this.furnSpot(block, x, y, z);
+    if (doorInfo(block)) return this.doorSpot(x, y, z);
     if (block === 'nobana') {
       // のばな は くさ・つち の上だけ
       const under = c.world.getBlock(x, y - 1, z);
@@ -56,9 +78,9 @@ export class BlockPlacer {
       const head = FUTON_HEAD[dir]!;
       const foot = futonPartner(head, x, z)!;
       const fcur = c.world.getBlock(foot.x, y, foot.z);
-      if (fcur !== 'air' && fcur !== 'water') return null;
+      if (fcur !== 'air' && !isWater(fcur)) return null;
       if (this.overlapsBody(x, y, z) || this.overlapsBody(foot.x, y, foot.z)) return null;
-      if (c.gate?.placeBlocked(x, y, z) || c.gate?.placeBlocked(foot.x, y, foot.z)) return null;
+      if (c.gate?.placeBlocked(x, y, z) || c.gate?.placeBlocked(foot.x, y, foot.z) || this.lockedCell(foot.x, y, foot.z)) return null;
       return { x, y, z, block: head, cells: [{ x, z, block: head }, { x: foot.x, z: foot.z, block: foot.id }] };
     }
     // たいまつ・ちょうちん: 固くない（体と重なっても置ける）。支えが要る（たいまつ = 下か横、ちょうちん = 下・横・上）
@@ -68,6 +90,97 @@ export class BlockPlacer {
     } else if (this.overlapsBody(x, y, z)) return null;
     if (c.gate?.placeBlocked(x, y, z)) return null; // 妖怪の箱の所には置けない
     return { x, y, z, block };
+  }
+
+  /** 向きの ある 家具を 置く 場所。ぜんぶの マスが あいて いて、体に 重ならない ところ だけ（ねらった マスが 見た目の 左はし〔長さ 2〕か まん中〔長さ 3〕） */
+  private furnSpot(block: BlockId, x: number, y: number, z: number): PlaceSpot | null {
+    const c = this.c;
+    const kind = furnInfo(block)!.kind;
+    const { cells } = furnPlaceCells(kind, c.player().yawDeg, x, z);
+    for (const k of cells) {
+      // ねらった マスは spot() が しらべ済み〔あき・水・くさ・チョークの しるし〕。ほかの マスも くさ・しるしの 上には 置ける
+      if (k.x !== x || k.z !== z) {
+        const cur = c.world.getBlock(k.x, y, k.z);
+        if (cur !== 'air' && !isWater(cur) && !isReplaceable(cur)) return null;
+      }
+      if (this.overlapsBody(k.x, y, k.z) || c.gate?.placeBlocked(k.x, y, k.z) || this.lockedCell(k.x, y, k.z)) return null;
+    }
+    const aimed = cells.find((k) => k.x === x && k.z === z)!;
+    return cells.length === 1 ? { x, y, z, block: aimed.id } : { x, y, z, block: aimed.id, cells: cells.map((k) => ({ x: k.x, z: k.z, block: k.id })) };
+  }
+
+  /** ROPE-1 版 3: 足もとに くい、向いて いる ほうの となりの 列に 下へ たらす（がけで なければ null。くわしくは world/blocks/rope.ts の planRopeHere） */
+  private ropeHere(have: number): PlaceSpot | null {
+    const c = this.c;
+    const p = c.player();
+    const feet = { x: Math.floor(p.position.x), y: Math.floor(p.position.y + 1e-3), z: Math.floor(p.position.z) };
+    const free = (x: number, y: number, z: number): boolean => !c.gate?.placeBlocked(x, y, z) && !this.lockedCell(x, y, z);
+    const open = (x: number, y: number, z: number): boolean => {
+      const cur = c.world.getBlock(x, y, z);
+      return (cur === 'air' || isWater(cur)) && free(x, y, z);
+    };
+    const canStake = (): boolean => {
+      const cur = c.world.getBlock(feet.x, feet.y, feet.z);
+      return (cur === 'air' || isReplaceable(cur)) && free(feet.x, feet.y, feet.z) && c.world.isSolid(feet.x, feet.y - 1, feet.z);
+    };
+    const tether = tetherOf(c.world);
+    if (tether.live((x, y, z) => c.world.getBlock(x, y, z), ROPE_STAKE)) {
+      // 版 4: つないで いる 間は、はじめの くいから ねらった 列まで ロープの さく（L 字。くわしくは world/blocks/ropeFence.ts）
+      const t = c.tgt();
+      if (!t) return null;
+      const fw: FenceWorld = {
+        open: (x, y, z) => {
+          const cur = c.world.getBlock(x, y, z);
+          return (cur === 'air' || isReplaceable(cur)) && free(x, y, z) && !this.overlapsBody(x, y, z);
+        },
+        solid: (x, y, z) => c.world.isSolid(x, y, z),
+        fence: (x, y, z) => isFenceBlock(c.world.getBlock(x, y, z)),
+      };
+      const a = tether.anchor!;
+      const fp = planFence(a, t.place.x, t.place.z, have, fw);
+      if (!fp) return null;
+      // 版 5: はし（はじめの くい・さいごの マス）と L 字の かどは くい（rope_fence_post。くいと 同じ 絵）、その 間は よこに はった なわ
+      const n = fp.cells.length;
+      const corner = t.place.x !== a.x && t.place.z !== a.z ? Math.abs(t.place.x - a.x) - 1 : -1;
+      const cells: Array<{ x: number; y: number; z: number; block: BlockId }> = fp.cells.map((k, i) => ({ ...k, block: i === n - 1 || i === corner ? ROPE_FENCE_POST : ROPE_FENCE }));
+      // はじめの くいも さくの くいに する（体と 重なる ときは 固くない くいの まま。絵は 同じ）
+      if (!this.overlapsBody(a.x, a.y, a.z)) cells.unshift({ ...a, block: ROPE_FENCE_POST });
+      const last = cells[cells.length - 1]!;
+      // 版 5: さくを つくったら つなぎは おわり
+      return { x: last.x, y: last.y, z: last.z, block: last.block, cells, use: fp.used, after: () => tether.clear() };
+    }
+    // 版 5: さくの くいの 上を ねらって 右クリック → その 上に くいを かさねて うち、つなぐ（つぎの さくは その 段に できる）
+    const aimed = c.tgt();
+    if (aimed && aimed.id === ROPE_FENCE_POST && aimed.face.y === 1) {
+      const { x, y, z } = aimed.place;
+      const cur = c.world.getBlock(x, y, z);
+      if (!((cur === 'air' || isReplaceable(cur)) && free(x, y, z))) return null;
+      return { x, y, z, block: ROPE_STAKE, after: () => tether.tie({ x, y, z }) };
+    }
+    const plan = planRopeHere(feet, p.yawDeg, have, canStake, open);
+    if (!plan) {
+      // がけで ない（たいら）: 足もとに くいを うって 体と つなぐ（くい 1 本。半径 ROPE_TUNING.tetherRadius）
+      if (!canStake() || !p.onGround) return null;
+      const { x, y, z } = feet;
+      return { x, y, z, block: ROPE_STAKE, after: () => tether.tie(feet) };
+    }
+    const { x, y, z } = plan.stake;
+    return { x, y, z, block: ROPE_STAKE, cells: [{ x, y, z, block: ROPE_STAKE }, ...plan.cells.map((k) => ({ x: plan.x, y: k.y, z: plan.z, block: k.block }))], use: plan.used };
+  }
+
+  /** 戸 2 マス（下〔ねらった マス〕と その 上）を 置く 場所。2 マスとも あいて いて、体に 重ならない ところ だけ */
+  private doorSpot(x: number, y: number, z: number): PlaceSpot | null {
+    const c = this.c;
+    const upper = c.world.getBlock(x, y + 1, z);
+    if (upper !== 'air' && !isWater(upper)) return null;
+    for (const yy of [y, y + 1]) if (this.overlapsBody(x, yy, z) || c.gate?.placeBlocked(x, yy, z) || this.lockedCell(x, yy, z)) return null;
+    const lo = doorId(false, false);
+    return { x, y, z, block: lo, cells: [{ x, z, block: lo }, { x, y: y + 1, z, block: doorId(true, false) }] };
+  }
+
+  /** HOUSE-1C PR-2: 建築中の 場所の マスか */
+  private lockedCell(x: number, y: number, z: number): boolean {
+    return this.c.m4.build?.locked(x, y, z) ?? false;
   }
 
   private overlapsBody(x: number, y: number, z: number): boolean {
@@ -117,6 +230,18 @@ export class BlockPlacer {
     return d;
   }
 
+  /** 家の 戸を あける・しめる（上下 どちらを ねらっても 2 マスとも。あいて いたら しめる）。戸でなければ 何も しない */
+  toggleDoor(t: TargetInfo): void {
+    const w = this.c.world;
+    const d = doorInfo(t.id);
+    if (!d) return;
+    const { x, y, z } = t.block;
+    const loY = d.top ? y - 1 : y;
+    const open = !d.open;
+    if (doorInfo(w.getBlock(x, loY, z))?.top === false) w.setBlock(x, loY, z, doorId(false, open));
+    if (doorInfo(w.getBlock(x, loY + 1, z))?.top === true) w.setBlock(x, loY + 1, z, doorId(true, open));
+  }
+
   tryPlace(): void {
     const c = this.c;
     const spot = this.spot();
@@ -127,14 +252,15 @@ export class BlockPlacer {
         applyFlatten(spot.plan, (fx, fy, fz, b) => c.world.setBlock(fx, fy, fz, b));
         this.flatDust = spot.plan.dust;
       }
-      for (const k of spot.cells) c.world.setBlock(k.x, y, k.z, k.block);
+      for (const k of spot.cells) c.world.setBlock(k.x, k.y ?? y, k.z, k.block);
     } else if (c.bodyTgt()) {
       if (!c.m4.bodyBlocks?.place({ x, y, z }, block)) return;
     } else if (!c.world.setBlock(x, y, z, block)) return;
-    c.inventory.consumeHeld();
-    if (block === 'tansu') c.m4.storage?.placed(x, y, z, c.player().yawDeg);
+    for (let i = 0; i < (spot.use ?? 1); i++) c.inventory.consumeHeld();
+    spot.after?.();
+    if (isFurnKind(block, K_TANSU)) c.m4.storage?.placed(x, y, z, c.player().yawDeg);
     c.m4.tools?.pushSwing('place');
-    c.emit({ type: 'place', tick: c.tick(), block: { x, y, z }, id: block });
+    c.emit({ type: 'place', tick: c.tick(), block: { x, y, z }, id: houseDropOf(block) ?? block }); // 家の もの〔向き・マス ちがい〕は もとの id
   }
 }
 

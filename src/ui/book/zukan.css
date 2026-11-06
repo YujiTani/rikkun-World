@@ -144,8 +144,22 @@
   color: #3a2614;
   text-shadow: none;
 }
+/* 右の ページ: 長い 文でも 下の「1 / 129」に かさならない。はいらない ときは 字を 小さく（bookUi.ts の fitZukanText が 24 → 20 → 16px）、それでも はいらない 小さい 画面では 中だけ スクロール */
 .zk-item {
-  gap: 4px;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #e0b545 transparent;
+}
+.zk-item.zk-s20 .zk-cap {
+  font-size: 20px;
+  line-height: 1.7;
+}
+.zk-item.zk-s16 .zk-cap {
+  font-size: 16px;
+  line-height: 1.7;
 }
 .zk-h {
   margin: 12px 0 0;

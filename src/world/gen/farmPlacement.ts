@@ -16,6 +16,7 @@ import { regionRect } from './region';
 import { flatOf } from './worldInfo';
 import { surfaceFor } from './surface';
 import { spawnOf, terrainFor } from './terrain';
+import { isWater } from '../blocks/water';
 
 /**
  * 置きもの の 場所（M7 §4.5 (0)〜(3)。VOX-B F1〜F3、VOX-D G1〜G6）。シード だけ で 決まる 純粋な 計算。
@@ -236,9 +237,9 @@ function place(seed: number): FarmPlacement {
       const isTarget = cx === kx && cz === kz && cy === h0 + 2;
       if (isTarget) continue;
       const pre = S.blockAt(cx, cy, cz);
-      if (pre !== 'air' && pre !== 'water') return null; // 置く前の 地形
+      if (pre !== 'air' && !isWater(pre)) return null; // 置く前の 地形
       const now = m.get(key)?.id ?? pre;
-      if (now !== 'air' && now !== 'water' && now !== 'saku' && now !== 'kakashi' && now !== 'kakashi_head') return null;
+      if (now !== 'air' && !isWater(now) && now !== 'saku' && now !== 'kakashi' && now !== 'kakashi_head') return null;
     }
 
     const blocks = [...m.values()].sort((a, c) => a.y - c.y || a.z - c.z || a.x - c.x);

@@ -4,6 +4,7 @@ import { ActionState, actionForKey, bindKeyboardAndMouse } from '../input/action
 import { InventoryImpl } from '../inventory/Inventory';
 import { CRAFT_RECIPES } from '../craft/recipes';
 import { ItemDropper, DropController } from './ItemDropper';
+import { furnBlockId, furnRotFromYaw } from '../world/blocks/houseBlocks';
 import { StorageSystem, facingFromYaw } from './StorageSystem';
 import { TANSU_COLORS, tansuPixels, type TansuFace } from './tansuArt';
 
@@ -58,6 +59,21 @@ describe('たんす', () => {
     expect(facingFromYaw(0)).toBe('s');
     expect(facingFromYaw(180)).toBe('n');
     expect(facingFromYaw(90)).toBe('w');
+    expect(facingFromYaw(270)).toBe('e');
+  });
+
+  it('向き: 家具の ブロックの 向き（tansu・tansu_w・tansu_n・tansu_e）と 同じ。どの yaw でも 前の 面は プレイヤーの ほう', () => {
+    const FRONT_OF_ID: Record<string, string> = { tansu: 's', tansu_w: 'w', tansu_n: 'n', tansu_e: 'e' };
+    for (let yaw = -720; yaw <= 720; yaw += 5) {
+      if (Math.abs(((yaw % 90) + 90) % 90 - 45) < 1) continue; // ななめの 真ん中は どちらでも よい
+      const rot = furnRotFromYaw(yaw);
+      expect(facingFromYaw(yaw), `yaw ${yaw}`).toBe(FRONT_OF_ID[furnBlockId('tansu', 0, rot)]);
+      // プレイヤーの 見ている 向き（yaw 0 ＝ 北 −z）の 反対が 前の 面
+      const r = (yaw * Math.PI) / 180;
+      const toPlayer = { x: -Math.sin(r), z: Math.cos(r) };
+      const face = { s: { x: 0, z: 1 }, n: { x: 0, z: -1 }, w: { x: -1, z: 0 }, e: { x: 1, z: 0 } }[facingFromYaw(yaw)];
+      expect(face.x * toPlayer.x + face.z * toPlayer.z, `yaw ${yaw}: 前の 面は プレイヤーの ほう`).toBeGreaterThan(0.5);
+    }
   });
 
   it('開く・遠いと閉じる', () => {
@@ -123,6 +139,21 @@ describe('たんす', () => {
     r.inv.setSlot(9, { item: 'dirt', count: 1 });
     r.st.shiftClick('inv', 9);
     expect(r.st.drainEvents().map((e) => e.type)).toEqual(['store', 'storeFull']);
+  });
+
+  it('HOUSE-1B: せっけいずの 番号（plan）は たんすに しまって 保存して 読みなおしても のこる。しまう・出す ときも', () => {
+    const r = rig();
+    r.st.open(5, 5, 5);
+    r.inv.setSlot(9, { item: 'sekkeizu', count: 1, plan: 4 });
+    r.st.shiftClick('inv', 9);
+    expect(r.st.get(5, 5, 5)!.slots.find((s) => s?.item === 'sekkeizu'), 'たんすに しまった').toMatchObject({ plan: 4 });
+    const data = JSON.parse(JSON.stringify(r.st.serialize()));
+    r.st.deserialize(data);
+    const i = r.st.get(5, 5, 5)!.slots.findIndex((s) => s?.item === 'sekkeizu');
+    expect(r.st.get(5, 5, 5)!.slots[i], '読みなおした').toEqual({ item: 'sekkeizu', count: 1, plan: 4 });
+    r.st.open(5, 5, 5);
+    r.st.shiftClick('tansu', i);
+    expect(r.inv.slots().find((s) => s?.item === 'sekkeizu'), '持ち物に もどした').toMatchObject({ plan: 4 });
   });
 
   it('保存と読みこみ・古い保存・setBlock で消えたら中身も消える', () => {

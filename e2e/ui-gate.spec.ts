@@ -13,7 +13,10 @@ import { checkColors, checkComponents, checkContrast, checkFontSizes, snapshotUi
 import { findUnrubiedKanji } from '../src/ui/text';
 import { openLive3 } from './helpers/live3';
 import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid, toNewScreen } from './helpers/start';
-import { TID as HOUSE_TID, houseUiIssues, openKuraScreen, openMenuScreen } from './helpers/house';
+import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house';
+import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
+import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
+import { PICK_ROOTS, SITE_NEED_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen, siteNeedIssues } from './helpers/houseSite';
 
 /**
  * UI 検査ゲート（`npm run check:ui`）。
@@ -42,6 +45,8 @@ interface Screen {
   id: string;
   /** しらべる範囲（CSS セレクタ） */
   roots: string[];
+  /** true なら 画面を 出すまでに 時間が かかる（家を 何けんも 建てる など）。テストの 時間切れを 240 秒に する */
+  slow?: boolean;
   /** true なら くずれ（はみ出し・重なり）だけ しらべる（色・字の きまりは ほかの画面で見ている） */
   layoutOnly?: boolean;
   /** true なら 大きさを かえるときに ステップを 進めない（見た目を 落雷の F に 止めて 3 つの 大きさで 撮る。ART-PIPE-1 AC7） */
@@ -842,18 +847,62 @@ SCREENS.push({
 });
 
 /**
- * HOUSE-1A AC35（docs/design/HOUSE-1.md §3.2・§6.2。#338）: 建築士さんの メニュー（page 'top'・ボタン 6 つ ぜんぶ 出る とき。ふきだしも いっしょに 見る）と
- * くら（page 'kura'。くらは 重ねられる 物 ぜんぶ（今の 登録表の 最大）・持ち物は いっぱい・持ち物の マスを えらんで 数の えらびが 出た ところ）。
+ * HOUSE-1A AC35（docs/design/HOUSE-1.md §3.2・§6.2。#338）: 建築士さんの メニュー（page 'top'・ボタン 5 つ ぜんぶ 出る とき。ふきだしも いっしょに 見る）。
+ * 1E: くらを なくした ので、くらの 画面（'house-kura'）の 検査は ない。
  * 3 つの 大きさで はみ出さない・重ならない・色・字・部品の きまりは 上の 検査。字 24px 以上・押せる物 48px 以上は `extra`（e2e/helpers/house.ts）。
  * コントラストは 既存の きまり どおり: 大きい太字は 3:1 まで（既存のきまり）。4.5:1 は オーナーが目で見る。
  * ふきだしは house-menu の 外に あっても よい（票「つなぎ目の 約束」）ので、検査の 外わくに ふきだしも 入れる。
  * 窓口 `__rikkun.house` と 画面の 名前（data-testid）の 約束は e2e/helpers/house.ts の 先頭。実装の 前は 窓口が 無くて 赤。
  */
 const HOUSE_MENU_ROOTS = [HOUSE_TID.menu, HOUSE_TID.bubble].map((id) => `[data-testid="${id}"]`);
-const HOUSE_KURA_ROOTS = [`[data-testid="${HOUSE_TID.kura}"]`];
+SCREENS.push({ id: 'house-menu', roots: HOUSE_MENU_ROOTS, open: openMenuScreen, extra: (page) => houseUiIssues(page, HOUSE_MENU_ROOTS) });
+
+/**
+ * HOUSE-1B AC35（docs/design/HOUSE-1.md §3.2・§6.2。#339 PR-1）: エディター ① そと（9×9・窓 上限）・② なか（9×9・窓 上限・家具 いっぱい・えらんだ 家具の そばの ボタン）・
+ * ③ なまえ（いちばん 長い 名前 8 字＋「ひみつきち」）、確かめの まど 2 つ、ひつような もの（9 行）、いちばん 長い ふきだし（① と ③）、持ち物の せっけいずの 名前（19 字）。
+ * 3 つの 大きさで はみ出さない・重ならない・色・字・部品の きまりは 上の 検査。字 24px 以上・ボタン 高さ 56px 以上・方眼の マス 48px 以上は `extra`（e2e/helpers/houseEditor.ts）。
+ * 'house-sekkeizu-name' だけは 今の 共有の ツールチップの まま（#339 の 票）。`extra` は 名前（`.tip-name`）が 見える・切れない・ほかの アイテムと 同じ 大きさ、だけを 見る（星・説明・「たいきゅう」は 見ない）。
+ * 見本は 動きを へらす 設定で 止める（open で emulateMedia）。方眼の マス・置いた 家具は 押せる物に 数えない div、ふきだしも ボタンに しない（AC35）。
+ * 'house-editor-beside' は 5×5 と 9×9 の 4 すみと まん中の 家具で そばの ボタンが 方眼から はみ出さない かを 見る（AC57）。
+ * HOUSE-1E AC35c（#374。docs/design/HOUSE-1.md §3.2・§6.2）: 'house-editor-red' ＝ ② なか・9×9 の 4 すみに はみ出した 赤い 家具〔ながい テーブル 1×3・こたつ〕と 重なった 赤い 家具を、
+ * ひとつずつ えらぶと そばの ボタンが 方眼の はこ〔かべの 帯 こみ〕から はみ出さず、上の 帯・下の 帯・右の 列に かからない〔はみ出した 所は 描かない〕。
+ * 'house-bubble-red-soto'・'house-bubble-red-naka' ＝ 「あかい かぐを なおしてね」が ① から〔できた！〕も ② から〔つぎへ〕も 1 だん。
+ * 'house-need'〔エディター がわ〕と 'house-site-need'〔けんちく がわ。下の 1C PR-2 の 並び〕＝ 列の 見出しが「ひつよう」「ある」「たりない」で「くら」が 出ない・材料の 名前に ふりがな〔くらの 画面の 検査が なく なった ぶん〕。
+ * 窓口 `__rikkun.house` と 画面の 名前（data-testid）の 約束は e2e/helpers/house.ts の 先頭。実装の 前は 窓口が 無くて 赤。
+ */
 SCREENS.push(
-  { id: 'house-menu', roots: HOUSE_MENU_ROOTS, open: openMenuScreen, extra: (page) => houseUiIssues(page, HOUSE_MENU_ROOTS) },
-  { id: 'house-kura', roots: HOUSE_KURA_ROOTS, open: openKuraScreen, extra: (page) => houseUiIssues(page, HOUSE_KURA_ROOTS) },
+  ...EDITOR_GATE.map((g) => ({
+    id: g.id,
+    roots: g.roots,
+    open: (page: Page) => openEditorScreen(page, g.kind),
+    extra: (page: Page) => editorGateIssues(page, g),
+  })),
+);
+
+/**
+ * HOUSE-1C PR-1 AC35b（docs/design/HOUSE-1.md §2.6・§3.3・§6.2。#340）: なまえを かえる の 一覧（いちばん 長い 名前の 家が たくさん）・名前の 画面（いちばん 長い 名前）・
+ * 戸から 入った ところの 家の 名前の 帯（いちばん 長い 名前で 切れない）。3 つの 大きさで はみ出さない・重ならない・色・字・部品の きまりは 上の 検査。
+ * 字 24px 以上は `extra`。ボタンは 高さ 56px 以上・はば 48px 以上（1B の ③ なまえと 同じ きまり。`editorUiIssues`）、帯は 押せる 物が ないので 字だけ（`houseUiIssues`）。
+ * 家は テスト用の フック `house.buildNow` で 建てる。窓口と 画面の 名前（data-testid）の 約束は e2e/helpers/house.ts の 先頭。実装の 前は フックが 無くて 赤。
+ */
+SCREENS.push(
+  { id: 'house-rename-list', slow: true, roots: RENAME_LIST_ROOTS, open: (page) => openRenameScreen(page, 'list'), extra: (page) => editorUiIssues(page, RENAME_LIST_ROOTS) },
+  { id: 'house-rename-name', slow: true, roots: RENAME_NAME_ROOTS, open: (page) => openRenameScreen(page, 'name'), extra: (page) => editorUiIssues(page, RENAME_NAME_ROOTS) },
+  { id: 'house-name-band', slow: true, roots: NAME_BAND_ROOTS, open: (page) => openRenameScreen(page, 'band'), extra: (page) => houseUiIssues(page, NAME_BAND_ROOTS) },
+);
+
+/**
+ * HOUSE-1C PR-2 AC35b（docs/design/HOUSE-1.md §2.8・§2.9・§6.2。#340）: 「けんちくを はじめる」の 一覧（設計図 7 枚・いちばん 長い 名前・材料が 足りない 物が まざる）・
+ * 上空の 視点（上から 見た 画面と 案内の ふきだし）・確かめの まど（「ここに たてる？」）。3 つの 大きさで はみ出さない・重ならない・色・字・部品の きまりは 上の 検査。
+ * 字 24px 以上・ボタン 高さ 56px 以上・はば 48px 以上は `extra`（1B の ③ なまえと 同じ きまり。`editorUiIssues`）。
+ * 見た目の 細部（案 B の 足場の 色など）は 見ない。窓口と 画面の 名前（data-testid）の 約束は e2e/helpers/house.ts の 先頭（1C PR-2 の 約束）。実装の 前は 窓口が 無くて 赤。
+ */
+SCREENS.push(
+  { id: 'house-pick', slow: true, roots: PICK_ROOTS, open: (page) => openSiteScreen(page, 'pick'), extra: (page) => editorUiIssues(page, PICK_ROOTS) },
+  { id: 'house-sky', slow: true, roots: SKY_ROOTS, open: (page) => openSiteScreen(page, 'sky'), extra: (page) => editorUiIssues(page, SKY_ROOTS) },
+  { id: 'house-sky-confirm', slow: true, roots: SKY_CONFIRM_ROOTS, open: (page) => openSiteScreen(page, 'confirm'), extra: (page) => editorUiIssues(page, SKY_CONFIRM_ROOTS) },
+  // 1E AC35c: 材料が たりない カードを 押して 開く ひつような もの（けんちく がわ）。エディター がわは 上の 'house-need'
+  { id: 'house-site-need', slow: true, roots: SITE_NEED_ROOTS, open: (page) => openSiteScreen(page, 'need'), extra: siteNeedIssues },
 );
 
 interface Issue {
@@ -916,7 +965,7 @@ test.describe('UI 検査ゲート', () => {
 
   for (const screen of SCREENS) {
     test(screen.id, async ({ page }) => {
-      if (screen.id.startsWith('start-')) test.setTimeout(240_000); // START-1: 保存の ある 世界を まず 作る 場面がある
+      if (screen.id.startsWith('start-') || screen.slow) test.setTimeout(240_000); // START-1: 保存の ある 世界を まず 作る 場面がある
       const known = loadKnown();
       mkdirSync(OUT, { recursive: true });
       await page.setViewportSize({ width: SIZES[0].w, height: SIZES[0].h });

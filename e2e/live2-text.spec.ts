@@ -9,7 +9,8 @@ import { openAnimals } from './helpers/animals';
  * 案内画面（本）の 3 行・説明の 表は この PR では 作らない（指示: 本の 中身は 別 PR）ので ここでは 見ない。
  */
 test.describe('LIVE-2 文字（合図 5 つ）', () => {
-  test.describe.configure({ timeout: 150_000 });
+  // main でも CI で 133 秒（150 秒 上限の すぐ 下）。シャードの 組み合わせで 重い spec と ならぶと こえる ので 余裕を とる
+  test.describe.configure({ timeout: 300_000 });
 
   test('AC25b 合図 kitFull・kitMax・kitWait・coopMax・coopFull・sleepHint: 漢字 0・禁止語 0・はみ出し 0px・2 行まで（3 つの 大きさ）', async ({ page }) => {
     await openAnimals(page);

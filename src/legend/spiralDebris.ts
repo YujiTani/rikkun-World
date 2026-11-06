@@ -1,5 +1,6 @@
 import type { Vec3, VoxelWorld } from '../contracts';
 import { createRng } from '../world/gen/random';
+import { isWater } from '../world/blocks/water';
 
 /**
  * WEAPON-8 §3.1: らせんの かぜが ふきとばす 地面の 土と 草の つぶ（見た目だけ。ブロックは こわさない・変えない）。
@@ -92,7 +93,7 @@ export function createSpiralDebris(deps: { world: Pick<VoxelWorld, 'getBlock' | 
     const y0 = Math.floor(p.y);
     for (let y = y0; y >= y0 - 4; y--) {
       const b = deps.world.getBlock(x, y, z);
-      if (b === 'water') return null;
+      if (isWater(b)) return null;
       if (b !== 'air' && b !== 'outside' && deps.world.isSolid(x, y, z)) {
         const top = y + 1;
         return p.y - top <= DEBRIS_REACH + 1e-9 ? { top, kind: groundKindOf(b) } : null;

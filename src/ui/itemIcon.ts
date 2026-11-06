@@ -1,3 +1,4 @@
+import { isRopeItem, ropeItemPixels } from './itemArtRope';
 import type { ItemId } from '../contracts';
 import { isMaterialItem, materialPixels } from './itemArt';
 import { clockPixels, hammerPixels, isM4Item, m4ItemPixels } from './itemArtM4';
@@ -9,6 +10,8 @@ import { isLive3Item, live3ItemPixels } from './itemArtLive3';
 import { isW7Item, w7ItemPixels } from './itemArtW7';
 import { goldItemPixels, isGoldItem } from './itemArtGold';
 import { houseToolPixels, isHouseToolItem } from './itemArtHouse';
+import { houseEditorItemPixels, isHouseEditorItem } from './itemArtHouseEditor';
+import { houseBlockItemPixels, isHouseBlockItem } from './itemArtHouseBlocks';
 import { isKongoItem, kongoItemPixels } from './itemArtKongo';
 import { isNinjaItem, ninjaItemPixels } from './itemArtNinja';
 import { isSamuraiItem, samuraiItemPixels } from './itemArtSamurai';
@@ -17,6 +20,7 @@ import { axeItemPixels, isAxeItem } from './itemArtBal';
 import { isTakoItem, takoItemPixels } from './itemArtTako';
 import { isMineItem, mineItemPixels } from './itemArtMine';
 import { tansuPixels } from '../storage/tansuArt';
+import { atlasIconUrl } from './iconAtlas';
 import { BLOCK_TILES, TILE_SIZE, getTilePixels, type Rgba, type TileName } from '../world/blocks/textures';
 
 /** 16x16 のドット絵（コードで描く）。pixels[y * 16 + x]、y = 0 が上 */
@@ -43,12 +47,15 @@ export function itemIconPixels(item: ItemId): Pixels {
   if (item === 'kin_tamago') return kinTamagoPixels();
   if (isGoldItem(item)) return goldItemPixels(item);
   if (isHouseToolItem(item)) return houseToolPixels(item); // HOUSE-1A: 仮の 絵
+  if (isHouseEditorItem(item)) return houseEditorItemPixels(item); // HOUSE-1B: 新しい 家具・せっけいず（仮の 絵）
+  if (isHouseBlockItem(item)) return houseBlockItemPixels(item); // HOUSE-1C: 家の ブロック 5 つ
   if (isKongoItem(item)) return kongoItemPixels(item);
   if (isLive3Item(item)) return live3ItemPixels(item);
   if (isW7Item(item)) return w7ItemPixels(item);
   if (isM7Item(item)) return m7ItemPixels(item);
   if (isM72Item(item)) return m72ItemPixels(item);
   if (isBucketItem(item)) return bucketItemPixels(item);
+  if (isRopeItem(item)) return ropeItemPixels(); // ROPE-1
   // ここまで 来るのは ブロックの 絵を つかう アイテム（全アイテムが ここか 上のどれかに 入る = registry.test.ts が 石の 絵に 落ちないと 確かめる）。
   // 石の 絵は アイテムに ならない ブロックの id（みず など）と、セーブや 外から 来た 知らない id の 守り（型では 守れないので 残す）
   const tiles = item in BLOCK_TILES ? BLOCK_TILES[item as keyof typeof BLOCK_TILES] : undefined;
@@ -174,6 +181,8 @@ const iconCache = new Map<string, string>();
 
 /** アイテムの絵を data URL にして使いまわす（img で出すため。DOM のある所でだけ呼ぶ） */
 export function itemIconUrl(item: ItemId): string {
+  const big = atlasIconUrl(item); // ICON-32: 32×32 が あれば そちら
+  if (big) return big;
   let url = iconCache.get(item);
   if (!url) {
     const c = document.createElement('canvas');

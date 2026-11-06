@@ -1,15 +1,17 @@
-// 数の 元: HOUSE-1 家の ブロック 案 C（しあげ。yuzu 2026-10-30 15:08 決定）。docs/art/design/06-housing.md §21・docs/art/requests/HOUSE-1-house-blocks.md から 読む。
+// 数の 元: HOUSE-1 家の ブロック 案 C（しあげ。yuzu 2026-10-30 15:08 決定）＋ 窓と 戸の 見つけやすさ（yuzu 16:52「窓と扉がわかりにくい」の 直し）。docs/art/design/06-housing.md §21・docs/art/requests/HOUSE-1-house-blocks.md から 読む。
 // ゲームに 入れた 試作（/mnt/project-files/housing-art/house-look/proto.diff）の 2 つの ファイルを そのまま ならべた もの（拡張子 .txt = ビルド・lint の 外）。
-// 1) src/proto/houselook/art.ts  … タイル 12 まい・色の 表・戸と しょうじの 箱・アイテムの 絵
-// 2) src/proto/houselook/props.ts … 戸・しょうじを 区の メッシュに 足す（面の 絵の うつし方・上下の 面を けす）
+// 1) src/proto/houselook/art.ts  … タイル 12 まい・色の 表・戸（戸わく・ひさし つき）と しょうじ（窓台・上の 横木 つき）の 箱・アイテムの 絵
+// 2) src/proto/houselook/props.ts … 戸・しょうじを 区の メッシュに 足す（面の 絵の うつし方・上下の 面と かべに うまる 面を けす・しょうじの 紙は いつも 明るい）
 
 // ======================================================================== 1) src/proto/houselook/art.ts
 // HOUSE-1 2 版 試作（本実装ではない）: 家の ブロックの 見た目 = 案 C「ふとい いたの やまごや」（yuzu 2026-10-30 15:08 決定）。
 // ?proto=houselook の ときだけ 使う。three・DOM に 依らない（node でも 絵を 書き出せる）。
 // しあげ（2026-10-30）: 人が 作った 物は 平らな 箱（DESIGN 5.3・15.1）。板の みぞ・ふとさは 9×9×9 の でこぼこ では なく 絵（線と かげ）で 見せる。
 //   かべ = はちみつ色の 横板 3 まい（上の ふちに 光・下の ふちに かげ・さかいに みぞ）。やね = こい 木の 板に 石（かげ つき）。
-//   しょうじ = かべの あつみの まん中に 紙の 板 1 まい（わくと さんは 絵。へこみは となりの かべの 面で 見える）。戸 = あつい 2 まい とびら（しめた 形は 箱 1 つ）。
 //   ふとんは 今の まま（PO 決定。外に 置いた ふとんも 変わらない）。
+// 見つけやすく（2026-10-30 yuzu 16:52「窓と扉がわかりにくい」）: 窓と 戸を 家の 見た目 だけで ひと目で 分かる ように した。
+//   しょうじ = 明るい 紙に こい わくと「田」の さん（かべの 面から 1.5 点 だけ へこむ）。上下に こい 木の 窓わく（上の 横木・窓台。かべの 外と 中へ 2 点 出る）。紙は いつも 中から 明るく 見える（日の 影を うけない。よるは あかりの 色。props.ts の glow）。
+//   戸 = こい 色の 2 まい とびら（てつの おび・しんちゅうの わの 取っ手）。まわりに こい 木の 戸わく（はしら 2 本・かもい。外と 中へ 1 点 出る）と、上に 小さな ひさし（やねと 同じ 板と 石）。
 
 /** 16×16 の 絵（'#rrggbb'、'' = すける）。[y * 16 + x]、y = 0 が 上 */
 export type Px = string[];
@@ -73,8 +75,10 @@ export const PAL_C = {
   fascia: '#5A3E2A', fasciaL: '#6E4E36', fasciaD: '#462F1E',
   ceil: '#B98450', ceilL: '#C8935E', ceilD: '#A87443', beam: '#5E4230', beamL: '#70503A',
   mortar: '#867D71', st1: '#B5A994', st2: '#A99D87', st3: '#BFB4A0', stL: '#CCC2AE',
-  paper: '#EFE4CA', paperD: '#E5D8BC', paperS: '#D8C9A8', frame: '#5A3E2A', frameL: '#6E4E36', kumiko: '#6E4E36',
-  door: '#8D5E36', doorL: '#9E6C40', doorD: '#6E4626', iron: '#3E3C44', ironL: '#5C5A64', ring: '#2C2A32',
+  // しょうじ: 明るい 紙（かべより ずっと 明るい）・こい わく（かべより ずっと 暗い）
+  paper: '#FAF3E2', paperD: '#F1E8D3', paperS: '#E4D7BA', frame: '#3E2A1C', frameL: '#563B27', kumiko: '#4A3222',
+  // 戸: かべより 暗い とびら・てつの おび・しんちゅうの 取っ手（さわれそう）
+  door: '#6E4628', doorL: '#80542F', doorD: '#55341D', iron: '#34323A', ironL: '#55535D', ring: '#C9952E', ringL: '#E8BE5A',
 } as const;
 
 // ============================================================ 絵（16×16 の タイル 12 まい）
@@ -149,13 +153,15 @@ function tilesC(): Record<HlTileName, Px> {
   rect(floorSide, 2, 9, 5, 6, P.st3);
   rect(floorSide, 9, 9, 6, 5, P.st2);
 
-  // しょうじ: 紙の 板 1 まいに わく（2 点）・さん（たて 1・よこ 2）を 絵で。わくの 内がわ 上・左に かげ 1 点（紙が おくに ある ように）
-  const shoji = speck(solid(P.paper), [P.paperD], 310, 8);
-  rect(shoji, 2, 2, 12, 1, P.paperS);
-  rect(shoji, 2, 2, 1, 12, P.paperS);
+  // しょうじ: 明るい 紙に こい わく（2 点）と「田」の さん（たて・よこ 2 点。だれでも 知って いる 窓の 形）。
+  // 4 つの ます の 上・左に かげ 1 点（紙が わくの おくに ある ように）
+  const shoji = speck(solid(P.paper), [P.paperD], 310, 6);
+  for (const [x, y] of [[2, 2], [9, 2], [2, 9], [9, 9]] as const) {
+    rect(shoji, x, y, 5, 1, P.paperS);
+    rect(shoji, x, y, 1, 5, P.paperS);
+  }
   rect(shoji, 7, 2, 2, 12, P.kumiko);
-  rect(shoji, 2, 6, 12, 1, P.kumiko);
-  rect(shoji, 2, 10, 12, 1, P.kumiko);
+  rect(shoji, 2, 7, 12, 2, P.kumiko);
   rect(shoji, 0, 0, N, 2, P.frame);
   rect(shoji, 0, 14, N, 2, P.frame);
   rect(shoji, 0, 0, 2, N, P.frame);
@@ -182,6 +188,7 @@ function tilesC(): Record<HlTileName, Px> {
   for (const cx of [5.5, 10.5]) {
     circle(doorLow, cx, 3, 2.2, P.ring);
     circle(doorLow, cx, 3, 1.2, P.door);
+    put(doorLow, Math.floor(cx) - 1, 1, P.ringL);
   }
   rect(doorLow, 0, 15, N, 1, P.doorD);
   const doorUp = doorBase(313);
@@ -208,28 +215,65 @@ export interface HlBox {
   tiles: Partial<Record<BoxFace | 'side', HlTileName>>;
   /** 絵を 箱の 位置で うつす ときの ずれ（点）。front/back の 絵の 左右の 位置 */
   uOff?: number;
+  /** 描かない 面（かべに うまる 面） */
+  skip?: readonly BoxFace[];
+  /** いつも 明るい 面（しょうじの 紙。日の 影を うけず、よるは あかりの 色。まわりへ 光は 出さない。props.ts） */
+  glow?: boolean;
 }
+
+/** x と z を 入れかえる（まえ・うしろの かべ 用の 形 → ひだり・みぎの かべ 用。前後 対称の 形 だけに 使う） */
+const SWAP_FACE: Record<BoxFace, BoxFace> = { top: 'top', bottom: 'bottom', front: 'right', back: 'left', left: 'back', right: 'front' };
+function swapXZ(b: HlBox): HlBox {
+  const tiles: HlBox['tiles'] = {};
+  for (const [k, v] of Object.entries(b.tiles) as Array<[BoxFace | 'side', HlTileName]>) tiles[k === 'side' ? 'side' : SWAP_FACE[k]] = v;
+  return {
+    ...b,
+    min: [b.min[2], b.min[1], b.min[0]],
+    max: [b.max[2], b.max[1], b.max[0]],
+    tiles,
+    skip: b.skip?.map((f) => SWAP_FACE[f]),
+  };
+}
+
+/**
+ * 戸わく（下の マスに 持たせる。点 = 下の マスの 左前 下 から。外 = +z）: はしら 2 本（ゆかから かもいまで）・かもい（戸の 上）・ひさし（外 だけ）。
+ * はしら・かもいは かべの あつみを つらぬいて 外と 中へ 1 点 出る（中から 見ても 戸わく）。かべに うまる 面は 描かない。
+ */
+const DOOR_FRAME: readonly HlBox[] = [
+  { min: [-2, 0, -1], max: [1, 32, 17], tiles: { side: 'hl_shoji_edge' }, skip: ['left', 'top'] },
+  { min: [15, 0, -1], max: [18, 32, 17], tiles: { side: 'hl_shoji_edge' }, skip: ['right', 'top'] },
+  { min: [-2, 30, -1], max: [18, 33, 17], tiles: { side: 'hl_shoji_edge' }, skip: ['left', 'right', 'top'] },
+  { min: [-4, 33, 16], max: [20, 35, 20], tiles: { top: 'hl_roof_top', side: 'hl_roof_side', bottom: 'hl_roof_side' }, skip: ['back'] },
+];
 
 /** 戸の 箱（part: 下の マス / 上の マス）。open = あいた 形 */
 export function doorBoxes(part: 'low' | 'up', open: boolean): HlBox[] {
   const face: HlTileName = part === 'low' ? 'hl_door_low' : 'hl_door_up';
   const edge = { side: 'hl_door_edge', top: 'hl_door_edge', bottom: 'hl_door_edge' } as const;
+  const frame = part === 'low' ? DOOR_FRAME : [];
   // しめた 形: 外がわ よりに あつい 板 1 まい（2 まいの あわせ目は 絵）。上下の 面は 描かない（props.ts）
-  if (!open) return [{ min: [0, 0, 12], max: [16, 16, 16], tiles: { front: face, back: face, ...edge } }];
+  if (!open) return [{ min: [0, 0, 12], max: [16, 16, 16], tiles: { front: face, back: face, ...edge } }, ...frame];
   // あけた 形: 外へ 90 度（左右に ひらく。とびらの あつみ 4 点）
   return [
     { min: [0, 0, 16], max: [4, 16, 24], tiles: { left: face, right: face, ...edge }, uOff: 0 },
     { min: [12, 0, 16], max: [16, 16, 24], tiles: { left: face, right: face, ...edge }, uOff: 8 },
+    ...frame,
   ];
 }
 
 /**
- * しょうじの 箱: かべの あつみの まん中に 紙の 板 1 まい（上下の 面は 描かない）。へこみは となりの かべの 面（窓の まわり）で 見える。
+ * しょうじの 箱（前後 対称。外からも 中からも 同じ）: 紙の 板（かべの 面から 1.5 点 へこむ。前・うしろの 面 だけ。glow = いつも 中から 明るい）と、
+ * こい 木の 窓わく 2 本（上 = 上の 横木・下 = 窓台。かべを つらぬいて 外と 中へ 2 点 出る。6 面）。たての わくは 紙の 絵。
+ * 横に ならべると 窓わくが 2 点 かさなる（同じ 色なので 目立たない。建築士さんの ならびは 2 マス あく ので おきない）。
  * face = 紙が 向く 軸（'z' = まえ・うしろの かべ〔紙は 東西に のびる〕、'x' = ひだり・みぎの かべ）。
  */
+const SHOJI_Z: readonly HlBox[] = [
+  { min: [0, 0, 1.5], max: [16, 16, 14.5], tiles: { front: 'hl_shoji', back: 'hl_shoji', side: 'hl_shoji_edge' }, skip: ['left', 'right'], glow: true },
+  { min: [-1, -1, -2], max: [17, 1, 18], tiles: { side: 'hl_shoji_edge' } }, // 窓台
+  { min: [-1, 15, -2], max: [17, 17, 18], tiles: { side: 'hl_shoji_edge' } }, // 上の 横木
+];
 export function shojiBoxes(face: 'x' | 'z'): HlBox[] {
-  if (face === 'z') return [{ min: [0, 0, 7.5], max: [16, 16, 8.5], tiles: { front: 'hl_shoji', back: 'hl_shoji', side: 'hl_shoji_edge' } }];
-  return [{ min: [7.5, 0, 0], max: [8.5, 16, 16], tiles: { left: 'hl_shoji', right: 'hl_shoji', side: 'hl_shoji_edge' } }];
+  return face === 'z' ? [...SHOJI_Z] : SHOJI_Z.map(swapXZ);
 }
 
 // ============================================================ アイテムの 絵（16×16）
@@ -311,6 +355,7 @@ export function houseLookIcons(): Record<HlIconId, Px> {
 
 // ======================================================================== 2) src/proto/houselook/props.ts
 // HOUSE-1 2 版 試作: 家の 戸（2 マス・あく／しまる）と しょうじ を 箱で 描く（区の メッシュ。描画 +0）。
+// 見つけやすさ（yuzu 16:52）: 戸の わく・ひさし、しょうじの 窓台・上の 横木は かべに うまる 面を 描かない（skip）。
 // 戸は いつも 家の まえ（+z = 南 = 外）に むいた 形（試作の 家は 戸が まえ）。
 import { FACE_SHADE_BY_INDEX } from '../../world/render/config';
 import type { MeshData } from '../../world/render/meshChunk';
@@ -355,6 +400,10 @@ function tileOf(b: HlBox, f: number): TileName {
   return (b.tiles[n] ?? b.tiles.side ?? 'hl_door_edge') as TileName;
 }
 
+/** しょうじの 紙の 光（0〜1。0.8 = ブロックの光 12 = あかりの 近くと 同じ 明るさ）と 面の こさ（1 = かげ なし） */
+const GLOW_BLOCK = 0.8;
+const GLOW_SHADE = 1;
+
 /** 点の 区間 [a, b) を 0〜16 に おさめる（はみ出す 箱は 16 ごとに くり返す） */
 function wrap(a: number, b: number): [number, number] {
   if (b - a >= 16) return [0, 16];
@@ -369,9 +418,15 @@ export function pushHouseLookProp(mesh: MeshData, x: number, y: number, z: numbe
     const [x0, y0, z0] = b.min;
     const [x1, y1, z1] = b.max;
     for (let f = 0; f < 6; f++) {
-      // 戸・しょうじの 上下の 面（ゆか・かべ・上下の マスと くっつく）は 見えない
+      // 戸・しょうじの 上下の 面（ゆか・かべ・上下の マスと くっつく）と、かべに うまる 面（skip）は 見えない
       if ((f === 1 && y0 === 0) || (f === 0 && y1 === 16)) continue;
+      if (b.skip?.includes(FACE_NAME[f])) continue;
       const tile = tileOf(b, f);
+      // しょうじの 紙は いつも 中の あかりで 光って 見える（見た目だけ。まわりは 明るく しない）。
+      // 空の光を 0 に して 日の 影を うけず、面の 向きの こさも かけない（どの かべの 窓も 同じ 明るさ）
+      const glow = b.glow === true && tile === 'hl_shoji';
+      const sk = glow ? 0 : sky;
+      const blk = glow ? GLOW_BLOCK : block;
       // 面の 絵の 範囲（点）: 前 = (x, y)、うしろ = (16 − x, y)、右 +x = (16 − z, y)、左 −x = (z, y)、上下 = (x, z)
       const off = b.uOff ?? 0;
       let u0: number, u1: number, v0: number, v1: number;
@@ -388,7 +443,7 @@ export function pushHouseLookProp(mesh: MeshData, x: number, y: number, z: numbe
         [v0, v1] = wrap(z0, z1);
       }
       const uv = tileSubUv(tile, u0, Math.max(0, v0), u1, Math.min(16, v1));
-      const shade = FACE_SHADE_BY_INDEX[f];
+      const shade = glow ? GLOW_SHADE : FACE_SHADE_BY_INDEX[f];
       const base = mesh.positions.length / 3;
       const verts = FACE_VERTS[f];
       for (let i = 0; i < 4; i++) {
@@ -399,7 +454,7 @@ export function pushHouseLookProp(mesh: MeshData, x: number, y: number, z: numbe
       mesh.uvs.push(uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]);
       for (let i = 0; i < 4; i++) {
         mesh.colors.push(shade, shade, shade);
-        mesh.lights.push(sky, block);
+        mesh.lights.push(sk, blk);
         mesh.darks.push(0);
       }
       mesh.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);

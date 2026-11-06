@@ -1,3 +1,4 @@
+import type { FurnUse } from '../world/blocks/furnUse';
 import type {
   AnimalApi,
   ArmorSystem,
@@ -43,8 +44,20 @@ interface DigArchitectPort {
   hit?(id: string): void;
 }
 
+/** HOUSE-1C PR-2: 家を 建てる 場所の 守りと 道具（`HouseSystem.build` が 合う）。みずもり・どうづきは 右クリックで ブロックを ねらった とき */
+interface DigBuildPort {
+  /** 建築中の 場所（外の 箱 × 高さ 5）の マスか。ここは 置く・ほる が 失敗する */
+  locked(x: number, y: number, z: number): boolean;
+  /** みずもりで ブロックを 右クリック */
+  level(x: number, y: number, z: number): void;
+  /** どうづきで ブロックを 右クリック（20 ステップに 1 回だけ 効く） */
+  tamp(x: number, y: number, z: number): void;
+}
+
 /** M4 の つなぎ目（どれもなくてよい。なければ M2 のとおり） */
 export interface DigM4Deps {
+  /** HOUSE-1C PR-2: 家を 建てる 場所の 守りと みずもり・どうづき */
+  build?: DigBuildPort;
   /** #293 試作: 大きい がしゃどくろの 体の 上に ブロックを 置く・こわす（ワールドの ブロックと 同じ ねらい・置き方。なければ 何も しない） */
   bodyBlocks?: BodyBlocksPort;
   tools?: DigToolPort;
@@ -99,6 +112,8 @@ export interface DigM4Deps {
   yokai?: () => YokaiWorld;
   /** ITEM-FX-1: ふとんで ねる・たこを あげる／もどす（右クリックの 実行。なければ 何も しない） */
   gadgets?: { sleep(): void; kite(): void };
+  /** HOUSE-1D: 家具の はたらき（すわる・はいる・ほんだなで ルールブック）。押した 最初の ステップに 1 回。x・y・z は ねらった ブロックの マス */
+  furniture?: { use(kind: FurnUse, x: number, y: number, z: number): void };
 }
 
 /** WEAPON-3: さいごに 始めた 攻撃（`attack.last()`） */

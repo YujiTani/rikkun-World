@@ -9,6 +9,7 @@ import type { ItemDef } from './types';
 export const MINE_ITEMS = {
   chalk: {
     name: 'チョーク',
+    zukan: 'せっかいせきを けずって ［作｜つく］った ［白｜しろ］い チョーク。かべや ゆかに やじるしを かくと、［北｜きた］を さして くれる。［地｜ち］［下｜か］で まいごに なっても ［帰｜かえ］り［道｜みち］が わかる。',
     maxStack: 64,
     rarity: 'uncommon', // レア
     category: 'tool',
@@ -17,6 +18,7 @@ export const MINE_ITEMS = {
   },
   ishibai: {
     name: 'いしばい',
+    zukan: 'せっかいせきを やいた ［白｜しろ］い こな。はたけに ぱらぱら まくと、やさいが あっという ［間｜ま］に みのる。しっくいの もとにも なる。',
     maxStack: 64,
     rarity: 'uncommon', // レア
     category: 'material',

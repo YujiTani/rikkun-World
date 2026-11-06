@@ -1,6 +1,7 @@
 import type { BlockId, ItemId } from '../contracts';
 import { ITEM_DEFS, registryToolFamily } from '../content/items/registry';
 import type { ToolConfig } from '../tools/config';
+import { FURN_BLOCK_IDS, HOUSE_BLOCK_IDS, HOUSE_DOOR_PART_IDS, K_FURNACE, houseDropOf } from '../world/blocks/houseBlocks';
 import type { DigConfig } from './config';
 
 /**
@@ -19,7 +20,17 @@ export const IRON_HARVEST_LEVEL: number = (() => {
   return level;
 })();
 
+/**
+ * HOUSE-1C: 家の ブロック・戸の 4 つの id・向きの ある 家具〔たんす・かまどの 向きちがい・マスちがいも ぜんぶ〕。
+ * かまどだけ いし〔つるはし〕、あとは き〔おの〕（HOUSE-1 §2.13 ③: き と 同じ）。
+ */
+function houseFamilies(): Partial<Record<BlockId, ToolFamily>> {
+  const ids: readonly string[] = [...HOUSE_BLOCK_IDS, ...HOUSE_DOOR_PART_IDS, ...FURN_BLOCK_IDS];
+  return Object.fromEntries(ids.map((id) => [id, houseDropOf(id) === K_FURNACE ? 'stone' : 'log']));
+}
+
 const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
+  ...houseFamilies(),
   // き（あう道具: おの）
   log: 'log',
   leaves: 'log',
@@ -27,12 +38,10 @@ const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
   matsu_leaves: 'log',
   bamboo: 'log',
   saku: 'log',
-  tansu: 'log',
   // いし（あう道具: つるはし）
   stone: 'stone',
   coal_ore: 'stone',
   iron_ore: 'stone',
-  furnace: 'stone',
   kawara: 'stone',
   brick: 'stone',
   sprinkler: 'stone',

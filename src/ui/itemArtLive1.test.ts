@@ -127,7 +127,7 @@ describe('LIVE-1 版 3.2 むし・むしとりあみ（AC6・AC25。§4.2）', (
     expect(a.use).toBe('き から むし を とる');
     expect(a.how).toBe('もって き に みぎクリック');
     expect(a.buttons).toEqual(['1-9', 'right']);
-    expect(a.source).toBe('き 1・いと 2 で つくる');
+    expect(a.source).toBe('き 1・いと 2 で つくる・き 1・hemp 5 で つくる'); // ROPE-1: あさの 作り方（この テストの 名前の 表に あさ は ない）
     expect(a.stats).toEqual([]);
     const deps = { nameOf: (i: string) => i, rarityOf: () => 'common' as const, placeable: () => false, recipes: () => [] };
     const t1 = buildTooltip('mushi' as ItemId, deps);

@@ -46,3 +46,31 @@ test('ZUKAN-1: もくじ → ずかん → さがす → アイテム（説明�
   await expect(page.locator('[data-zukan-source]')).toHaveText('？？？');
   await expect(page.locator('.zk-bigicon.zk-shadow')).toHaveCount(1);
 });
+
+test('ZUKAN-1: いちばん ながい 文（雷神剣）も 右の ページから はみ出さない（1280×800・1024×700）', async ({ page }) => {
+  await openGuide(page);
+  for (const [w, h] of [[1280, 800], [1024, 700]] as const) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.evaluate(() => {
+      const r = window.__rikkun as any;
+      r.lock.book('zukan:raijin_ken');
+      let n = 0;
+      while (r.lock.get().bookAnim !== 'none' && n++ < 1200) r.step(1);
+      r.step(2);
+    });
+    await expect(page.locator('[data-zukan-use]')).toContainText('雷神');
+    const m = await page.evaluate(() => {
+      const item = document.querySelector('.zk-item') as HTMLElement;
+      const pg = item.closest('.bk-pg') as HTMLElement;
+      const dots = pg.querySelector('.bk-dots') as HTMLElement;
+      const p = pg.getBoundingClientRect();
+      const d = dots.getBoundingClientRect();
+      const it = item.getBoundingClientRect();
+      return { pageBottom: p.bottom, dotsBottom: d.bottom, itemBottom: it.bottom, dotsTop: d.top, scrolls: item.scrollHeight > item.clientHeight };
+    });
+    // 「1 / 129」の 数が ページの 中に ある・文の 箱と かさならない・スクロールも いらない
+    expect(m.dotsBottom, `${w}×${h}`).toBeLessThanOrEqual(m.pageBottom);
+    expect(m.itemBottom, `${w}×${h}`).toBeLessThanOrEqual(m.dotsTop);
+    expect(m.scrolls, `${w}×${h}`).toBe(false);
+  }
+});

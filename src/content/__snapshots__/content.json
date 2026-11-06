@@ -256,6 +256,48 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wakimizu"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "magma_wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 4,
+              "item": "coal_ore"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "magma_wakimizu"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -855,6 +897,44 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "yumi_hemp",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            },
+            {
+              "count": 8,
+              "item": "hemp"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "yumi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "mushi_ami_hemp",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 5,
+              "item": "hemp"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "mushi_ami"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -918,6 +998,29 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "magma_wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 4,
+              "item": "coal_ore"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "magma_wakimizu"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -977,7 +1080,7 @@
           "E"
         ],
         "how": "E の つくる で つかう",
-        "use": "や・ちょうちん・たこ の ざいりょう"
+        "use": "や・ちょうちん・たこ・せっけいず の ざいりょう"
       },
       "category": "material",
       "durabilityClass": "consumable",
@@ -1440,6 +1543,21 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "rope",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "rope"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -1815,6 +1933,48 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wakimizu"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "magma_wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 4,
+              "item": "coal_ore"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "magma_wakimizu"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -1846,6 +2006,74 @@
           "output": {
             "count": 1,
             "item": "fude"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "hemp": {
+      "ITEM_INFO.hemp": {
+        "buttons": [],
+        "how": "くさ・はっぱ・はな を こわすと ときどき でる",
+        "use": "ロープ・ゆみ・むしとりあみ で いと の かわり に なる（いと より たくさん いる）"
+      },
+      "category": "material",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "あさ",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "yumi_hemp",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            },
+            {
+              "count": 8,
+              "item": "hemp"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "yumi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "mushi_ami_hemp",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 5,
+              "item": "hemp"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "mushi_ami"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "rope_hemp",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "hemp"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "rope"
           },
           "station": "craft",
           "works": true
@@ -2925,6 +3153,25 @@
             {
               "count": 3,
               "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "yumi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "yumi_hemp",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            },
+            {
+              "count": 8,
+              "item": "hemp"
             }
           ],
           "output": {
@@ -4145,6 +4392,57 @@
       "rarity": "common",
       "recipes": []
     },
+    "magma_bucket": {
+      "ITEM_INFO.magma_bucket": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック で おく",
+        "use": "マグマ を おく"
+      },
+      "category": "tool",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "マグマの バケツ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "wakimizu_bucket": {
+      "ITEM_INFO.wakimizu_bucket": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック で おく",
+        "use": "わきどころ を おく"
+      },
+      "category": "tool",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "わきどころの バケツ",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": []
+    },
+    "magma_wakimizu_bucket": {
+      "ITEM_INFO.magma_wakimizu_bucket": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック で おく",
+        "use": "マグマの わきどころ を おく"
+      },
+      "category": "tool",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "マグマの わきどころの バケツ",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": []
+    },
     "snow": {
       "DIG_DEFAULTS.hardness.snow": 0.5,
       "DIG_DEFAULTS.harvestLevel.snow": 0,
@@ -4321,6 +4619,25 @@
             {
               "count": 2,
               "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "mushi_ami"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "mushi_ami_hemp",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 5,
+              "item": "hemp"
             }
           ],
           "output": {
@@ -5772,9 +6089,12 @@
     },
     "mizumori": {
       "ITEM_INFO.mizumori": {
-        "buttons": [],
-        "how": "いまは もてる だけ",
-        "use": "じめん の たかさ を しらべる どうぐ（つかえるのは もうすぐ）"
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって じめん に みぎクリック",
+        "use": "じめん の たかさ を しらべる。たかすぎる ところ は あか、ひくすぎる ところ は あお に なる"
       },
       "category": "tool",
       "durabilityClass": "permanent",
@@ -5786,9 +6106,12 @@
     },
     "dotsuki": {
       "ITEM_INFO.dotsuki": {
-        "buttons": [],
-        "how": "いまは もてる だけ",
-        "use": "じめん を トントン かためる どうぐ（つかえるのは もうすぐ）"
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって じめん に みぎクリック",
+        "use": "じめん を トントン たたいて かためる。かためた つち の うえ に いえ が たてられる"
       },
       "category": "tool",
       "durabilityClass": "permanent",
@@ -6033,6 +6356,475 @@
           "works": true
         }
       ]
+    },
+    "table": {
+      "DIG_DEFAULTS.hardness.table": 5,
+      "DIG_DEFAULTS.harvestLevel.table": 0,
+      "DIG_DEFAULTS.rarity.table": "common",
+      "ITEM_INFO.table": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "いえの なかに おく ざぶとん つきの つくえ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "テーブル",
+      "placeBlock": "table",
+      "rarity": "common",
+      "recipes": []
+    },
+    "chair": {
+      "DIG_DEFAULTS.hardness.chair": 5,
+      "DIG_DEFAULTS.harvestLevel.chair": 0,
+      "DIG_DEFAULTS.rarity.chair": "common",
+      "ITEM_INFO.chair": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "いえの なかに おく すわる ところ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "いす",
+      "placeBlock": "chair",
+      "rarity": "common",
+      "recipes": []
+    },
+    "andon": {
+      "DIG_DEFAULTS.hardness.andon": 5,
+      "DIG_DEFAULTS.harvestLevel.andon": 0,
+      "DIG_DEFAULTS.rarity.andon": "uncommon",
+      "ITEM_INFO.andon": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "いえの なかに おく やさしい あかり"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "あんどん",
+      "placeBlock": "andon",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "shelf": {
+      "DIG_DEFAULTS.hardness.shelf": 5,
+      "DIG_DEFAULTS.harvestLevel.shelf": 0,
+      "DIG_DEFAULTS.rarity.shelf": "uncommon",
+      "ITEM_INFO.shelf": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "いえの なかに おく ほんを しまう たな"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "ほんだな",
+      "placeBlock": "shelf",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "ofuro": {
+      "DIG_DEFAULTS.hardness.ofuro": 5,
+      "DIG_DEFAULTS.harvestLevel.ofuro": 0,
+      "DIG_DEFAULTS.rarity.ofuro": "rare",
+      "ITEM_INFO.ofuro": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "いえの なかに おく あったかい おふろ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "おふろ",
+      "placeBlock": "ofuro",
+      "rarity": "rare",
+      "recipes": []
+    },
+    "long_table": {
+      "DIG_DEFAULTS.hardness.long_table": 5,
+      "DIG_DEFAULTS.harvestLevel.long_table": 0,
+      "DIG_DEFAULTS.rarity.long_table": "common",
+      "ITEM_INFO.long_table": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "いえの なかに おく みんなで つかう ながい つくえ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "ながい テーブル",
+      "placeBlock": "long_table",
+      "rarity": "common",
+      "recipes": []
+    },
+    "round_table": {
+      "DIG_DEFAULTS.hardness.round_table": 5,
+      "DIG_DEFAULTS.harvestLevel.round_table": 0,
+      "DIG_DEFAULTS.rarity.round_table": "common",
+      "ITEM_INFO.round_table": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "いえの なかに おく まるい つくえ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "まるい テーブル",
+      "placeBlock": "round_table",
+      "rarity": "common",
+      "recipes": []
+    },
+    "stool": {
+      "DIG_DEFAULTS.hardness.stool": 5,
+      "DIG_DEFAULTS.harvestLevel.stool": 0,
+      "DIG_DEFAULTS.rarity.stool": "common",
+      "ITEM_INFO.stool": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "いえの なかに おく まるい こしかけ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "まるいす",
+      "placeBlock": "stool",
+      "rarity": "common",
+      "recipes": []
+    },
+    "sekkeizu": {
+      "ITEM_INFO.sekkeizu": {
+        "buttons": [],
+        "how": "けんちくし に はなして「けんちくを はじめる」",
+        "use": "けんちくし に みせると、この かたち の いえ を たてて くれる"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "せっけいず",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "house_floor": {
+      "DIG_DEFAULTS.hardness.house_floor": 5,
+      "DIG_DEFAULTS.harvestLevel.house_floor": 0,
+      "DIG_DEFAULTS.rarity.house_floor": "common",
+      "ITEM_INFO.house_floor": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "いえの ゆか。いしだたみ"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "いえの ゆか",
+      "placeBlock": "house_floor",
+      "rarity": "common",
+      "recipes": []
+    },
+    "house_wall": {
+      "DIG_DEFAULTS.hardness.house_wall": 5,
+      "DIG_DEFAULTS.harvestLevel.house_wall": 0,
+      "DIG_DEFAULTS.rarity.house_wall": "common",
+      "ITEM_INFO.house_wall": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "いえの かべ。ふとい いたの かべ"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "いえの かべ",
+      "placeBlock": "house_wall",
+      "rarity": "common",
+      "recipes": []
+    },
+    "house_roof": {
+      "DIG_DEFAULTS.hardness.house_roof": 5,
+      "DIG_DEFAULTS.harvestLevel.house_roof": 0,
+      "DIG_DEFAULTS.rarity.house_roof": "common",
+      "ITEM_INFO.house_roof": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "いえの やね。いしの おもしが のって いる"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "いえの やね",
+      "placeBlock": "house_roof",
+      "rarity": "common",
+      "recipes": []
+    },
+    "shoji": {
+      "DIG_DEFAULTS.hardness.shoji": 0.05,
+      "DIG_DEFAULTS.harvestLevel.shoji": 0,
+      "DIG_DEFAULTS.rarity.shoji": "uncommon",
+      "ITEM_INFO.shoji": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "あかるい かみの まど。ひかりは とおすが、とおれない"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "しょうじ",
+      "placeBlock": "shoji",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "house_door": {
+      "DIG_DEFAULTS.hardness.house_door": 5,
+      "DIG_DEFAULTS.harvestLevel.house_door": 0,
+      "DIG_DEFAULTS.rarity.house_door": "uncommon",
+      "ITEM_INFO.house_door": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって ゆかに みぎクリック（うえ・した 2 マス）",
+        "use": "いえの と。2 マス。みぎクリックで あけたり しめたり できる"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "いえの と",
+      "placeBlock": "house_door",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "rope": {
+      "DIG_DEFAULTS.hardness.rope": 0.05,
+      "DIG_DEFAULTS.harvestLevel.rope": 0,
+      "DIG_DEFAULTS.rarity.rope": "common",
+      "ITEM_INFO.rope": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "がけ に むかって みぎクリック で たらす（スペース で のぼる・シフト で おりる）。たいら では くい に つなぐ。つないで みぎクリック で さく。ぶらさがり は シフト＋スペース で のぼる・シフト＋C で おりる",
+        "use": "つかまると のぼったり おりたり できる"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "ロープ",
+      "placeBlock": "rope",
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "rope",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "rope"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "rope_hemp",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "hemp"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "rope"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "wakimizu": {
+      "DIG_DEFAULTS.hardness.wakimizu": 1.5,
+      "DIG_DEFAULTS.harvestLevel.wakimizu": 0,
+      "DIG_DEFAULTS.rarity.wakimizu": "uncommon",
+      "ITEM_INFO.wakimizu": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく。した と よこ 4 ほうに みずが でる",
+        "use": "みずが ずっと わきでる"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "わきどころ",
+      "placeBlock": "wakimizu",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wakimizu"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "magma_wakimizu": {
+      "DIG_DEFAULTS.hardness.magma_wakimizu": 1.5,
+      "DIG_DEFAULTS.harvestLevel.magma_wakimizu": 0,
+      "DIG_DEFAULTS.rarity.magma_wakimizu": "uncommon",
+      "ITEM_INFO.magma_wakimizu": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく。した と よこ 4 ほうに マグマが でる",
+        "use": "マグマが わきでる（さわると いたい）"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "マグマの わきどころ",
+      "placeBlock": "magma_wakimizu",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "magma_wakimizu",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "stone"
+            },
+            {
+              "count": 4,
+              "item": "coal_ore"
+            },
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "magma_wakimizu"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kokuyouseki": {
+      "DIG_DEFAULTS.hardness.kokuyouseki": 12,
+      "DIG_DEFAULTS.harvestLevel.kokuyouseki": 2,
+      "DIG_DEFAULTS.rarity.kokuyouseki": "rare",
+      "ITEM_INFO.kokuyouseki": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "とても かたい ブロック"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こくようせき",
+      "placeBlock": "kokuyouseki",
+      "rarity": "rare",
+      "recipes": []
+    },
+    "takitsubo": {
+      "DIG_DEFAULTS.hardness.takitsubo": 0.5,
+      "DIG_DEFAULTS.harvestLevel.takitsubo": 0,
+      "DIG_DEFAULTS.rarity.takitsubo": "uncommon",
+      "ITEM_INFO.takitsubo": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく。わきどころの まっすぐ したに",
+        "use": "わきどころの みずを ぐるぐる まわす"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "たきつぼ",
+      "placeBlock": "takitsubo",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "magma_takitsubo": {
+      "DIG_DEFAULTS.hardness.magma_takitsubo": 0.5,
+      "DIG_DEFAULTS.harvestLevel.magma_takitsubo": 0,
+      "DIG_DEFAULTS.rarity.magma_takitsubo": "uncommon",
+      "ITEM_INFO.magma_takitsubo": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく。マグマの わきどころの まっすぐ したに",
+        "use": "マグマの わきどころの マグマを ぐるぐる まわす"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "マグマの たきつぼ",
+      "placeBlock": "magma_takitsubo",
+      "rarity": "uncommon",
+      "recipes": []
     }
   },
   "yokai": {

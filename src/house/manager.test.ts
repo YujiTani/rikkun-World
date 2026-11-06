@@ -12,7 +12,7 @@ const SPAWN = { x: 64.5, z: 64.5, yawDeg: 0 };
 
 function make(over: Omit<Partial<ArchitectManagerDeps>, 'player' | 'world'> & { world?: FakeWorld; player?: { x: number; y: number; z: number } } = {}) {
   const world = over.world ?? makeFakeWorld();
-  const record: HouseRecord = over.record ?? { toolsGiven: false, first: null };
+  const record: HouseRecord = over.record ?? { toolsGiven: false, fudeGiven: false, first: null };
   const player = over.player ?? { x: SPAWN.x, y: 11, z: SPAWN.z };
   const m = new ArchitectManager({
     seed: over.seed ?? 4242,
@@ -25,6 +25,8 @@ function make(over: Omit<Partial<ArchitectManagerDeps>, 'player' | 'world'> & { 
   return { m, world, record, player };
 }
 
+/** もとの 場所に もどった とみなす きょり（nearStand の ずれ） */
+const WORK_BACK = 4;
 const dist = (a: { x: number; z: number }, b: { x: number; z: number }): number => Math.hypot(a.x - b.x, a.z - b.z);
 
 describe('AC1 最初の 1 人', () => {
@@ -96,13 +98,13 @@ describe('AC1 最初の 1 人', () => {
   });
 
   it('セーブに のこった 場所が あれば それを 使う（置き方の 関数の 答えと ちがっても）', () => {
-    const { m } = make({ record: { toolsGiven: true, first: { x: 70, z: 60 } } });
+    const { m } = make({ record: { toolsGiven: true, fudeGiven: true, first: { x: 70, z: 60 } } });
     m.update();
     expect(m.list()[0]).toMatchObject({ first: true, x: 70.5, z: 60.5, y: 11 });
   });
 
   it('古い セーブ（記録なし）でも 最初の 1 人は 出る', () => {
-    const { m, record } = make({ record: { toolsGiven: false, first: null } });
+    const { m, record } = make({ record: { toolsGiven: false, fudeGiven: false, first: null } });
     m.update();
     expect(m.list()).toHaveLength(1);
     expect(record.first).not.toBeNull();
@@ -112,7 +114,7 @@ describe('AC1 最初の 1 人', () => {
     const world = makeFakeWorld();
     world.set(70, 11, 60, 'log');
     world.set(70, 12, 60, 'log');
-    const { m } = make({ world, record: { toolsGiven: false, first: { x: 70, z: 60 } } });
+    const { m } = make({ world, record: { toolsGiven: false, fudeGiven: false, first: { x: 70, z: 60 } } });
     m.update();
     const f = m.list()[0]!;
     expect(dist(f, { x: 70.5, z: 60.5 })).toBeLessThanOrEqual(3);
@@ -312,6 +314,48 @@ describe('AC40 10,000 ステップ: 一覧に 載った まま 自分の 場所�
       const a = m.list()[0]!;
       expect(dist(a, home), `step ${i}`).toBeLessThanOrEqual(3);
     }
+  });
+});
+
+describe('AC40 建築中の 建築士さん（HOUSE-1C PR-2）', () => {
+  /** 建築を 始めた 建築士さんと、戸の 前の 列 */
+  function building() {
+    const r = make();
+    r.m.update();
+    const a0 = r.m.list()[0]!;
+    const home = { x: Math.floor(a0.x), z: Math.floor(a0.z) };
+    const spot = { x: home.x + 12, z: home.z + 9 };
+    r.m.assignBuild('first', spot, null);
+    return { ...r, home, spot };
+  }
+
+  it('10,000 ステップの 間 いつも 戸の 前（作業の 場所）から 横 3 マス以内。とんかちを ふる（busy）', () => {
+    const { m, spot } = building();
+    const center = { x: spot.x + 0.5, z: spot.z + 0.5 };
+    expect(m.list()[0]!.busy).toBe(true);
+    for (let i = 0; i < 10_000; i++) {
+      m.update();
+      expect(dist(m.list()[0]!, center), `step ${i}`).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('完成後: プレイヤーが 32 マス 以上 はなれた ステップで もとの 場所へ もどる。31 マスでは もどらない', () => {
+    const { m, player, home, spot } = building();
+    m.finishBuild('first');
+    expect(m.list()[0]!.busy, '完成で とんかちを やめる').toBe(false);
+    const at = () => m.list()[0]!;
+    // 31 マス: もどらない（ぶらぶらで きょりが ゆれない ように 毎ステップ 建築士さんから 31 マスに おく）
+    for (let i = 0; i < 200; i++) {
+      player.x = at().x + 31;
+      player.z = at().z;
+      m.update();
+    }
+    expect(dist(at(), { x: spot.x + 0.5, z: spot.z + 0.5 }), '31 マスでは もどらない').toBeLessThanOrEqual(3);
+    // 32 マス: もどる
+    player.x = at().x + 32;
+    player.z = at().z;
+    m.update();
+    expect(dist(at(), { x: home.x + 0.5, z: home.z + 0.5 }), '32 マスで もとの 場所').toBeLessThanOrEqual(WORK_BACK);
   });
 });
 

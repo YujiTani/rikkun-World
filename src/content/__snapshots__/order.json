@@ -426,7 +426,18 @@
     "build": [
       "kawara",
       "brick",
-      "shikkui"
+      "shikkui",
+      "house_floor",
+      "house_wall",
+      "house_roof",
+      "shoji",
+      "house_door",
+      "rope",
+      "wakimizu",
+      "magma_wakimizu",
+      "kokuyouseki",
+      "takitsubo",
+      "magma_takitsubo"
     ],
     "food": [
       "onion",
@@ -448,7 +459,16 @@
       "omamori_torn",
       "sprinkler",
       "nukunuku",
-      "toriya"
+      "toriya",
+      "table",
+      "chair",
+      "andon",
+      "shelf",
+      "ofuro",
+      "long_table",
+      "round_table",
+      "stool",
+      "sekkeizu"
     ],
     "light": [
       "torch",
@@ -462,6 +482,7 @@
       "clay",
       "yokai_orb",
       "sumi",
+      "hemp",
       "kin_tamago",
       "ishibai"
     ],
@@ -518,6 +539,9 @@
       "long_watering_can",
       "bucket",
       "water_bucket",
+      "magma_bucket",
+      "wakimizu_bucket",
+      "magma_wakimizu_bucket",
       "mushi_ami",
       "kin_pickaxe",
       "kin_axe",
@@ -600,7 +624,13 @@
     "torch_coal",
     "torch_log",
     "chalk",
-    "shikkui"
+    "shikkui",
+    "rope",
+    "wakimizu",
+    "magma_wakimizu",
+    "yumi_hemp",
+    "mushi_ami_hemp",
+    "rope_hemp"
   ],
   "CRAFT_RECIPE_NAMES": [
     [
@@ -748,6 +778,7 @@
     "clay",
     "crystal",
     "sumi",
+    "hemp",
     "furnace",
     "kawara",
     "brick",
@@ -801,6 +832,9 @@
     "sprinkler",
     "bucket",
     "water_bucket",
+    "magma_bucket",
+    "wakimizu_bucket",
+    "magma_wakimizu_bucket",
     "snow",
     "momiji_leaves",
     "matsu_leaves",
@@ -846,7 +880,27 @@
     "kin_ore",
     "shikkui",
     "chalk",
-    "ishibai"
+    "ishibai",
+    "table",
+    "chair",
+    "andon",
+    "shelf",
+    "ofuro",
+    "long_table",
+    "round_table",
+    "stool",
+    "sekkeizu",
+    "house_floor",
+    "house_wall",
+    "house_roof",
+    "shoji",
+    "house_door",
+    "rope",
+    "wakimizu",
+    "magma_wakimizu",
+    "kokuyouseki",
+    "takitsubo",
+    "magma_takitsubo"
   ],
   "RARITY_ORDER": [
     "common",

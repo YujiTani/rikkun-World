@@ -1,13 +1,16 @@
-import type { BlockId, ItemId, TargetInfo, VoxelWorld } from '../contracts';
+import type { ItemId, TargetInfo, VoxelWorld } from '../contracts';
 import { isFloraBlock } from '../world/blocks/flora';
 import { CHALK_FACES, CHALK_NORMAL, chalkInfo, isChalkMarkId } from '../world/blocks/chalkMark';
-import { futonPartner, isFutonId } from '../world/blocks/futon';
+import { futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
-import { GADGET_ID } from '../content/items/gadgetTuning';
+import { K_TANSU, doorInfo, furnSiblings, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
+import { ROPE, ROPE_STAKE, isFenceBlock, isRopeBlock, ropeColumn, ropeStakeOf, ropesFor, stakeRope } from '../world/blocks/rope';
+import { tetherOf } from '../world/blocks/ropeTether';
+import { HEMP } from '../craft/recipes';
 import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
-import { randInt, type Rng } from '../world/gen/random';
-import { DUG_ALWAYS_ONE, FARM_BREAK_DROP, NO_DROP_BLOCKS } from './config';
-import { DUG_ITEM } from './dugItems';
+import { hash01, randInt, type Rng } from '../world/gen/random';
+import { DUG_ALWAYS_ONE, FARM_BREAK_DROP, HEMP_DROP, NO_DROP_BLOCKS } from './config';
+import { dropBlockOf, dugItemOf } from './dugItems';
 import { COOP_BLOCKS, HANGING_SUPPORT, TORCH_NEIGHBORS, type DigCore } from './digCore';
 
 /** こわしたあとの しめくくり: abort = こわせなかった（クールダウンなし）、bodyDone = 体の上の ブロック、done = ふつうにこわした */
@@ -45,33 +48,39 @@ export class BlockBreaker {
     if (c.bodyTgt()) return this.breakBodyBlock(t, bodyGlass);
     if (COOP_BLOCKS.has(t.id)) return this.breakCoopBlock(t);
     if (isChalkMarkId(t.id)) return this.breakChalkMark(t);
+    if (isRopeBlock(t.id)) return this.breakRope(t);
     const { x, y, z } = t.block;
     // こたつ 2×2: どの マス を こわして も 4 マス ぜんぶ 消える（`nukunuku` 1 と 中 の たまご は 1 回 だけ）
     if (isKotatsuBlock(t.id)) this.clearKotatsuCells(t);
-    const dropId: BlockId = isKotatsuBlock(t.id) ? 'nukunuku' : isFutonId(t.id) ? GADGET_ID.futon : t.id;
+    // HOUSE-1C: 戸は 上下 2 マス・長い 家具は ぜんぶの マスが 消えて、もとの アイテム 1 こ（向き・マス ちがいの id は もとの id に もどす）
+    const houseDrop = houseDropOf(t.id);
+    this.clearHouseCells(t);
+    const dropId = dropBlockOf(t.id);
     // ふとん 2 マス: どちらを こわしても 相手の マスも 消えて ふとん 1 つ（相手が いない 1 マスだけの ふとんは そのまま）
     const pair = futonPartner(t.id, x, z);
     if (pair && c.world.getBlock(pair.x, y, pair.z) === pair.id) c.world.setBlock(pair.x, y, pair.z, 'air');
     const craft = c.m4.craft;
     const wasFurnace = craft?.isFurnace(x, y, z) ?? false;
-    const wasTansu = t.id === 'tansu';
+    const wasTansu = isFurnKind(t.id, K_TANSU);
     c.world.setBlock(x, y, z, 'air');
     if (wasTansu) c.m4.storage?.broken(x, y, z);
     this.clearChalkMarks(x, y, z);
     this.dropUnsupportedTorches(x, y, z);
     liftFlora(c, x, y + 1, z); // FLORA-75: 下の ブロックを こわすと 上の くさ・のばな も 消える
-    const farmDrop = FARM_BREAK_DROP[t.id] ?? null;
+    const farmDrop = FARM_BREAK_DROP[t.id] ?? (houseDrop ? { item: houseDrop, count: 1 } : null);
     const fixed = farmDrop ? farmDrop.count : DUG_ALWAYS_ONE.has(dropId) ? 1 : (craft?.fixedDrop(dropId) ?? null);
-    const dropItem: ItemId = farmDrop ? farmDrop.item : (DUG_ITEM.get(dropId) ?? dropId);
+    const dropItem: ItemId = dugItemOf(t.id);
     const max = Math.max(1, c.config.dropMax[c.config.rarity[dropId]] ?? 1);
     const n = NO_DROP_BLOCKS.has(dropId) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
     const got = n - c.inventory.add(dropItem, n);
     if (got > 0) c.m4.onPickup?.(dropItem, got);
     // たんす は入らなければ 落とし物にする（なくさない。M6）
-    if (wasTansu && got < n) c.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, t.id, n - got);
+    if (wasTansu && got < n) c.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, dropItem, n - got);
     if (wasFurnace) craft!.furnaceBroken(x, y, z);
     // GOLD-1 §4.7: はらぱんみみず（べつ の 乱数。地下 の ブロック 0.5%・き 0.2%）。地面 に おちる
     if (c.m4.harapan?.(t.id, y)) c.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, 'harapan_mimizu', 1);
+    // ROPE-1: くさ・はっぱ・はな から ときどき あさ（場所と 時こくの くじ。いつもの 乱数は つかわない）
+    if (HEMP_DROP.blocks.has(t.id) && hash01(HEMP_DROP.seed, x, y, z, c.tick()) < HEMP_DROP.chance) giveStacks(c, [{ item: HEMP, count: HEMP_DROP.count }], x, y, z);
     // M7: はたけ の 上の作物・くさ の 上の やせいの やさい、くさ から たね
     const farm = c.m4.farm;
     if (farm) {
@@ -81,8 +90,50 @@ export class BlockBreaker {
         if (seed) giveStacks(c, [{ item: seed, count: 1 }], x, y, z);
       }
     }
-    c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: t.id, gotItem: got > 0, count: got });
+    c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: houseDrop ?? t.id, gotItem: got > 0, count: got });
     this.wearForBlock();
+    return 'done';
+  }
+
+  /** HOUSE-1C: 戸の もう 半分・長い 家具の ほかの マスを 消す（ねらった マスは 呼んだ 側が 消す）。どちらでもなければ 何もしない */
+  private clearHouseCells(t: TargetInfo): void {
+    const { x, y, z } = t.block;
+    const w = this.c.world;
+    const d = doorInfo(t.id);
+    if (d) {
+      const oy = d.top ? y - 1 : y + 1;
+      if (doorInfo(w.getBlock(x, oy, z))?.top === !d.top) w.setBlock(x, oy, z, 'air');
+      return;
+    }
+    for (const s of furnSiblings(t.id, x, z)) if ((s.x !== x || s.z !== z) && w.getBlock(s.x, y, s.z) === s.id) w.setBlock(s.x, y, s.z, 'air');
+  }
+
+  /** ROPE-1: どの マス（くい・なわ・ロープだまり）を こわしても たれた ロープ ぜんぶと くいが 消え、つかった 本数（⌈長さ ÷ 10⌉。くいは 数えない）が 持ち物に もどる */
+  private breakRope(t: TargetInfo): BreakEnd {
+    const c = this.c;
+    const w = c.world;
+    const get = (gx: number, gy: number, gz: number): string => w.getBlock(gx, gy, gz);
+    const { x, y, z } = t.block;
+    let n = 0;
+    // 版 3・4: さく・つなぎの くいは それ だけ 消える（くいは 1 本 もどり つなぎが きれる。さくは 下で）
+    const tether = tetherOf(w);
+    const a = tether.anchor;
+    const tied = a !== null && a.x === x && a.y === y && a.z === z;
+    if (tied) tether.clear();
+    const fence = isFenceBlock(t.id);
+    const lone = fence || tied;
+    // がけの くいを こわした: となりの ロープの 列を さがす
+    const col = lone ? null : t.id === ROPE_STAKE ? stakeRope(get, x, y, z) : { x, z };
+    if (lone || t.id === ROPE_STAKE) w.setBlock(x, y, z, 'air');
+    if (col) {
+      const { top, bottom } = ropeColumn((yy) => get(col.x, yy, col.z), y);
+      const stake = ropeStakeOf(get, col.x, top, col.z);
+      if (stake) w.setBlock(stake.x, top, stake.z, 'air');
+      for (let yy = bottom; yy <= top; yy++) w.setBlock(col.x, yy, col.z, 'air');
+      n = ropesFor(top - bottom + 1);
+    } else n = fence ? tether.fenceRefund() : 1; // 版 4・5: さく（なわ・くい）は perRope マス ごとに 1 本（1 マス目で 1 本）。くい だけ は 1 本
+    if (n > 0) giveStacks(c, [{ item: ROPE, count: n }], x, y, z);
+    c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: t.id, gotItem: n > 0, count: n });
     return 'done';
   }
 

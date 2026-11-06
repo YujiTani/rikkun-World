@@ -15,8 +15,19 @@ function rig(opts?: Parameters<typeof bindKeyboardAndMouse>[3]) {
 }
 
 describe('BOOK-1 本の キー（Action 経由）', () => {
-  it('割り当て: ← pagePrev・→ pageNext・Backspace bookBack', () => {
-    expect(EXTRA_KEY_BINDINGS).toEqual({ ArrowLeft: 'pagePrev', ArrowRight: 'pageNext', Backspace: 'bookBack' });
+  it('割り当て: ← pagePrev・→ pageNext・Backspace bookBack（Enter・NumpadEnter の confirm は 上空の 視点用〔HOUSE-1C PR-2〕）', () => {
+    expect(EXTRA_KEY_BINDINGS).toEqual({ ArrowLeft: 'pagePrev', ArrowRight: 'pageNext', Backspace: 'bookBack', Enter: 'confirm', NumpadEnter: 'confirm' });
+  });
+  it('Enter は confirm を 押すが、ふだんは preventDefault しない（HTML の ボタンを Enter で 押せる）。preventExtra が 真の ときだけ 止める', () => {
+    const a = rig();
+    a.key('keydown', 'Enter');
+    expect(a.counts.confirm).toBe(1);
+    expect(a.prevented).toEqual([]);
+    a.key('keydown', 'NumpadEnter');
+    expect(a.prevented).toEqual([]);
+    const b = rig({ preventExtra: () => true });
+    b.key('keydown', 'Enter');
+    expect(b.prevented).toEqual(['keydown:Enter']);
   });
   it('← は moveLeft と pagePrev の 両方。はなすと 両方 はなす', () => {
     const { state, counts, key } = rig();

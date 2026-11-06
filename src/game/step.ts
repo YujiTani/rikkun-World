@@ -20,12 +20,15 @@ import { actionHintLines } from '../ui/actionHintModel';
 import { impactOf } from '../fx/impact';
 import { cooldownCells } from '../ui/hotbarModel';
 import { skyDarkness, darkenFromBrightness } from '../world/light';
+import { waterSettings, waterWaveUniforms } from '../world/render/waterWave';
 import { NO_DIG, NO_SWINGS, IDLE_THUNDER_LOOK, NO_PLATES } from './wire/shared';
 import type { WiredFrame } from './wire/save';
+import { createFootsteps } from '../fx/footsteps';
 
 export function createStep(deps: WiredFrame): (dt: number) => void {
+  const footsteps = createFootsteps(deps.fxSound);
   const {
-    shared, game, streamFrame, audioStep, craft2Settings, time, dig, sprite, armor, parry, blade, tools,
+    shared, game, water, streamFrame, audioStep, craft2Settings, time, dig, sprite, armor, parry, blade, tools,
     legend, controller, w2, inventory, rig, combat, timeSettings, worldReady, yokaiM, animals, waveSys,
     coopMenu, itadakimasu, deliverAnimalEvents, animalFx, animalViews, pendingDust, animalHint, arrowRelay,
     screen, kodachi, geta, craft, storage, dropController, farm, renderer, m7, trackOldFarmSeeds,
@@ -38,7 +41,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     yokaiFocus, hintVisible, titleAnnounce, machoMarkIn, machoMarks, yokaiNameplates, plateBuf,
     staggerIcons, stagIconBuf, natsukiPanel, actionHint, farmHint, plainReading, farmAimHud, nameOf,
     hotbar, shiningCooldownOf, inventoryScreen, storageScreen, achievementsPage, logPage, inventoryTabs,
-    updateAchievements, save, gadgets,
+    updateAchievements, save, gadgets, seat,
   } = deps;
   /** シャイニングの ドーム: 始めてから まだ 当たって いない（最初の 当たりだけ 大） */
   let domeFirstHit = true;
@@ -77,10 +80,13 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       controller.motion.stopNow = false;
       // HURT-1: 怯み中は 歩く・走る・ジャンプが きかない
       controller.motion.noMoveInput = combat.flinchTicks() > 0;
+      // HOUSE-1D: 座って いる 間は 位置・向きを 固定（motion を 書くので 上の 行より あと、controller.update より 前）
+      seat.update();
     }
     // 空の光の弱まりを先に今の時刻にそろえる（妖怪の出現の「暗い所」がこれを読む。Sky は あとで画面ぶんを更新）
     skyDarkness.value = darkenFromBrightness(time.brightness(), timeSettings.nightBrightness);
     if (worldReady()) controller.update(dt); // 読みこみを まつ間は 動かない・落ちない（VOX-D）
+    seat.afterUpdate(); // HOUSE-1D: 座って いる 間は「地面に 立って いる」ことに する（人形が とびあがる 形に ならない）
     // カメラ（肩の点 S）を先に決める。ねらい（dig.update）は S を使う（CHAR-1 第 5.2 版）
     rig.update(dt);
     if (worldReady()) yokaiM.update();
@@ -184,7 +190,9 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     {
       const s = controller.state;
       const walking = screen.mode() === 'play' && !combat.dead() && !combat.flinching();
-      geta.step({ running: walking && s.running, onGround: s.onGround, inWater: s.inWater, velocity: s.velocity });
+      const gp = { running: walking && s.running, onGround: walking && s.onGround, inWater: s.inWater, velocity: s.velocity };
+      // FOOTSTEPS（#50）: 下駄で 走る ときは 下駄の 音 だけ。ほかは 足もとの ブロックの 足音
+      if (!geta.step(gp)) footsteps.step(gp, () => deps.world.getBlock(Math.floor(s.position.x), Math.floor(s.position.y - 0.05), Math.floor(s.position.z)));
     }
     combat.update();
     craft.update();
@@ -194,6 +202,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     {
       const m = screen.mode();
       if (m === 'play' || (m === 'inventory' && screen.timeScale() > 0 && game.tick % 4 === 0)) farm.update({ playerPos: controller.state.position });
+      if (m === 'play' || (m === 'inventory' && screen.timeScale() > 0)) water.update(); // WATER-1: 水の 流れ(15 ステップごとに 1 パス)
       renderer.setRipeMinBrightness(m7.farmRipeMinBrightness);
       trackOldFarmSeeds();
     }
@@ -225,7 +234,11 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       if (fe.length > 0) {
         for (const e of fe) {
           if (e.type === 'pour') waterFx.pour(farm.lastPourCells());
-          else if (e.type === 'bucketPlace') waterFx.pour([{ x: e.x, y: e.y - 1, z: e.z }]); // 置いた マスの 上から しずく
+          else if (e.type === 'bucketPlace') {
+            // BUCKET-2: 置いた 音（水・マグマ）。しずくは 水だけ
+            water.noteSound(e.liquid === 'magma' ? 'placeMagma' : 'placeWater', e.x, e.y, e.z);
+            if (e.liquid !== 'magma') waterFx.pour([{ x: e.x, y: e.y - 1, z: e.z }]); // 置いた マスの 上から しずく
+          }
         }
         farmFx.feed(fe);
       }
@@ -422,6 +435,8 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     celebrate.step();
     notice.update(dt);
     const pp = controller.state.position;
+    waterWaveUniforms.uWaveTime.value = water.waveTime(); // WATER-1: 水面の ゆらめきの 時間(ステップ ÷ 60。一時停止で とまる)
+    waterWaveUniforms.uWaveAmp.value = waterSettings.waveAmp; // 設定 waveAmp(§4.1)
     renderer.setGlowTime(game.tick / STEPS_PER_SECOND); // ほたるいしの いき（一時停止で とまる。スクショが きまる）
     renderer.update({ x: pp.x, z: pp.z });
     save.update(game.tick + 1);

@@ -23,6 +23,7 @@ const hearts = (heal: number): number => heal / 2;
 export const LIVE = {
   egg: {
     name: 'たまご',
+    zukan: 'なかまの にわとりが うんだ たまご。［食｜た］べても いいし、こたつで あたためると ひよこが うまれる。',
     maxStack: 64,
     rarity: 'common',
     category: 'food',
@@ -31,6 +32,7 @@ export const LIVE = {
   },
   mushi: {
     name: 'むし',
+    zukan: '［木｜き］の みきに とまって いる ［小｜ちい］さな ［虫｜むし］。［虫｜むし］とりあみで そっと つかまえよう。にわとりの だいこうぶつ。',
     maxStack: 64, // やさい と 同じ
     rarity: 'common',
     category: 'plant',
@@ -38,6 +40,7 @@ export const LIVE = {
   },
   mushi_ami: {
     name: 'むしとりあみ',
+    zukan: '［虫｜むし］を つかまえる あみ。［木｜き］の みきを そっと なでて、［虫｜むし］を つかまえよう。',
     maxStack: 1,
     rarity: 'common',
     category: 'tool',
@@ -47,6 +50,7 @@ export const LIVE = {
   },
   toriya: {
     name: 'とりごや',
+    zukan: 'にわとりの ための ［小｜ちい］さな ［家｜いえ］。とりごやで そだった にわとりは、すくすく おとなに なる。',
     maxStack: 1,
     rarity: 'uncommon',
     category: 'home',
@@ -55,6 +59,7 @@ export const LIVE = {
   },
   kin_tamago: {
     name: 'きん の たまご',
+    zukan: 'なかよしの にわとりが ごくまれに うむ、［金｜きん］［色｜いろ］に かがやく たまご。こたつで あたためると、なんと むきむきの マッチョひよこが うまれる。',
     maxStack: 64,
     rarity: 'epic', // 7 段中 5 つ目（ほし 5・RARITY-7）。たべられない
     category: 'material',
@@ -62,6 +67,7 @@ export const LIVE = {
   },
   momo_nama: {
     name: 'なま もも にく',
+    zukan: 'とりごやで そだった にわとりから とれた なまの もも［肉｜にく］。そのままでは ［食｜た］べられない。かまどで こんがり やこう。',
     maxStack: 64,
     rarity: 'common', // LIVE-3 仮。たべられない（かまど で やく）
     category: 'food',
@@ -69,6 +75,7 @@ export const LIVE = {
   },
   momo_yaki: {
     name: 'やいた もも にく',
+    zukan: 'こんがり やけた もも［肉｜にく］。ほかほかで いい におい。［食｜た］べると ［元気｜げんき］が もりもり もどる。',
     maxStack: 64,
     rarity: 'common',
     category: 'food',
@@ -82,6 +89,7 @@ export const LIVE = {
 export const KOTATSU = {
   nukunuku: {
     name: 'こたつ',
+    zukan: '［草｜くさ］と ［木｜き］で ［作｜つく］った ぬくぬくの こたつ。たまごを ［入｜い］れて あたためると、ひよこが うまれる。',
     maxStack: 64,
     placeBlock: 'nukunuku',
     rarity: 'uncommon', // たんす・かまど と 同じ 段

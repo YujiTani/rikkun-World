@@ -98,13 +98,24 @@ describe('ストリーミングのメッシュ', () => {
   });
 
   it('同じ n なら 同じコマ数でそろう（機械の速さにたよらない）', () => {
-    const a = make();
-    a.view(0, 0);
-    a.stream.restart(0, 0, 'boot');
-    const b = make();
-    b.view(0, 0);
-    b.stream.restart(0, 0, 'boot');
-    expect(a.run()).toBe(b.run());
+    // 開始（ready まで）の コマ数と、その時点の 絵の数・のこりの仕事が 2 つの世界で そろう。のこりの小ブロックの差しかえまで 回すと 重いので ready で くらべる
+    const toReady = () => {
+      const x = make();
+      x.view(0, 0);
+      x.stream.restart(0, 0, 'boot');
+      x.stream.setWork(6);
+      let frames = 0;
+      while (!x.stream.ready && frames < 3000) {
+        x.r.update();
+        x.stream.update();
+        frames++;
+      }
+      return { frames, ready: x.stream.ready, meshes: x.r.meshStats().meshCount, queued: x.stream.queuedCount() };
+    };
+    const a = toReady();
+    const b = toReady();
+    expect(a.ready).toBe(true);
+    expect(b).toEqual(a);
   });
 
   it('歩いて中心が変わると 外の絵 (> 7) を捨て、内がわ (≤ 6) の新しい列を作る', () => {

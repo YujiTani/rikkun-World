@@ -284,7 +284,8 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
                 if (bio.kind === 'harappa') pureGrass++;
                 else if (bio.kind === 'mori') pureForest++;
               }
-              if (onMouth || rock) continue;
+              // MAGMA-SPAWN: 溶岩・滝の いけ と へり（底・へりは いし、滝の 底は たきつぼ）は 地層の きまりの 外
+              if (onMouth || rock || T.liquid.pondAt(x, z) !== null) continue;
               // 基準 4: 地層
               const bad = (why: string): void => {
                 if (st.strataBad.length < 8) st.strataBad.push(`seed ${seed} (${x},${z}) H=${H} ${why}`);

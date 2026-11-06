@@ -5,6 +5,9 @@ import { createFarmSystem } from './FarmSystem';
 
 const DAY = 91800;
 
+/** 量 n（1〜8）の 水の id（WATER-1 §4.6）。`water.ts` の まえでも 他の テストを 落とさないよう ここに 書く */
+const waterId = (n: number): BlockId => (n === 8 ? 'water' : (`water_${n}` as BlockId));
+
 function make(opts: { lightLevel?: number; placement?: FarmPlacement; seed?: number } = {}) {
   const world = new ArrayVoxelWorld({ x: 32, y: 16, z: 32 });
   world.fill(0, 0, 0, 31, 6, 31, 'dirt');
@@ -173,6 +176,28 @@ describe('しめり（AC10）', () => {
     farm.till(5, 7, 5);
     step(5000);
     expect(world.getBlock(5, 7, 5)).toBe('farmland');
+  });
+  it('WATER-1 AC14: 量 1〜7 の 水でも farmWetRange 以内なら しめる（量 1 でも）。はんいの 外なら かわいたまま', () => {
+    for (let a = 1; a <= 8; a++) {
+      const { world, farm, settings, step } = make();
+      const r = settings.farmWetRange;
+      world.setBlock(5 + r, 8, 5, waterId(a));
+      expect(farm.till(5, 7, 5), `量 ${a}`).toBe(true);
+      expect(farm.soil(5, 7, 5)?.wet, `量 ${a}: 範囲の ふち（横 ${r}）`).toBe(true);
+      world.setBlock(5 + r, 8, 5, 'dirt');
+      step(60);
+      expect(farm.soil(5, 7, 5)?.wet, `量 ${a}: 水が なくなったら かわく`).toBe(false);
+      world.setBlock(5 + r + 1, 8, 5, waterId(a));
+      step(60);
+      expect(farm.soil(5, 7, 5)?.wet, `量 ${a}: はんいの 外`).toBe(false);
+      world.setBlock(5, 9, 5, waterId(a)); // y + 2 は はんいの 外（y と y + 1 だけ）
+      step(60);
+      expect(farm.soil(5, 7, 5)?.wet, `量 ${a}: 高さの 外`).toBe(false);
+      world.setBlock(5, 8, 6, waterId(a));
+      step(60);
+      expect(farm.soil(5, 7, 5)?.wet, `量 ${a}: すぐ となり`).toBe(true);
+      expect(world.getBlock(5, 7, 5)).toBe('farmland_wet');
+    }
   });
 });
 
