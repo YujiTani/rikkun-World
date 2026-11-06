@@ -184,6 +184,20 @@ describe.each(FIXTURES)('C9: $name の 古い 保存', (f) => {
     }
   }, 120_000);
 
+  it('【レビュー A 重大 2】えらんだ はじまりの 坑道の 場所が meta に 書かれる〔meta.shaftStart: { x, z } ＝ 入口の x・z〕。閉じて 開きなおして 保存しなおしても 同じ（§4.8。名前は tester の 案）', async () => {
+    const { db, store } = await openFile(f);
+    const { restored, save } = await openGame(db, store);
+    const entrance = hook1c(SEED, { oldCols: restored.oldCols }).startShaft().entrance;
+    await save.now();
+    const meta = (await metaOf(db)) as { shaftStart?: { x: number; z: number } };
+    expect(meta.shaftStart, 'meta に 書いた 場所').toEqual({ x: entrance.x, z: entrance.z });
+    for (let k = 0; k < 2; k++) {
+      const again = await openGame(db, store);
+      await again.save.now();
+      expect(((await metaOf(db)) as { shaftStart?: unknown }).shaftStart, `${k + 2} 回目に 開いて 保存した あと`).toEqual({ x: entrance.x, z: entrance.z });
+    }
+  }, 60_000);
+
   it('ほかの 坑道〔スタートの まわり 3,072 マス四方〕も どれも 古い 列に かからない〔とちゅうで 切れた 道が ない〕', async () => {
     const { db, store } = await openFile(f);
     const { restored } = await openGame(db, store);

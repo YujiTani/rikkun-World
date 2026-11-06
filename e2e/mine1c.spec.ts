@@ -323,4 +323,117 @@ test.describe('MINE-1C 通し', () => {
     expect(await bag(), 'あいた 宝箱は もう ふえない・手の ブロックも 置かれない').toEqual(got);
     if (second.place) expect(await blockAt(second.place), '手の ブロックが 置かれていない').not.toBe('dirt');
   });
+
+  // ---------------------------------------------------------------- コードレビュー B〔重大 2・3・4〕: 赤の 確かめ用。手元では 回さない〔CI で 見る〕
+
+  interface ChestSetup {
+    main: Pt;
+    rest: Pt;
+    preview: { tier: number; items: { item: string; count: number }[] };
+  }
+
+  /** 新しい 世界 → 宝箱の ある 坑道〔中身が 3 つ 以上 の 宝箱〕の へやの 前に 立つ。右クリックの 道具を 返す */
+  async function standByChest(page: Page): Promise<ChestSetup> {
+    await openStream(page, '');
+    await needMine(page, ['shafts', 'chestAt', 'chestPreview']);
+    await installAimHelpers(page);
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.lock.simulate(true);
+      h.input.releaseAll();
+      h.yokai.clear();
+      h.inventory.clear();
+      h.log.clear();
+    });
+    const found = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const sp = h.world.spawn();
+      const list = h.mine.shafts(sp.x - 1536, sp.z - 1536, sp.x + 1535, sp.z + 1535) as { chest: { x: number; y: number; z: number; cells: Pt[]; front: string } | null; entrance: Pt }[];
+      const withChest = list
+        .filter((s) => s.chest)
+        .map((s) => ({ chest: s.chest!, d: Math.hypot(s.entrance.x - sp.x, s.entrance.z - sp.z), preview: h.mine.chestPreview(s.chest!.x, s.chest!.y, s.chest!.z) as { tier: number; items: { item: string; count: number }[] } }))
+        .sort((a, b) => a.d - b.d);
+      // ひろった ログを 見分けやすい ように 中身が 3 つ 以上の 宝箱を えらぶ〔なければ いちばん 多い もの〕
+      const best = withChest.find((c) => new Set(c.preview.items.map((i) => i.item)).size >= 3) ?? withChest.sort((a, b) => b.preview.items.length - a.preview.items.length)[0];
+      return best ? { chest: best.chest, preview: best.preview } : null;
+    });
+    expect(found, '宝箱の ある 坑道').not.toBeNull();
+    const chest = found!.chest;
+    const main = { x: chest.x, y: chest.y, z: chest.z };
+    const rest = chest.cells.find((c) => c.x !== main.x || c.y !== main.y || c.z !== main.z)!;
+    await loadAround(page, main.x, main.z);
+    const [fx, fz] = FRONT_VEC[chest.front]!;
+    await page.evaluate(
+      ({ main, rest, fx, fz }) => {
+        const h = (window as any).__rikkun;
+        h.player.set({ position: { x: (main.x + rest.x) / 2 + 0.5 + fx * 2, y: main.y, z: (main.z + rest.z) / 2 + 0.5 + fz * 2 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+        h.step(10);
+      },
+      { main, rest, fx, fz },
+    );
+    await drainRebuilds(page);
+    return { main, rest, preview: found!.preview };
+  }
+
+  /** 右クリック 1 回〔おして 2 ステップ・はなして 1 ステップ〕 */
+  async function rightClick(page: Page, at: Pt): Promise<void> {
+    await aimAtBlock(page, at.x, at.y, at.z, 0.5);
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.input.press('secondary');
+      h.step(2);
+      h.input.release('secondary');
+      h.step(1);
+    });
+  }
+
+  test('C13b〔レビュー B 重大 2・4〕: 宝箱の 中身が「ひろった」ログに 出る・あいた 宝箱を 右クリックすると ログ「からっぽ だよ」', async ({ page }) => {
+    const { main, rest, preview } = await standByChest(page);
+    await rightClick(page, rest);
+    await page.evaluate(() => (window as any).__rikkun.step(40)); // ふたの 動き〔0.46 秒〕が おわるまで
+    const log = await page.evaluate(() => ((window as any).__rikkun.log.history() as { kind: string; item: string | null; text: string }[]).map((e) => ({ k: e.kind, item: e.item, t: e.text })));
+    const picked = new Set(log.filter((e) => e.k === 'pickup').map((e) => e.item));
+    const items = [...new Set(preview.items.map((i) => i.item))];
+    const missing = items.filter((i) => !picked.has(i));
+    // ハイパーレア いじょうの いちばん めずらしい 1 つは テロップで しらせる〔ログに 出なくて よい〕。ほかは 今の「ひろった」ログと 同じ 道
+    expect(missing.length, `ひろった ログに 出ない 中身: ${missing.join(', ')}〔中身 ${items.join(', ')}〕`).toBeLessThanOrEqual(1);
+    expect(picked.size, 'ひろった ログが 出る').toBeGreaterThan(0);
+    // 2 回目: あいた 宝箱を 右クリック → ログ「からっぽ だよ」〔2 マス どちらでも 出る〕
+    for (const [name, at] of [['本体', main], ['のこりの マス', rest]] as const) {
+      await page.evaluate(() => (window as any).__rikkun.log.clear());
+      await rightClick(page, at);
+      const lines = await page.evaluate(() => ((window as any).__rikkun.log.history() as { text: string }[]).map((e) => e.text));
+      expect(lines.filter((t) => t.includes('からっぽ だよ')), `あいた 宝箱〔${name}〕を 右クリック → ログ`).toHaveLength(1);
+    }
+  });
+
+  test('C13c〔レビュー B 重大 3〕: ふたが 動いて いる 間に 保存して 開きなおしても、あいた 宝箱と いっしょに 中身が 持ち物に ある', async ({ page }) => {
+    const { main, rest, preview } = await standByChest(page);
+    await rightClick(page, rest); // あけた コマ〔ふたの 動きは 約 28 ステップ。まだ 3 ステップ〕
+    await page.evaluate(() => (window as any).__rikkun.step(2));
+    await page.evaluate(() => (window as any).__rikkun.save.now()); // 動きの 途中の 保存〔ページを 閉じる ときも 同じ〕
+    await page.reload();
+    await page.waitForFunction(() => (window as any).__rikkun?.ready === true);
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.achievements.mute(true);
+      h.pause();
+      h.settings.set('yokaiAutoSpawn', false);
+      h.lock.simulate(true);
+    });
+    await settleWorld(page, true);
+    const after = await page.evaluate(
+      ({ main, rest }) => {
+        const h = (window as any).__rikkun;
+        const bag: Record<string, number> = {};
+        for (const s of h.inventory.get().slots as ({ item: string; count: number } | null)[]) if (s) bag[s.item] = (bag[s.item] ?? 0) + s.count;
+        return { mainOpened: h.mine.chestAt(main.x, main.y, main.z)?.opened as boolean | undefined, restOpened: h.mine.chestAt(rest.x, rest.y, rest.z)?.opened as boolean | undefined, bag };
+      },
+      { main, rest },
+    );
+    const want: Record<string, number> = {};
+    for (const it of preview.items) want[it.item] = (want[it.item] ?? 0) + it.count;
+    expect(after.mainOpened && after.restOpened, '開きなおしても 宝箱は あいた まま').toBe(true);
+    expect(after.bag, '「あいた ＋ 中身なし」に ならない: 持ち物に プレビューの 中身が ある').toEqual(want);
+  });
 });
