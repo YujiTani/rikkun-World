@@ -425,6 +425,11 @@ export class AchievementSystem implements AchievementShowSource {
     this.run(() => this.setMax('samuraiKinds', kinds));
   }
 
+  /** MINE-1C: 坑道の 出来事。足が いちばん 下の へやに 入った（bottom）／宝箱を あけた（chestOpen。段は 数えない） */
+  feedMine(events: ReadonlyArray<{ type: 'bottom' | 'chestOpen'; tick: number; tier?: number }>): void {
+    for (const e of events) this.run(() => this.setMax(e.type === 'bottom' ? 'mineBottom' : 'mineChest', 1));
+  }
+
   /** 「もちもの が いっぱい」の合図が出た */
   feedFull(): void {
     this.run(() => this.bump('full', 1));
