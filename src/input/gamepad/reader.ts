@@ -3,8 +3,9 @@
  */
 import type { Action, ActionState } from '../actions';
 import type { LookSource } from '../../contracts';
-import { GAMEPAD_CONFIG, type GamepadSettings } from './config';
+import type { GamepadSettings } from './config';
 import { applyDeadZone, hasSavedBinds, loadBinds, loadCalib, saveBinds, saveCalib, type BindMap, type Calib } from './binds';
+import { clampLook, loadGamepadSettings, saveGamepadSettings } from './settingsStore';
 import {
   DEFAULT_PLAY_BINDS,
   axisLayout,
@@ -42,6 +43,7 @@ export class GamepadReader {
   private assignedIndex: number | null = null;
   private lastInput: LastInput = 'keyboard';
   private menuOpen = false;
+  private capturing = false;
   private hanging = false;
   /** テスト注入用 */
   getPads: GetPads = () => (typeof navigator !== 'undefined' && navigator.getGamepads ? [...navigator.getGamepads()] : []);
@@ -55,9 +57,10 @@ export class GamepadReader {
     this.binds = loadBinds(storage);
     this.bindsSaved = hasSavedBinds(storage);
     this.calib = loadCalib(storage);
+    const stored = loadGamepadSettings(storage);
     this.settings = {
-      deadZone: settings?.deadZone ?? GAMEPAD_CONFIG.deadZone,
-      lookSensitivity: settings?.lookSensitivity ?? GAMEPAD_CONFIG.lookSensitivity,
+      deadZone: settings?.deadZone ?? stored.deadZone,
+      lookSensitivity: settings?.lookSensitivity ?? stored.lookSensitivity,
     };
   }
 
@@ -82,7 +85,8 @@ export class GamepadReader {
   }
   setSettings(s: Partial<GamepadSettings>): void {
     if (s.deadZone !== undefined) this.settings.deadZone = Math.min(0.5, Math.max(0.05, s.deadZone));
-    if (s.lookSensitivity !== undefined) this.settings.lookSensitivity = Math.max(0.1, s.lookSensitivity);
+    if (s.lookSensitivity !== undefined) this.settings.lookSensitivity = clampLook(s.lookSensitivity);
+    saveGamepadSettings(this.storage, this.settings);
   }
 
   getCalib(): Calib {
@@ -95,6 +99,13 @@ export class GamepadReader {
 
   setMenuOpen(on: boolean): void {
     this.menuOpen = on;
+  }
+  /** ボタン待ちのあいだは Action を出さない（画面が 押された面を読む） */
+  setCapturing(on: boolean): void {
+    this.capturing = on;
+  }
+  isCapturing(): boolean {
+    return this.capturing;
   }
   setHanging(on: boolean): void {
     this.hanging = on;
@@ -202,13 +213,17 @@ export class GamepadReader {
     const rx = applyDeadZone((pad.axes[axes.rx] ?? 0) - c.rx, dz);
     const ry = applyDeadZone((pad.axes[axes.ry] ?? 0) - c.ry, dz);
 
-    // 移動（正規化）
-    this.setMove(lx, ly);
-    // 視点
-    if (rx !== 0 || ry !== 0) {
-      this.lastInput = 'gamepad';
-      const s = this.settings.lookSensitivity;
-      this.look.push(rx * s, ry * s);
+    // メニュー中は あるかない・みない（十字は 下の Action だけ）
+    // look は poll 1 回 = 固定ステップ 1 回。フレームの実時間では掛けない
+    if (this.menuOpen || this.capturing) {
+      this.setMove(0, 0);
+    } else {
+      this.setMove(lx, ly);
+      if (rx !== 0 || ry !== 0) {
+        this.lastInput = 'gamepad';
+        const s = this.settings.lookSensitivity;
+        this.look.push(rx * s, ry * s);
+      }
     }
 
     const prev = this.prev.get(pad.index) ?? [];
@@ -256,11 +271,17 @@ export class GamepadReader {
   }
 
   private actionForFace(face: PadFace): import('../actions').Action | null {
+    if (this.capturing) return null;
     if (this.menuOpen) {
+      // メニューの決定・もどる・十字は割り当て表より優先（抜けられないように）
       if (face === 'faceBottom') return 'confirm';
       if (face === 'faceRight') return 'closeMenu';
-      if (face === 'faceLeft' || face === 'start') return 'toggleInventory';
-      if (face === 'dpadUp' || face === 'dpadDown' || face === 'dpadLeft' || face === 'dpadRight') return null; // UI フォーカスは別
+      if (face === 'start') return 'openStartMenu';
+      if (face === 'dpadUp') return 'focusUp';
+      if (face === 'dpadDown') return 'focusDown';
+      if (face === 'dpadLeft') return 'focusLeft';
+      if (face === 'dpadRight') return 'focusRight';
+      return null;
     }
     if (this.hanging && face === 'faceRight') return 'ropeDown';
     const b = this.binds[face];
@@ -275,7 +296,8 @@ export class GamepadReader {
   }
 
   private pressFace(face: PadFace, _nowMs: number): void {
-    if (this.faceBlocked(face)) return;
+    // 遊び中だけ暴発を止める。メニューの決定・もどるは未知の機種でも届ける
+    if (!this.menuOpen && !this.capturing && this.faceBlocked(face)) return;
     const a = this.actionForFace(face);
     if (!a) return;
     this.heldFaces.set(face, a);

@@ -12,6 +12,7 @@ import './playOverlay.css';
 export function buildOverlayHtml(text: string): string {
   return (
     `<div class="po-panel">` +
+    `<p class="po-kicker">スタートメニュー</p>` +
     `<button type="button" class="po-button"><span class="po-mouse" aria-hidden="true">${mouseHtml('left')}</span><span class="po-text">${escapeHtml(text)}</span></button>` +
     `<button type="button" class="po-book" data-book-open><span class="po-gem" aria-hidden="true"></span><span class="po-book-text">あそびかたの ほん</span></button>` +
     `</div>`
@@ -104,6 +105,35 @@ export class PlayOverlay {
       mountPrep(this.textEl);
     }
     syncPrep(this.textEl, progress, nowMs);
+  }
+
+  /** スタートメニューにボタンを足す（クリックは遊び開始に伝えない） */
+  addButton(labelHtml: string, testId: string, onClick: () => void): HTMLButtonElement {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'po-book po-extra';
+    b.dataset.testid = testId;
+    b.innerHTML = labelHtml;
+    const stop = (e: Event): void => e.stopPropagation();
+    b.addEventListener('click', (e) => {
+      stop(e);
+      onClick();
+    });
+    b.addEventListener('pointerdown', stop);
+    this.menuRow().appendChild(b);
+    return b;
+  }
+
+  /** せってい・タイトル戻りを横に並べて、案内がホットバーに重なりすぎないようにする */
+  menuRow(): HTMLElement {
+    const panel = this.el.querySelector('.po-panel')!;
+    let row = panel.querySelector<HTMLElement>('.po-menu-row');
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'po-menu-row';
+      panel.appendChild(row);
+    }
+    return row;
   }
 
   private sync(lock: LockController): void {

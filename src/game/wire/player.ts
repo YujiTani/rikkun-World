@@ -12,7 +12,11 @@ import { createLiquidSounds } from '../../fx/liquidSounds';
 import { FX_SETTINGS } from '../../fx/config';
 import { ImpactBus } from '../../fx/impact';
 import { type BgmSceneInput, screenLevel } from '../../fx/bgm/scene';
-import { createSoundSettings } from '../../ui/soundSettings';
+import { createSettingsPanel } from '../../ui/settings/settingsPanel';
+import { bindPauseMenu } from '../../ui/menu/bindPause';
+import { createDialogStack, mountChoiceDialog } from '../../ui/menu/choiceDialog';
+import { TITLE_RETURN_STAY } from '../../ui/menu/titleReturn';
+import { ruby } from '../../ui/text';
 import { isBodyPlaceable } from '../../save';
 import { bindKeyboardAndMouse } from '../../input/actions';
 import { wireGamepad } from './gamepad';
@@ -61,24 +65,59 @@ export function wireInput(deps: WiredRender) {
   game.input.onPress((action) => book.onAction(action));
   const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => book.open());
   startPlan.close(); // スタートメニューを 消す（今の「じゅんびちゅう」→「あそぼう」の 案内画面へ）
-  const soundSettingsUi = createSoundSettings({ audio: audioSettings, fx: FX_SETTINGS, onChange: () => audioSync() }, playOverlay.el);
   gamepadApi = wireGamepad({
     game,
     lock,
     mouseLook,
     actions: game.input,
-    overlayParent: playOverlay.el,
     menuOpen: () => {
       try {
-        return shared.screen.inventoryOpen() || book.active() || shared.houseFrozen();
+        return lock.overlayVisible() || shared.screen.inventoryOpen() || book.active() || shared.houseFrozen();
       } catch {
-        return book.active() || shared.houseFrozen();
+        return lock.overlayVisible() || book.active() || shared.houseFrozen();
       }
     },
     hanging: () => shared.controller?.tetherBody.hanging === true,
     onToggleView: () => { /* rig は wirePlayer で繋ぐ */ },
   });
   look = gamepadApi.look;
+  const dialogs = createDialogStack();
+  let goTitle: () => Promise<'reload' | 'stay'> = async () => 'stay';
+  const returnDialog = mountChoiceDialog({
+    testId: 'return-title-dialog',
+    questionHtml: `${ruby('本当', 'ほんとう')}にタイトル${ruby('画面', 'がめん')}にもどりますか？`,
+    yesLabel: 'もどる',
+    yesTestId: 'return-title-yes',
+    noTestId: 'return-title-no',
+    onYes: () => {
+      void goTitle().then((d) => {
+        if (d === 'stay') returnDialog.showNote(TITLE_RETURN_STAY);
+      });
+    },
+  });
+  dialogs.add(returnDialog);
+  const settingsUi = createSettingsPanel(
+    {
+      reader: gamepadApi.reader,
+      audio: audioSettings,
+      fx: FX_SETTINGS,
+      onAudio: () => audioSync(),
+      dialogs,
+    },
+    playOverlay.el,
+  );
+  gamepadApi.setPump(() => settingsUi.pump());
+  playOverlay.addButton(`タイトル${ruby('画面', 'がめん')}にもどる`, 'return-title', () => returnDialog.open());
+  bindPauseMenu({
+    actions: game.input,
+    lock,
+    getScreen: () => (shared as { screen?: { inventoryOpen(): boolean; closeToGuide(): void } }).screen ?? null,
+    bookOpen: () => book.active(),
+    houseOpen: () => shared.houseFrozen(),
+    coopOpen: () => shared.coopMenuIsOpen(),
+    settings: settingsUi,
+    dialogs,
+  });
   // 最初のクリック・キーで音が使えるようになる（ブラウザのきまり）
   for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, () => mixer.unlock(), true);
   document.addEventListener('visibilitychange', () => mixer.setHidden(document.hidden));
@@ -92,7 +131,7 @@ export function wireInput(deps: WiredRender) {
     audioKey = k;
     mixer.apply();
     audioPersist.sync();
-    soundSettingsUi.refresh();
+    settingsUi.refreshAudio();
   }
   /** 毎ステップ: 場面 → BGM、画面の倍率、おめでとう画面のあいだ BGM を下げたまま */
   function audioStep(): void {
@@ -105,9 +144,14 @@ export function wireInput(deps: WiredRender) {
     mixer.setScreenLevel(screenLevel(mode, dead));
     // 実績の おしらせ（上の 帯）が 出ている 間は BGM を さげる（ファンファーレを 聞かせる）
     mixer.holdDuck(shared.celebrate.bandModel.toast.isOpen());
-    if (mode !== 'guide' && soundSettingsUi.isOpen()) soundSettingsUi.close();
+    if (mode !== 'guide' && settingsUi.isOpen()) settingsUi.close();
   }
-  return { lock, wheel, look, pointerLock, book, playOverlay, soundSettingsUi, audioStep, gamepadApi };
+  return {
+    lock, wheel, look, pointerLock, book, playOverlay, audioStep, gamepadApi,
+    setTitleReturn(fn: () => Promise<'reload' | 'stay'>) {
+      goTitle = fn;
+    },
+  };
 }
 
 type WiredInput = WiredRender & ReturnType<typeof wireInput>;

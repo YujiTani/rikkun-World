@@ -9,10 +9,10 @@ async function open(page: Page) {
 test('パッド疑似: 確認画面が開き、ロック無しで primary が届く', async ({ page }) => {
   await open(page);
 
-  const openBtn = page.getByTestId('gamepad-open');
+  const openBtn = page.getByTestId('settings-open');
   await expect(openBtn).toBeVisible({ timeout: 10_000 });
   await openBtn.click();
-  await expect(page.getByTestId('gamepad-panel')).toBeVisible();
+  await expect(page.getByTestId('settings-panel')).toBeVisible();
 
   // 偽パッド注入（テスト窓口）。案内のまま poll（idle）が回る
   await page.evaluate(() => {

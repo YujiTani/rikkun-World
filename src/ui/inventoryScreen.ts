@@ -128,7 +128,7 @@ export class InventoryScreen {
     head.className = 'inv-head';
     const title = document.createElement('div');
     title.className = 'inv-title';
-    title.textContent = 'もちもの';
+    title.textContent = 'もちもの・クラフト';
     this.closeButton = document.createElement('button');
     this.closeButton.type = 'button';
     this.closeButton.id = 'inventory-close';
@@ -150,6 +150,9 @@ export class InventoryScreen {
         const c = createSlotEl();
         c.root.classList.add('inv-slot');
         c.root.dataset.index = String(i);
+        c.root.dataset.menuItem = '';
+        c.root.tabIndex = 0;
+        c.root.setAttribute('role', 'button');
         c.root.addEventListener('click', (e) => {
           e.stopPropagation();
           // Ctrl（Mac は ⌘）クリック: たんす に しまう ものを えらぶ（✓）

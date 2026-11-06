@@ -104,6 +104,21 @@
 .po-book:hover {
   filter: brightness(1.12);
 }
+.po-menu-row {
+  order: 5;
+  display: flex;
+  gap: var(--rk-sp-3);
+  width: max(var(--po-btn-w, 40vw), var(--po-btn-minw, 512px));
+}
+.po-book.po-extra {
+  order: 0;
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  min-height: 64px;
+  padding: var(--rk-sp-2) var(--rk-sp-3);
+  font-size: 20px;
+}
 .po-book:active {
   transform: translateY(2px);
   box-shadow: 0 2px 0 #5a3616;
