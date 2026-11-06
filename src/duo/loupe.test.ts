@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loupeLayout } from './loupe';
+import { DUO_TUNING as T } from './tuning';
 import type { DuoTier } from './types';
 
 /**
@@ -23,12 +24,12 @@ describe('AC24: ルーペの 置き場所', () => {
       it(`${width}×${height} tier ${tier}: 直径 20%・ふちから 16px 内側・下 22%/上 12% に かからない（8 方向 +）`, () => {
         for (const [dirX, dirY] of DIRS) {
           const b = loupeLayout({ width, height, dirX, dirY, tier });
-          expect(b.d).toBeCloseTo(height * 0.2, 3);
+          expect(b.d).toBeCloseTo(height * T.loupeDiameterRatio, 3);
           const r = b.d / 2;
           expect(b.x - r, `${dirX},${dirY} 左`).toBeGreaterThanOrEqual(16 - 0.01);
-          expect(b.x + r, `${dirX},${dirY} 右`).toBeLessThanOrEqual(width - 16 + 0.01);
-          expect(b.y - r, `${dirX},${dirY} 上`).toBeGreaterThanOrEqual(height * 0.12 - 0.01);
-          expect(b.y + r, `${dirX},${dirY} 下`).toBeLessThanOrEqual(height * 0.78 + 0.01);
+          expect(b.x + r, `${dirX},${dirY} 右`).toBeLessThanOrEqual(width - T.loupeEdgePx + 0.01);
+          expect(b.y - r, `${dirX},${dirY} 上`).toBeGreaterThanOrEqual(height * T.loupeTopRatio - 0.01);
+          expect(b.y + r, `${dirX},${dirY} 下`).toBeLessThanOrEqual(height * T.loupeBottomRatio + 0.01);
         }
       });
     }
@@ -48,13 +49,13 @@ describe('AC24: ルーペの 置き場所', () => {
     // まっすぐ 横は まん中の 高さ(上下の 禁止帯の まん中)
     expect(Math.abs(right.y - h * 0.45)).toBeLessThan(h * 0.2);
     // はしに 寄る(右は 右のはし、16px 内側)
-    expect(right.x + right.d / 2).toBeCloseTo(w - 16, 0);
-    expect(left.x - left.d / 2).toBeCloseTo(16, 0);
+    expect(right.x + right.d / 2).toBeCloseTo(w - T.loupeEdgePx, 0);
+    expect(left.x - left.d / 2).toBeCloseTo(T.loupeEdgePx, 0);
   });
 
   it('わくの 太さは 段で 4・6・8px', () => {
     const at = (tier: DuoTier) => loupeLayout({ width: 1280, height: 800, dirX: 1, dirY: 0, tier }).borderPx;
-    expect([at(0), at(1), at(2)]).toEqual([4, 6, 8]);
+    expect([at(0), at(1), at(2)]).toEqual([...T.loupeBorderPx]);
   });
 
   it('向きが すこし かわると 位置も すこし かわる(とびはねない)', () => {

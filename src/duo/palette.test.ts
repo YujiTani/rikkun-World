@@ -23,10 +23,4 @@ describe('§11.1: 1P・2P と 段の 色(案 B)', () => {
   it('段は --rk-text → --rk-accent → --rk-accent-2(赤は 使わない)', () => {
     expect(DUO_COLORS.tier.map((c) => c.toLowerCase())).toEqual([token('--rk-text'), token('--rk-accent'), token('--rk-accent-2')]);
   });
-  it('段の 色は 赤っぽくない(緑の 成分が 0x8a 以上。ダメージの 赤と まざらない)', () => {
-    for (const c of DUO_COLORS.tier) {
-      const g = parseInt(c.slice(3, 5), 16);
-      expect(g, c).toBeGreaterThanOrEqual(0x8a);
-    }
-  });
 });

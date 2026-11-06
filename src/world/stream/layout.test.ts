@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LAYOUT_MAX_COLUMNS, RingLayout, decideRings, ringSpecFor } from './layout';
+import { DUO_TUNING as T } from '../../duo/tuning';
 import { RING_FULL, RING_SMALL, colKey } from './ring';
 
 /**
@@ -18,15 +19,15 @@ function brute(centers: Array<{ cx: number; cz: number }>, r: number): number {
 describe('AC27: 輪の 数(幅つき)', () => {
   it('1 のとき: 48 までは 1、48 より 遠いと 2', () => {
     expect(decideRings(1, 10)).toBe(1);
-    expect(decideRings(1, 48)).toBe(1);
-    expect(decideRings(1, 48.01)).toBe(2);
+    expect(decideRings(1, T.ringsUpAt)).toBe(1);
+    expect(decideRings(1, T.ringsUpAt + 0.01)).toBe(2);
     expect(decideRings(1, 100)).toBe(2);
   });
   it('2 のとき: 32 より 近いと 1、32 以上は 2 の まま', () => {
     expect(decideRings(2, 60)).toBe(2);
     expect(decideRings(2, 40)).toBe(2);
-    expect(decideRings(2, 32)).toBe(2);
-    expect(decideRings(2, 31.99)).toBe(1);
+    expect(decideRings(2, T.ringsDownAt)).toBe(2);
+    expect(decideRings(2, T.ringsDownAt - 0.01)).toBe(1);
     expect(decideRings(2, 0)).toBe(1);
   });
   it('32〜48 の あいだは 今のまま(行き来しても ゆれない)', () => {
@@ -51,7 +52,8 @@ describe('AC27: 輪の 数(幅つき)', () => {
 
 describe('AC27: 持つ 列の 上限と 重なり', () => {
   it('595 = 441 の 1.35 倍', () => {
-    expect(LAYOUT_MAX_COLUMNS).toBe(595);
+    expect(LAYOUT_MAX_COLUMNS).toBe(T.layoutMaxColumns);
+    expect(T.layoutMaxColumns).toBe(595);
     expect(Math.floor(RING_FULL.maxColumns * 1.35)).toBe(LAYOUT_MAX_COLUMNS);
   });
   it('1 人・ふだんの 輪: 残す 441 列・生成 289 列', () => {
@@ -62,7 +64,7 @@ describe('AC27: 持つ 列の 上限と 重なり', () => {
   it('離れた 小さい 輪 2 つ: 17×17×2 = 578 列 ≤ 595', () => {
     const l = new RingLayout([{ cx: 0, cz: 0 }, { cx: 40, cz: 0 }], RING_SMALL);
     expect(l.keepColumns()).toHaveLength(578);
-    expect(l.keepColumns().length).toBeLessThanOrEqual(LAYOUT_MAX_COLUMNS);
+    expect(l.keepColumns().length).toBeLessThanOrEqual(T.layoutMaxColumns);
   });
   it('中心の はなれ方(0〜40 列)を かえても 残す 列は いつも 595 以下・重なりは 1 回', () => {
     for (let off = 0; off <= 40; off++) {
@@ -72,7 +74,7 @@ describe('AC27: 持つ 列の 上限と 重なり', () => {
       const keys = new Set(cols.map((c) => colKey(c.cx, c.cz)));
       expect(keys.size, `off ${off}: 同じ 列が 2 回`).toBe(cols.length);
       expect(cols.length, `off ${off}`).toBe(brute(centers, RING_SMALL.keep));
-      expect(cols.length).toBeLessThanOrEqual(LAYOUT_MAX_COLUMNS);
+      expect(cols.length).toBeLessThanOrEqual(T.layoutMaxColumns);
     }
   });
   it('2 つの 輪が 重なるほど 列は へる(578 より 少ない)', () => {

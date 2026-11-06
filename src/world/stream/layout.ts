@@ -1,3 +1,4 @@
+import { DUO_TUNING } from '../../duo/tuning';
 import type { ColPos, RingSpec } from './ring';
 
 /**
@@ -13,6 +14,13 @@ import type { ColPos, RingSpec } from './ring';
  *     genColumns()  = 生成する 輪に 入る 列を 1 回ずつ（同じ 並び）
  *   LAYOUT_MAX_COLUMNS = 595            持つ 列の 上限（1 人の 441 の 1.35 倍）
  *
+ * ---- 〔PO の 決定〕ChunkStream / StreamMesh の 形 ----
+ *   ChunkStream は「中心の 配列」を 持つ。setLayout(centers, spec) が 唯一の 入口。setCenter(cx, cz) は setLayout([{cx,cz}], 今の spec) と 同じ(1 人のときの 今の 呼び方を 残す)。
+ *   2 人のときは 1P・2P の どちらかが 列を またぐたびに setLayout を 呼ぶ。
+ *   mesh には mesh.setRing では なく StreamMesh.setLayout(centers, spec) を 伝える(1 中心の ときは 今の setRing と 同じ 動き)。
+ *   developer へ: ChunkStream 内の cheb(.., this.cx, this.cz) と getRing() の 距離判定は RingLayout.dist / in* に 置きかえる。
+ *   RING_SIZES / MAX（static）も layout(今の spec)から 出す。streamDriver の setRing(cx,cz) は setLayout の 1 中心の ばんに する。
+ *
  * ---- ChunkStream / StreamMesh に 足す 口 ----
  *   ChunkStream.setLayout(centers, spec)   遊んでいる 最中に 呼んでよい（restart も 要らない）。centers[0] = 1P（info().center）、centers[1] = 2P(あれば)。
  *     呼ぶと getRing() が spec に なる（ring.ts の setRing を 遊んでいる 最中でも 呼べるように する）。ChunkStream は R_* の 定数ではなく 今の 輪（spec）と centers で 決める。
@@ -25,7 +33,7 @@ export interface RingCenter {
   cz: number;
 }
 
-export const LAYOUT_MAX_COLUMNS = 595;
+export const LAYOUT_MAX_COLUMNS: number = DUO_TUNING.layoutMaxColumns;
 
 export function decideRings(_prev: 1 | 2, _distance: number): 1 | 2 {
   throw new Error('COOP-1 作業 2: decideRings は まだ 実装されていない');

@@ -30,15 +30,6 @@ export interface DuoVec3 {
 }
 
 /**
- * `window.__rikkun.duo`（§12.0）。
- * 〔tester が 足した 口〕`pos(who)` = 1P・2P の 足もとの 位置。E2E で「だれが 動いたか」を 聞くのに 要る。
- * 〔tester が 足した 口〕`leave()` = 2P を「やめる」と 同じに いなくする（理由 'quit'。持ち物は 保存される）。AC14 の「参加して やめたあと」で 使う。
- * `timeScale()` も tester が 足した 口(AC11)。どれも 仕様 §12.0 の 表に 足してほしい（designer へ）。
- * 〔約束〕`__rikkun.duo` は ふつうの URL でも いつも ある(`?.` は 要らない)。`join()` と `place()` だけ `?duo=dev` の ときしか 効かない。
- * 〔約束〕2P の「コントローラーを つないでね」は data-testid="duo-pad-lost"(padLost の あいだ だけ 見える)。
- * `join()` と `place()` は `?duo=dev` の ときだけ 使える（作業 3 まで。§8）。
- */
-/**
  * `duo.viewports()` が 返す、いま 描いている 画面の 区画(作業 2。AC25・AC26)。CSS px(画面の 左上が 0,0)。
  * 'one' = [1P の 全面]、'loupe' = [1P の 全面, 2P の ルーペ(外接の 四角)]、'split' = [1P の 左半分, 2P の 右半分]。
  * camera = その 区画を 描く カメラの 位置(世界)、yawDeg = 向き(`player.get().yawDeg` と 同じ 決まり)。
@@ -58,6 +49,15 @@ export interface DuoViewportsHook {
   viewports(): DuoViewport[];
 }
 
+/**
+ * `window.__rikkun.duo`（§12.0）。
+ * 〔tester が 足した 口〕`pos(who)` = 1P・2P の 足もとの 位置。E2E で「だれが 動いたか」を 聞くのに 要る。
+ * 〔tester が 足した 口〕`leave()` = 2P を「やめる」と 同じに いなくする（理由 'quit'。持ち物は 保存される）。AC14 の「参加して やめたあと」で 使う。
+ * `timeScale()` も tester が 足した 口(AC11)。どれも 仕様 §12.0 の 表に 足してほしい（designer へ）。
+ * 〔約束〕`__rikkun.duo` は ふつうの URL でも いつも ある(`?.` は 要らない)。`join()` と `place()` だけ `?duo=dev` の ときしか 効かない。
+ * 〔約束〕2P の「コントローラーを つないでね」は data-testid="duo-pad-lost"(padLost の あいだ だけ 見える)。
+ * `join()` と `place()` は `?duo=dev` の ときだけ 使える（作業 3 まで。§8）。
+ */
 export interface DuoHook {
   join(): boolean;
   place(who: 1 | 2, pos: DuoVec3): void;

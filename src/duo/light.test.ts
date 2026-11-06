@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DUO_LIGHT, DuoLightGate } from './light';
+import { DUO_TUNING } from './tuning';
 import type { DuoView } from './types';
 
 /**
@@ -20,7 +21,7 @@ function drive() {
 describe('AC30: 軽くする 工夫の 入り切り', () => {
   it('1 画面・ルーペでは 入らない', () => {
     const { run } = drive();
-    expect(run(100, 'one')).toBe(false);
+    expect(run(DUO_LIGHT.restoreSteps - 20, 'one')).toBe(false);
     expect(run(100, 'loupe')).toBe(false);
   });
   it('分割に なった その ステップから 入る', () => {
@@ -31,25 +32,25 @@ describe('AC30: 軽くする 工夫の 入り切り', () => {
   it('分割を 出ても 120 ステップ(2 秒)は 入ったまま、120 ステップ目に 切れる', () => {
     const { run } = drive();
     run(30, 'split');
-    expect(run(119, 'one')).toBe(true);
+    expect(run(DUO_LIGHT.restoreSteps - 1, 'one')).toBe(true);
     expect(run(1, 'one')).toBe(false);
   });
   it('ルーペに 戻っても 同じ(2 秒あと)', () => {
     const { run } = drive();
     run(30, 'split');
-    expect(run(119, 'loupe')).toBe(true);
+    expect(run(DUO_LIGHT.restoreSteps - 1, 'loupe')).toBe(true);
     expect(run(1, 'loupe')).toBe(false);
   });
   it('2 秒の とちゅうで また 分割に なれば 入ったまま・数えなおし', () => {
     const { run } = drive();
     run(30, 'split');
-    run(100, 'one');
+    run(DUO_LIGHT.restoreSteps - 20, 'one');
     expect(run(1, 'split')).toBe(true);
-    expect(run(119, 'one')).toBe(true);
+    expect(run(DUO_LIGHT.restoreSteps - 1, 'one')).toBe(true);
     expect(run(1, 'one')).toBe(false);
   });
   it('工夫の 数: 小ブロックは 近い 16 マス・もどすまで 120 ステップ', () => {
-    expect(DUO_LIGHT.microRadiusTiles).toBe(16);
-    expect(DUO_LIGHT.restoreSteps).toBe(120);
+    expect(DUO_LIGHT.microRadiusTiles).toBe(DUO_TUNING.lightMicroRadiusTiles);
+    expect(DUO_LIGHT.restoreSteps).toBe(DUO_TUNING.lightRestoreSteps);
   });
 });

@@ -36,13 +36,16 @@ export const SOLO_MAX = {
  *   - 分割: 描画回数・三角形とも 2.0・1.8 倍(§7.1 の 合格の 線)。試作 D は 回数 1.45・三角形 0.63 倍で 十分 入る。
  *     E2E は 小ブロックが なく 三角形の 工夫(micro16)が 効かないので、三角形は 仕様の 線 1.8 の まま。影を 切る 効きは 試作で ほぼ 0(数 %)。
  *   - 持つ 列: 595 以下(列の 上限。AC27)は 別に 見る。
- * 数を 変えるときは デザインへ 差し戻す。
+ * 数は PO が 仕様 §12.1 に 書く(loupe の 1.8 は 試作 B の 1.78 倍を PO が 認めた)。変えるときは デザインへ 差し戻す。
  */
 export const DUO_RENDER_BUDGET = {
   one: { drawCalls: 1.2, triangles: 1.2 },
   loupe: { drawCalls: 1.8, triangles: 1.5 },
   split: { drawCalls: 2.0, triangles: 1.8 },
 } as const;
+
+/** 下限(AC31): 2 回 描いて いる しるし。1 人の 何倍 以上(描画回数)。2P 側の 列が 描かれて いないと 下限に とどかない */
+export const DUO_RENDER_MIN = { loupe: { drawCalls: 1.2 }, split: { drawCalls: 1.3 } } as const;
 
 export interface RenderCount {
   drawCalls: number;
@@ -80,7 +83,7 @@ export async function measureDuoRender(
   page: Page,
   rel: { dx: number; dz: number },
   at: { x: number; z: number; yaw: number; pitch: number } = SOLO_BASELINE.at,
-): Promise<RenderCount & { view: string }> {
+): Promise<RenderCount & { view: string; viewports: number }> {
   return page.evaluate(
     ({ at, rel }) => {
       const h = (window as any).__rikkun;
@@ -98,8 +101,10 @@ export async function measureDuoRender(
       h.player.set({ position: { x: at.x, y: fy1 + 1, z: at.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: at.yaw, pitch: at.pitch });
       h.duo.place(2, { x: at.x + rel.dx, y: fy2 + 1, z: at.z + rel.dz });
       h.step(120);
+      h.world.settle({ full: true }); // 2P 側の 列も 読みこみ・光・メッシュまで そろえてから 数える
+      h.step(10);
       const s = h.renderStats();
-      return { drawCalls: s.drawCalls as number, triangles: s.triangles as number, view: h.duo.state().view as string };
+      return { drawCalls: s.drawCalls as number, triangles: s.triangles as number, view: h.duo.state().view as string, viewports: h.duo.viewports().length as number };
     },
     { at, rel },
   );

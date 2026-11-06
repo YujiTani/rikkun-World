@@ -15,7 +15,7 @@ import { standOnGround } from './aim';
  *
  * ---- 作業 2 で 足す data-testid（仕様に 名前が ないので ここで 決めた）----
  *   duo-loupe                   ルーペの 丸わく(1 画面+ルーペの ときだけ ある)。属性 data-tier="0|1|2"。CSS の border-width が 段で 4/6/8px、border-color が 段の 色
- *   duo-loupe-arrow             ルーペの 外の 2P を 指す 小さな 三角
+ *   duo-loupe-arrow             ルーペの 外の 2P を 指す 小さな 三角。属性 data-angle = 指す 向き(度。画面で 右 = 0・下 = 90。atan2(y, x))。ルーペの 外がわ(まん中から 遠い 方)に ある
  *   duo-split-line              分割の まん中の 線(分割の ときだけ ある。高さは 画面いっぱい・左右の まん中)
  *   duo-meter-badge-p1/-p2      メーターの「P1」「P2」の 丸いバッジ。背景色が 1P・2P の 色
  *   duo-hotbar-p1 / -p2         ふち(border-color)が 1P・2P の 色
@@ -297,7 +297,19 @@ export async function duoViewIssues(page: Page, expect: 'one' | 'loupe' | 'split
       if (info.bc !== want) add('color', 'duo-loupe', `わくの 色 ${info.bc} が 段 ${st.tier} の ${TIER_TOKENS[st.tier as 0 | 1 | 2]}（${want}）と ちがう`);
       if (info.tier !== String(st.tier)) add('tier', 'duo-loupe', `data-tier ${info.tier} が state().tier ${st.tier} と ちがう`);
       if (!/50%|9999|\d{2,}px/.test(info.radius)) add('loupe', 'duo-loupe', `丸く ない（border-radius ${info.radius}）`);
-      if (!(await boxOf(page, 'duo-loupe-arrow'))) add('missing', 'duo-loupe-arrow', 'ルーペの 外の 三角が 見えない');
+      const ar = await boxOf(page, 'duo-loupe-arrow');
+      if (!ar) add('missing', 'duo-loupe-arrow', 'ルーペの 外の 三角が 見えない');
+      else {
+        const lc = { x: (lp.l + lp.r) / 2, y: (lp.t + lp.b) / 2 };
+        const ac = { x: (ar.l + ar.r) / 2, y: (ar.t + ar.b) / 2 };
+        const angle = await page.evaluate(() => Number((document.querySelector('[data-testid="duo-loupe-arrow"]') as HTMLElement).getAttribute('data-angle')));
+        // 2P の 方向: 画面の まん中から ルーペへ(ルーペは 2P の 方向の はしに 置く)。三角は そちらを 指す(45° 以内)
+        const toward = (Math.atan2(lc.y - vh / 2, lc.x - vw / 2) * 180) / Math.PI;
+        const dd = Math.abs((((angle - toward) % 360) + 540) % 360 - 180);
+        if (!Number.isFinite(angle)) add('loupe', 'duo-loupe-arrow', 'data-angle が ない');
+        else if (dd > 45) add('loupe', 'duo-loupe-arrow', `三角の 向き ${angle.toFixed(0)}° が 2P の 方向 ${toward.toFixed(0)}° と 45° 以上 ちがう`);
+        if (Math.hypot(ac.x - lc.x, ac.y - lc.y) < lp.w / 2) add('loupe', 'duo-loupe-arrow', '三角が ルーペの 外に ない');
+      }
     }
     if (b['duo-split-line']) add('place', 'duo-split-line', 'ルーペのときに 分割の 線が 出ている');
   } else {

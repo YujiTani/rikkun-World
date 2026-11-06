@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { ChunkColumn } from '../../contracts';
 import { ChunkStream, type StreamIO, type StreamLight, type StreamMesh, type StreamWorld } from './ChunkStream';
 import type { LayoutMesh, LayoutStream, RingCenter } from './layout';
+import { DUO_TUNING } from '../../duo/tuning';
 import { RING_FULL, RING_SMALL, canMesh, colKey, getRing, setRing, type RingSpec } from './ring';
 
 /**
@@ -123,7 +124,7 @@ function problems(h: H, centers: readonly RingCenter[], spec: RingSpec): string[
     }
   }
   if (h.log.dupLoads > 0) out.push(`同じ 列を 2 回 読みこんだ ${h.log.dupLoads} 回`);
-  if (h.cols.size > 595) out.push(`持つ 列 ${h.cols.size} > 595`);
+  if (h.cols.size > DUO_TUNING.layoutMaxColumns) out.push(`持つ 列 ${h.cols.size} > ${DUO_TUNING.layoutMaxColumns}`);
   return out.slice(0, 5);
 }
 
@@ -159,7 +160,7 @@ describe('AC28: 遊んでいる 最中の 輪の 切りかえ', () => {
     expect(problems(h, centers, RING_SMALL)).toEqual([]);
     // 1P の まわりは 前の 生成の 輪(半径 8 = 289 列)が 「残す」輪(半径 8)に 入るので のこる。2P の まわりは 生成の 輪(半径 6 = 169 列)
     expect(h.cols.size).toBe(289 + 169);
-    expect(peak, '切りかえの とちゅうでも 上限').toBeLessThanOrEqual(595);
+    expect(peak, '切りかえの とちゅうでも 上限').toBeLessThanOrEqual(DUO_TUNING.layoutMaxColumns);
     expect(before).toBe(289);
   });
 

@@ -1,3 +1,4 @@
+import { DUO_TUNING } from './tuning';
 import type { DuoView } from './types';
 
 /**
@@ -16,10 +17,10 @@ import type { DuoView } from './types';
  *   かすみ・影のように 目立つ 物は 分割の 切りかえと 同じ 瞬間に 変える(§7.2)。
  */
 export const DUO_LIGHT = {
-  /** 小ブロックを 細かく 描く 半径（マス） */
-  microRadiusTiles: 16,
-  /** 1 画面に もどってから 元に もどすまで（ステップ。120 = 2 秒） */
-  restoreSteps: 120,
+  /** 小ブロックを 細かく 描く 半径（マス）。数は DUO_TUNING に 1 か所 */
+  microRadiusTiles: DUO_TUNING.lightMicroRadiusTiles,
+  /** 1 画面に もどってから 元に もどすまで（ステップ） */
+  restoreSteps: DUO_TUNING.lightRestoreSteps,
 } as const;
 
 export class DuoLightGate {

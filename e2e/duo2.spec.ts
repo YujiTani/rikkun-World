@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { standOnGround } from './helpers/aim';
-import { DUO_RENDER_BUDGET, measureDuoRender, measureRender } from './helpers/duoBudget';
+import { DUO_RENDER_BUDGET, DUO_RENDER_MIN, measureDuoRender, measureRender } from './helpers/duoBudget';
 import type { DuoState, DuoVec3, DuoViewport } from '../src/duo/types';
 
 /**
@@ -64,6 +64,8 @@ test('AC25・AC26: 分割のとき 左半分が 1P、右半分が 2P のカメ�
   const vw: number = await page.evaluate(() => innerWidth);
   const yawBefore: number = await page.evaluate(() => (window as any).__rikkun.player.get().yawDeg);
   expect((await viewports(page)).map((v) => v.who), '近いときは 1P の 全面だけ').toEqual([1]);
+  const oneDraw = await measureDuoRender(page, { dx: 0, dz: 2 });
+  expect(oneDraw.view).toBe('one');
 
   await placeP2(page, 0, -40); // 1P の 左 40 マス
   await step(page, 100);
@@ -90,18 +92,37 @@ test('AC25・AC26: 分割のとき 左半分が 1P、右半分が 2P のカメ�
     expect(angleDiff(vps[1]!.yawDeg, yawBefore), '分割した 瞬間の 2P の 向き').toBeLessThanOrEqual(1);
     expect(angleDiff(vps[0]!.yawDeg, yawBefore)).toBeLessThanOrEqual(1);
   }
+  // 画面を 2 回 描いている: 1 画面のときより 描画回数が ふえる(床は 両方 平ら)
+  const splitDraw = await measureDuoRender(page, { dx: 0, dz: -40 });
+  expect(splitDraw.view).toBe('split');
+  expect(splitDraw.drawCalls, `分割 ${splitDraw.drawCalls} は 1 画面 ${oneDraw.drawCalls} の ${DUO_RENDER_MIN.split.drawCalls} 倍以上`).toBeGreaterThanOrEqual(Math.ceil(oneDraw.drawCalls * DUO_RENDER_MIN.split.drawCalls));
 });
 
-test('AC29: 2P だけが 1P から 200 マス 行っても 落ちない(読みこみ中は 止まって 待つ)。見えない 壁は ない。1P は 遊べる', async ({ page }) => {
+test('AC29: 2P だけが 1P から 200 マス 行っても 落ちない(読みこみ中は 止まって 待ち、読みこまれたら 着地)。見えない 壁は ない。1P は 遊べる', async ({ page }) => {
   await startDuo(page);
   const p1 = (await pos(page, 1))!;
-  await placeP2(page, 200, 0, false); // 地形は ならさない(まだ 読みこまれて いない 所)
-  const y0 = (await pos(page, 2))!.y;
-  expect((await pos(page, 2))!.x, '見えない 壁で もどされない').toBeGreaterThan(p1.x + 150);
-  let minY = y0;
+  // 読みこみを 止めて から、地面より ずっと 高い 所(1P の 足もとの 30 マス上)に 置く: 読みこまれて いない 列
+  await page.evaluate(() => (window as any).__rikkun.world.setStreamWork(0));
+  const gh1: number = await page.evaluate((p) => (window as any).__rikkun.world.groundHeight(Math.floor(p.x), Math.floor(p.z)), p1);
+  await page.evaluate(
+    ({ p1, gh1 }) => (window as any).__rikkun.duo.place(2, { x: p1.x + 200, y: gh1 + 30, z: p1.z }),
+    { p1, gh1 },
+  );
+  const start = (await pos(page, 2))!;
+  const farGh: number = await page.evaluate((p) => (window as any).__rikkun.world.groundHeight(Math.floor(p.x), Math.floor(p.z)), start);
+  expect(Number.isFinite(farGh), '読みこまれて いない 列の groundHeight は 数を 返す(例外や NaN にならない)').toBe(true);
+  await step(page, 120);
+  const waiting = (await pos(page, 2))!;
+  expect(waiting.y, '読みこみ中は 止まって 待つ(落ちない)').toBeGreaterThanOrEqual(start.y - 0.01);
+  expect(waiting.x, '見えない 壁で もどされない').toBeGreaterThan(p1.x + 150);
+  expect(start.y, '地面より 高い').toBeGreaterThan(gh1 + 20);
+
+  // 読みこみを 再開: 読みこまれたら 着地
+  await page.evaluate(() => (window as any).__rikkun.world.setStreamWork(null));
+  let minY = waiting.y;
   let last = -1e9;
   let settled = false;
-  for (let i = 0; i < 80 && !settled; i++) {
+  for (let i = 0; i < 200 && !settled; i++) {
     await step(page, 15);
     const p = (await pos(page, 2))!;
     minY = Math.min(minY, p.y);
@@ -110,13 +131,15 @@ test('AC29: 2P だけが 1P から 200 マス 行っても 落ちない(読み�
     last = p.y;
   }
   expect(minY, '世界の 底へ 落ちない').toBeGreaterThan(0);
-  expect(settled, '読みこまれたら 地面に 立つ').toBe(true);
+  expect(settled, '読みこまれたら 地面に 着地して 止まる').toBe(true);
+  const landed = (await pos(page, 2))!;
+  expect(landed.x, 'step のあとでも 遠くに いる(見えない 壁なし)').toBeGreaterThan(p1.x + 150);
   const s = await duoState(page);
   expect(s.rings).toBe(2);
   expect(s.columns).toBeLessThanOrEqual(595);
   expect(s.view).toBe('split');
 
-  // 2P が 待っている あいだも 1P は 遊べる(歩ける)
+  // 2P が 待っていた あいだも 1P は 遊べる(歩ける)
   const a = (await pos(page, 1))!;
   await page.evaluate(() => (window as any).__rikkun.input.press('moveForward'));
   await step(page, 30);
@@ -211,6 +234,11 @@ test('AC31: 1 画面・ルーペ・分割の 描画回数と 三角形が DUO_RE
     const m = await measureDuoRender(page, c.rel);
     test.info().annotations.push({ type: c.name, description: JSON.stringify(m) });
     expect(m.view, `${c.name} の ようすで 測れて いる`).toBe(c.name);
+    if (c.name !== 'one') {
+      expect(m.viewports, `${c.name}: 2 つの 区画を 描く`).toBe(2);
+      const lo = DUO_RENDER_MIN[c.name];
+      expect(m.drawCalls, `${c.name} 描画回数の 下限（1 人 ${solo.drawCalls} の ${lo.drawCalls} 倍以上 = 2 回 描いて いる）`).toBeGreaterThanOrEqual(Math.ceil(solo.drawCalls * lo.drawCalls));
+    } else expect(m.viewports).toBe(1);
     const b = DUO_RENDER_BUDGET[c.name];
     expect(m.drawCalls, `${c.name} 描画回数（1 人 ${solo.drawCalls} の ${b.drawCalls} 倍まで）`).toBeLessThanOrEqual(Math.ceil(solo.drawCalls * b.drawCalls));
     expect(m.triangles, `${c.name} 三角形（1 人 ${solo.triangles} の ${b.triangles} 倍まで）`).toBeLessThanOrEqual(Math.ceil(solo.triangles * b.triangles));
