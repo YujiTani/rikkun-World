@@ -46,7 +46,11 @@ interface ShaftSide {
   layer: Layer;
   from: Pt;
   to: Pt;
-  end: 'cave' | 'joint' | 'koheya';
+  end: 'cave' | 'joint' | 'koheya' | 'heya';
+  /** 1D〔仕様 §4.7.5〕: つなぐ くじの 当たり〔部屋が 入らず はずれに した ときも true。はじまりの ほたるは true〕。1C では ない */
+  heyaHit?: boolean;
+  /** 1D: end が 'heya'〔と はじまりの ほたる〕の とき その 部屋の Cave.id */
+  cave?: string | null;
   /** 計画の 長さ〔上の 限り 12〜40〕 */
   length: number;
   /** 計画の 曲がり〔0〜2〕 */

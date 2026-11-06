@@ -78,7 +78,7 @@ describe('C6: 横穴', () => {
         expect(d.length, `${tag} の 長さ`).toBeGreaterThanOrEqual(12);
         expect(d.length, `${tag} の 長さ`).toBeLessThanOrEqual(40);
         expect(Number.isInteger(d.bends) && d.bends >= 0 && d.bends <= 2, `${tag} の 曲がり ${d.bends}`).toBe(true);
-        expect(['cave', 'joint', 'koheya']).toContain(d.end);
+        expect(['cave', 'joint', 'koheya', 'heya']).toContain(d.end); // 1D: 'heya'〔坑道の へや。§4.7.5〕を 足した
         expect(['asai', 'nakahodo', 'fukai']).toContain(d.layer);
       }
     }
@@ -208,7 +208,7 @@ describe('C6: 横穴', () => {
     expect(Math.max(...lens) - Math.min(...lens), '長さの はば').toBeGreaterThanOrEqual(15);
     for (const b of [0, 1, 2]) expect(bends.has(b), `曲がり ${b}`).toBe(true);
     const ends = samples.flatMap((s) => s.shaft.sides.map((d) => d.end));
-    expect(ends.filter((e) => e === 'cave' || e === 'joint').length / ends.length, 'ほらあなへ 出られる 横穴').toBeGreaterThanOrEqual(0.5);
+    expect(ends.filter((e) => e === 'cave' || e === 'joint' || e === 'heya').length / ends.length, 'ほらあなへ 出られる 横穴').toBeGreaterThanOrEqual(0.5); // 1D: 'heya' も ほらあなへ 出る 横穴〔意味は かえない〕
   });
 
   it('はじまりの 坑道: なかほど〔足 y 64〜84 の おどりば〕から 1 本 以上〔20 シードぜんぶ〕', () => {
