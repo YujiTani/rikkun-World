@@ -244,3 +244,89 @@ describe('AC16: 3 本目の パッド', () => {
     expect(Object.keys(poll())).toEqual(['joinRequested']);
   });
 });
+
+/** 開発用 `?duo=dev&pad=2p`: 1 本目の パッドが 2P。1P は キーボード・マウスだけ */
+describe('pad=2p: 1 本目の パッドを 2P に する', () => {
+  function make2p() {
+    const p1 = new ActionState();
+    const p2 = new ActionState();
+    const look1 = new AlwaysLook();
+    const look2 = new AlwaysLook();
+    const router = new DuoPadRouter({ p1, p2, look1, look2, storage: null, firstPadIs2P: true });
+    let pads: (Gamepad | null)[] = [];
+    router.getPads = () => pads;
+    let t = 0;
+    return {
+      p1,
+      p2,
+      look1,
+      look2,
+      router,
+      set: (...p: (Gamepad | null)[]) => {
+        pads = p;
+      },
+      poll: () => router.poll((t += 16)),
+    };
+  }
+
+  it('1P は パッドを 持たず、1 本目の ＋ で 参加の 求めが 出る', () => {
+    const { router, set, poll } = make2p();
+    set(fakePad(0));
+    router.bootstrap();
+    expect(router.reader1.hasPad()).toBe(false);
+    expect(router.p1PadIndex()).toBeNull();
+    set(fakePad(0, { buttons: [START] }));
+    expect(poll().joinRequested).toBe(true);
+  });
+
+  it('参加の ＋ で 1P の もちもの画面は 開かない', () => {
+    const { p1, set, poll } = make2p();
+    set(fakePad(0, { buttons: [START] }));
+    poll();
+    expect(held(p1)).toEqual([]);
+  });
+
+  it('参加後、1 本目の スティックと ボタンは 2P に だけ 入り、1P には 入らない', () => {
+    const { p1, p2, router, set, poll } = make2p();
+    set(fakePad(0));
+    router.bootstrap();
+    router.setJoined(true);
+    set(fakePad(0, { axes: STICK_UP, buttons: [ZR] }));
+    poll();
+    poll();
+    expect(p2.isHeld('moveForward')).toBe(true);
+    expect(p2.isHeld('primary')).toBe(true);
+    expect(held(p1)).toEqual([]);
+    expect(router.p2PadIndex()).toBe(0);
+  });
+
+  it('1P の キー入力は 2P に 入らない', () => {
+    const { p1, p2, router, set, poll } = make2p();
+    set(fakePad(0));
+    router.bootstrap();
+    router.setJoined(true);
+    p1.press('moveForward');
+    poll();
+    expect(p1.isHeld('moveForward')).toBe(true);
+    expect(held(p2)).toEqual([]);
+  });
+
+  it('2 本目以降は むし', () => {
+    const { router, set, poll } = make2p();
+    set(fakePad(0), fakePad(1, { buttons: [START] }));
+    router.bootstrap();
+    expect(poll().joinRequested).toBe(false);
+    expect(router.ignoredPadIndexes()).toEqual([1]);
+  });
+
+  it('pad=2p なしは 今のまま（1 本目 = 1P、2 本目の ＋ で 参加）', () => {
+    const { p1, router, set, poll } = make();
+    set(fakePad(0, { axes: STICK_UP }), fakePad(1));
+    router.bootstrap();
+    expect(router.reader1.hasPad()).toBe(true);
+    poll();
+    expect(p1.isHeld('moveForward')).toBe(true);
+    set(fakePad(0), fakePad(1, { buttons: [START] }));
+    expect(poll().joinRequested).toBe(true);
+  });
+});
