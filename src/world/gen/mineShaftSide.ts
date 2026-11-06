@@ -204,6 +204,8 @@ export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean,
     // 坑道の へやの くじ〔横穴 1 本ごと。主の 乱数は つかわない〕
     const layer = layerAt(h.y) ?? 'fukai';
     const hit = hc.lottery && !start && hash01(subSeed(G.seed, 951), site.x, site.z, h.y, h.u) < CC.link[layer].chance;
+    // くじに 当たった 種類〔部屋が 入らず はずれに した ときも のこす〕
+    const hitKind = hit ? pickKind(layer, hash01(subSeed(G.seed, 952), site.x, site.z, h.y, h.u)) : null;
     const linkHere = hc.link !== null && slot === hc.link.ref.target;
     const snap0 = hit || linkHere ? b.snapshot() : null;
     const p0 = b.path.length;
@@ -238,7 +240,7 @@ export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean,
         const nr = out.rooms.length;
         const nt = out.tries.length;
         b.restore(snap0);
-        const r = yield* heyaSide(h, s0, pickKind(layer, hash01(subSeed(G.seed, 952), site.x, site.z, h.y, h.u)), hc.shaftId, 0, HEYA_TRIES);
+        const r = yield* heyaSide(h, s0, hitKind!, hc.shaftId, 0, HEYA_TRIES);
         if (r && boxOk()) side = r.side;
         else {
           out.rooms.length = nr; // 取りさげた 部屋は 記録からも 外す
@@ -246,7 +248,10 @@ export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean,
           b.restore(snapA);
         }
       }
-      if (hit && side) side.heyaHit = true;
+      if (hit && side) {
+        side.heyaHit = true;
+        side.heyaKind = hitKind;
+      }
     }
     if (side) {
       sides.push(side);
@@ -639,6 +644,6 @@ function commit(b: ShaftBuilder, hub: Hub, c: Cand, length: number, bends: numbe
   // 実際の マス数の 目安〔はば 3〕と、つなぎの へやの 角（3×3 が 1 つ 数えられる）も 計画の 値に ふくめる
   const sideCells = c.cells.filter((x) => x.part === 'side').length;
   if (c.heya) b.reserved.push({ ...c.heya.cave.box });
-  const heya = c.heya ? { end: c.heya.cave.shaft === null ? ('cave' as const) : ('heya' as const), heyaHit: true, cave: c.heya.cave.id } : { end: c.end, heyaHit: false };
+  const heya = c.heya ? { end: c.heya.cave.shaft === null ? ('cave' as const) : ('heya' as const), heyaHit: true, heyaKind: c.heya.cave.kind as string | null, cave: c.heya.cave.id } : { end: c.end, heyaHit: false, heyaKind: null };
   return { layer, from, to: c.to, ...heya, length: Math.min(S.side.lengthMax, Math.max(length, Math.ceil(sideCells / 3))), bends: Math.min(S.side.bendsMax, bends + (c.end === 'joint' ? 1 : 0)) };
 }

@@ -29,12 +29,12 @@ export const CAVE_CONFIG = {
     nakahodo: { hiroi: 0.15, shonyudo: 0.15, hotaru: 0.15 },
     fukai: { suisho: 0.04 },
   } satisfies Record<MineLayerId, Partial<Record<CaveKind, number>>>,
-  /** 坑道の 横穴 1 本ごとの つなぐ 表（§4.7.5）。chance ＝ 当たる わりあい、kinds ＝ 当たりの 中の 比 */
+  /** 坑道の 横穴 1 本ごとの つなぐ 表（§4.7.5）。chance ＝ 当たる わりあい、kinds ＝ 当たりの 中の 比、minPlaced ＝ 当たりの うち 部屋が 入って 'heya' に なる わりあいの 下限（0〜1。D14） */
   link: {
-    asai: { chance: 1 / 4, kinds: { hiroi: 4 / 7, chiteiko: 3 / 7 } },
-    nakahodo: { chance: 1 / 4, kinds: { hiroi: 1 / 3, shonyudo: 1 / 3, hotaru: 1 / 3 } },
-    fukai: { chance: 1 / 20, kinds: { suisho: 1 } },
-  } satisfies Record<MineLayerId, { chance: number; kinds: Partial<Record<CaveKind, number>> }>,
+    asai: { chance: 1 / 4, kinds: { hiroi: 4 / 7, chiteiko: 3 / 7 }, minPlaced: 0.7 },
+    nakahodo: { chance: 1 / 4, kinds: { hiroi: 1 / 3, shonyudo: 1 / 3, hotaru: 1 / 3 }, minPlaced: 0.7 },
+    fukai: { chance: 1 / 20, kinds: { suisho: 1 }, minPlaced: 0.7 },
+  } satisfies Record<MineLayerId, { chance: number; kinds: Partial<Record<CaveKind, number>>; minPlaced: number }>,
   /** 種類ごとの 層と 大きさ（§4.7.2） */
   kinds: {
     // y は 2 つの 層を あわせた はんい。層ごとの 高さは hiroiTable().layers〔1 か所〕

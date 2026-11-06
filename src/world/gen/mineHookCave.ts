@@ -51,7 +51,7 @@ export function createCaveHook(world: () => ShaftWorld, spawn: () => { x: number
     },
     caveRolls: (x0: number, z0: number, x1: number, z1: number) => caves().rolls(x0, z0, x1, z1),
     caveTable: () => CAVE_LAYERS.map((layer) => ({ layer, kinds: { ...C.rolls[layer] } as Partial<Record<CaveKind, number>> })),
-    heyaLinkTable: () => CAVE_LAYERS.map((layer) => ({ layer, chance: C.link[layer].chance, kinds: { ...C.link[layer].kinds } as Partial<Record<CaveKind, number>> })),
+    heyaLinkTable: () => CAVE_LAYERS.map((layer) => ({ layer, chance: C.link[layer].chance, kinds: { ...C.link[layer].kinds } as Partial<Record<CaveKind, number>>, minPlaced: C.link[layer].minPlaced })),
     caveSpec: () => ({
       kinds: Object.fromEntries(CAVE_KIND_LIST.map((k) => [k, { layers: [...C.kinds[k].layers], x: [...C.kinds[k].x], z: [...C.kinds[k].z], y: [...C.kinds[k].y] }])),
       rules: JSON.parse(JSON.stringify(C.rules)) as typeof C.rules,
