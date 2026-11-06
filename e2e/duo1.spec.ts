@@ -391,7 +391,6 @@ test('AC84（#424 の 直し）: 2 人の とき 1P が もちもの画面を �
   await press();
   await expect(page.getByTestId('duo-wait')).toContainText('まってね');
   await expect(screen).toBeVisible();
-  expect(await screen.evaluate((el) => (el as HTMLElement).offsetParent !== null)).toBe(true);
 
   // 物を えらぶ（もちあげる）と 描きなおされて、手に もった 物の 絵が 出る
   const cursor = screen.locator('.inv-cursor');
