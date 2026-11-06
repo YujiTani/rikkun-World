@@ -9,7 +9,7 @@ import { fallColumn } from './liquidPonds';
 import { BLOCK_INDEX, BLOCK_TYPES, isLeafIndex } from '../blocks/blockTypes';
 import { buildBlocks } from './chunk';
 import { COL_VOLUME, LAYER } from './columnLayout';
-import { shaftWorldFor, type ShaftWorld } from './mineShafts';
+import { plainShaftWorld, type ShaftWorld } from './mineShafts';
 
 /**
  * ブロックを読みこまずに出す「地面・木・たいまつ」の答え（VOX-D G2）。
@@ -296,7 +296,7 @@ export function surfaceFor(seed: number, opts: { flora?: boolean; shafts?: Shaft
   let s = c.get(key);
   if (s === undefined) {
     if (c.size >= 12) c.delete(c.keys().next().value as string);
-    s = new SurfaceImpl(seed, flora, opts.shafts ?? shaftWorldFor(seed, undefined) /* 古い 列の ない 世界。テスト・つなぎ込みの 前だけ。ゲームの 中では 必ず shafts を わたす */);
+    s = new SurfaceImpl(seed, flora, opts.shafts ?? plainShaftWorld(seed));
     c.set(key, s);
   }
   return s;

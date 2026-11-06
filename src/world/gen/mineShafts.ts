@@ -371,3 +371,8 @@ export function shaftWorldFor(seed: number, oldCols?: OldCols, startHint?: { x: 
   if (!w) e.byOld.set(oldCols, (w = new ShaftWorld(seed, oldCols, startHint)));
   return w;
 }
+
+/** 古い 列の 一覧 なしの 世界 用。テストと つなぎ込み前 だけ〔ゲームの 中では wireBoot が 作った 世界を わたす〕 */
+export function plainShaftWorld(seed: number): ShaftWorld {
+  return shaftWorldFor(seed, undefined);
+}
