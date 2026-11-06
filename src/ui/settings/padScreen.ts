@@ -1,5 +1,7 @@
 /**
- * ゲームパッド専用画面。中央の図と、ボタンまでの線。割り当て直しは今までの決まり。
+ * ゲームパッドの中身（せっていの「コントローラー」→「ゲームパッド」タブにはめこむ）。
+ * 中央の図・ボタンのまとまりの四角・四角から札までの折れ線・[ことば | ボタン] の札。
+ * タブは「あそぶ とき」と「もちもの・クラフト」。割り当て直しは「あそぶ とき」だけ。
  */
 import type { GamepadReader } from '../../input/gamepad';
 import type { PadFace } from '../../input/gamepad/mapping';
@@ -10,6 +12,9 @@ import { ruby } from '../text';
 import { mountChoiceDialog, type DialogStack } from '../menu/choiceDialog';
 import { labelOfAction } from './controlRows';
 import { padSvg } from './padDiagram';
+import { badgeHtml } from './padBadge';
+import { MENU_LABELS, PAD_GROUPS, playLabels, type PadLabel } from './padGroups';
+import { placeSide, sideHeight, type LayoutParams } from './padLayout';
 import './padScreen.css';
 
 export interface PadScreen {
@@ -24,36 +29,25 @@ export interface PadScreen {
 
 interface Capture {
   action: Action;
-  face: PadFace;
+  /** 札の持ち主（いちばん上の面）。図でここを光らせる */
+  faces: readonly PadFace[];
+  key: string;
   origin: 'pad' | 'pointer';
   seen: Partial<Record<PadFace, boolean>>;
 }
 
-/** ふきだし。side は線を横にまっすぐ引く側。dpad は十字のすぐそば */
-const SPOTS: { id: string; face: PadFace | null; side: 'left' | 'right' | 'near'; fixed?: string }[] = [
-  { id: 'l2', face: 'l2', side: 'left' },
-  { id: 'l1', face: 'l1', side: 'left' },
-  { id: 'select', face: 'select', side: 'left' },
-  { id: 'stickL', face: null, side: 'left', fixed: 'あるく' },
-  { id: 'dpadUp', face: 'dpadUp', side: 'near' },
-  { id: 'dpadLeft', face: 'dpadLeft', side: 'near' },
-  { id: 'dpadDown', face: 'dpadDown', side: 'near' },
-  { id: 'dpadRight', face: 'dpadRight', side: 'near' },
-  { id: 'r2', face: 'r2', side: 'right' },
-  { id: 'r1', face: 'r1', side: 'right' },
-  { id: 'start', face: 'start', side: 'right' },
-  { id: 'faceTop', face: 'faceTop', side: 'right' },
-  { id: 'faceLeft', face: 'faceLeft', side: 'near' },
-  { id: 'faceRight', face: 'faceRight', side: 'right' },
-  { id: 'faceBottom', face: 'faceBottom', side: 'right' },
-  { id: 'stickR', face: null, side: 'right', fixed: 'みる' },
-  { id: 'r3', face: 'r3', side: 'right' },
-];
+type Mode = 'play' | 'menu';
+
+/** 札 1 まいの高さ・すきま（px）。押せる大きさ 44px 以上 */
+const ROW_H = 44;
+const ROW_GAP = 2;
+const STACK_GAP = 8;
+/** 線が曲がる位置を、札の列のふちから何 px にするか */
+const RUN = 36;
 
 export function createPadScreen(opts: {
   reader: GamepadReader;
   dialogs: DialogStack;
-  onBack: () => void;
   /** みる はやさはせっていのカメラタブだけ。ここからはそこを開く */
   onCamera: () => void;
 }): PadScreen {
@@ -62,7 +56,10 @@ export function createPadScreen(opts: {
   el.dataset.testid = 'pad-screen';
   el.hidden = true;
   el.innerHTML =
-    `<h2 class="set-title">ゲームパッド</h2>` +
+    `<div class="pad-tabs" role="tablist" aria-label="ゲームパッド">` +
+    `<button type="button" class="set-tab" role="tab" data-testid="pad-tab-play" data-menu-item aria-selected="true">あそぶ とき</button>` +
+    `<button type="button" class="set-tab" role="tab" data-testid="pad-tab-menu" data-menu-item aria-selected="false">もちもの・クラフト</button>` +
+    `</div>` +
     `<p class="pad-warn" data-testid="pad-unknown" hidden>この コントローラーは ボタンの ならびが わからないよ。この えは Switch の ならび。おした ボタンを、ここで きめられるよ。</p>` +
     `<div class="pad-capture" data-testid="bind-capture" hidden>` +
     `<span>ボタンを おしてね</span>` +
@@ -70,12 +67,14 @@ export function createPadScreen(opts: {
     `</div>` +
     `<p class="set-note-line" data-testid="bind-note"></p>` +
     `<div class="pad-stage" data-testid="pad-stage">` +
+    `<div class="pad-col" data-col="left"></div>` +
+    `<div class="pad-center"><div class="pad-body">${padSvg()}</div></div>` +
+    `<div class="pad-col" data-col="right"></div>` +
     `<svg class="pad-wires" data-wires aria-hidden="true"></svg>` +
-    `<div class="pad-body">${padSvg()}</div>` +
-    `<div class="pad-calls" data-calls></div>` +
     `</div>` +
     `<div class="set-actions">` +
     `<button type="button" class="set-text-btn" data-testid="pad-to-camera" data-menu-item>カメラの はやさ</button>` +
+    `<button type="button" class="set-text-btn" data-testid="binds-reset" data-menu-item>もとにもどす</button>` +
     `</div>` +
     `<details class="pad-more" data-testid="settings-diag">` +
     `<summary data-testid="pad-diag-open">${ruby('動作', 'どうさ')}${ruby('確認', 'かくにん')}</summary>` +
@@ -89,25 +88,28 @@ export function createPadScreen(opts: {
     `<span class="set-num" data-testid="dead-value"></span>` +
     `</div>` +
     `<button type="button" class="set-text-btn" data-testid="gp-calib" data-menu-item>まんなかを おぼえる</button>` +
-    `</details>` +
-    `<div class="set-actions">` +
-    `<button type="button" class="set-text-btn" data-testid="binds-reset" data-menu-item>もとにもどす</button>` +
-    `<button type="button" class="set-text-btn" data-testid="pad-back" data-menu-item>せっていへ</button>` +
-    `</div>`;
+    `</details>`;
 
-  const noteEl = el.querySelector<HTMLElement>('[data-testid="bind-note"]')!;
-  const captureEl = el.querySelector<HTMLElement>('[data-testid="bind-capture"]')!;
-  const unknownEl = el.querySelector<HTMLElement>('[data-testid="pad-unknown"]')!;
-  const calls = el.querySelector<HTMLElement>('[data-calls]')!;
-  const wires = el.querySelector<SVGSVGElement>('[data-wires]')!;
-  const deadInput = el.querySelector<HTMLInputElement>('[data-testid="dead-zone"]')!;
-  const deadValue = el.querySelector<HTMLElement>('[data-testid="dead-value"]')!;
-  const idEl = el.querySelector<HTMLElement>('[data-testid="gp-id"]')!;
-  const mapEl = el.querySelector<HTMLElement>('[data-testid="gp-map"]')!;
-  const axesEl = el.querySelector<HTMLElement>('[data-testid="gp-axes"]')!;
-  const btnEl = el.querySelector<HTMLElement>('[data-testid="gp-buttons"]')!;
+  const q = <T extends Element>(sel: string): T => el.querySelector<T>(sel)!;
+  const noteEl = q<HTMLElement>('[data-testid="bind-note"]');
+  const captureEl = q<HTMLElement>('[data-testid="bind-capture"]');
+  const unknownEl = q<HTMLElement>('[data-testid="pad-unknown"]');
+  const stage = q<HTMLElement>('.pad-stage');
+  const body = q<HTMLElement>('.pad-body');
+  const colL = q<HTMLElement>('[data-col="left"]');
+  const colR = q<HTMLElement>('[data-col="right"]');
+  const wires = q<SVGSVGElement>('[data-wires]');
+  const deadInput = q<HTMLInputElement>('[data-testid="dead-zone"]');
+  const deadValue = q<HTMLElement>('[data-testid="dead-value"]');
+  const idEl = q<HTMLElement>('[data-testid="gp-id"]');
+  const mapEl = q<HTMLElement>('[data-testid="gp-map"]');
+  const axesEl = q<HTMLElement>('[data-testid="gp-axes"]');
+  const btnEl = q<HTMLElement>('[data-testid="gp-buttons"]');
+  const tabPlay = q<HTMLButtonElement>('[data-testid="pad-tab-play"]');
+  const tabMenu = q<HTMLButtonElement>('[data-testid="pad-tab-menu"]');
   let capture: Capture | null = null;
-  let picked: string | null = null;
+  let picked: { key: string; faces: readonly string[] } | null = null;
+  let mode: Mode = 'play';
 
   const resetDialog = mountChoiceDialog({
     testId: 'reset-binds-dialog',
@@ -130,122 +132,121 @@ export function createPadScreen(opts: {
     deadValue.textContent = v.toFixed(2);
   };
 
-  const callButton = (face: PadFace | null, id: string, label: string, action: Action | null): HTMLButtonElement => {
+  const labelsNow = (): readonly PadLabel[] => (mode === 'play' ? playLabels(opts.reader.getBinds()) : MENU_LABELS);
+
+  /** 札 1 まい: [ことば | ボタンの印]。あそぶ ときは押せる、もちもの・クラフトは見るだけ */
+  const makeCall = (label: PadLabel): HTMLElement => {
+    const shown = label.text.replace('/', '<span class="pad-slash">/</span>');
+    const inner = `<span class="pad-call-text">${shown}</span><span class="pad-call-badge">${badgeHtml(label.faces, label.stick)}</span>`;
+    if (mode === 'menu') {
+      const d = document.createElement('div');
+      d.className = 'pad-call is-static';
+      d.dataset.testid = `pad-menu-${label.key}`;
+      d.innerHTML = inner;
+      return d;
+    }
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'pad-call';
     b.dataset.menuItem = '';
-    b.dataset.face = id;
-    b.textContent = label;
-    if (action) b.dataset.testid = `bind-${action}`;
-    else b.dataset.testid = `pad-call-${id}`;
-    if (capture?.face === id) b.classList.add('is-wait');
-    if (picked === id) b.classList.add('is-pick');
+    b.dataset.testid = label.action ? `bind-${label.action}` : `pad-call-${label.key}`;
+    b.title = label.text;
+    b.innerHTML = inner;
+    if (capture?.key === label.key) b.classList.add('is-wait');
+    if (picked?.key === label.key) b.classList.add('is-pick');
     b.addEventListener('click', (e) => {
       e.stopPropagation();
-      picked = id;
+      picked = { key: label.key, faces: label.stick ? [label.stick] : label.faces };
       paintHot();
-      if (!action || !face) {
-        noteEl.textContent = face ? 'この ボタンは あきだよ' : 'スティックは そのままだよ';
+      if (!label.action) {
+        noteEl.textContent = 'スティックは そのままだよ';
         paintCalls();
         return;
       }
-      beginCapture(action, face, e.isTrusted ? 'pointer' : 'pad');
+      beginCapture(label, e.isTrusted ? 'pointer' : 'pad');
     });
     return b;
   };
 
   const paintCalls = (): void => {
-    const binds = opts.reader.getBinds();
-    calls.replaceChildren();
-    for (const spot of SPOTS) {
-      const action = spot.face ? binds[spot.face] ?? null : null;
-      const full = spot.fixed ?? (action ? labelOfAction(action) : 'あき');
-      const label = full === 'もちもの・クラフト' ? 'もちもの' : full === 'スタートメニュー' ? 'スタート' : full;
-      const b = callButton(spot.face, spot.id, label, action);
-      b.title = full;
-      b.dataset.side = spot.side;
-      calls.append(b);
+    const labels = labelsNow();
+    colL.replaceChildren();
+    colR.replaceChildren();
+    const side = new Map(PAD_GROUPS.map((g) => [g.id, g.side]));
+    for (const g of PAD_GROUPS) {
+      for (const l of labels.filter((x) => x.group === g.id)) {
+        const c = makeCall(l);
+        c.dataset.group = g.id;
+        (side.get(g.id) === 'left' ? colL : colR).append(c);
+      }
     }
     paintHot();
-    requestAnimationFrame(layoutCalls);
+    layout();
   };
 
-  const layoutCalls = (): void => {
-    const stage = el.querySelector('.pad-stage')!.getBoundingClientRect();
-    if (stage.width < 8) return;
-    const at = (id: string) => {
-      const d = el.querySelector<SVGCircleElement>(`[data-pad-dot="${id}"]`);
-      const r = d?.getBoundingClientRect();
-      if (!r) return null;
-      return { x: r.left + r.width / 2 - stage.left, y: r.top + r.height / 2 - stage.top };
-    };
-    for (const b of calls.querySelectorAll<HTMLElement>('.pad-call')) {
-      const id = b.dataset.face!;
-      const p = at(id);
-      if (!p) continue;
-      const near = b.dataset.side === 'near';
-      let x = b.dataset.side === 'left' ? 120 : stage.width - 120;
-      let y = p.y;
-      if (id === 'dpadUp') { x = 118; y = p.y; }
-      else if (id === 'dpadDown') { x = p.x; y = p.y + 48; }
-      else if (id === 'dpadLeft') { x = p.x - 120; y = p.y; }
-      else if (id === 'dpadRight') { x = p.x + 36; y = p.y + 56; }
-      else if (id === 'faceLeft') { x = p.x; y = 42; }
-      else if (id === 'r3') y = p.y + 36;
-      b.style.left = `${x}px`;
-      b.style.top = `${y}px`;
-      b.style.width = near ? '108px' : '148px';
-    }
-    separate(calls.querySelectorAll<HTMLElement>('.pad-call[data-side="left"]'));
-    separate(calls.querySelectorAll<HTMLElement>('.pad-call[data-side="right"]'));
-    paintLines();
-  };
+  const NS = 'http://www.w3.org/2000/svg';
 
-  const separate = (list: NodeListOf<HTMLElement>): void => {
-    const rows = [...list].sort((a, b) => parseFloat(a.style.top) - parseFloat(b.style.top));
-    let prev = -999;
-    for (const el of rows) {
-      let y = parseFloat(el.style.top);
-      if (y < prev + 42) y = prev + 42;
-      el.style.top = `${y}px`;
-      prev = y;
-    }
-  };
-
-  const paintLines = (): void => {
-    const stage = el.querySelector('.pad-stage')!.getBoundingClientRect();
-    wires.setAttribute('viewBox', `0 0 ${stage.width} ${stage.height}`);
+  /** 札を置き、四角から札までの線を引く。計算は padLayout（線が交わらない決まり） */
+  const layout = (): void => {
+    const st = stage.getBoundingClientRect();
+    if (st.width < 8) return;
+    const svg = body.querySelector('svg')!.getBoundingClientRect();
+    const scale = svg.width / 720;
+    const svgLeft = svg.left - st.left;
+    const rowsOf = (id: string): number => colL.querySelectorAll(`[data-group="${id}"]`).length + colR.querySelectorAll(`[data-group="${id}"]`).length;
+    const params = (side: 'left' | 'right', edgeX: number, span?: number): LayoutParams => ({
+      side, edgeX, rowH: ROW_H, rowGap: ROW_GAP, stackGap: STACK_GAP, run: RUN, span,
+    });
+    const heightOf = (sd: 'left' | 'right'): number =>
+      sideHeight(PAD_GROUPS.filter((g) => g.side === sd).map((g) => rowsOf(g.id)), params(sd, 0));
+    // 左右の札の列は 上と下をそろえ、図はその高さの まんなかに置く
+    const colH = Math.max(heightOf('left'), heightOf('right'));
+    const stageH = Math.max(colH, svg.height);
+    const colTop = (stageH - colH) / 2;
+    const off = (stageH - svg.height) / 2;
+    body.style.marginTop = `${off}px`;
     wires.replaceChildren();
-    if (stage.width < 8) return;
-    for (const dot of el.querySelectorAll<SVGCircleElement>('[data-pad-dot]')) {
-      const id = dot.dataset.padDot!;
-      const call = el.querySelector<HTMLElement>(`.pad-call[data-face="${id}"]`);
-      if (!call) continue;
-      const a = call.getBoundingClientRect();
-      const b = dot.getBoundingClientRect();
-      const leftSide = a.left < stage.left + stage.width / 2;
-      const x1 = (leftSide ? a.right : a.left) - stage.left;
-      const y1 = a.top + a.height / 2 - stage.top;
-      const x2 = b.left + b.width / 2 - stage.left;
-      const y2 = b.top + b.height / 2 - stage.top;
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', String(x1));
-      line.setAttribute('y1', String(y1));
-      line.setAttribute('x2', String(x2));
-      line.setAttribute('y2', String(y2));
-      line.setAttribute('class', picked === id || capture?.face === id ? 'is-on' : '');
-      wires.append(line);
+    for (const sd of ['left', 'right'] as const) {
+      const col = sd === 'left' ? colL : colR;
+      const cr = col.getBoundingClientRect();
+      const edgeX = (sd === 'left' ? cr.right : cr.left) - st.left;
+      const groups = PAD_GROUPS.filter((g) => g.side === sd).map((g) => ({
+        id: g.id,
+        boxX: svgLeft + (sd === 'left' ? g.box.x : g.box.x + g.box.w) * scale,
+        boxY: off + (g.box.y + g.box.h / 2) * scale,
+        rows: rowsOf(g.id),
+      }));
+      const colOrigin = cr.top - st.top;
+      // 図の高さのずれ（off）ぶん、札の座標を stage にそろえる
+      const shifted = groups.map((g) => ({ ...g, boxY: g.boxY - colTop }));
+      for (const pl of placeSide(shifted, params(sd, edgeX, colH))) {
+        const rows = [...col.querySelectorAll<HTMLElement>(`[data-group="${pl.id}"]`)];
+        rows.forEach((r, i) => {
+          r.style.top = `${colTop + pl.top + i * (ROW_H + ROW_GAP) - colOrigin}px`;
+          r.style.height = `${ROW_H}px`;
+        });
+        const line = document.createElementNS(NS, 'polyline');
+        line.setAttribute('points', pl.points.map(([x, y]) => `${x},${y + colTop}`).join(' '));
+        const on = rows.some((r) => r.classList.contains('is-pick') || r.classList.contains('is-wait'));
+        line.setAttribute('class', on ? 'is-on' : '');
+        wires.append(line);
+      }
+      for (const g of PAD_GROUPS.filter((x) => x.side === sd)) {
+        body.querySelector(`[data-pad-box="${g.id}"]`)?.classList.toggle('is-off', rowsOf(g.id) === 0);
+      }
     }
+    stage.style.height = `${Math.ceil(stageH)}px`;
+    wires.setAttribute('viewBox', `0 0 ${st.width} ${Math.ceil(stageH)}`);
   };
 
   const paintHot = (): void => {
     const s = opts.reader.snapshot();
+    const pickedFaces = capture ? capture.faces : picked?.faces ?? [];
     for (const part of el.querySelectorAll<SVGElement>('[data-pad-face]')) {
       const id = part.dataset.padFace!;
-      const down = !!(s && id in (s.faces) && s.faces[id as PadFace]);
+      const down = !!(s && id in s.faces && s.faces[id as PadFace]);
       part.classList.toggle('is-hot', down);
-      part.classList.toggle('is-pick', picked === id || capture?.face === id);
+      part.classList.toggle('is-pick', mode === 'play' && pickedFaces.includes(id));
     }
     if (!s) {
       idEl.textContent = 'つながってる: （なし）';
@@ -263,14 +264,14 @@ export function createPadScreen(opts: {
     unknownEl.hidden = s.kind !== 'fallback';
   };
 
-  const beginCapture = (action: Action, face: PadFace, origin: 'pad' | 'pointer'): void => {
+  const beginCapture = (label: PadLabel, origin: 'pad' | 'pointer'): void => {
     const seen: Partial<Record<PadFace, boolean>> = {};
     if (origin === 'pad') {
       const s = opts.reader.snapshot();
       if (s) for (const f of PAD_FACES) seen[f] = !!s.faces[f];
     }
-    capture = { action, face, origin, seen };
-    picked = face;
+    capture = { action: label.action!, faces: label.faces, key: label.key, origin, seen };
+    picked = { key: label.key, faces: label.faces };
     opts.reader.setCapturing(true);
     captureEl.hidden = false;
     noteEl.textContent = '';
@@ -308,16 +309,31 @@ export function createPadScreen(opts: {
     }
   };
 
+  const showMode = (next: Mode): void => {
+    if (capture) cancelCapture();
+    mode = next;
+    picked = null;
+    tabPlay.setAttribute('aria-selected', String(next === 'play'));
+    tabMenu.setAttribute('aria-selected', String(next === 'menu'));
+    tabPlay.classList.toggle('is-on', next === 'play');
+    tabMenu.classList.toggle('is-on', next === 'menu');
+    noteEl.textContent = next === 'menu' ? 'メニューを ひらいている ときの ボタン（ここでは かえられないよ）' : '';
+    paintCalls();
+  };
+  tabPlay.addEventListener('click', () => showMode('play'));
+  tabMenu.addEventListener('click', () => showMode('menu'));
+  tabPlay.classList.add('is-on');
+
   deadInput.addEventListener('input', () => {
     opts.reader.setSettings({ deadZone: Number(deadInput.value) });
     paintDead();
   });
-  el.querySelector('[data-testid="binds-reset"]')!.addEventListener('click', () => resetDialog.open());
-  el.querySelector('[data-testid="bind-cancel"]')!.addEventListener('click', () => {
+  q('[data-testid="binds-reset"]').addEventListener('click', () => resetDialog.open());
+  q('[data-testid="bind-cancel"]').addEventListener('click', () => {
     cancelCapture();
     noteEl.textContent = 'やめたい';
   });
-  el.querySelector('[data-testid="gp-calib"]')!.addEventListener('click', () => {
+  q('[data-testid="gp-calib"]').addEventListener('click', () => {
     const s = opts.reader.snapshot();
     if (!s) {
       noteEl.textContent = 'コントローラーが ないよ';
@@ -326,23 +342,27 @@ export function createPadScreen(opts: {
     opts.reader.calibrateFromAxes(s.axes[0] ?? 0, s.axes[1] ?? 0, s.axes[2] ?? 0, s.axes[3] ?? 0);
     noteEl.textContent = 'まんなかを おぼえたよ';
   });
-  el.querySelector('[data-testid="pad-back"]')!.addEventListener('click', () => {
+  q('[data-testid="pad-to-camera"]').addEventListener('click', () => {
     cancelCapture();
-    el.hidden = true;
-    opts.onBack();
-  });
-  el.querySelector('[data-testid="pad-to-camera"]')!.addEventListener('click', () => {
-    cancelCapture();
-    el.hidden = true;
     opts.onCamera();
   });
+
+  let lastW = 0;
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => {
+      const w = stage.getBoundingClientRect().width;
+      if (Math.abs(w - lastW) < 1) return;
+      lastW = w;
+      if (!el.hidden) layout();
+    }).observe(stage);
+  }
 
   return {
     el,
     open() {
       el.hidden = false;
       paintDead();
-      paintCalls();
+      showMode(mode);
     },
     close() {
       cancelCapture();

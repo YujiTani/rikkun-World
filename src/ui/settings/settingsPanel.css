@@ -17,9 +17,11 @@
   position: relative;
   z-index: 1;
   width: min(960px, calc(100% - 32px));
-  max-height: min(86vh, 760px);
+  /* 画面に入る高さ。はみ出すぶんは中でスクロール（ホットバーより上に出る） */
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow: auto;
-  margin: 24px auto;
+  margin: 16px auto;
   background: var(--rk-bg-900, #10141f);
   color: var(--rk-text, #fff);
   text-shadow: var(--rk-text-outline, 0 0 3px #000);
@@ -29,8 +31,8 @@
   box-sizing: border-box;
 }
 .set-title {
-  margin: 0 0 8px;
-  font-size: 32px;
+  margin: 0 0 4px;
+  font-size: 28px;
   font-weight: 800;
 }
 .set-h {
@@ -47,11 +49,11 @@
 .set-tabs {
   display: flex;
   gap: 8px;
-  margin: 8px 0 12px;
+  margin: 4px 0 8px;
 }
 .set-tab {
   flex: 1;
-  min-height: 56px;
+  min-height: 48px;
   padding: 8px 16px;
   border: 2px solid var(--rk-accent, #ffc83d);
   border-radius: 999px;
@@ -295,3 +297,26 @@
   font-size: 24px;
   min-height: 64px;
 }
+
+.set-subtabs .set-tab,
+.pad-tabs .set-tab { min-height: 44px; font-size: 18px; padding: 4px 16px; }
+.set-note-line:empty { display: none; }
+/* おとの よこぼう: 右まで ひろげる（ことばは左、ぼうは のこり ぜんぶ） */
+[data-testid='settings-sound'] .ss-embed { align-items: stretch; gap: 8px; }
+[data-testid='settings-sound'] .ss-row { width: 100%; gap: 16px; font-size: 20px; min-height: 56px; }
+[data-testid='settings-sound'] .ss-label {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 12em;
+  flex: none;
+}
+[data-testid='settings-sound'] .ss-range { flex: 1; width: auto; min-width: 0; }
+[data-testid='settings-sound'] .ss-mute { align-self: flex-start; }
+/* キー・マウスの表: 2 列にならべて 1 画面に入れる */
+.set-keys-cols { columns: 2; column-gap: 40px; }
+.set-keys-cat { break-inside: avoid; margin-bottom: 8px; }
+.set-keys-cat .set-cat { margin-top: 0; }
+.set-keys-grid { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: center; }
+.set-table-keys { display: block; }
+.set-table-keys .set-head { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 4px; }

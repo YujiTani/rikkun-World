@@ -43,12 +43,10 @@ export function createSettingsPanel(
   general.dataset.testid = 'settings-general';
   general.innerHTML =
     `<h2 class="set-title">せってい</h2>` +
-    `<div class="set-actions">` +
-    `<button type="button" class="set-text-btn" data-testid="pad-open" data-menu-item>ゲームパッド</button>` +
-    `</div>` +
     `<div class="set-tabs" role="tablist" aria-label="せってい">` +
     `<button type="button" class="set-tab" role="tab" id="tab-sound" data-testid="tab-sound" data-menu-item aria-selected="true" aria-controls="panel-sound">${ruby('音', 'おと')}</button>` +
     `<button type="button" class="set-tab" role="tab" id="tab-camera" data-testid="tab-camera" data-menu-item aria-selected="false" aria-controls="panel-camera">カメラ</button>` +
+    `<button type="button" class="set-tab" role="tab" id="tab-controls" data-testid="tab-controls" data-menu-item aria-selected="false" aria-controls="panel-controls">コントローラー</button>` +
     `</div>` +
     `<div id="panel-sound" class="set-tabpanel" role="tabpanel" data-testid="panel-sound" aria-labelledby="tab-sound">` +
     `<div data-testid="settings-sound"></div>` +
@@ -64,9 +62,17 @@ export function createSettingsPanel(
     `</div>` +
     `<button type="button" class="set-text-btn" data-testid="look-reset" data-menu-item>はやさを もとにもどす</button>` +
     `</div>` +
-    `<h3 class="set-h">キー・マウス</h3>` +
-    `<p class="set-lead">キーボードとマウスのそうさ。コントローラーは「ゲームパッド」。</p>` +
+    `<div id="panel-controls" class="set-tabpanel" role="tabpanel" data-testid="panel-controls" aria-labelledby="tab-controls" hidden>` +
+    `<div class="set-tabs set-subtabs" role="tablist" aria-label="コントローラー">` +
+    `<button type="button" class="set-tab" role="tab" data-testid="ctrl-tab-keys" data-menu-item aria-selected="true">キーボード/マウス</button>` +
+    `<button type="button" class="set-tab" role="tab" data-testid="ctrl-tab-pad" data-menu-item aria-selected="false">ゲームパッド</button>` +
+    `</div>` +
+    `<div data-testid="ctrl-panel-keys">` +
+    `<p class="set-lead">キーボードと マウスの そうさ。</p>` +
     `<div class="set-table set-table-keys" data-testid="settings-controls"></div>` +
+    `</div>` +
+    `<div data-testid="ctrl-panel-pad" hidden></div>` +
+    `</div>` +
     `<div class="set-actions"><button type="button" class="set-text-btn" data-testid="settings-close" data-menu-item>とじる</button></div>`;
 
   const soundPanel = general.querySelector<HTMLElement>('[data-testid="panel-sound"]')!;
@@ -75,42 +81,62 @@ export function createSettingsPanel(
   const tabCamera = general.querySelector<HTMLButtonElement>('[data-testid="tab-camera"]')!;
   const lookInput = general.querySelector<HTMLInputElement>('[data-testid="look-speed"]')!;
   const lookValue = general.querySelector<HTMLElement>('[data-testid="look-value"]')!;
-  let tab: 'sound' | 'camera' = 'sound';
+  const controlsPanel = general.querySelector<HTMLElement>('[data-testid="panel-controls"]')!;
+  const tabControls = general.querySelector<HTMLButtonElement>('[data-testid="tab-controls"]')!;
+  const keysPanel = general.querySelector<HTMLElement>('[data-testid="ctrl-panel-keys"]')!;
+  const padHost = general.querySelector<HTMLElement>('[data-testid="ctrl-panel-pad"]')!;
+  const subKeys = general.querySelector<HTMLButtonElement>('[data-testid="ctrl-tab-keys"]')!;
+  const subPad = general.querySelector<HTMLButtonElement>('[data-testid="ctrl-tab-pad"]')!;
+  type Tab = 'sound' | 'camera' | 'controls';
+  let tab: Tab = 'sound';
+  let sub: 'keys' | 'pad' = 'keys';
 
   const paintLook = (): void => {
     const v = opts.reader.getSettings().lookSensitivity;
     if (Math.abs(Number(lookInput.value) - v) > 1e-9) lookInput.value = String(v);
     lookValue.textContent = v.toFixed(1);
   };
-  const showTab = (next: 'sound' | 'camera'): void => {
+  const showSub = (next: 'keys' | 'pad'): void => {
+    sub = next;
+    keysPanel.hidden = next !== 'keys';
+    padHost.hidden = next !== 'pad';
+    subKeys.setAttribute('aria-selected', String(next === 'keys'));
+    subPad.setAttribute('aria-selected', String(next === 'pad'));
+    subKeys.classList.toggle('is-on', next === 'keys');
+    subPad.classList.toggle('is-on', next === 'pad');
+    if (next === 'pad' && tab === 'controls') pad.open();
+    else pad.close();
+  };
+  const showTab = (next: Tab): void => {
     tab = next;
-    const soundOn = next === 'sound';
-    soundPanel.hidden = !soundOn;
-    cameraPanel.hidden = soundOn;
-    tabSound.setAttribute('aria-selected', String(soundOn));
-    tabCamera.setAttribute('aria-selected', String(!soundOn));
-    tabSound.classList.toggle('is-on', soundOn);
-    tabCamera.classList.toggle('is-on', !soundOn);
-    if (!soundOn) paintLook();
+    const tabs: [Tab, HTMLButtonElement, HTMLElement][] = [
+      ['sound', tabSound, soundPanel],
+      ['camera', tabCamera, cameraPanel],
+      ['controls', tabControls, controlsPanel],
+    ];
+    for (const [id, btn, panel] of tabs) {
+      panel.hidden = id !== next;
+      btn.setAttribute('aria-selected', String(id === next));
+      btn.classList.toggle('is-on', id === next);
+    }
+    if (next === 'camera') paintLook();
+    showSub(sub);
   };
 
   const pad = createPadScreen({
     reader: opts.reader,
     dialogs: opts.dialogs,
-    onBack: () => {
-      general.hidden = false;
-    },
     onCamera: () => {
-      general.hidden = false;
       showTab('camera');
       tabCamera.focus();
     },
   });
+  padHost.append(pad.el);
 
   const scrim = document.createElement('div');
   scrim.className = 'set-scrim';
   scrim.dataset.testid = 'settings-scrim';
-  root.append(scrim, general, pad.el);
+  root.append(scrim, general);
   document.body.appendChild(root);
 
   const table = general.querySelector<HTMLElement>('[data-testid="settings-controls"]')!;
@@ -126,17 +152,26 @@ export function createSettingsPanel(
     head.className = 'set-head';
     head.innerHTML = '<span>すること</span><span>キー・マウス</span>';
     table.append(head);
+    const cols = document.createElement('div');
+    cols.className = 'set-keys-cols';
     let cat = '';
+    let grid: HTMLElement | null = null;
     for (const row of CONTROL_ROWS) {
-      if (row.category !== cat) {
+      if (row.category !== cat || !grid) {
         cat = row.category;
+        const block = document.createElement('div');
+        block.className = 'set-keys-cat';
         const h = document.createElement('div');
         h.className = 'set-cat';
         h.textContent = cat;
-        table.append(h);
+        grid = document.createElement('div');
+        grid.className = 'set-keys-grid';
+        block.append(h, grid);
+        cols.append(block);
       }
-      table.append(keyRow(row));
+      grid.append(keyRow(row));
     }
+    table.append(cols);
   };
 
   const stop = (e: Event): void => e.stopPropagation();
@@ -152,11 +187,9 @@ export function createSettingsPanel(
     root.hidden = !on;
     if (!on) {
       pad.close();
-      general.hidden = false;
       if (raf) cancelAnimationFrame(raf);
       return;
     }
-    general.hidden = false;
     showTab(tab);
     paintKeys();
     sound.refresh();
@@ -164,17 +197,22 @@ export function createSettingsPanel(
     loop();
   };
 
-  tabSound.addEventListener('click', () => showTab('sound'));
-  tabCamera.addEventListener('click', () => showTab('camera'));
-  for (const b of [tabSound, tabCamera]) {
-    b.addEventListener('focus', () => showTab(b === tabSound ? 'sound' : 'camera'));
-    b.addEventListener('keydown', (e) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      e.preventDefault();
-      const next = e.key === 'ArrowRight' ? tabCamera : tabSound;
-      next.focus();
+  const topTabs: [Tab, HTMLButtonElement][] = [['sound', tabSound], ['camera', tabCamera], ['controls', tabControls]];
+  for (const [id, b] of topTabs) b.addEventListener('click', () => showTab(id));
+  const arrowTabs = <T,>(list: [T, HTMLButtonElement][], pick: (id: T) => void): void => {
+    list.forEach(([id, b], i) => {
+      b.addEventListener('focus', () => pick(id));
+      b.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        list[(i + (e.key === 'ArrowRight' ? 1 : list.length - 1)) % list.length]![1].focus();
+      });
     });
-  }
+  };
+  arrowTabs(topTabs, showTab);
+  const subTabs: ['keys' | 'pad', HTMLButtonElement][] = [['keys', subKeys], ['pad', subPad]];
+  for (const [id, b] of subTabs) b.addEventListener('click', () => showSub(id));
+  arrowTabs(subTabs, showSub);
   lookInput.addEventListener('input', () => {
     opts.reader.setSettings({ lookSensitivity: Number(lookInput.value) });
     paintLook();
@@ -184,10 +222,6 @@ export function createSettingsPanel(
     paintLook();
   });
 
-  general.querySelector('[data-testid="pad-open"]')!.addEventListener('click', () => {
-    general.hidden = true;
-    pad.open();
-  });
   general.querySelector('[data-testid="settings-close"]')!.addEventListener('click', () => setOpen(false));
   scrim.addEventListener('click', () => setOpen(false));
 

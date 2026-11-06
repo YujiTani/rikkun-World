@@ -47,7 +47,7 @@ test('せってい: 表・はやさ・おと・割り当て・動作確認', asy
   await expect(page.getByTestId('tab-sound')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('sound-master')).toBeVisible();
   await expect(page.getByTestId('look-speed')).toBeHidden();
-  await expect(page.getByTestId('pad-open')).toBeVisible();
+  await expect(page.getByTestId('tab-controls')).toBeVisible();
   await page.getByTestId('tab-camera').click();
   await expect(page.getByTestId('tab-camera')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('look-speed')).toBeVisible();
@@ -63,7 +63,8 @@ test('せってい: 表・はやさ・おと・割り当て・動作確認', asy
   await page.getByTestId('tab-camera').click();
   await expect(page.getByTestId('look-speed')).toHaveValue('4');
 
-  await page.getByTestId('pad-open').click();
+  await page.getByTestId('tab-controls').click();
+  await page.getByTestId('ctrl-tab-pad').click();
   await expect(page.getByTestId('pad-screen')).toBeVisible();
   await expect(page.getByTestId('pad-screen').getByTestId('look-speed')).toHaveCount(0);
   await expect(page.getByTestId('settings-diag')).toBeVisible();
@@ -90,7 +91,8 @@ test('せってい: 表・はやさ・おと・割り当て・動作確認', asy
   await press(page, 9, true);
   await press(page, 9, false);
   await page.getByTestId('settings-open').click();
-  await page.getByTestId('pad-open').click();
+  await page.getByTestId('tab-controls').click();
+  await page.getByTestId('ctrl-tab-pad').click();
   await page.getByTestId('bind-jump').click({ force: true });
   await expect(page.getByTestId('bind-capture')).toBeVisible();
   await page.getByTestId('bind-cancel').click({ force: true });
