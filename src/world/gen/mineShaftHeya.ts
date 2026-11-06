@@ -63,6 +63,8 @@ export interface HeyaSource {
   prepare(e: { x: number; y: number; z: number }, d: readonly [number, number]): HeyaPrep | null;
   /** ひろい ほらあなの ためした 記録〔ほかの 種類は null〕 */
   row(): HiroiTryRow | null;
+  /** (x, z) の まわり 2 マスに 古い 列が かかるか */
+  oldAt(x: number, z: number): boolean;
   /** 作れた 部屋〔なければ null〕 */
   built(): PlacedCave | null;
 }
@@ -214,6 +216,10 @@ export function heyaSource(env: HeyaEnv): HeyaSource {
   return {
     row: () => row,
     built: () => built,
+    oldAt(x, z) {
+      for (const dz of [-2, 0, 2]) for (const dx of [-2, 0, 2]) if (env.isOld(colKey((x + dx) >> 4, (z + dz) >> 4))) return true;
+      return false;
+    },
     prepare(e, d) {
       const list = doorsFor(d);
       let tried = 0;

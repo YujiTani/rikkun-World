@@ -449,6 +449,7 @@ function build(
   }
   let prep: HeyaPrep | null = null;
   if (end === 'heya') {
+    if (center.some((c) => spec.heya!.oldAt(c.x, c.z))) return null; // 古い 列が かかる 横穴は 1C の 形のまま
     // 部屋が 層・地面に 入る ように、さいごの 道を 階段で 上げ下げ する〔0 段 → ±1 段 → ±2 段 …〕
     let m = 0;
     let sgn: 1 | -1 = 1;

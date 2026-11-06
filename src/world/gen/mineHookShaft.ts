@@ -1,7 +1,7 @@
 import type { BlockId, ItemId, Rarity, VoxelWorld } from '../../contracts';
 import { itemDef } from '../../content/items/registry';
 import { RARITY_ORDER } from '../../drops/rarityTable';
-import { KODO_GEN, SAVE_GEN } from '../../save/gens';
+import { HEYA_GEN, KODO_GEN, SAVE_GEN } from '../../save/gens';
 import { EMISSION } from '../light/opacity';
 import { chestBlockId, chestBlockInfo, chestFrontAt, chestPartner, type ChestCompass } from '../blocks/chestBlock';
 import { terrainFor } from './terrain';
@@ -142,7 +142,7 @@ export function createShaftHook(o: ShaftHookOptions) {
     open,
     caveAt: (x: number, y: number, z: number): string | null => (world().inside(Math.floor(x), Math.floor(y), Math.floor(z)) ? 'kodo' : cave.caveKindAt(x, y, z)),
     ...cave,
-    saveGens: () => ({ current: SAVE_GEN, meta: o.metaGen?.() ?? SAVE_GEN, kodo: (o.kodoGen ?? KODO_GEN) as number | null, heya: null as number | null }),
+    saveGens: () => ({ current: SAVE_GEN, meta: o.metaGen?.() ?? SAVE_GEN, kodo: (o.kodoGen ?? KODO_GEN) as number | null, heya: HEYA_GEN as number | null }),
     oldCols: (kind: 'kodo' | 'heya'): number => o.oldCols?.[kind]?.size ?? 0,
     isOld: (kind: 'kodo' | 'heya', cx: number, cz: number): boolean => o.oldCols?.[kind]?.has(colKey(cx, cz)) === true,
     work(cx: number, cz: number): { shaftRegions: number; caveRegions: number; emitters: number } {

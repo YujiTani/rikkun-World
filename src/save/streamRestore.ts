@@ -2,7 +2,7 @@ import type { BlockId, ChunkColumn } from '../contracts';
 import { blockIndexOf } from '../world/blocks/blockTypes';
 import { colKey } from '../world/stream/ring';
 import { shaftWorldFor } from '../world/gen/mineShafts';
-import { KODO_GEN } from './gens';
+import { HEYA_GEN, KODO_GEN } from './gens';
 import { SAVE_VERSION } from './SaveManager';
 import { NO_SAVE, readPending, removePendingOf, validMeta, type RestoreOptions, type RestoredSave } from './restore';
 
@@ -42,15 +42,15 @@ function startOf(seed: number, oldCols: { kodo: Set<number>; heya: Set<number> }
 const ints = (v: unknown): number[] => (Array.isArray(v) ? v.filter((x): x is number => typeof x === 'number' && Number.isFinite(x)) : []);
 
 /**
- * 古い 列の 一覧を 決める。meta に 一覧が あれば それ。なくて meta の 版が KODO_GEN 以上なら 空〔新しい 世界〕。
- * 版が それより 古い・meta が ない・こわれて いる ときは 保存の 列 ぜんぶ。
+ * 古い 列の 一覧を 決める〔kodo は KODO_GEN・heya は HEYA_GEN を 基準に〕。
  */
 function oldColsOf(meta: Record<string, unknown> | null, keys: ReadonlySet<number>): { kodo: Set<number>; heya: Set<number> } {
   const list = meta?.oldCols;
-  if (isObj(list) && Array.isArray(list.kodo)) return { kodo: new Set(ints(list.kodo)), heya: new Set(ints(list.heya)) };
   const gen = meta?.gen;
-  if (typeof gen === 'number' && Number.isInteger(gen) && gen >= KODO_GEN) return { kodo: new Set(), heya: new Set() };
-  return { kodo: new Set(keys), heya: new Set() };
+  const g = typeof gen === 'number' && Number.isInteger(gen) ? gen : -1;
+  // 坑道（kodo）と 部屋（heya）は べつべつ: 一覧が あれば それ。なければ 版が その 版 以上なら 空〔新しい 世界〕・古い・meta が ない ときは 保存の 列 ぜんぶ
+  const pick = (v: unknown, from: number): Set<number> => (Array.isArray(v) ? new Set(ints(v)) : g >= from ? new Set() : new Set(keys));
+  return { kodo: pick(isObj(list) ? list.kodo : undefined, KODO_GEN), heya: pick(isObj(list) ? list.heya : undefined, HEYA_GEN) };
 }
 
 /** meta に 書いて あった はじまりの 坑道の 入口（形が おかしければ なし） */

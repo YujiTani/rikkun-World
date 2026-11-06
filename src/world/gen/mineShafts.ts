@@ -182,9 +182,14 @@ export class ShaftWorld implements CaveHost {
     };
     const hint = this.startHint ? startSiteAt(this.G, this.startHint.x, this.startHint.z) : null;
     // ほたるの ほらあなへ つなげる 場所を 先に さがす。どこにも なければ つながない 1C の 形
+    if (hint) {
+      // 場所は もう きまって いる: ほたるへ つなぐ → だめなら 1C の 形
+      for (link of [true, false]) {
+        const hinted = tryAt(hint);
+        if (hinted) return hinted;
+      }
+    }
     for (link of [true, false]) {
-      const hinted = hint ? tryAt(hint) : null;
-      if (hinted) return hinted;
       for (const site of startSites(this.G)) {
         const p = tryAt(site);
         if (p) return p;
