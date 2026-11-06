@@ -121,7 +121,7 @@ export type BlockId =
   | 'kogeta'
   // WAKIDOKORO（うしろに足す。185）: マグマの たきつぼ
   | 'magma_takitsubo'
-  // MINE-1C（#350。うしろに足す）: 坑道の わく・宝箱 2 マス（段 × あいた × 本体/のこり × 向き。`src/world/blocks/chestBlock.ts`）
+  // MINE-1C（#350。うしろに足す）: 坑道の わく・宝箱 2 マス（段 4 × あいた 2 × 本体/のこり 2 ＝ 16 こ。向きは となりの 並びで きめる。`src/world/blocks/chestBlock.ts`）
   | 'kodo_waku'
   | ChestBlockId;
 

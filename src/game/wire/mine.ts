@@ -36,7 +36,7 @@ export function chestLogLine(got: readonly Pick<Got, 'item'>[], nameOf: (item: I
 }
 
 export function wireMine(deps: WiredDuo) {
-  const { shared, game, world, controller, inventory, drops, celebrate, achievements, seed, yokaiM, save, restored, fxSound, dig, hotbar, renderer, reducedMotionMq } = deps;
+  const { shared, game, world, controller, inventory, drops, celebrate, achievements, seed, shafts, yokaiM, save, restored, fxSound, dig, hotbar, renderer, reducedMotionMq } = deps;
   const rarityOf = (item: ItemId): number => RARITY_ORDER.indexOf(itemDef(item)!.rarity);
   const nameOf = (item: ItemId): string => itemType(item)?.name ?? item;
 
@@ -58,6 +58,7 @@ export function wireMine(deps: WiredDuo) {
 
   const mine = createMineHook({
     seed,
+    shafts,
     world,
     player: () => controller.state.position,
     spawnHeight: () => yokaiM.config.yokaiSpawnHeight,
