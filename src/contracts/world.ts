@@ -3,6 +3,7 @@
  */
 
 import type { ChalkMarkId } from '../world/blocks/chalkMark';
+import type { ChestBlockId } from '../world/blocks/chestBlock';
 import type { KATAME_TSUCHI, ScaffoldId } from '../world/blocks/buildBlocks';
 import type { ReservedId, WaterPartialId } from '../world/blocks/water';
 import type { MagmaExtraId } from '../world/blocks/magma';
@@ -119,7 +120,10 @@ export type BlockId =
   // WATERFALL-1 版 2（うしろに足す）: マグマに 焼かれた ブロック（184。さわると あつい）
   | 'kogeta'
   // WAKIDOKORO（うしろに足す。185）: マグマの たきつぼ
-  | 'magma_takitsubo';
+  | 'magma_takitsubo'
+  // MINE-1C（#350。うしろに足す）: 坑道の わく・宝箱 2 マス（段 4 × あいた 2 × 本体/のこり 2 ＝ 16 こ。向きは となりの 並びで きめる。`src/world/blocks/chestBlock.ts`）
+  | 'kodo_waku'
+  | ChestBlockId;
 
 export interface BlockType {
   id: BlockId;

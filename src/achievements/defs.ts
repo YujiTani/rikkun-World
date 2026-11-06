@@ -359,6 +359,10 @@ function build(): AchievementDef[] {
   add({ series: 'samurai.first', category: 'fight', stat: 'samuraiKinds', tiers: [t(1)], name: () => 'はじめての ［侍｜さむらい］［装備｜そうび］！' });
   add({ series: 'samurai.all', category: 'fight', stat: 'samuraiKinds', tiers: [t(4)], name: () => '［侍｜さむらい］［装備｜そうび］を 4 つ そろえた！' });
 
+  // MINE-1C §4.10: 坑道。いちばん 下の へやに ついた／宝箱を はじめて あけた（どちらも 中の 実績）
+  add({ series: 'mine.bottom', category: 'adventure', stat: 'mineBottom', tiers: [t(1)], name: () => 'こうどう の いちばん したに ついた！' });
+  add({ series: 'mine.chest', category: 'adventure', stat: 'mineChest', tiers: [t(1)], name: () => 'はじめて たからばこ を あけた！' });
+
   // #293: がしゃどくろ（ボス）を たおした。ふだんの ようかい（defeat.all）には 数えず、これ 1 つだけ（大きい 実績・金メダル）
   add({ series: 'defeat.gashadokuro', category: 'fight', stat: 'defeat:gashadokuro', tiers: [t(1)], name: () => 'がしゃどくろ を たおした！' });
 

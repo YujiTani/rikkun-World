@@ -4,6 +4,7 @@ import { furnUseOf } from '../world/blocks/furnUse';
 import { doorInfo } from '../world/blocks/houseBlocks';
 import type { BucketPreview, BlockId, ItemId, RightClickKind, TargetInfo, WaterPreview, WaterRay } from '../contracts';
 import { isWater } from '../world/blocks/water';
+import { chestBlockInfo } from '../world/blocks/chestBlock';
 export type { RightClickKind };
 
 /**
@@ -57,6 +58,8 @@ export interface RightClickCtx {
   coopSpot?(): 'ok' | 'noRoom' | 'max' | null;
   /** HOUSE-1C PR-2: みずもり（'level'）・どうづき（'tamp'）を 持って、ブロックを ねらっている。そうでなければ null */
   siteTool?(): 'level' | 'tamp' | null;
+  /** MINE-1C: 宝箱の マスに もう 1 マスの 相手が いるか（いなければ 'chestDone' ＝ 何も おきない） */
+  chestPaired?(x: number, y: number, z: number): boolean;
   /** 持っているものを、ねらっている所の前に置けるか */
   canPlace(): boolean;
   /** MINE-1B: チョークを 持って、かける 面（ゆか・かべ）か かきなおせる しるしを ねらっている */
@@ -81,7 +84,7 @@ export function isKitEgg(item: ItemId | null): boolean {
   return item === 'egg' || item === 'kin_tamago';
 }
 
-/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → 家の 戸 → 家具（すわる・はいる・よむ）→ ふとん（ねる）→ たこ → みずもり・どうづき → 防具 → チョーク（かく）→ バケツ → じょうろ（4a くむ・4b まく・4c 合図）→ いしばい（まく）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
+/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → 宝箱（あける）→ 家の 戸 → 家具（すわる・はいる・よむ）→ ふとん（ねる）→ たこ → みずもり・どうづき → 防具 → チョーク（かく）→ バケツ → じょうろ（4a くむ・4b まく・4c 合図）→ いしばい（まく）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
 export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   const t = c.target;
   if (c.carrying?.()) return { kind: c.throwKind?.() ?? 'putDown', item: null };
@@ -99,6 +102,9 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   if (coop && coop.eggs >= 1) return { kind: 'coopCollect', item: null };
   if (t && c.isTansu(t.block.x, t.block.y, t.block.z)) return { kind: 'storage', item: null };
   if (t && c.isFurnace(t.block.x, t.block.y, t.block.z)) return { kind: 'furnace', item: null };
+  // MINE-1C: 宝箱（2 マス どちらを ねらっても 同じ。持ち物に よらず、置かない）
+  const chest = t ? chestBlockInfo(t.id) : null;
+  if (chest) return { kind: chest.open || (t && c.chestPaired?.(t.block.x, t.block.y, t.block.z) === false) ? 'chestDone' : 'chest', item: null };
   // HOUSE-1C: 家の 戸（あける・しめる。置くより 先。上下 どちらを ねらっても 同じ）
   const door = t ? doorInfo(t.id) : null;
   if (door) return { kind: door.open ? 'doorClose' : 'doorOpen', item: null };

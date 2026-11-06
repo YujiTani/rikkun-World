@@ -58,7 +58,7 @@ export class PickupLog {
     const rows = this.model.rows();
     const alive = new Set<string>();
     rows.forEach((r: PickupRow, i) => {
-      const key = `${r.kind}:${r.item}`;
+      const key = r.kind === 'chest' ? `chest:${r.id}` : `${r.kind}:${r.item}`;
       alive.add(key);
       let e = this.rowEls.get(key);
       if (!e) {
@@ -76,7 +76,7 @@ export class PickupLog {
           root.animate([{ transform: 'translateY(16px)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], { duration: 160 });
         }
       }
-      const label = liveRowText(r.kind, this.d.nameOf(r.item), r.count);
+      const label = liveRowText(r.kind, this.d.nameOf(r.item), r.count, r.text);
       if (e.label !== label) {
         e.label = label;
         e.text.innerHTML = withRuby(label); // 名前は ［漢字｜よみ］ → ふりがなつき（WEAPON-7 §2.7）

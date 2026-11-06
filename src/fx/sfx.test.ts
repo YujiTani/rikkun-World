@@ -159,8 +159,8 @@ describe('S1 名前・音色', () => {
       }
     }
   });
-  it('big は levelUp・fanfare・modal・houseDone（家が できた）の 4 つだけ', () => {
-    expect([...BIG_NAMES].sort()).toEqual(['fanfare', 'houseDone', 'levelUp', 'modal']);
+  it('big は levelUp・fanfare・modal・houseDone（家が できた）・chestOpen4（宝箱の 4 段目。仕様 MINE-1 §3.3）だけ', () => {
+    expect([...BIG_NAMES].sort()).toEqual(['chestOpen4', 'fanfare', 'houseDone', 'levelUp', 'modal']);
     const bigs: string[] = [];
     for (const [k, names] of Object.entries(EXPECTED)) {
       for (const n of names) {

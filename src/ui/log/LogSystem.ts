@@ -203,6 +203,17 @@ export class LogSystem {
     this.push({ tick: this.now, kind: 'farmHint', category: 'info', item, count: null, text });
   }
 
+  /** 宝箱の 中身〔ふたが あいた あとに 1 行。文は つなぎ込みが 作る〕。履歴と 左の ログに 1 行ずつ（1 こずつの 行は 出さない） */
+  chestGot(text: string, top: ItemId): void {
+    this.push({ tick: this.now, kind: 'chestGot', category: 'pickup', item: top, count: null, text });
+    this.liveModel.push(top, 1, 'chest', text); // 左の ログにも 1 行〔絵は いちばん めずらしい 中身〕
+  }
+
+  /** 宝箱を ひらく ときの ひと言〔あいた 宝箱の「からっぽ だよ」〕 */
+  chestSay(text: string): void {
+    this.push({ tick: this.now, kind: 'chestSay', category: 'info', item: null, count: null, text });
+  }
+
   wearLow(item: ItemId): void {
     this.push({ tick: this.now, kind: 'wearLow', category: 'info', item, count: null, text: `${this.nameOf(item)} が もうすぐ こわれるよ` });
   }
@@ -248,7 +259,7 @@ export class LogSystem {
       category: r.kind === 'fromTansu' ? 'craft' : 'pickup',
       item: r.item,
       count: r.count,
-      text: liveRowText(r.kind, this.nameOf(r.item), r.count),
+      text: liveRowText(r.kind, this.nameOf(r.item), r.count, r.text),
       ticksLeft: r.ticksLeft,
     }));
   }

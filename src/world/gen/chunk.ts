@@ -6,6 +6,8 @@ import { GEN_CONFIG as C } from './config';
 import { isRockCoal } from './features';
 import { mouthAirRange, mouthsNear } from './mouths';
 import { placeMineOres, type OreCluster } from './mineOres';
+import { applyShaftOps } from './mineShaftCarve';
+import { shaftWorldFor, type OldCols } from './mineShafts';
 import { defOf } from './biome';
 import { floraOfChunk } from './flora';
 import { plantsOfChunk } from './plants';
@@ -186,9 +188,13 @@ function placeVisibleOres(out: Uint8Array, T: Terrain, x0: number, z0: number, H
 
 // ------------------------------------------------------------------ 木（T1〜T2）
 
-function placeTrees(out: Uint8Array, T: Terrain, x0: number, z0: number): void {
+/** 四角（x0, z0, x1, z1。両はし ふくむ）の どれかに (x, z) が 入るか */
+const inRects = (rs: readonly (readonly [number, number, number, number])[], x: number, z: number): boolean => rs.some((r) => x >= r[0] && x <= r[2] && z >= r[1] && z <= r[3]);
+
+function placeTrees(out: Uint8Array, T: Terrain, x0: number, z0: number, skip?: readonly (readonly [number, number, number, number])[]): void {
   // 大木のはっぱは みきから 4 マスまで出る
-  const trees = treesInRect(T, x0 - 5, z0 - 5, x0 + CHUNK_SIZE + 4, z0 + CHUNK_SIZE + 4);
+  let trees = treesInRect(T, x0 - 5, z0 - 5, x0 + CHUNK_SIZE + 4, z0 + CHUNK_SIZE + 4);
+  if (skip && skip.length > 0) trees = trees.filter((t) => !inRects(skip, t.x, t.z));
   if (trees.length === 0) return;
   // みきを先に書く（はっぱは 空気のところだけ。みきの勝ち）
   for (const t of trees) {
@@ -254,12 +260,13 @@ function placeTrees(out: Uint8Array, T: Terrain, x0: number, z0: number): void {
 }
 
 /** 草の上の はな・すすき・たけ・くさ・のばな（木の後。空気のところだけ） */
-function placePlants(out: Uint8Array, T: Terrain, cx: number, cz: number, H: Int16Array): void {
+function placePlants(out: Uint8Array, T: Terrain, cx: number, cz: number, H: Int16Array, skip?: readonly (readonly [number, number, number, number])[]): void {
   const x0 = cx * CHUNK_SIZE;
   const z0 = cz * CHUNK_SIZE;
   // はな・すすき・たけ、そのあと くさ・のばな（先にある物が かち: 空気のところだけ）
   for (const list of [plantsOfChunk(T, cx, cz), floraOfChunk(T, cx, cz)]) {
   for (const p of list) {
+    if (skip && skip.length > 0 && inRects(skip, p.x, p.z)) continue;
     const lx = p.x - x0;
     const lz = p.z - z0;
     const h = H[(lz + 1) * HW + lx + 1]!;
@@ -276,7 +283,7 @@ function placePlants(out: Uint8Array, T: Terrain, cx: number, cz: number, H: Int
 // ------------------------------------------------------------------ 作る
 
 /** ブロックを `scratch` に作る。使いおわるまで、次の buildBlocks をしない */
-export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCluster[]): BuiltChunk {
+export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCluster[], oldCols?: OldCols): BuiltChunk {
   const T = terrainFor(seed);
   const x0 = cx * CHUNK_SIZE;
   const z0 = cz * CHUNK_SIZE;
@@ -351,8 +358,13 @@ export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCl
   // 地下の 鉱石の かたまり（MINE-1A）。地形・ほらあな・洞くつの 口を 掘った あとに 置く（あとから 掘られて 切れない ように）
   placeMineOres(out, seed, cx, cz, H, oreRec);
 
-  placeTrees(out, T, x0, z0);
-  placePlants(out, T, cx, cz, H);
+  // 坑道（MINE-1C）: 木・草花を よける 四角と、置く 物
+  const shafts = shaftWorldFor(seed, oldCols);
+  const zones = shafts.zones(cx, cz);
+  placeTrees(out, T, x0, z0, zones?.trees);
+  placePlants(out, T, cx, cz, H, zones?.plants);
+  const shaftOps = shafts.opsFor(cx, cz);
+  if (shaftOps) applyShaftOps(out, shaftOps);
 
   // MAGMA-SPAWN: 滝（はしら・わきどころ・ふた・たきつぼ）。木・草の あとに 置く（はっぱを どける）
   for (const p of T.liquid.pondsIn(x0, z0, x0 + CHUNK_SIZE - 1, z0 + CHUNK_SIZE - 1)) {
@@ -418,8 +430,8 @@ export function toSections(blocks: Uint8Array): SectionData[] {
 }
 
 /** 列を 1 つ作る。同じ (seed, cx, cz) なら いつも同じ。作る順・ほかの列に関係しない */
-export function generateChunk(seed: number, cx: number, cz: number): ChunkColumn {
-  const b = buildBlocks(seed, cx, cz);
+export function generateChunk(seed: number, cx: number, cz: number, oldCols?: OldCols): ChunkColumn {
+  const b = buildBlocks(seed, cx, cz, undefined, oldCols);
   return { cx, cz, sections: toSections(b.blocks) };
 }
 

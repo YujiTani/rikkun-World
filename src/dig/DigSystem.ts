@@ -1,3 +1,4 @@
+import { chestFrontAt } from '../world/blocks/chestBlock';
 import { isFurnUse } from '../world/blocks/furnUse';
 import type {
   BlockId,
@@ -109,6 +110,11 @@ export class DigSystemImpl implements DigSystem {
   private hookQueue: DigEvent[] = [];
 
   /**
+   * MINE-1C: 宝箱を あける（つなぎ込みが 入れる。右クリックの 最初の ステップに 1 回。あいた 宝箱も よぶ〔ログ「からっぽ だよ」〕）。
+   * who ＝ あける 人（1P は 0。2P の 右クリックは まだ ない〔COOP-1 作業 3〕）
+   */
+  chestPort: { open(x: number, y: number, z: number, who?: number): void } | null = null;
+  /**
    * ねらいの線の出どころ（CHAR-1 §4.5）。つなぎ込みが `aimPivot` を入れる。
    * なければ 今の 目（足もと + eyeHeight）。
    */
@@ -135,7 +141,7 @@ export class DigSystemImpl implements DigSystem {
   private readonly input: DigInput;
 
   constructor(
-    world: VoxelWorld,
+    private readonly world: VoxelWorld,
     private readonly player: () => PlayerState,
     private readonly actions: ActionState,
     private readonly lock: LockStatus,
@@ -557,7 +563,8 @@ export class DigSystemImpl implements DigSystem {
     if (pv.kind === 'fill') this.farm.doFill();
     else if (pv.kind === 'fillHint') this.m4.farm?.noteHint('fill', this.farm.playerChest());
     else if (pv.kind === 'pet' && t) this.farm.doPet(t);
-    if (pv.kind === 'storage' && t) this.m4.storage?.open(t.block.x, t.block.y, t.block.z);
+    if ((pv.kind === 'chest' || pv.kind === 'chestDone') && t) this.chestPort?.open(t.block.x, t.block.y, t.block.z, 0);
+    else if (pv.kind === 'storage' && t) this.m4.storage?.open(t.block.x, t.block.y, t.block.z);
     else if (pv.kind === 'furnace' && t) this.m4.craft?.openFurnace(t.block.x, t.block.y, t.block.z);
     else if ((pv.kind === 'doorOpen' || pv.kind === 'doorClose') && t) this.placer.toggleDoor(t);
     else if (isFurnUse(pv.kind) && t) this.m4.furniture?.use(pv.kind, t.block.x, t.block.y, t.block.z);
@@ -609,6 +616,7 @@ export class DigSystemImpl implements DigSystem {
       coopSpot: () => this.animals.coopSpot(),
       held: this.inventory.held()?.item ?? null,
       isTansu: (x, y, z) => st?.isTansu(x, y, z) ?? false,
+      chestPaired: (x, y, z) => chestFrontAt((px, py, pz) => this.world.getBlock(px, py, pz), x, y, z) !== null,
       isFurnace: (x, y, z) => craft?.isFurnace(x, y, z) ?? false,
       canEquip: (item) => armor?.canEquip(item) ?? false,
       water: () => this.farm.waterPreview(repeat),

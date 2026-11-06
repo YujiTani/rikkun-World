@@ -150,7 +150,7 @@ function bag(): Pixels {
   return p;
 }
 
-export type SignalKind = 'needTool' | 'needIron' | 'full' | 'noArrow';
+export type SignalKind = 'needTool' | 'needIron' | 'full' | 'noArrow' | 'chestEmpty';
 
 /** 合図のアイコン: いしの つるはし＋赤い ✕ / てつの つるはし＋赤い ✕（MINE-1B） / ふくろ＋赤い ✕ / や＋赤い ✕（M4 で つるはし と や を足した） */
 export function signalIconPixels(kind: SignalKind): Pixels {

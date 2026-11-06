@@ -2,6 +2,7 @@ import { defaultDropMax } from '../drops/rarityTable';
 import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
 import { SCAFFOLD_IDS, type ScaffoldId } from '../world/blocks/buildBlocks';
 import { CHALK_MARK_IDS, type ChalkMarkId } from '../world/blocks/chalkMark';
+import { CHEST_BLOCK_IDS, type ChestBlockId } from '../world/blocks/chestBlock';
 import { forWaterExtra } from '../world/blocks/water';
 import { forMagmaExtra } from '../world/blocks/magma';
 import { HOUSE_BLOCK_IDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, houseDropOf, type HouseBase, type HouseBlockId, type HouseDoorPartId, type NewFurnBlockId } from '../world/blocks/houseBlocks';
@@ -9,6 +10,11 @@ import { HOUSE_BLOCK_IDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, houseDropOf, 
 /** チョークの しるし 12 こ ぜんぶに 同じ 値を 入れる（`satisfies Record<BlockId, …>` が 12 こ そろって いることを 見る） */
 function forChalkMarks<T>(value: T): Record<ChalkMarkId, T> {
   return Object.fromEntries(CHALK_MARK_IDS.map((id) => [id, value])) as Record<ChalkMarkId, T>;
+}
+
+/** 宝箱 16 こ（MINE-1C）ぜんぶに 同じ 値を 入れる */
+function forChest<T>(value: T): Record<ChestBlockId, T> {
+  return Object.fromEntries(CHEST_BLOCK_IDS.map((id) => [id, value])) as Record<ChestBlockId, T>;
 }
 
 /** 足場 5 つ（HOUSE-1C PR-2）ぜんぶに 同じ 値を 入れる */
@@ -164,6 +170,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     ...forMagmaExtra<null>(null),
     kogeta: 1.0, // 版 2: もろい
     magma_takitsubo: 0.5, // WAKIDOKORO: たきつぼと 同じ
+    kodo_waku: 5, // MINE-1C: 坑道の わく（すでで 5 秒。ほると き 1。仕様 §4.4）
+    ...forChest<number | null>(null), // 宝箱は ほっても こわれない（start_torch と 同じ）
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -253,6 +261,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     ...forMagmaExtra(0),
     kogeta: 0,
     magma_takitsubo: 0,
+    kodo_waku: 0, // 素手から
+    ...forChest(0),
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
   handLevel: 0,
@@ -356,6 +366,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     ...forMagmaExtra<Rarity>('common'),
     kogeta: 'common',
     magma_takitsubo: 'uncommon',
+    kodo_waku: 'common',
+    ...forChest<Rarity>('common'),
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };
@@ -399,6 +411,8 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   magma_takitsubo: { item: 'magma_takitsubo', count: 1 },
   // 版 2: こげた ブロックは すみ 1 こ（元の ブロックには もどらない）
   kogeta: { item: 'sumi', count: 1 },
+  // MINE-1C: 坑道の わくを ほると き 1 こ（わくは 持てない）
+  kodo_waku: { item: 'log', count: 1 },
 };
 
 /**

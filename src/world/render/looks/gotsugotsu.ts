@@ -1,5 +1,6 @@
 import { blockHash, carved, createPalette, dentable, mix, shapeKind } from './common';
 import { microSoil } from '../../micro/microSurface';
+import { createChestKinds, createKodoWakuKind } from './chestLooks';
 import { createMineKinds } from './mineLooks';
 import { LOOK_N, type KindSpec, type Look } from './types';
 
@@ -43,6 +44,8 @@ let salt = 200;
 
 /** MINE-1B: 鉱石の 見た目（palette に 色を 足す ので、palette を 取り出す 前に 作る） */
 const MINE = createMineKinds(P, STONE[0]);
+/** MINE-1C: 宝箱 4 段階（2 マス。chestLooks.ts） */
+const CHEST = { ...createChestKinds(P), kodo_waku: createKodoWakuKind(P) };
 
 /** たねの 数を 1 つ 進めて、渡した 種類を そのまま 返す（今の 登録の たねを ずらさない ため） */
 function keepSalt(spec: KindSpec): KindSpec {
@@ -255,6 +258,7 @@ export const gotsugotsuLook: Look = {
     snow: rock(SNOW, 3, 1, 4),
     bamboo: rock(BAMBOO, 2, 1, 3),
     bedrock: rock(BEDROCK, 6, 3, 7),
+    ...CHEST, // MINE-1C: 宝箱 16 こ
     ...MINE.extra, // MINE-1B: ねんど・せっかいせき（A）と 新しい 鉱石 5 つ（B）。たねは 見本と 同じ 固定の 数
     // かまど・たんす・スプリンクラー・レンガ・かわら・はたけ・ぬれたはたけ は 形を持たない（TEX-A: 平らな箱。docs/art/DESIGN.md 5.3）
   },

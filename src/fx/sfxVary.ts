@@ -74,6 +74,11 @@ export const VARY: Readonly<Record<string, Vary>> = {
   bannerSpin: root(),
   modalSparkle: root(),
   fanfare: root({ cents: 0, gain: 0, dur: 0, big: true }),
+  // MINE-1C: 宝箱が あく 音（根音は BGM に 合わせる。大きく 祝うのは 4 段目〔ミラクル〕だけ）
+  chestOpen1: root({ cents: 0, gain: 0, dur: 0 }),
+  chestOpen2: root({ cents: 0, gain: 0, dur: 0 }),
+  chestOpen3: root({ cents: 0, gain: 0, dur: 0 }),
+  chestOpen4: root({ cents: 0, gain: 0, dur: 0, big: true }),
   modal: root({ cents: 0, gain: 0, dur: 0, big: true }),
   // はたけ・みず・どうぶつ
   harvest: tones(),
@@ -116,6 +121,8 @@ export const LEVEL: Readonly<Record<string, number>> = {
   notRipe: 0.52, seedFound: 1.08, eat: 1.21, fill: 1.15, fullCan: 1.52, pour: 0.47,
   empty: 1.22, sprinklerPlace: 0.45, pet: 1.15, petAgain: 1.22, throw: 1.02, drawerOpen: 1.53,
   drawerClose: 0.9, parrySwing: 1.43, parry: 0.73, parryEarly: 1.16, staggerBreak: 0.69,
+  // MINE-1C: 宝箱が あく 音（K 重み 400 ms の めあて 段 1 -26.0・2 -25.5・3 -25.0・4 -24.5 dB に そろえた 値。/mnt/project-files/mine-sound/chest）
+  chestOpen1: 0.7, chestOpen2: 0.65, chestOpen3: 0.66, chestOpen4: 0.55,
 };
 
 export function levelOf(name: string): number {

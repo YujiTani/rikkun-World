@@ -1,4 +1,5 @@
 // 開発用の 窓口 `window.__rikkun` の 中身を 集める（main.ts から 移した）。名前と 中身は かえない。
+// 宝箱を あける つなぎは game/wire/mine.ts〔ここは mine の 窓口を わたす だけ〕。
 import { type Fog as ThreeFog, Color as ThreeColor } from 'three';
 import { createPickupHook, createFurnaceHook, createArmorHook } from '../craft';
 import { createBladeHook } from '../tools/blade/hook';
@@ -30,7 +31,6 @@ import { createSettingsHook } from '../game/settings';
 import { createInputHook } from '../input';
 import { createPlayerHook } from '../player/hook';
 import { createBiomeHook } from '../world/gen/biomeHook';
-import { createMineHook } from '../world/gen/mineHook';
 import { createWorldHook } from '../world/hook';
 import { createRenderHook } from '../world/render/renderHook';
 import { createShadowHook } from '../world/render/shadow/shadowHook';
@@ -39,9 +39,9 @@ import { createHouseHook } from '../house/hook';
 import { lookDirection } from '../dig/raycast';
 import { computeFarmPlacement } from '../world/gen/farmPlacement';
 import { digSettingsView, settingsViewOf, sharedSettingsView } from './settingsViews';
-import type { WiredDuo } from '../game/wire/duo';
+import type { WiredMine } from '../game/wire/mine';
 
-export function installGameHook(deps: WiredDuo): void {
+export function installGameHook(deps: WiredMine): void {
   const {
     shared, game, overlay, host, startBoot, world, charCtl, controller, setShadow, seed, achievements,
     countryWatch, renderer, island, save, blobShadow, sky, parry, thunderFx, legend, legendBook, waveSys,
@@ -54,7 +54,7 @@ export function installGameHook(deps: WiredDuo): void {
     currentKitRows, animalFx, animalHint, aimPointInto, combat, lockHook, book, look, wheel, mixer, bgm,
     bgmScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
     m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets, seat, water,
-    gamepadApi, duo,
+    gamepadApi, duo, mine,
   } = deps;
   installTestHook(game, overlay, () => host.everReady, {
     start: startBoot.hook,
@@ -95,7 +95,7 @@ export function installGameHook(deps: WiredDuo): void {
       },
     }),
     // MINE-1A §6.1: 層・鉱石・かたまり・地下の判定。妖怪を 出す 高さの はばは 設定（yokaiSpawnHeight）の 今の 値
-    mine: createMineHook({ seed, world, player: () => controller.state.position, spawnHeight: () => yokaiM.config.yokaiSpawnHeight }),
+    mine,
     world: createWorldHook(world, renderer, island, {
       teleport: (x, z) => host.goTo({ x, y: null, z }, true),
       stream: () => host.info(),

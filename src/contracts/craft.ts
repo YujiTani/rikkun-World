@@ -75,7 +75,7 @@ export type CraftMadeListener = (e: CraftMadeEvent) => void;
 /** §2.7 のカテゴリー 6 つ */
 export type LogCategory = 'pickup' | 'craft' | 'fight' | 'achieve' | 'info' | 'warn';
 
-/** §6.1 `log.history()` の kind 12 種 */
+/** §6.1 `log.history()` の kind 14 種 */
 export type LogKind =
   | 'pickup'
   | 'fromTansu'
@@ -88,7 +88,9 @@ export type LogKind =
   | 'defeat'
   | 'home'
   | 'achievement'
-  | 'level';
+  | 'level'
+  | 'chestGot'
+  | 'chestSay';
 
 export interface LogEntry {
   tick: number;

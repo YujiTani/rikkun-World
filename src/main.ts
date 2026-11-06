@@ -13,6 +13,7 @@ import { createStep } from './game/step';
 import { installGameHook } from './debug/installTestHook';
 import { wireGasha } from './game/wire/gasha';
 import { wireDuo } from './game/wire/duo';
+import { wireMine } from './game/wire/mine';
 import { buildMagmaDemo, wantsMagmaDemo } from './debug/magmaDemo';
 
 await loadIconAtlas().catch(() => undefined); // ICON-32: 32×32 の アイコン（失敗しても 16×16 で 動く）
@@ -36,12 +37,13 @@ const { game } = w16;
 game.onUpdate(createStep(w16));
 const w17 = Object.assign(w16, wireLoop(w16));
 const w18 = Object.assign(w17, wireDuo(w17)); // 2 人で あそぶ（COOP-1。?duo=dev の ときだけ 2P が 出る）
-installGameHook(w18);
-wireGasha(w18);
+const w19 = Object.assign(w18, wireMine(w18)); // 坑道の 宝箱（MINE-1C）
+installGameHook(w19);
+wireGasha(w19);
 // MAGMA-SPAWN: ?demo=magma の ときだけ、はじめの 場所の 前に マグマの 見本を 1 回 置く（列が 読みこまれた ステップで）
 if (wantsMagmaDemo(location.search)) {
   let done = false;
-  w18.game.onUpdate(() => {
-    if (!done) done = buildMagmaDemo(w18.world, w18.water, w18.spawnPlain());
+  w19.game.onUpdate(() => {
+    if (!done) done = buildMagmaDemo(w19.world, w19.water, w19.spawnPlain());
   });
 }

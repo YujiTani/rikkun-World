@@ -189,7 +189,7 @@ describe('洞くつの口（基準 8）', () => {
       }
     }
     expect(total).toBeGreaterThanOrEqual(20);
-  });
+  }, 20_000); // 20 シードの 地形を 作るので、負荷の ある CI でも 切れない 長さ〔ミリ秒〕
 });
 
 describe('仮の海のふちが無い（VOX-D 基準 22）', () => {

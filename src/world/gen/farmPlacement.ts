@@ -14,6 +14,7 @@ import { createRng, randInt, shuffle } from './random';
 import { startFeaturesOf } from './features';
 import { regionRect } from './region';
 import { flatOf } from './worldInfo';
+import type { ShaftWorld } from './mineShafts';
 import { surfaceFor } from './surface';
 import { spawnOf, terrainFor } from './terrain';
 import { isWater } from '../blocks/water';
@@ -70,6 +71,13 @@ function rayKeys(ex: number, ey: number, ez: number, qx: number, qy: number, qz:
 }
 
 const memo = new Map<number, FarmPlacement>();
+let bound: ShaftWorld | undefined;
+
+/** ゲームの 中の 世界の 坑道の 世界を むすぶ（置きものの 計算が 生成と 同じ 坑道を 見る ように。つなぎ込みが 1 回 よぶ） */
+export function bindFarmShafts(shafts: ShaftWorld | undefined): void {
+  if (bound !== shafts) memo.clear();
+  bound = shafts;
+}
 
 export const computeFarmPlacement: FarmPlacementFn = (seed) => {
   const hit = memo.get(seed);
@@ -84,7 +92,7 @@ function place(seed: number): FarmPlacement {
   const flat = flatOf(seed); // 平らな所（regions 全部は 作らない）
   const T = terrainFor(seed);
   const sp = spawnOf(seed);
-  const S = surfaceFor(seed, { flora: false }); // くさ・のばな は この場所を よける（flora.ts）ので 数えない
+  const S = surfaceFor(seed, { flora: false, shafts: bound?.seed === seed ? bound : undefined }); // くさ・のばな は この場所を よける（flora.ts）ので 数えない
   const b = regionRect(seed);
   const inside = (x: number, z: number) => x >= b.x0 && z >= b.z0 && x < b.x1 && z < b.z1;
   const W = b.x1 - b.x0;

@@ -1,0 +1,464 @@
+import { expect, test, type Page } from '@playwright/test';
+import { aimAtBlock, installAimHelpers } from './helpers/aim';
+import { ITEM_TYPES } from '../src/inventory/items';
+import { drainRebuilds, openStream, settleWorld } from './helpers/stream';
+
+/**
+ * MINE-1C（issue #350。docs/design/MINE-1.md §4.5・§4.6・§4.8・§4.10・§6.1・受け入れ基準 C12・C13）: 通し 2 本。
+ *
+ *   C12 通し 1: 新しい 世界 → はじまりの 坑道の 入口の 前へ → 入口へ 向いて 前へ〔W〕を 300 ステップ →
+ *       足が 坑道の 中〔`mine.caveAt` が 'kodo'〕・落下ダメージ 0・足もとの ブロックの 光 6 以上。
+ *   C13 通し 2【3 版】: 新しい 世界で `mine.shafts` から 宝箱の ある 坑道を さがす → いちばん 下の へやに 置く →
+ *       `mine.chestPreview` を 読む → 宝箱の「本体で ない ほうの マス」を 右クリック〔secondary〕→ 持ち物が プレビューの とおり ふえる・
+ *       2 マス とも あいた 宝箱〔`mine.chestAt(...).opened`〕・実績「はじめて たからばこ を あけた！」→ セーブして 開きなおす →
+ *       2 マス とも あいた まま・持ち物も そのまま・本体を もう 1 回 右クリックしても ふえない。
+ *       〔C8 の 画面の 分も ここで 見る: ねらうと ヒントの 右が「あける」〔2 マス どちらでも・あいたら 右なし〕・手に ブロック〔dirt〕を 持った 右クリックでも
+ *       置かれず あく〔あいた 宝箱でも 置かれない〕・ふたが 動いて いる 間〔0.46 秒〕の 2 回目の 右クリックで ふえない〕
+ *
+ * 歩く 時間〔300 ステップ〕・右クリックの 長さは 仕様の とおりの ステップ数。時間〔ms〕では 合否を 決めない。座標・向き・個数は ゲームの 窓口に 聞く。
+ *
+ * 窓口〔仕様 §6.1〕: mine.startShaft／shafts／chestAt／chestPreview／caveAt、world.lightAt／teleport／settle、combat.get、save.now、
+ *   inventory.get／setSlot／select、achievements.list、input.press、hud.actionHint、target.get〔block・place〕、world.getBlock。名前の 案は src/world/gen/mineShaftKit.ts の 先頭。
+ * 赤の 確かめ（テストの 準備）: 1C の 前は `mine.startShaft`／`mine.shafts` が 無く「窓口が ない」で 落ちる。
+ */
+test.describe.configure({ timeout: 180_000 });
+
+const ACHIEVEMENT = 'はじめて たからばこ を あけた！';
+/** 入口の 前に 立つ きょり〔入口から 外へ 何マスか。ふさがって いたら 近い 順に さがす〕 */
+const FRONT = [6, 5, 7, 4, 8] as const;
+const STEPS = 300;
+
+interface Pt {
+  x: number;
+  y: number;
+  z: number;
+}
+const OUT: Record<number, [number, number]> = { 0: [0, -1], 1: [1, 0], 2: [0, 1], 3: [-1, 0] }; // dir 0=n・1=e・2=s・3=w〔外むき〕
+const FRONT_VEC: Record<string, [number, number]> = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
+
+/** 窓口が ある〔ない うちは 赤〕ことを 先に 見る */
+async function needMine(page: Page, names: string[]): Promise<void> {
+  const have = await page.evaluate((names) => names.filter((n) => typeof (window as any).__rikkun?.mine?.[n] === 'function'), names);
+  expect(have, `__rikkun.mine の 窓口〔1C〕`).toEqual(names);
+}
+
+/** 列を 読みこませる: (x, z) へ テレポート → そろうまで 進める */
+async function loadAround(page: Page, x: number, z: number): Promise<void> {
+  await page.evaluate(({ x, z }) => (window as any).__rikkun.world.teleport(x, z), { x, z });
+  await settleWorld(page, true);
+}
+
+test.describe('MINE-1C 通し', () => {
+  test('C12: はじまりの 坑道の 入口の 前から 前へ 300 ステップ → 坑道の 中・落ちない・足もとが 明るい', async ({ page }) => {
+    await openStream(page, '?nosave=1');
+    await needMine(page, ['startShaft', 'caveAt']);
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.lock.simulate(true);
+      h.input.releaseAll();
+      h.yokai.clear();
+    });
+    const ent = await page.evaluate(() => (window as any).__rikkun.mine.startShaft().entrance as Pt & { dir: number });
+    const [ox, oz] = OUT[ent.dir]!;
+    await loadAround(page, ent.x + ox * 6, ent.z + oz * 6);
+
+    // --- 入口の 前に 立つ〔入口から 外へ 6 マス。外から 入口へ 向く〕 ---
+    const start = await page.evaluate(
+      ({ ent, ox, oz, dists }) => {
+        const h = (window as any).__rikkun;
+        const types = h.world.blockTypes() as { id: string; solid: boolean }[];
+        const solid = new Set(types.filter((t) => t.solid).map((t) => t.id));
+        const body = (x: number, y: number, z: number): boolean => {
+          const id = h.world.getBlock(x, y, z) as string;
+          return !solid.has(id) && id !== 'water';
+        };
+        for (const d of dists) {
+          const x = ent.x + ox * d;
+          const z = ent.z + oz * d;
+          for (let y = ent.y + 6; y >= ent.y - 10; y--) {
+            if (!solid.has(h.world.getBlock(x, y, z) as string)) continue;
+            if (!body(x, y + 1, z) || !body(x, y + 2, z)) break; // 足と 頭が 入らない → 次の きょりへ
+            const yaw = (Math.atan2(-ox, oz) * 180) / Math.PI; // 外から 入口へ〔内向き ＝ −外向き〕。yaw 0 ＝ −z・90 ＝ +x
+            h.player.set({ position: { x: x + 0.5, y: y + 1, z: z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: 0 });
+            h.combat.setHp(h.combat.get().maxHp);
+            h.step(10);
+            const p = h.player.get().position;
+            return { x: p.x, y: p.y, z: p.z, hp: h.combat.get().hp as number, max: h.combat.get().maxHp as number, cave: h.mine.caveAt(Math.floor(p.x), Math.floor(p.y + 0.1), Math.floor(p.z)) as string | null };
+          }
+        }
+        return null;
+      },
+      { ent, ox, oz, dists: [...FRONT] },
+    );
+    expect(start, '入口の 前に 立てる 場所').not.toBeNull();
+    expect(start!.cave, '立った 所は まだ 坑道の 外').not.toBe('kodo');
+
+    // --- 前へ 300 ステップ〔10 ずつ。とちゅうの 体力も 見る〕 ---
+    const walk = await page.evaluate(
+      ({ steps }) => {
+        const h = (window as any).__rikkun;
+        const max = h.combat.get().maxHp as number;
+        let minHp = max;
+        let dead = false;
+        h.input.press('moveForward');
+        for (let i = 0; i < steps; i += 10) {
+          h.step(10);
+          const c = h.combat.get();
+          minHp = Math.min(minHp, c.hp);
+          dead ||= c.dead;
+        }
+        h.input.release('moveForward');
+        h.step(2);
+        return { minHp, max, dead };
+      },
+      { steps: STEPS },
+    );
+    expect(walk.dead, 'たおれない').toBe(false);
+    expect(walk.minHp, '落下ダメージ 0〔体力が へらない〕').toBe(walk.max);
+
+    await drainRebuilds(page); // 光の 計算が そろうまで
+    const end = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const p = h.player.get().position;
+      const x = Math.floor(p.x);
+      const y = Math.floor(p.y + 0.1);
+      const z = Math.floor(p.z);
+      return { x, y, z, cave: h.mine.caveAt(x, y, z) as string | null, block: h.world.lightAt(x, y, z).block as number, startY: h.mine.startShaft().entrance.y as number };
+    });
+    expect(end.cave, `足が 坑道の 中〔(${end.x}, ${end.y}, ${end.z})〕`).toBe('kodo');
+    expect(end.y, '入口より 下へ 進んだ').toBeLessThan(end.startY);
+    expect(end.block, '足もとの ブロックの 光').toBeGreaterThanOrEqual(6);
+  });
+
+  test('C13: 宝箱の ある 坑道の へやで 本体で ない ほうの マスを 右クリック → プレビューの とおり ふえる・2 マス あく・実績 → 保存して 開きなおしても あいた まま・本体は もう ふえない', async ({ page }) => {
+    await openStream(page, ''); // 保存を つかう〔「セーブして 開きなおす」〕。新しい 世界
+    await needMine(page, ['shafts', 'chestAt', 'chestPreview']);
+    await installAimHelpers(page);
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.lock.simulate(true);
+      h.input.releaseAll();
+      h.yokai.clear();
+      h.inventory.clear();
+    });
+
+    // --- 宝箱の ある 坑道を さがす〔スタートに 近い 順〕 ---
+    const found = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const sp = h.world.spawn();
+      const list = h.mine.shafts(sp.x - 1536, sp.z - 1536, sp.x + 1535, sp.z + 1535) as { id: string; chest: { x: number; y: number; z: number; cells: Pt[]; front: string } | null; entrance: Pt }[];
+      const withChest = list
+        .filter((s) => s.chest)
+        .sort((a, b) => Math.hypot(a.entrance.x - sp.x, a.entrance.z - sp.z) - Math.hypot(b.entrance.x - sp.x, b.entrance.z - sp.z));
+      const s = withChest[0];
+      return s ? { id: s.id, chest: s.chest! } : null;
+    });
+    expect(found, '宝箱の ある 坑道が スタートの まわりに ある').not.toBeNull();
+    const chest = found!.chest;
+    expect(chest.cells, '宝箱は 2 マス').toHaveLength(2);
+    const main = { x: chest.x, y: chest.y, z: chest.z };
+    const rest = chest.cells.find((c) => c.x !== main.x || c.y !== main.y || c.z !== main.z)!;
+    expect(rest, '本体で ない ほうの マス').toBeTruthy();
+
+    // --- いちばん 下の へやに 置く〔宝箱の 2 マス 前。まんなかに 立つ〕 ---
+    await loadAround(page, main.x, main.z);
+    const [fx, fz] = FRONT_VEC[chest.front]!;
+    const put = await page.evaluate(
+      ({ main, rest, fx, fz }) => {
+        const h = (window as any).__rikkun;
+        const cx = (main.x + rest.x) / 2 + 0.5 + fx * 2;
+        const cz = (main.z + rest.z) / 2 + 0.5 + fz * 2;
+        h.player.set({ position: { x: cx, y: main.y, z: cz }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+        h.step(10);
+        const p = h.player.get().position;
+        return { x: p.x, y: p.y, z: p.z, cave: h.mine.caveAt(Math.floor(p.x), Math.floor(p.y + 0.1), Math.floor(p.z)) as string | null };
+      },
+      { main, rest, fx, fz },
+    );
+    expect(put.cave, '宝箱の 前は 坑道の 中').toBe('kodo');
+    await drainRebuilds(page);
+
+    // --- あける 前: プレビュー・まだ あいて いない ---
+    const before = await page.evaluate(
+      ({ main, rest }) => {
+        const h = (window as any).__rikkun;
+        return {
+          preview: h.mine.chestPreview(main.x, main.y, main.z) as { tier: number; items: { item: string; count: number }[] } | null,
+          previewRest: h.mine.chestPreview(rest.x, rest.y, rest.z) as { tier: number; items: { item: string; count: number }[] } | null,
+          mainInfo: h.mine.chestAt(main.x, main.y, main.z) as { opened: boolean; main: Pt } | null,
+          restInfo: h.mine.chestAt(rest.x, rest.y, rest.z) as { opened: boolean; main: Pt } | null,
+        };
+      },
+      { main, rest },
+    );
+    expect(before.preview, 'プレビュー').not.toBeNull();
+    expect(before.preview!.items.length, '中身').toBeGreaterThan(0);
+    expect(before.previewRest, 'どちらの マスで 読んでも 同じ 中身').toEqual(before.preview);
+    expect(before.mainInfo?.opened, '本体: まだ').toBe(false);
+    expect(before.restInfo?.opened, 'のこりの マス: まだ').toBe(false);
+    expect(before.restInfo?.main, 'のこりの マスの 本体').toEqual(main);
+    const rows = await page.evaluate((name) => (window as any).__rikkun.achievements.list().filter((a: any) => a.name === name).map((a: any) => a.unlocked as boolean), ACHIEVEMENT);
+    expect(rows, `実績「${ACHIEVEMENT}」の 行`).toHaveLength(1);
+    expect(rows[0], '最初は まだ').toBe(false);
+
+    // --- ヒント「あける」〔2 マス どちらを ねらっても〕 ---
+    const hintAt = async (at: Pt): Promise<{ word: string | null; aimed: Pt | null }> => {
+      await aimAtBlock(page, at.x, at.y, at.z, 0.5);
+      return page.evaluate(() => {
+        const h = (window as any).__rikkun;
+        h.step(2);
+        const t = h.target.get();
+        return { word: (h.hud.actionHint().right?.word ?? null) as string | null, aimed: t ? (t.block as Pt) : null };
+      });
+    };
+    for (const [name, at] of [['のこりの マス', rest], ['本体', main]] as const) {
+      const hint = await hintAt(at);
+      expect(hint.aimed, `ねらいが ${name}に 乗った`).toEqual(at);
+      expect(hint.word, `ヒント〔${name}を ねらう〕`).toBe('あける');
+    }
+
+    // --- 右クリック〔本体で ない ほうの マスを ねらう。手には ブロック〔dirt〕を 持つ。置かれず 宝箱が あく〕 ---
+    const HAND = { item: 'dirt', count: 5 } as const;
+    const want = new Map<string, number>([[HAND.item, HAND.count]]);
+    for (const it of before.preview!.items) want.set(it.item, (want.get(it.item) ?? 0) + it.count);
+    const bag = (): Promise<Record<string, number>> =>
+      page.evaluate(() => {
+        const out: Record<string, number> = {};
+        for (const s of (window as any).__rikkun.inventory.get().slots as ({ item: string; count: number } | null)[]) if (s) out[s.item] = (out[s.item] ?? 0) + s.count;
+        return out;
+      });
+    expect(await bag(), '持ち物は からっぽ').toEqual({});
+    await page.evaluate((hand) => {
+      const h = (window as any).__rikkun;
+      h.inventory.setSlot(0, { ...hand });
+      h.inventory.select(0);
+      h.step(2);
+    }, HAND);
+    /** 右クリック 1 回〔おして 2 ステップ・はなす〕。置く 場所〔place〕も 返す。待ちは 呼ぶ 側が `wait` で */
+    const click = async (at: Pt): Promise<{ aimed: Pt | null; place: Pt | null }> => {
+      await aimAtBlock(page, at.x, at.y, at.z, 0.5);
+      return page.evaluate(() => {
+        const h = (window as any).__rikkun;
+        const t = h.target.get();
+        h.input.press('secondary');
+        h.step(2);
+        h.input.release('secondary');
+        h.step(1);
+        return { aimed: t ? (t.block as Pt) : null, place: t ? (t.place as Pt) : null };
+      });
+    };
+    const wait = (n: number): Promise<void> => page.evaluate((n) => void (window as any).__rikkun.step(n), n);
+    const blockAt = (p: Pt): Promise<string> => page.evaluate((p) => (window as any).__rikkun.world.getBlock(p.x, p.y, p.z) as string, p);
+
+    const first = await click(rest);
+    expect(first.aimed, 'ねらいが のこりの マスに 乗った').toEqual(rest);
+    // ふたが 動いて いる 間〔0.46 秒 ＝ 約 28 ステップ。ここまで 3 ステップ〕に 本体を もう 1 回 右クリック → ふえない・置かれない
+    const during = await click(main);
+    expect(during.aimed, 'ねらいが 本体に 乗った〔ふたの 動き中〕').toEqual(main);
+    await wait(40); // 動きが 終わり 持ち物に 入る まで
+    const got = await bag();
+    expect(got, '持ち物が プレビューの とおり ふえる・手の ブロックは へらない〔置かれない〕・動き中の 2 回目で ふえない').toEqual(Object.fromEntries(want));
+    for (const p of [first.place, during.place]) if (p) expect(await blockAt(p), `手の ブロックが 置かれていない ${JSON.stringify(p)}`).not.toBe('dirt');
+
+    const after = await page.evaluate(
+      ({ main, rest, name }) => {
+        const h = (window as any).__rikkun;
+        return {
+          mainOpened: h.mine.chestAt(main.x, main.y, main.z)?.opened as boolean | undefined,
+          restOpened: h.mine.chestAt(rest.x, rest.y, rest.z)?.opened as boolean | undefined,
+          unlocked: h.achievements.list().filter((a: any) => a.name === name).map((a: any) => a.unlocked as boolean),
+        };
+      },
+      { main, rest, name: ACHIEVEMENT },
+    );
+    expect(after.mainOpened, '本体も あく').toBe(true);
+    expect(after.restOpened, 'のこりの マスも あく').toBe(true);
+    expect(after.unlocked, `実績「${ACHIEVEMENT}」`).toEqual([true]);
+    // あいた 宝箱を ねらっても ヒントの 右は 出ない〔2 マス どちらでも〕
+    for (const [name, at] of [['のこりの マス', rest], ['本体', main]] as const) {
+      const hint = await hintAt(at);
+      expect(hint.aimed, `ねらいが ${name}に 乗った〔あいた あと〕`).toEqual(at);
+      expect(hint.word, `ヒント〔あいた ${name}〕は 右なし`).toBeNull();
+    }
+
+    // --- セーブして 開きなおす ---
+    await page.evaluate(() => (window as any).__rikkun.save.now());
+    await page.reload();
+    await page.waitForFunction(() => (window as any).__rikkun?.ready === true);
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.achievements.mute(true);
+      h.pause();
+      h.settings.set('yokaiAutoSpawn', false);
+      h.lock.simulate(true);
+    });
+    await settleWorld(page, true);
+    await installAimHelpers(page);
+
+    const reopened = await page.evaluate(
+      ({ main, rest }) => {
+        const h = (window as any).__rikkun;
+        return {
+          mainOpened: h.mine.chestAt(main.x, main.y, main.z)?.opened as boolean | undefined,
+          restOpened: h.mine.chestAt(rest.x, rest.y, rest.z)?.opened as boolean | undefined,
+        };
+      },
+      { main, rest },
+    );
+    expect(reopened.mainOpened, '開きなおしても 本体は あいた まま').toBe(true);
+    expect(reopened.restOpened, '開きなおしても のこりの マスも あいた まま').toBe(true);
+    expect(await bag(), '持ち物も そのまま').toEqual(got);
+
+    // --- 本体を もう 1 回 右クリック〔手に ブロック〕→ ふえない・置かれない ---
+    const hand = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const at = (h.inventory.get().slots as ({ item: string } | null)[]).findIndex((s) => s?.item === 'dirt');
+      if (at >= 0) h.inventory.select(at);
+      h.step(2);
+      return at;
+    });
+    expect(hand, '手に 持つ ブロック〔dirt〕').toBeGreaterThanOrEqual(0);
+    const second = await click(main);
+    expect(second.aimed, 'ねらいが 本体に 乗った').toEqual(main);
+    await wait(40);
+    expect(await bag(), 'あいた 宝箱は もう ふえない・手の ブロックも 置かれない').toEqual(got);
+    if (second.place) expect(await blockAt(second.place), '手の ブロックが 置かれていない').not.toBe('dirt');
+  });
+
+  // ---------------------------------------------------------------- コードレビュー B〔重大 2・3・4〕: 赤の 確かめ用。手元では 回さない〔CI で 見る〕
+
+  interface ChestSetup {
+    main: Pt;
+    rest: Pt;
+    preview: { tier: number; items: { item: string; count: number }[] };
+  }
+
+  /** 新しい 世界 → 宝箱の ある 坑道〔中身が 3 つ 以上 の 宝箱〕の へやの 前に 立つ。右クリックの 道具を 返す */
+  async function standByChest(page: Page): Promise<ChestSetup> {
+    await openStream(page, '');
+    await needMine(page, ['shafts', 'chestAt', 'chestPreview']);
+    await installAimHelpers(page);
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.lock.simulate(true);
+      h.input.releaseAll();
+      h.yokai.clear();
+      h.inventory.clear();
+      h.log.clear();
+    });
+    const found = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const sp = h.world.spawn();
+      const list = h.mine.shafts(sp.x - 1536, sp.z - 1536, sp.x + 1535, sp.z + 1535) as { chest: { x: number; y: number; z: number; cells: Pt[]; front: string } | null; entrance: Pt }[];
+      const withChest = list
+        .filter((s) => s.chest)
+        .map((s) => ({ chest: s.chest!, d: Math.hypot(s.entrance.x - sp.x, s.entrance.z - sp.z), preview: h.mine.chestPreview(s.chest!.x, s.chest!.y, s.chest!.z) as { tier: number; items: { item: string; count: number }[] } }))
+        .sort((a, b) => a.d - b.d);
+      // ひろった ログを 見分けやすい ように 中身が 3 つ 以上の 宝箱を えらぶ〔なければ いちばん 多い もの〕
+      const best = withChest.find((c) => new Set(c.preview.items.map((i) => i.item)).size >= 3) ?? withChest.sort((a, b) => b.preview.items.length - a.preview.items.length)[0];
+      return best ? { chest: best.chest, preview: best.preview } : null;
+    });
+    expect(found, '宝箱の ある 坑道').not.toBeNull();
+    const chest = found!.chest;
+    const main = { x: chest.x, y: chest.y, z: chest.z };
+    const rest = chest.cells.find((c) => c.x !== main.x || c.y !== main.y || c.z !== main.z)!;
+    await loadAround(page, main.x, main.z);
+    const [fx, fz] = FRONT_VEC[chest.front]!;
+    await page.evaluate(
+      ({ main, rest, fx, fz }) => {
+        const h = (window as any).__rikkun;
+        h.player.set({ position: { x: (main.x + rest.x) / 2 + 0.5 + fx * 2, y: main.y, z: (main.z + rest.z) / 2 + 0.5 + fz * 2 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+        h.step(10);
+      },
+      { main, rest, fx, fz },
+    );
+    await drainRebuilds(page);
+    return { main, rest, preview: found!.preview };
+  }
+
+  /** 右クリック 1 回〔おして 2 ステップ・はなして 1 ステップ〕 */
+  async function rightClick(page: Page, at: Pt): Promise<void> {
+    await aimAtBlock(page, at.x, at.y, at.z, 0.5);
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.input.press('secondary');
+      h.step(2);
+      h.input.release('secondary');
+      h.step(1);
+    });
+  }
+
+  test('C13b〔レビュー B 重大 2・4〕: 宝箱の 中身が 1 行の ログ「たからばこ から … を てにいれた！」に 出る・あいた 宝箱を 右クリックすると ログ「からっぽ だよ」', async ({ page }) => {
+    const { main, rest, preview } = await standByChest(page);
+    await rightClick(page, rest);
+    await page.evaluate(() => (window as any).__rikkun.step(40)); // ふたの 動き〔0.46 秒〕が おわるまで
+    const log = await page.evaluate(() => ((window as any).__rikkun.log.history() as { kind: string; text: string }[]).map((e) => ({ k: e.kind, t: e.text })));
+    // yuzu の 決定〔docs/decisions/2026-10-29-mine.md の 12〕: 中身は 1 こずつの「ひろった」ログではなく、1 行
+    // 「たからばこ から ◯◯ と ◯◯ と ◯◯ など を てにいれた！」〔めずらしい 順の 先頭 3 つ。3 つ 以下なら「など」なし〕を 1 回
+    const lines = log.map((e) => e.t).filter((t) => t.startsWith('たからばこ から '));
+    expect(lines, '宝箱を 1 回 あけて「たからばこ から …」の 行が 1 回').toHaveLength(1);
+    const m = /^たからばこ から (.+?)( など)? を てにいれた！$/.exec(lines[0]!);
+    expect(m, `行の 形: ${lines[0]}`).not.toBeNull();
+    const shown = m![1]!.split(' と ');
+    const items = [...new Set(preview.items.map((i) => i.item))];
+    expect(shown.length, '名前は 先頭 3 つ まで').toBe(Math.min(3, items.length));
+    expect(Boolean(m![2]), '「など」は 4 つ 以上の ときだけ').toBe(items.length > 3);
+    // めずらしさの 順は 窓口から 読む: 出た 3 つの めずらしさは、出なかった どの 物よりも 下では ない
+    const index = await page.evaluate((items) => Object.fromEntries(items.map((i) => [i, (window as any).__rikkun.rarity.of(i).index as number])), items);
+    const names = Object.fromEntries(items.map((i) => [i, ITEM_TYPES.find((t) => t.id === i)!.name]));
+    const shownIds = shown.map((n) => items.find((i) => names[i] === n));
+    expect(shownIds.every((i) => i !== undefined), `名前が 中身の 名前: ${shown.join(' / ')}〔中身 ${items.join(', ')}〕`).toBe(true);
+    const lowestShown = Math.min(...shownIds.map((i) => index[i!]!));
+    for (const i of items.filter((i) => !shownIds.includes(i))) expect(index[i]!, `${i} は 出た 3 つより めずらしくない`).toBeLessThanOrEqual(lowestShown);
+    expect(log.filter((e) => e.k === 'pickup').length, '1 こずつの「ひろった」ログは 出さない').toBe(0);
+    // レビュー B 重大 1〔決定 12〕: 遊んで いる 間の 左の ログ〔live〕にも、履歴と 同じ 文の 行が 1 つ〔kind 'chest'〕
+    const liveRows = await page.evaluate(() => ((window as any).__rikkun.log.live() as { kind: string; text: string }[]).map((r) => ({ kind: r.kind, text: r.text })));
+    expect(liveRows.filter((r) => r.kind === 'chest'), 'live に 宝箱の 行が 1 つ').toHaveLength(1);
+    expect(liveRows.find((r) => r.kind === 'chest')!.text, '履歴の 行と 同じ 文').toBe(lines[0]);
+    // 2 回目: あいた 宝箱を 右クリック → ログ「からっぽ だよ」〔2 マス どちらでも 出る〕
+    for (const [name, at] of [['本体', main], ['のこりの マス', rest]] as const) {
+      await page.evaluate(() => (window as any).__rikkun.log.clear());
+      await rightClick(page, at);
+      const lines = await page.evaluate(() => ((window as any).__rikkun.log.history() as { text: string }[]).map((e) => e.text));
+      expect(lines.filter((t) => t.includes('からっぽ だよ')), `あいた 宝箱〔${name}〕を 右クリック → ログ`).toHaveLength(1);
+      // 画面の 合図〔「もちものが いっぱい！」と 同じ 出し方〕: #notice-signal-text に 字が 出る
+      const sig = await page.evaluate(() => {
+        const el = document.getElementById('notice-signal-text');
+        return el ? { hidden: el.hidden, text: el.textContent ?? '' } : null;
+      });
+      expect(sig, `あいた 宝箱〔${name}〕を 右クリック → #notice-signal-text が ある`).not.toBeNull();
+      expect(sig!.hidden, `${name}: 合図が 見えて いる`).toBe(false);
+      expect(sig!.text, `${name}: 合図の 字`).toContain('からっぽ だよ');
+    }
+  });
+
+  test('C13c〔レビュー B 重大 3〕: ふたが 動いて いる 間に 保存して 開きなおしても、あいた 宝箱と いっしょに 中身が 持ち物に ある', async ({ page }) => {
+    const { main, rest, preview } = await standByChest(page);
+    await rightClick(page, rest); // あけた コマ〔ふたの 動きは 約 28 ステップ。まだ 3 ステップ〕
+    await page.evaluate(() => (window as any).__rikkun.step(2));
+    await page.evaluate(() => (window as any).__rikkun.save.now()); // 動きの 途中の 保存〔ページを 閉じる ときも 同じ〕
+    await page.reload();
+    await page.waitForFunction(() => (window as any).__rikkun?.ready === true);
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.achievements.mute(true);
+      h.pause();
+      h.settings.set('yokaiAutoSpawn', false);
+      h.lock.simulate(true);
+    });
+    await settleWorld(page, true);
+    const after = await page.evaluate(
+      ({ main, rest }) => {
+        const h = (window as any).__rikkun;
+        const bag: Record<string, number> = {};
+        for (const s of h.inventory.get().slots as ({ item: string; count: number } | null)[]) if (s) bag[s.item] = (bag[s.item] ?? 0) + s.count;
+        return { mainOpened: h.mine.chestAt(main.x, main.y, main.z)?.opened as boolean | undefined, restOpened: h.mine.chestAt(rest.x, rest.y, rest.z)?.opened as boolean | undefined, bag };
+      },
+      { main, rest },
+    );
+    const want: Record<string, number> = {};
+    for (const it of preview.items) want[it.item] = (want[it.item] ?? 0) + it.count;
+    expect(after.mainOpened && after.restOpened, '開きなおしても 宝箱は あいた まま').toBe(true);
+    expect(after.bag, '「あいた ＋ 中身なし」に ならない: 持ち物に プレビューの 中身が ある').toEqual(want);
+  });
+});

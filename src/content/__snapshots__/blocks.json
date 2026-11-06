@@ -103,6 +103,7 @@
     "katame_tsuchi": 141,
     "kawara": 12,
     "kin_ore": 64,
+    "kodo_waku": 186,
     "kogeta": 184,
     "kokuyouseki": 167,
     "kusa": 39,
@@ -196,6 +197,22 @@
     "table_e": 116,
     "table_n": 115,
     "table_w": 114,
+    "takarabako_1": 187,
+    "takarabako_1_open": 189,
+    "takarabako_1_open_r": 190,
+    "takarabako_1_r": 188,
+    "takarabako_2": 191,
+    "takarabako_2_open": 193,
+    "takarabako_2_open_r": 194,
+    "takarabako_2_r": 192,
+    "takarabako_3": 195,
+    "takarabako_3_open": 197,
+    "takarabako_3_open_r": 198,
+    "takarabako_3_r": 196,
+    "takarabako_4": 199,
+    "takarabako_4_open": 201,
+    "takarabako_4_open_r": 202,
+    "takarabako_4_r": 200,
     "takitsubo": 166,
     "tansu": 16,
     "tansu_e": 89,
@@ -1336,6 +1353,108 @@
       "id": "magma_takitsubo",
       "name": "マグマの たきつぼ",
       "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "kodo_waku",
+      "name": "こうどうの わく",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1",
+      "name": "きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_r",
+      "name": "きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_open",
+      "name": "あいた きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_open_r",
+      "name": "あいた きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2",
+      "name": "てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_r",
+      "name": "てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_open",
+      "name": "あいた てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_open_r",
+      "name": "あいた てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3",
+      "name": "うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_r",
+      "name": "うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_open",
+      "name": "あいた うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_open_r",
+      "name": "あいた うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4",
+      "name": "ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_r",
+      "name": "ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_open",
+      "name": "あいた ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_open_r",
+      "name": "あいた ミラクルの たからばこ",
+      "solid": true
     }
   ],
   "DIG_DEFAULTS": {
@@ -1425,6 +1544,7 @@
       "katame_tsuchi": 0.5,
       "kawara": 4,
       "kin_ore": 15,
+      "kodo_waku": 5,
       "kogeta": 1,
       "kokuyouseki": 12,
       "kusa": 0.05,
@@ -1518,6 +1638,22 @@
       "table_e": 5,
       "table_n": 5,
       "table_w": 5,
+      "takarabako_1": null,
+      "takarabako_1_open": null,
+      "takarabako_1_open_r": null,
+      "takarabako_1_r": null,
+      "takarabako_2": null,
+      "takarabako_2_open": null,
+      "takarabako_2_open_r": null,
+      "takarabako_2_r": null,
+      "takarabako_3": null,
+      "takarabako_3_open": null,
+      "takarabako_3_open_r": null,
+      "takarabako_3_r": null,
+      "takarabako_4": null,
+      "takarabako_4_open": null,
+      "takarabako_4_open_r": null,
+      "takarabako_4_r": null,
       "takitsubo": 0.5,
       "tansu": 5,
       "tansu_e": 5,
@@ -1613,6 +1749,7 @@
       "katame_tsuchi": 0,
       "kawara": 0,
       "kin_ore": 2,
+      "kodo_waku": 0,
       "kogeta": 0,
       "kokuyouseki": 2,
       "kusa": 0,
@@ -1706,6 +1843,22 @@
       "table_e": 0,
       "table_n": 0,
       "table_w": 0,
+      "takarabako_1": 0,
+      "takarabako_1_open": 0,
+      "takarabako_1_open_r": 0,
+      "takarabako_1_r": 0,
+      "takarabako_2": 0,
+      "takarabako_2_open": 0,
+      "takarabako_2_open_r": 0,
+      "takarabako_2_r": 0,
+      "takarabako_3": 0,
+      "takarabako_3_open": 0,
+      "takarabako_3_open_r": 0,
+      "takarabako_3_r": 0,
+      "takarabako_4": 0,
+      "takarabako_4_open": 0,
+      "takarabako_4_open_r": 0,
+      "takarabako_4_r": 0,
       "takitsubo": 0,
       "tansu": 0,
       "tansu_e": 0,
@@ -1802,6 +1955,7 @@
       "katame_tsuchi": "common",
       "kawara": "uncommon",
       "kin_ore": "epic",
+      "kodo_waku": "common",
       "kogeta": "common",
       "kokuyouseki": "rare",
       "kusa": "common",
@@ -1895,6 +2049,22 @@
       "table_e": "common",
       "table_n": "common",
       "table_w": "common",
+      "takarabako_1": "common",
+      "takarabako_1_open": "common",
+      "takarabako_1_open_r": "common",
+      "takarabako_1_r": "common",
+      "takarabako_2": "common",
+      "takarabako_2_open": "common",
+      "takarabako_2_open_r": "common",
+      "takarabako_2_r": "common",
+      "takarabako_3": "common",
+      "takarabako_3_open": "common",
+      "takarabako_3_open_r": "common",
+      "takarabako_3_r": "common",
+      "takarabako_4": "common",
+      "takarabako_4_open": "common",
+      "takarabako_4_open_r": "common",
+      "takarabako_4_r": "common",
       "takitsubo": "uncommon",
       "tansu": "uncommon",
       "tansu_e": "uncommon",
@@ -1982,6 +2152,10 @@
     "katame_tsuchi": {
       "count": 1,
       "item": "dirt"
+    },
+    "kodo_waku": {
+      "count": 1,
+      "item": "log"
     },
     "kogeta": {
       "count": 1,

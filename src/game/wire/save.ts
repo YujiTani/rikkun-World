@@ -33,6 +33,7 @@ import { computeFarmPlacement, applyFarmPlacement } from '../../world/gen/farmPl
 import { createFarmVisual } from '../../world/render/farmVisual';
 import type { WiredAchievements } from './ui';
 import { isWaterIndex } from '../../world/blocks/water';
+import { SHAFT_CONFIG } from '../../world/gen/mineShaftConfig';
 import { readP2Save } from '../../duo/p2State';
 import { duoTimeScale } from '../../duo/rules';
 
@@ -42,8 +43,10 @@ export function wireSave(deps: WiredAchievements) {
     strengthToWrite, screenSettings, combat, time, craft, armor, level, storage, achievements,
     countryWatch, animals, deliverAnimalEvents, legendBook, ninjaBook, kodachi, ninjaHave, samuraiBook,
     samuraiHave, farm, saveOptions, island, hud, renderer, frameClock, raiseAboveBlocks, startPoint,
-    playOverlay, m7, celebrate, lock, book, screen, inventoryScreen, toItemsTab, house, setTitleReturn,
+    playOverlay, m7, celebrate, lock, book, screen, inventoryScreen, toItemsTab, house, setTitleReturn, shafts,
   } = deps;
+  // MINE-1C: ShaftWorld は 世界ごとに 1 つ〔wireBoot が 作り、生成・先読み・実績・surface・置きもの・窓口が みんな 同じ ものを 見る〕
+  shafts.warm([spawnPlain()], SHAFT_CONFIG.plan.prepWarmMs); // はじめの 場所の まわりの 区画を じゅんびちゅうに 先に 計画する
   // 自動セーブ（?nosave=1 は保存しない、?reset=1 は消してから始める。消すのは開発サーバーだけ）
   const save = new SaveManager({
     world,
@@ -124,7 +127,7 @@ export function wireSave(deps: WiredAchievements) {
     keys: restored.keys,
     generate: (cx, cz) => {
       const t0 = performance.now();
-      const col = generateChunk(seed, cx, cz);
+      const col = generateChunk(seed, cx, cz, restored.oldCols);
       island.noteGen?.(performance.now() - t0);
       return col;
     },
@@ -288,7 +291,7 @@ export function wireSave(deps: WiredAchievements) {
       },
     });
   }
-  return { save, host, worldReady, streamFrame, farmVisual, trackOldFarmSeeds };
+  return { save, host, worldReady, streamFrame, farmVisual, trackOldFarmSeeds, shafts };
 }
 
 type WiredSave = WiredAchievements & ReturnType<typeof wireSave>;
@@ -296,7 +299,7 @@ type WiredSave = WiredAchievements & ReturnType<typeof wireSave>;
 export function wireFrame(deps: WiredSave) {
   const {
     shared, hud, game, renderer, furnaceFx, craft, controller, island, screen, time, combat, yokaiM, level,
-    armor, seed, achievements, countryWatch, celebrate,
+    armor, seed, achievements, countryWatch, celebrate, shafts,
   } = deps;
   // #144 SHADOW-1: 光の位置から計算する影（?shadow=0 は作らない。くわしくは docs/design/SHADOW.md）
   const overlay = new PerfOverlay(hud, game, {
@@ -336,6 +339,8 @@ export function wireFrame(deps: WiredSave) {
     peak: null,
   };
   let peakKey = NaN;
+  const warmAt: { x: number; z: number }[] = [{ x: 0, z: 0 }]; // 坑道の 先読みの 中心〔毎ステップ 配列を 作らない〕
+  let wasInBottom = false;
   let yokaiSample: StepContext['yokai'] = [];
   const regions = island.regions();
   const armorNow: (ItemId | null)[] = [null, null, null, null];
@@ -367,10 +372,18 @@ export function wireFrame(deps: WiredSave) {
       peakKey = pk;
       ctx.peak = peakNear(seed, Math.floor(st.position.x), Math.floor(st.position.z));
     }
+    // MINE-1C: まわりの 区画の 坑道の 計画を あいた 時間に すすめる（列を 作る ときに ひっかからない ため）
+    warmAt[0] = st.position;
+    shafts.warm(warmAt, SHAFT_CONFIG.plan.warmMs);
     if (!shared.achMuted) {
       achievements.update(ctx);
       // COUNTRY-1 §4.1: やられた画面の 間は 数えない（止まっている 間は screenSteps = 0）
       countryWatch.step(st.position, ctx.dead ? 0 : ctx.screenSteps);
+      // MINE-1C §4.10: 足が いちばん 下の へやに 入った（高さで 先に ふるいにかける）
+      // へやに 入った コマ だけ 送る
+      const inBottom = !ctx.dead && st.position.y < SHAFT_CONFIG.room.maxY + SHAFT_CONFIG.room.height && shafts.inBottom(Math.floor(st.position.x), Math.floor(st.position.y + 0.1), Math.floor(st.position.z));
+      if (inBottom && !wasInBottom) achievements.feedMine([{ type: 'bottom', tick: game.tick }]);
+      wasInBottom = inBottom;
     }
     celebrate.setPending(achievements.pendingCount());
   }

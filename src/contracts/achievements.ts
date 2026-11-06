@@ -83,6 +83,8 @@ export type StatKey =
   | `get:${string}` // WEAPON-7: レジェンダリーを はじめて 手に 入れた（`get:raijin_ken`）
   | 'ninjaKinds' // NINJA-1: 手に 入れた ことの ある 忍者装備の しゅるいの 数
   | 'samuraiKinds' // SAMURAI-1: 手に 入れた ことの ある 侍装備の しゅるいの 数
+  | 'mineBottom' // MINE-1C: 坑道の いちばん 下の へやに ついた（1）
+  | 'mineChest' // MINE-1C: 宝箱を あけた（1）
   | 'legendKinds' // WEAPON-7: 手に 入れた ことの ある レジェンダリーの しゅるいの 数
   | 'wearAll'
   | 'death'

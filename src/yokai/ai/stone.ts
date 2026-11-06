@@ -1,5 +1,5 @@
 import type { BlockId, VoxelWorld } from '../../contracts';
-import { doorInfo } from '../../world/blocks/houseBlocks';
+import { canCrushBlock } from '../../world/blocks/crushable';
 import { applyDollBrightness } from './brightness';
 import { forCells } from './body';
 import { AI_CONST } from './config';
@@ -52,7 +52,7 @@ export class YokaiStone {
     return true;
   }
 
-  /** ぬりかべ の たおれこみ: たおれた体が重なるマスと その真下 1 段をこわす（start_torch・みず・家の 戸〔上・下・あけた 物も。HOUSE-1 AC24〕・いちばん下の段は除く。落とし物なし） */
+  /** ぬりかべ の たおれこみ: たおれた体が重なるマスと その真下 1 段をこわす（start_torch・みず・宝箱〔MINE-1C §4.4。2 マス とも のこす〕・家の 戸〔上・下・あけた 物も。HOUSE-1 AC24〕・いちばん下の段は除く。落とし物なし） */
   crush(e: Ent): void {
     const { world } = this.d;
     const lying: OBox = { cx: 0, cy: 0.4, cz: -1.9, hx: 1.3, hy: 0.4, hz: 1.5 };
@@ -62,7 +62,7 @@ export class YokaiStone {
     forCells(e, lying, lo - 1, hi, (x, y, z) => {
       if (y <= 0) return;
       const b = world.getBlock(x, y, z);
-      if (b === 'air' || b === 'outside' || isWater(b) || b === 'start_torch' || doorInfo(b) !== null) return;
+      if (b === 'outside' || !canCrushBlock(b)) return;
       if (world.setBlock(x, y, z, 'air')) changed.push({ x, y, z, from: b, to: 'air' });
     });
     if (changed.length > 0) this.d.opts.onBlocks?.(changed, 'crush');

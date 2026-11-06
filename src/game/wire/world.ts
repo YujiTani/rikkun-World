@@ -5,6 +5,7 @@ import { preloadGetaSounds } from '../../fx/getaSounds';
 import { playCraft } from '../../fx/craftSounds';
 import { WORLD_HEIGHT, SEA_Y } from '../../contracts';
 import { Lighting, Sky } from '../../sky';
+import { setChestWorldReader } from '../../world/render/looks/chestLooks';
 import { TimeOfDayImpl } from '../../time';
 import { FX_SETTINGS } from '../../fx/config';
 import { createBrowserTitleSound } from '../../fx/titleSound';
@@ -18,6 +19,8 @@ import { parseSaveOptions, compressionAvailable, openIdb, SAVE_ID, requestPersis
 import { openStoredKeys, emptyStreamRestore } from '../../save/streamRestore';
 import { setRing } from '../../world/stream/ring';
 import { createWorldInfo } from '../../world/gen/worldInfo';
+import { bindFarmShafts } from '../../world/gen/farmPlacement';
+import { setShaftsOn, shaftWorldFor, type ShaftWorld } from '../../world/gen/mineShafts';
 import { Game } from '../../game/Game';
 import { buildScenery } from '../../game/scenery';
 import { ArrayVoxelWorld } from '../../world/VoxelWorld';
@@ -108,7 +111,8 @@ export async function wireBoot() {
   // MAGMA-SPAWN: 自然の 滝の ある 生成の 列だけ わきどころを さがす
   const springsIn = (cx: number, cz: number): boolean => terrainFor(seed).liquid.pondsIn(cx * 16, cz * 16, cx * 16 + 15, cz * 16 + 15).some((p) => p.fall !== null);
   const water = createWaterSystem({ world, tick: () => game.tick, seed, springsIn });
-  const island = createWorldInfo(seed, world);
+  let shafts: ShaftWorld | undefined; // 保存を 読んだ あとで 作る〔island は それを あとから 聞く〕
+  const island = createWorldInfo(seed, world, () => shafts);
   // 保存（VOX-F）: IndexedDB から さわった列を 世界に入れる。描画の前に（光が 最初から 正しくなるように）
   // 前の世界（'main'・'seed-N'）とは別の名前。前の世界は読まず、消さない（VOX-B）
   const saveId = seed === GEN_CONFIG.defaultSeed ? SAVE_ID : `vox-seed-${seed}`;
@@ -124,8 +128,13 @@ export async function wireBoot() {
     idb = null;
     restored = emptyStreamRestore();
   }
+  // MINE-1C: 1 つの 世界に ShaftWorld は 1 つだけ。openStoredKeys が 計画ずみの ものを 引く〔古い 列の 一覧と はじまりの 坑道の 場所つき〕。生成・先読み・実績・surface・置きものが みんな これを 見る
+  if (new URLSearchParams(location.search).get('mine') === '0') setShaftsOn(false); // くらべ用: 坑道を 作らない（性能ループ。§4.9。保存も しない）
+  shafts = shaftWorldFor(seed, restored.oldCols, restored.shaftStart);
+  if (restored.shaftStart === undefined) restored.shaftStart = shafts.startEntrance(); // meta に 書いて 次から 同じ（なければ null ＝ さがした）
+  bindFarmShafts(shafts);
   return {
-    shared, hud, game, audioSettings, audioPersist, mixer, bgm, bgmScene, fxSound, titleSound, saveOptions,
+    shafts, shared, hud, game, audioSettings, audioPersist, mixer, bgm, bgmScene, fxSound, titleSound, saveOptions,
     store, startBoot, startPlan, world, water, seed, island, saveId, idb, restored,
   };
 }
@@ -158,6 +167,7 @@ export function wireRender(deps: WiredBoot) {
   const frameClock = decideFrameClock(location.search, import.meta.env.VITE_FRAME_CLOCK as string | undefined);
   const renderer = new WorldRenderer(world, weighted.microR, frameClock);
   if (new URLSearchParams(location.search).get('meshSlice') === 'off') renderer.config.meshSlice = false; // 小ブロックを 分けずに 1 回で作る（見くらべ・perf 用）
+  setChestWorldReader((x, y, z) => world.getBlock(x, y, z)); // 宝箱の 向き〔区を 作る ときに 読む。最初の 区より 前に 入れる〕
   renderer.enableStreaming();
   renderer.setViewer(island.spawn().x, island.spawn().z);
   renderer.attach(game.scene);

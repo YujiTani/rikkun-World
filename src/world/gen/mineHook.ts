@@ -3,6 +3,8 @@ import { createYokaiConfig } from '../../yokai/ai/config';
 import { isUnderground } from '../../yokai/ai/terrain';
 import { BLOCK_INDEX, BLOCK_TYPES, blockIdFromIndex } from '../blocks/blockTypes';
 import { buildBlocks } from './chunk';
+import { createShaftHook, type ChestPorts, type ShaftHook } from './mineHookShaft';
+import type { OldCols, ShaftWorld } from './mineShafts';
 import { HW } from './columnLayout';
 import { MINE_CONFIG, type MineLayerDef, type MineLayerId, type MineOreRow } from './mineConfig';
 import { layerAt } from './mineLayers';
@@ -54,7 +56,7 @@ interface Underground {
   maxY: number;
 }
 
-export interface MineHook {
+export interface MineHook extends ShaftHook {
   layers(): MineLayerDef[];
   layerAt(y: number): MineLayerId | null;
   oreTable(): MineOreRow[];
@@ -103,10 +105,10 @@ function exposed(c: Col, lx: number, y: number, lz: number): boolean {
 }
 
 /** 隣の 4 列を 作って、この 列に 面する 1 まいずつを 写す（作業用の 入れものを 使い回す 生成なので 写しながら） */
-function neighborFaces(seed: number, cx: number, cz: number): Faces {
+function neighborFaces(seed: number, cx: number, cz: number, oldCols?: OldCols): Faces {
   const faces: Faces = [new Uint8Array(WORLD_HEIGHT * ROW), new Uint8Array(WORLD_HEIGHT * ROW), new Uint8Array(WORLD_HEIGHT * ROW), new Uint8Array(WORLD_HEIGHT * ROW)];
   const take = (face: number, dx: number, dz: number): void => {
-    const b = buildBlocks(seed, cx + dx, cz + dz).blocks;
+    const b = buildBlocks(seed, cx + dx, cz + dz, undefined, oldCols).blocks;
     for (let y = 0; y < WORLD_HEIGHT; y++) {
       for (let k = 0; k < ROW; k++) {
         const lx = dx === -1 ? ROW - 1 : dx === 1 ? 0 : k;
@@ -135,7 +137,16 @@ function emptyLayers(): Record<MineLayerId, LayerCount> {
 export function createMineHook(o: {
   seed: number;
   /** MINE-1B: いきている 世界（チョークの しるしを 読む）。なければ `chalkAt` は いつも null */
-  world?: Pick<VoxelWorld, 'getBlock'>;
+  world?: Pick<VoxelWorld, 'getBlock'> & Partial<Pick<VoxelWorld, 'setBlock'>>;
+  /** MINE-1C: 古い 保存の 列の 一覧（坑道を かかない 列。新しい 世界は なし） */
+  oldCols?: OldCols;
+  /** MINE-1C: 世界ごとに 1 つ だけ 作った 坑道の 世界（つなぎ込みが わたす。同じ 世界の 実績・surface・生成と 計画を 共有する） */
+  shafts?: ShaftWorld;
+  /** MINE-1C: 開いて いる 世界の meta の 版（保存した あとは 書いた 値。meta が なければ null） */
+  metaGen?: () => number | null;
+  kodoGen?: number;
+  /** MINE-1C: 宝箱を あけた ときの 出口（持ち物・落とし物・ログ・テロップ・実績） */
+  chest?: ChestPorts;
   /** プレイヤーの 足もと（世界の 座標）。なければ スタートの 足もと */
   player?: () => { x: number; y: number; z: number };
   /** 妖怪を 出す 高さの はば（足 ±これ）。なければ 設定の 初期値（YokaiConfig.yokaiSpawnHeight） */
@@ -152,15 +163,17 @@ export function createMineHook(o: {
       return { x: sp.x + 0.5, y: sp.h + 1, z: sp.z + 0.5 };
     });
 
+  const shaft = createShaftHook(o);
   return {
+    ...shaft,
     layers: () => MINE_CONFIG.layers.map((l) => ({ ...l })),
     layerAt,
     oreTable: () => MINE_CONFIG.ores.map((r) => ({ ...r })),
 
     columnOres(cx, cz): ColumnOres {
       // 作業用の 入れものは 次の 生成で 書きかわる ので、この 列は 写してから 隣の 列を 作る
-      const built = buildBlocks(seed, cx, cz);
-      const col: Col = { blocks: built.blocks.slice(), heights: built.heights.slice(), faces: neighborFaces(seed, cx, cz) };
+      const built = buildBlocks(seed, cx, cz, undefined, o.oldCols);
+      const col: Col = { blocks: built.blocks.slice(), heights: built.heights.slice(), faces: neighborFaces(seed, cx, cz, o.oldCols) };
       const layers = emptyLayers();
       for (let y = 1; y < WORLD_HEIGHT; y++) {
         const id = layerAt(y);
@@ -181,12 +194,12 @@ export function createMineHook(o: {
           }
         }
       }
-      return { normal: true, layers };
+      return { normal: !shaft.touchesShaft(cx, cz), layers };
     },
 
     oreClusters(cx, cz): OreCluster[] {
       const rec: OreCluster[] = [];
-      buildBlocks(seed, cx, cz, rec);
+      buildBlocks(seed, cx, cz, rec, o.oldCols);
       return rec;
     },
 

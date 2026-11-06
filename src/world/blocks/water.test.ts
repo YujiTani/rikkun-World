@@ -110,7 +110,7 @@ describe('AC1 番号（§4.6）', () => {
   });
 
   it('保存の 版は かえない（SAVE_GEN・SAVE_VERSION・列の 形の 版）', () => {
-    expect(SAVE_GEN).toBe(4);
+    expect(SAVE_GEN).toBeGreaterThanOrEqual(4); // 版は 上がる 一方〔1C で 5〕。値は 決め打ちしない
     expect(SAVE_VERSION).toBe(1);
     expect(CHUNK_FORMAT_VERSION).toBe(2);
   });

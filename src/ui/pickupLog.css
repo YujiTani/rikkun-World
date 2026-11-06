@@ -35,3 +35,11 @@
   left: calc(var(--rk-sp-2) * 2 + var(--rk-icon-chip));
   bottom: var(--rk-sp-1);
 }
+/* 宝箱の 中身の 1 行は 長いので、はばを おさえて おりかえす（絵は いちばん めずらしい 中身） */
+.pickup-row[data-kind='chest'] {
+  max-width: min(30rem, 62vw);
+  align-items: flex-start;
+}
+.pickup-row[data-kind='chest'] > .pickup-text {
+  overflow-wrap: anywhere;
+}

@@ -133,6 +133,16 @@ const RING_GROW_SECONDS = 0.5;
 const PILLAR_BASE_W = B.pillarSize[0];
 const SPIN_FLYING = Math.PI * 2; // とんでいるあいだ 1 回転/秒
 
+/** MINE-1C: 宝箱の 光の 柱 1 本（落とし物の 柱と 同じ 形・色・濃さ。ジオメトリと ざいりょうは 共有。濃さは 袋の 係が 毎フレーム 更新する） */
+export function createChestPillar(rar: Rarity): THREE.Mesh {
+  const mesh = new THREE.Mesh(PILLAR_GEO, PILLAR_MATS[rar]);
+  const w = SPARKLE[rar].width / PILLAR_BASE_W;
+  mesh.scale.set(w, 1, w);
+  mesh.renderOrder = 3;
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
 interface Pillar {
   mesh: THREE.Mesh;
 }
