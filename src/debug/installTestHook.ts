@@ -1,5 +1,7 @@
 // 開発用の 窓口 `window.__rikkun` の 中身を 集める（main.ts から 移した）。名前と 中身は かえない。
 import { type Fog as ThreeFog, Color as ThreeColor } from 'three';
+import { RARITY_ORDER } from '../drops/rarity';
+import { itemDef } from '../content/items/registry';
 import { createPickupHook, createFurnaceHook, createArmorHook } from '../craft';
 import { createBladeHook } from '../tools/blade/hook';
 import { parryGlowLevel } from '../combat/parry';
@@ -136,7 +138,9 @@ export function installGameHook(deps: WiredLoop): void {
         calls.forEach(replay);
       };
       pending.add(finish);
-      lidFx.start(at.main, at.tier, at.front, finish);
+      let top = 0;
+      for (const c of calls) if (c.k === 'add') top = Math.max(top, RARITY_ORDER.indexOf(itemDef(c.item)!.rarity));
+      lidFx.start(at.main, at.tier, at.front, RARITY_ORDER[top]!, finish);
     },
   };
   installTestHook(game, overlay, () => host.everReady, {
