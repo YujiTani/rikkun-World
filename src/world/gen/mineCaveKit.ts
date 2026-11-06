@@ -110,11 +110,13 @@ export interface HiroiTable {
   knobMinSmall: number;
   knobDeepMin: number;
   bumpShare: [number, number];
+  /** 層ごとの 高さ〔計画の 箱〕と 柱の 立つ 天井〔yuzu 2026-11-06。あさい 10〜14・8／なかほど 12〜18・10〕 */
+  layers: Record<'asai' | 'nakahodo', { height: Range; minCeil: number }>;
   floorPerPillar: number;
   pillars: [number, number];
   work: HiroiWork;
   aim: { small: { skirtSmall: Range; unplaced: Range }; large: { skirtSmall: Range; unplaced: Range }; unplaced: Range };
-  pillar: { skirt: number[]; skirtSmall: number[]; mid: number; crown: number[]; skirtMax: number; minCeil: number; tries: number; smallMin: number };
+  pillar: { skirt: number[]; skirtSmall: number[]; mid: number; crown: number[]; skirtMax: number; tries: number; smallMin: number };
   oreZone: { baseRows: number; ceilFrom: number; share: number };
 }
 export interface HiroiTryRow {
@@ -145,7 +147,7 @@ export interface MineHook1D {
   caveSpec(): CaveSpecTable;
   hiroiPlan(id: string): HiroiPlan | null;
   hiroiTries(x0: number, z0: number, x1: number, z1: number): HiroiTryRow[];
-  hiroiTry(seed: number): HiroiTry;
+  hiroiTry(seed: number, layer?: 'asai' | 'nakahodo'): HiroiTry;
   hiroiScene(o: { seed: number; plain?: boolean }): { caveId: string; size: { x: number; z: number }; stand: { x: number; y: number; z: number; facing: 'n' } };
   caveStats(id: string): CaveStats;
   caveAt(x: number, y: number, z: number): CaveKind | 'kodo' | null;
@@ -208,7 +210,7 @@ export interface CaveSpecTable {
  * 窓口の 数で 上書きする〔つまり 実装の あとは 表から 読む。#311〕。
  */
 export const CAVE_SPEC: Record<CaveKind, CaveSpecRow> = {
-  hiroi: { layers: ['asai', 'nakahodo'], x: [24, 36], z: [24, 36], y: [12, 18] },
+  hiroi: { layers: ['asai', 'nakahodo'], x: [24, 36], z: [24, 36], y: [10, 18] }, // 高さは 層ごとの 表 `hiroiTable().layers` で 見る
   shonyudo: { layers: ['nakahodo'], x: [16, 24], z: [16, 24], y: [7, 10] },
   chiteiko: { layers: ['asai'], x: [20, 28], z: [20, 28], y: [6, 9] },
   hotaru: { layers: ['nakahodo'], x: [14, 20], z: [14, 20], y: [5, 7] },

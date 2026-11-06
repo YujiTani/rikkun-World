@@ -49,6 +49,7 @@ const REGIONS = 12;
 const MAX_LOTTERY = 6;
 const MAX_HEYA = 6;
 /** ⑨ の 部屋の 乱数〔i × 13 ＋ 1。i ＝ 0〜199。仕様と 同じ 200 こ〕 */
+const LAYERS = ['asai', 'nakahodo'] as const;
 const AIM_SEEDS = Array.from({ length: 200 }, (_, i) => i * 13 + 1);
 
 // ------------------------------------------------------------------ 形の 道具
@@ -284,7 +285,8 @@ function analyse(seed: number, g: GenCols, h: MineHook1D, c: Cave, table: HiroiT
   const rings = (p: HiroiPlan['pillars'][number], s: number): [number, number][] => ringCells(p.x, p.z, p.widths[s]!);
   for (const p of plan.pillars) {
     const tag = `柱 (${p.x}, ${p.z})`;
-    if (p.ceil < pt.minCeil) bad.pillar.push(`${tag}: ceil ${p.ceil} < ${pt.minCeil}`);
+    const minCeil = table.layers[c.layer as 'asai' | 'nakahodo'].minCeil; // 柱の 立つ 天井は 層ごとの 表
+    if (p.ceil < minCeil) bad.pillar.push(`${tag}: ceil ${p.ceil} < ${minCeil}〔${c.layer}〕`);
     if (p.widths.length !== p.ceil) bad.pillar.push(`${tag}: widths の 数 ${p.widths.length} ≠ ceil ${p.ceil}`);
     if (kind) {
       const want = Array.from({ length: p.ceil }, (_, s) => (s < kind.length ? kind[s]! : s >= p.ceil - 2 ? pt.crown[s - (p.ceil - 2)]! : pt.mid));
@@ -420,6 +422,7 @@ beforeAll(() => {
     needCaveHook(h, ['caves', 'caveStats', 'caveAt', 'shafts', 'hiroiPlan', 'hiroiTable', 'hiroiTries', 'columnOres', 'caveSpec']);
     hooks.set(seed, h);
     table = h.hiroiTable();
+    if (!table.layers) throw new Error('hiroiTable().layers〔層ごとの 高さ・minCeil〕が まだ ない');
     const g = new GenCols(seed);
     grids.set(seed, g);
     const rate = plainRate(h, seed, ['asai', 'nakahodo']);
@@ -515,12 +518,13 @@ describe('D15: ひろい ほらあな B「いしの 木」', () => {
 });
 
 describe('D15 ⑨: すその 見こみ〔部屋の 乱数 200 こ〕', () => {
-  const tries = new Map<number, HiroiTry>();
+  const tries = new Map<string, HiroiTry>();
   beforeAll(() => {
     const h = hookCave(SEEDS_3[0]!);
     needCaveHook(h, ['hiroiTry', 'hiroiTable', 'caveSpec']);
     table = h.hiroiTable();
-    for (const s of AIM_SEEDS) tries.set(s, h.hiroiTry(s));
+    if (!table.layers) throw new Error('hiroiTable().layers〔層ごとの 高さ・minCeil〕が まだ ない');
+    for (const layer of LAYERS) for (const s of AIM_SEEDS) tries.set(`${layer}:${s}`, h.hiroiTry(s, layer));
   }, 120_000);
 
   it('大きさは 表の とおり・work は 上の 限り 以下・置けた 計画の work と 同じ', () => {
@@ -532,18 +536,23 @@ describe('D15 ⑨: すその 見こみ〔部屋の 乱数 200 こ〕', () => {
       expect(t.size.z, `乱数 ${s}`).toBeLessThanOrEqual(spec.z[1]);
       for (const k of ['pillarCells', 'pillarPacks', 'knobTries', 'layouts', 'tips'] as const) expect(t.work[k], `乱数 ${s} ${k}`).toBeLessThanOrEqual(table.work[k]);
       if (t.plan) expect(t.plan.work, `乱数 ${s}`).toEqual(t.work);
+      if (t.plan) {
+        const hy = table.layers[s.split(':')[0] as (typeof LAYERS)[number]].height;
+        expect(t.plan.size.h, `${s} の 高さ〔層の 表 ${hy.join('〜')}〕`).toBeGreaterThanOrEqual(hy[0]);
+        expect(t.plan.size.h, `${s} の 高さ`).toBeLessThanOrEqual(hy[1]);
+      }
     }
   });
 
-  it('すそ 1 段の わりあい〔置けた 部屋の 中〕と 置けない わりあいが aim の はんい', () => {
-    const all = [...tries.values()];
+  it.each(LAYERS)('すそ 1 段の わりあい〔置けた 部屋の 中〕と 置けない わりあいが aim の はんい〔%s〕', (layer) => {
+    const all = [...tries].filter(([k]) => k.startsWith(`${layer}:`)).map(([, t]) => t);
     const inRange = (label: string, v: number, r: [number, number]): void => {
       expect(v, `${label} ${v.toFixed(3)}〔${r.join('〜')}〕`).toBeGreaterThanOrEqual(r[0]);
       expect(v, `${label} ${v.toFixed(3)}〔${r.join('〜')}〕`).toBeLessThanOrEqual(r[1]);
     };
     for (const [name, group, aim] of [
-      ['小さい 部屋', all.filter((t) => t.small), table.aim.small],
-      ['ほかの 部屋', all.filter((t) => !t.small), table.aim.large],
+      [`${layer} 小さい 部屋`, all.filter((t) => t.small), table.aim.small],
+      [`${layer} ほかの 部屋`, all.filter((t) => !t.small), table.aim.large],
     ] as const) {
       expect(group.length, `${name} の 数`).toBeGreaterThan(0);
       const placed = group.filter((t) => t.plan !== null);
@@ -552,6 +561,6 @@ describe('D15 ⑨: すその 見こみ〔部屋の 乱数 200 こ〕', () => {
       inRange(`${name} の すそ 1 段`, skirt / placed.length, aim.skirtSmall);
       inRange(`${name} の 置けない`, (group.length - placed.length) / group.length, aim.unplaced);
     }
-    inRange('ぜんぶの 置けない', all.filter((t) => t.plan === null).length / all.length, table.aim.unplaced);
+    inRange(`${layer} ぜんぶの 置けない`, all.filter((t) => t.plan === null).length / all.length, table.aim.unplaced);
   });
 });

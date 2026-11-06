@@ -1,5 +1,5 @@
 import { SEA_Y } from '../../contracts';
-import { Walk, CAVE_RULES, CAVE_SPEC, type Cave, type MineHook1D } from './mineCaveKit';
+import { Walk, CAVE_RULES, CAVE_SPEC, type Cave, type HiroiTable, type MineHook1D } from './mineCaveKit';
 import { GenCols, isBodyIndex, isSolidIndex, ptKey, standable, stepTo, type Layer, type Pt } from './mineShaftKit';
 import { isWaterIndex } from '../blocks/water';
 import { heightAt, spawnOf } from './terrain';
@@ -57,7 +57,13 @@ function collect(g: GenCols, h: MineHook1D, c: Cave): { air: Pt[]; water: Pt[]; 
   return { air, water, keys };
 }
 
-const sizeProblems = (c: Cave): string[] => {
+function hiroiLayerHeight(h: MineHook1D, layer: 'asai' | 'nakahodo'): readonly [number, number] {
+  const layers = h.hiroiTable().layers as HiroiTable['layers'] | undefined;
+  if (!layers) throw new Error('hiroiTable().layers〔層ごとの 高さ・minCeil〕が まだ ない');
+  return layers[layer].height;
+}
+
+const sizeProblems = (c: Cave, h: MineHook1D): string[] => {
   const bad: string[] = [];
   const spec = CAVE_SPEC[c.kind];
   const w = c.box.x1 - c.box.x0 + 1;
@@ -66,7 +72,9 @@ const sizeProblems = (c: Cave): string[] => {
   if (c.size.x !== w || c.size.z !== d || c.size.y !== t) bad.push(`size ${c.size.x}×${c.size.z}×${c.size.y} が box ${w}×${d}×${t} と ちがう`);
   if (w < spec.x[0] || w > spec.x[1]) bad.push(`横 ${w}（${spec.x.join('〜')}）`);
   if (d < spec.z[0] || d > spec.z[1]) bad.push(`たて ${d}（${spec.z.join('〜')}）`);
-  if (t < spec.y[0] || t > spec.y[1]) bad.push(`高さ ${t}（${spec.y.join('〜')}）`);
+  // ひろい ほらあなの 高さは その 層の 表〔`hiroiTable().layers`〕
+  const hy = c.kind === 'hiroi' && (c.layer === 'asai' || c.layer === 'nakahodo') ? hiroiLayerHeight(h, c.layer) : spec.y;
+  if (t < hy[0] || t > hy[1]) bad.push(`高さ ${t}（${hy.join('〜')}）`);
   if (!spec.layers.includes(c.layer)) bad.push(`層 ${c.layer}（${spec.layers.join('・')}）`);
   return bad;
 };
@@ -77,7 +85,7 @@ const sizeProblems = (c: Cave): string[] => {
  */
 export function reportRoom(seed: number, g: GenCols, h: MineHook1D, c: Cave, layerDefs: { id: Layer; minY: number; maxY: number | null }[]): RoomReport {
   const { air, water, keys } = collect(g, h, c);
-  const problems: RoomReport['problems'] = { layer: [], size: sizeProblems(c), under: [], roof: [], step: [], hole: [], bank: [] };
+  const problems: RoomReport['problems'] = { layer: [], size: sizeProblems(c, h), under: [], roof: [], step: [], hole: [], bank: [] };
   // 空気〔水を ふくむ〕は ぜんぶ 計画の 箱の 中〔箱の すぐ 外がわ 1 マスに その 部屋の 空気が ない〕
   {
     const b = c.box;
