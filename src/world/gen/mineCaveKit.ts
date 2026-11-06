@@ -88,7 +88,7 @@ interface CaveStats {
   floorOre: number;
   torches: number;
 }
-export interface HiroiWork {
+interface HiroiWork {
   pillarCells: number;
   pillarPacks: number;
   knobTries: number;
@@ -196,7 +196,7 @@ export interface CaveSpecRow {
   y: Span;
 }
 /** 【PO 案】の 数の 窓口 `caveSpec()` の 形〔#311。自分で 決めた 名前。オーナー確認で かわる 数は 実装の 表 1 か所から 読む〕 */
-export interface CaveSpecTable {
+interface CaveSpecTable {
   kinds: Record<CaveKind, CaveSpecRow>;
   rules: {
     hiroi: { wallOreTimes: number; ironMin: number };
