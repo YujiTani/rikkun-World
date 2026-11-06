@@ -181,7 +181,7 @@ export class YokaiSpawner {
     const interval = under ? config.yokaiSpawnIntervalUnder : config.yokaiSpawnInterval;
     this.spawnCountdown = Math.max(1, interval) - 1;
     if (who === 0) return;
-    this.trySpawn(c);
+    this.trySpawn(c, who === 2);
   }
 
   /** その人は 地下に いるか。groundY（生成の 地形の 高さ）が なければ いつも 地上 */
@@ -236,7 +236,7 @@ export class YokaiSpawner {
     return n;
   }
 
-  private trySpawn(c: { x: number; y: number; z: number }): void {
+  private trySpawn(c: { x: number; y: number; z: number }, aroundP2 = false): void {
     const { world, time, config, opts, rng, events } = this.d;
     const night = time.phase() === 'night';
     const minD = Math.max(config.yokaiSpawnMinDist, config.yokaiSpawnNearExclude);
@@ -250,6 +250,8 @@ export class YokaiSpawner {
       const x = c.x + Math.sin(a) * d;
       const z = c.z - Math.cos(a) * d;
       if (!bodyInWall(x, z, 2)) continue;
+      // 2P の まわりに 出す ときも、1P の すぐ そばには 出さない（近さの 除外)
+      if (aroundP2 && Math.hypot(x - this.d.f.p1.x, z - this.d.f.p1.z) < config.yokaiSpawnNearExclude) continue;
       // 出る場所は 読みこんでいる列だけ。つなぎ込みが「描く輪のメッシュずみの列」を聞く窓口を渡す
       if (!world.isLoaded(Math.floor(x), Math.floor(z))) continue;
       if (opts.canSpawnAt && !opts.canSpawnAt(x, z)) continue;
@@ -333,7 +335,7 @@ export class YokaiSpawner {
       const far1 = dx * dx + dz * dz > lim * lim;
       const dx2 = e.x - f.p2.x;
       const dz2 = e.z - f.p2.z;
-      const far2 = !f.p2.on || dx2 * dx2 + dz2 * dz2 > lim * lim;
+      const far2 = !(f.p2.joined ?? f.p2.on) || dx2 * dx2 + dz2 * dz2 > lim * lim;
       if (far1 && far2) e.remove = true;
       // 列が捨てられたら、その列の妖怪は 静かに消す（VOX-D。落とし物なし）
       else if (!world.isLoaded(Math.floor(e.x), Math.floor(e.z))) e.remove = true;

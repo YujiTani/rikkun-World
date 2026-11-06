@@ -44,6 +44,8 @@ interface Shared {
   duoJoined: () => boolean;
   /** COOP-1 3a: 仲間（2P）の 足もとと 持ち物（参加していなければ null。落とし物・動物・1P の 置く が 読む。wireDuo が 差しかえる。返す 物は いつも 同じ 1 つ） */
   duoMate: () => { position: Vec3; inventory: Inventory } | null;
+  /** COOP-1 3a: 落とし物を ひろえる 仲間（倒れている あいだは null。DropField だけが 読む。wireDuo が 差しかえる） */
+  duoDropMate: () => { position: Vec3; inventory: Inventory } | null;
   /** COOP-1 3a: 妖怪が ねらう 仲間（参加していなければ null。wireDuo が 差しかえる） */
   duoYokai: () => YokaiPartner | null;
   /** COOP-1 3a: 2P の レベルアップ（ハートを 満タンに。wireDuo が 差しかえる） */
@@ -118,6 +120,7 @@ export function createShared(): Shared {
   const s = {
     p2: new P2State({ onLevelUp: () => s.p2LevelUp() }),
     duoMate: () => null,
+    duoDropMate: () => null,
     duoYokai: () => null,
     p2LevelUp: () => {},
     p2Hp: () => 0,

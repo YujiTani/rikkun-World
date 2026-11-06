@@ -20,6 +20,7 @@ import { bindWho } from '../../duo/credit';
 import { createP2Dig } from '../../duo/p2Dig';
 import { createP2DigFx } from '../../duo/p2DigFx';
 import { P2Life } from '../../duo/p2Life';
+import { pickableMate } from '../../duo/rules';
 import { DUO_TUNING } from '../../duo/tuning';
 import type { DuoPlayHook, DuoVec3 } from '../../duo/types';
 import type { WiredLoop } from './save';
@@ -62,6 +63,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
   let live: Live | null = null;
 
   shared.duoMate = () => live?.mate ?? null;
+  shared.duoDropMate = () => pickableMate(live?.mate ?? null, live?.life.down ?? false);
   shared.duoYokai = () => live?.yokai ?? null;
   shared.p2LevelUp = () => live?.life.fill();
   shared.p2Hp = () => live?.life.hp ?? 0;
@@ -92,11 +94,23 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       yokai: yokai2,
       spawn: () => ({ ...c.joinSpot(), yawDeg: controller.state.yawDeg, pitchDeg: 0 }),
       drops,
+      tickDrops: false,
       settings: w2,
       rng: createRng(seed ^ 0x2b2b),
       requestSave: () => shared.requestSave(),
     });
-    const life = new P2Life({ combat, p1Down: () => combat1.dead() });
+    // 倒れた 場所(AC44 の 待ちで ずれないように とめる)
+    let downPos: Vec3 | null = null;
+    const life = new P2Life({
+      combat,
+      p1Down: () => combat1.dead(),
+      onDown: () => {
+        downPos = { ...ctl.state.position };
+      },
+      onWait: () => {
+        if (downPos) ctl.set({ position: { ...downPos }, velocity: { x: 0, y: 0, z: 0 } });
+      },
+    });
     const dig = createP2Dig({
       world,
       p2,
@@ -136,6 +150,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         return c.joined() && !life.down && c.padPresent();
       },
       // 火の玉などの ダメージの 種類(kind)は 妖怪の 種類として わたす
+      // TODO(COOP-1 段階 2・2P の そうび): DamageKind の ball が ここに 伝わらない。そうびを 持たせる ときに 直す
       hurt: (amount, kind, from) => life.damage(amount, { type: 'yokai', kind, from }).applied > 0,
     };
     return { combat, life, dig, fx, tools, mate, yokai };

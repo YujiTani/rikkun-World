@@ -122,6 +122,11 @@ export class DuoBody {
     this.sprite.render();
   }
 
+  /** 倒れている あいだは 体と ▼ を 消す（戻ると また 出る。世界には 入ったまま） */
+  setShown(v: boolean): void {
+    this.group.visible = v;
+  }
+
   /** 区画ごとに 板を そのカメラへ 向ける */
   faceCamera(cam: THREE.Camera): void {
     if (this.kindNow !== null) this.sprite?.render(cam);

@@ -146,12 +146,12 @@ describe('AC39: 消える 距離は 2 人の 両方から 遠いとき（消え�
     r.step(5);
     expect(r.m.list().map((e) => e.id)).not.toContain(id);
   });
-  it('パッドが ぬけた 2P の そばでは 消える（数えない）', () => {
+  it('パッドが ぬけた・倒れた 2P の そばでも 消えない（参加している あいだは 位置を 見る。3a 直し 7）', () => {
     const X = 100.5;
     const r = rig({ p1: { x: X - (FAR + 6), y: 9, z: WIDE_Z }, p2: { x: X - 10, y: 9, z: WIDE_Z }, targetable: false });
     const id = spawnFar(r, X);
     r.step(5);
-    expect(r.m.list().map((e) => e.id)).not.toContain(id);
+    expect(r.m.list().map((e) => e.id)).toContain(id);
   });
 });
 

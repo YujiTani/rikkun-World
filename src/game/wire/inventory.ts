@@ -139,7 +139,7 @@ export function wireDrops(deps: WiredInventory) {
     onPickup: (item, count, fromYokai, who) => {
       if (who === 1) shared.onDropPicked(item, count, fromYokai);
     },
-    partner: () => shared.duoMate(),
+    partner: () => shared.duoDropMate(),
   });
   /** 置いて たいら に した 足もと の 列（土けむり。次 の ステップ で AnimalFx へ） */
   const pendingDust: Array<{ x: number; y: number; z: number }> = [];

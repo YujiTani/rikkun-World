@@ -104,6 +104,8 @@ export interface CombatDeps {
   rng?: Rng;
   /** 落ちたアイテムの置き場（妖怪のドロップと共通）。なければ自分で作る */
   drops?: DropField;
+  /** COOP-1 3a: false なら 渡された drops を 毎ステップ 進めない（2P 用。世界の 落とし物は 1P 側が 1 回だけ 進める）。なければ true */
+  tickDrops?: boolean;
   /** M4: 防具（ふせぐ・やられたとき落とす） */
   armor?: CombatArmorPort;
   /** WEAPON-2: 設定の入れ物（刀の 照準の 距離・たいきゅうの へりかた）。なければ 初期値 */
@@ -492,7 +494,10 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       }
     }
 
-    for (const id of this.drops.update(!this.isDead)) this.emit({ type: 'pickup', tick: this.tickCount, bagId: id });
+    // 2P(tickDrops=false)は 落とし物を 進めない（1P 側の 1 回だけ）
+    if (this.d.tickDrops !== false) {
+      for (const id of this.drops.update(!this.isDead)) this.emit({ type: 'pickup', tick: this.tickCount, bagId: id });
+    }
     this.tickCount++;
   }
 

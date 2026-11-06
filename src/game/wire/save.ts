@@ -34,6 +34,7 @@ import { createFarmVisual } from '../../world/render/farmVisual';
 import type { WiredAchievements } from './ui';
 import { isWaterIndex } from '../../world/blocks/water';
 import { SHAFT_CONFIG } from '../../world/gen/mineShaftConfig';
+import { sharedLevel } from '../../duo/credit';
 import { readP2Save } from '../../duo/p2State';
 import { duoTimeScale } from '../../duo/rules';
 
@@ -234,7 +235,7 @@ export function wireSave(deps: WiredAchievements) {
     }
     seedsInInv = n;
   }
-  achievements.syncSilently({ level: level.get().level, armor: [armor.equipped('head'), armor.equipped('body'), armor.equipped('arms'), armor.equipped('legs')] });
+  achievements.syncSilently({ level: sharedLevel(level.get().level, shared.duoJoined() ? shared.p2.levels.level() : null), armor: [armor.equipped('head'), armor.equipped('body'), armor.equipped('arms'), armor.equipped('legs')] });
   celebrate.setPending(achievements.pendingCount());
   lock.onChange((locked) => {
     if (!locked) save.saveIfChanged();
@@ -359,7 +360,7 @@ export function wireFrame(deps: WiredSave) {
     ctx.dead = combat.dead();
     if (game.tick % 10 === 0) yokaiSample = yokaiM.list();
     ctx.yokai = yokaiSample;
-    ctx.level = level.get().level;
+    ctx.level = sharedLevel(level.get().level, shared.duoJoined() ? shared.p2.levels.level() : null);
     armorNow[0] = armor.equipped('head');
     armorNow[1] = armor.equipped('body');
     armorNow[2] = armor.equipped('arms');

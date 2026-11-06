@@ -11,6 +11,8 @@ export interface P2LifeDeps {
   p1Down: () => boolean;
   /** 戻った ステップに 1 回 */
   onReturn?: () => void;
+  /** 1P を 待っている ステップごとに 1 回（AC44。位置を とめるため） */
+  onWait?: () => void;
   /** 倒れた ステップに 1 回 */
   onDown?: () => void;
 }
@@ -61,6 +63,7 @@ export class P2Life {
     if (this.tracked) {
       if (this.left <= 1 && this.d.p1Down()) {
         this.waiting = true;
+        this.d.onWait?.();
         return;
       }
       this.waiting = false;

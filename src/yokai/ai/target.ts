@@ -20,6 +20,8 @@ export interface PlayerPos {
 /** 2P の 足もと（on = ねらえる 2P が いる） */
 export interface PartnerPos extends PlayerPos {
   on: boolean;
+  /** 2P が 参加している(倒れている・パッドが ない ときも true)。なければ on と 同じ(farTick が 読む) */
+  joined?: boolean;
 }
 
 /** 毎ステップの はじめに 1P・2P の 足もとを 書く（毎回 新しい 物は 作らない） */
@@ -29,7 +31,8 @@ export function writePlayers(f: YokaiField, p1: Vec3, p2: YokaiPartner | null): 
   f.p1.z = p1.z;
   const on = p2 !== null && p2.targetable;
   f.p2.on = on;
-  if (on) {
+  f.p2.joined = p2 !== null;
+  if (p2 !== null) {
     f.p2.x = p2.position.x;
     f.p2.y = p2.position.y;
     f.p2.z = p2.position.z;
@@ -38,8 +41,10 @@ export function writePlayers(f: YokaiField, p1: Vec3, p2: YokaiPartner | null): 
 
 /** f.px/py/pz（いま 見ている ねらい相手の 足もと）を who の 人に する */
 export function aim(f: YokaiField, who: 1 | 2): void {
-  const p = who === 2 && f.p2.on ? f.p2 : f.p1;
-  f.who = who === 2 && f.p2.on ? 2 : 1;
+  // 2P を ねらって いる とちゅうで 2P が 倒れた・ぬけた とき: 1P の 箱で 当たりを 見ない
+  // (who=2 の まま、いちばん 最後の 2P の 足もとを 使う。currentTarget が dead=true を かえて 当てずに 終わる)
+  const p = who === 2 ? f.p2 : f.p1;
+  f.who = who;
   f.px = p.x;
   f.py = p.y;
   f.pz = p.z;

@@ -191,6 +191,7 @@ export function wireDuo(deps: WiredLoop) {
       const a = controller.state.position;
       const b = ctl2.state.position;
       distance = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+      body.setShown(!play.down());
       body.step(ctl2.state);
       play.step(dt);
       const vi = viewIn;

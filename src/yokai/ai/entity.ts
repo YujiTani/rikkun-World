@@ -153,5 +153,5 @@ export interface YokaiField {
   /** 1P の 足もと（ステップの はじめに 書く） */
   p1: { x: number; y: number; z: number };
   /** ねらえる 2P の 足もと（on = いる） */
-  p2: { on: boolean; x: number; y: number; z: number };
+  p2: { on: boolean; /** 参加している(倒れて いても true)。なければ on と 同じ */ joined?: boolean; x: number; y: number; z: number };
 }

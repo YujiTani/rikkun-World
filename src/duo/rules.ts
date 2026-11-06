@@ -39,3 +39,8 @@ export function hitsTarget(_attacker: 1 | 2, target: HitTarget): boolean {
     }
   }
 }
+
+/** 落とし物を ひろえる 仲間: 倒れている 2P は ひろわない（自分の 袋も）。参加していなければ null（COOP-1 3a） */
+export function pickableMate<T>(mate: T | null, down: boolean): T | null {
+  return down ? null : mate;
+}
