@@ -3,10 +3,10 @@ export const GAMEPAD_CONFIG = {
   /** スティック遊び（0〜1）。安いパッド向けに広め */
   deadZone: 0.24,
   /** 右スティック → look の倍率（マウス感度と別。1 ステップぶん） */
-  lookSensitivity: 2.4,
+  lookSensitivity: 8,
   /** みる はやさの 下限・上限（デッドゾーンとは別） */
   lookMin: 0.4,
-  lookMax: 6,
+  lookMax: 18,
   /** − 長押しで dropStack にする秒（ステップ換算は呼び出し側） */
   dropStackHoldMs: 400,
   /** localStorage キー */

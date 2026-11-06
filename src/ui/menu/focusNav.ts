@@ -74,14 +74,14 @@ function moveFocus(root: ParentNode, dir: FocusDir): void {
 }
 
 function stepRange(input: HTMLInputElement, dir: 'left' | 'right'): void {
-  const step = Number(input.step);
+  const step = Number(input.dataset.padStep ?? input.step);
   const add = Number.isFinite(step) && step > 0 ? step : 0.1;
   const min = Number(input.min);
   const max = Number(input.max);
   const cur = Number(input.value);
   const lo = Number.isFinite(min) ? min : 0;
   const hi = Number.isFinite(max) ? max : 1;
-  const v = Math.min(hi, Math.max(lo, cur + (dir === 'right' ? add : -add)));
+  const v = Math.round(Math.min(hi, Math.max(lo, cur + (dir === 'right' ? add : -add))) * 1000) / 1000;
   input.value = String(v);
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
@@ -98,6 +98,41 @@ export function handleMenuDir(root: ParentNode, dir: FocusDir): void {
     }
   }
   moveFocus(root, dir);
+}
+
+/** 十字の 押しっぱなしで つまみを くりかえし 動かす（だんだん 速く）。数えるのは 固定ステップの 秒 */
+const REPEAT_DELAY_SEC = 0.3; // 【秒】押してから くりかえしが はじまるまで
+const REPEAT_SLOW_SEC = 0.5; // 【秒】ゆっくり（0.1 秒に 1 回）の 長さ
+const REPEAT_MID_SEC = 0.5; // 【秒】ふつう（0.05 秒に 1 回）の 長さ。そのあとは 1/60 秒に 1 回
+export class SliderRepeat {
+  private t = 0;
+  private acc = 0;
+  reset(): void {
+    this.t = 0;
+    this.acc = 0;
+  }
+  /** 押しっぱなしの 間 毎ステップ 呼ぶ。つまみの 行に いないときは 何もしない */
+  tick(root: ParentNode, dir: 'left' | 'right', dt: number): void {
+    const active = document.activeElement as HTMLElement | null;
+    const row = active?.closest('[data-slider-row]') as HTMLElement | null;
+    const input = row && root.contains(row) ? row.querySelector<HTMLInputElement>('input[type="range"]') : null;
+    if (!input) {
+      this.reset();
+      return;
+    }
+    this.t += dt;
+    if (this.t < REPEAT_DELAY_SEC) return;
+    const since = this.t - REPEAT_DELAY_SEC;
+    const interval = since < REPEAT_SLOW_SEC ? 0.1 : since < REPEAT_SLOW_SEC + REPEAT_MID_SEC ? 0.05 : 1 / 60;
+    this.acc += dt;
+    let n = 0;
+    while (this.acc >= interval - 1e-9 && n < 4) {
+      this.acc -= interval;
+      n++;
+      stepRange(input, dir);
+    }
+    if (this.acc > interval) this.acc = 0;
+  }
 }
 
 export function clickFocused(root: ParentNode): void {

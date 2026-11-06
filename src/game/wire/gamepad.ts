@@ -3,7 +3,7 @@ import type { Game } from '../Game';
 import type { LockController, MouseLook } from '../../input';
 import { AlwaysLook, CombinedLook, DuoPadRouter, PlayerInputSlots } from '../../input/gamepad';
 import type { ActionState } from '../../input/actions';
-import { activeMenuRoot, clickFocused, handleMenuDir } from '../../ui/menu/focusNav';
+import { activeMenuRoot, clickFocused, handleMenuDir, SliderRepeat } from '../../ui/menu/focusNav';
 
 export function wireGamepad(opts: {
   game: Game;
@@ -54,6 +54,7 @@ export function wireGamepad(opts: {
   let pumpUi: (active: boolean, dt: number) => boolean = () => false;
   /** COOP-1: 参加の 求め（2 本目の ＋）と 2P の もちもの画面は wireDuo が つなぐ */
   const duo = { onJoinRequested: (): void => undefined, menuOpen2: (): boolean => false };
+  const sliderRepeat = new SliderRepeat();
   const step = (active: boolean, dt: number): void => {
     reader.setMenuOpen(opts.menuOpen());
     reader.setHanging(opts.hanging());
@@ -62,10 +63,17 @@ export function wireGamepad(opts: {
     const padEnded = pumpUi(active, dt); // 1P の パッドで 待ちを やめた 回は フォーカスを 動かさない
     const on = reader.hasPad();
     if (on !== opts.lock.isPadActive()) opts.lock.setPadActive(on);
-    if (padEnded || !opts.menuOpen() || reader.isCapturing()) return;
+    if (padEnded || !opts.menuOpen() || reader.isCapturing()) {
+      sliderRepeat.reset();
+      return;
+    }
     const root = activeMenuRoot();
     if (!root) return;
     const a = opts.actions;
+    const pressed = a.wasPressed('focusUp') || a.wasPressed('focusDown') || a.wasPressed('focusLeft') || a.wasPressed('focusRight');
+    if (pressed) sliderRepeat.reset();
+    else if (a.isHeld('focusLeft') !== a.isHeld('focusRight')) sliderRepeat.tick(root, a.isHeld('focusLeft') ? 'left' : 'right', dt);
+    else sliderRepeat.reset();
     if (a.wasPressed('focusUp')) handleMenuDir(root, 'up');
     else if (a.wasPressed('focusDown')) handleMenuDir(root, 'down');
     else if (a.wasPressed('focusLeft')) handleMenuDir(root, 'left');

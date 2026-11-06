@@ -97,3 +97,63 @@ test('パッド疑似: standard マッピングでも primary', async ({ page })
   const held = await page.evaluate(() => window.__rikkun!.input.held());
   expect(held).toContain('primary');
 });
+
+test('パッド疑似: もちもの → つくる で 十字で レシピを えらび、B 2 回で つくれる', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => {
+    const k = window.__rikkun! as any;
+    k.pause();
+    k.lock.simulate(true);
+    for (const item of ['log', 'oil', 'coal_ore', 'stone', 'iron_ingot', 'plank', 'stick', 'string', 'fiber']) {
+      try {
+        k.inventory.add(item, 60);
+      } catch {
+        /* 無い id は とばす */
+      }
+    }
+    const buttons = Array.from({ length: 16 }, () => ({ pressed: false, touched: false, value: 0 }));
+    const pad = { id: 'Xbox Wireless Controller', index: 0, connected: true, mapping: 'standard' as GamepadMappingType, axes: [0, 0, 0, 0], buttons, timestamp: performance.now() };
+    (window as any).__rikkunPad = pad;
+    k.gamepad.injectPad(pad);
+    k.step(3);
+  });
+  const tap = async (idx: number) => {
+    await page.evaluate((i) => {
+      const k = window.__rikkun! as any;
+      const b = (window as any).__rikkunPad.buttons[i];
+      b.pressed = true;
+      b.value = 1;
+      k.step(2);
+      b.pressed = false;
+      b.value = 0;
+      k.step(2);
+    }, idx);
+  };
+  await tap(2); // Y（faceLeft）= もちもの
+  await expect(page.locator('#inventory-screen')).toBeVisible();
+  await expect(page.locator('.cp-tile').first()).toBeVisible();
+  // 十字で .cp-tile まで うごく（右・下）
+  let onTile = false;
+  for (let i = 0; i < 24 && !onTile; i++) {
+    await tap(i % 3 === 2 ? 13 : 15);
+    onTile = await page.evaluate(() => document.activeElement?.classList.contains('cp-tile') ?? false);
+  }
+  expect(onTile).toBe(true);
+  const before = await page.evaluate(() => {
+    const k = window.__rikkun! as any;
+    const id = (document.activeElement as HTMLElement).dataset.id!;
+    const r = k.craft.list().find((x: any) => x.id === id);
+    const out = r.output.item as string;
+    return { id, out, n: k.inventory.count(out) as number, input: r.inputs[0].item as string, m: k.inventory.count(r.inputs[0].item) as number };
+  });
+  await tap(0); // B（きめる）= えらぶ。右に せつめい
+  await expect(page.locator('.cp-detail')).toBeVisible();
+  expect(await page.evaluate((o) => window.__rikkun!.inventory.count(o as never), before.out)).toBe(before.n);
+  await tap(0); // もう 1 回 = つくる
+  const after = await page.evaluate((b) => {
+    const k = window.__rikkun! as any;
+    return { n: k.inventory.count(b.out) as number, m: k.inventory.count(b.input) as number };
+  }, before);
+  expect(after.n).toBeGreaterThan(before.n);
+  if (before.input !== before.out) expect(after.m).toBeLessThan(before.m);
+});
