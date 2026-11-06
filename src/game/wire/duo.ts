@@ -2,8 +2,10 @@
 // 作業 1・2 の あいだ 2P は ふだんの 遊びに 出さない: 参加できるのは `?duo=dev` の ときの テストの 口と 2 本目の ＋ だけ。
 import * as THREE from 'three';
 import { DuoBody } from '../../duo/body';
+import { hearFrom } from '../../duo/hearing';
 import { distanceMeter } from '../../duo/meter';
 import { DuoSession } from '../../duo/session';
+import { createSplitSound } from '../../duo/splitSound';
 import { DUO_TUNING } from '../../duo/tuning';
 import type { DuoHook, DuoLeaveReason, DuoState, DuoVec3, DuoViewport } from '../../duo/types';
 import { WalkRelativeActions } from '../../duo/walkActions';
@@ -43,6 +45,8 @@ export function wireDuo(deps: WiredLoop) {
   let ctl2: PlayerController | null = null;
   const walk = new WalkRelativeActions(p2Actions);
 
+  /** 分割の「しゅっ」（COOP-1 3c）: 参加が 成功して 左右に 分かれた 時だけ 1 回 */
+  const splitSound = createSplitSound(deps.fxSound);
   const ui = new DuoHud({ hud, p2Inventory: p2.inventory, hotbar1: hotbar.el, hearts1: combatUi.hearts.el });
   /** 参加のとき 1P の 今の キャラを 読む（1P が キャラを かえたら 2P も ついてくる） */
   const kindNow = (): 'girl' | 'boy' | null => (blockDollOnly || charCtl.get().kind === 'block' ? null : (charCtl.get().kind as 'girl' | 'boy'));
@@ -85,6 +89,7 @@ export function wireDuo(deps: WiredLoop) {
       pendingLook = 0;
       views.reset();
       play.onLeave();
+      splitSound.onLeft();
       body.hide();
       ui.setJoined(false);
       shared.duoCamDistance = session.cameraDistance() === DUO_TUNING.cameraSolo ? null : session.cameraDistance();
@@ -143,6 +148,7 @@ export function wireDuo(deps: WiredLoop) {
     body.show();
     body.step(c.state);
     play.onJoin();
+    splitSound.onJoined();
     return true;
   }
   // 2 本目の ＋: 作業 3 までは ?duo=dev の ときだけ 参加できる
@@ -263,6 +269,8 @@ export function wireDuo(deps: WiredLoop) {
     padChoice: () => router.choice(),
     setPadChoice: (c) => router.setChoice(c),
     padIndex: (who) => router.padIndex(who),
+    // 作業 3c（#417）: 場所の ある 音を 聞く 人（近い 方）
+    hearFrom: (pos) => hearFrom(controller.state.position, session.joined && ctl2 ? ctl2.state.position : null, pos),
   };
   return { duo: hook, duoSession: session, leaveDuo: leave };
 }

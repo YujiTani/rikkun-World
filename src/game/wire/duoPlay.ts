@@ -16,9 +16,12 @@ import type { YokaiPartner } from '../../yokai/ai/target';
 import { createRng } from '../../world/gen/random';
 import type { DuoHud } from '../../ui/duoHud';
 import type { LockStatus, Inventory, Vec3 } from '../../contracts';
+import type { GetaPlayer } from '../../craft/geta';
+import type { BladeSystem } from '../../contracts';
 import { bindWho } from '../../duo/credit';
 import { createP2Dig } from '../../duo/p2Dig';
 import { createP2DigFx } from '../../duo/p2DigFx';
+import { createP2Sounds, type P2Sounds } from '../../duo/p2Sounds';
 import { P2Life } from '../../duo/p2Life';
 import { pickableMate } from '../../duo/rules';
 import { DUO_TUNING } from '../../duo/tuning';
@@ -51,6 +54,13 @@ interface Live {
   dig: DigSystemImpl;
   fx: DigFx;
   tools: ToolSystemImpl;
+  blade: Pick<BladeSystem, 'drainEvents'>;
+  /** 2P の 音（足音・こうげき・刀と 弓。COOP-1 3c） */
+  sounds: P2Sounds;
+  /** 足音に わたす 体の ようす（使いまわす。毎ステップ new しない） */
+  walkBody: GetaPlayer;
+  /** 2P の 足もとの ブロック id */
+  ground: () => string;
   mate: { readonly position: Vec3; readonly inventory: Inventory };
   yokai: YokaiPartner;
 }
@@ -153,7 +163,21 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       // TODO(COOP-1 段階 2・2P の そうび): DamageKind の ball が ここに 伝わらない。そうびを 持たせる ときに 直す
       hurt: (amount, kind, from) => life.damage(amount, { type: 'yokai', kind, from }).applied > 0,
     };
-    return { combat, life, dig, fx, tools, mate, yokai };
+    const walkBody: GetaPlayer = { running: false, onGround: false, inWater: false, velocity: ctl.state.velocity };
+    const ground = () => world.getBlock(Math.floor(ctl.state.position.x), Math.floor(ctl.state.position.y - 0.05), Math.floor(ctl.state.position.z));
+    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound), walkBody, ground, mate, yokai };
+  }
+
+  /** 2P の 足音。1P の step.ts と 同じ 決まり: 遊び画面が 開いて いない・やられて いない・ひるんで いない ときだけ 歩く */
+  function stepFoot(l: Live): void {
+    const s = c.ctl2().state;
+    const walking = c.lock.playInputEnabled() && !l.combat.dead() && !l.combat.flinching();
+    const b = l.walkBody;
+    b.running = walking && s.running;
+    b.onGround = walking && s.onGround;
+    b.inWater = s.inWater;
+    b.velocity = s.velocity;
+    l.sounds.step(b, l.ground);
   }
 
   /** 毎ステップ（2P の 体を 動かした あと） */
@@ -162,10 +186,13 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     if (!l) return;
     l.dig.update();
     l.life.step();
-    l.combat.drainEvents();
+    // 2P の 音（1P と 同じ 音・同じ 大きさ。距離で 小さく しない。COOP-1 3c）。出来事は 毎ステップ 取り出す（たまり続けない ように）
+    l.sounds.combat(l.combat.drainEvents());
     l.combat.takeHookEvents();
-    l.tools.drainSwings();
-    l.tools.drainArrowEvents();
+    l.sounds.swings(l.tools.drainSwings(), p2.inventory.held()?.item ?? null);
+    l.sounds.arrows(l.tools.drainArrowEvents());
+    l.sounds.blade(l.blade.drainEvents());
+    stepFoot(l);
     l.tools.takeHookEvents();
     p2.levels.drainEvents();
     p2.levels.takeHookEvents();

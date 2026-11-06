@@ -8,6 +8,7 @@ import { AimMarks } from '../../ui/aimMarks';
 import { createCrosshair } from '../../camera/crosshair';
 import { Book } from '../../ui/book/Book';
 import { playBook } from '../../fx/bookSounds';
+import { nearestEar } from '../../duo/hearing';
 import { createLiquidSounds } from '../../fx/liquidSounds';
 import { FX_SETTINGS } from '../../fx/config';
 import { ImpactBus } from '../../fx/impact';
@@ -185,7 +186,7 @@ export function wirePlayer(deps: WiredInput) {
   };
   const controller = new PlayerController(world, game.input, look, lock, startPoint);
   deps.water.setFocus(() => controller.state.position); // MAGMA-SPAWN: 遠い わきどころは 休む
-  deps.water.setSound(createLiquidSounds(deps.fxSound, () => game.tick, () => controller.state.position)); // WAKIDOKORO §11
+  deps.water.setSound(createLiquidSounds(deps.fxSound, () => game.tick, (at) => nearestEar(controller.state.position, shared.duoMate()?.position ?? null, at))); // WAKIDOKORO §11。COOP-1 3c: 2P が いれば 近い 方の 人から の 距離
   shared.controller = controller;
   // CHAR-1 第 5 版: 一人称（V）はなくなった。CameraRig は受け取るだけの ActionState を使う
   // #276 手ごたえ: ヒットストップと 画面の ゆれ（ゆれは FX_SETTINGS.fxShake が 0 なら なし）
