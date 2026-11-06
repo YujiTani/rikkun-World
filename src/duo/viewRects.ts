@@ -99,3 +99,19 @@ export function viewRects(from: DuoView, to: DuoView, progress: number, w: numbe
   o.circle = !forSplit;
   return o;
 }
+
+/**
+ * ルーペ・分割・HUD を 決める 画面の 大きさ（CSS px）。
+ * キャンバスの style は resize の ハンドラ(renderer.setSize)で あとから かわるので、そこは 読まない。
+ * 入れ物(container)の 今の 大きさ → 0 なら 窓の 大きさ。
+ */
+export function liveViewSize(
+  box: { clientWidth: number; clientHeight: number } | null,
+  win: { innerWidth: number; innerHeight: number },
+  out: { w: number; h: number } = { w: 0, h: 0 },
+): { w: number; h: number } {
+  const ok = box !== null && box.clientWidth > 0 && box.clientHeight > 0;
+  out.w = ok ? box.clientWidth : win.innerWidth;
+  out.h = ok ? box.clientHeight : win.innerHeight;
+  return out;
+}
