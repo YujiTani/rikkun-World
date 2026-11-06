@@ -212,3 +212,51 @@ describe('AC17: 「さいしょから」・別の世界・読み直しで 2P の
     expect(log).toEqual([]);
   });
 });
+
+/**
+ * COOP-1 作業 3d（#418。AC72）: おとなの「よみこむ」は ファイルの 中身で 世界が かわるので、今の 2P の 持ち物は 保存に 書かない。
+ * 約束: `DuoSession.leave('import')` は saveP2 を 呼ばず、joined = false → onLeft('import') だけ（p2 は からに する）。ほかの わけは 今までどおり 保存してから。
+ * 流れ（runImport）は src/duo/reloadLeave.test.ts。
+ */
+describe('AC72: leave("import") は 保存しない', () => {
+  it('saveP2 を 呼ばず、2P は いなくなり、持ち物は からに なる', () => {
+    const { session, p2, log, store } = make();
+    session.join();
+    p2.inventory.add('dirt', 9);
+    session.leave('import');
+    expect(log).toEqual(['left:import']);
+    expect(store.saved, '保存に 書いていない').toBeNull();
+    expect(session.joined).toBe(false);
+    expect(p2.inventory.count('dirt')).toBe(0);
+  });
+  it('保存に すでに ある 2P の 分（ファイルの p2）は のこる', () => {
+    const file = new P2State();
+    file.inventory.add('stone', 5);
+    file.level = { level: 4, xp: 7 };
+    const fileSave = file.serialize();
+    const { session, p2, store } = make(fileSave);
+    session.join();
+    p2.inventory.add('dirt', 9); // 今の 2P の 持ち物
+    session.leave('import');
+    expect(store.saved).toBe(fileSave);
+  });
+  it('2P が いなければ 何も 呼ばない', () => {
+    const { session, log } = make();
+    session.leave('import');
+    expect(log).toEqual([]);
+  });
+  it('読み直した あと（新しい DuoSession）: ＋ で 参加すると ファイルの p2 の 持ち物・レベルで 始まる。p2 が なければ からっぽ', () => {
+    const file = new P2State();
+    file.inventory.add('stone', 5);
+    file.level = { level: 4, xp: 7 };
+    const withP2 = make(file.serialize());
+    expect(withP2.session.joined, '読み直した あとは 2P が いない').toBe(false);
+    withP2.session.join();
+    expect(withP2.p2.inventory.count('stone')).toBe(5);
+    expect(withP2.p2.level).toEqual({ level: 4, xp: 7 });
+    const without = make(null);
+    without.session.join();
+    expect(without.p2.inventory.count('stone')).toBe(0);
+    expect(without.p2.level).toEqual({ level: 1, xp: 0 });
+  });
+});

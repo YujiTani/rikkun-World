@@ -26,3 +26,26 @@ export function decideTitleReturn(o: TitleReturnInput): TitleReturnDecision {
 }
 
 export const TITLE_RETURN_STAY = 'ほぞん できなかったよ。このまま あそぼう';
+
+/** COOP-1 作業 3d（AC71）: タイトルへ もどる 流れの 部品（テストでは 偽物を わたす） */
+export interface TitleReturnFlow {
+  /** 今の 保存を して（待つ）、decideTitleReturn に わたす 数を 返す。2P が 参加中なら 2P の 持ち物・レベルも 保存に 入る */
+  saveNow(): Promise<TitleReturnInput>;
+  /** 2P の あとしまつ（`DuoSession.leave`）。読みなおす 直前だけ 呼ぶ */
+  leaveDuo(reason: 'reload'): void;
+  /** `location.reload()` */
+  reload(): void;
+}
+
+/**
+ * 保存 → 'reload' なら 2P を やめさせて（`leaveDuo('reload')`）読みなおす。'stay'（保存できず「ほぞん できなかったよ」）なら 2P は のこる（AC71）。
+ * wire/save.ts の setTitleReturn が 使う。
+ */
+export async function runTitleReturn(f: TitleReturnFlow): Promise<TitleReturnDecision> {
+  const decision = decideTitleReturn(await f.saveNow());
+  if (decision === 'reload') {
+    f.leaveDuo('reload');
+    f.reload();
+  }
+  return decision;
+}

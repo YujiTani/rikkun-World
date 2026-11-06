@@ -72,10 +72,10 @@ export class DuoSession {
     return this.on && this.lost;
   }
 
-  /** いなくなる: saveP2 → joined = false → onLeft の 順。いなければ 何もしない */
+  /** いなくなる: saveP2 → joined = false → onLeft の 順。いなければ 何もしない。'import'（よみこむ）だけは 保存しない（AC72） */
   leave(reason: DuoLeaveReason): void {
     if (!this.on) return;
-    this.deps.saveP2(this.deps.p2.serialize());
+    if (reason !== 'import') this.deps.saveP2(this.deps.p2.serialize());
     this.deps.p2.clear();
     this.on = false;
     this.quitSteps = 0;

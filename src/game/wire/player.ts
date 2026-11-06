@@ -19,6 +19,7 @@ import { createDialogStack, mountChoiceDialog } from '../../ui/menu/choiceDialog
 import { TITLE_RETURN_STAY } from '../../ui/menu/titleReturn';
 import { ruby } from '../../ui/text';
 import { isBodyPlaceable } from '../../save';
+import { duoWorldFrozen } from '../../duo/rules';
 import { bindKeyboardAndMouse } from '../../input/actions';
 import { wireGamepad } from './gamepad';
 import { LockController, WheelAccumulator, MouseLook, bindPointerLock } from '../../input';
@@ -56,16 +57,26 @@ export function wireInput(deps: WiredRender) {
     beforeOpen: () => game.flushRender(),
   });
   bookRef = book;
-  // 世界を 止める 画面は 2 つ: 本と、建築士さんの メニュー（HOUSE-1A。時刻・妖怪も 止まる）。建築士さんの 画面は HTML なので 描く 物は ない
+  // 世界を 止める 画面は 3 つ: 本と、建築士さんの メニュー（HOUSE-1A。時刻・妖怪も 止まる）と、2 人で あそぶ とき 1P の 全面の もちもの画面（COOP-1 AC84）。
+  // 建築士さんと もちもの画面は HTML なので 描く 物は ない
+  const duoFrozen = (): boolean => {
+    try {
+      return duoWorldFrozen({ joined: shared.duoJoined(), mode: shared.screen.mode() });
+    } catch {
+      return false; // screen を 作る 前
+    }
+  };
   game.setModal({
-    active: () => book.active() || shared.houseFrozen(),
+    active: () => book.active() || shared.houseFrozen() || duoFrozen(),
     tick: () => {
       if (book.active()) book.tick();
-      else shared.houseModal.tick();
+      else if (shared.houseFrozen()) shared.houseModal.tick();
+      else gamepadApi?.modalStep(); // 1P の パッドで もちもの画面を とじられる ように（updaters は 動かない）
+      shared.duoModalTick();
     },
     render: () => {
       if (book.active()) book.render();
-      else shared.houseModal.render();
+      else if (shared.houseFrozen()) shared.houseModal.render();
     },
   });
   game.input.onPress((action) => book.onAction(action));
