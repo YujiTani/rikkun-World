@@ -139,7 +139,8 @@ test('AC29: 2P だけが 1P から 200 マス 行っても 落ちない(読み�
   expect(s.columns).toBeLessThanOrEqual(595);
   expect(s.view).toBe('split');
 
-  // 2P が 待っていた あいだも 1P は 遊べる(歩ける)
+  // 2P が 待っていた あいだも 1P は 遊べる(歩ける)。「クリックして あそぼう」を 閉じた 状態(ロック中)に する
+  await page.evaluate(() => (window as any).__rikkun.lock.simulate(true));
   const a = (await pos(page, 1))!;
   await page.evaluate(() => (window as any).__rikkun.input.press('moveForward'));
   await step(page, 30);

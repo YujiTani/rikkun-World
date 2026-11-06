@@ -59,7 +59,7 @@ html[data-duo] #hotbar-p2 {
   left: 50%;
   transform: translateX(-50%);
   box-sizing: border-box;
-  padding: calc(var(--rk-fs-small) * 1.6 + var(--rk-sp-2)) var(--rk-sp-3) var(--rk-sp-2); /* 上は P1・P2 の バッジの ぶん */
+  padding: var(--rk-sp-6) var(--rk-sp-3) var(--rk-sp-2); /* 上は P1・P2 の バッジの ぶん（UI の きまりの 段 32px） */
   background: var(--rk-hud-bg);
   border-radius: var(--rk-r-m);
   text-shadow: var(--rk-text-outline);
@@ -180,7 +180,7 @@ html[data-duo] #hotbar-p2 {
   min-width: 1.4em;
   padding: 0 var(--rk-sp-2);
   text-align: center;
-  font-size: calc(var(--rk-fs-head) * 1.6);
+  font-size: var(--rk-fs-title); /* 字の 大きさの 段（1280 で 32px） */
   font-weight: 900;
   line-height: 1.3;
   color: var(--rk-bg-900);
@@ -215,7 +215,7 @@ html[data-duo] #hotbar-p2 {
   position: fixed;
   box-sizing: border-box;
   border-style: solid;
-  border-radius: 50%;
+  border-radius: var(--rk-r-pill); /* まる（UI の きまりは px。999px で まるになる） */
   border-color: var(--rk-text);
   border-width: 4px;
   box-shadow: 0 0 0 2px var(--rk-bg-900), inset 0 0 0 2px var(--rk-bg-900); /* こい 2px の ふち（外と 内） */
