@@ -22,7 +22,7 @@ import type { BossHandle, GashaRelease } from '../../gasha/release';
 import { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
 import type { HouseSystem } from '../../house/system';
 import { P2State } from '../../duo/p2State';
-import type { P2Save } from '../../duo/types';
+import type { DuoLeaveReason, P2Save } from '../../duo/types';
 
 // WEAPON-7: 雷の 見た目（十字の ドット絵・着地の 光・光の つぶ）
 export const IDLE_THUNDER_LOOK = { charging: false, ready: false, aimS: null };
@@ -42,6 +42,8 @@ interface Shared {
   p2Store: { saved: P2Save | null };
   /** COOP-1: 2P が 参加しているか（時間の 倍率・セーブが 読む。wireDuo が 差しかえる） */
   duoJoined: () => boolean;
+  /** COOP-1 3d（AC71・AC72）: 2P を やめさせる（タイトルへ もどる・よみこむ で 読みなおす 直前に 呼ぶ。2P が いなければ 何もしない。wireDuo が 差しかえる） */
+  leaveDuo: (reason: DuoLeaveReason) => void;
   /** COOP-1 3a: 仲間（2P）の 足もとと 持ち物（参加していなければ null。落とし物・動物・1P の 置く が 読む。wireDuo が 差しかえる。返す 物は いつも 同じ 1 つ） */
   duoMate: () => { position: Vec3; inventory: Inventory } | null;
   /** COOP-1 3a: 落とし物を ひろえる 仲間（倒れている あいだは null。DropField だけが 読む。wireDuo が 差しかえる） */
@@ -72,6 +74,8 @@ interface Shared {
   houseFrozen: () => boolean;
   /** HOUSE-1B: エディターが 開いて いる 間の 1 コマ（見本の 向き・ふきだしの 時間）と 描画（見本）。player.ts の 窓が 呼ぶ。開いて いなければ 何も しない */
   houseModal: { tick: () => void; render: () => void };
+  /** COOP-1 作業 3d（AC84）: modal が active の あいだ 1 コマごとに 呼ぶ（2P の「ちょっと まってね」・「＋で さんか」の 出し入れ。wireDuo が 差しかえる） */
+  duoModalTick: () => void;
   requestSave: () => void;
   skipSignalLog: boolean;
   onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
@@ -126,6 +130,7 @@ export function createShared(): Shared {
     p2Hp: () => 0,
     p2Store: { saved: null },
     duoJoined: () => false,
+    leaveDuo: () => {},
     duoCamDistance: null,
     gameTimeScale: () => 1,
     gashaBgmFade: {},
@@ -137,6 +142,7 @@ export function createShared(): Shared {
     house: null,
     houseFrozen: () => false,
     houseModal: { tick: () => undefined, render: () => undefined },
+    duoModalTick: () => {},
     requestSave: () => {},
     skipSignalLog: false,
     onDropPicked: () => {},

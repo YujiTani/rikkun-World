@@ -26,7 +26,8 @@ import { isSolidIndex } from '../../world/blocks/blockTypes';
 import { createTetherLine } from '../../world/render/tetherLine';
 import { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
 import { saveShadowPref } from '../../world/render/shadow/shadowPref';
-import { decideTitleReturn } from '../../ui/menu/titleReturn';
+import { runTitleReturn } from '../../ui/menu/titleReturn';
+import { runImport } from '../../save/importFlow';
 import { createShadowSetting } from '../../ui/shadowSetting';
 import { START_PITCH_DEG } from '../../player/config';
 import { computeFarmPlacement, applyFarmPlacement } from '../../world/gen/farmPlacement';
@@ -248,22 +249,26 @@ export function wireSave(deps: WiredAchievements) {
     craft.closeFurnace();
     save.saveIfChanged();
   });
-  setTitleReturn(async () => {
-    const before = save.info().failures;
-    await save.now();
-    const info = save.info();
-    const decision = decideTitleReturn({
-      enabled: info.enabled,
-      nosave: saveOptions.nosave,
-      failuresBefore: before,
-      failuresAfter: info.failures,
-      held: save.holdWrites,
-      dirty: info.pendingChunks > 0,
-    });
-    // 成功しても「ほぞんした」とは言わない。失敗したら読みこまない（呼び出し側が文を出す）
-    if (decision === 'reload') location.reload();
-    return decision;
-  });
+  // 成功しても「ほぞんした」とは言わない。失敗したら読みこまない（呼び出し側が文を出す）。読みなおす 直前に 2P を やめさせる（COOP-1 AC71）
+  setTitleReturn(() =>
+    runTitleReturn({
+      saveNow: async () => {
+        const before = save.info().failures;
+        await save.now();
+        const info = save.info();
+        return {
+          enabled: info.enabled,
+          nosave: saveOptions.nosave,
+          failuresBefore: before,
+          failuresAfter: info.failures,
+          held: save.holdWrites,
+          dirty: info.pendingChunks > 0,
+        };
+      },
+      leaveDuo: (reason) => shared.leaveDuo(reason),
+      reload: () => location.reload(),
+    }),
+  );
   save.bindPageEvents(window, document);
   if (idb) {
     // おとな向け: ほぞんを ファイル（.rikkun.gz）に だす・よみこむ（Safari の 7 日消去にそなえる）
@@ -278,17 +283,19 @@ export function wireSave(deps: WiredAchievements) {
         setTimeout(() => URL.revokeObjectURL(a.href), 10000);
       },
       importSave: async (file) => {
-        if (!window.confirm('いまの せかいが ファイルの ものに かわります。いいですか？')) return;
-        try {
-          save.suspend(); // 読みなおすまで、いまの世界で ファイルの中身を 上書きしない
-          await save.idle();
-          await importSave(idb, saveId, new Uint8Array(await file.arrayBuffer()), seed);
-          store?.removeItem(PENDING_KEY);
-          location.reload();
-        } catch (e) {
-          save.resume();
-          window.alert(e instanceof Error ? e.message : 'よみこめませんでした');
-        }
+        await runImport({
+          confirm: () => window.confirm('いまの せかいが ファイルの ものに かわります。いいですか？'),
+          suspendSave: () => save.suspend(), // 読みなおすまで、いまの世界で ファイルの中身を 上書きしない
+          resumeSave: () => save.resume(),
+          idle: () => save.idle(),
+          writeFile: async () => {
+            await importSave(idb, saveId, new Uint8Array(await file.arrayBuffer()), seed);
+            store?.removeItem(PENDING_KEY);
+          },
+          leaveDuo: (reason) => shared.leaveDuo(reason), // 2P の 持ち物は 保存に 書かない（ファイルの p2 を のこす。COOP-1 AC72）
+          reload: () => location.reload(),
+          alert: (m) => window.alert(m),
+        });
       },
     });
   }

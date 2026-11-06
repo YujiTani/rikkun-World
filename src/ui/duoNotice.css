@@ -1,0 +1,45 @@
+/*
+ * COOP-1 作業 3d: 「＋で さんか」（1 人の ときの 下の まん中）と「ちょっと まってね」（2P の 右半分の まん中）。
+ * 色・大きさは tokens.css の 変数。ホットバーの 上に のせる（duoHud.css の duo-pad-lost と 同じ 高さの 取り方）。
+ */
+.duo-join-hint,
+.duo-wait {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-3);
+  padding: var(--rk-sp-2) var(--rk-sp-4);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-m);
+  border: var(--rk-bw) solid var(--rk-rarity-3);
+  color: var(--rk-text);
+  font-size: var(--rk-fs-head);
+  font-weight: 800;
+  text-align: center;
+  text-shadow: var(--rk-text-outline);
+  pointer-events: none;
+  z-index: 7;
+}
+.duo-join-hint[hidden],
+.duo-wait[hidden] {
+  display: none;
+}
+.duo-join-hint {
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--hb-bottom) + var(--rk-slot-hotbar) + var(--rk-sp-7) * 2);
+  max-width: 90vw;
+}
+.duo-join-hint-icon {
+  flex: none;
+  display: block;
+  width: calc(var(--rk-fs-head) * 1.6);
+  height: calc(var(--rk-fs-head) * 1.6);
+  color: var(--rk-rarity-3);
+}
+.duo-wait {
+  left: 75%;
+  top: 45%;
+  transform: translate(-50%, -50%);
+  max-width: 45vw;
+}
