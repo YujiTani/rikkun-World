@@ -35,7 +35,7 @@ export interface RoomBox {
   z1: number;
 }
 
-/** 列に 置く 物（mineShafts.ts の ColOps と 同じ 並び。ring ＝ かべの 石〔固く する だけ〕） */
+/** 列に 置く 物（mineShafts.ts の ColOps と 同じ 並び。ring は 使わない） */
 export interface RoomColOps {
   ring: Int32Array;
   air: Int32Array;
@@ -425,11 +425,10 @@ function opsOf(g: Grid, cells: number[], coord: (i: number) => [number, number, 
     else if (g.b[i]) l.put.push(pack(g.b[i]!, y, z & 15, x & 15));
     else l.air.push(pack(BLOCK_INDEX.air, y, z & 15, x & 15));
   }
-  // かべの 石は「固く する」だけ（もとが 鉱石など 固い 物なら そのまま。鉱石は ほらあなを ほった あとに 置く きまり）
   for (let i = 0; i < g.b.length; i++) {
     if (!g.b[i] || g.a[i]) continue;
     const [x, y, z] = coord(i);
-    (g.b[i] === STONE ? slot(x, z).ring : slot(x, z).put).push(pack(g.b[i]!, y, z & 15, x & 15));
+    slot(x, z).put.push(pack(g.b[i]!, y, z & 15, x & 15));
   }
   const out = new Map<number, RoomColOps>();
   for (const [k, l] of lists) out.set(k, { ring: Int32Array.from(l.ring), air: Int32Array.from(l.air), put: Int32Array.from(l.put) });
