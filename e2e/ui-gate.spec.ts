@@ -16,6 +16,7 @@ import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid
 import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house';
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
+import { duoHudIssues, openDuoHud } from './helpers/duoUi';
 import { PICK_ROOTS, SITE_NEED_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen, siteNeedIssues } from './helpers/houseSite';
 
 /**
@@ -527,6 +528,18 @@ const coopMenuScreen = (id: string, page: 1 | 2 | 3): Screen => ({
   },
 });
 SCREENS.push(coopMenuScreen('coop-menu-1', 1), coopMenuScreen('coop-menu-2', 2), coopMenuScreen('coop-menu-3', 3));
+
+/**
+ * COOP-1 作業 1（#395）AC12・AC13: 2 人のときの HUD（左右の ホットバー・ハート・距離メーター）。3 つの 大きさで 重ならない・はみ出さない・
+ * 左右の 半分の 90% に おさまる。メーターの 長さ・色の 段は `extra`（e2e/helpers/duoUi.ts）。
+ * 作業 2 で ルーペ・分割・「つないでね」の 画面を ここに 足す（AC24・AC33・AC33b。openDuoLoupe など）。
+ */
+SCREENS.push({
+  id: 'duo-hud',
+  roots: ['#hud', '[data-testid="duo-hotbar-p1"]', '[data-testid="duo-hotbar-p2"]', '[data-testid="duo-meter"]'],
+  open: openDuoHud,
+  extra: duoHudIssues,
+});
 
 /**
  * CHAR-4 AC18: 刀の軌跡が 出ている 場面で HUD の はみ出し・重なりが 0。

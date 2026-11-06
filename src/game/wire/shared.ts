@@ -20,6 +20,8 @@ import { PlayerController } from '../../player/PlayerController';
 import type { BossHandle, GashaRelease } from '../../gasha/release';
 import { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
 import type { HouseSystem } from '../../house/system';
+import { P2State } from '../../duo/p2State';
+import type { P2Save } from '../../duo/types';
 
 // WEAPON-7: 雷の 見た目（十字の ドット絵・着地の 光・光の つぶ）
 export const IDLE_THUNDER_LOOK = { charging: false, ready: false, aimS: null };
@@ -33,6 +35,16 @@ export const NO_PLATES: { id: number; text: string; x: number; y: number; z: num
 export const NO_DIG: DigEvent[] = [];
 
 interface Shared {
+  /** COOP-1: 2P の もちものと レベル（参加している あいだだけ 中身が ある。やめたら 空） */
+  p2: P2State;
+  /** COOP-1: 2P の 最後の 保存（やめたとき・セーブから 読んだとき。次に 参加すると ここから 戻る） */
+  p2Store: { saved: P2Save | null };
+  /** COOP-1: 2P が 参加しているか（時間の 倍率・セーブが 読む。wireDuo が 差しかえる） */
+  duoJoined: () => boolean;
+  /** COOP-1: 2 人のときの カメラの 距離（null = 1 人。step.ts が rig に 渡す。wireDuo が 毎ステップ 書く） */
+  duoCamDistance: number | null;
+  /** COOP-1: Game に 渡している 時間の 倍率（テストの 口 duo.timeScale() が 読む。wireLoop が 差しかえる） */
+  gameTimeScale: () => number;
   // #293 試作: ふだんの BGM の フェード（gashaBgm.ts が きめる）
   gashaBgmFade: { outSec?: number; inSec?: number; delaySec?: number };
   // #293 試作: がしゃどくろの 曲（gashaBgm.ts。少女「災厄」・大きな 姿「神々の 戯れ」）が 流れて いる 間 true。係は ページに 1 つ なので 少女と 大きな 姿で ぶつからない
@@ -95,6 +107,11 @@ interface Shared {
 
 export function createShared(): Shared {
   return {
+    p2: new P2State(),
+    p2Store: { saved: null },
+    duoJoined: () => false,
+    duoCamDistance: null,
+    gameTimeScale: () => 1,
     gashaBgmFade: {},
     girlBgmOn: false,
     streamHost: null,

@@ -39,9 +39,9 @@ import { createHouseHook } from '../house/hook';
 import { lookDirection } from '../dig/raycast';
 import { computeFarmPlacement } from '../world/gen/farmPlacement';
 import { digSettingsView, settingsViewOf, sharedSettingsView } from './settingsViews';
-import type { WiredLoop } from '../game/wire/save';
+import type { WiredDuo } from '../game/wire/duo';
 
-export function installGameHook(deps: WiredLoop): void {
+export function installGameHook(deps: WiredDuo): void {
   const {
     shared, game, overlay, host, startBoot, world, charCtl, controller, setShadow, seed, achievements,
     countryWatch, renderer, island, save, blobShadow, sky, parry, thunderFx, legend, legendBook, waveSys,
@@ -54,7 +54,7 @@ export function installGameHook(deps: WiredLoop): void {
     currentKitRows, animalFx, animalHint, aimPointInto, combat, lockHook, book, look, wheel, mixer, bgm,
     bgmScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
     m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets, seat, water,
-    gamepadApi,
+    gamepadApi, duo,
   } = deps;
   installTestHook(game, overlay, () => host.everReady, {
     start: startBoot.hook,
@@ -326,6 +326,7 @@ export function installGameHook(deps: WiredLoop): void {
     gamepad: gamepadApi
       ? {
           injectPad: (pad: Gamepad | null) => gamepadApi!.injectPad(pad),
+          injectPads: (pads: Array<Gamepad | null>) => gamepadApi!.injectPads(pads),
           hasPad: () => gamepadApi!.reader.hasPad(),
           snapshot: () => gamepadApi!.reader.snapshot(),
           openPanel: () => document.querySelector<HTMLButtonElement>('[data-testid="settings-open"]')?.click(),
@@ -334,6 +335,7 @@ export function installGameHook(deps: WiredLoop): void {
           settings: () => gamepadApi!.reader.getSettings(),
         }
       : null,
+    duo,
     audio: createAudioHook({
       mixer,
       bgm,

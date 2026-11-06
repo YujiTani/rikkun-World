@@ -12,6 +12,7 @@ import { wireSave, wireFrame, wireLoop } from './game/wire/save';
 import { createStep } from './game/step';
 import { installGameHook } from './debug/installTestHook';
 import { wireGasha } from './game/wire/gasha';
+import { wireDuo } from './game/wire/duo';
 import { buildMagmaDemo, wantsMagmaDemo } from './debug/magmaDemo';
 
 await loadIconAtlas().catch(() => undefined); // ICON-32: 32×32 の アイコン（失敗しても 16×16 で 動く）
@@ -34,12 +35,13 @@ const w16 = Object.assign(w15, wireFrame(w15));
 const { game } = w16;
 game.onUpdate(createStep(w16));
 const w17 = Object.assign(w16, wireLoop(w16));
-installGameHook(w17);
-wireGasha(w17);
+const w18 = Object.assign(w17, wireDuo(w17)); // 2 人で あそぶ（COOP-1。?duo=dev の ときだけ 2P が 出る）
+installGameHook(w18);
+wireGasha(w18);
 // MAGMA-SPAWN: ?demo=magma の ときだけ、はじめの 場所の 前に マグマの 見本を 1 回 置く（列が 読みこまれた ステップで）
 if (wantsMagmaDemo(location.search)) {
   let done = false;
-  w17.game.onUpdate(() => {
-    if (!done) done = buildMagmaDemo(w17.world, w17.water, w17.spawnPlain());
+  w18.game.onUpdate(() => {
+    if (!done) done = buildMagmaDemo(w18.world, w18.water, w18.spawnPlain());
   });
 }
