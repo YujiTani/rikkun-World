@@ -335,7 +335,7 @@ export class YokaiSpawner {
       const far1 = dx * dx + dz * dz > lim * lim;
       const dx2 = e.x - f.p2.x;
       const dz2 = e.z - f.p2.z;
-      const far2 = !(f.p2.joined ?? f.p2.on) || dx2 * dx2 + dz2 * dz2 > lim * lim;
+      const far2 = !f.p2.on || dx2 * dx2 + dz2 * dz2 > lim * lim;
       if (far1 && far2) e.remove = true;
       // 列が捨てられたら、その列の妖怪は 静かに消す（VOX-D。落とし物なし）
       else if (!world.isLoaded(Math.floor(e.x), Math.floor(e.z))) e.remove = true;
