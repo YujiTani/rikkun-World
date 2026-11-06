@@ -1,4 +1,4 @@
-import { CHEST_BLOCK_IDS, CHEST_RIGHT, chestBlockInfo, type ChestCompass, type ChestTier } from '../../blocks/chestBlock';
+import { CHEST_BLOCK_IDS, CHEST_RIGHT, chestBlockInfo, chestFrontAt, type ChestCompass, type ChestTier } from '../../blocks/chestBlock';
 import { shapeKind } from './common';
 import { LOOK_N, type KindSpec } from './types';
 
@@ -202,7 +202,13 @@ export function setChestLidless(x: number, y: number, z: number, on: boolean): v
   else LIDLESS.delete(lidlessKey(x, y, z));
 }
 
-/** 宝箱 64 この 見た目。P = パレットに 色を 入れて 色番号を 返す 関数 */
+/** 前の 向きを きめる ために となりの ブロックを 読む 関数（ゲームの つなぎで 入れる。なければ 北向き） */
+let worldReader: ((x: number, y: number, z: number) => string) | null = null;
+export function setChestWorldReader(f: ((x: number, y: number, z: number) => string) | null): void {
+  worldReader = f;
+}
+
+/** 宝箱 16 この 見た目。P = パレットに 色を 入れて 色番号を 返す 関数 */
 export function createChestKinds(P: (hex: string) => number): Record<string, KindSpec> {
   const idx = new Map<ChestTier, ReturnType<typeof colorIndex>>();
   const out: Record<string, KindSpec> = {};
@@ -213,8 +219,6 @@ export function createChestKinds(P: (hex: string) => number): Record<string, Kin
     const color = ci;
     const g = gridsOf(info.tier);
     const openGrid = info.open ? g.open : g.closed;
-    const right = CHEST_RIGHT[info.front];
-    const front = CHEST_FRONT_VEC[info.front];
     const du = info.rest ? N : 0;
     const base = P(PAL[info.tier].W!);
     out[id] = {
@@ -222,6 +226,9 @@ export function createChestKinds(P: (hex: string) => number): Record<string, Kin
       occludes: false, // ひくい 箱 なので どの 面にも すきまが ある（となりの 面は かくさない）
       fill: (bx, by, bz, _exposed, o) => {
         o.fill(0);
+        const f = (worldReader && chestFrontAt(worldReader, bx, by, bz)) || 'n';
+        const right = CHEST_RIGHT[f];
+        const front = CHEST_FRONT_VEC[f];
         const grid = info.open && LIDLESS.has(lidlessKey(bx, by, bz)) ? g.bodyOpen : openGrid;
         for (let y = 0; y < N; y++) {
           for (let sz = 0; sz < N; sz++) {

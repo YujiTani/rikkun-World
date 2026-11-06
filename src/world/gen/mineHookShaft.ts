@@ -2,7 +2,7 @@ import type { BlockId, ItemId, Rarity, VoxelWorld } from '../../contracts';
 import { itemDef } from '../../content/items/registry';
 import { RARITY_ORDER } from '../../drops/rarityTable';
 import { KODO_GEN, SAVE_GEN } from '../../save/gens';
-import { chestBlockId, chestBlockInfo, chestPartner, type ChestCompass } from '../blocks/chestBlock';
+import { chestBlockId, chestBlockInfo, chestFrontAt, chestPartner, type ChestCompass } from '../blocks/chestBlock';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { colKey } from '../stream/ring';
 import { buildBlocks } from './chunk';
@@ -66,11 +66,13 @@ export function createShaftHook(o: ShaftHookOptions) {
     const bz = Math.floor(z);
     const info = chestBlockInfo(o.world.getBlock(bx, by, bz));
     if (!info) return null;
-    const other = chestPartner(bx, bz, info);
+    const front = chestFrontAt((px, py, pz) => o.world!.getBlock(px, py, pz), bx, by, bz);
+    if (!front) return null;
+    const other = chestPartner(bx, bz, info, front);
     const mainXZ = info.rest ? other : { x: bx, z: bz };
     const restXZ = info.rest ? { x: bx, z: bz } : other;
     const main = { x: mainXZ.x, y: by, z: mainXZ.z };
-    return { table: 'kodo', tier: info.tier, opened: info.open, main, cells: [main, { x: restXZ.x, y: by, z: restXZ.z }], front: info.front };
+    return { table: 'kodo', tier: info.tier, opened: info.open, main, cells: [main, { x: restXZ.x, y: by, z: restXZ.z }], front };
   }
 
   /** 計画から 宝箱を さがす（世界を 読まない。あける 前と あとで 同じ） */
@@ -105,9 +107,8 @@ export function createShaftHook(o: ShaftHookOptions) {
     }
     const roll = previewOf(at.tier, at.main);
     // 先に ブロックを あいた 形に する〔出口が 世界を さわっても 2 回 あかない〕
-    const info = chestBlockInfo(o.world!.getBlock(at.main.x, at.main.y, at.main.z))!;
     if (o.world!.setBlock) {
-      at.cells.forEach((c, i) => o.world!.setBlock!(c.x, c.y, c.z, chestBlockId(at.tier, true, i === 1, info.front) as BlockId));
+      at.cells.forEach((c, i) => o.world!.setBlock!(c.x, c.y, c.z, chestBlockId(at.tier, true, i === 1) as BlockId));
     }
     let top: { item: ItemId; r: number } | null = null;
     for (const it of roll.items) {

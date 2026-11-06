@@ -36,7 +36,7 @@ import { createMineHook } from '../world/gen/mineHook';
 import { KODO_GEN } from '../save/SaveManager';
 import { CHEST_SOUNDS } from '../fx/chestSounds';
 import { ChestLidFx } from '../fx/chestLidFx';
-import { setChestLidless } from '../world/render/looks/chestLooks';
+import { setChestLidless, setChestWorldReader } from '../world/render/looks/chestLooks';
 import { createWorldHook } from '../world/hook';
 import { createRenderHook } from '../world/render/renderHook';
 import { createShadowHook } from '../world/render/shadow/shadowHook';
@@ -109,6 +109,7 @@ export function installGameHook(deps: WiredLoop): void {
       },
     },
   });
+  setChestWorldReader((x, y, z) => world.getBlock(x, y, z));
   const lidFx = new ChestLidFx(game.scene);
   const pending = new Set<() => void>();
   game.onUpdate(() => lidFx.step());

@@ -172,7 +172,7 @@ export function planShaft(G: Geo, site: Site, id: string, start: boolean, isOldC
     const main = cells[0]!;
     const tier = chestTierAt(seed, main.x, main.y, main.z);
     cells.forEach((c, i) => {
-      b.put.set(keyOf(c.x, c.y, c.z), BLOCK_INDEX[chestBlockId(tier, false, i === 1, front)]);
+      b.put.set(keyOf(c.x, c.y, c.z), BLOCK_INDEX[chestBlockId(tier, false, i === 1)]);
       chestCells.add(keyOf(c.x, c.y, c.z));
     });
     chest = { x: main.x, y: main.y, z: main.z, cells: cells.map((c) => ({ ...c })), front, tier };
