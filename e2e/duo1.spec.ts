@@ -254,7 +254,14 @@ test('AC11・AC84・AC15: 2P の パネルを 開いても 倍率は 1。1P の 
   expect(await page.evaluate(() => (window as any).__rikkun.duo.timeScale()), '2P の パネル: ゆっくりに しない・止めない').toBe(1);
   await expect(page.getByTestId('duo-wait')).toBeHidden();
 
-  // AC84: 2P の パネルが 開いたまま 1P が 全面の もちもの画面を 開く → 世界が 止まり、2P の 側に「ちょっと まってね」。2P の スティックでも 動かない
+  // 2P の パネルを とじる（開いている あいだは 2P の スティックは カーソルで 体は 歩かない。歩きを 見る 所では とじておく）
+  await setPad(page, 1, { buttons: [1] }); // B（もどる）で とじる
+  await step(page, 3);
+  await setPad(page, 1, {});
+  await step(page, 3);
+  await expect(page.getByTestId('duo-inv-p2')).toBeHidden();
+
+  // AC84: 1P が 全面の もちもの画面を 開く → 世界が 止まり、2P の 側に「ちょっと まってね」。2P の スティックでも 動かない
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
     h.input.press('toggleInventory');
@@ -282,8 +289,11 @@ test('AC11・AC84・AC15: 2P の パネルを 開いても 倍率は 1。1P の 
   await step(page, 3);
   await setPad(page, 0, {});
   await step(page, 3);
+  // B は Esc と 同じ「とじて 案内画面へ」（closeToGuide。E2E は ロックが ふりなので 案内画面が 出る）。クリックの かわりに ロックを かけ直す
+  await expect(page.getByTestId('duo-wait'), 'とじたら「ちょっと まってね」は 消える').toBeHidden();
+  await page.evaluate(() => (window as any).__rikkun.lock.simulate(true));
+  await step(page, 2);
   expect(await page.evaluate(() => (window as any).__rikkun.duo.timeScale()), 'とじたら 動きだす').toBe(1);
-  await expect(page.getByTestId('duo-wait')).toBeHidden();
   // とじた その ステップから 動きだす: 2P の スティックを 倒したまま step(1) で 位置が かわる
   await setPad(page, 1, {});
   await step(page, 2);
@@ -292,6 +302,30 @@ test('AC11・AC84・AC15: 2P の パネルを 開いても 倍率は 1。1P の 
   await step(page, 1);
   const g1 = (await pos(page, 2))!;
   expect(Math.hypot(g1.x - g0.x, g1.z - g0.z), 'とじた あと step(1) で 2P が 動く').toBeGreaterThan(0);
+  await setPad(page, 1, {});
+  await step(page, 2);
+
+  // 2P の パネルが 開いていても 同じ: 1P の 全面で 止まり、とじると 続き（パネルは 開いたまま）
+  await setPad(page, 1, { buttons: [2] });
+  await step(page, 3);
+  await setPad(page, 1, {});
+  await step(page, 3);
+  await expect(page.getByTestId('duo-inv-p2')).toBeVisible();
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.input.press('toggleInventory');
+    h.input.release('toggleInventory');
+    h.step(3);
+  });
+  await expect(page.getByTestId('duo-wait')).toContainText('まってね');
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.input.press('toggleInventory');
+    h.input.release('toggleInventory');
+    h.step(3);
+  });
+  await expect(page.getByTestId('duo-wait')).toBeHidden();
+  expect(await page.evaluate(() => (window as any).__rikkun.duo.timeScale())).toBe(1);
   await setPad(page, 1, {});
   await step(page, 2);
   await expect(page.getByTestId('duo-inv-p2'), '2P の パネルは 開いたまま').toBeVisible();
