@@ -153,3 +153,23 @@
 .pad-part.is-pick circle,
 .pad-part.is-pick rect { stroke: #4fc3f7; }
 .pad-slash { margin: 0 3px; color: var(--rk-accent, #ffc83d); }
+/* ことばが同じ操作（L・R）を 1 まいにした札: 印は 1 つずつ押せる */
+.pad-call.is-multi { cursor: default; }
+.pad-call.is-multi .pad-call-badge { padding: 0; gap: 0; }
+.pad-part-btn {
+  min-width: 44px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.pad-part-btn + .pad-part-btn { border-left: 2px solid var(--rk-accent, #ffc83d); }
+.pad-part-btn.is-wait,
+.pad-part-btn.is-pick { outline: 4px solid #4fc3f7; outline-offset: -4px; }
+.pad-part-btn:focus { outline: 4px solid var(--rk-accent, #ffc83d); outline-offset: -4px; }
+.pad-call.is-multi .pad-call-text { white-space: normal; line-height: 1.15; padding: 0 4px; }

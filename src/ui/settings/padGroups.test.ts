@@ -17,7 +17,7 @@ describe('ゲームパッドの札', () => {
   it('割り当てのない面（あき）は札にしない。スティックは出す', () => {
     expect(labels.some((l) => l.text === 'あき')).toBe(false);
     expect(labels.find((l) => l.stick === 'stickL')?.text).toBe('あるく');
-    expect(labels.find((l) => l.stick === 'stickR')?.text).toBe('みる');
+    expect(labels.find((l) => l.stick === 'stickR')?.text).toBe('カメラを うごかす');
   });
 
   it('意味が 2 つの ことばは スラッシュでつなぐ', () => {
@@ -31,6 +31,13 @@ describe('ゲームパッドの札', () => {
   it('できごとは − の札に まとまり、十字の左の札は出ない', () => {
     expect(labels.find((l) => l.action === 'openLog')!.group).toBe('minus');
     expect(PAD_GROUPS.find((g) => g.id === 'minus')!.side).toBe('topLeft');
+  });
+
+  it('L と R は ことばが同じなので 1 まいにまとめ、割り当ては 1 つずつ', () => {
+    const hot = labels.filter((l) => l.text === 'てにもつを きりかえる');
+    expect(hot).toHaveLength(1);
+    expect(hot[0]!.parts.map((p) => [p.action, p.faces.join()])).toEqual([['hotbarPrev', 'l1'], ['hotbarNext', 'r1']]);
+    expect(labels.find((l) => l.action === 'toggleView')?.text).toBe('カメラ きりかえ');
   });
 
   it('どの札も、まとまりのどれかに入る', () => {

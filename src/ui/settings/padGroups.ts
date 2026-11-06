@@ -63,7 +63,7 @@ export const PAD_GROUPS: readonly PadGroup[] = [
   { id: 'zr', side: 'right', box: at(432, PAD_CENTER.shoulder, 146, SHOULDER_BOX_H), faces: ['r2', 'r1'] },
   { id: 'plus', side: 'topRight', box: at(364, PAD_CENTER.mid, 56, 40), faces: ['start'] },
   { id: 'abxy', side: 'right', box: at(488, PAD_CENTER.abxy, 138, 138), faces: ['faceTop', 'faceLeft', 'faceRight', 'faceBottom'] },
-  { id: 'stickR', side: 'right', box: at(476, PAD_CENTER.stickR, 88, 82), faces: ['r3'], stick: { id: 'stickR', text: 'みる' } },
+  { id: 'stickR', side: 'right', box: at(476, PAD_CENTER.stickR, 88, 82), faces: ['r3'], stick: { id: 'stickR', text: 'カメラを うごかす' } },
 ];
 
 /** 札 1 枚。faces は右の印（同じ ことばが 2 つの ボタンに あるときは 並べる） */
@@ -73,8 +73,10 @@ export interface PadLabel {
   text: string;
   group: string;
   faces: readonly PadFace[];
-  /** 割り当て直しできるときの action */
+  /** 割り当て直しできるときの action（まとめた札では 先頭） */
   action: Action | null;
+  /** 札にまとめた操作ごとの 割り当て（ことばが同じ L・R は 1 まいにして 2 つ入る） */
+  parts: { action: Action; faces: PadFace[] }[];
   /** スティック（印は スティックの絵） */
   stick?: 'stickL' | 'stickR';
 }
@@ -84,22 +86,35 @@ type Binds = Partial<Record<PadFace, Action | null>>;
 /** フィールド（あそぶ とき）。同じ意味は 1 枚にまとめ、割り当てのない面は出さない（SETTINGS-1） */
 export function playLabels(binds: Binds): PadLabel[] {
   const out: PadLabel[] = [];
-  const byAction = new Map<Action, PadLabel>();
+  const byAction = new Map<Action, PadLabel['parts'][number]>();
+  const byText = new Map<string, PadLabel>();
   for (const g of PAD_GROUPS) {
     if (g.stick) {
       const stickFace = g.stick.id as 'stickL' | 'stickR';
-      out.push({ key: g.stick.id, text: g.stick.text, group: g.id, faces: [], action: null, stick: stickFace });
+      out.push({ key: g.stick.id, text: g.stick.text, group: g.id, faces: [], action: null, parts: [], stick: stickFace });
     }
     for (const face of g.faces) {
       const action = binds[face] ?? null;
       if (!action) continue;
-      const same = byAction.get(action);
+      const part = byAction.get(action);
+      if (part) {
+        part.faces.push(face);
+        const owner = out.find((l) => l.parts.includes(part))!;
+        (owner.faces as PadFace[]).push(face);
+        continue;
+      }
+      const text = labelOfAction(action);
+      const same = byText.get(text);
+      const fresh = { action, faces: [face] };
+      byAction.set(action, fresh);
       if (same) {
+        // ことばが同じ（てにもつを きりかえる: L と R）は 1 まいにまとめる
+        same.parts.push(fresh);
         (same.faces as PadFace[]).push(face);
         continue;
       }
-      const label: PadLabel = { key: action, text: labelOfAction(action), group: g.id, faces: [face], action };
-      byAction.set(action, label);
+      const label: PadLabel = { key: action, text, group: g.id, faces: [face], action, parts: [fresh] };
+      byText.set(text, label);
       out.push(label);
     }
   }
@@ -108,8 +123,8 @@ export function playLabels(binds: Binds): PadLabel[] {
 
 /** もちもの・クラフト（メニューを開いているとき）。reader.ts の menuOpen と同じ */
 export const MENU_LABELS: readonly PadLabel[] = [
-  { key: 'menu-dpad', text: 'えらぶ', group: 'dpad', faces: ['dpadUp', 'dpadDown', 'dpadLeft', 'dpadRight'], action: null },
-  { key: 'menu-ok', text: 'きめる', group: 'abxy', faces: ['faceBottom'], action: null },
-  { key: 'menu-back', text: 'もどる', group: 'abxy', faces: ['faceRight'], action: null },
-  { key: 'menu-start', text: 'スタートメニュー', group: 'plus', faces: ['start'], action: null },
+  { key: 'menu-dpad', text: 'えらぶ', group: 'dpad', faces: ['dpadUp', 'dpadDown', 'dpadLeft', 'dpadRight'], action: null, parts: [] },
+  { key: 'menu-ok', text: 'きめる', group: 'abxy', faces: ['faceBottom'], action: null, parts: [] },
+  { key: 'menu-back', text: 'もどる', group: 'abxy', faces: ['faceRight'], action: null, parts: [] },
+  { key: 'menu-start', text: 'スタートメニュー', group: 'plus', faces: ['start'], action: null, parts: [] },
 ];

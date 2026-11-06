@@ -12,6 +12,8 @@ export interface ControlRow {
   /** キー列に足す文（ホイールなど） */
   keysExtra?: string;
   note?: string;
+  /** 同じことばで 1 行にまとめた、ほかの操作（てにもつを きりかえる: まえ・つぎ） */
+  also?: Action[];
 }
 
 function codeLabel(code: string): string {
@@ -55,12 +57,11 @@ export const CONTROL_ROWS: readonly ControlRow[] = [
   { category: 'あるく', label: 'あるく', action: null, rebind: false, fixedPad: 'ひだりスティック', keysExtra: 'W A S D' },
   { category: 'あるく', label: 'ジャンプ', action: 'jump', rebind: true },
   { category: 'あるく', label: 'はしる', action: 'run', rebind: true },
-  { category: 'みる', label: 'みる', action: null, rebind: false, fixedPad: 'みぎスティック', keysExtra: 'マウス' },
-  { category: 'みる', label: 'みかた', action: 'toggleView', rebind: true, note: 'みた目の きりかえは まだ' },
+  { category: 'みる', label: 'カメラを うごかす', action: null, rebind: false, fixedPad: 'みぎスティック', keysExtra: 'マウス' },
+  { category: 'みる', label: 'カメラ きりかえ', action: 'toggleView', rebind: true, note: 'みた目の きりかえは まだ' },
   { category: 'たたかう', label: 'ほる/こうげき', action: 'primary', rebind: true },
   { category: 'たたかう', label: 'おく/たべる', action: 'secondary', rebind: true },
-  { category: 'たたかう', label: 'てにもつ まえ', action: 'hotbarPrev', rebind: true, keysExtra: 'ホイール' },
-  { category: 'たたかう', label: 'てにもつ つぎ', action: 'hotbarNext', rebind: true, keysExtra: 'ホイール' },
+  { category: 'たたかう', label: 'てにもつを きりかえる', action: 'hotbarPrev', also: ['hotbarNext'], rebind: true, keysExtra: 'ホイール' },
   { category: 'メニュー', label: 'もちもの/クラフト', action: 'toggleInventory', rebind: true },
   { category: 'メニュー', label: 'スタートメニュー', action: 'openStartMenu', rebind: true, keysExtra: 'Esc' },
   { category: 'メニュー', label: 'できごと', action: 'openLog', rebind: true },
@@ -72,5 +73,5 @@ export const CONTROL_ROWS: readonly ControlRow[] = [
 ];
 
 export function labelOfAction(action: Action): string {
-  return CONTROL_ROWS.find((r) => r.action === action)?.label ?? 'そのそうさ';
+  return CONTROL_ROWS.find((r) => r.action === action || r.also?.includes(action))?.label ?? 'そのそうさ';
 }

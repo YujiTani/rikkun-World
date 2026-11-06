@@ -150,6 +150,34 @@ export function createPadScreen(opts: {
       d.innerHTML = inner;
       return d;
     }
+    if (label.parts.length > 1) {
+      // ことばが同じ操作（L・R）は 1 まい。印を 1 つずつ押して 割り当てを かえる
+      const d = document.createElement('div');
+      d.className = 'pad-call is-multi';
+      d.innerHTML = `<span class="pad-call-text">${shown.replace(' ', '<br>')}</span><span class="pad-call-badge"></span>`;
+      const badge = d.querySelector('.pad-call-badge')!;
+      for (const part of label.parts) {
+        const pb = document.createElement('button');
+        pb.type = 'button';
+        pb.className = 'pad-part-btn';
+        pb.dataset.menuItem = '';
+        pb.dataset.testid = `bind-${part.action}`;
+        pb.innerHTML = badgeHtml(part.faces);
+        if (capture?.key === part.action) {
+          pb.classList.add('is-wait');
+          d.classList.add('is-wait');
+        }
+        if (picked?.key === part.action) pb.classList.add('is-pick');
+        pb.addEventListener('click', (e) => {
+          e.stopPropagation();
+          picked = { key: part.action, faces: part.faces };
+          paintHot();
+          beginCapture(part.action, part.faces, part.action, e.isTrusted ? 'pointer' : 'pad');
+        });
+        badge.append(pb);
+      }
+      return d;
+    }
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'pad-call';
@@ -168,7 +196,7 @@ export function createPadScreen(opts: {
         paintCalls();
         return;
       }
-      beginCapture(label, e.isTrusted ? 'pointer' : 'pad');
+      beginCapture(label.action, label.faces, label.key, e.isTrusted ? 'pointer' : 'pad');
     });
     return b;
   };
@@ -284,14 +312,14 @@ export function createPadScreen(opts: {
     unknownEl.hidden = s.kind !== 'fallback';
   };
 
-  const beginCapture = (label: PadLabel, origin: 'pad' | 'pointer'): void => {
+  const beginCapture = (action: Action, faces: readonly PadFace[], key: string, origin: 'pad' | 'pointer'): void => {
     const seen: Partial<Record<PadFace, boolean>> = {};
     if (origin === 'pad') {
       const s = opts.reader.snapshot();
       if (s) for (const f of PAD_FACES) seen[f] = !!s.faces[f];
     }
-    capture = { action: label.action!, faces: label.faces, key: label.key, origin, seen };
-    picked = { key: label.key, faces: label.faces };
+    capture = { action, faces, key, origin, seen };
+    picked = { key, faces };
     opts.reader.setCapturing(true);
     captureEl.hidden = false;
     noteEl.textContent = '';
