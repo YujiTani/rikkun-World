@@ -45,6 +45,10 @@ export class GamepadReader {
   private menuOpen = false;
   private capturing = false;
   private hanging = false;
+  /** COOP-1 作業 2.5: 新しい パッドは ボタンを 全部 はなすまで ボタンを 受けない（スティックは すぐ 効く） */
+  private holdButtons = false;
+  /** COOP-1 作業 2.5: 「つかう コントローラー」で ＋ を 待つ あいだ、＋ を 受けない */
+  private ignoreStart = false;
   /** テスト注入用 */
   getPads: GetPads = () => (typeof navigator !== 'undefined' && navigator.getGamepads ? [...navigator.getGamepads()] : []);
 
@@ -128,6 +132,21 @@ export class GamepadReader {
 
   assignedPadIndex(): number | null {
     return this.assignedIndex;
+  }
+
+  /** COOP-1 作業 2.5: 読む パッドが かわる とき。パッドの 入力を 全部 はなし、パッドの おぼえも 消す（キー・マウスは そのまま） */
+  resetPad(): void {
+    this.releaseAllPadActions();
+    this.assignedIndex = null;
+    this.prev.clear();
+    this.holdButtons = false;
+  }
+  /** 新しい パッドの ボタンを 全部 はなすまで 受けない（決めた ＋ が 操作に ならない ように） */
+  holdButtonsUntilReleased(): void {
+    this.holdButtons = true;
+  }
+  setIgnoreStart(on: boolean): void {
+    this.ignoreStart = on;
   }
 
   /** 接続イベントから割当 */
@@ -228,6 +247,13 @@ export class GamepadReader {
 
     const prev = this.prev.get(pad.index) ?? [];
     const cur = pad.buttons.map((b) => !!b.pressed);
+    if (this.holdButtons) {
+      if (cur.some(Boolean)) cur.fill(false);
+      else this.holdButtons = false;
+    }
+    if (this.ignoreStart) {
+      for (let i = 0; i < cur.length; i++) if (table[i] === 'start') cur[i] = false;
+    }
     const n = Math.max(prev.length, cur.length, 16);
     for (let i = 0; i < n; i++) {
       const face = table[i];
