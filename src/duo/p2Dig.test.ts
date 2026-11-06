@@ -21,7 +21,7 @@ import { P2State } from './p2State';
  *     2P 用の ほる・おく係。1P と 同じ `DigSystemImpl` を もう 1 つ 作って 返す（2P の ActionState・2P の 持ち物 `p2.inventory`・2P の 位置を 渡す）。
  *     P2DigDeps = { world: VoxelWorld; p2: P2State; actions: ActionState; position: () => PlayerState; lock: LockStatus;
  *                   eyeHeight: () => number; partner: () => Vec3 | null; gate?: PunchGate | null; m4?: DigM4Deps; config?: DigConfig; rng?: Rng }
- *     - gate = 2P 自分の ふつうの こうげき係（1P の PlayerCombatImpl と 同じ 物を 2P の 位置・持ち物で もう 1 つ。PunchGate）。DigSystemImpl の 第 9 引数に 渡す。
+ *     - gate = 2P 用の PlayerCombatImpl（2P の 体力の 持ち主でもある。作り方は p2Life.test.ts の 頭。1P の 物と 同じ 道）。PunchGate として 渡す。DigSystemImpl の 第 9 引数に 渡す。
  *     - 2P の「ふつうの こうげき」= 1P と 同じ: 手に もっている 物で パンチ・刀の ふり・弓。レジェンダリーの わざ・パリィは 段階 2（2P の m4 には 入れない）。
  *     - m4.yokai・gate の 妖怪の 世界は `bindWho(y, 2)`（src/duo/credit.ts。下の credit.test.ts）で 包んだ 物を 渡す。1P は `bindWho(y, 1)`。
  *     - 刀・弓の 2P 分: m4.blade・m4.tools を 2P の 持ち物で 作って 渡す（テストは パンチ 1 本。刀は 同じ 道なので 実装の 確認で 見る）
@@ -350,10 +350,10 @@ function punchRig(who: 1 | 2) {
   let tick = 0;
   const blade = createBladeSystem({ world, yokai: () => yokai, settings, weaponDamage: () => 4, onHit: () => {}, lunge: (dx, dz) => controller.lunge(dx, dz), tick: () => tick });
   const m4 = { tools, blade, w2: settings, yokai: () => yokai };
-  const dig: DigSystemImpl & { attackFaceDeg(): number | null; attackPreview(): { use: string } } = (
+  const dig: DigSystemImpl =
     who === 2
       ? createP2Dig({ world, p2, actions, position: () => controller.state, lock, eyeHeight: () => EYE, partner: () => null, gate: combat, m4 })
-      : new DigSystemImpl(world, () => controller.state, actions, lock, inv, () => EYE, createDigConfig(), undefined, combat, m4)) as never;
+      : new DigSystemImpl(world, () => controller.state, actions, lock, inv, () => EYE, createDigConfig(), undefined, combat, m4);
   controller.set({ pitchDeg: -25, yawDeg: 0, facingDeg: 90 });
   const step = (n = 1) => {
     for (let i = 0; i < n; i++) {

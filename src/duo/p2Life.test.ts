@@ -1,52 +1,104 @@
 import { describe, expect, it } from 'vitest';
+import type { BlockId, ItemStack } from '../contracts';
+import { CRAFT_DEFAULTS } from '../craft/config';
+import { ArmorSystemImpl } from '../craft/ArmorSystem';
+import { GADGET_ID } from '../content/items/gadgetTuning';
 import { createCombatConfig } from '../combat/config';
+import { PlayerCombatImpl } from '../combat/PlayerCombat';
+import { DropField } from '../drops/DropField';
 import { InventoryImpl } from '../inventory/Inventory';
 import { createRng } from '../world/gen/random';
-import { hitsTarget } from './rules';
+import { P2Life } from './p2Life';
 import { takeDropBag } from './p2Bag';
+import { hitsTarget } from './rules';
 import { DUO_TUNING } from './tuning';
-import { P2Life, type P2LifeDeps } from './p2Life';
 
 /**
- * COOP-1 作業 3a（#416）の 先行テスト（赤）。AC37（仲間には 当たらない）・AC43（2P が 倒れて 戻る）・AC44（1P が 倒れている あいだに 2P も 倒れた）。
+ * COOP-1 作業 3a（#416）の 先行テスト（赤）。AC37（仲間には 当たらない）・AC43（2P が 倒れて 戻る）・AC44（1P が 倒れている あいだに 2P も 倒れた）・おとしもの袋。
  *
  * ---- 実装への 約束（developer が 作る 名前・形）----
+ *   2P の 体力の 持ち主は「2P 用の PlayerCombatImpl」ひとつ（案 ア。PO 決定）。落ちる・マグマ・回復・おまもり・袋は 1P と 同じ 道（PlayerCombatImpl の 中）。
+ *     - 2P 用 PlayerCombatImpl の 作り方: player = 2P の 位置、inventory = p2.inventory、armor = 2P の 物（なければ なし）、drops = 世界の DropField、
+ *       config = { ...createCombatConfig(), respawnDelayTicks: DUO_TUNING.p2ReturnSteps }、spawn = () => 1P の 横（§9.5 の 出る所 `joinSpot()`）。
+ *     - 2P の PlayerCombatImpl の できごと（death・respawn など やられた 画面の 元）は 1P の 画面に つながない（takeHookEvents も 1P の 物と 別）。
+ *     - 袋を 出すのは PlayerCombatImpl.die() の 中の 1 か所だけ（P2Life は 袋を 出さない）。
  *   src/duo/rules.ts  `hitsTarget(attacker: 1 | 2, target: HitTarget): boolean`
  *     HitTarget = { type: 'player'; who: 1 | 2 } | { type: 'yokai' } | { type: 'animal' }
  *     こうげき（刀・弓・パンチ・火の玉の はね返しの あたり）が その あいてに 当たるか。プレイヤー（自分も 仲間も）には いつも false、妖怪・動物は true。
  *     配線: 刀・弓・パンチの あたり判定の 前に これを 通す（仲間の 体は あたり判定に 入れない）。
- *   src/duo/p2Life.ts  `class P2Life`（2P の ハートと 倒れて 戻る係。DOM・Three.js なし。step() を 1/60 秒ごとに 1 回）
- *     new P2Life({ maxHp: number; p1Down: () => boolean; onReturn?: () => void; onDown?: () => void; returnSteps?: number })
- *       onDown = hp が 0 に なった ステップに 1 回（おとしもの袋を 出す 配線。下の takeDropBag）。
- *       maxHp = 1P と 同じ（`createCombatConfig().playerMaxHp`）。returnSteps の 既定 = `DUO_TUNING.p2ReturnSteps`（3 秒。§9.5。数は 表 tuning.ts に 足す）。
- *     hp（読む）・maxHp・down（倒れているか）・returnLeft（戻るまでの のこり ステップ。倒れていないとき 0）
+ *   src/duo/p2Life.ts  `class P2Life`（2P 用 PlayerCombatImpl を 包む 係。DOM・Three.js なし）
+ *     new P2Life({ combat: PlayerCombatImpl; p1Down: () => boolean; onReturn?: () => void; onDown?: () => void })
+ *       onDown = 倒れた ステップに 1 回（ダメージでも 落ちても。「たおれちゃった」を 出す 配線。袋は ここでは 出さない）。
+ *       onReturn = 戻った ステップに 1 回（戻る 場所は combat の spawn = 1P の 横）。
+ *     hp（= combat.hp()）・maxHp・down（= combat.dead()）・returnLeft（戻るまでの のこり ステップ。倒れていないとき 0。1P が 倒れていて 待っているときも 0）
  *     damage(amount: number, from: HitSource): { applied: number; knock: boolean }
- *       HitSource = { type: 'yokai' } | { type: 'player'; who: 1 | 2 }。from が player なら hp は へらず { applied: 0, knock: false }（AC37）。
- *       倒れている あいだの damage は 何もしない（applied 0）。hp が 0 に なったら down = true・returnLeft = returnSteps。
- *     fill(): hp を maxHp に（レベルアップ時。倒れているときは 何もしない）
- *     step(): 倒れているとき returnLeft を 1 へらす。0 に なっても p1Down() が true の あいだは 待つ（AC44）。
- *       戻れる ステップで hp = maxHp・down = false・onReturn()（1P の 横に 置く配線は 呼ぶ側）。
- *       1P が 起きたら、すでに returnLeft が 0 なら 次の step() で 戻る。
- *   src/duo/p2Bag.ts  `takeDropBag(inv: Inventory, rng: Rng, dropChance: number): ItemStack[]`（§2.6・M3 §2.10。おとしもの袋）
- *     選んでいる マス以外の マスごとに rng() < dropChance なら そのマスを からにして 返す（1P の `PlayerCombat.die` と 同じ きまり。dropChance は `createCombatConfig().dropChance`）。
- *     配線: P2Life の onDown で DropField.scatter(2P の 足もと, 返った stacks, { kind: 'death' })。
+ *       HitSource = { type: 'yokai' } | { type: 'player'; who: 1 | 2 }。player なら 何もせず { applied: 0, knock: false }（AC37）。
+ *       yokai は combat.damage（防具・おまもりを 通る）。倒れている あいだは { applied: 0 }。applied = へった hp。
+ *     fill(): combat.heal(満タン)（レベルアップ時。倒れているときは 何もしない）
+ *     step(): 毎ステップ これを 呼ぶ（combat.update() は P2Life.step の 中で 呼ぶ）。倒れてから DUO_TUNING.p2ReturnSteps 回目の update で combat が 戻す。
+ *       ただし 戻る ステップで p1Down() が true の あいだは update を 呼ばずに 待つ（AC44）。1P が 起きたら 次の step() で 戻る。
+ *   src/duo/p2Bag.ts  `takeDropBag(inv: Inventory, armor: CombatArmorPort | undefined, rng: Rng, dropChance: number): { stacks: ItemStack[]; dropped: number[]; protectedBy?: 'omamori' }`
+ *     PlayerCombatImpl.die() の 中の 輪（おまもり → 選んでいる マス以外の マスごと → そうび 1 マスずつ。乱数の 順も その まま）を 外に 出した 物。
+ *     1P の die() も これを 呼ぶ。結果は 1P の die() と 同じ（dropped = death の できごとの dropped、stacks = 落ちた 物）。
  *   配線の きまり（テストは 口の ある所だけ）: ① P2Life.down の あいだ 2P の 入力は ぜんぶ はなす（歩く・ほる・おく・こうげき・ホットバー）
  *     ② 2P が たおした ときの feedDefeat の with（なにで）・hp は 2P の もの（who=2 なら 2P の 持ち物の 手・2P の ハート）。
  *     ③ 妖怪の partner.targetable = !P2Life.down && パッドが ある。
  */
 
-/** 戻るまでの ステップ数（仕様 §9.5。3 秒）。数は 表から 読む */
+/** 戻るまでの ステップ数（仕様 §9.5。3 秒）。表から 読む */
 const RET = DUO_TUNING.p2ReturnSteps;
-const MAX = 20; // 数は テストの ための 仮の 値（P2Life は 渡された maxHp を 使うだけ）
+const CFG = createCombatConfig();
 
-function make(p1Down = false, over: Partial<P2LifeDeps> = {}) {
+class W {
+  readonly size = { x: 64, y: 96, z: 64 };
+  isLoaded(): boolean {
+    return true;
+  }
+  loadedBounds() {
+    return { x0: 0, z0: 0, x1: 64, z1: 64 };
+  }
+  getBlock(_x: number, y: number): BlockId | 'outside' {
+    return y < 8 ? 'stone' : 'air';
+  }
+  setBlock(): boolean {
+    return true;
+  }
+  isSolid(_x: number, y: number): boolean {
+    return y < 8;
+  }
+}
+
+/** 2P 用の PlayerCombatImpl（案 ア）と それを 包む P2Life。1P は 別の 場所 P1 に いる */
+function make(p1Down = false, o: { y?: number; rng?: () => number } = {}) {
+  const world = new W();
+  const inv = new InventoryImpl();
+  inv.setSlot(0, { item: 'dirt', count: 3 });
+  inv.setSlot(1, { item: 'stone', count: 4 });
+  inv.setSlot(2, { item: 'torch', count: 5 });
+  inv.select(0);
+  const armor = new ArmorSystemImpl(inv, { armorValue: CRAFT_DEFAULTS.armorValue });
+  const P1 = { x: 30.5, y: 8, z: 30.5 };
+  const player = { position: { x: 10.5, y: o.y ?? 8, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false, facingDeg: 0, running: false };
+  const drops = new DropField({ world: world as never, inventory: inv, player: () => player.position });
+  const combat = new PlayerCombatImpl({
+    world: world as never,
+    player: { get: () => player, set: (v) => Object.assign(player.position, v.position ?? {}) },
+    inventory: inv,
+    yokai: () => ({ occupies: () => false }) as never,
+    spawn: () => ({ x: P1.x + 2, y: P1.y, z: P1.z, yawDeg: 0, pitchDeg: 0 }),
+    config: { ...CFG, respawnDelayTicks: RET },
+    rng: o.rng ?? (() => 0), // 0 = かならず 落とす
+    drops,
+    armor,
+  });
   const st = { p1Down, returned: 0, downed: 0 };
-  const life = new P2Life({ maxHp: MAX, p1Down: () => st.p1Down, onReturn: () => st.returned++, onDown: () => st.downed++, ...over });
+  const life = new P2Life({ combat, p1Down: () => st.p1Down, onReturn: () => st.returned++, onDown: () => st.downed++ });
   const run = (n: number) => {
     for (let i = 0; i < n; i++) life.step();
   };
-  return { life, st, run };
+  return { life, st, run, combat, inv, drops, player, P1 };
 }
+const MAX = CFG.playerMaxHp;
 
 describe('AC37: どちらの こうげきも 仲間には ダメージ 0・のけぞりなし', () => {
   it.each([1, 2] as const)('%iP の こうげきは プレイヤーに 当たらない（hitsTarget）', (who) => {
@@ -71,8 +123,8 @@ describe('AC37: どちらの こうげきも 仲間には ダメージ 0・の�
     const { life } = make();
     expect(life.damage(3, { type: 'player', who: 2 })).toEqual({ applied: 0, knock: false });
     const r = life.damage(3, { type: 'yokai' });
-    expect(r.applied).toBe(3);
-    expect(life.hp).toBe(MAX - 3);
+    expect(r.applied).toBeGreaterThan(0);
+    expect(life.hp).toBe(MAX - r.applied);
   });
 });
 
@@ -119,6 +171,7 @@ describe('AC43: 2P の ハートが 0 → 3 秒（DUO_TUNING.p2ReturnSteps）後
     const { life, run, st } = make();
     life.damage(MAX, { type: 'yokai' });
     run(RET);
+    run(CFG.respawnInvincibleTicks); // 戻った あとの むてきが 終わってから
     life.damage(MAX, { type: 'yokai' });
     expect(life.returnLeft).toBe(RET);
     run(RET);
@@ -159,7 +212,43 @@ describe('AC44: 1P が 倒れている あいだに 2P も 倒れたら、2P は
   });
 });
 
-describe('§2.6 おとしもの袋: 2P が 倒れたら 2P の 持ち物の 決まった 割合が 袋に（1P と 同じ きまり）', () => {
+describe('AC43（追加）: 2P の 体力の 持ち主は 1P と 同じ PlayerCombatImpl（おまもり・落ちる・袋）', () => {
+  it('① おまもりを 持っていれば 倒れても 何も 落とさない（おまもりは やぶれた おまもりに かわる）', () => {
+    const r = make();
+    r.inv.setSlot(3, { item: GADGET_ID.omamori, count: 1 });
+    r.life.damage(MAX, { type: 'yokai' });
+    expect(r.life.down).toBe(true);
+    expect(r.drops.size()).toBe(0);
+    expect(r.inv.count('stone')).toBe(4);
+    expect(r.inv.count(GADGET_ID.omamori)).toBe(0);
+    expect(r.inv.count(GADGET_ID.omamoriTorn)).toBe(1);
+  });
+  it('② 落ちた ダメージで 倒れても onDown は 1 回・袋は 1 回だけ・RET ステップ後に 1P の 横に 満タンで 戻る', () => {
+    const r = make(false, { y: 60 });
+    // 高さ h だけ 落ちて 着地（1 ステップ 0.4）。致命的な 高さ
+    const h = CFG.safeFallHeight + MAX / CFG.fallDamagePerBlock + 5;
+    r.run(1);
+    r.player.onGround = false;
+    const top = r.player.position.y;
+    while (r.player.position.y > top - h + 1e-9) {
+      r.player.position.y = Math.max(top - h, r.player.position.y - 0.4);
+      r.run(1);
+    }
+    r.player.onGround = true;
+    r.run(1);
+    expect(r.life.down).toBe(true);
+    expect(r.st.downed).toBe(1);
+    expect(r.drops.size(), '選んでいる マス以外の 2 マスぶん を 1 回だけ').toBe(2);
+    r.run(RET + 2);
+    expect(r.life.down).toBe(false);
+    expect(r.life.hp).toBe(r.life.maxHp);
+    expect(r.st.returned).toBe(1);
+    expect(r.st.downed).toBe(1);
+    expect(Math.hypot(r.player.position.x - r.P1.x, r.player.position.z - r.P1.z), '1P の 横').toBeLessThan(4);
+  });
+});
+
+describe('§2.6 おとしもの袋: takeDropBag は 1P の die() と 同じ 結果', () => {
   function inv() {
     const i = new InventoryImpl();
     i.setSlot(0, { item: 'dirt', count: 3 });
@@ -168,30 +257,48 @@ describe('§2.6 おとしもの袋: 2P が 倒れたら 2P の 持ち物の 決�
     i.select(0);
     return i;
   }
-  it('dropChance 1: 選んでいる マス以外が ぜんぶ 袋に 入り、持ち物から 消える。選んでいる マスは のこる', () => {
+  /** 1P の die()（PlayerCombatImpl）で 同じ 持ち物・同じ シードを 使った 結果 */
+  function viaDie(seed: number, chance: number) {
     const i = inv();
-    const bag = takeDropBag(i, createRng(1), 1);
-    expect(bag.map((s: { item: string }) => s.item).sort()).toEqual(['stone', 'torch']);
-    expect(i.count('stone') + i.count('torch')).toBe(0);
-    expect(i.count('dirt')).toBe(3);
+    const world = new W();
+    const player = { position: { x: 10.5, y: 8, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false, facingDeg: 0, running: false };
+    const drops = new DropField({ world: world as never, inventory: i, player: () => player.position });
+    const combat = new PlayerCombatImpl({
+      world: world as never,
+      player: { get: () => player, set: () => {} },
+      inventory: i,
+      yokai: () => ({ occupies: () => false }) as never,
+      spawn: () => ({ x: 1, y: 8, z: 1, yawDeg: 0, pitchDeg: 0 }),
+      config: { ...CFG, dropChance: chance },
+      rng: createRng(seed),
+      drops,
+    });
+    combat.damage(MAX + 100, 'karakasa', { x: 0, y: 8, z: 0 });
+    const death = combat.takeHookEvents().find((e) => e.type === 'death') as { dropped: number[] };
+    return { dropped: death.dropped, items: drops.list().flatMap((d) => d.slots.map((s) => s.item)).sort(), left: i.slots().map((s) => s?.item ?? null) };
+  }
+  it.each([[1, 1], [2, 0], [9, 0.5], [4, 0.5]] as const)('シード %i・dropChance %f: dropped と 落ちた 物と のこりの 持ち物が 1P の die() と 同じ', (seed, chance) => {
+    const a = viaDie(seed, chance);
+    const i = inv();
+    const bag = takeDropBag(i, undefined, createRng(seed), chance);
+    expect(bag.dropped).toEqual(a.dropped);
+    expect(bag.stacks.map((s: ItemStack) => s.item).sort()).toEqual(a.items);
+    expect(i.slots().map((s) => s?.item ?? null)).toEqual(a.left);
+    expect(bag.protectedBy).toBeUndefined();
   });
-  it('dropChance 0: 何も 落とさない', () => {
+  it('おまもりを 持っていれば 何も 落とさず protectedBy = omamori（おまもりは やぶれる）', () => {
     const i = inv();
-    expect(takeDropBag(i, createRng(1), 0)).toEqual([]);
+    i.setSlot(3, { item: GADGET_ID.omamori, count: 1 });
+    const bag = takeDropBag(i, undefined, () => 0, 1);
+    expect(bag.stacks).toEqual([]);
+    expect(bag.protectedBy).toBe('omamori');
+    expect(i.count(GADGET_ID.omamoriTorn)).toBe(1);
     expect(i.count('stone')).toBe(4);
   });
-  it('今の 決まり（createCombatConfig().dropChance）で 同じ シードなら 同じ マスが 落ちる', () => {
-    const p = createCombatConfig().dropChance;
-    const a = takeDropBag(inv(), createRng(9), p);
-    const b = takeDropBag(inv(), createRng(9), p);
-    expect(a).toEqual(b);
-  });
-  it('P2Life: 倒れた ステップに onDown が 1 回だけ（追いうち・戻る ときは 呼ばない）', () => {
-    const { life, st, run } = make();
-    life.damage(MAX, { type: 'yokai' });
-    life.damage(3, { type: 'yokai' });
-    expect(st.downed).toBe(1);
-    run(RET);
-    expect(st.downed).toBe(1);
+});
+
+describe('戻る ステップ数の 表', () => {
+  it('3 秒 = 180 ステップ（仕様 §9.5）', () => {
+    expect(DUO_TUNING.p2ReturnSteps).toBe(180);
   });
 });
