@@ -43,7 +43,7 @@ export function wireDuo(deps: WiredLoop) {
   let ctl2: PlayerController | null = null;
   const walk = new WalkRelativeActions(p2Actions);
 
-  const ui = new DuoHud({ hud, p2Inventory: p2.inventory, hotbar1: hotbar.el, hearts1: combatUi.hearts.el });
+  const ui = new DuoHud({ hud, p2Inventory: p2.inventory, hotbar1: hotbar.el, hearts1: combatUi.hearts.el, levelbar1: deps.levelHud.barEl });
   /** 参加のとき 1P の 今の キャラを 読む（1P が キャラを かえたら 2P も ついてくる） */
   const kindNow = (): 'girl' | 'boy' | null => (blockDollOnly || charCtl.get().kind === 'block' ? null : (charCtl.get().kind as 'girl' | 'boy'));
   const body = new DuoBody({

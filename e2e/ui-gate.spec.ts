@@ -16,7 +16,7 @@ import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid
 import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house';
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
-import { duoHudIssues, duoPadLostIssues, duoUsePadIssues, duoViewIssues, openDuoHud, openDuoUsePad, openDuoLoupe, openDuoPadLost, openDuoSplit } from './helpers/duoUi';
+import { duoBandIssues, duoHudIssues, duoPadLostIssues, duoUsePadIssues, duoViewIssues, openDuoBand, openDuoHud, openDuoUsePad, openDuoLoupe, openDuoPadLost, openDuoSplit } from './helpers/duoUi';
 import { PICK_ROOTS, SITE_NEED_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen, siteNeedIssues } from './helpers/houseSite';
 
 /**
@@ -536,7 +536,7 @@ SCREENS.push(coopMenuScreen('coop-menu-1', 1), coopMenuScreen('coop-menu-2', 2),
  */
 SCREENS.push({
   id: 'duo-hud',
-  roots: ['#hud', '[data-testid="duo-hotbar-p1"]', '[data-testid="duo-hotbar-p2"]', '[data-testid="duo-meter"]'],
+  roots: ['#hud', '[data-testid="duo-hotbar-p1"]', '[data-testid="duo-hotbar-p2"]', '[data-testid="duo-levelbar-p1"]', '[data-testid="duo-levelbar-p2"]', '[data-testid="duo-meter"]'],
   open: openDuoHud,
   extra: async (page: Page) => [...(await duoHudIssues(page)), ...(await duoViewIssues(page, 'one'))],
 });
@@ -571,6 +571,25 @@ SCREENS.push(
     roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-pad-lost"]', '[data-testid="duo-p2-question"]'],
     open: (page: Page) => openDuoPadLost(page, 'split'),
     extra: (page: Page) => duoPadLostIssues(page, 'split'),
+  },
+);
+
+/**
+ * 2 人あそびで 1P の 実績の おしらせ・テロップ・メダルの 印が 2P の ハート・ホットバー・距離メーターに かからない（yuzu 2026-11-06）。
+ * 3 つの 大きさで 1P の 左半分の 中。検査は e2e/helpers/duoUi.ts の duoBandIssues。
+ */
+SCREENS.push(
+  {
+    id: 'duo-band-toast',
+    roots: ['.cel-toast', '#hud-notice', ...DUO_HUD_ROOTS],
+    open: (page: Page) => openDuoBand(page, 'toast'),
+    extra: (page: Page) => duoBandIssues(page, '.cel-toast'),
+  },
+  {
+    id: 'duo-band-telop',
+    roots: ['.cel-telop', '#hud-notice', ...DUO_HUD_ROOTS],
+    open: (page: Page) => openDuoBand(page, 'telop'),
+    extra: (page: Page) => duoBandIssues(page, '.cel-telop'),
   },
 );
 

@@ -167,10 +167,16 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     l.tools.drainSwings();
     l.tools.drainArrowEvents();
     l.tools.takeHookEvents();
-    p2.levels.drainEvents();
+    // 2P の レベルアップは 2P の 半分にだけ 出す（1P の 演出・ログ・実績は 1P の level が 受け持つ。実績は creatures の feedDefeat で 共有）
+    let up = false;
+    for (const e of p2.levels.drainEvents()) {
+      if (e.type === 'levelUp') up = true;
+    }
+    if (up) fxSound.play('levelUp');
     p2.levels.takeHookEvents();
     l.fx.update(dt);
     ui.updateLife(dt, l.combat.hp(), l.combat.invincibleTicks() > 0, l.life.down);
+    ui.updateLevel(dt, p2.levels.get(), up);
   }
 
   const invOf = (who: 1 | 2): Inventory | null => (who === 1 ? deps.inventory : live ? p2.inventory : null);
@@ -207,6 +213,15 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     hearts(who) {
       if (who === 1) return { hp: combat1.hp(), maxHp: combat1.maxHp(), down: combat1.dead() };
       return live ? { hp: live.life.hp, maxHp: live.life.maxHp, down: live.life.down } : { hp: 0, maxHp: 0, down: false };
+    },
+    level: (who) => (who === 1 ? deps.level.get() : live ? p2.levels.get() : null),
+    setLevel(who, level, xp = 0) {
+      if (!dev) return;
+      (who === 1 ? deps.level : p2.levels).set(level, xp);
+    },
+    addXp(who, amount) {
+      if (!dev) return;
+      (who === 1 ? deps.level : p2.levels).addXp(amount);
     },
     hurt(who, amount) {
       if (!dev) return;

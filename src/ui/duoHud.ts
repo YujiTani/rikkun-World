@@ -4,12 +4,14 @@
  * data-testid は e2e/helpers/duoUi.ts の 約束どおり。
  */
 import type { Inventory } from '../contracts';
+import type { LevelState } from '../level/LevelSystem';
 import { DUO_COLORS, DUO_TUNING } from '../duo/tuning';
 import type { DuoTier, DuoView } from '../duo/types';
 import { INVENTORY_SIZE } from '../inventory/items';
 import { Hearts } from './hearts';
 import { Hotbar, createSlotEl, paintSlot, type SlotEls } from './hotbar';
 import { HEART_CONFIG } from './heartsModel';
+import { LevelHud } from './levelHud';
 import './duoHud.css';
 
 export interface DuoHudDeps {
@@ -18,6 +20,8 @@ export interface DuoHudDeps {
   /** 1P の ホットバー（#hotbar）と ハート（#hearts） */
   hotbar1: HTMLElement;
   hearts1: HTMLElement;
+  /** 1P の レベルの 棒（#levelbar）。UI 検査の 目印（data-testid）を 付けるだけ */
+  levelbar1: HTMLElement;
 }
 
 export interface DuoHudView {
@@ -49,6 +53,7 @@ interface Built {
   root: HTMLDivElement;
   hotbar2: Hotbar;
   hearts2: Hearts;
+  level2: LevelHud;
   loupe: HTMLDivElement;
   arrow: HTMLDivElement;
   line: HTMLDivElement;
@@ -156,6 +161,9 @@ export class DuoHud {
     hearts2.el.setAttribute('data-testid', 'duo-hearts-p2');
     (hearts2.el.parentElement as HTMLElement).id = 'hud-self-p2';
     hearts2.update(0, FULL_HP, false);
+    // 2P の レベル: 1P と 同じ LevelHud を 2P の かたまり（ハートの 上）に 作る。数は updateLevel で 毎ステップ 入れる
+    const level2 = new LevelHud(root, { cluster: hearts2.el.parentElement as HTMLElement, idSuffix: '-p2' });
+    level2.barEl.setAttribute('data-testid', 'duo-levelbar-p2');
 
     // 2P の もちもの（右半分。読むだけ。「やめる」の 長押しが ある）
     const panel = document.createElement('div');
@@ -191,7 +199,7 @@ export class DuoHud {
     document.documentElement.style.setProperty('--duo-p2', DUO_COLORS.p2);
     DUO_COLORS.tier.forEach((c, i) => document.documentElement.style.setProperty(`--duo-tier-${i}`, c));
     const off = inv.onChange(() => (this.dirty = true));
-    return { meter, bar, more, padLost, root, hotbar2, hearts2, loupe, arrow, line, question, panel, quit, cells, off };
+    return { meter, bar, more, padLost, root, hotbar2, hearts2, level2, loupe, arrow, line, question, panel, quit, cells, off };
   }
 
   /** 参加した / やめた。やめたら 2 人用の 物を ぜんぶ かくし、1 人の 見た目に もどす */
@@ -207,12 +215,14 @@ export class DuoHud {
       this.shown = { meter: '', more: false, padLost: false, panel: false, quit: '', view: '', lp: [NaN, NaN, NaN, NaN, NaN, 0] as number[], q: [NaN, NaN, 0] as number[], tier: -1 };
       this.d.hotbar1.setAttribute('data-testid', 'duo-hotbar-p1');
       this.d.hearts1.setAttribute('data-testid', 'duo-hearts-p1');
+      this.d.levelbar1.setAttribute('data-testid', 'duo-levelbar-p1');
       html.setAttribute('data-duo', '');
     } else {
       html.removeAttribute('data-duo');
       html.style.removeProperty('--duo-scale');
       this.d.hotbar1.removeAttribute('data-testid');
       this.d.hearts1.removeAttribute('data-testid');
+      this.d.levelbar1.removeAttribute('data-testid');
     }
     if (!on) this.clearDown();
     const b = this.b;
@@ -243,6 +253,15 @@ export class DuoHud {
       this.d.hud.append(el);
       this.downEl = el;
     } else if (!down) this.clearDown();
+  }
+
+  /** 2P の レベルの 棒（毎ステップ）。`up` は このステップで 2P の レベルが 上がった とき（1P と 同じ 演出を 2P の 半分に 出す） */
+  updateLevel(dt: number, st: LevelState, up: boolean): void {
+    const b = this.b;
+    if (!b || !this.on) return;
+    b.level2.update(st);
+    if (up) b.level2.celebrate();
+    b.level2.tick(dt);
   }
 
   private clearDown(): void {
