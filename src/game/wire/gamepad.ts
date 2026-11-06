@@ -53,17 +53,17 @@ export function wireGamepad(opts: {
 
   /** COOP-1: 参加の 求め（2 本目の ＋）と 2P の もちもの画面は wireDuo が つなぐ */
   const duo = { onJoinRequested: (): void => undefined, menuOpen2: (): boolean => false };
-  const step = (): void => {
+  const step = (active: boolean): void => {
     reader.setMenuOpen(opts.menuOpen());
     reader.setHanging(opts.hanging());
     router.setMenuOpen2(duo.menuOpen2());
-    if (router.poll(performance.now()).joinRequested) duo.onJoinRequested();
+    if (router.poll(performance.now(), active).joinRequested) duo.onJoinRequested();
     const on = reader.hasPad();
     if (on !== opts.lock.isPadActive()) opts.lock.setPadActive(on);
   };
   // 案内中（realtime オフ）でもパッドを読んで padActive にできるように idle でも回す
-  opts.game.onUpdate(step);
-  opts.game.onIdle(step);
+  opts.game.onUpdate(() => step(true));
+  opts.game.onIdle(() => step(false));
 
   // メニュー: 十字でフォーカス移動（簡易）
   opts.game.onUpdate(() => {

@@ -398,8 +398,8 @@ export function wireLoop(deps: WiredFrame) {
   // ロックがないあいだは時間を止める。F3 だけは効く（M1-02 §2.4）
   game.setRealtimeGate(() => lock.realtimeAllowed());
   // おめでとう画面の中の時間は 実時間で進める（世界は上で止めてある）
-  // COOP-1: 2 人のときは もちもの画面でも ゆっくりに しない（もう 1 人が 遊んでいる）
-  const gameTimeScale = (): number => duoTimeScale(screen.timeScale(), shared.duoJoined()) * (screen.mode() === 'play' ? parry.state().timeScale : 1);
+  // COOP-1: 2 人のときは もちもの画面（案内中は 今のまま）でも ゆっくりに しない（もう 1 人が 遊んでいる）
+  const gameTimeScale = (): number => (screen.mode() === 'inventory' ? duoTimeScale(screen.timeScale(), shared.duoJoined()) : screen.timeScale()) * (screen.mode() === 'play' ? parry.state().timeScale : 1);
   game.setTimeScale(gameTimeScale);
   shared.gameTimeScale = gameTimeScale;
   game.onIdle((dt) => overlay.update(dt));

@@ -54,6 +54,8 @@ export class DuoHud {
   private dirty = true;
   private lastW = -1;
   private tier: DuoTier | -1 = -1;
+  /** 画面に 書いた 最後の 値（変わらなければ style・hidden を 書かない） */
+  private shown = { meter: '', more: false, padLost: false, panel: false, quit: '' };
 
   constructor(private readonly d: DuoHudDeps) {}
 
@@ -136,6 +138,7 @@ export class DuoHud {
 
     document.documentElement.style.setProperty('--duo-p1', DUO_COLORS.p1);
     document.documentElement.style.setProperty('--duo-p2', DUO_COLORS.p2);
+    DUO_COLORS.tier.forEach((c, i) => document.documentElement.style.setProperty(`--duo-tier-${i}`, c));
     const off = inv.onChange(() => (this.dirty = true));
     return { meter, bar, more, padLost, root, hotbar2, hearts2, panel, quit, cells, off };
   }
@@ -149,6 +152,8 @@ export class DuoHud {
       this.b ??= this.build();
       this.dirty = true;
       this.lastW = -1;
+      this.tier = -1;
+      this.shown = { meter: '', more: false, padLost: false, panel: false, quit: '' };
       this.d.hotbar1.setAttribute('data-testid', 'duo-hotbar-p1');
       this.d.hearts1.setAttribute('data-testid', 'duo-hearts-p1');
       html.setAttribute('data-duo', '');
@@ -180,14 +185,30 @@ export class DuoHud {
       this.tier = v.tier;
       b.meter.dataset.tier = String(v.tier);
     }
-    b.meter.style.setProperty('--duo-meter', v.meter.toFixed(4));
-    b.more.hidden = v.distance <= DUO_TUNING.meterFullTiles;
-    b.padLost.hidden = !v.padLost;
-    b.panel.hidden = !v.panelOpen;
-    if (v.panelOpen) {
-      if (this.dirty) this.paintPanel();
-      b.quit.style.setProperty('--duo-quit', v.quitGauge.toFixed(3));
-    } else b.quit.style.setProperty('--duo-quit', '0');
+    const meter = v.meter.toFixed(3);
+    if (meter !== this.shown.meter) {
+      this.shown.meter = meter;
+      b.meter.style.setProperty('--duo-meter', meter);
+    }
+    const more = v.distance > DUO_TUNING.meterFullTiles;
+    if (more !== this.shown.more) {
+      this.shown.more = more;
+      b.more.hidden = !more;
+    }
+    if (v.padLost !== this.shown.padLost) {
+      this.shown.padLost = v.padLost;
+      b.padLost.hidden = !v.padLost;
+    }
+    if (v.panelOpen !== this.shown.panel) {
+      this.shown.panel = v.panelOpen;
+      b.panel.hidden = !v.panelOpen;
+    }
+    if (v.panelOpen && this.dirty) this.paintPanel();
+    const quit = v.panelOpen ? v.quitGauge.toFixed(2) : '0';
+    if (quit !== this.shown.quit) {
+      this.shown.quit = quit;
+      b.quit.style.setProperty('--duo-quit', quit);
+    }
   }
 
   /** 画面の 幅が かわったら、ホットバーを 半分の 幅の 90% に おさまる 倍に 縮める（§3.1） */

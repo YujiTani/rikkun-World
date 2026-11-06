@@ -361,7 +361,7 @@ export class SaveManager {
     } catch {
       this.d.house?.deserialize(null);
     }
-    // COOP-1 §6: 2P の 持ち物・レベル。窓口が ない 起動（?duo の ない ふだんの 起動）は 読んだ 値を そのまま 次の 保存へ ひきつぐ
+    // COOP-1 §6: 2P の 持ち物・レベル。窓口が ない ときは 読んだ 値を そのまま 次の 保存へ ひきつぐ
     if (this.d.p2) {
       try {
         this.d.p2.deserialize(data.p2);
@@ -371,7 +371,7 @@ export class SaveManager {
     } else this.carriedP2 = data.p2 ?? null;
   }
 
-  /** COOP-1: p2 の 窓口が ない 起動で、読んだ 保存の p2（そのまま 書きもどす） */
+  /** COOP-1: p2 の 窓口を 渡さない 呼び出し（ふだんの 起動は 渡す。テスト・別の 呼び手用）で、読んだ 保存の p2 を そのまま 書きもどす */
   private carriedP2: unknown = null;
 
   /** すぐ保存する。書き終わると解決する（失敗しても 解決する） */

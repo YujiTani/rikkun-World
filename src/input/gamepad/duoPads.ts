@@ -45,6 +45,8 @@ export class DuoPadRouter {
   private readonly out: DuoPadPoll = { joinRequested: false };
   private readonly view1: Pads = [];
   private readonly view2: Pads = [];
+  /** poll の あいだだけ、そのステップで 取った パッドの 一覧を 使いまわす */
+  private cache: Pads | null = null;
 
   constructor(opts: DuoPadRouterOptions) {
     this.reader1 = new GamepadReader(opts.p1, opts.look1, opts.storage);
@@ -55,7 +57,7 @@ export class DuoPadRouter {
 
   /** index の 場所だけ 本物、あとは null の 配列（作りなおさず 使いまわす） */
   private windowOf(view: Pads, index: number, isP1: boolean): Pads {
-    const pads = this.getPads();
+    const pads = this.cache ?? this.getPads();
     if (isP1) this.assign(pads);
     view.length = 0;
     if (index >= 0) {
@@ -89,11 +91,22 @@ export class DuoPadRouter {
   }
 
   /** 固定ステップごとに 呼ぶ */
-  poll(nowMs: number): DuoPadPoll {
+  poll(nowMs: number, active = true): DuoPadPoll {
     const pads = this.getPads();
+    this.cache = pads;
+    try {
+      return this.pollWith(pads, nowMs, active);
+    } finally {
+      this.cache = null;
+    }
+  }
+
+  /** active = false は 世界が 止まっている あいだ（1P の パッドだけ 読む。2P の 押した 物を ためない・参加も 受けない） */
+  private pollWith(pads: Pads, nowMs: number, active: boolean): DuoPadPoll {
     this.assign(pads);
     this.reader1.poll(nowMs);
     this.out.joinRequested = false;
+    if (!active) return this.out;
     if (!this.joined) {
       const c = this.candidate(pads);
       const start = c >= 0 && this.startPressed(pads[c]!);
@@ -106,6 +119,7 @@ export class DuoPadRouter {
       if (c >= 0 && this.anyButton(pads[c]!)) {
         this.lost = false;
         this.p2 = c;
+        this.waitRelease = true; // つなぎ直しに 押した ボタンは 2P の 操作に しない
       }
     } else if (this.p2 >= 0 && !connected(pads[this.p2])) {
       this.loseP2();

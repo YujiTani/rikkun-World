@@ -10,11 +10,13 @@ import { WalkRelativeActions } from '../../duo/walkActions';
 import type { LockStatus } from '../../contracts';
 import { PlayerController } from '../../player/PlayerController';
 import { isBodyPlaceable } from '../../save';
-import { DuoHud } from '../../ui/duoHud';
+import { DuoHud, type DuoHudView } from '../../ui/duoHud';
 import { charBasePath } from './player';
 import type { WiredLoop } from './save';
 
 const DEG = Math.PI / 180;
+/** ホットバーの 数字ボタン（毎ステップ 文字を 作らない） */
+const HOTBAR_KEYS = ['hotbar1', 'hotbar2', 'hotbar3', 'hotbar4', 'hotbar5', 'hotbar6', 'hotbar7', 'hotbar8', 'hotbar9'] as const;
 /** 2P が 出る 所の 順（1P の 向きから 見て）: 右・左・うしろ・前。それぞれ 何マス 先か は DUO_TUNING.joinOffsetTiles */
 const JOIN_SIDES = [
   { f: 0, r: 1 },
@@ -35,14 +37,16 @@ export function wireDuo(deps: WiredLoop) {
   let distance = 0;
   let ctl2: PlayerController | null = null;
   const walk = new WalkRelativeActions(p2Actions);
+  const view: DuoHudView = { tier: 0, meter: 0, distance: 0, padLost: false, quitGauge: 0, panelOpen: false };
 
   const ui = new DuoHud({ hud, p2Inventory: p2.inventory, hotbar1: hotbar.el, hearts1: combatUi.hearts.el });
-  const kind = blockDollOnly || charCtl.get().kind === 'block' ? null : (charCtl.get().kind as 'girl' | 'boy');
+  /** 参加のとき 1P の 今の キャラを 読む（1P が キャラを かえたら 2P も ついてくる） */
+  const kindNow = (): 'girl' | 'boy' | null => (blockDollOnly || charCtl.get().kind === 'block' ? null : (charCtl.get().kind as 'girl' | 'boy'));
   const body = new DuoBody({
     scene: game.scene,
     camera: game.camera,
     lighting,
-    kind,
+    kind: kindNow,
     basePath: charBasePath,
     initTexture: (t: THREE.Texture) => game.renderer.initTexture(t),
   });
@@ -86,7 +90,7 @@ export function wireDuo(deps: WiredLoop) {
       const p = { x: s.position.x + (fx * side.f + rx * side.r) * n, y: s.position.y, z: s.position.z + (fz * side.f + rz * side.r) * n };
       if (isBodyPlaceable(world, p)) return p;
     }
-    return { x: s.position.x, y: s.position.y + 2, z: s.position.z };
+    return { x: s.position.x, y: s.position.y + DUO_TUNING.joinAboveTiles, z: s.position.z };
   }
 
   function controller2(): PlayerController {
@@ -125,7 +129,7 @@ export function wireDuo(deps: WiredLoop) {
         const inv = p2.inventory;
         if (p2Actions.wasPressed('hotbarNext')) inv.selectNext(1);
         if (p2Actions.wasPressed('hotbarPrev')) inv.selectNext(-1);
-        for (let i = 1; i <= 9; i++) if (p2Actions.wasPressed(`hotbar${i}` as 'hotbar1')) inv.select(i - 1);
+        for (let i = 0; i < HOTBAR_KEYS.length; i++) if (p2Actions.wasPressed(HOTBAR_KEYS[i]!)) inv.select(i);
       }
     }
     session.step({ padPresent: !router.padLost(), quitHeld: panelOpen && p2Actions.isHeld('confirm') });
@@ -141,7 +145,13 @@ export function wireDuo(deps: WiredLoop) {
       distance = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
       tier = nextTier(tier, distance);
       body.step(ctl2.state);
-      ui.update({ tier, meter: distanceMeter(distance), distance, padLost: session.padLost(), quitGauge: session.quitGauge(), panelOpen });
+      view.tier = tier;
+      view.meter = distanceMeter(distance);
+      view.distance = distance;
+      view.padLost = session.padLost();
+      view.quitGauge = session.quitGauge();
+      view.panelOpen = panelOpen;
+      ui.update(view);
     }
     p2Actions.endFrame();
   }
