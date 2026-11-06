@@ -41,6 +41,7 @@ export const SFX_CATALOG: readonly SfxCatalogEntry[] = [
   // ---- ほる・おく ----
   ...DIG_ITEMS.map(([name, label]): SfxCatalogEntry => ({ group: 'dig', name, label, play: (s) => s.play(name) })),
   { group: 'dig', name: 'pickup', label: 'ひろう（つづけて 3 かいめ）', play: (s) => s.play('pickup', 0, { comboStep: 3 }) },
+  { group: 'dig', name: 'duoSplit', label: '2 にんで わかれる（しゅっ）', play: (s) => s.play('duoSplit') },
   { group: 'dig', name: 'whiff', label: 'からぶり（ひゅ）', play: (s) => s.playTones(WHIFF_TONES) },
   // ---- たたかい・ようかい・じかん ----
   ...fromTable('combat', COMBAT_SOUNDS, [
