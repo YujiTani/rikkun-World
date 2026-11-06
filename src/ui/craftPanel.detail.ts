@@ -283,6 +283,8 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
       chip.classList.add('cp-fuelchip');
       chip.dataset.next = String(d.fuel.next === item);
       chip.dataset.item = item;
+      chip.dataset.menuItem = ''; // 十字で 動いて B で えらべる
+      chip.tabIndex = 0;
       chip.style.cursor = 'pointer';
       chip.style.pointerEvents = 'auto';
       const t = d.fuel.inTansu?.[item] ?? 0;

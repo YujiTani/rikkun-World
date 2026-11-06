@@ -154,8 +154,17 @@ test('パッド疑似: もちもの → つくる で 十字で レシピを え
   expect(await page.evaluate((id) => (window.__rikkun! as any).craft.sources(id).ok, before.id)).toBe(true);
   await tap(0); // B（きめる）= えらぶ。右に せつめい
   await expect(page.locator('.cp-detail')).toBeVisible();
-  expect(await page.evaluate((o) => window.__rikkun!.inventory.count(o as never), before.out)).toBe(before.n);
-  await tap(0); // もう 1 回 = つくる
+  // マウスの 矢印が ほかの マスに のこっていても、1 回目の B で えらんだ マスの せつめいに なる
+  expect(await page.evaluate((id) => (window.__rikkun! as any).craft.list().some((x: any) => x.id === id) && document.querySelector('.cp-detail .cp-name')?.textContent?.length, before.id)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => (document.querySelector('.cp-tile[data-selected="true"]') as HTMLElement | null)?.dataset.id)).toBe(before.id);
+  // 十字で せつめいパネルの 「つくる」へ
+  let onPress = false;
+  for (let i = 0; i < 24 && !onPress; i++) {
+    await tap(i % 4 === 3 ? 13 : 15); // 右（ときどき 下）
+    onPress = await page.evaluate(() => document.activeElement?.classList.contains('cp-press') ?? false);
+  }
+  expect(onPress).toBe(true);
+  await tap(0); // つくるボタンを B = つくる
   const after = await page.evaluate((b) => {
     const k = window.__rikkun! as any;
     return { n: k.inventory.count(b.out) as number, m: k.inventory.count(b.input) as number };
