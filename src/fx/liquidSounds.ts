@@ -1,4 +1,5 @@
 import { noise, powan, sine, swish } from './sfxVoices';
+import type { Vec3 } from '../contracts';
 import type { SoundFx, Tone } from './sound';
 import type { LiquidSoundKind } from '../world/water/waterSystem';
 
@@ -40,12 +41,18 @@ export function liquidVolumeStep(dist: number): number {
 }
 
 /** 鳴らす 係（同じ 種類の 間引き と 距離）。鳴らした ときは 段を、鳴らさない ときは -1 を 返す */
-export function createLiquidSounds(sound: Pick<SoundFx, 'playTones'>, tick: () => number, listener: () => { x: number; y: number; z: number }) {
+export function createLiquidSounds(sound: Pick<SoundFx, 'playTones'>, tick: () => number, listener: (at: Vec3) => Vec3) {
   const last: Record<LiquidSoundKind, number> = { placeWater: -1e9, placeMagma: -1e9, erode: -1e9 };
+  /** listener に わたす 音の 出た 点（使いまわす。毎回 new しない） */
+  const at = { x: 0, y: 0, z: 0 };
   return (kind: LiquidSoundKind, x: number, y: number, z: number): number => {
     const t = tick();
     if (t - last[kind] < LIQUID_SOUND_TUNING.gapTicks[kind]) return -1;
-    const p = listener();
+    // 聞く 点: 音の 出た 点（ブロックの 中心）を わたし、近い 方の 人の 位置を 受けとる（COOP-1 3c。1 人の ときは 1P）
+    at.x = x + 0.5;
+    at.y = y + 0.5;
+    at.z = z + 0.5;
+    const p = listener(at);
     const step = liquidVolumeStep(Math.hypot(x + 0.5 - p.x, y + 0.5 - p.y, z + 0.5 - p.z));
     if (step < 0) return -1;
     last[kind] = t;

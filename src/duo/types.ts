@@ -103,6 +103,8 @@ export interface DuoHook extends DuoPlayHook {
   setPadChoice(c: PadChoice): boolean;
   /** 作業 2.5: 1P・2P が 今 読んでいる パッドの 番号(1 本のときの かわりも 出る)。なし → null */
   padIndex(who: 1 | 2): number | null;
+  /** 作業 3c（#417。§3.4・§12.0）: その 所で 鳴った 場所の ある 音の 大きさを 決める プレイヤー（近い方）と その 距離（マス）。2P が いない ときは いつも who 1。同じ 距離なら 1 */
+  hearFrom(pos: DuoVec3): { who: 1 | 2; distance: number };
 }
 
 /** 2P の セーブ（`meta.p2`。§6）。場所・向き・ハートは 入れない */
