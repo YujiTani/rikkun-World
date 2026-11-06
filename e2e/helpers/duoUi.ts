@@ -46,6 +46,9 @@ export async function openDuoHud(page: Page): Promise<void> {
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
     h.duo.join();
+    // レベル表示の いちばん 長い 形でも 重ならないか（2 けたの レベル・けいけんち）を 見る
+    h.duo.setLevel(1, 12, 58);
+    h.duo.setLevel(2, 12, 58);
     h.step(30);
   });
 }
@@ -108,7 +111,9 @@ export async function duoHudIssues(page: Page): Promise<DuoUiIssue[]> {
   const ht1 = await boxOf(page, 'duo-hearts-p1');
   const ht2 = await boxOf(page, 'duo-hearts-p2');
   const mt = await boxOf(page, 'duo-meter');
-  for (const [name, b] of [['duo-hotbar-p1', hb1], ['duo-hotbar-p2', hb2], ['duo-hearts-p1', ht1], ['duo-hearts-p2', ht2], ['duo-meter', mt]] as const) {
+  const lv1 = await boxOf(page, 'duo-levelbar-p1');
+  const lv2 = await boxOf(page, 'duo-levelbar-p2');
+  for (const [name, b] of [['duo-hotbar-p1', hb1], ['duo-hotbar-p2', hb2], ['duo-hearts-p1', ht1], ['duo-hearts-p2', ht2], ['duo-levelbar-p1', lv1], ['duo-levelbar-p2', lv2], ['duo-meter', mt]] as const) {
     if (!b) add('missing', name, `${name} が 見えない`);
   }
   if (hb1 && hb2) {
@@ -125,6 +130,16 @@ export async function duoHudIssues(page: Page): Promise<DuoUiIssue[]> {
   if (ht1 && ht2 && overlap(ht1, ht2)) add('overlap', 'duo-hearts-p1/p2', '左右の ハートが 重なる');
   if (ht1 && (ht1.l < -0.5 || ht1.r > half + 0.5)) add('half', 'duo-hearts-p1', '1P の ハートが 左半分から はみ出す');
   if (ht2 && (ht2.r > vw + 0.5 || ht2.l < half - 0.5)) add('half', 'duo-hearts-p2', '2P の ハートが 右半分から はみ出す');
+  // 2P の レベル表示（レベル・棒・数）: 2P の 右半分に おさまり、ハート・ホットバー・メーターと 重ならない（1P の 分も 同じ 見かた）
+  if (lv1 && (lv1.l < -0.5 || lv1.r > half + 0.5)) add('half', 'duo-levelbar-p1', '1P の レベル表示が 左半分から はみ出す');
+  if (lv2 && (lv2.r > vw + 0.5 || lv2.l < half - 0.5)) add('half', 'duo-levelbar-p2', '2P の レベル表示が 右半分から はみ出す');
+  for (const [name, lv] of [['p1', lv1], ['p2', lv2]] as const) {
+    if (!lv) continue;
+    for (const [other, b] of [[`duo-hotbar-${name}`, name === 'p1' ? hb1 : hb2], [`duo-hearts-${name}`, name === 'p1' ? ht1 : ht2], ['duo-meter', mt]] as const) {
+      if (b && overlap(lv, b)) add('overlap', `duo-levelbar-${name}/${other}`, `${name === 'p1' ? '1P' : '2P'} の レベル表示と ${other} が 重なる`);
+    }
+  }
+  if (lv1 && lv2 && overlap(lv1, lv2)) add('overlap', 'duo-levelbar-p1/p2', '左右の レベル表示が 重なる');
   if (mt) {
     for (const [name, b] of [['duo-hotbar-p1', hb1], ['duo-hotbar-p2', hb2], ['duo-hearts-p1', ht1], ['duo-hearts-p2', ht2]] as const) {
       if (b && overlap(mt, b)) add('overlap', `duo-meter/${name}`, `距離メーターと ${name} が 重なる`);

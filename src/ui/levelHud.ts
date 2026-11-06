@@ -1,4 +1,5 @@
 import type { LevelState } from '../level/LevelSystem';
+import { levelBarView } from './levelHudModel';
 import './levelHud.css';
 
 const SPARKLES = 14;
@@ -20,9 +21,18 @@ export function selfCluster(parent: HTMLElement): HTMLDivElement {
   return el;
 }
 
+/** LevelHud の 置き場所（2 人あそびの 2P は 自分の かたまりと id の 末尾を 渡す） */
+export interface LevelHudOpts {
+  /** バーを 入れる かたまり。省くと 1P の `#hud-self` */
+  cluster?: HTMLElement;
+  /** id の 末尾（2P は `-p2`）。省くと 1P の `#levelbar`・`#levelup` */
+  idSuffix?: string;
+}
+
 /**
- * レベルと経験値のバー（ハートのすぐ上）と、レベルアップの演出。
- * DOM: `#levelbar`（`data-level`・`data-xp`・`data-next`）、`#levelup`（出ているあいだ `hidden` でない）
+ * レベルと経験値のバー（ハートのすぐ上）と、レベルアップの演出。1P も 2P も この 1 つの 作りを 使う。
+ * DOM: `#levelbar`（`data-level`・`data-xp`・`data-next`）、`#levelup`（出ているあいだ `hidden` でない）。
+ * 2P は `#levelbar-p2`・`#levelup-p2`。見た目の css は class（`.levelbar`・`.levelup`）で 共通。
  */
 export class LevelHud {
   readonly barEl: HTMLDivElement;
@@ -35,9 +45,11 @@ export class LevelHud {
   private left = 0;
   private shownKey = '';
 
-  constructor(parent: HTMLElement) {
+  constructor(parent: HTMLElement, opts: LevelHudOpts = {}) {
+    const suffix = opts.idSuffix ?? '';
     this.barEl = document.createElement('div');
-    this.barEl.id = 'levelbar';
+    this.barEl.id = `levelbar${suffix}`;
+    this.barEl.className = 'levelbar';
     this.barEl.setAttribute('aria-hidden', 'true');
     this.labelEl = document.createElement('span');
     this.labelEl.className = 'lv-label';
@@ -56,7 +68,8 @@ export class LevelHud {
     this.barEl.append(this.labelEl, track, this.numEl);
 
     this.upEl = document.createElement('div');
-    this.upEl.id = 'levelup';
+    this.upEl.id = `levelup${suffix}`;
+    this.upEl.className = 'levelup';
     this.upEl.hidden = true;
     const text = document.createElement('div');
     text.className = 'lu-text';
@@ -73,7 +86,7 @@ export class LevelHud {
       s.style.setProperty('--sd', `${(i % 5) * 0.12}s`);
       this.upEl.append(s);
     }
-    selfCluster(parent).append(this.barEl);
+    (opts.cluster ?? selfCluster(parent)).append(this.barEl);
     parent.append(this.upEl);
     this.update({ level: 1, xp: 0, next: 5 });
   }
@@ -83,9 +96,10 @@ export class LevelHud {
     if (key === this.shownKey) return;
     this.shownKey = key;
     this.wordEl.textContent = 'レベル ';
-    this.badgeEl.textContent = String(st.level);
-    this.numEl.textContent = `${st.xp} / ${st.next}`;
-    this.fillEl.style.width = `${Math.min(100, (st.xp / st.next) * 100)}%`;
+    const v = levelBarView(st);
+    this.badgeEl.textContent = v.badge;
+    this.numEl.textContent = v.num;
+    this.fillEl.style.width = `${v.fillPct}%`;
     this.barEl.dataset.level = String(st.level);
     this.barEl.dataset.xp = String(st.xp);
     this.barEl.dataset.next = String(st.next);

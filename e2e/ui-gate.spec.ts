@@ -536,7 +536,7 @@ SCREENS.push(coopMenuScreen('coop-menu-1', 1), coopMenuScreen('coop-menu-2', 2),
  */
 SCREENS.push({
   id: 'duo-hud',
-  roots: ['#hud', '[data-testid="duo-hotbar-p1"]', '[data-testid="duo-hotbar-p2"]', '[data-testid="duo-meter"]'],
+  roots: ['#hud', '[data-testid="duo-hotbar-p1"]', '[data-testid="duo-hotbar-p2"]', '[data-testid="duo-levelbar-p1"]', '[data-testid="duo-levelbar-p2"]', '[data-testid="duo-meter"]'],
   open: openDuoHud,
   extra: async (page: Page) => [...(await duoHudIssues(page)), ...(await duoViewIssues(page, 'one'))],
 });

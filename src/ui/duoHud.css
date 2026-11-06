@@ -72,6 +72,23 @@ html[data-duo] #hud-self-p2 {
   left: calc(75% - var(--hb-w) * var(--duo-scale) / 2);
 }
 
+/* レベルアップの 演出は 起きた 人の 半分の まん中に 出す（まん中の 線に またがらない）。2P の 棒と 演出は 2P の 色（--duo-p2） */
+html[data-duo] #levelup {
+  left: 25%;
+}
+html[data-duo] #levelup-p2 {
+  left: 75%;
+}
+html[data-duo] #levelbar-p2 .lv-badge {
+  background: var(--duo-p2);
+}
+html[data-duo] #levelbar-p2 .lv-fill {
+  background: var(--duo-p2);
+}
+html[data-duo] #levelup-p2 :is(.lu-text, .lu-star) {
+  color: var(--duo-p2);
+}
+
 /* 1P・2P を わける 色の ふち（案 B: 1P = --rk-xp・2P = --rk-rarity-3。外がわに こい 2px のふち）。ふちの ぶんは 外へ 出す */
 html[data-duo] #hotbar,
 html[data-duo] #hotbar-p2 {

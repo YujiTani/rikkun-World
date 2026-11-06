@@ -18,7 +18,7 @@
   pointer-events: none;
   z-index: 5;
 }
-#levelbar {
+.levelbar {
   order: 1;
   display: flex;
   align-items: center;
@@ -29,17 +29,17 @@
   line-height: var(--rk-lh);
   font-variant-numeric: tabular-nums;
 }
-#levelbar .lv-label {
+.levelbar .lv-label {
   display: flex;
   align-items: center;
   gap: var(--rk-sp-2);
 }
-#levelbar .lv-word {
+.levelbar .lv-word {
   font-size: var(--rk-fs-small);
   color: var(--rk-text);
 }
 /* レベルの数: タイトル 32px、まるいバッジ */
-#levelbar .lv-badge {
+.levelbar .lv-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -52,27 +52,27 @@
   background: var(--rk-accent-grad);
   border-radius: var(--rk-r-pill);
 }
-#levelbar .lv-track {
+.levelbar .lv-track {
   width: calc(240 / 12.8 * 1vw);
   height: var(--rk-sp-4);
   border-radius: var(--rk-r-pill);
   background: var(--rk-line);
   overflow: hidden;
 }
-#levelbar .lv-fill {
+.levelbar .lv-fill {
   height: 100%;
   background: var(--rk-xp-grad);
   border-radius: var(--rk-r-pill);
   transition: width var(--rk-dur) var(--rk-ease);
 }
-#levelbar .lv-num {
+.levelbar .lv-num {
   font-size: var(--rk-fs-small);
   font-weight: 500;
   color: var(--rk-text);
 }
 
 /* レベルアップの演出: ふわっと出て、ゆっくり消える（点滅しない） */
-#levelup {
+.levelup {
   position: fixed;
   left: 50%;
   top: 38%;
@@ -81,10 +81,10 @@
   pointer-events: none;
   z-index: 8;
 }
-#levelup[hidden] {
+.levelup[hidden] {
   display: none;
 }
-#levelup .lu-text {
+.levelup .lu-text {
   position: absolute;
   transform: translate(-50%, -50%);
   white-space: nowrap;
@@ -94,7 +94,7 @@
   text-shadow: var(--rk-text-outline);
   animation: lu-rise 2.4s ease-out both;
 }
-#levelup .lu-star {
+.levelup .lu-star {
   position: absolute;
   color: var(--rk-accent);
   font-size: var(--rk-fs-head);

@@ -70,6 +70,12 @@ export interface DuoPlayHook {
   count(who: 1 | 2, item: ItemId): number;
   hearts(who: 1 | 2): { hp: number; maxHp: number; down: boolean };
   hurt(who: 1 | 2, amount: number): void;
+  /** 作業 3a の 足し: レベルと けいけんち（1P は `level.get()` と 同じ。2P が いないとき who=2 は null） */
+  level(who: 1 | 2): { level: number; xp: number; next: number } | null;
+  /** レベルを 決める（`?duo=dev` の ときだけ。UI 検査と テスト用。演出・回復は 出さない） */
+  setLevel(who: 1 | 2, level: number, xp?: number): void;
+  /** けいけんちを 足す（`?duo=dev` の ときだけ。上がれば 演出・ハート回復も ふつうに 出る） */
+  addXp(who: 1 | 2, amount: number): void;
 }
 
 export interface DuoHook extends DuoPlayHook {
