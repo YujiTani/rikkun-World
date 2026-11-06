@@ -265,7 +265,7 @@ export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean,
     const s0 = rng() < 0.5 ? -1 : 1;
     // 坑道の へやの くじ〔横穴 1 本ごと。主の 乱数は つかわない〕
     const layer = layerAt(h.y) ?? 'fukai';
-    const hit = hc.lottery && !start && hash01(subSeed(G.seed, 951), site.x, site.z, h.y, h.u) < CC.link[layer].draw;
+    const hit = hc.lottery && !start && hash01(subSeed(G.seed, 951), site.x, site.z, h.y, h.u) < CC.link[layer].chance;
     const linkHere = hc.link !== null && slot === hc.link.ref.target;
     const snap0 = hit || linkHere ? b.snapshot() : null;
     const p0 = b.path.length;

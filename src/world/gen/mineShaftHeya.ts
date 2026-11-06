@@ -166,7 +166,7 @@ function fits(env: HeyaEnv, b: RoomBox, sy: number, snap: Bounds | null): boolea
   for (const o of env.rooms) {
     if (o.x0 - GAP <= b.x1 && b.x0 <= o.x1 + GAP && o.z0 - GAP <= b.z1 && b.z0 <= o.z1 + GAP && o.y0 - GAP <= b.y1 && b.y0 <= o.y1 + GAP) return false;
   }
-  // 地面の いちばん ひくい 所〔まず あらく 見て 入らなければ すぐ やめる。あらい 見かたの ほうが 高くは ならない〕
+  // 地面の いちばん ひくい 所〔まず 間引いて 見る。間引くと 最小は 高く 見える ので、これで 入らなければ すぐ やめて よい。入れば 全部 見て たしかめる〕
   let hmin = Infinity;
   for (let z = b.z0 - 1; z <= b.z1 + 1; z += 3) for (let x = b.x0 - 1; x <= b.x1 + 1; x += 3) hmin = Math.min(hmin, G.h(x, z));
   const need = hmin <= SEA_Y - 1 ? C.roof.sea : C.roof.ground;
@@ -295,11 +295,10 @@ function connected(st: RoomStage, over: Overlay, e: { x: number; y: number; z: n
   return st.openings > 0;
 }
 
-/** くじ: 層の 表から 種類を 引く〔u は 0 以上 1 未満。引く 重みは 表の 比 × fit〕 */
+/** くじ: 層の 表から 種類を 引く〔u は 0 以上 1 未満。引く 重みは 表の 比〕 */
 export function pickKind(layer: MineLayerId, u: number): CaveKind {
   const row = C.link[layer].kinds as Partial<Record<CaveKind, number>>;
-  const fit = C.link[layer].fit as Partial<Record<CaveKind, number>>;
-  const list = (Object.entries(row) as [CaveKind, number][]).map(([k, w]) => [k, w * (fit[k] ?? 1)] as const);
+  const list = Object.entries(row) as [CaveKind, number][];
   let r = u * list.reduce((t, e) => t + e[1], 0);
   for (const [k, w] of list) {
     r -= w;
