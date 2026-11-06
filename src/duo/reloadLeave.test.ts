@@ -22,6 +22,8 @@ import type { DuoLeaveReason, P2Save } from './types';
  *     writeFile が 投げたら resumeSave() → alert(メッセージ。なければ 'よみこめませんでした') → 'failed'（leaveDuo も reload も 呼ばない。2P は のこる）。
  *     配線: src/game/wire/save.ts の mountAdult.importSave が これを 呼ぶ。
  *   src/duo/types.ts  DuoLeaveReason に 'import' を 足した（置いてある）。session.ts の `leave('import')` は 保存しない（session.test.ts）。
+ *   注意: このテストの 偽の saveNow は 自分で db に 書いた 値を 自分で 確かめる（流れの 順番と 2P の 入力・joined を 見る ための もの）。
+ *     「保存に 2P の 持ち物・レベルが 入る」本当の 保証は SaveManager の 既存テスト（src/save/p2Save.test.ts の AC10 と session.test.ts の AC17。wire/save.ts の p2.serialize は 参加中は 今の 中身を 書く）。
  *   「いいえ」（もどる 確認で）は goTitle を 呼ばないので 何も 起きない（このテストでは 見ない）。
  */
 

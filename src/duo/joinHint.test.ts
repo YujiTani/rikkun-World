@@ -16,6 +16,9 @@ import { DUO_TUNING } from './tuning';
  *     - 世界が 止まっている あいだ（active が false）は 出さない。その あいだに 候補が 来たら、動きだした step から 3 秒。
  *     - 出している ステップの 数え方: 動いている step の 数が joinHintSteps に とどいた step で 消える（179 まで 出て、180 で 消える）。
  *   配線: wireDuo が 毎ステップ step を 呼び、visible() で DOM の `data-testid="duo-join-hint"`（「＋で さんか」。ひらがな・＋ボタンの 絵）を 出し入れする。
+ *     modal（本・建築士さん・2 人で 1P の 全面の もちもの画面）が active の あいだは Game.update() が updaters を 呼ばない
+ *     （src/game/Game.ts の update。本番 frame は modal.tick と idleUpdaters だけ）ので、`game.setModal` の tick（src/game/wire/player.ts）と
+ *     `game.onIdle` からも 同じ step を 呼ぶ。そのとき active には false を わたす（止まっている あいだは 出さない）。
  */
 
 const base: DuoJoinHintInput = { candidate: true, joined: false, active: true, anyButton: false };

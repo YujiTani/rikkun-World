@@ -1,3 +1,5 @@
+import type { ScreenMode } from '../contracts';
+
 /** 時間の 倍率。2 人のとき もちもの画面でも ゆっくりに しない（§2.6・AC11）。base = `screen.timeScale()` の 値 */
 export function duoTimeScale(base: number, joined: boolean): number {
   return joined ? 1 : base;
@@ -51,4 +53,12 @@ export function pickableMate<T>(mate: T | null, down: boolean): T | null {
  */
 export function duoWaitNotice(_i: { joined: boolean; inventoryOpen: boolean; modal: boolean }): boolean {
   throw new Error('COOP-1 3d: duoWaitNotice は まだ ない');
+}
+
+/**
+ * COOP-1 作業 3d（AC84）: 2 人で 1P の 全面の もちもの画面（`screen.mode()` が 'inventory'）が 開いている あいだ 世界を 止めるか。
+ * 型だけの スタブ（developer が 作る。テストは rules.test.ts）。`game.setModal` の `active()` が これを 使う。
+ */
+export function duoWorldFrozen(_i: { joined: boolean; mode: ScreenMode }): boolean {
+  throw new Error('COOP-1 3d: duoWorldFrozen は まだ ない');
 }

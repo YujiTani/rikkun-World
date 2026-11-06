@@ -111,6 +111,11 @@ test('AC2: 2 本目の ＋ を 押した 次の ステップに 2P が 1P の �
 
 test('AC64・AC46・AC2: ふつうの URL（?duo=dev なし）で「＋で さんか」が 出て、2 本目の ＋ で 参加できる。place だけ 効かない', async ({ page }) => {
   await open(page, '?nosave=1');
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.lock.simulate(true); // 「クリックして あそぼう」を とじる（duoPad.spec の openPlay と 同じ。ロックして から 試す）
+    h.step(2);
+  });
   await standOnGround(page, 100.5, 100.5, { yaw: 90 });
   const hint = page.getByTestId('duo-join-hint');
 
@@ -230,6 +235,13 @@ test('AC11・AC84・AC15: 2P の パネルを 開いても 倍率は 1。1P の 
   await installPads(page);
   expect(await page.evaluate(() => (window as any).__rikkun.duo.join())).toBe(true);
   await step(page, 5);
+  // 妖怪を 1 たい（動く）。止まっている あいだ 動かない ことを 見る
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    const p = h.player.get().position;
+    (window as any).__yid = h.yokai.spawn('karakasa', p.x + 6, p.y, p.z, { ai: true });
+    h.step(2);
+  });
 
   // AC11: 2P の パネル（Y = 標準の ボタン 2）を 開いても 世界は 止まらない
   await setPad(page, 1, { buttons: [2] });
@@ -247,22 +259,39 @@ test('AC11・AC84・AC15: 2P の パネルを 開いても 倍率は 1。1P の 
     h.input.release('toggleInventory');
     h.step(3);
   });
-  expect(await page.evaluate(() => (window as any).__rikkun.duo.timeScale()), '2 人の 1P の 全面: 世界が 止まる').toBe(0);
+  // duo.timeScale() の 0 は 止まった 証拠に しない（step() は 倍率を 見ない）。2P の 位置と 妖怪の 位置が かわらない ことで 見る
+  expect(await page.evaluate(() => (window as any).__rikkun.duo.timeScale())).toBe(0);
   await expect(page.getByTestId('duo-wait')).toContainText('まってね');
+  const yokaiAt = () =>
+    page.evaluate(() => {
+      const y = (window as any).__rikkun.yokai.list().find((e: any) => e.id === (window as any).__yid);
+      return y ? { x: y.position.x, y: y.position.y, z: y.position.z } : null;
+    });
   const held = (await pos(page, 2))!;
+  const yokaiHeld = await yokaiAt();
+  expect(yokaiHeld, '妖怪が いる').not.toBeNull();
   await setPad(page, 1, { axes: [0, -1, 0, 0] });
   await step(page, 30);
   const heldAfter = (await pos(page, 2))!;
   expect(Math.hypot(heldAfter.x - held.x, heldAfter.z - held.z), '止まっている あいだ 2P は 動かない').toBeLessThan(0.05);
-  await setPad(page, 1, {});
-  await page.evaluate(() => {
-    const h = (window as any).__rikkun;
-    h.input.press('toggleInventory');
-    h.input.release('toggleInventory');
-    h.step(3);
-  });
+  expect(await yokaiAt(), '妖怪も 動かない').toEqual(yokaiHeld);
+  // 1P の 全面を 1P の パッドで とじられる（止まっている あいだも 1P の パッドは 読まれる）。2P の スティックは 倒したまま
+  await setPad(page, 0, { buttons: [1] }); // B（もどる）
+  await step(page, 3);
+  await setPad(page, 0, {});
+  await step(page, 3);
   expect(await page.evaluate(() => (window as any).__rikkun.duo.timeScale()), 'とじたら 動きだす').toBe(1);
   await expect(page.getByTestId('duo-wait')).toBeHidden();
+  // とじた その ステップから 動きだす: 2P の スティックを 倒したまま step(1) で 位置が かわる
+  await setPad(page, 1, {});
+  await step(page, 2);
+  const g0 = (await pos(page, 2))!;
+  await setPad(page, 1, { axes: [0, -1, 0, 0] });
+  await step(page, 1);
+  const g1 = (await pos(page, 2))!;
+  expect(Math.hypot(g1.x - g0.x, g1.z - g0.z), 'とじた あと step(1) で 2P が 動く').toBeGreaterThan(0);
+  await setPad(page, 1, {});
+  await step(page, 2);
   await expect(page.getByTestId('duo-inv-p2'), '2P の パネルは 開いたまま').toBeVisible();
 
   // 2P の パッドで 画面を 開く ボタンを ひと通り 押す（select・十字・L3・R3・面ボタン）
