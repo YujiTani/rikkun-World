@@ -3,6 +3,7 @@ import type { InfoRow } from '../../craft/info/table';
 import type { ToolFamily } from '../../dig/toolFamily';
 import type { ItemCategory } from '../../ui/itemCategory';
 import { CHALK_MARK_IDS } from '../../world/blocks/chalkMark';
+import { CHEST_BLOCK_IDS } from '../../world/blocks/chestBlock';
 import { KATAME_TSUCHI, SCAFFOLD_IDS } from '../../world/blocks/buildBlocks';
 import { FURN_VARIANT_IDS, HOUSE_DOOR_PART_IDS } from '../../world/blocks/houseBlocks';
 import { WATER_EXTRA_IDS } from '../../world/blocks/water';
@@ -41,6 +42,9 @@ export const BLOCK_ONLY_IDS = [
   // WATERFALL-1: 予約と 量 1〜8 の マグマ（アイテムに ならない）。WAKIDOKORO: たきつぼ 2 つは アイテム（ほると その たきつぼ）
   ...MAGMA_EXTRA_IDS,
   'kogeta', // 版 2: マグマに 焼かれた ブロック（ほると すみ 1 こ）
+  // MINE-1C（#350）: 坑道の わく（ほると き 1 こ）・宝箱（持てない。ほっても こわれない）
+  'kodo_waku',
+  ...CHEST_BLOCK_IDS,
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 

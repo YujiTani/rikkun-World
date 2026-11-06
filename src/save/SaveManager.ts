@@ -1,4 +1,5 @@
 import type { BlockId, ChunkColumn, Inventory, PlayerState, ScreenSettings, SpawnPoint, Vec3 } from '../contracts';
+import { KODO_GEN, OLDEST_READABLE_GEN, SAVE_GEN } from './gens';
 import { packColumn, SAVE_ID, type PersistBackend, type StoredChunk, type StoredMeta } from './backend';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 import { encodeSections } from './chunkCodec';
@@ -157,12 +158,11 @@ export interface SaveInfo {
 
 export const SAVE_VERSION = 1;
 /**
- * 地形の作り方の版。世界生成（src/world/gen）で地形が変わったら上げる。保存した列は そのまま読み、保存していない所だけ新しい生成。
- * 3 = VOX-B（無限の地形・高さ 352。前の世界（2）は読まない）、4 = MINE-1A（地下の 3 つの層と 鉱石の かたまり。docs/design/MINE-1.md §4.8）
+ * 地形の作り方の版（数は gens.ts の 1 か所）。世界生成（src/world/gen）で地形が変わったら上げる。保存した列は そのまま読み、保存していない所だけ新しい生成。
+ * 3 = VOX-B（無限の地形・高さ 352。前の世界（2）は読まない）、4 = MINE-1A（地下の 3 つの層と 鉱石の かたまり。docs/design/MINE-1.md §4.8）、
+ * 5 = MINE-1C（坑道。古い 列には 坑道を かかない〔meta.oldCols〕）
  */
-export const SAVE_GEN = 4;
-/** 読める いちばん 古い 版（MINE-1 §4.8）。これ 以上 SAVE_GEN 以下の 保存は 読む（版 3 と 4 の 列が まざった 世界も）。1 か所に 書く（#304） */
-export const OLDEST_READABLE_GEN = 3;
+export { SAVE_GEN, OLDEST_READABLE_GEN, KODO_GEN };
 
 /** その 版の 保存の 列を 読めるか（OLDEST_READABLE_GEN から 今の 版 SAVE_GEN まで。今の 版より 新しい 保存は 読まない） */
 export function isReadableGen(gen: number): boolean {
@@ -211,6 +211,8 @@ export class SaveManager {
   /** 書く順番（前の保存が終わってから 次を書く） */
   private chain: Promise<void> = Promise.resolve();
   private inFlight = 0;
+  /** `metaGen()` の もと */
+  private writtenGen: number | null = null;
   private suspended = false;
   /** 次の保存で 変わっていなくても書く（保険や古い保存から戻したとき） */
   private forceNext = false;
@@ -223,6 +225,8 @@ export class SaveManager {
   constructor(private readonly d: SaveDeps) {
     this.saveId = d.saveId ?? SAVE_ID;
     this.restored = d.restored ?? NO_SAVE;
+    const mg = this.restored.meta?.gen;
+    this.writtenGen = typeof mg === 'number' && Number.isInteger(mg) ? mg : null;
     this.infoState = {
       saveId: this.saveId,
       enabled: d.store !== null && d.db !== null && !(d.restored?.readOnly ?? false),
@@ -559,12 +563,25 @@ export class SaveManager {
       house: this.d.house?.serialize() ?? null,
       farm,
       ...(this.d.strength ? { strength: this.d.strength } : {}),
+      ...this.oldColsMeta(),
     });
     // inventory などは 2 回 serialize しない: 比べる側の meta から 取りだす
     const keyObj = make(bagsKey, farmKey);
     const key = JSON.stringify(keyObj);
     const meta: StoredMeta = { ...keyObj, bags: bagsFull, farm: farmFull };
     return { meta, key };
+  }
+
+  /** meta に 書く 古い 列の 一覧（MINE-1C §4.8）。開いた とき 決まり、増やさず 減らさない。ない／空の ときは 書かない */
+  private oldColsMeta(): { oldCols?: { kodo: number[]; heya?: number[] } } {
+    const o = (this.restored as { oldCols?: { kodo: ReadonlySet<number>; heya: ReadonlySet<number> } }).oldCols;
+    if (!o || (o.kodo.size === 0 && o.heya.size === 0)) return {};
+    return { oldCols: { kodo: [...o.kodo], ...(o.heya.size > 0 ? { heya: [...o.heya] } : {}) } };
+  }
+
+  /** 開いて いる 世界の meta の 版（開いた ときは 保存の 版、保存した あとは 書いた 版。meta が なければ null） */
+  metaGen(): number | null {
+    return this.writtenGen;
   }
 
   /** 保存を始める。同期の部分（比べる・さわった列を縮める前のバイト列にする）はここ。書き終わると解決する */
@@ -601,6 +618,7 @@ export class SaveManager {
         try {
           const recs: StoredChunk[] = await Promise.all(raws.map((r) => packColumn(r.cx, r.cz, r.raw, SAVE_GEN, r.h)));
           await db.write(this.saveId, recs, meta);
+          this.writtenGen = SAVE_GEN;
           w.dropChangeLogTo(logEnd);
           let bytes = key.length;
           for (const r of recs) bytes += r.data.length;

@@ -1,6 +1,7 @@
 import type { BlockId, ChunkColumn } from '../contracts';
 import { blockIndexOf } from '../world/blocks/blockTypes';
 import { colKey } from '../world/stream/ring';
+import { KODO_GEN } from './gens';
 import { SAVE_VERSION } from './SaveManager';
 import { NO_SAVE, readPending, removePendingOf, validMeta, type RestoreOptions, type RestoredSave } from './restore';
 
@@ -20,13 +21,29 @@ export interface PendingColumn {
 export interface StreamRestore extends RestoredSave {
   /** 保存にある列（colKey） */
   keys: Set<number>;
+  /** 古い 列の 一覧（colKey。MINE-1C §4.8）: 坑道（kodo）を かかない 列。開いた とき 決まり、増やさず 減らさない。部屋（heya）は 1D */
+  oldCols: { kodo: Set<number>; heya: Set<number> };
   /** 保険にあるマスを持つ列（colKey → 中身） */
   pending: Map<number, PendingColumn>;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-export const emptyStreamRestore = (base: RestoredSave = NO_SAVE): StreamRestore => ({ ...base, keys: new Set(), pending: new Map() });
+export const emptyStreamRestore = (base: RestoredSave = NO_SAVE): StreamRestore => ({ ...base, keys: new Set(), pending: new Map(), oldCols: { kodo: new Set(), heya: new Set() } });
+
+const ints = (v: unknown): number[] => (Array.isArray(v) ? v.filter((x): x is number => typeof x === 'number' && Number.isFinite(x)) : []);
+
+/**
+ * 古い 列の 一覧を 決める。meta に 一覧が あれば それ。なくて meta の 版が KODO_GEN 以上なら 空〔新しい 世界〕。
+ * 版が それより 古い・meta が ない・こわれて いる ときは 保存の 列 ぜんぶ。
+ */
+function oldColsOf(meta: Record<string, unknown> | null, keys: ReadonlySet<number>): { kodo: Set<number>; heya: Set<number> } {
+  const list = meta?.oldCols;
+  if (isObj(list) && Array.isArray(list.kodo)) return { kodo: new Set(ints(list.kodo)), heya: new Set(ints(list.heya)) };
+  const gen = meta?.gen;
+  if (typeof gen === 'number' && Number.isInteger(gen) && gen >= KODO_GEN) return { kodo: new Set(), heya: new Set() };
+  return { kodo: new Set(keys), heya: new Set() };
+}
 
 export async function openStoredKeys(o: Pick<RestoreOptions, 'db' | 'store' | 'seed' | 'saveId' | 'reset' | 'signal'>): Promise<StreamRestore> {
   const { db, store, seed, saveId } = o;
@@ -67,6 +84,7 @@ export async function openStoredKeys(o: Pick<RestoreOptions, 'db' | 'store' | 's
       out.meta = pending.meta;
       out.fromPending = true;
     }
+    out.oldCols = oldColsOf(out.meta, out.keys);
     return out;
   } catch {
     return emptyStreamRestore(); // 読めなかった: 新しい世界で始める（こわれた保存は次の保存で上書き）
