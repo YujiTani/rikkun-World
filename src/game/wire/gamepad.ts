@@ -2,15 +2,14 @@
 import type { Game } from '../Game';
 import type { LockController, MouseLook } from '../../input';
 import { AlwaysLook, CombinedLook, DuoPadRouter, PlayerInputSlots } from '../../input/gamepad';
-import { createGamepadPanel } from '../../ui/gamepad/gamepadPanel';
 import type { ActionState } from '../../input/actions';
+import { activeMenuRoot, clickFocused, handleMenuDir } from '../../ui/menu/focusNav';
 
 export function wireGamepad(opts: {
   game: Game;
   lock: LockController;
   mouseLook: MouseLook;
   actions: ActionState;
-  overlayParent: HTMLElement;
   /** もちものなどが開いているか */
   menuOpen: () => boolean;
   /** ロープぶら下がり */
@@ -48,12 +47,11 @@ export function wireGamepad(opts: {
   window.addEventListener('keydown', () => reader.noteKeyboard(), true);
   window.addEventListener('mousemove', () => reader.noteMouse(), true);
 
-  const panel = createGamepadPanel(reader, opts.overlayParent);
-
   opts.actions.onPress((action) => {
     if (action === 'toggleView') opts.onToggleView();
   });
 
+  let pumpUi = (): void => {};
   /** COOP-1: 参加の 求め（2 本目の ＋）と 2P の もちもの画面は wireDuo が つなぐ */
   const duo = { onJoinRequested: (): void => undefined, menuOpen2: (): boolean => false };
   const step = (active: boolean): void => {
@@ -61,39 +59,22 @@ export function wireGamepad(opts: {
     reader.setHanging(opts.hanging());
     router.setMenuOpen2(duo.menuOpen2());
     if (router.poll(performance.now(), active).joinRequested) duo.onJoinRequested();
+    pumpUi();
     const on = reader.hasPad();
     if (on !== opts.lock.isPadActive()) opts.lock.setPadActive(on);
+    if (!opts.menuOpen() || reader.isCapturing()) return;
+    const root = activeMenuRoot();
+    if (!root) return;
+    const a = opts.actions;
+    if (a.wasPressed('focusUp')) handleMenuDir(root, 'up');
+    else if (a.wasPressed('focusDown')) handleMenuDir(root, 'down');
+    else if (a.wasPressed('focusLeft')) handleMenuDir(root, 'left');
+    else if (a.wasPressed('focusRight')) handleMenuDir(root, 'right');
+    else if (a.wasPressed('confirm')) clickFocused(root);
   };
   // 案内中（realtime オフ）でもパッドを読んで padActive にできるように idle でも回す
   opts.game.onUpdate(() => step(true));
   opts.game.onIdle(() => step(false));
-
-  // メニュー: 十字でフォーカス移動（簡易）
-  opts.game.onUpdate(() => {
-    if (!opts.menuOpen()) return;
-    const root = document.querySelector<HTMLElement>('[data-testid="inventory-root"], .inv-root, .inventory-screen') ?? document.body;
-    const focusables = [...root.querySelectorAll<HTMLElement>('button, [tabindex]:not([tabindex="-1"])')].filter(
-      (el) => !el.hasAttribute('disabled') && el.offsetParent !== null,
-    );
-    if (focusables.length === 0) return;
-    const cur = document.activeElement as HTMLElement | null;
-    let i = Math.max(0, focusables.indexOf(cur as HTMLElement));
-    if (opts.actions.wasPressed('moveRight') || opts.actions.wasPressed('pageNext')) {
-      i = (i + 1) % focusables.length;
-      focusables[i]?.focus();
-    } else if (opts.actions.wasPressed('moveLeft') || opts.actions.wasPressed('pagePrev')) {
-      i = (i - 1 + focusables.length) % focusables.length;
-      focusables[i]?.focus();
-    } else if (opts.actions.wasPressed('moveForward')) {
-      i = (i - 4 + focusables.length) % focusables.length;
-      focusables[i]?.focus();
-    } else if (opts.actions.wasPressed('moveBack')) {
-      i = (i + 4) % focusables.length;
-      focusables[i]?.focus();
-    } else if (opts.actions.wasPressed('confirm')) {
-      (document.activeElement as HTMLElement | null)?.click?.();
-    }
-  });
 
   return {
     reader,
@@ -101,8 +82,10 @@ export function wireGamepad(opts: {
     duo,
     look,
     slots,
+    setPump(fn: () => void): void {
+      pumpUi = fn;
+    },
     look2: padLook2,
-    panel,
     /** E2E: 偽パッドを差し込む */
     injectPad(pad: Gamepad | null): void {
       router.getPads = () => (pad ? [pad] : []);
@@ -123,7 +106,6 @@ export function wireGamepad(opts: {
     dispose: () => {
       window.removeEventListener('gamepadconnected', onConn);
       window.removeEventListener('gamepaddisconnected', onDisc);
-      panel.dispose();
     },
   };
 }

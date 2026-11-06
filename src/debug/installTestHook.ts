@@ -329,8 +329,10 @@ export function installGameHook(deps: WiredDuo): void {
           injectPads: (pads: Array<Gamepad | null>) => gamepadApi!.injectPads(pads),
           hasPad: () => gamepadApi!.reader.hasPad(),
           snapshot: () => gamepadApi!.reader.snapshot(),
-          openPanel: () => gamepadApi!.panel.open(),
-          closePanel: () => gamepadApi!.panel.close(),
+          openPanel: () => document.querySelector<HTMLButtonElement>('[data-testid="settings-open"]')?.click(),
+          closePanel: () => document.querySelector<HTMLButtonElement>('[data-testid="settings-close"]')?.click(),
+          binds: () => gamepadApi!.reader.getBinds(),
+          settings: () => gamepadApi!.reader.getSettings(),
         }
       : null,
     duo,

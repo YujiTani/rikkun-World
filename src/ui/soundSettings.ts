@@ -95,3 +95,45 @@ export function createSoundSettings(deps: SoundSettingsDeps, parent?: HTMLElemen
   }
   return { el, refresh, close: () => setOpen(false), isOpen: () => !panel.hidden };
 }
+
+/** せっていの中に置く音量（案内の独立ボタンは使わない。testid は今までどおり）。「おとを けす」はチェックボックス */
+export function mountSoundKnobs(deps: SoundSettingsDeps, parent: HTMLElement): { refresh(): void } {
+  const el = document.createElement('div');
+  el.className = 'ss-embed';
+  el.innerHTML =
+    KNOBS.map(
+      (k) =>
+        `<label class="ss-row" data-slider-row data-menu-item tabindex="0"><span class="ss-label"><span class="ss-pic" aria-hidden="true">${k.pic}</span>${k.label}${k.eg ? `<span class="ss-eg" aria-hidden="true">（${k.eg}）</span>` : ''}</span>` +
+        `<input class="ss-range" type="range" min="0" max="1" step="0.01" data-testid="${k.id}" aria-label="${k.label}">` +
+        `<span class="ss-num" data-testid="${k.id}-value" aria-hidden="true"></span></label>`,
+    ).join('') +
+    `<label class="ss-check"><input type="checkbox" class="ss-mutebox" data-testid="sound-mute" data-menu-item><span class="ss-text">おとを けす</span></label>`;
+  parent.appendChild(el);
+  const muteBox = el.querySelector<HTMLInputElement>('.ss-mutebox')!;
+  const ranges = [...el.querySelectorAll<HTMLInputElement>('.ss-range')];
+  const nums = [...el.querySelectorAll<HTMLElement>('.ss-num')];
+  const refresh = (): void => {
+    muteBox.checked = deps.audio.audioMuted;
+    KNOBS.forEach((k, i) => {
+      const r = ranges[i]!;
+      const v = k.get(deps);
+      if (Math.abs(Number(r.value) - v) > 1e-9) r.value = String(v);
+      nums[i]!.textContent = String(Math.round(v * 100));
+    });
+  };
+  muteBox.addEventListener('change', () => {
+    deps.audio.audioMuted = muteBox.checked;
+    refresh();
+    deps.onChange();
+  });
+  ranges.forEach((r, i) => {
+    r.addEventListener('input', () => {
+      const v = Math.min(1, Math.max(0, Number(r.value)));
+      if (Number.isFinite(v)) KNOBS[i]!.set(deps, v);
+      nums[i]!.textContent = String(Math.round((Number.isFinite(v) ? v : 0) * 100));
+      deps.onChange();
+    });
+  });
+  refresh();
+  return { refresh };
+}

@@ -132,9 +132,7 @@ test.describe('SOUND-1 場面と BGM', () => {
 
 test.describe('SOUND-1 案内画面の おと', () => {
   // 画面の部品の名前・ID は票に無い。SOUND.md §7 の文字と並び順（ぜんぶ・おんがく・こうかおん）で探す。
-  const muteButton = (page: Page) => page.getByRole('button', { name: 'おと', exact: true });
-  const volumeToggle = (page: Page) => page.getByRole('button', { name: /おとの\s*おおきさ/ });
-  const sliders = (page: Page) => page.locator('input[type="range"]');
+  const muteButton = (page: Page) => page.getByTestId('sound-mute'); // チェックボックス「おとを けす」
 
   async function openGuide(page: Page) {
     await page.evaluate(() => {
@@ -150,27 +148,29 @@ test.describe('SOUND-1 案内画面の おと', () => {
     await openGame(page, '');
     await openGuide(page);
 
-    // 「おと」ボタンで muted が切りかわる
+    // せっていを開くと、おととつまみがある（SETTINGS-1）
+    await page.getByTestId('settings-open').click();
     await expect(muteButton(page)).toBeVisible();
     const box = await muteButton(page).boundingBox();
-    expect(box!.width).toBeGreaterThanOrEqual(64);
-    expect(box!.height).toBeGreaterThanOrEqual(64);
+    expect(box!.width).toBeGreaterThanOrEqual(44);
+    expect(box!.height).toBeGreaterThanOrEqual(44);
     expect((await audioState(page)).muted).toBe(false);
     await muteButton(page).click();
     expect((await audioState(page)).muted).toBe(true);
     await muteButton(page).click();
     expect((await audioState(page)).muted).toBe(false);
 
-    // つまみ 3 本
-    await volumeToggle(page).click();
-    await expect(sliders(page)).toHaveCount(3);
+    // おと のつまみ 3 本（みる はやさ・あそびとは別）
+    const soundSliders = (page: Page) =>
+      page.locator('[data-testid="sound-master"], [data-testid="sound-bgm"], [data-testid="sound-fx"]');
+    await expect(soundSliders(page)).toHaveCount(3);
     for (let i = 0; i < 3; i++) {
-      const b = await sliders(page).nth(i).boundingBox();
+      const b = await soundSliders(page).nth(i).boundingBox();
       expect(b!.height, `つまみ ${i} の高さ`).toBeGreaterThanOrEqual(40);
     }
     await page.screenshot({ path: `${ASSETS}/sound1-guide-open.png` });
     const setSlider = (i: number, v: number) =>
-      sliders(page).nth(i).evaluate((el, v) => {
+      soundSliders(page).nth(i).evaluate((el, v) => {
         const input = el as HTMLInputElement;
         input.value = String(Math.round(v * Number(input.max || 1) * 1000) / 1000);
         input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -209,7 +209,7 @@ test.describe('SOUND-1 案内画面の おと', () => {
       h.lock.simulate(true);
       h.step(3);
     });
-    await expect(sliders(page).first()).toBeHidden();
+    await expect(soundSliders(page).first()).toBeHidden();
 
     // ミュートも音量も、読みなおしても残る
     await page.evaluate(() => {

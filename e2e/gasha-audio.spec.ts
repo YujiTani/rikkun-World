@@ -80,8 +80,8 @@ async function startBgm(page: Page): Promise<boolean> {
 
 /** 画面の 音の 設定（おとの ボタン・つまみ）を 触る。本物の 画面の 部品を 使う */
 const setMute = (page: Page, on: boolean) => page.evaluate((on) => {
-  const b = document.querySelector<HTMLElement>('[data-testid=sound-mute]')!;
-  if ((b.getAttribute('aria-pressed') === 'true') !== on) b.click();
+  const b = document.querySelector<HTMLInputElement>('[data-testid=sound-mute]')!; // チェックボックス「おとを けす」
+  if (b.checked !== on) b.click();
 }, on);
 const setKnob = (page: Page, id: string, v: number) => page.evaluate(({ id, v }) => {
   const r = document.querySelector<HTMLInputElement>(`[data-testid=${id}]`)!;

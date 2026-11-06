@@ -19,6 +19,8 @@ export class LockController implements LockStatus {
   private relocking = false;
   /** GAMEPAD-1: パッド割当中はロック無しでも遊ぶ */
   private padActive = false;
+  /** SETTINGS-1: スタートメニュー（Esc / ＋）。パッド中でも案内を出して遊びを止める */
+  private pauseMenu = false;
   private listeners: Array<(locked: boolean) => void> = [];
 
   /** 本物のポインターロックの状態を伝える */
@@ -74,6 +76,18 @@ export class LockController implements LockStatus {
     return this.padActive;
   }
 
+  /** スタートメニューを 開く・閉じる */
+  setPauseMenu(on: boolean): void {
+    if (this.pauseMenu === on) return;
+    const before = this.snapshot();
+    this.pauseMenu = on;
+    this.afterChange(before);
+  }
+
+  isPauseMenu(): boolean {
+    return this.pauseMenu;
+  }
+
   /** 状態が変わったら呼ばれる。戻り値で解除 */
   onChange(fn: (locked: boolean) => void): () => void {
     this.listeners.push(fn);
@@ -86,20 +100,24 @@ export class LockController implements LockStatus {
     return this.simulated ?? this.real;
   }
   overlayVisible(): boolean {
-    return !this.locked() && !this.inventoryOpen && !this.relocking && !this.padActive;
+    if (this.inventoryOpen || this.relocking) return false;
+    if (this.pauseMenu) return true;
+    return !this.locked() && !this.padActive;
   }
   realtimeAllowed(): boolean {
+    if (this.pauseMenu) return false;
     return this.locked() || this.inventoryOpen || this.relocking || this.padActive;
   }
   playInputEnabled(): boolean {
-    return (this.locked() || this.padActive) && !this.inventoryOpen;
+    if (this.inventoryOpen || this.pauseMenu) return false;
+    return this.locked() || this.padActive;
   }
   overlayText(): string {
     return this.everLocked ? INPUT_CONFIG.textResume : INPUT_CONFIG.textFirst;
   }
 
   private snapshot(): number {
-    return (this.locked() ? 1 : 0) | (this.inventoryOpen ? 2 : 0) | (this.relocking ? 4 : 0) | (this.padActive ? 8 : 0);
+    return (this.locked() ? 1 : 0) | (this.inventoryOpen ? 2 : 0) | (this.relocking ? 4 : 0) | (this.padActive ? 8 : 0) | (this.pauseMenu ? 16 : 0);
   }
 
   private afterChange(before: number): void {

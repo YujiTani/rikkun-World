@@ -245,13 +245,15 @@ export function checkContrast(snap: UiSnapshot, opts: ContrastOptions = {}): str
 
 // ---------------------------------------------------------------- AC35 部品の一貫性
 
-/** ボタン・タブの高さ（56 以上、案内のタブは 64 以上）、角の丸さ、padding・gap の段階 */
+/** ボタン・タブの高さ（56 以上、案内のタブは 64 以上、スタートメニューの控えめなボタン .po-extra は 48 以上）、角の丸さ、padding・gap の段階 */
 export function checkComponents(snap: UiSnapshot): string[] {
   const bad: string[] = [];
   const k = snap.viewport.w / 1280; // 1280 のときの数字で比べる（それ以外は 拡大ぶんを割る）
   for (const e of snap.els) {
     if (e.pressable) {
-      const need = e.guideTab ? 64 : 56;
+      // スタートメニューの控えめなボタン（設定・タイトル画面にもどる＝ .po-extra）だけ 48px でよい
+      // （yuzu 2026-11-06: ルール自体が変わった。押せる 44px 以上は守る。ほかのボタンは 56px のまま）
+      const need = e.guideTab ? 64 : e.classes.includes('po-extra') ? 48 : 56;
       if (e.rect.h < need * Math.min(k, 1) - 0.6) bad.push(`${tag(e)}: 高さ ${e.rect.h.toFixed(1)}px < ${need}px`);
     }
     for (const r of e.radii) {
