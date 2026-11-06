@@ -12,7 +12,7 @@ function forChalkMarks<T>(value: T): Record<ChalkMarkId, T> {
   return Object.fromEntries(CHALK_MARK_IDS.map((id) => [id, value])) as Record<ChalkMarkId, T>;
 }
 
-/** 宝箱 64 こ（MINE-1C）ぜんぶに 同じ 値を 入れる */
+/** 宝箱 16 こ（MINE-1C）ぜんぶに 同じ 値を 入れる */
 function forChest<T>(value: T): Record<ChestBlockId, T> {
   return Object.fromEntries(CHEST_BLOCK_IDS.map((id) => [id, value])) as Record<ChestBlockId, T>;
 }

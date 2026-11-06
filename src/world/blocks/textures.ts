@@ -470,13 +470,14 @@ export function getTilePixels(name: TileName): readonly Rgba[] {
   return paintTile(name);
 }
 
-/** チョークの しるし 12 こ（MINE-1B）。どれも 同じ 絵 [上, 下, 横] */
+/** 宝箱 16 こ（MINE-1C）。段ごとの 平らな 絵 [上, 下, 横] */
 const CHEST_BLOCK_TILES: Partial<Record<BlockId, readonly [TileName, TileName, TileName]>> = Object.fromEntries(
   CHEST_BLOCK_IDS.map((id) => {
     const t = `chest_${chestBlockInfo(id)!.tier}` as KodoTileName;
     return [id, [t, t, t] as const];
   }),
 );
+/** チョークの しるし 12 こ（MINE-1B）。どれも 同じ 絵 [上, 下, 横] */
 const CHALK_BLOCK_TILES: Partial<Record<BlockId, readonly [TileName, TileName, TileName]>> = Object.fromEntries(
   CHALK_MARK_IDS.map((id) => [id, ['chalk_1_e', 'chalk_1_e', 'chalk_1_e'] as const]),
 );

@@ -5,6 +5,7 @@ import { preloadGetaSounds } from '../../fx/getaSounds';
 import { playCraft } from '../../fx/craftSounds';
 import { WORLD_HEIGHT, SEA_Y } from '../../contracts';
 import { Lighting, Sky } from '../../sky';
+import { setChestWorldReader } from '../../world/render/looks/chestLooks';
 import { TimeOfDayImpl } from '../../time';
 import { FX_SETTINGS } from '../../fx/config';
 import { createBrowserTitleSound } from '../../fx/titleSound';
@@ -158,6 +159,7 @@ export function wireRender(deps: WiredBoot) {
   const frameClock = decideFrameClock(location.search, import.meta.env.VITE_FRAME_CLOCK as string | undefined);
   const renderer = new WorldRenderer(world, weighted.microR, frameClock);
   if (new URLSearchParams(location.search).get('meshSlice') === 'off') renderer.config.meshSlice = false; // 小ブロックを 分けずに 1 回で作る（見くらべ・perf 用）
+  setChestWorldReader((x, y, z) => world.getBlock(x, y, z)); // 宝箱の 向き〔区を 作る ときに 読む。最初の 区より 前に 入れる〕
   renderer.enableStreaming();
   renderer.setViewer(island.spawn().x, island.spawn().z);
   renderer.attach(game.scene);

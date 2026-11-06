@@ -11,13 +11,14 @@ import { createRng, hash01, hashInts } from './random';
  */
 
 /** くじの 箱から のぞく 物と 理由（#304: 1 か所の 表に 理由つきで） */
-const EXCLUDED: readonly { item: string; reason: string }[] = [
+const EXCLUDED = [
   { item: 'yokai_orb', reason: 'いまは 手に 入らない（ようかいだま）' },
   { item: 'omamori_torn', reason: 'しるし ＝ 記念の 品（やぶれた おまもり）' },
-];
+  { item: 'sekkeizu', reason: '1 まいずつ 中身〔plan の 番号〕を もつ 物。宝箱から 出ると 読めない せっけいずに なる' },
+] as const satisfies readonly { item: ItemId; reason: string }[];
 
 export function chestExcluded(): { item: ItemId; reason: string }[] {
-  return EXCLUDED.map((e) => ({ item: e.item as ItemId, reason: e.reason }));
+  return EXCLUDED.map((e) => ({ item: e.item, reason: e.reason }));
 }
 
 let poolMemo: Record<Rarity, ItemId[]> | null = null;
@@ -25,7 +26,7 @@ let poolMemo: Record<Rarity, ItemId[]> | null = null;
 /** めずらしさごとの くじの 箱 */
 export function chestPool(): Record<Rarity, ItemId[]> {
   if (!poolMemo) {
-    const skip = new Set(EXCLUDED.map((e) => e.item));
+    const skip = new Set<string>(EXCLUDED.map((e) => e.item));
     const out = Object.fromEntries(RARITY_ORDER.map((r) => [r, [] as ItemId[]])) as Record<Rarity, ItemId[]>;
     for (const [id, def] of Object.entries(ITEM_DEFS)) if (!skip.has(id)) out[def.rarity].push(id as ItemId);
     poolMemo = out;

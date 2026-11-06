@@ -258,7 +258,7 @@ export const gotsugotsuLook: Look = {
     snow: rock(SNOW, 3, 1, 4),
     bamboo: rock(BAMBOO, 2, 1, 3),
     bedrock: rock(BEDROCK, 6, 3, 7),
-    ...CHEST, // MINE-1C: 宝箱 64 こ
+    ...CHEST, // MINE-1C: 宝箱 16 こ
     ...MINE.extra, // MINE-1B: ねんど・せっかいせき（A）と 新しい 鉱石 5 つ（B）。たねは 見本と 同じ 固定の 数
     // かまど・たんす・スプリンクラー・レンガ・かわら・はたけ・ぬれたはたけ は 形を持たない（TEX-A: 平らな箱。docs/art/DESIGN.md 5.3）
   },

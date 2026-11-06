@@ -8,6 +8,7 @@
  *   ・id: `takarabako_<段>[_open][_r]`（`_open` ＝ あいた・`_r` ＝ のこり）
  *   ・4 段 ×（あいてない／あいた）×（本体／のこり）＝ 16 こ。ブロックの 番号は 1 マス 1 バイト（256 まで）なので これ いじょうは ふやさない
  *   ・本体の 4 段 ×（あいてない／あいた）の 8 こ の 名前を テストが 見る（takarabako_1 … takarabako_4_open）
+ * 置く 側の きまり: 宝箱の 2 マスの まわり 4 方向に ほかの 宝箱を 置かない（向きは 2 マスの ならびから きめる ため。chestFrontAt）。
  * このファイルは 何も import しない 葉（contracts/world.ts の BlockId が 型だけ 読む）。
  */
 
@@ -46,7 +47,7 @@ export const CHEST_BLOCK_IDS: readonly ChestBlockId[] = CHEST_TIERS.flatMap((t) 
 const INFO = new Map<string, ChestBlockInfo>();
 for (const t of CHEST_TIERS) for (const open of [false, true]) for (const rest of [false, true]) INFO.set(chestBlockId(t, open, rest), { tier: t, open, rest });
 
-/** 宝箱の ブロックなら その 中身（段・あいた・のこりか・前）。ちがえば null。返す 物は 共有の 定数なので 書きかえない */
+/** 宝箱の ブロックなら その 中身（段・あいた・のこりか）。ちがえば null。返す 物は 共有の 定数なので 書きかえない */
 export function chestBlockInfo(id: string): Readonly<ChestBlockInfo> | null {
   return INFO.get(id) ?? null;
 }
@@ -59,20 +60,41 @@ export function chestBlockName(tier: ChestTier, open: boolean): string {
 /** 本体から のこりの マスへの ずれ（x, z）。前に 立って 宝箱を 見る ひとの 右がわ（n=−z 向きなら 西〔−x〕） */
 export const CHEST_RIGHT: Readonly<Record<ChestCompass, readonly [number, number]>> = { n: [-1, 0], e: [0, -1], s: [1, 0], w: [0, 1] };
 
-/**
- * 前（へやの ほう）の 向きを、もう 1 マスの 場所から きめる。
- * 本体なら 「のこり」が 右どなりに ある 向き、のこりなら 「本体」が 左どなりに ある 向き。見つからなければ null。
- * getId は (x, y, z) の ブロック id を 返す 関数。
- */
-export function chestFrontAt(getId: (x: number, y: number, z: number) => string, x: number, y: number, z: number): ChestCompass | null {
-  const me = INFO.get(getId(x, y, z));
-  if (!me) return null;
+type GetId = (x: number, y: number, z: number) => string;
+
+/** マス (x, z) の 向きの 候補: 向き f ごとに 「もう 1 マス」が 同じ 段・同じ あいた・ぎゃくの 本体／のこり の 向き（0〜4 こ） */
+function frontCandidates(getId: GetId, me: ChestBlockInfo, x: number, y: number, z: number): ChestCompass[] {
+  const out: ChestCompass[] = [];
   for (const f of CHEST_FRONTS) {
     const [rx, rz] = CHEST_RIGHT[f];
     const o = INFO.get(me.rest ? getId(x - rx, y, z - rz) : getId(x + rx, y, z + rz));
-    if (o && o.tier === me.tier && o.open === me.open && o.rest !== me.rest) return f;
+    if (o && o.tier === me.tier && o.open === me.open && o.rest !== me.rest) out.push(f);
   }
-  return null;
+  return out;
+}
+
+/**
+ * 前（へやの ほう）の 向きを、もう 1 マスの 場所から きめる。
+ * 本体なら 「のこり」が 右どなりに ある 向き、のこりなら 「本体」が 左どなりに ある 向き。見つからなければ null。
+ * 同じ 段・同じ「あいた か」の 宝箱が よこに ならんで 向きが 2 つ 考えられる ときは、相手の 向きが 1 つに きまる ほうを とる
+ * （例: 本体 のこり 本体 のこり が ならぶと 真ん中の 2 マスは 迷うが、はしの 2 マスが 1 つに きまるので それに あわせる）。
+ * それでも 1 つに きまらなければ null〔置く 側の きまり: 宝箱の 2 マスの まわり 4 方向に ほかの 宝箱を 置かない〕。
+ * getId は (x, y, z) の ブロック id を 返す 関数。
+ */
+export function chestFrontAt(getId: GetId, x: number, y: number, z: number): ChestCompass | null {
+  const me = INFO.get(getId(x, y, z));
+  if (!me) return null;
+  const c = frontCandidates(getId, me, x, y, z);
+  if (c.length <= 1) return c[0] ?? null;
+  let pick: ChestCompass | null = null;
+  for (const f of c) {
+    const o = chestPartner(x, z, me, f);
+    const oInfo = INFO.get(getId(o.x, y, o.z))!;
+    if (frontCandidates(getId, oInfo, o.x, y, o.z).length !== 1) continue;
+    if (pick !== null) return null;
+    pick = f;
+  }
+  return pick;
 }
 
 /** もう 1 マス（のこり ↔ 本体）の 場所 */

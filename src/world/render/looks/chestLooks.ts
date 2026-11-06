@@ -1,3 +1,4 @@
+import { CHEST_PAL as PAL, KODO_WAKU_COLORS } from '../../blocks/chestArt';
 import { CHEST_BLOCK_IDS, CHEST_RIGHT, chestBlockInfo, chestFrontAt, type ChestCompass, type ChestTier } from '../../blocks/chestBlock';
 import { shapeKind } from './common';
 import { LOOK_N, type KindSpec } from './types';
@@ -14,13 +15,6 @@ import { LOOK_N, type KindSpec } from './types';
 const N = LOOK_N;
 const GX = 2 * N;
 
-/** 段ごとの 色（W からだ・L ふた・S おび・P じょう前の 板・R びょう・H かけがね・K かぎあな・G ふち／すみ金具・F Y ほのお・I 中） */
-const PAL: Readonly<Record<ChestTier, Readonly<Record<string, string>>>> = {
-  1: { W: '#9A5E32', L: '#A8693A', S: '#4A4650', P: '#5E5A66', K: '#1E1C22', I: '#5E3A1E' },
-  2: { W: '#74482A', L: '#7E4F2E', S: '#C8CCD6', R: '#8A8F9C', H: '#8A8F9C', K: '#3B3F4A', I: '#4A2E1C' },
-  3: { W: '#2A2238', L: '#342A46', S: '#EBB840', H: '#C98A1E', K: '#2A1A10', I: '#A8432F' },
-  4: { W: '#EBB840', L: '#C8442C', S: '#C98A1E', G: '#F5CD55', F: '#FF7A3D', Y: '#FFC83D', I: '#4A2F7A' },
-};
 /** 木の まだら（1・2 段の からだ・ふた。2 色め が 点） */
 const WOODY: Readonly<Partial<Record<ChestTier, { W: string; L: string }>>> = {
   1: { W: '#8A5229', L: '#965A30' },
@@ -247,10 +241,10 @@ export function createChestKinds(P: (hex: string) => number): Record<string, Kin
 
 /** 坑道の わく（kodo_waku）: 木の 柱と はり ＋ てつの おび（art/MINE-1/kodo_waku の 色）。穴は あけない（ふつうの 箱） */
 export function createKodoWakuKind(P: (hex: string) => number): KindSpec {
-  const wood = P('#B58650');
-  const dark = P('#6B4421');
-  const iron = P('#4A4650');
-  const light = P('#C79A62');
+  const wood = P(KODO_WAKU_COLORS.wood);
+  const dark = P(KODO_WAKU_COLORS.dark);
+  const iron = P(KODO_WAKU_COLORS.iron);
+  const light = P(KODO_WAKU_COLORS.light);
   return shapeKind(
     260,
     wood,
