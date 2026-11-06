@@ -31,7 +31,7 @@ import { spawnOf } from './terrain';
  * 赤の 確かめ: 1D の 前は `heyaHit`・`cave`・`heyaLinkTable` が なく「窓口が まだ ない」で 落ちる。
  */
 
-vi.setConfig({ testTimeout: 700_000 });
+vi.setConfig({ testTimeout: 600_000 });
 
 const FOUR_BOX = 4;
 /** ブロックまで しらべる 坑道の 数〔シードごと。重い ので 上限。坑道の へやの ある 坑道を 近い 順ではなく 一覧の 順に〕 */
@@ -104,7 +104,7 @@ beforeAll(() => {
       }
     }
   }
-}, 700_000);
+}, 600_000);
 
 describe('D14: 坑道の へやの くじ〔計画〕', () => {
   it('数える 横穴が 集まる〔あさい・なかほど 1,200 本・ふかい 600 本 いじょう〕', () => {
@@ -276,7 +276,7 @@ describe('D14: 坑道の へや〔シード 3 つ ぜんぶ。ブロックで �
         }
       }
     }
-  }, 700_000);
+  }, 600_000);
 
   const tag = (r: BlockRow): string => `seed ${r.seed} ${r.shaft.id} → ${r.cave.id}(${r.cave.kind})`;
 
@@ -370,7 +370,7 @@ describe('D8: はじまりの 坑道の なかほどの いちばん 上の 横�
       if (lost.length > 0) ok.push(`入口と 行き来 できない 床 ${lost.length} / ${floor.length}`);
       rows.push({ seed, ok });
     }
-  }, 700_000);
+  }, 600_000);
 
   it('20 シードぜんぶ', () => {
     expect(rows).toHaveLength(SEEDS_20.length);

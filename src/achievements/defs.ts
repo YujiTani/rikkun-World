@@ -1,4 +1,5 @@
 import { yokaiAchievementNames } from '../content/yokai/registry';
+import type { CaveKind } from '../world/gen/mineCaveConfig';
 import { COUNTRY_TABLE } from '../world/gen/countryTable';
 import { CROP_KINDS, type AchievementCategory, type AchievementDef, type CropKind, type MedalTier, type StatKey } from '../contracts';
 
@@ -364,13 +365,15 @@ function build(): AchievementDef[] {
   add({ series: 'mine.chest', category: 'adventure', stat: 'mineChest', tiers: [t(1)], name: () => 'はじめて たからばこ を あけた！' });
 
   // MINE-1D §4.10: ほらあなの 種類。足が はじめて その 種類の 部屋に 入った（すいしょうは 中、ほかは 小）
-  for (const [kind, name, small] of [
-    ['hiroi', 'ひろい ほらあな', true],
-    ['shonyudo', 'しょうにゅうどう', true],
-    ['chiteiko', 'ちていこ', true],
-    ['hotaru', 'ほたるの ほらあな', true],
-    ['suisho', 'すいしょうの ほらあな', false],
-  ] as const) {
+  const CAVE_ACH = {
+    hiroi: { name: 'ひろい ほらあな', small: true },
+    shonyudo: { name: 'しょうにゅうどう', small: true },
+    chiteiko: { name: 'ちていこ', small: true },
+    hotaru: { name: 'ほたるの ほらあな', small: true },
+    suisho: { name: 'すいしょうの ほらあな', small: false },
+  } satisfies Record<CaveKind, { name: string; small: boolean }>; // 種類を 足したら ここも 足す
+  for (const kind of Object.keys(CAVE_ACH) as CaveKind[]) {
+    const { name, small } = CAVE_ACH[kind];
     add({ series: `mine.cave.${kind}`, category: 'adventure', stat: `cave:${kind}`, tiers: [t(1, small)], name: () => `はじめて ${name} を みつけた！` });
   }
 

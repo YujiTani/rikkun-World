@@ -113,23 +113,39 @@ export class CaveWorld {
 
   region(rx: number, rz: number): RegionPlan {
     const key = this.key(rx, rz);
-    let p = this.regions.get(key);
+    const p = this.regions.get(key);
     if (p) return p;
-    if (this.regions.size >= C.regionCap) this.regions.clear();
-    p = { rolls: [], rooms: [], tries: [] };
+    const job = this.regionJob(rx, rz);
+    for (;;) {
+      const r = job.next();
+      if (r.done) return r.value;
+    }
+  }
+
+  /** 区画の 計画の 続きから 再開できる 仕事。層ごとに 1 回 止まる〔warm が 時間を 見て 止められる ように〕 */
+  private *regionJob(rx: number, rz: number): Generator<void, RegionPlan> {
+    const key = this.key(rx, rz);
+    const p: RegionPlan = { rolls: [], rooms: [], tries: [] };
     const placed: PlacedCave[] = [];
-    CAVE_LAYERS.forEach((layer, li) => {
+    for (let li = 0; li < CAVE_LAYERS.length; li++) {
+      const layer = CAVE_LAYERS[li]!;
       const fixed = this.host.fixedRoom(rx, rz, layer);
       const kind = fixed ? fixed.kind : this.rollKind(rx, rz, layer);
-      p!.rolls.push(kind);
-      const room = fixed ?? (kind ? this.place(rx, rz, layer, li, kind, placed, p!) : null);
+      p.rolls.push(kind);
+      const room = fixed ?? (kind ? this.place(rx, rz, layer, li, kind, placed, p) : null);
       if (room) placed.push(room);
-      p!.rooms.push(room);
-      if (p!.tries.length < p!.rooms.length) p!.tries.push(null);
-    });
+      p.rooms.push(room);
+      if (p.tries.length < p.rooms.length) p.tries.push(null);
+      yield;
+    }
+    const done = this.regions.get(key); // 途中で 別の 呼び出しが 先に 終えて いたら それを 使う
+    if (done) return done;
+    if (this.regions.size >= C.regionCap) this.regions.clear();
     this.regions.set(key, p);
     return p;
   }
+
+  private readonly jobs = new Map<number, Generator<void, RegionPlan>>();
 
   private place(rx: number, rz: number, layer: MineLayerId, li: number, kind: CaveKind, placed: PlacedCave[], region: RegionPlan): PlacedCave | null {
     const { seed } = this.host;
@@ -289,7 +305,11 @@ export class CaveWorld {
       for (let rz = Math.floor((c.z - reach) / R); rz <= Math.floor((c.z + reach) / R); rz++) {
         for (let rx = Math.floor((c.x - reach) / R); rx <= Math.floor((c.x + reach) / R); rx++) {
           const key = this.key(rx, rz);
-          if (seen.has(key) || this.regions.has(key)) continue;
+          if (seen.has(key)) continue;
+          if (this.regions.has(key)) {
+            this.jobs.delete(key); // 別の 呼び出しで 先に 終わった 仕事は すてる
+            continue;
+          }
           seen.add(key);
           list.push({ rx, rz, d: Math.min(...centers.map((q) => Math.hypot((rx + 0.5) * R - q.x, (rz + 0.5) * R - q.z))) });
         }
@@ -297,8 +317,16 @@ export class CaveWorld {
     }
     list.sort((a, b) => a.d - b.d);
     for (const r of list) {
+      const key = this.key(r.rx, r.rz);
+      let job = this.jobs.get(key);
+      if (!job) this.jobs.set(key, (job = this.regionJob(r.rx, r.rz)));
+      while (performance.now() - t0 < ms) {
+        if (job.next().done) {
+          this.jobs.delete(key);
+          break;
+        }
+      }
       if (performance.now() - t0 >= ms) return;
-      this.region(r.rx, r.rz);
     }
   }
 
