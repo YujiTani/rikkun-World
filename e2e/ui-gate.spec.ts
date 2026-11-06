@@ -16,7 +16,7 @@ import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid
 import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house';
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
-import { duoHudIssues, duoPadLostIssues, duoViewIssues, openDuoHud, openDuoLoupe, openDuoPadLost, openDuoSplit } from './helpers/duoUi';
+import { duoHudIssues, duoPadLostIssues, duoUsePadIssues, duoViewIssues, openDuoHud, openDuoUsePad, openDuoLoupe, openDuoPadLost, openDuoSplit } from './helpers/duoUi';
 import { PICK_ROOTS, SITE_NEED_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen, siteNeedIssues } from './helpers/houseSite';
 
 /**
@@ -571,6 +571,32 @@ SCREENS.push(
     roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-pad-lost"]', '[data-testid="duo-p2-question"]'],
     open: (page: Page) => openDuoPadLost(page, 'split'),
     extra: (page: Page) => duoPadLostIssues(page, 'split'),
+  },
+);
+
+/**
+ * COOP-1 作業 2.5（#401）AC62: せっていの「つかう コントローラー」タブ(`?duo=dev`)。2 本・待ち / 4 本(おりかえし) / 0 本。
+ * 3 つの 大きさで スクロールなし・字 20px・すきま・角・押せる 高さ 56・下の 1 行が ずれない。検査は e2e/helpers/duoUi.ts の duoUsePadIssues。
+ */
+const USE_PAD_ROOTS = ['[data-testid="settings-panel"]'];
+SCREENS.push(
+  {
+    id: 'duo-use-pad-2-wait',
+    roots: USE_PAD_ROOTS,
+    open: (page: Page) => openDuoUsePad(page, { pads: 2, pending: true }),
+    extra: (page: Page) => duoUsePadIssues(page, { pads: 2, pending: true }),
+  },
+  {
+    id: 'duo-use-pad-4',
+    roots: USE_PAD_ROOTS,
+    open: (page: Page) => openDuoUsePad(page, { pads: 4 }),
+    extra: (page: Page) => duoUsePadIssues(page, { pads: 4 }),
+  },
+  {
+    id: 'duo-use-pad-0',
+    roots: USE_PAD_ROOTS,
+    open: (page: Page) => openDuoUsePad(page, { pads: 0 }),
+    extra: (page: Page) => duoUsePadIssues(page, { pads: 0 }),
   },
 );
 

@@ -7,6 +7,7 @@
 import type { ActionState } from '../actions';
 import { GamepadReader } from './reader';
 import { detectMappingKind, faceTable } from './mapping';
+import type { PadChoice } from './padChoice';
 
 export interface DuoPadRouterOptions {
   /** 1P の ActionState（slot 0。キー・マウスと 同じ 物） */
@@ -18,6 +19,10 @@ export interface DuoPadRouterOptions {
   storage: Storage | null;
   /** 開発用（`?duo=dev&pad=2p`）: 1 本目の パッドを 2P に する。1P は パッドを 持たず キーボード・マウスだけ */
   firstPadIs2P?: boolean;
+  /** COOP-1 作業 2.5（#401）: 「つかう コントローラー」の えらびを 保存する 所(`rikkun.duo.pads.v1`。この 機械に 1 つ) */
+  choiceStorage?: Storage | null;
+  /** 「つかう コントローラー」が つかえる(作業 3 までは `?duo=dev` の ときだけ)。false なら 保存を 読まず、setChoice は false */
+  choiceEnabled?: boolean;
 }
 
 export interface DuoPadPoll {
@@ -153,6 +158,30 @@ export class DuoPadRouter {
   private anyButton(pad: Gamepad): boolean {
     for (let i = 0; i < pad.buttons.length; i++) if (pad.buttons[i]?.pressed) return true;
     return false;
+  }
+
+  /**
+   * COOP-1 作業 2.5（#401。§2.7・§12.0）。型だけの スタブ(developer が 実装する)。
+   *  setChoice        タブで 決めたのと 同じ(＋ の 確認は とばす)。保存して すぐ 効く。決めた ＋ は だれの 操作にも ならない(離すまで)。変な 値・使えない ときは false
+   *  choice           保存してある えらび。なし・こわれた・使えない ときは null
+   *  effectiveChoice  今 効いている えらび(保存が なければ はじめの 動き)
+   *  padIndex         1P・2P が 今 読んでいる パッドの 番号(1 本のときの かわりも 出る。パッドなし・2P が いない・ぬけている → null)
+   *  setPicking       えらんで ＋ を 待っている あいだ、どの コントローラーの ＋ も 何も しない(null で もどす)
+   */
+  setChoice(_c: PadChoice): boolean {
+    throw new Error('COOP-1 作業 2.5 (#401): 未実装');
+  }
+  choice(): PadChoice | null {
+    throw new Error('COOP-1 作業 2.5 (#401): 未実装');
+  }
+  effectiveChoice(): PadChoice {
+    throw new Error('COOP-1 作業 2.5 (#401): 未実装');
+  }
+  padIndex(_who: 1 | 2): number | null {
+    throw new Error('COOP-1 作業 2.5 (#401): 未実装');
+  }
+  setPicking(_index: number | null): void {
+    throw new Error('COOP-1 作業 2.5 (#401): 未実装');
   }
 
   /** 参加している あいだだけ 2P の パッドを 読む。false にすると 2P の 入力を ぜんぶ はなす */

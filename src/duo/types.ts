@@ -3,6 +3,8 @@
  * これは 型だけ（実行する コードを 持たない）。実装（developer）は この 型を そのまま 使う。変えるときは テストも 直す。
  */
 
+import type { PadChoice } from '../input/gamepad/padChoice';
+
 /** 距離メーター・ルーペの 色の 段（§9.2）。0 = ふつう・1 = 1 段目・2 = 2 段目 */
 export type DuoTier = 0 | 1 | 2;
 
@@ -69,6 +71,12 @@ export interface DuoHook {
   timeScale(): number;
   /** いま 描いている 区画(作業 2。AC25・AC26。型は DuoViewport) */
   viewports(): DuoViewport[];
+  /** 作業 2.5（#401。§12.0）: 決めて 保存してある えらび。なし・こわれた・つかえない → null(はじめの動き) */
+  padChoice(): PadChoice | null;
+  /** 作業 2.5: タブで 決めたのと 同じ(＋ の 確認は とばす)。変な 値・`?duo=dev` で ない → false で 何もかえない */
+  setPadChoice(c: PadChoice): boolean;
+  /** 作業 2.5: 1P・2P が 今 読んでいる パッドの 番号(1 本のときの かわりも 出る)。なし → null */
+  padIndex(who: 1 | 2): number | null;
 }
 
 /** 2P の セーブ（`meta.p2`。§6）。場所・向き・ハートは 入れない */
