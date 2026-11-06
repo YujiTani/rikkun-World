@@ -1931,6 +1931,7 @@
     "yokaiForgetSteps": 3600,
     "yokaiLeaveTicks": 600,
     "yokaiMax": 3,
+    "yokaiMaxTotal": 5,
     "yokaiMaxUnder": 3,
     "yokaiSpawnHeight": 8,
     "yokaiSpawnInterval": 300,
