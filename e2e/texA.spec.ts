@@ -18,8 +18,10 @@ test.describe.configure({ timeout: 300_000 });
 
 const SPOT_BLOCK = { x: SPOT.x, y: SPOT.y, z: SPOT.z };
 /** 配置 A: 南西から見る → 上・西・南の面が見える。配置 B: 北東から見る → 上・東・北 */
-/** はじまりの 坑道〔地下の セクションの たいまつ・わく・地形〕の ぶんの 描画回数の 上限の ふえ〔回〕。CI 094818d で 144〔141 ＋ 3〕。決定 13 */
+/** はじまりの 坑道〔地下の セクションの たいまつ・わく・地形〕の ぶんの スタートの 描画回数の 上限の ふえ〔回〕。上限 141 との 差。main 126 との 差は +18。決定 13 */
 const START_SHAFT_DRAWS = 3;
+/** 上空〔high〕の 描画回数の 上限の ふえ〔回〕。地下の 坑道の たいまつ・わく。CI 0311351 で 183〔main 166 ＋ 17〕。決定 13 */
+const HIGH_SHAFT_DRAWS = 15;
 const VIEW_A = { dx: -3, dz: 3 };
 const VIEW_B = { dx: 3, dz: -3 };
 
@@ -561,7 +563,7 @@ test.describe('TEX-A', () => {
     expect(got.start.triangles).toBeLessThanOrEqual(1_140_000);
     expect(got.high.triangles).toBeLessThanOrEqual(1_350_000);
     expect(got.start.drawCalls).toBeLessThanOrEqual(141 + START_SHAFT_DRAWS);
-    expect(got.high.drawCalls).toBeLessThanOrEqual(168);
+    expect(got.high.drawCalls).toBeLessThanOrEqual(168 + HIGH_SHAFT_DRAWS);
     const sp = await page.evaluate(() => (window as any).__rikkun.world.spawn() as { x: number; y: number; z: number });
     for (const [dx, dz] of [[-34, -34], [34, -34], [34, 34]]) {
       await setPoseSettled(page, sp.x + dx, sp.y + 30, sp.z + dz, 45, -30);
