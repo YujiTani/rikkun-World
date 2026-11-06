@@ -19,6 +19,7 @@ import type { StaggerBy } from '../stagger';
 import type { StrengthLevel } from '../stats';
 import type { YokaiRow } from '../countryPick';
 import type { YokaiConfig } from './config';
+import type { YokaiPartner } from './target';
 
 
 /** テストの窓口用の出来事（画面用の YokaiEvent に、消えた・ドロップを足したもの） */
@@ -36,6 +37,8 @@ export interface YokaiManagerOptions {
   /** 足もとの中央 */
   getPlayer: () => PlayerLike;
   combat: PlayerCombat;
+  /** COOP-1: 仲間（2P）。null / なし = 1 人のときと 同じ。targetable=false の 2P は ねらわない・数えない */
+  partner?: () => YokaiPartner | null;
   inventory: Inventory;
   /** あれば ドロップを地面にばらまく（なければ そのまま持ち物に入れる）。`DropField` がそのまま使える */
   drops?: {
@@ -118,7 +121,9 @@ export interface FireballView {
 }
 
 /** たおした妖怪の 経験値・二つ名（onDefeat に渡す） */
-interface DefeatInfo {
+export interface DefeatInfo {
+  /** さいごの 1 発を 当てた人（COOP-1） */
+  who: 1 | 2;
   xp: number;
   title: YokaiTitle;
   m: number;

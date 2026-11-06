@@ -4,7 +4,7 @@ export function duoTimeScale(base: number, joined: boolean): number {
 }
 
 /** 2P が ボタンで 開こうと する 画面（§8・AC15）。段階 1 で 開けるのは 'inventory'（2P 自分の もちもの）だけ */
-export type P2OpenKind = 'inventory' | 'book' | 'builder' | 'henhouse' | 'storage';
+export type P2OpenKind = 'inventory' | 'book' | 'builder' | 'henhouse' | 'storage' | 'furnace';
 
 /** 画面ごとに 2P が 開けるか（足し忘れは 型で 落とす） */
 const P2_MAY_OPEN = {
@@ -13,10 +13,29 @@ const P2_MAY_OPEN = {
   builder: false,
   henhouse: false,
   storage: false,
+  furnace: false,
 } as const satisfies Record<P2OpenKind, boolean>;
 
 export const P2_OPEN_KINDS = Object.keys(P2_MAY_OPEN) as readonly P2OpenKind[];
 
 export function p2MayOpen(kind: P2OpenKind): boolean {
   return P2_MAY_OPEN[kind];
+}
+
+/** こうげきを 受ける あいて */
+export type HitTarget = { type: 'player'; who: 1 | 2 } | { type: 'yokai' } | { type: 'animal' };
+
+/** こうげき（刀・弓・パンチ・火の玉の はね返し）が あいてに 当たるか。プレイヤー（自分も 仲間も）には 当たらない（AC37） */
+export function hitsTarget(_attacker: 1 | 2, target: HitTarget): boolean {
+  switch (target.type) {
+    case 'player':
+      return false;
+    case 'yokai':
+    case 'animal':
+      return true;
+    default: {
+      const never: never = target;
+      return never;
+    }
+  }
 }

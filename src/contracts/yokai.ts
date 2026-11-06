@@ -79,7 +79,7 @@ export interface YokaiWorld {
    * WEAPON-2: `knock` を 省くと 今まで どおり（水平 1.0・上へ 0）。ぬりかべは どの 値でも 押されない
    */
   /** 実際に 与えた ダメージを 返してもよい（よろけの 2 倍の あと。WEAPON-5） */
-  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock, by?: YokaiHurtBy): number | void;
+  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock, by?: YokaiHurtBy, /** COOP-1: たおした 人（省くと 1P） */ who?: 1 | 2): number | void;
   /** そのマスに妖怪の当たりの箱が重なっているか（ブロックを置けない） */
   occupies(x: number, y: number, z: number): boolean;
   /** WEAPON-9: (x, z) の ほうへ 水平に dist だけ すいよせる（ふだんの 当たり判定の 中で。上下は かえない） */

@@ -124,15 +124,21 @@ export class YokaiMover {
         if (b.state !== 'attack' && !b.stag) this.walk(b, dx, dz, push);
         if (a.state !== 'attack' && !a.stag) this.walk(a, -dx, -dz, push);
       }
-      const dx = a.x - f.px;
-      const dz = a.z - f.pz;
-      const d = Math.hypot(dx, dz);
-      const min = ra + AI_CONST.playerWidth / 2;
-      if (!a.stag && d < min && f.py < a.y + a.dims.height && f.py + AI_CONST.playerHeight > a.y + (KIND_AI[a.kind].flies ? 0.5 : 0)) {
-        const ux = d < 1e-6 ? 1 : dx / d;
-        const uz = d < 1e-6 ? 0 : dz / d;
-        this.walk(a, ux, uz, Math.min(0.08, min - d));
-      }
+      this.pushFromPlayer(a, ra, f.p1);
+      if (f.p2.on) this.pushFromPlayer(a, ra, f.p2);
+    }
+  }
+
+  /** 妖怪 a が プレイヤー p の 体に めりこまないように 少し はなす */
+  private pushFromPlayer(a: Ent, ra: number, p: { x: number; y: number; z: number }): void {
+    const dx = a.x - p.x;
+    const dz = a.z - p.z;
+    const d = Math.hypot(dx, dz);
+    const min = ra + AI_CONST.playerWidth / 2;
+    if (!a.stag && d < min && p.y < a.y + a.dims.height && p.y + AI_CONST.playerHeight > a.y + (KIND_AI[a.kind].flies ? 0.5 : 0)) {
+      const ux = d < 1e-6 ? 1 : dx / d;
+      const uz = d < 1e-6 ? 0 : dz / d;
+      this.walk(a, ux, uz, Math.min(0.08, min - d));
     }
   }
 }
