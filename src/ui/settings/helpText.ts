@@ -20,6 +20,7 @@ export const UI_HELP = {
   useSwapped: '1P と 2P を いれかえたよ',
   useTimeout: 'じかんぎれ。もういちど えらんでね',
   useNone: 'コントローラーを つないで、ボタンを おしてね。おすと ここに でてくるよ',
+  useIdle: 'コントローラーの ボタンを おすと ひかるよ。えらんだら ＋を おしてね', // ふだんの 帯。1024 幅でも 1 行に 入れる（2 行だと 帯の たかさが かわって パネルが ずれる）
   useLitHint: 'ボタンを おすと その コントローラーが ひかるよ',
   // 3 だん目
   tabField: 'ゲームの なかで あそんでいる ときの ボタンだよ。ふだを おすと ボタンを かえられるよ',
@@ -82,7 +83,6 @@ export function actionHelp(action: Action): string {
 /** data-help の値 → 文。`ui:<キー>` か `act:<そうさ>` */
 export function helpFor(key: string): string {
   if (key.startsWith('act:')) return actionHelp(key.slice(4) as Action);
-  if (key === 'ui:useIdle') return `${UI_HELP.tabUse}。${UI_HELP.useLitHint}`; // つかう コントローラーの ふだんの 帯
   const text = (UI_HELP as Record<string, string>)[key.replace(/^ui:/, '')];
   return text ?? '';
 }

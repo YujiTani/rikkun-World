@@ -82,12 +82,14 @@ describe('つかう コントローラー の ヘルプの文（AC62 の 文字�
   });
 });
 
-describe('#401 直し 3: ふだんの ヘルプ帯は tabUse に つづけて useLitHint', () => {
-  it('useHelpKey(null,false) の 文は tabUse の あとに useLitHint を 出す。お知らせ・0 本は そのまま', async () => {
+describe('#401 直し 3: ふだんの ヘルプ帯は 1 行に 入る みじかい 文', () => {
+  it('useHelpKey(null,false) の 文は「ひかる」と「＋」を ふくむ。お知らせ・0 本は そのまま', async () => {
     const { useHelpKey } = await import('./usePadPanel');
     const text = helpFor(useHelpKey(null, false));
-    expect(text.startsWith(UI_HELP.tabUse)).toBe(true);
-    expect(text.endsWith(UI_HELP.useLitHint)).toBe(true);
+    expect(text).toBe(UI_HELP.useIdle);
+    expect(text).toContain('ひかる');
+    expect(text).toContain('＋');
+    expect(kanjiOutsideRuby(text)).toEqual([]);
     expect(helpFor(useHelpKey('decided', false))).toBe(UI_HELP.useDecided);
     expect(helpFor(useHelpKey(null, true))).toBe(UI_HELP.useNone);
     expect(helpFor('ui:tabUse')).toBe(UI_HELP.tabUse);
