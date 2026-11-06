@@ -342,9 +342,12 @@
 | `duo.state()` | `(): { joined: boolean; view: 'one' \| 'loupe' \| 'split'; tier: 0 \| 1 \| 2; distance: number; meter: number; loupe: { x: number; y: number; d: number } \| null; rings: 1 \| 2; columns: number; light: boolean; padLost: boolean }` | ようす・`tier`＝ルーペとメーターの **色の段**（0＝ふつう・1＝1 段目・2＝2 段目。§9.2）・距離・メーターの長さ（0〜1）・ルーペの位置と直径（px）・輪の数・持つ列の数・軽くする工夫が入っているか・2P のパッドがぬけているか |
 | `duo.pos(who)` | `(who: 1 \| 2): { x: number; y: number; z: number } \| null` | 1P か 2P の今の場所（2P がいなければ null） |
 | `duo.leave()` | `(): void` | 2P をすぐ「やめる」（長押しと同じあとしまつ: 保存してからいなくなる） |
+| `duo.timeScale()` | `(): number` | 今の時間の倍率（AC11） |
+| `duo.viewports()` | `(): DuoViewport[]` | 今の描く範囲とカメラ（1 画面=[1P 全面]、ルーペ=[1P 全面, 2P のルーペ]、分割=[1P 左半分, 2P 右半分]。位置と yaw つき。型は `src/duo/types.ts`） |
 | `gamepad.injectPads(pads)` | `(pads: Array<Gamepad \| null>): void` | 偽パッドを何本でも入れる（並び順が つないだ順）。`null` は「ぬけた」。今の `injectPad(pad)` は `injectPads([pad])` と同じ動きのまま残す |
 
 - 2P の持ち物・ハートなどは、今の口（`inventory`・`combat` など）に「だれの」を足すか `duo` の下に足すかは tester と developer が決める（名前は `duo` の下にそろえるのが望ましい）。
+- 分割から戻る先は、2P が画面の外ならルーペ、中なら 1 画面（§2.4。PO 2026-11-06）。2P の頭の上の「？」は HTML の重ね（`duo-p2-question`）。輪の切りかえの途中で列が一時的に 595 をこえるのは、落ちつくまでの間ならよい（落ちついたあと 595 以下）。
 - 開発用 URL `?duo=dev`（作業 1・2 のあいだ 2P を出せる）は、作業 3 のあとも E2E のために残してよい。
 
 ### 12.1 くらべの基準の置き場
