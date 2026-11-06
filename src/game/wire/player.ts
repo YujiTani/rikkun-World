@@ -153,11 +153,7 @@ export function wireInput(deps: WiredRender) {
     mixer.setScreenLevel(screenLevel(mode, dead));
     // 実績の おしらせ（上の 帯）が 出ている 間は BGM を さげる（ファンファーレを 聞かせる）
     mixer.holdDuck(shared.celebrate.bandModel.toast.isOpen());
-    if (mode !== 'guide' && settingsUi.isOpen()) {
-      // コントローラーを つないだだけ（ポインターは ロックされていない）なら、せってい画面を 開いたまま 遊びを 止める（#401）
-      if (mode === 'play' && !lock.locked()) lock.setPauseMenu(true);
-      else settingsUi.close();
-    }
+    if (mode !== 'guide' && settingsUi.isOpen()) settingsUi.close();
   }
   return {
     lock, wheel, look, pointerLock, book, playOverlay, audioStep, gamepadApi,

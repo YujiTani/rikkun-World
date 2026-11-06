@@ -428,6 +428,16 @@ export async function openUsePadTab(page: Page, query = '?nosave=1&duo=dev'): Pr
     h.pause();
     h.achievements.mute(true);
   });
+  // あそんでいる とちゅうの スタートメニューから ひらく(案内の ままだと パッドを つないだとき 案内と いっしょに とじる。GAMEPAD-1・SETTINGS-1)
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.lock.simulate(true);
+    h.step(2);
+    h.input.press('openStartMenu');
+    h.step(2);
+    h.input.release('openStartMenu');
+    h.step(2);
+  });
   await page.getByTestId('settings-open').click();
   await page.getByTestId('tab-controls').click();
   const tab = page.getByTestId('ctrl-tab-use');
