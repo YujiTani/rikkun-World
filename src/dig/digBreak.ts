@@ -14,6 +14,9 @@ import { DUG_ALWAYS_ONE, FARM_BREAK_DROP, HEMP_DROP, NO_DROP_BLOCKS } from './co
 import { dropBlockOf, dugItemOf } from './dugItems';
 import { COOP_BLOCKS, HANGING_SUPPORT, TORCH_NEIGHBORS, type DigCore } from './digCore';
 
+/** MINE-1D: つらら（天井の 下に さがる。ブロック id） */
+const TSURARA = 'tsurara';
+
 /** こわしたあとの しめくくり: abort = こわせなかった（クールダウンなし）、bodyDone = 体の上の ブロック、done = ふつうにこわした */
 export type BreakEnd = 'abort' | 'bodyDone' | 'done';
 
@@ -69,6 +72,7 @@ export class BlockBreaker {
     this.clearChalkMarks(x, y, z);
     this.dropUnsupportedTorches(x, y, z);
     liftFlora(c, x, y + 1, z); // FLORA-75: 下の ブロックを こわすと 上の くさ・のばな も 消える
+    this.dropHangingTsurara(x, y, z); // MINE-1D: 上の ブロックを こわすと 下に さがる つららも こわれる
     const farmDrop = FARM_BREAK_DROP[t.id] ?? (houseDrop ? { item: houseDrop, count: 1 } : null);
     const fixed = farmDrop ? farmDrop.count : DUG_ALWAYS_ONE.has(dropId) ? 1 : (craft?.fixedDrop(dropId) ?? null);
     const dropItem: ItemId = dugItemOf(t.id);
@@ -157,6 +161,19 @@ export class BlockBreaker {
     if (n > 0) giveStacks(c, [{ item: ROPE, count: n }], x, y, z);
     c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: t.id, gotItem: n > 0, count: n });
     return 'done';
+  }
+
+  /**
+   * MINE-1D: (x, y, z) を こわした。その 真下に さがる つらら（下に つづく 分も）が 消えて、1 本ごとに せっかいせき 1
+   * （下の ブロックを こわすと 上の くさが 消えるのと 同じ 考え。つらら そのものを ほった ときは 通らない = 真下は つららで なければ 何もしない）
+   */
+  private dropHangingTsurara(x: number, y: number, z: number): void {
+    const c = this.c;
+    const w = c.world;
+    for (let yy = y - 1; yy >= 0 && w.getBlock(x, yy, z) === TSURARA; yy--) {
+      w.setBlock(x, yy, z, 'air');
+      giveStacks(c, [{ item: FARM_BREAK_DROP[TSURARA]!.item, count: FARM_BREAK_DROP[TSURARA]!.count }], x, yy, z);
+    }
   }
 
   /** MINE-1B: チョークの しるしは さわると すぐ 消えて 何も 出ない（持ち物は ふえない。道具の たいきゅうも へらない） */
