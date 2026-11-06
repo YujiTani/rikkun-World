@@ -1,5 +1,3 @@
-
-
 /**
  * MINE-1C（#350）の 16×16 の 絵。元の 絵は art/MINE-1/kodo_waku/kodo_waku_rows.txt（坑道の わく。横の 面・上下の 面）と
  * art/MINE-1/chest_hint/chest_hint_rows.txt（ヒント「あける」の 絵）。宝箱の ブロックの 平らな 絵（遠くの 箱の 段・かけら用）は 段ごとの 色から 作る。

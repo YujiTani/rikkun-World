@@ -1,6 +1,6 @@
 import type { Durability, Inventory, ItemStack } from '../contracts';
 import { FX_SETTINGS, type FxSettings } from '../fx/config';
-import { HOTBAR_SIZE, gainedSlots, hotbarCells, snapshotSlots, type CooldownCell } from './hotbarModel';
+import { HOTBAR_SIZE, gainedItems, gainedSlots, type HotbarGain, hotbarCells, snapshotSlots, type CooldownCell } from './hotbarModel';
 import { itemRarity } from '../drops/rarity';
 import { itemIconUrl } from './itemIcon';
 import { itemCategory, rarityIndex } from './itemCategory';
@@ -200,6 +200,24 @@ export class Hotbar {
       const root = this.cells[i].root;
       popElement(root, this.cfg);
       this.flyIn(item, root, count);
+    }
+  }
+
+  /**
+   * 描きなおす 前に 呼ぶ: 今までに ふえた マスと アイテム。宝箱の ように「持ち物に 入れる コマ」と「見せる コマ」が
+   * ちがう とき、入れた 直後に 取っておき、あとで `popSlots` に わたす。
+   */
+  takeGains(): HotbarGain[] {
+    return gainedItems(this.snapshot, this.inv.slots());
+  }
+
+  /** `takeGains` で 取っておいた マスに「ぽん」と「+N」を 出す（countOf ＝ そのアイテムの 入った 数） */
+  popSlots(gains: readonly HotbarGain[], countOf: (item: string) => number): void {
+    for (const g of gains) {
+      const root = this.cells[g.index]?.root;
+      if (!root) continue;
+      popElement(root, this.cfg);
+      this.flyIn(g.item, root, countOf(g.item));
     }
   }
 
