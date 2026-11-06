@@ -112,6 +112,8 @@ export class DigSystemImpl implements DigSystem {
    * ねらいの線の出どころ（CHAR-1 §4.5）。つなぎ込みが `aimPivot` を入れる。
    * なければ 今の 目（足もと + eyeHeight）。
    */
+  /** MINE-1C: 宝箱を あける（つなぎ込みが 入れる。右クリックの 最初の ステップに 1 回） */
+  chestPort: { open(x: number, y: number, z: number): void } | null = null;
   aimOrigin?: (player: PlayerState, out: Vec3) => Vec3;
 
   /**
@@ -557,7 +559,8 @@ export class DigSystemImpl implements DigSystem {
     if (pv.kind === 'fill') this.farm.doFill();
     else if (pv.kind === 'fillHint') this.m4.farm?.noteHint('fill', this.farm.playerChest());
     else if (pv.kind === 'pet' && t) this.farm.doPet(t);
-    if (pv.kind === 'storage' && t) this.m4.storage?.open(t.block.x, t.block.y, t.block.z);
+    if (pv.kind === 'chest' && t) this.chestPort?.open(t.block.x, t.block.y, t.block.z);
+    else if (pv.kind === 'storage' && t) this.m4.storage?.open(t.block.x, t.block.y, t.block.z);
     else if (pv.kind === 'furnace' && t) this.m4.craft?.openFurnace(t.block.x, t.block.y, t.block.z);
     else if ((pv.kind === 'doorOpen' || pv.kind === 'doorClose') && t) this.placer.toggleDoor(t);
     else if (isFurnUse(pv.kind) && t) this.m4.furniture?.use(pv.kind, t.block.x, t.block.y, t.block.z);

@@ -6,6 +6,10 @@ import { floraOfChunk } from './flora';
 import { plantsOfChunk } from './plants';
 import { treesInRect, type Tree } from './trees';
 import { fallColumn } from './liquidPonds';
+import { BLOCK_INDEX, BLOCK_TYPES } from '../blocks/blockTypes';
+import { buildBlocks } from './chunk';
+import { COL_VOLUME, LAYER } from './columnLayout';
+import { shaftWorldFor } from './mineShafts';
 
 /**
  * ブロックを読みこまずに出す「地面・木・たいまつ」の答え（VOX-D G2）。
@@ -30,14 +34,33 @@ export interface Surface {
 
 const AIR_Y = WORLD_HEIGHT;
 
+/** ブロック番号 → 種類（坑道が かかる 列を 本当の 列から 読む とき）。0 空気 / 1 水・マグマ / 2 き / 3 はっぱ / 4 たいまつ / 5 はな・たけ / 6 くさ・のばな〔flora〕/ 7 固い */
+const K_AIR = 0;
+const K_LOG = 2;
+const K_LEAVES = 3;
+const K_FLORA = 6;
+const K_SOLID = 7;
+const KIND_OF = new Uint8Array(256).fill(K_SOLID);
+/** 種類ごとの ブロック id（水の 量ちがいは 名前の 形で 見分ける） */
+const KIND_IDS: readonly (readonly string[])[] = [['air'], ['magma'], ['log'], ['leaves', 'matsu_leaves', 'momiji_leaves'], ['start_torch'], ['flower_y', 'flower_o', 'flower_p', 'susuki', 'bamboo'], ['nobana', 'kusa']];
+KIND_IDS.forEach((ids, k) => {
+  for (const id of ids) KIND_OF[BLOCK_INDEX[id as keyof typeof BLOCK_INDEX]!] = k;
+});
+for (let i = 0; i < BLOCK_TYPES.length; i++) if (/^water(_\d)?$/.test(BLOCK_TYPES[i]!.id)) KIND_OF[i] = 1;
+const VBLOCK: readonly VBlock[] = ['air', 'water', 'log', 'leaves', 'torch', 'plant', 'plant', 'solid'];
+
 class SurfaceImpl implements Surface {
   private readonly T: Terrain;
   private readonly torch: { x: number; y: number; z: number };
   private readonly treeCache = new Map<number, Tree[]>();
   private readonly plantCache = new Map<number, Map<number, number>>();
+  /** 坑道が かかる 列の ブロック（本当の 列。かからない 列は null） */
+  private readonly shaftCols = new Map<number, Uint8Array | null>();
+  private readonly seed: number;
 
   /** flora = false: くさ・のばな を 数えない（ふるい はたけ・やせいの やさい の 場所を 決めるときの 答え。くさ・のばな は その場所を よけるので 循環しない） */
   constructor(seed: number, private readonly flora: boolean) {
+    this.seed = seed;
     this.T = terrainFor(seed);
     const sp = this.T.spawn();
     this.torch = { x: sp.x + C.startTorch.dx, y: sp.h + 1, z: sp.z + C.startTorch.dz };
@@ -52,6 +75,9 @@ class SurfaceImpl implements Surface {
       const x0 = (x >> 3) * 8;
       const z0 = (z >> 3) * 8;
       t = treesInRect(this.T, x0 - 5, z0 - 5, x0 + 12, z0 + 12);
+      // 坑道の 木を おかない 四角（列を 作る ときと 同じ）
+      const zone = shaftWorldFor(this.seed).zones(x >> 4, z >> 4);
+      if (zone && zone.trees.length > 0) t = t.filter((tr) => !zone.trees.some((r) => tr.x >= r[0] && tr.x <= r[2] && tr.z >= r[1] && tr.z <= r[3]));
       if (this.treeCache.size > 4000) this.treeCache.clear();
       this.treeCache.set(k, t);
     }
@@ -66,8 +92,10 @@ class SurfaceImpl implements Surface {
     let m = this.plantCache.get(k);
     if (m === undefined) {
       m = new Map();
-      for (const p of plantsOfChunk(this.T, cx, cz)) m.set(p.x * 100003 + p.z, p.height);
-      if (this.flora) for (const p of floraOfChunk(this.T, cx, cz)) m.set(p.x * 100003 + p.z, p.height);
+      const zone = shaftWorldFor(this.seed).zones(cx, cz);
+      const skip = (p: { x: number; z: number }): boolean => zone !== null && zone.plants.some((r) => p.x >= r[0] && p.x <= r[2] && p.z >= r[1] && p.z <= r[3]);
+      for (const p of plantsOfChunk(this.T, cx, cz)) if (!skip(p)) m.set(p.x * 100003 + p.z, p.height);
+      if (this.flora) for (const p of floraOfChunk(this.T, cx, cz)) if (!skip(p)) m.set(p.x * 100003 + p.z, p.height);
       if (this.plantCache.size > 400) this.plantCache.clear();
       this.plantCache.set(k, m);
     }
@@ -83,7 +111,35 @@ class SurfaceImpl implements Surface {
     return null;
   }
 
+  /** 坑道が かかる 列なら 本当の 列の ブロック（かからなければ null） */
+  private shaftCol(x: number, z: number): Uint8Array | null {
+    const cx = x >> 4;
+    const cz = z >> 4;
+    const k = cx * 1000003 + cz;
+    let b = this.shaftCols.get(k);
+    if (b === undefined) {
+      b = shaftWorldFor(this.seed).opsFor(cx, cz) ? Uint8Array.from(buildBlocks(this.seed, cx, cz).blocks.subarray(0, COL_VOLUME)) : null;
+      if (this.shaftCols.size > 64) this.shaftCols.clear();
+      this.shaftCols.set(k, b);
+    }
+    return b;
+  }
+
+  /** 本当の 列の (x, y, z) の 種類 */
+  private kindIn(b: Uint8Array, x: number, y: number, z: number): number {
+    const kind = KIND_OF[b[y * LAYER + (z & 15) * 16 + (x & 15)]!]!;
+    return kind === K_FLORA && !this.flora ? K_AIR : kind;
+  }
+
+  /** 本当の 列で いちばん 上の 固い ブロックの y */
+  private solidTop(b: Uint8Array, x: number, z: number): number {
+    for (let y = AIR_Y - 1; y > 0; y--) if (this.kindIn(b, x, y, z) === K_SOLID) return y;
+    return 0;
+  }
+
   ground(x: number, z: number): number {
+    const sc = this.shaftCol(x, z);
+    if (sc) return this.solidTop(sc, x, z);
     const fc = fallColumn(this.T.liquid, x, z);
     if (fc?.kind === 'pillar') return fc.pond.fall!.top; // MAGMA-SPAWN: 滝の はしらの 上の わきどころ
     const h = this.T.height(x, z);
@@ -93,6 +149,8 @@ class SurfaceImpl implements Surface {
   }
 
   groundIsGrass(x: number, z: number): boolean {
+    const sc = this.shaftCol(x, z);
+    if (sc) return sc[this.solidTop(sc, x, z) * LAYER + (z & 15) * 16 + (x & 15)] === BLOCK_INDEX.grass;
     const h = this.T.height(x, z);
     const r = this.mouthRange(x, z);
     // さか道の床は もとの地層の途中（床が 地面の高さのままなら くさ）
@@ -142,6 +200,8 @@ class SurfaceImpl implements Surface {
 
   blockAt(x: number, y: number, z: number): VBlock {
     if (y < 0 || y >= AIR_Y) return y < 0 ? 'solid' : 'air';
+    const sc = this.shaftCol(x, z);
+    if (sc) return VBLOCK[this.kindIn(sc, x, y, z)]!;
     const h = this.T.height(x, z);
     const r = this.mouthRange(x, z);
     if (r !== null && y >= r[0] && y <= r[1]) return 'air';
@@ -168,6 +228,15 @@ class SurfaceImpl implements Surface {
   }
 
   covered(x: number, z: number): boolean {
+    const sc = this.shaftCol(x, z);
+    if (sc) {
+      for (let y = AIR_Y - 1; y > 0; y--) {
+        const k = this.kindIn(sc, x, y, z);
+        if (k === K_SOLID) return false;
+        if (k !== K_AIR) return true;
+      }
+      return false;
+    }
     const g = this.ground(x, z);
     const h = this.T.height(x, z);
     if (h < SEA_Y) return true; // 水が かぶっている
@@ -191,6 +260,15 @@ class SurfaceImpl implements Surface {
   }
 
   treeCover(x: number, z: number): boolean {
+    const sc = this.shaftCol(x, z);
+    if (sc) {
+      for (let y = AIR_Y - 1; y > 0; y--) {
+        const k = this.kindIn(sc, x, y, z);
+        if (k === K_SOLID) return false;
+        if (k === K_LOG || k === K_LEAVES) return true;
+      }
+      return false;
+    }
     return this.treeColumn(x, z, this.ground(x, z));
   }
 }

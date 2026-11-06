@@ -220,6 +220,15 @@ export class ShaftWorld {
     return set.size;
   }
 
+  /** (x, y, z) は いちばん 下の へやの 中か（実績「いちばん したに ついた」） */
+  inBottom(x: number, y: number, z: number): boolean {
+    for (const s of this.shafts(x, z, x, z)) {
+      const r = s.room;
+      if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1 && y >= r.y && y <= r.y + 4) return true;
+    }
+    return false;
+  }
+
   /** (x, y, z) は 坑道の 空気か */
   inside(x: number, y: number, z: number): boolean {
     const k = keyOf(x, y, z);

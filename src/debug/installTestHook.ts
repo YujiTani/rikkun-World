@@ -31,6 +31,7 @@ import { createInputHook } from '../input';
 import { createPlayerHook } from '../player/hook';
 import { createBiomeHook } from '../world/gen/biomeHook';
 import { createMineHook } from '../world/gen/mineHook';
+import { CHEST_SOUNDS } from '../fx/chestSounds';
 import { createWorldHook } from '../world/hook';
 import { createRenderHook } from '../world/render/renderHook';
 import { createShadowHook } from '../world/render/shadow/shadowHook';
@@ -56,6 +57,29 @@ export function installGameHook(deps: WiredLoop): void {
     m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets, seat, water,
     gamepadApi,
   } = deps;
+  // MINE-1C: 宝箱を あける〔右クリック → mine.open〕。持ち物・落とし物・テロップ・実績は ここで つなぐ
+  const mine = createMineHook({
+    seed,
+    world,
+    player: () => controller.state.position,
+    spawnHeight: () => yokaiM.config.yokaiSpawnHeight,
+    metaGen: () => save.metaGen(),
+    oldCols: restored.oldCols,
+    chest: {
+      add: (item, count) => inventory.add(item, count),
+      drop: (item, count) => {
+        const p = controller.state.position;
+        drops.scatter({ x: p.x, y: p.y + 0.5, z: p.z }, [{ item, count }], { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 });
+      },
+      say: () => {}, // あいた 宝箱は 'chestDone' で 右クリックを うけつけない ので ログは 出さない
+      telop: (item) => celebrate.enqueueTelop(item, 'chest'),
+      opened: (tier) => {
+        fxSound.playTones(CHEST_SOUNDS[`chestOpen${tier}` as keyof typeof CHEST_SOUNDS]); // 案 A「オルゴールの かいだん」。4 段目だけ「大」（BGM が さがる）
+        achievements.feedMine([{ type: 'chestOpen', tick: game.tick, tier }]);
+      },
+    },
+  });
+  dig.chestPort = { open: (x, y, z) => mine.open(x, y, z) };
   installTestHook(game, overlay, () => host.everReady, {
     start: startBoot.hook,
     work: createWorkHook(() => game.tick, world, () => water.computed()),
@@ -95,7 +119,7 @@ export function installGameHook(deps: WiredLoop): void {
       },
     }),
     // MINE-1A §6.1: 層・鉱石・かたまり・地下の判定。妖怪を 出す 高さの はばは 設定（yokaiSpawnHeight）の 今の 値
-    mine: createMineHook({ seed, world, player: () => controller.state.position, spawnHeight: () => yokaiM.config.yokaiSpawnHeight }),
+    mine,
     world: createWorldHook(world, renderer, island, {
       teleport: (x, z) => host.goTo({ x, y: null, z }, true),
       stream: () => host.info(),

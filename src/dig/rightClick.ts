@@ -4,6 +4,7 @@ import { furnUseOf } from '../world/blocks/furnUse';
 import { doorInfo } from '../world/blocks/houseBlocks';
 import type { BucketPreview, BlockId, ItemId, RightClickKind, TargetInfo, WaterPreview, WaterRay } from '../contracts';
 import { isWater } from '../world/blocks/water';
+import { chestBlockInfo } from '../world/blocks/chestBlock';
 export type { RightClickKind };
 
 /**
@@ -99,6 +100,9 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   if (coop && coop.eggs >= 1) return { kind: 'coopCollect', item: null };
   if (t && c.isTansu(t.block.x, t.block.y, t.block.z)) return { kind: 'storage', item: null };
   if (t && c.isFurnace(t.block.x, t.block.y, t.block.z)) return { kind: 'furnace', item: null };
+  // MINE-1C: 宝箱（2 マス どちらを ねらっても 同じ。持ち物に よらず、置かない）
+  const chest = t ? chestBlockInfo(t.id) : null;
+  if (chest) return { kind: chest.open ? 'chestDone' : 'chest', item: null };
   // HOUSE-1C: 家の 戸（あける・しめる。置くより 先。上下 どちらを ねらっても 同じ）
   const door = t ? doorInfo(t.id) : null;
   if (door) return { kind: door.open ? 'doorClose' : 'doorOpen', item: null };

@@ -7,8 +7,9 @@ export interface ActionHintItem {
    * すること の絵にする アイテム（'heart' = ハート。LIVE-1 の なでる）。
    * 版 3.2: 'full' = おなかいっぱい・'carry' = だっこ・'chicken' = おろす（専用 の 絵 が できるまで にわとり で かわり）
    * HOUSE-1A: 'talk' = ふきだし（建築士さんに はなす）
+   * MINE-1C: 'chest' = 宝箱（あける）
    */
-  icon: ItemId | 'heart' | 'full' | 'carry' | 'chicken' | 'talk';
+  icon: ItemId | 'heart' | 'full' | 'carry' | 'chicken' | 'talk' | 'chest';
   /** ひらがなの 1 語 */
   word: string;
   /** LIVE-2: 入らない 所 など（絵 を うすく する。押しても 合図 だけ） */
@@ -47,6 +48,9 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
   const out: ActionHintLines = {};
   if (right) {
     switch (right.kind as string) {
+      case 'chest':
+        out.right = { icon: 'chest', word: 'あける' };
+        break;
       case 'storage':
         out.right = { icon: 'tansu', word: 'ひらく' };
         break;

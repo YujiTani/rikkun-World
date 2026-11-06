@@ -2,6 +2,7 @@ import type { ActionHintItem, ActionHintLines } from './actionHintModel';
 import { animalIconUrl } from './animalArt';
 import { heartPixels } from './heartsModel';
 import { houseTalkIconUrl } from './houseMenuArt';
+import { paintKodoTile } from '../world/blocks/mineTexturesWaku';
 import { drawPixels, itemIconUrl } from './itemIcon';
 import './actionHint.css';
 
@@ -79,8 +80,20 @@ export class ActionHint {
 function iconUrl(icon: ActionHintItem['icon']): string {
   if (icon === 'heart') return heartUrl();
   if (icon === 'talk') return houseTalkIconUrl();
+  if (icon === 'chest') return chestUrl();
   if (icon === 'chicken' || icon === 'carry' || icon === 'full') return animalIconUrl('chicken');
   return itemIconUrl(icon);
+}
+
+let chestCache: string | undefined;
+/** MINE-1C: ヒント「あける」の 絵（art/MINE-1/chest_hint） */
+function chestUrl(): string {
+  if (!chestCache) {
+    const c = document.createElement('canvas');
+    drawPixels(c, paintKodoTile('chest_hint'));
+    chestCache = c.toDataURL();
+  }
+  return chestCache;
 }
 
 let heartCache: string | undefined;

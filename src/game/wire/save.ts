@@ -32,6 +32,7 @@ import { computeFarmPlacement, applyFarmPlacement } from '../../world/gen/farmPl
 import { createFarmVisual } from '../../world/render/farmVisual';
 import type { WiredAchievements } from './ui';
 import { isWaterIndex } from '../../world/blocks/water';
+import { shaftWorldFor } from '../../world/gen/mineShafts';
 
 export function wireSave(deps: WiredAchievements) {
   const {
@@ -114,7 +115,7 @@ export function wireSave(deps: WiredAchievements) {
     keys: restored.keys,
     generate: (cx, cz) => {
       const t0 = performance.now();
-      const col = generateChunk(seed, cx, cz);
+      const col = generateChunk(seed, cx, cz, restored.oldCols);
       island.noteGen?.(performance.now() - t0);
       return col;
     },
@@ -345,6 +346,10 @@ export function wireFrame(deps: WiredSave) {
       achievements.update(ctx);
       // COUNTRY-1 §4.1: やられた画面の 間は 数えない（止まっている 間は screenSteps = 0）
       countryWatch.step(st.position, ctx.dead ? 0 : ctx.screenSteps);
+      // MINE-1C §4.10: 足が いちばん 下の へやに 入った（高さで 先に ふるいにかける）
+      if (!ctx.dead && st.position.y < 60 && shaftWorldFor(seed).inBottom(Math.floor(st.position.x), Math.floor(st.position.y + 0.1), Math.floor(st.position.z))) {
+        achievements.feedMine([{ type: 'bottom', tick: game.tick }]);
+      }
     }
     celebrate.setPending(achievements.pendingCount());
   }

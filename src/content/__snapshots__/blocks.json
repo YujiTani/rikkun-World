@@ -103,6 +103,7 @@
     "katame_tsuchi": 141,
     "kawara": 12,
     "kin_ore": 64,
+    "kodo_waku": 186,
     "kogeta": 184,
     "kokuyouseki": 167,
     "kusa": 39,
@@ -196,6 +197,70 @@
     "table_e": 116,
     "table_n": 115,
     "table_w": 114,
+    "takarabako_1": 187,
+    "takarabako_1_e": 188,
+    "takarabako_1_open": 195,
+    "takarabako_1_open_e": 196,
+    "takarabako_1_open_r": 199,
+    "takarabako_1_open_r_e": 200,
+    "takarabako_1_open_r_s": 201,
+    "takarabako_1_open_r_w": 202,
+    "takarabako_1_open_s": 197,
+    "takarabako_1_open_w": 198,
+    "takarabako_1_r": 191,
+    "takarabako_1_r_e": 192,
+    "takarabako_1_r_s": 193,
+    "takarabako_1_r_w": 194,
+    "takarabako_1_s": 189,
+    "takarabako_1_w": 190,
+    "takarabako_2": 203,
+    "takarabako_2_e": 204,
+    "takarabako_2_open": 211,
+    "takarabako_2_open_e": 212,
+    "takarabako_2_open_r": 215,
+    "takarabako_2_open_r_e": 216,
+    "takarabako_2_open_r_s": 217,
+    "takarabako_2_open_r_w": 218,
+    "takarabako_2_open_s": 213,
+    "takarabako_2_open_w": 214,
+    "takarabako_2_r": 207,
+    "takarabako_2_r_e": 208,
+    "takarabako_2_r_s": 209,
+    "takarabako_2_r_w": 210,
+    "takarabako_2_s": 205,
+    "takarabako_2_w": 206,
+    "takarabako_3": 219,
+    "takarabako_3_e": 220,
+    "takarabako_3_open": 227,
+    "takarabako_3_open_e": 228,
+    "takarabako_3_open_r": 231,
+    "takarabako_3_open_r_e": 232,
+    "takarabako_3_open_r_s": 233,
+    "takarabako_3_open_r_w": 234,
+    "takarabako_3_open_s": 229,
+    "takarabako_3_open_w": 230,
+    "takarabako_3_r": 223,
+    "takarabako_3_r_e": 224,
+    "takarabako_3_r_s": 225,
+    "takarabako_3_r_w": 226,
+    "takarabako_3_s": 221,
+    "takarabako_3_w": 222,
+    "takarabako_4": 235,
+    "takarabako_4_e": 236,
+    "takarabako_4_open": 243,
+    "takarabako_4_open_e": 244,
+    "takarabako_4_open_r": 247,
+    "takarabako_4_open_r_e": 248,
+    "takarabako_4_open_r_s": 249,
+    "takarabako_4_open_r_w": 250,
+    "takarabako_4_open_s": 245,
+    "takarabako_4_open_w": 246,
+    "takarabako_4_r": 239,
+    "takarabako_4_r_e": 240,
+    "takarabako_4_r_s": 241,
+    "takarabako_4_r_w": 242,
+    "takarabako_4_s": 237,
+    "takarabako_4_w": 238,
     "takitsubo": 166,
     "tansu": 16,
     "tansu_e": 89,
@@ -1336,6 +1401,396 @@
       "id": "magma_takitsubo",
       "name": "マグマの たきつぼ",
       "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "kodo_waku",
+      "name": "こうどうの わく",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1",
+      "name": "きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_e",
+      "name": "きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_s",
+      "name": "きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_w",
+      "name": "きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_r",
+      "name": "きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_r_e",
+      "name": "きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_r_s",
+      "name": "きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_r_w",
+      "name": "きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_open",
+      "name": "あいた きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_open_e",
+      "name": "あいた きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_open_s",
+      "name": "あいた きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_open_w",
+      "name": "あいた きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_open_r",
+      "name": "あいた きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_open_r_e",
+      "name": "あいた きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_open_r_s",
+      "name": "あいた きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_1_open_r_w",
+      "name": "あいた きの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2",
+      "name": "てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_e",
+      "name": "てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_s",
+      "name": "てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_w",
+      "name": "てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_r",
+      "name": "てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_r_e",
+      "name": "てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_r_s",
+      "name": "てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_r_w",
+      "name": "てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_open",
+      "name": "あいた てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_open_e",
+      "name": "あいた てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_open_s",
+      "name": "あいた てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_open_w",
+      "name": "あいた てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_open_r",
+      "name": "あいた てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_open_r_e",
+      "name": "あいた てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_open_r_s",
+      "name": "あいた てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_2_open_r_w",
+      "name": "あいた てつの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3",
+      "name": "うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_e",
+      "name": "うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_s",
+      "name": "うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_w",
+      "name": "うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_r",
+      "name": "うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_r_e",
+      "name": "うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_r_s",
+      "name": "うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_r_w",
+      "name": "うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_open",
+      "name": "あいた うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_open_e",
+      "name": "あいた うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_open_s",
+      "name": "あいた うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_open_w",
+      "name": "あいた うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_open_r",
+      "name": "あいた うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_open_r_e",
+      "name": "あいた うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_open_r_s",
+      "name": "あいた うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_3_open_r_w",
+      "name": "あいた うるしの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4",
+      "name": "ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_e",
+      "name": "ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_s",
+      "name": "ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_w",
+      "name": "ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_r",
+      "name": "ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_r_e",
+      "name": "ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_r_s",
+      "name": "ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_r_w",
+      "name": "ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_open",
+      "name": "あいた ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_open_e",
+      "name": "あいた ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_open_s",
+      "name": "あいた ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_open_w",
+      "name": "あいた ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_open_r",
+      "name": "あいた ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_open_r_e",
+      "name": "あいた ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_open_r_s",
+      "name": "あいた ミラクルの たからばこ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "takarabako_4_open_r_w",
+      "name": "あいた ミラクルの たからばこ",
+      "solid": true
     }
   ],
   "DIG_DEFAULTS": {
@@ -1425,6 +1880,7 @@
       "katame_tsuchi": 0.5,
       "kawara": 4,
       "kin_ore": 15,
+      "kodo_waku": 5,
       "kogeta": 1,
       "kokuyouseki": 12,
       "kusa": 0.05,
@@ -1518,6 +1974,70 @@
       "table_e": 5,
       "table_n": 5,
       "table_w": 5,
+      "takarabako_1": null,
+      "takarabako_1_e": null,
+      "takarabako_1_open": null,
+      "takarabako_1_open_e": null,
+      "takarabako_1_open_r": null,
+      "takarabako_1_open_r_e": null,
+      "takarabako_1_open_r_s": null,
+      "takarabako_1_open_r_w": null,
+      "takarabako_1_open_s": null,
+      "takarabako_1_open_w": null,
+      "takarabako_1_r": null,
+      "takarabako_1_r_e": null,
+      "takarabako_1_r_s": null,
+      "takarabako_1_r_w": null,
+      "takarabako_1_s": null,
+      "takarabako_1_w": null,
+      "takarabako_2": null,
+      "takarabako_2_e": null,
+      "takarabako_2_open": null,
+      "takarabako_2_open_e": null,
+      "takarabako_2_open_r": null,
+      "takarabako_2_open_r_e": null,
+      "takarabako_2_open_r_s": null,
+      "takarabako_2_open_r_w": null,
+      "takarabako_2_open_s": null,
+      "takarabako_2_open_w": null,
+      "takarabako_2_r": null,
+      "takarabako_2_r_e": null,
+      "takarabako_2_r_s": null,
+      "takarabako_2_r_w": null,
+      "takarabako_2_s": null,
+      "takarabako_2_w": null,
+      "takarabako_3": null,
+      "takarabako_3_e": null,
+      "takarabako_3_open": null,
+      "takarabako_3_open_e": null,
+      "takarabako_3_open_r": null,
+      "takarabako_3_open_r_e": null,
+      "takarabako_3_open_r_s": null,
+      "takarabako_3_open_r_w": null,
+      "takarabako_3_open_s": null,
+      "takarabako_3_open_w": null,
+      "takarabako_3_r": null,
+      "takarabako_3_r_e": null,
+      "takarabako_3_r_s": null,
+      "takarabako_3_r_w": null,
+      "takarabako_3_s": null,
+      "takarabako_3_w": null,
+      "takarabako_4": null,
+      "takarabako_4_e": null,
+      "takarabako_4_open": null,
+      "takarabako_4_open_e": null,
+      "takarabako_4_open_r": null,
+      "takarabako_4_open_r_e": null,
+      "takarabako_4_open_r_s": null,
+      "takarabako_4_open_r_w": null,
+      "takarabako_4_open_s": null,
+      "takarabako_4_open_w": null,
+      "takarabako_4_r": null,
+      "takarabako_4_r_e": null,
+      "takarabako_4_r_s": null,
+      "takarabako_4_r_w": null,
+      "takarabako_4_s": null,
+      "takarabako_4_w": null,
       "takitsubo": 0.5,
       "tansu": 5,
       "tansu_e": 5,
@@ -1613,6 +2133,7 @@
       "katame_tsuchi": 0,
       "kawara": 0,
       "kin_ore": 2,
+      "kodo_waku": 0,
       "kogeta": 0,
       "kokuyouseki": 2,
       "kusa": 0,
@@ -1706,6 +2227,70 @@
       "table_e": 0,
       "table_n": 0,
       "table_w": 0,
+      "takarabako_1": 0,
+      "takarabako_1_e": 0,
+      "takarabako_1_open": 0,
+      "takarabako_1_open_e": 0,
+      "takarabako_1_open_r": 0,
+      "takarabako_1_open_r_e": 0,
+      "takarabako_1_open_r_s": 0,
+      "takarabako_1_open_r_w": 0,
+      "takarabako_1_open_s": 0,
+      "takarabako_1_open_w": 0,
+      "takarabako_1_r": 0,
+      "takarabako_1_r_e": 0,
+      "takarabako_1_r_s": 0,
+      "takarabako_1_r_w": 0,
+      "takarabako_1_s": 0,
+      "takarabako_1_w": 0,
+      "takarabako_2": 0,
+      "takarabako_2_e": 0,
+      "takarabako_2_open": 0,
+      "takarabako_2_open_e": 0,
+      "takarabako_2_open_r": 0,
+      "takarabako_2_open_r_e": 0,
+      "takarabako_2_open_r_s": 0,
+      "takarabako_2_open_r_w": 0,
+      "takarabako_2_open_s": 0,
+      "takarabako_2_open_w": 0,
+      "takarabako_2_r": 0,
+      "takarabako_2_r_e": 0,
+      "takarabako_2_r_s": 0,
+      "takarabako_2_r_w": 0,
+      "takarabako_2_s": 0,
+      "takarabako_2_w": 0,
+      "takarabako_3": 0,
+      "takarabako_3_e": 0,
+      "takarabako_3_open": 0,
+      "takarabako_3_open_e": 0,
+      "takarabako_3_open_r": 0,
+      "takarabako_3_open_r_e": 0,
+      "takarabako_3_open_r_s": 0,
+      "takarabako_3_open_r_w": 0,
+      "takarabako_3_open_s": 0,
+      "takarabako_3_open_w": 0,
+      "takarabako_3_r": 0,
+      "takarabako_3_r_e": 0,
+      "takarabako_3_r_s": 0,
+      "takarabako_3_r_w": 0,
+      "takarabako_3_s": 0,
+      "takarabako_3_w": 0,
+      "takarabako_4": 0,
+      "takarabako_4_e": 0,
+      "takarabako_4_open": 0,
+      "takarabako_4_open_e": 0,
+      "takarabako_4_open_r": 0,
+      "takarabako_4_open_r_e": 0,
+      "takarabako_4_open_r_s": 0,
+      "takarabako_4_open_r_w": 0,
+      "takarabako_4_open_s": 0,
+      "takarabako_4_open_w": 0,
+      "takarabako_4_r": 0,
+      "takarabako_4_r_e": 0,
+      "takarabako_4_r_s": 0,
+      "takarabako_4_r_w": 0,
+      "takarabako_4_s": 0,
+      "takarabako_4_w": 0,
       "takitsubo": 0,
       "tansu": 0,
       "tansu_e": 0,
@@ -1802,6 +2387,7 @@
       "katame_tsuchi": "common",
       "kawara": "uncommon",
       "kin_ore": "epic",
+      "kodo_waku": "common",
       "kogeta": "common",
       "kokuyouseki": "rare",
       "kusa": "common",
@@ -1895,6 +2481,70 @@
       "table_e": "common",
       "table_n": "common",
       "table_w": "common",
+      "takarabako_1": "common",
+      "takarabako_1_e": "common",
+      "takarabako_1_open": "common",
+      "takarabako_1_open_e": "common",
+      "takarabako_1_open_r": "common",
+      "takarabako_1_open_r_e": "common",
+      "takarabako_1_open_r_s": "common",
+      "takarabako_1_open_r_w": "common",
+      "takarabako_1_open_s": "common",
+      "takarabako_1_open_w": "common",
+      "takarabako_1_r": "common",
+      "takarabako_1_r_e": "common",
+      "takarabako_1_r_s": "common",
+      "takarabako_1_r_w": "common",
+      "takarabako_1_s": "common",
+      "takarabako_1_w": "common",
+      "takarabako_2": "common",
+      "takarabako_2_e": "common",
+      "takarabako_2_open": "common",
+      "takarabako_2_open_e": "common",
+      "takarabako_2_open_r": "common",
+      "takarabako_2_open_r_e": "common",
+      "takarabako_2_open_r_s": "common",
+      "takarabako_2_open_r_w": "common",
+      "takarabako_2_open_s": "common",
+      "takarabako_2_open_w": "common",
+      "takarabako_2_r": "common",
+      "takarabako_2_r_e": "common",
+      "takarabako_2_r_s": "common",
+      "takarabako_2_r_w": "common",
+      "takarabako_2_s": "common",
+      "takarabako_2_w": "common",
+      "takarabako_3": "common",
+      "takarabako_3_e": "common",
+      "takarabako_3_open": "common",
+      "takarabako_3_open_e": "common",
+      "takarabako_3_open_r": "common",
+      "takarabako_3_open_r_e": "common",
+      "takarabako_3_open_r_s": "common",
+      "takarabako_3_open_r_w": "common",
+      "takarabako_3_open_s": "common",
+      "takarabako_3_open_w": "common",
+      "takarabako_3_r": "common",
+      "takarabako_3_r_e": "common",
+      "takarabako_3_r_s": "common",
+      "takarabako_3_r_w": "common",
+      "takarabako_3_s": "common",
+      "takarabako_3_w": "common",
+      "takarabako_4": "common",
+      "takarabako_4_e": "common",
+      "takarabako_4_open": "common",
+      "takarabako_4_open_e": "common",
+      "takarabako_4_open_r": "common",
+      "takarabako_4_open_r_e": "common",
+      "takarabako_4_open_r_s": "common",
+      "takarabako_4_open_r_w": "common",
+      "takarabako_4_open_s": "common",
+      "takarabako_4_open_w": "common",
+      "takarabako_4_r": "common",
+      "takarabako_4_r_e": "common",
+      "takarabako_4_r_s": "common",
+      "takarabako_4_r_w": "common",
+      "takarabako_4_s": "common",
+      "takarabako_4_w": "common",
       "takitsubo": "uncommon",
       "tansu": "uncommon",
       "tansu_e": "uncommon",
@@ -1982,6 +2632,10 @@
     "katame_tsuchi": {
       "count": 1,
       "item": "dirt"
+    },
+    "kodo_waku": {
+      "count": 1,
+      "item": "log"
     },
     "kogeta": {
       "count": 1,
