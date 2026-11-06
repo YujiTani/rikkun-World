@@ -223,7 +223,7 @@ describe.each(FIXTURES)('C9: $name の 古い 保存', (f) => {
     expect(h.isOld('kodo', first.cx, first.cz)).toBe(true);
     expect(h.isOld('kodo', 40, 40)).toBe(false);
     expect(h.oldCols('kodo')).toBe(want.length);
-  });
+  }, 60_000); // 列を 作って 保存する。よそが 混む ときの ゆとり（おそくて 落ちない）
 
   it('ファイル〔.rikkun.gz〕に 書き出して 読みこんでも 一覧が 同じ〔開いて 保存した あとでも・保存する 前の 古い ファイルでも〕', async () => {
     const { db, store } = await openFile(f);
