@@ -2,9 +2,9 @@ import type { BufferAttribute } from 'three';
 import { columnKey } from '../VoxelWorld';
 import { colKey } from '../stream/ring';
 import { CHUNK_DRAW_DISTANCE } from './config';
-import type { ChunkStats, SectionInfo, SectionStats } from './rendererTypes';
+import type { ChunkStats, NoneReason, SectionInfo, SectionStats, SectionTier } from './rendererTypes';
 import { trisOf } from './rendererGeometry';
-import type { ColState, SecState } from './sectionState';
+import { CLS_AIR, CLS_HIDDEN, type Cls, type ColState, type SecState } from './sectionState';
 
 /** WorldRenderer の 数える・見る・まとめる（テスト・計測・F3 用。WorldRenderer.ts から分けた。4-7） */
 
@@ -147,4 +147,22 @@ export function meshCount(cols: Cols): number {
     if (col.lodWater?.visible) n++;
   }
   return n;
+}
+
+/** そのセクションの 見え方（WorldRenderer.sectionInfo の 中身）。cls = 分類、ready = 光が できて メッシュを 作ってよい */
+export function sectionInfoOf(col: ColState, st: SecState, cls: Cls, ready: boolean): SectionInfo {
+  const dist = col.dist;
+  const none = (reason: NoneReason): SectionInfo => ({ tier: 'none', reason, meshes: 0, triangles: 0, dist });
+  if (cls === CLS_AIR) return none('empty');
+  if (cls === CLS_HIDDEN) return none('hidden');
+  if (col.tier === 'lod') return { tier: 'lod', reason: null, meshes: 0, triangles: 0, dist };
+  // 上限をこえて捨てた（evicted）セクションは いま描いていない: tier 'none'（reason は unlit 扱い＝まだ作っていない）
+  if (st.evicted) return none('unlit');
+  const meshes = (st.voxel ? 1 : 0) + (st.extras ? 1 : 0) + (st.water ? 1 : 0);
+  if (meshes === 0) {
+    if (st.built !== null && st.faceless) return none('empty'); // 見える面が 0
+    if (!ready) return none('unlit');
+  }
+  const tier: SectionTier = meshes > 0 && st.built ? st.built : (col.tier ?? 'micro');
+  return { tier, reason: null, meshes, triangles: st.tris, dist };
 }

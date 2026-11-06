@@ -40,7 +40,7 @@ export function decideRing(search: string, envDefault: string | undefined): Ring
 }
 
 let current: RingSpec = RING_FULL;
-/** main.ts が起動のとき 1 回だけ呼ぶ（WorldRenderer・ChunkStream を作る前） */
+/** 起動のとき main.ts が呼ぶ（WorldRenderer・ChunkStream を作る前）。ふたり遊びの 区画の 数の 切りかえは ChunkStream.setLayout で 行う */
 export function setRing(r: RingSpec): void {
   current = r;
 }

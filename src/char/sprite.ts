@@ -79,7 +79,8 @@ export interface SpriteInfo {
 
 export interface CharSprite {
   step(input: SpriteStepInput): void;
-  render(): void;
+  /** cam を 渡すと その カメラに 向ける（COOP-1: 区画ごとに 向きを かえる）。無ければ 作ったときの カメラ */
+  render(cam?: THREE.Camera): void;
   hurt(): void;
   /** WEAPON-5: パリィの 絵を 見せる（null で 元に もどす。絵が 読めていなければ そのまま） */
   setParry(cell: ParryCell | null): void;
@@ -536,11 +537,12 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
     return { scene, motion: r.motion, frame: r.frame };
   };
 
-  function render(): void {
+  function render(override?: THREE.Camera): void {
+    const cam = override ?? camera;
     parent.updateWorldMatrix(true, false);
-    camera.updateWorldMatrix(true, false);
+    cam.updateWorldMatrix(true, false);
     tmpFeet.setFromMatrixPosition(parent.matrixWorld);
-    tmpCam.setFromMatrixPosition(camera.matrixWorld);
+    tmpCam.setFromMatrixPosition(cam.matrixWorld);
 
     const dx = tmpCam.x - tmpFeet.x;
     const dz = tmpCam.z - tmpFeet.z;
@@ -566,17 +568,17 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       tmpZ.set(dx, tmpCam.y - (tmpFeet.y + centerY), dz);
       if (tmpZ.lengthSq() < 1e-12) tmpZ.set(0, 1, 0);
       tmpZ.normalize();
-      tmpX.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+      tmpX.setFromMatrixColumn(cam.matrixWorld, 0).normalize();
       tmpX.addScaledVector(tmpZ, -tmpX.dot(tmpZ));
-      if (tmpX.lengthSq() < 1e-8) tmpX.setFromMatrixColumn(camera.matrixWorld, 1).cross(tmpZ);
+      if (tmpX.lengthSq() < 1e-8) tmpX.setFromMatrixColumn(cam.matrixWorld, 1).cross(tmpZ);
       tmpX.normalize();
       tmpY.crossVectors(tmpZ, tmpX);
       tmpM.makeBasis(tmpX, tmpY, tmpZ);
       tmpQ.setFromRotationMatrix(tmpM);
       tiltDeg = Math.abs(Math.asin(Math.min(1, Math.max(-1, tmpZ.y)))) * RAD;
       // 画面の中でのかたむき: 板の上を カメラの画面の面に うつして、カメラの上向きとの角を見る
-      tmpF.setFromMatrixColumn(camera.matrixWorld, 2).negate().normalize();
-      tmpU.setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+      tmpF.setFromMatrixColumn(cam.matrixWorld, 2).negate().normalize();
+      tmpU.setFromMatrixColumn(cam.matrixWorld, 1).normalize();
       tmpY.addScaledVector(tmpF, -tmpY.dot(tmpF));
       const len = tmpY.length();
       upDeg = len < 1e-8 ? 0 : Math.acos(Math.min(1, Math.max(-1, tmpY.divideScalar(len).dot(tmpU)))) * RAD;

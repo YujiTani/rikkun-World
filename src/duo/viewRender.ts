@@ -13,6 +13,10 @@ export interface DuoDrawState {
   rc: ViewRects;
   /** ルーペに 描く 範囲（カメラから この 距離より 遠くは 描かない） */
   loupeFar: number;
+  /** ルーペの 落ちついた 直径(CSS px)。レンダーターゲットは これで 1 回だけ 作る（ふくらむ 間は viewport で 縮める） */
+  loupePx: number;
+  /** かすみの far を この 距離までに する（輪が 2 つのとき 描く 範囲に 合わせる）。null = かえない */
+  fogFar: number | null;
 }
 
 export class DuoViewRenderer {
@@ -23,12 +27,18 @@ export class DuoViewRenderer {
   private readonly quadScene = new THREE.Scene();
   private readonly quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   private quad: THREE.Mesh | null = null;
+  private mask: THREE.CanvasTexture | null = null;
+  /** かすみを 区画ごとに かえる とき 元の 値を 覚える */
+  private fogNear0 = 0;
+  private fogFar0 = 0;
   private readonly sz = new THREE.Vector2();
 
   constructor(
     private readonly renderer: THREE.WebGLRenderer,
     private readonly scene: THREE.Scene,
     private readonly mainCamera: THREE.PerspectiveCamera,
+    /** 区画を 描く 前に 呼ぶ（キャラの 板を その カメラへ 向ける。キャラの 板は 区画ごとに 向きが ちがう） */
+    private readonly beforePane: (cam: THREE.Camera) => void,
   ) {}
 
   /** ルーペの 切りぬきの 丸（アルファ）。ひとつだけ 作る */
@@ -43,7 +53,7 @@ export class DuoViewRenderer {
     g.beginPath();
     g.arc(64, 64, 64, 0, Math.PI * 2);
     g.fill();
-    const mask = new THREE.CanvasTexture(c);
+    const mask = (this.mask = new THREE.CanvasTexture(c));
     const mat = new THREE.MeshBasicMaterial({ alphaMap: mask, alphaTest: 0.5, toneMapped: false, depthTest: false, depthWrite: false });
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
     this.quad.frustumCulled = false;
@@ -51,14 +61,16 @@ export class DuoViewRenderer {
     return this.quad;
   }
 
+  /** 落ちついた 直径で 1 回だけ 作る（大きさが かわるのは 画面の 大きさが かわった ときだけ） */
   private ensureRt(px: number): THREE.WebGLRenderTarget {
     const n = Math.max(16, Math.round(px));
     if (this.rt === null || this.rtSize !== n) {
       this.rt?.dispose();
       this.rt = new THREE.WebGLRenderTarget(n, n, { type: THREE.HalfFloatType, depthBuffer: true });
       this.rtSize = n;
-      ((this.ensureQuad() as THREE.Mesh).material as THREE.MeshBasicMaterial).map = this.rt.texture;
-      ((this.quad as THREE.Mesh).material as THREE.MeshBasicMaterial).needsUpdate = true;
+      const mat = this.ensureQuad().material as THREE.MeshBasicMaterial;
+      mat.map = this.rt.texture;
+      mat.needsUpdate = true;
     }
     return this.rt;
   }
@@ -73,15 +85,22 @@ export class DuoViewRenderer {
     const main = this.mainCamera;
     const aspect0 = main.aspect;
     const far2 = this.camera2.far;
+    const fog = this.scene.fog instanceof THREE.Fog ? this.scene.fog : null;
+    if (fog) {
+      this.fogNear0 = fog.near;
+      this.fogFar0 = fog.far;
+    }
     const info = r.info;
     const autoReset = info.autoReset;
     info.autoReset = false;
     info.reset();
     r.setScissorTest(true);
 
+    this.fogTo(fog, st.fogFar);
     this.pane(rc.main);
     main.aspect = rc.main.w / Math.max(1, rc.main.h);
     main.updateProjectionMatrix();
+    this.beforePane(main);
     r.render(this.scene, main);
     main.aspect = aspect0;
     main.updateProjectionMatrix();
@@ -90,20 +109,28 @@ export class DuoViewRenderer {
     if (b !== null) {
       const cam2 = this.camera2;
       cam2.aspect = b.w / Math.max(1, b.h);
-      if (rc.circle) cam2.far = st.loupeFar;
+      if (rc.circle) {
+        cam2.far = st.loupeFar;
+        this.fogTo(fog, st.fogFar === null ? st.loupeFar : Math.min(st.fogFar, st.loupeFar));
+      }
       cam2.updateProjectionMatrix();
+      this.beforePane(cam2);
       if (rc.circle) {
         const pr = r.getPixelRatio();
-        const rt = this.ensureRt(Math.min(b.w, b.h) * pr);
+        const rt = this.ensureRt(st.loupePx * pr);
+        const used = Math.max(1, Math.min(rt.width, Math.round(Math.min(b.w, b.h) * pr)));
         cam2.aspect = 1;
         cam2.updateProjectionMatrix();
         r.setScissorTest(false);
         r.setRenderTarget(rt);
+        rt.viewport.set(0, 0, used, used); // ふくらむ 間は 大きさに 合わせて 縮めて 描く
         const ca = r.getClearAlpha();
         r.setClearAlpha(1); // 絵の ない ところも 透けない ように（丸で 切りぬくのは アルファ マップだけ）
         r.render(this.scene, cam2);
         r.setClearAlpha(ca);
         r.setRenderTarget(null);
+        const tex = rt.texture;
+        tex.repeat.set(used / rt.width, used / rt.height);
         r.setScissorTest(true);
         this.pane(b);
         const auto = r.autoClear;
@@ -111,15 +138,32 @@ export class DuoViewRenderer {
         r.render(this.quadScene, this.quadCam);
         r.autoClear = auto;
       } else {
+        this.fogTo(fog, st.fogFar);
         this.pane(b);
         r.render(this.scene, cam2);
       }
       cam2.far = far2;
       cam2.updateProjectionMatrix();
     }
+    if (fog) {
+      fog.near = this.fogNear0;
+      fog.far = this.fogFar0;
+    }
     r.setScissorTest(false);
     r.setViewport(0, 0, W, H);
     info.autoReset = autoReset;
+  }
+
+  /** かすみの far を 描く 範囲に 合わせる（null = もとの まま）。近い 側も 比で 縮める */
+  private fogTo(fog: THREE.Fog | null, far: number | null): void {
+    if (!fog) return;
+    if (far === null || far >= this.fogFar0) {
+      fog.near = this.fogNear0;
+      fog.far = this.fogFar0;
+      return;
+    }
+    fog.far = far;
+    fog.near = Math.min(this.fogNear0, far * (this.fogNear0 / Math.max(1, this.fogFar0)));
   }
 
   /** viewport と scissor を 区画に 合わせる（CSS px。y は 下から） */
@@ -134,6 +178,8 @@ export class DuoViewRenderer {
   dispose(): void {
     this.rt?.dispose();
     this.rt = null;
+    this.mask?.dispose();
+    this.mask = null;
     if (this.quad) {
       this.quad.geometry.dispose();
       (this.quad.material as THREE.MeshBasicMaterial).dispose();

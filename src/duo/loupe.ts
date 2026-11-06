@@ -27,7 +27,8 @@ export interface LoupeBox {
   borderPx: number;
 }
 
-export function loupeLayout(input: LoupeLayoutInput): LoupeBox {
+/** out を 渡すと そこに 書いて 返す（毎ステップ 呼ぶとき 新しい 物を 作らない） */
+export function loupeLayout(input: LoupeLayoutInput, out?: LoupeBox): LoupeBox {
   const { width, height, tier } = input;
   let { dirX, dirY } = input;
   if (dirX === 0 && dirY === 0) dirX = 1;
@@ -46,5 +47,10 @@ export function loupeLayout(input: LoupeLayoutInput): LoupeBox {
   const tx = dirX === 0 ? Infinity : halfW / Math.abs(dirX);
   const ty = dirY === 0 ? Infinity : halfH / Math.abs(dirY);
   const t = Math.min(tx, ty);
-  return { x: midX + dirX * t, y: midY + dirY * t, d, borderPx: DUO_TUNING.loupeBorderPx[tier] };
+  const box = out ?? { x: 0, y: 0, d: 0, borderPx: 0 };
+  box.x = midX + dirX * t;
+  box.y = midY + dirY * t;
+  box.d = d;
+  box.borderPx = DUO_TUNING.loupeBorderPx[tier];
+  return box;
 }

@@ -68,7 +68,9 @@ export class StreamHost {
   /** 起動で 決めた 輪（1 人の ときの 大きさ。2 つの ときは 小さい 輪に かえる）。COOP-1 */
   private readonly baseRing: RingSpec = getRing();
   /** 2P の いる 列（輪を 2 つにする とき）。null = 輪は 1 つ */
-  private second: { cx: number; cz: number } | null = null;
+  private hasSecond = false;
+  private secondCx = 0;
+  private secondCz = 0;
   private twoRings = false;
 
   constructor(private readonly d: StreamHostDeps) {
@@ -154,8 +156,15 @@ export class StreamHost {
   }
 
   /** COOP-1: 2P の いる 列（輪を 2 つにする）。null で 輪は 1 つに もどる。毎ステップ 呼んでよい */
-  setSecond(c: { cx: number; cz: number } | null): void {
-    this.second = c;
+  setSecond(cx: number, cz: number): void {
+    this.hasSecond = true;
+    this.secondCx = cx;
+    this.secondCz = cz;
+  }
+
+  /** 輪を 1 つに もどす */
+  clearSecond(): void {
+    this.hasSecond = false;
   }
 
   /** 毎コマ（固定ステップ）。px, pz = プレイヤーの位置 */
@@ -171,8 +180,7 @@ export class StreamHost {
 
   /** 中心(1P)と 2P の 列から 輪を 決める。変わったときだけ ChunkStream に 伝える */
   private centerNow(cx: number, cz: number): void {
-    const two = this.second;
-    if (two === null) {
+    if (!this.hasSecond) {
       if (this.twoRings) {
         this.twoRings = false;
         this.stream.setLayout([{ cx, cz }], this.baseRing);
@@ -180,9 +188,9 @@ export class StreamHost {
       return;
     }
     const cur = this.stream.ringCenters();
-    if (this.twoRings && cur.length === 2 && cur[0]!.cx === cx && cur[0]!.cz === cz && cur[1]!.cx === two.cx && cur[1]!.cz === two.cz) return;
+    if (this.twoRings && cur.length === 2 && cur[0]!.cx === cx && cur[0]!.cz === cz && cur[1]!.cx === this.secondCx && cur[1]!.cz === this.secondCz) return;
     this.twoRings = true;
-    this.stream.setLayout([{ cx, cz }, { cx: two.cx, cz: two.cz }], ringSpecFor(2, this.baseRing));
+    this.stream.setLayout([{ cx, cz }, { cx: this.secondCx, cz: this.secondCz }], ringSpecFor(2, this.baseRing));
   }
 
   /** R の列が ぜんぶ 生成ずみになったら 置きものを 1 回だけ書く（K5） */

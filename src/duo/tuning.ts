@@ -74,8 +74,10 @@ export const DUO_TUNING = {
   cameraSplit: 5.0,
   /** 分割の 線の 太さ（px。1280 幅のとき。§9.1） */
   splitLinePx: 4,
-  /** ルーペの 外の 三角が ルーペの ふちから はなれる 距離（px） */
-  loupeArrowGapPx: 14,
+  /** ルーペの 外の 三角の 中心が ルーペの ふちから はなれる 距離（px） */
+  loupeArrowGapPx: 7,
+  /** 輪が 小さくなった とき、1 仕事で 捨てる 列の 数（1 コマで ぜんぶは 捨てない） */
+  layoutDropPerJob: 4,
   /** 2P の 頭の 上の「？」の 高さ（足もとから マス） */
   questionHeightTiles: 2.9,
 } as const;

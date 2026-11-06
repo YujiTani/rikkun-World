@@ -122,6 +122,11 @@ export class DuoBody {
     this.sprite.render();
   }
 
+  /** 区画ごとに 板を そのカメラへ 向ける */
+  faceCamera(cam: THREE.Camera): void {
+    if (this.kindNow !== null) this.sprite?.render(cam);
+  }
+
   dispose(): void {
     this.hide();
     this.sprite?.dispose();

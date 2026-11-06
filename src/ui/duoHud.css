@@ -195,13 +195,13 @@ html[data-duo] #hotbar-p2 {
   display: none;
 }
 
-/* 分割の まん中の 線（高さいっぱい。太さ 4px。暗い 灰色） */
+/* 分割の まん中の 線（高さいっぱい。太さは DUO_TUNING.splitLinePx。暗い 灰色） */
 .duo-split-line {
   position: fixed;
   top: 0;
   bottom: 0;
-  left: calc(50% - 2px);
-  width: 4px;
+  left: calc(50% - var(--duo-split-px, 4px) / 2);
+  width: var(--duo-split-px, 4px);
   background: var(--rk-bg-700);
   pointer-events: none;
   z-index: 4;

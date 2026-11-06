@@ -13,7 +13,7 @@ import { isBodyPlaceable } from '../../save';
 import { DuoHud } from '../../ui/duoHud';
 import { charBasePath } from './player';
 import type { WiredLoop } from './save';
-import { DuoViews } from './duoView';
+import { DuoViews, type DuoViewsInput } from './duoView';
 
 const DEG = Math.PI / 180;
 /** 角度の 差を -180〜180 に */
@@ -29,7 +29,7 @@ const JOIN_SIDES = [
 ] as const;
 
 export function wireDuo(deps: WiredLoop) {
-  const { shared, game, world, controller, lighting, hud, lock, gamepadApi, charCtl, blockDollOnly, combatUi, hotbar, worldReady, host, renderer } = deps;
+  const { shared, game, world, controller, lighting, hud, lock, gamepadApi, charCtl, blockDollOnly, combatUi, hotbar, worldReady, host, renderer, sprite } = deps;
   const dev = new URLSearchParams(location.search).get('duo') === 'dev';
   const router = gamepadApi.router;
   const p2Actions = gamepadApi.slots.get(1);
@@ -61,8 +61,14 @@ export function wireDuo(deps: WiredLoop) {
     isSolid: (x, y, z) => world.isSolid(x, y, z),
     shadow: () => shared.shadowSystem,
     cameraDistance: () => session.cameraDistance(),
+    beforePane: (c) => {
+      sprite?.render(c);
+      body.faceCamera(c);
+    },
   });
   const view = views.hud;
+  /** views.update に 毎ステップ 渡す 入力（使いまわす） */
+  const viewIn: DuoViewsInput = { p1: controller.state.position, p2: controller.state.position, p1YawDeg: 0, p2PitchDeg: 0, distance: 0, padLost: false };
 
   const session = new DuoSession({
     p2,
@@ -170,7 +176,14 @@ export function wireDuo(deps: WiredLoop) {
       const b = ctl2.state.position;
       distance = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
       body.step(ctl2.state);
-      views.update({ p1: a, p2: b, p1YawDeg: controller.state.yawDeg, p2PitchDeg: ctl2.state.pitchDeg, distance, padLost: session.padLost() });
+      const vi = viewIn;
+      vi.p1 = a;
+      vi.p2 = b;
+      vi.p1YawDeg = controller.state.yawDeg;
+      vi.p2PitchDeg = ctl2.state.pitchDeg;
+      vi.distance = distance;
+      vi.padLost = session.padLost();
+      views.update(vi);
       view.meter = distanceMeter(distance);
       view.distance = distance;
       view.padLost = session.padLost();

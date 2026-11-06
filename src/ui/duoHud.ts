@@ -59,9 +59,6 @@ interface Built {
   off: () => void;
 }
 
-/** ルーペの 外の 三角が ふちから はなれる 距離(px。中心まで)。三角の 半分の 大きさ + すきま */
-const ARROW_GAP_PX = 7;
-
 /** パッドの 絵（コントローラー。線だけ。色は 文字と 同じ） */
 const PAD_SVG =
   '<svg viewBox="0 0 48 32" width="100%" height="100%" aria-hidden="true"><path d="M12 5h24c5 0 8 4 10 12l1 8c1 4-3 6-6 3l-5-5H12l-5 5c-3 3-7 1-6-3l1-8C6 9 7 5 12 5z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M13 12v6M10 15h6" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="13" r="2" fill="currentColor"/><circle cx="37" cy="17" r="2" fill="currentColor"/></svg>';
@@ -76,7 +73,7 @@ export class DuoHud {
   private lastW = -1;
   private tier: DuoTier | -1 = -1;
   /** 画面に 書いた 最後の 値（変わらなければ style・hidden を 書かない） */
-  private shown = { meter: '', more: false, padLost: false, panel: false, quit: '', view: '' as string, loupe: '', question: '', tier: -1 };
+  private shown = { meter: '', more: false, padLost: false, panel: false, quit: '', view: '' as string, lp: [NaN, NaN, NaN, NaN, NaN, 0] as number[], q: [NaN, NaN, 0] as number[], tier: -1 };
 
   constructor(private readonly d: DuoHudDeps) {}
 
@@ -135,6 +132,7 @@ export class DuoHud {
     const line = document.createElement('div');
     line.className = 'duo-split-line';
     line.setAttribute('data-testid', 'duo-split-line');
+    line.style.setProperty('--duo-split-px', `${DUO_TUNING.splitLinePx}px`);
     line.hidden = true;
     const question = document.createElement('div');
     question.className = 'duo-p2-question';
@@ -204,7 +202,7 @@ export class DuoHud {
       this.dirty = true;
       this.lastW = -1;
       this.tier = -1;
-      this.shown = { meter: '', more: false, padLost: false, panel: false, quit: '', view: '', loupe: '', question: '', tier: -1 };
+      this.shown = { meter: '', more: false, padLost: false, panel: false, quit: '', view: '', lp: [NaN, NaN, NaN, NaN, NaN, 0] as number[], q: [NaN, NaN, 0] as number[], tier: -1 };
       this.d.hotbar1.setAttribute('data-testid', 'duo-hotbar-p1');
       this.d.hearts1.setAttribute('data-testid', 'duo-hearts-p1');
       html.setAttribute('data-duo', '');
@@ -269,9 +267,17 @@ export class DuoHud {
   /** ルーペ・外の 三角・分割の 線・「？」（変わったときだけ 書く） */
   private updateViewParts(b: Built, v: DuoHudView): void {
     const lp = v.loupe;
-    const lpKey = lp === null ? '' : `${lp.x.toFixed(1)},${lp.y.toFixed(1)},${lp.d.toFixed(1)},${v.loupeBorderPx},${Math.round(v.arrowDeg)}`;
-    if (lpKey !== this.shown.loupe) {
-      this.shown.loupe = lpKey;
+    const sl = this.shown.lp;
+    const lx = lp === null ? -1 : Math.round(lp.x * 10);
+    const ly = lp === null ? -1 : Math.round(lp.y * 10);
+    const ld = lp === null ? -1 : Math.round(lp.d * 10);
+    const la = Math.round(v.arrowDeg);
+    if (lx !== sl[0] || ly !== sl[1] || ld !== sl[2] || v.loupeBorderPx !== sl[3] || la !== sl[4]) {
+      sl[0] = lx;
+      sl[1] = ly;
+      sl[2] = ld;
+      sl[3] = v.loupeBorderPx;
+      sl[4] = la;
       b.loupe.hidden = lp === null;
       if (lp !== null) {
         const st = b.loupe.style;
@@ -280,7 +286,7 @@ export class DuoHud {
         st.width = st.height = `${lp.d.toFixed(1)}px`;
         // 外の 三角: ルーペの ふちの すぐ 外（指す 向きに おく）。ふちの 太さは 内がわに ふくまれる
         const rad = (v.arrowDeg * Math.PI) / 180;
-        const r = lp.d / 2 + ARROW_GAP_PX;
+        const r = lp.d / 2 + DUO_TUNING.loupeArrowGapPx;
         const c = lp.d / 2 - v.loupeBorderPx; // 子の 位置は ふちの 内がわ(padding box)から 数える
         b.arrow.style.left = `${(c + Math.cos(rad) * r).toFixed(1)}px`;
         b.arrow.style.top = `${(c + Math.sin(rad) * r).toFixed(1)}px`;
@@ -296,9 +302,12 @@ export class DuoHud {
     if (split !== (this.shown.view === 'split')) b.line.hidden = !split;
     this.shown.view = v.view;
     const q = v.question;
-    const qKey = q === null ? '' : `${Math.round(q.x)},${Math.round(q.y)}`;
-    if (qKey !== this.shown.question) {
-      this.shown.question = qKey;
+    const sq = this.shown.q;
+    const qx = q === null ? -1 : Math.round(q.x);
+    const qy = q === null ? -1 : Math.round(q.y);
+    if (qx !== sq[0] || qy !== sq[1]) {
+      sq[0] = qx;
+      sq[1] = qy;
       b.question.hidden = q === null;
       if (q !== null) {
         b.question.style.left = `${q.x.toFixed(0)}px`;
