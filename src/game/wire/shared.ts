@@ -76,6 +76,8 @@ interface Shared {
   houseModal: { tick: () => void; render: () => void };
   /** COOP-1 作業 3d（AC84）: modal が active の あいだ 1 コマごとに 呼ぶ（2P の「ちょっと まってね」・「＋で さんか」の 出し入れ。wireDuo が 差しかえる） */
   duoModalTick: () => void;
+  /** COOP-1 AC84: もちもの画面まわりの 1 コマ（createStep が 差しかえる）。2 人で 1P の 全面が 世界を 止めている あいだ、player.ts の modal tick が 呼ぶ */
+  inventoryUiTick: () => void;
   requestSave: () => void;
   skipSignalLog: boolean;
   onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
@@ -143,6 +145,7 @@ export function createShared(): Shared {
     houseFrozen: () => false,
     houseModal: { tick: () => undefined, render: () => undefined },
     duoModalTick: () => {},
+    inventoryUiTick: () => {},
     requestSave: () => {},
     skipSignalLog: false,
     onDropPicked: () => {},
