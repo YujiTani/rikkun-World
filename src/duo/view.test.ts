@@ -4,7 +4,7 @@ import type { DuoState, DuoView } from './types';
 import { DuoViewMachine, type DuoViewResult } from './view';
 
 /**
- * COOP-1 作業 3e（#422。docs/design/COOP-1.md 1.8 §2.3・§2.4・§9.2）の 先行テスト（赤）。AC21・AC32（切りかえの 長さ）・AC69（「しゅっ」を 鳴らす ステップ）。
+ * COOP-1 作業 3e（#422。docs/design/COOP-1.md 1.8 §2.3・§2.4・§9.2）の 先行テスト（赤）。AC21・AC32（切りかえの 長さ）。AC69（「しゅっ」）は 3c の テスト（createSplitSound の onJoined／onLeft。wip-3c-tests）に まかせる。
  * 1.7 の AC22・AC23（ゆれ止め・ルーペ）・AC20（色の 段）の テストは 消した。
  *
  * ---- 実装への 約束 ----
@@ -14,14 +14,17 @@ import { DuoViewMachine, type DuoViewResult } from './view';
  *   src/duo/view.ts   `DuoViewMachine`（距離も 2P の 位置も 見ない。2P が いるか だけ）
  *     new DuoViewMachine({ reducedMotion })      最初は 'one'。step() を 固定ステップ（1/60 秒）ごとに 1 回 呼ぶ。
  *     step({ joined }): DuoViewResult            joined = 2P が 参加している。
- *        { view: DuoView; switched: boolean; splitSound: boolean }
+ *        { view: DuoView; switched: boolean }
  *        joined が true に なった その ステップに view = 'split'・switched = true。false に なった その ステップに 'one'・switched = true。
- *        splitSound = 「しゅっ」を 鳴らす ステップ。'one' → 'split' に かわる その ステップだけ true（'split' → 'one' では false。動きを 減らす 設定でも 同じ）。
+ *        「参加して 分かれた」ステップは switched && view === 'split' で 分かる（`splitSound` は ない。しゅっ は 3c）。
  *     view                                       今の ようす。
  *     transition(): { active: boolean; progress: number }
  *        切りかえの 見せ方の 進み（0〜1）。かわった ステップから active。ふつう 24 ステップ（DUO_TUNING.transitionSteps.split ± 4）、
  *        動きを 減らす 設定は 9 ステップ（transitionSteps.reduced）以内に おわる。参加でも やめるでも 同じ 長さ。
  *   `duo.state().view` は 2P が いれば いつも 'split'、いなければ 'one'。（配線は developer）
+ *   配線の 約束: view machine と light gate（DuoLightGate）は 2P が 参加して いなくても 毎ステップ step({ joined: false }) を 呼ぶ。やめた ときに reset() で 作りなおさない
+ *   （今の src/game/wire/duoView.ts の reset() は 直す）。輪（rings）と 2P の 区画は やめた 瞬間に 1 人の ものに もどし、
+ *   軽くする 工夫（影・かすみ・画素・細かい 形）は 120 ステップ あとに まとめて もどす（light.test.ts・e2e/duo2.spec.ts の AC30）。
  */
 
 const run = (m: DuoViewMachine, n: number, joined: boolean): DuoViewResult => {
@@ -128,33 +131,5 @@ describe('AC32: 切りかえの 長さ（参加でも やめるでも）', () =>
       expect(p).toBeGreaterThanOrEqual(prev - 1e-9);
       prev = p;
     }
-  });
-});
-
-describe('AC69: 「しゅっ」（duoSplit）は 参加して 分かれる 時だけ', () => {
-  it.each([false, true])('参加した その ステップに 1 回。そのあと 鳴らさない（動きを 減らす = %s でも 同じ）', (reduced) => {
-    const m = new DuoViewMachine({ reducedMotion: reduced });
-    expect(run(m, 30, false).splitSound).toBe(false);
-    expect(m.step({ joined: true }).splitSound).toBe(true);
-    let more = 0;
-    for (let i = 0; i < 600; i++) if (m.step({ joined: true }).splitSound) more++;
-    expect(more).toBe(0);
-  });
-  it('やめて 1 人の 全面に もどる 時は 鳴らさない', () => {
-    const m = new DuoViewMachine();
-    run(m, 10, true);
-    const r = m.step({ joined: false });
-    expect(r.switched).toBe(true);
-    expect(r.splitSound).toBe(false);
-    expect(run(m, 100, false).splitSound).toBe(false);
-  });
-  it('やめて また 参加すると また 1 回（参加の たびに 1 つ）', () => {
-    const m = new DuoViewMachine();
-    let sounds = 0;
-    for (let round = 0; round < 3; round++) {
-      for (let i = 0; i < 50; i++) if (m.step({ joined: true }).splitSound) sounds++;
-      for (let i = 0; i < 50; i++) if (m.step({ joined: false }).splitSound) sounds++;
-    }
-    expect(sounds).toBe(3);
   });
 });

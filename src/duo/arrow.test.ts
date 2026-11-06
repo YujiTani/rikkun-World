@@ -24,8 +24,9 @@ import type { DuoArrow, DuoHook } from './types';
  *     ArrowStepInput = {
  *       rel: { right; up; forward }                相手の 体の 中心を 自分の カメラの 空間で（マス。forward > 0 が 前、right > 0 が 右、up > 0 が 上）
  *       distance: number                           2 人の 体の 中心どうしの 直線（マス）
- *       pane: ArrowPane
+ *       pane: ArrowPane                            落ちついた 分割の 四角（`viewRects('split','split',1,W,H)` の main／second）。切りかえの とちゅうの 四角（rc）は 使わない
  *       tanHalfFovY: number                        縦の 画角の 半分の tan（横は これ × pane.w / pane.h）
+ *       panelOpen: boolean                         その 人の もちもの パネル（2P は duo-inv-p2、段階 2 の 2 人用 画面も）が 開いている
  *     }
  *     映し方: forward > 0 なら NDC x = right / (forward * tanHalfFovY * aspect)、NDC y = up / (forward * tanHalfFovY)、aspect = pane.w / pane.h。
  *             「内側 N% の 外」= max(|x|, |y|) > N。forward <= 0（うしろ）は いつも 外。
@@ -34,20 +35,27 @@ import type { DuoArrow, DuoHook } from './types';
  *     arrowAngleDeg(dx, dy): number                画面の 上 0°・時計回り、[0, 360)。(0,-1)=0・(1,0)=90・(0,1)=180・(-1,0)=270。(0,0) は 180。
  *     arrowHeightPx(screenH: number): number       三角の 高さ = max(arrowMinHeightPx, screenH * arrowHeightRatio)
  *     arrowPlace(dx, dy, pane, out?: { x; y }): { x; y }
- *                                                  矢印の 先の 位置。pane の 中心から (dx, dy) の 向きに のばした 線が、pane の ふちから arrowEdgePx 内側の 枠に 当たる 所。
- *                                                  ただし 上は max(arrowEdgePx, h * arrowTopRatio)、下は h * arrowBottomRatio より 内側（それより 外に かかる ときは ふちに そって ずらす。向き（angle）は かえない）。
- *                                                  左右は pane の ふちと まん中の 線から arrowEdgePx。out を 渡すと そこに 書く（毎コマ 新しい 物を 作らない）。
+ *                                                  矢印の 先の 位置。pane の 中心から (dx, dy) の 向きに のばした 線が、枠に 当たる 所。
+ *                                                  枠 = pane の ふち（左右は まん中の 線 も）から  arrowEdgePx ＋ 三角の 半分の はば（arrowHeightPx(pane.h) / 2）だけ 内側
+ *                                                  （三角が 16px の 内側に おさまるように）。ただし 上は max(arrowEdgePx ＋ 半分の はば, h * arrowTopRatio)、下は h * arrowBottomRatio より 内側
+ *                                                  （それより 外に かかる ときは ふちに そって ずらす。向き（angle）は かえない）。
+ *                                                  out を 渡すと そこに 書く（毎コマ 新しい 物を 作らない）。
  *     new DuoArrowTracker({ who, reducedMotion? })  who = 矢印が 出る 画面の 持ち主（1 = 1P の 半分に 2P を さす 矢印）。固定ステップごとに step を 1 回。
  *       step(input: ArrowStepInput | null)         null = 相手が いない（2P が いない）。出ない・数えも 0 に もどす。
+ *                                                  panelOpen = true の あいだは 出さない（arrow() は null）・数えも 0 に もどす。とじた あとは 18 ステップ 数えなおし。
  *       arrow(): DuoArrow | null                   `duo.arrow(who)` の 値。angle・x・y・color（color は who = 1 なら DUO_COLORS.p2、who = 2 なら DUO_COLORS.p1）。
  *       opacity(): number                          見た目の 濃さ 0〜1。出た ステップから arrowFadeSteps で 0 → 1、消えた ステップから 1 → 0（ふわっと）。
  *                                                  動きを 減らす 設定は 出た ステップに 1、消えた ステップに 0（すぐ）。arrow() が null に なっても、opacity() が 0 に なるまでは HUD が 最後の 位置で 薄く 消す。
  *     出る・消える（§9.3。AC85）:
  *       出る: 外（> arrowOutRatio）が arrowHoldSteps 回 つづいた その ステップ。内側に 入れば 数えなおし。arrowInRatio〜arrowOutRatio の あいだは どちらにも 数えない（ゆれ止め）。
  *       消える: 内側 arrowInRatio 以内が arrowHoldSteps 回 つづいた その ステップ。外や あいだに 出れば 数えなおし。
- *       近い: distance <= arrowNearTiles の ステップは 出さない・出ていれば その ステップで 消す（うしろでも）。近い あいだは 数えない。
+ *       近い: distance <= arrowNearTiles の ステップは 出さない・出ていれば その ステップで 消す（うしろでも）。近い あいだは 数えない。はなれたら 18 ステップ 数えなおし。
+ *       パネルが 開いている: arrow() は null（duo.arrow(who) も null）。画面の 矢印も 見えない（UI 検査）。
  *     配線（developer）: 1P の 半分の カメラで 2P を 映し（rel）、HUD の `duo-arrow-p1`、2P の 半分の カメラで 1P を 映し `duo-arrow-p2` を 動かす。
- *       2P が 倒れて 戻るまで・パッドが ぬけた 2P も ふつうに さす（倒れた 人は 戻った 先を さす）。2P の 小さい パネル（duo-inv-p2）・段階 2 の 2 人用 もちもの画面の 上には 出さない（AC87）。
+ *       2P が 倒れて 戻るまで・パッドが ぬけた 2P も ふつうに さす（倒れた 人は 戻った 先を さす）。2P の 小さい パネル（duo-inv-p2）・段階 2 の 2 人用 もちもの画面が 開いている あいだは
+ *       その 人の 矢印を 出さない（panelOpen。AC87）。
+ *       動きを 減らす 設定: arrow() は 出る・消える その ステップで 値／null に なり、opacity() は すぐ 1／0。
+ *       2P の やめる（onLeft。wire/duo.ts）では p2cam.reset() も 呼ぶ（P2Camera の 約束）。
  */
 
 const SCREENS = [
@@ -70,11 +78,12 @@ function relAtNdc(nx: number, ny: number, pane: ArrowPane = P1, forward = 10): A
   const aspect = pane.w / pane.h;
   return { right: nx * forward * TAN * aspect, up: ny * forward * TAN, forward };
 }
-const input = (rel: ArrowStepInput['rel'], opts: { distance?: number; pane?: ArrowPane } = {}): ArrowStepInput => ({
+const input = (rel: ArrowStepInput['rel'], opts: { distance?: number; pane?: ArrowPane; panelOpen?: boolean } = {}): ArrowStepInput => ({
   rel,
   distance: opts.distance ?? 20,
   pane: opts.pane ?? P1,
   tanHalfFovY: TAN,
+  panelOpen: opts.panelOpen ?? false,
 });
 const IN = relAtNdc(0, 0);
 const OUT = relAtNdc(0.95, 0);
@@ -198,6 +207,34 @@ describe('AC85: 2 人の 距離が 4 マス 以下 なら 出さない・その 
   });
 });
 
+describe('AC87: パネルが 開いている あいだは 出さない', () => {
+  it('出ている ときに パネルが 開くと その ステップで null。とじても すぐには 出ず、18 ステップ 数えなおし', () => {
+    const t = new DuoArrowTracker({ who: 2 });
+    const open = input(relAtNdc(-0.95, 0, P2), { pane: P2, panelOpen: true });
+    const closed = input(relAtNdc(-0.95, 0, P2), { pane: P2 });
+    runWith(t, T.arrowHoldSteps, closed);
+    expect(t.arrow()).not.toBeNull();
+    expect(runWith(t, 1, open)).toBeNull();
+    expect(runWith(t, 300, open)).toBeNull();
+    expect(runWith(t, T.arrowHoldSteps - 1, closed)).toBeNull();
+    expect(runWith(t, 1, closed)).not.toBeNull();
+  });
+  it('パネルが 開いている あいだは 外に いつづけても 出ない（1P の 半分も 同じ）', () => {
+    for (const who of [1, 2] as const) {
+      const t = new DuoArrowTracker({ who });
+      expect(runWith(t, 200, input(OUT, { panelOpen: true }))).toBeNull();
+      expect(runWith(t, 200, input(BEHIND, { panelOpen: true }))).toBeNull();
+    }
+  });
+  it('動きを 減らす 設定でも その ステップで null・opacity 0', () => {
+    const t = new DuoArrowTracker({ who: 1, reducedMotion: true });
+    runWith(t, T.arrowHoldSteps, input(OUT));
+    expect(t.opacity()).toBe(1);
+    expect(runWith(t, 1, input(OUT, { panelOpen: true }))).toBeNull();
+    expect(t.opacity()).toBe(0);
+  });
+});
+
 describe('AC86: 矢印の 向きと 色', () => {
   const angleOf = (rel: ArrowStepInput['rel'], pane: ArrowPane = P1, who: 1 | 2 = 1): number => {
     const t = new DuoArrowTracker({ who });
@@ -266,17 +303,21 @@ describe('AC86: 矢印の 向きと 色', () => {
 });
 
 describe('AC87: 矢印の 置き場（3 つの 大きさ・左右の 半分）', () => {
-  const allowed = (pane: ArrowPane) => ({
-    left: pane.x + T.arrowEdgePx,
-    right: pane.x + pane.w - T.arrowEdgePx,
-    top: pane.y + Math.max(T.arrowEdgePx, pane.h * T.arrowTopRatio),
-    bottom: pane.y + pane.h * T.arrowBottomRatio,
-  });
+  /** 枠: ふち 16px ＋ 三角の 半分の はば だけ 内側（上は 12%、下は 22% より 内側） */
+  const allowed = (pane: ArrowPane) => {
+    const inset = T.arrowEdgePx + arrowHeightPx(pane.h) / 2;
+    return {
+      left: pane.x + inset,
+      right: pane.x + pane.w - inset,
+      top: pane.y + Math.max(inset, pane.h * T.arrowTopRatio),
+      bottom: pane.y + pane.h * T.arrowBottomRatio,
+    };
+  };
   const EPS = 0.01;
 
   for (const { w, h } of SCREENS) {
     for (const who of [1, 2] as const) {
-      it(`${w}×${h} ${who}P の 半分: どの 向きでも ふちから 16px 内側・下 22%・上 12%・まん中の 線から 16px に かからず、枠の 上に ある`, () => {
+      it(`${w}×${h} ${who}P の 半分: どの 向きでも ふちから 16px ＋ 三角の 半分 内側・下 22%・上 12%・まん中の 線に かからず、枠の 上に ある`, () => {
         const pane = panes(w, h)[who];
         const r = allowed(pane);
         const cx = pane.x + pane.w / 2;
@@ -317,11 +358,24 @@ describe('AC87: 矢印の 置き場（3 つの 大きさ・左右の 半分）',
     expect(down.x).toBeCloseTo(cx, 3);
     expect(down.y).toBeCloseTo(P1.h * T.arrowBottomRatio, 3);
   });
-  it('2P の 半分は 画面の 右半分の 中（x は 半分の 左はし + 16px から）', () => {
+  it('2P の 半分は 画面の 右半分の 中（x は 半分の 左はし + 16px + 三角の 半分から）', () => {
+    const inset = T.arrowEdgePx + arrowHeightPx(P2.h) / 2;
     const left = arrowPlace(-1, 0, P2);
-    expect(left.x).toBeCloseTo(P2.x + T.arrowEdgePx, 3);
+    expect(left.x).toBeCloseTo(P2.x + inset, 3);
     const right = arrowPlace(1, 0, P2);
-    expect(right.x).toBeCloseTo(P2.x + P2.w - T.arrowEdgePx, 3);
+    expect(right.x).toBeCloseTo(P2.x + P2.w - inset, 3);
+  });
+  it('三角（高さ arrowHeightPx）が 16px の 内側に おさまる: 先から 三角の 半分の はば だけ 内側に ある（左右）', () => {
+    for (const { w, h } of SCREENS) {
+      for (const who of [1, 2] as const) {
+        const pane = panes(w, h)[who];
+        const half = arrowHeightPx(h) / 2;
+        const right = arrowPlace(1, 0, pane);
+        const left = arrowPlace(-1, 0, pane);
+        expect(pane.x + pane.w - right.x, `${w}×${h} ${who}P 右`).toBeGreaterThanOrEqual(T.arrowEdgePx + half - 0.01);
+        expect(left.x - pane.x, `${w}×${h} ${who}P 左`).toBeGreaterThanOrEqual(T.arrowEdgePx + half - 0.01);
+      }
+    }
   });
   it('out を 渡すと そこに 書いて 同じ 物を 返す（新しい 物を 作らない）', () => {
     const out = { x: -1, y: -1 };

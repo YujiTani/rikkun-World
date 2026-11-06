@@ -15,7 +15,9 @@ import type { DuoArrow, DuoState, DuoVec3, DuoViewport } from '../src/duo/types'
  *                     2P が いなければ [1P 全面]、いれば いつも [1P 左半分, 2P 右半分]（近くても 遠くても）。camera = その 区画を 描く カメラの 世界の 位置、yawDeg = 向き。
  *   duo.state()       view（'one' | 'split'）・rings・columns・light は 仕様 §12.0 のとおり。`tier`・`loupe` は ない。rings は 距離 > 48 で 2・< 32 で 1（あいだは 今のまま）。
  *   duo.arrow(who)    仕様 §12.0（1.8）。{ x, y, angle, color } か null。画面の 目印は data-testid="duo-arrow-p1"（1P の 半分の 矢印）・"duo-arrow-p2"。
- *   audio.sfx()       2P が 参加して 分かれる 時に 名前 `duoSplit` が 1 つ（やめる 時・距離が かわる 時は 入らない。AC69）。
+ *   AC69（「しゅっ」duoSplit）は 3c の テスト（wip-3c-tests。createSplitSound の onJoined／onLeft）に まかせる。ここでは 見ない。
+ *   AC30（軽くする 工夫）の 配線: やめた ときも view machine と light gate は 毎ステップ step({ joined: false }) を 呼ぶ（reset() で 作りなおさない）。
+ *     やめた 瞬間に 輪・2P の 区画は 1 人の ものに もどり、`duo.state().light` は 参加して いなくても 119 ステップ目まで true、120 ステップ目に false。
  *   向き              yaw 90 の とき 前が +x・右が +z（PlayerController と 同じ 決まり）。2P を 1P の「左」に 置く = z を 減らす。
  *   ゲームの 起動      ?duo=dev（作業 1 と 同じ）。E2E の サーバーは 小さい 輪（RING_SMALL）。
  */
@@ -34,9 +36,6 @@ const duoState = (page: Page) => page.evaluate(() => (window as any).__rikkun.du
 const pos = (page: Page, who: 1 | 2) => page.evaluate((who) => (window as any).__rikkun.duo.pos(who) as DuoVec3 | null, who);
 const viewports = (page: Page) => page.evaluate(() => (window as any).__rikkun.duo.viewports() as DuoViewport[]);
 const arrow = (page: Page, who: 1 | 2) => page.evaluate((who) => (window as any).__rikkun.duo.arrow(who) as DuoArrow | null, who);
-/** 前に 読んでから ふえた「しゅっ」（duoSplit）の 数。audio.sfx() は 読むと 空になる */
-const newSplitSounds = (page: Page): Promise<number> =>
-  page.evaluate(() => (window as any).__rikkun.audio.sfx().filter((r: any) => r.name === 'duoSplit' && !r.dropped).length as number);
 
 /** 2P を 1P から (前, 右) マスの 所に 置く。足もとは 平らに ならす(地形の ちがいを なくす)。1P の 向きは yaw 90（前 = +x・右 = +z） */
 async function placeP2(page: Page, fwd: number, right: number, flat = true): Promise<void> {
@@ -174,11 +173,9 @@ test('AC27: 輪の 数は 48 より 遠いと 2・32 より 近いと 1(あい�
   }
 });
 
-test('AC21・AC30・AC69・AC85（通し）: 参加 → いつも 左右 → 遠いと 矢印 → 近いと 消える → やめる → 1 人の 全面。「しゅっ」は 参加の 時だけ', async ({ page }) => {
+test('AC21・AC30・AC85（通し）: 参加 → いつも 左右 → 遠いと 矢印 → 近いと 消える → やめる → 1 人の 全面。軽くする 工夫は 2 秒あとに 元に もどる', async ({ page }) => {
   await open(page);
   await standOnGround(page, 100.5, 100.5, { yaw: 90 });
-  await page.mouse.click(0, 0); // 音を つかえる ように する（audio.sfx() の 記録に 必要）
-  await newSplitSounds(page); // 記録を 空に する
   const vw: number = await page.evaluate(() => innerWidth);
   const vh: number = await page.evaluate(() => innerHeight);
   let s = await duoState(page);
@@ -190,19 +187,18 @@ test('AC21・AC30・AC69・AC85（通し）: 参加 → いつも 左右 → 遠
   expect(s).not.toHaveProperty('tier');
   expect(s).not.toHaveProperty('loupe');
 
-  // 参加: その ステップから 左右。「しゅっ」が 1 つ。軽くする 工夫が 入る
+  // 参加: その ステップから 左右。軽くする 工夫が 入る
   expect(await page.evaluate(() => (window as any).__rikkun.duo.join())).toBe(true);
   await step(page, 1);
   s = await duoState(page);
   expect(s.view).toBe('split');
   expect(s.light).toBe(true);
   expect((await viewports(page)).map((v) => v.who)).toEqual([1, 2]);
-  expect(await newSplitSounds(page), '参加して 分かれる 時に「しゅっ」').toBe(1);
   await step(page, 60);
   expect(await arrow(page, 1), '2 マスの すぐ 横: 矢印は いらない').toBeNull();
   expect(await arrow(page, 2)).toBeNull();
 
-  // 距離を かえても いつも 分割（23.9／24.1 のような ゆれ止めは ない）。「しゅっ」は 鳴らない
+  // 距離を かえても いつも 分割（23.9／24.1 のような ゆれ止めは ない）
   for (const fwd of [8, 17, 23.9, 24.1, 60, 3]) {
     await placeP2(page, 0, -fwd);
     await step(page, 5);
@@ -210,7 +206,6 @@ test('AC21・AC30・AC69・AC85（通し）: 参加 → いつも 左右 → 遠
     expect(s.view, `距離 ${fwd}`).toBe('split');
     expect(s.light, `距離 ${fwd}`).toBe(true);
   }
-  expect(await newSplitSounds(page), '距離が かわっても「しゅっ」は 鳴らさない').toBe(0);
 
   // 遠く（1P の 左 40 マス）: 18 ステップあとに 両方の 半分に 矢印。1P の 矢印は 2P（左）を さす・2P の 矢印は 1P（右）を さす。色は 相手の 色
   await placeP2(page, 0, -40);
@@ -245,24 +240,26 @@ test('AC21・AC30・AC69・AC85（通し）: 参加 → いつも 左右 → 遠
   expect(await arrow(page, 2)).toBeNull();
   expect((await duoState(page)).view).toBe('split');
 
-  // やめる: 1 人の 全面。矢印は ない。「しゅっ」は 鳴らさない。2 秒あとに 軽くする 工夫が 元に もどる
+  // やめる: 1 人の 全面。輪・2P の 区画は すぐ もどり、矢印は ない。軽くする 工夫は 120 ステップ あとに 元に もどる（AC30）
   await page.evaluate(() => (window as any).__rikkun.duo.leave());
   await step(page, 1);
   s = await duoState(page);
   expect(s.joined).toBe(false);
   expect(s.view).toBe('one');
+  expect(s.rings).toBe(1);
   expect((await viewports(page)).map((v) => v.who)).toEqual([1]);
   expect(await arrow(page, 1)).toBeNull();
   expect(await arrow(page, 2)).toBeNull();
-  await step(page, 130);
+  expect(s.light, 'やめた 直後は まだ 軽い').toBe(true);
+  await step(page, 117); // やめてから 118 ステップ
+  expect((await duoState(page)).light, '118 ステップでは まだ 軽い').toBe(true);
+  await step(page, 12); // 130 ステップ
   expect((await duoState(page)).light, '2 秒後に 元').toBe(false);
-  expect(await newSplitSounds(page), 'やめる 時は 鳴らさない').toBe(0);
 
-  // また 参加: また 1 つ
+  // また 参加: また 左右
   expect(await page.evaluate(() => (window as any).__rikkun.duo.join())).toBe(true);
   await step(page, 1);
   expect((await duoState(page)).view).toBe('split');
-  expect(await newSplitSounds(page), '参加の たびに 1 つ').toBe(1);
 });
 
 test('AC31: 2P が 近い（2 マス・輪 1 つ）時と 遠い（60 マス・輪 2 つ）時の 描画回数と 三角形が DUO_RENDER_BUDGET の 倍率以下（同じ テストの 中で 1 人のときと くらべる）', async ({ page }) => {

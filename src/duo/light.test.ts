@@ -6,6 +6,8 @@ import type { DuoView } from './types';
 /**
  * COOP-1 作業 2（#399）の 先行テスト。AC30（2P が いる あいだ ずっと 軽くする 工夫が 入り、2P が いなく なって 2 秒後に 元に もどる）。
  * 作業 3e（#422。1.8）: 'loupe' の ケースを 消した。口は そのまま `DuoLightGate.step(view)`（view は 'one' | 'split'。2P が いれば いつも 'split'）。
+ * 配線の 約束（3e の コードレビュー）: DuoLightGate は 2P が いなくても 毎ステップ step('one') を 呼ぶ（やめた ときに 作りなおさない）。
+ *   やめた 直後も `duo.state().light` は true（参加して いなくても）で、120 ステップ目に false（e2e/duo2.spec.ts の AC30）。
  * 「2P が 近くても 遠くても 入る」(距離で かわらない)は 画面の ようす 'split' が 距離で かわらない こと（view.test.ts の AC21）と E2E（duo2.spec.ts の AC30）で 見る。
  */
 

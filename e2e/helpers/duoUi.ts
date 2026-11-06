@@ -17,8 +17,8 @@ import { standOnGround } from './aim';
  *   duo-meter-badge-p1/-p2          メーターの「P1」「P2」の 丸いバッジ。背景色が 1P・2P の 色
  *   duo-split-line                  分割の まん中の 線（2P が いる あいだ ずっと ある。高さは 画面いっぱい・左右の まん中）
  *   duo-arrow-p1 / duo-arrow-p2     相手の 向きの 矢印（1P の 半分の 2P を さす 矢印 / 2P の 半分の 1P を さす 矢印。三角 ＋ ねもとの 丸バッジ「P1」「P2」）。
- *                                   出ている とき（`duo.arrow(who)` が null でない）だけ 見える。出ていない とき・2P の 小さい パネル（duo-inv-p2）が 開いている とき（見える 物の 上には 出さない）は
- *                                   見えない（display:none／hidden／opacity 0 の どれか）。CSS の `color` が 相手の 色（duo-arrow-p1 = --rk-rarity-3、duo-arrow-p2 = --rk-xp）。
+ *                                   出ている とき（`duo.arrow(who)` が null でない）だけ 見える。出ていない とき・その 人の パネル（2P は duo-inv-p2）が 開いている あいだは
+ *                                   見えない（display:none／hidden／opacity 0 の どれか）。パネルが 開いている あいだは `duo.arrow(who)` も null。CSS の `color` が 相手の 色（duo-arrow-p1 = --rk-rarity-3、duo-arrow-p2 = --rk-xp）。
  *                                   属性 data-angle = `duo.arrow(who).angle`（度。画面の 上 0°・時計回り）。外接の 四角が 半分の ふちから 16px 内側・下の 22%／上の 12% に かからない。
  *                                   矢印の 先（`duo.arrow(who).x`・`.y`）は この 四角の ふちの 上（±3px）。高さ・はばの 長い 方が 32px 以上。
  *   duo-pad-lost                (作業 1 で 決めた)パッドが ぬけた 表示。文字「コントローラーを つないでね」を ふくむ。子に duo-pad-lost-icon(パッドの 絵)
@@ -316,9 +316,10 @@ export async function duoViewIssues(page: Page, arrows: 'both' | 'none'): Promis
       continue;
     }
     const bx = a.box;
-    const pl = who === 1 ? 0 : half;
-    const pr = who === 1 ? half : vw;
-    if (bx.l < pl + 16 - 3 || bx.r > pr - 16 + 3) add('arrow', name, `矢印が 自分の 半分の ふち・まん中の 線から 16px 内側に おさまらない（${bx.l.toFixed(0)}〜${bx.r.toFixed(0)}）`);
+    // 画面の ふち・まん中の 線（太さ 4px。半分の ふちではなく 線の ふち）から 16px 内側。矢印の 先は さらに 三角の 半分 内側なので 四角は ここに おさまる
+    const pl = who === 1 ? 0 : ln ? ln.r : half;
+    const pr = who === 1 ? (ln ? ln.l : half) : vw;
+    if (bx.l < pl + 16 - 3 || bx.r > pr - 16 + 3) add('arrow', name, `矢印が 画面の ふち・まん中の 線から 16px 内側に おさまらない（${bx.l.toFixed(0)}〜${bx.r.toFixed(0)}）`);
     if (bx.t < vh * 0.12 - 3) add('arrow', name, '矢印が 上の 12%（メーター・お知らせ）に かかる');
     if (bx.b > vh * 0.78 + 3) add('arrow', name, '矢印が 下の 22%（ホットバー）に かかる');
     if (Math.max(bx.w, bx.h) < 32 - 1) add('arrow', name, `矢印が 小さすぎる（${bx.w.toFixed(0)}×${bx.h.toFixed(0)}。長い 方が 32px 以上）`);
@@ -363,8 +364,8 @@ export async function duoViewIssues(page: Page, arrows: 'both' | 'none'): Promis
 }
 
 /**
- * AC87 の 検査: 2P の 小さい パネル（duo-inv-p2）が ひらいている とき、2P の 半分の 矢印（duo-arrow-p2）は パネルの 上に 出ない
- * （見えない か、見えても パネルと 重ならない）。パネルが 見えている こと。空 = 合格。
+ * AC87 の 検査: 2P の 小さい パネル（duo-inv-p2）が ひらいている あいだは、2P の 半分の 矢印（duo-arrow-p2）を 出さない
+ * （`duo.arrow(2)` が null・画面の 矢印が 見えない）。パネルが 見えている こと。空 = 合格。
  */
 export async function duoArrowPanelIssues(page: Page): Promise<DuoUiIssue[]> {
   const out: DuoUiIssue[] = [];
@@ -382,7 +383,9 @@ export async function duoArrowPanelIssues(page: Page): Promise<DuoUiIssue[]> {
     const shown = r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden' && Number(cs.opacity) > 0.01;
     return { shown, box: { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height } };
   });
-  if (info.shown && info.box && overlap(info.box, panel)) add('overlap', 'duo-arrow-p2/duo-inv-p2', '矢印が 2P の パネルの 上に 出ている');
+  if (info.shown) add('arrow', 'duo-arrow-p2', '2P の パネルが ひらいている あいだは 矢印を 出さない（見えている）');
+  const st = await page.evaluate(() => (window as any).__rikkun.duo.arrow(2) as unknown);
+  if (st !== null) add('arrow', 'duo-arrow-p2', 'パネルが ひらいている あいだは duo.arrow(2) が null のはず');
   return out;
 }
 

@@ -12,7 +12,7 @@ import { P2Camera } from './p2Camera';
  *     作った あと（または reset() の あと）の 最初の step: camYawDeg = screenYawDeg（参加した 瞬間は 1P の カメラと 同じ。1° 以内。そのステップの lookDeltaDeg も 足す）。
  *     そのあと: camYawDeg は lookDeltaDeg の 合計だけで 回る。screenYawDeg（1P の 向き）には ひきずられない。
  *     walkYawDeg = いつも camYawDeg（左スティック上は 2P の カメラの 奥へ 歩く。1P と 同じ）。
- *   reset()    2P が やめた とき 呼ぶ。つぎの step は また 最初の step と 同じ（そのときの screenYawDeg に そろえる）。
+ *   reset()    2P が やめた とき 呼ぶ（wire/duo.ts の onLeft で `p2cam.reset()`。DuoViews.reset() の 中ではなく）。つぎの step は また 最初の step と 同じ（そのときの screenYawDeg に そろえる）。
  *   配線: `walkActions.ts`（1 画面の 向きの 置きかえ）・`move.ts` は なくす。
  */
 
