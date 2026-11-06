@@ -67,6 +67,8 @@ export interface DuoHook {
   leave(): void;
   /** Game に 渡している 時間の 倍率(AC11。2 人のとき もちもの画面でも 1) */
   timeScale(): number;
+  /** いま 描いている 区画(作業 2。AC25・AC26。型は DuoViewport) */
+  viewports(): DuoViewport[];
 }
 
 /** 2P の セーブ（`meta.p2`。§6）。場所・向き・ハートは 入れない */

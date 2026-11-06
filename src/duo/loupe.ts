@@ -1,7 +1,8 @@
+import { DUO_TUNING } from './tuning';
 import type { DuoTier } from './types';
 
 /**
- * COOP-1 作業 2（#399）: ルーペの 置き場所と 太さ（§3.1・§9.3）。宣言だけ（実装は developer）。テストは loupe.test.ts。
+ * COOP-1 作業 2（#399）: ルーペの 置き場所と 太さ（§3.1・§9.3）。テストは loupe.test.ts。
  *
  * ---- つなぎ目の 約束 ----
  *   loupeLayout({ width, height, dirX, dirY, tier })
@@ -26,6 +27,24 @@ export interface LoupeBox {
   borderPx: number;
 }
 
-export function loupeLayout(_input: LoupeLayoutInput): LoupeBox {
-  throw new Error('COOP-1 作業 2: loupeLayout は まだ 実装されていない');
+export function loupeLayout(input: LoupeLayoutInput): LoupeBox {
+  const { width, height, tier } = input;
+  let { dirX, dirY } = input;
+  if (dirX === 0 && dirY === 0) dirX = 1;
+  const d = height * DUO_TUNING.loupeDiameterRatio;
+  const r = d / 2;
+  // 置いて よい 中心の 長方形（ふちから 16px・上 12%・下 22% を あける）
+  const left = DUO_TUNING.loupeEdgePx + r;
+  const right = width - DUO_TUNING.loupeEdgePx - r;
+  const top = height * DUO_TUNING.loupeTopRatio + r;
+  const bottom = height * DUO_TUNING.loupeBottomRatio - r;
+  const midX = (left + right) / 2;
+  const midY = (top + bottom) / 2;
+  const halfW = Math.max(0, (right - left) / 2);
+  const halfH = Math.max(0, (bottom - top) / 2);
+  // 長方形の まん中から 2P の 方向へ 伸ばし、長方形の ふちで 止める
+  const tx = dirX === 0 ? Infinity : halfW / Math.abs(dirX);
+  const ty = dirY === 0 ? Infinity : halfH / Math.abs(dirY);
+  const t = Math.min(tx, ty);
+  return { x: midX + dirX * t, y: midY + dirY * t, d, borderPx: DUO_TUNING.loupeBorderPx[tier] };
 }

@@ -2,19 +2,22 @@
 // 作業 1・2 の あいだ 2P は ふだんの 遊びに 出さない: 参加できるのは `?duo=dev` の ときの テストの 口と 2 本目の ＋ だけ。
 import * as THREE from 'three';
 import { DuoBody } from '../../duo/body';
-import { distanceMeter, nextTier } from '../../duo/meter';
+import { distanceMeter } from '../../duo/meter';
 import { DuoSession } from '../../duo/session';
 import { DUO_TUNING } from '../../duo/tuning';
-import type { DuoHook, DuoLeaveReason, DuoState, DuoTier, DuoVec3 } from '../../duo/types';
+import type { DuoHook, DuoLeaveReason, DuoState, DuoVec3, DuoViewport } from '../../duo/types';
 import { WalkRelativeActions } from '../../duo/walkActions';
 import type { LockStatus } from '../../contracts';
 import { PlayerController } from '../../player/PlayerController';
 import { isBodyPlaceable } from '../../save';
-import { DuoHud, type DuoHudView } from '../../ui/duoHud';
+import { DuoHud } from '../../ui/duoHud';
 import { charBasePath } from './player';
 import type { WiredLoop } from './save';
+import { DuoViews } from './duoView';
 
 const DEG = Math.PI / 180;
+/** 角度の 差を -180〜180 に */
+const wrapDeg = (d: number): number => ((((d + 180) % 360) + 360) % 360) - 180;
 /** ホットバーの 数字ボタン（毎ステップ 文字を 作らない） */
 const HOTBAR_KEYS = ['hotbar1', 'hotbar2', 'hotbar3', 'hotbar4', 'hotbar5', 'hotbar6', 'hotbar7', 'hotbar8', 'hotbar9'] as const;
 /** 2P が 出る 所の 順（1P の 向きから 見て）: 右・左・うしろ・前。それぞれ 何マス 先か は DUO_TUNING.joinOffsetTiles */
@@ -26,18 +29,18 @@ const JOIN_SIDES = [
 ] as const;
 
 export function wireDuo(deps: WiredLoop) {
-  const { shared, game, world, controller, lighting, hud, lock, gamepadApi, charCtl, blockDollOnly, combatUi, hotbar, worldReady, host } = deps;
+  const { shared, game, world, controller, lighting, hud, lock, gamepadApi, charCtl, blockDollOnly, combatUi, hotbar, worldReady, host, renderer } = deps;
   const dev = new URLSearchParams(location.search).get('duo') === 'dev';
   const router = gamepadApi.router;
   const p2Actions = gamepadApi.slots.get(1);
   const p2 = shared.p2;
 
   let panelOpen = false;
-  let tier: DuoTier = 0;
   let distance = 0;
+  /** 分割のとき 2P の 右スティックで 回った 角度（次のステップの P2Camera に 渡す） */
+  let pendingLook = 0;
   let ctl2: PlayerController | null = null;
   const walk = new WalkRelativeActions(p2Actions);
-  const view: DuoHudView = { tier: 0, meter: 0, distance: 0, padLost: false, quitGauge: 0, panelOpen: false };
 
   const ui = new DuoHud({ hud, p2Inventory: p2.inventory, hotbar1: hotbar.el, hearts1: combatUi.hearts.el });
   /** 参加のとき 1P の 今の キャラを 読む（1P が キャラを かえたら 2P も ついてくる） */
@@ -51,6 +54,16 @@ export function wireDuo(deps: WiredLoop) {
     initTexture: (t: THREE.Texture) => game.renderer.initTexture(t),
   });
 
+  const views = new DuoViews({
+    game,
+    renderer,
+    host,
+    isSolid: (x, y, z) => world.isSolid(x, y, z),
+    shadow: () => shared.shadowSystem,
+    cameraDistance: () => session.cameraDistance(),
+  });
+  const view = views.hud;
+
   const session = new DuoSession({
     p2,
     saveP2: (s) => {
@@ -61,8 +74,9 @@ export function wireDuo(deps: WiredLoop) {
     onLeft: () => {
       router.setJoined(false);
       panelOpen = false;
-      tier = 0;
       distance = 0;
+      pendingLook = 0;
+      views.reset();
       body.hide();
       ui.setJoined(false);
       shared.duoCamDistance = session.cameraDistance() === DUO_TUNING.cameraSolo ? null : session.cameraDistance();
@@ -136,16 +150,27 @@ export function wireDuo(deps: WiredLoop) {
     const camNow = session.cameraDistance();
     shared.duoCamDistance = camNow === DUO_TUNING.cameraSolo ? null : camNow;
     if (session.joined && ctl2) {
-      walk.sync(controller.state.yawDeg);
-      const heading = walk.heading();
-      if (heading !== null) ctl2.state.yawDeg = heading;
+      // 向き: 1 画面・ルーペは 1P の 画面の 向きで 歩く。分割は 2P 自分の カメラ（右スティックで 回る。§2.5）
+      const held = p2Actions.isHeld('moveForward') || p2Actions.isHeld('moveBack') || p2Actions.isHeld('moveLeft') || p2Actions.isHeld('moveRight');
+      const cam = views.camStep(controller.state.yawDeg, pendingLook, held);
+      const split = views.view === 'split';
+      walk.relative = !split;
+      let yaw0 = ctl2.state.yawDeg;
+      if (split) {
+        ctl2.state.yawDeg = cam.camYawDeg;
+        yaw0 = cam.camYawDeg;
+      } else {
+        walk.sync(cam.walkYawDeg);
+        const heading = walk.heading();
+        if (heading !== null) ctl2.state.yawDeg = heading;
+      }
       if (worldReady()) ctl2.update(dt);
+      pendingLook = split ? wrapDeg(ctl2.state.yawDeg - yaw0) : 0;
       const a = controller.state.position;
       const b = ctl2.state.position;
       distance = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-      tier = nextTier(tier, distance);
       body.step(ctl2.state);
-      view.tier = tier;
+      views.update({ p1: a, p2: b, p1YawDeg: controller.state.yawDeg, p2PitchDeg: ctl2.state.pitchDeg, distance, padLost: session.padLost() });
       view.meter = distanceMeter(distance);
       view.distance = distance;
       view.padLost = session.padLost();
@@ -157,17 +182,34 @@ export function wireDuo(deps: WiredLoop) {
   }
   game.onUpdate(step);
 
+  /** 持っている 列の 数（読みこみ中も ふくむ。AC27） */
+  const columnCount = (): number => {
+    const c = host.info().columns;
+    return c.loading + c.generated + c.lit + c.meshed;
+  };
+
   const state = (): DuoState => ({
     joined: session.joined,
-    view: 'one',
-    tier: session.joined ? tier : 0,
+    view: session.joined ? views.view : 'one',
+    tier: session.joined ? views.tier : 0,
     distance: session.joined ? distance : 0,
     meter: session.joined ? distanceMeter(distance) : 0,
-    loupe: null,
-    rings: 1,
-    columns: host.info().columns.generated,
-    light: false,
+    loupe: session.joined ? views.loupe() : null,
+    rings: session.joined ? views.rings : 1,
+    columns: columnCount(),
+    light: session.joined ? views.light : false,
     padLost: session.padLost(),
+  });
+
+  /** 2 人でない とき: 1P の 全面だけ */
+  const fullViewport = (): DuoViewport => ({
+    who: 1,
+    x: 0,
+    y: 0,
+    w: window.innerWidth,
+    h: window.innerHeight,
+    camera: { x: game.camera.position.x, y: game.camera.position.y, z: game.camera.position.z },
+    yawDeg: controller.state.yawDeg,
   });
 
   const hook: DuoHook = {
@@ -184,6 +226,7 @@ export function wireDuo(deps: WiredLoop) {
     },
     leave: () => leave('quit'),
     timeScale: () => shared.gameTimeScale(),
+    viewports: () => (session.joined ? views.viewports(controller.state.yawDeg) : [fullViewport()]),
   };
   return { duo: hook, duoSession: session, leaveDuo: leave };
 }

@@ -9,7 +9,8 @@ import type { PlayerState } from '../contracts';
 import { DUO_COLORS, DUO_TUNING } from './tuning';
 
 /** ▼ の 大きさ（マス）と ゆらぎ */
-const MARK = { radius: 0.17, height: 0.3, bobTiles: 0.05, bobSteps: 90 } as const;
+/** 色案 B で 今の 1.5 倍（0.17 → 0.255・0.3 → 0.45）。COOP-1 §11.1 */
+const MARK = { radius: 0.255, height: 0.45, bobTiles: 0.05, bobSteps: 90 } as const;
 /** キャラの 板が 使えない（?char=block）ときの 箱の 体（マス） */
 const BOX = { w: 0.6, h: 1.7, d: 0.4 } as const;
 

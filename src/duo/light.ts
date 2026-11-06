@@ -2,7 +2,7 @@ import { DUO_TUNING } from './tuning';
 import type { DuoView } from './types';
 
 /**
- * COOP-1 作業 2（#399）: 分割の あいだだけ 入る「軽くする 工夫」の 入り切り（§7.2・AC30）。宣言だけ（実装は developer）。テストは light.test.ts。
+ * COOP-1 作業 2（#399）: 分割の あいだだけ 入る「軽くする 工夫」の 入り切り（§7.2・AC30）。テストは light.test.ts。
  *
  * ---- つなぎ目の 約束 ----
  *   new DuoLightGate()   step(view) を 固定ステップごとに 1 回 呼ぶ。返す 値 = `duo.state().light`。
@@ -24,10 +24,16 @@ export const DUO_LIGHT = {
 } as const;
 
 export class DuoLightGate {
-  constructor() {
-    throw new Error('COOP-1 作業 2: DuoLightGate は まだ 実装されていない');
-  }
-  step(_view: DuoView): boolean {
-    throw new Error('COOP-1 作業 2: 未実装');
+  private on = false;
+  private since = 0;
+
+  step(view: DuoView): boolean {
+    if (view === 'split') {
+      this.on = true;
+      this.since = 0;
+    } else if (this.on && ++this.since >= DUO_LIGHT.restoreSteps) {
+      this.on = false;
+    }
+    return this.on;
   }
 }

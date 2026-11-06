@@ -1,7 +1,7 @@
 import type { DuoView } from './types';
 
 /**
- * COOP-1 作業 2（#399）: 2P の 向きと カメラ（§2.5・AC26）。宣言だけ（実装は developer）。テストは p2Camera.test.ts。
+ * COOP-1 作業 2（#399）: 2P の 向きと カメラ（§2.5・AC26）。テストは p2Camera.test.ts。
  *
  * ---- つなぎ目の 約束 ----
  *   new P2Camera()   step() を 固定ステップごとに 1 回 呼ぶ。
@@ -26,10 +26,26 @@ export interface P2CameraOutput {
 }
 
 export class P2Camera {
-  constructor() {
-    throw new Error('COOP-1 作業 2: P2Camera は まだ 実装されていない');
-  }
-  step(_input: P2CameraInput): P2CameraOutput {
-    throw new Error('COOP-1 作業 2: 未実装');
+  private camYaw = 0;
+  private prevView: DuoView = 'one';
+  /** 分割から 戻った あと、左スティックを はなすまで 使う 歩く 向き（null = 使わない） */
+  private heldWalk: number | null = null;
+
+  step(input: P2CameraInput): P2CameraOutput {
+    const { view, screenYawDeg, lookDeltaDeg, stickHeld } = input;
+    let walk: number;
+    if (view === 'split') {
+      if (this.prevView !== 'split') this.camYaw = screenYawDeg;
+      this.camYaw += lookDeltaDeg;
+      this.heldWalk = null;
+      walk = this.camYaw;
+    } else {
+      if (this.prevView === 'split' && stickHeld) this.heldWalk = this.camYaw;
+      if (!stickHeld) this.heldWalk = null;
+      this.camYaw = screenYawDeg;
+      walk = this.heldWalk ?? screenYawDeg;
+    }
+    this.prevView = view;
+    return { camYawDeg: this.camYaw, walkYawDeg: walk };
   }
 }

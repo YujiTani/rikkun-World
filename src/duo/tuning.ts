@@ -68,15 +68,25 @@ export const DUO_TUNING = {
   lightMicroRadiusTiles: 16,
   /** 軽くする 工夫を 元に 戻すまで（ステップ。120 = 2 秒） */
   lightRestoreSteps: 120,
+  /** ルーペの 絵を 描く 範囲（2P から マス。§7.2-3。カメラの 距離ぶんは 足す） */
+  loupeDrawTiles: 16,
+  /** 2P の カメラ(分割)の 距離（マス。§9.1） */
+  cameraSplit: 5.0,
+  /** 分割の 線の 太さ（px。1280 幅のとき。§9.1） */
+  splitLinePx: 4,
+  /** ルーペの 外の 三角が ルーペの ふちから はなれる 距離（px） */
+  loupeArrowGapPx: 14,
+  /** 2P の 頭の 上の「？」の 高さ（足もとから マス） */
+  questionHeightTiles: 2.9,
 } as const;
 
 /**
- * 1P・2P の 色（#rrggbb）。アートの 3 案から オーナーが 選ぶまでの 仮の 色（§3）。
- * ルーペ・メーターの 段の 色は 白 → 黄 → オレンジ（赤は ダメージと まざるので 使わない）。
+ * 1P・2P と 段の 色（#rrggbb。案 B。2026-11-06 オーナー決定。値は src/ui/theme/tokens.css と 同じ: palette.test.ts が 見張る）。
+ * 1P = --rk-xp、2P = --rk-rarity-3、段 = --rk-text → --rk-accent → --rk-accent-2（赤は ダメージと まざるので 使わない）。
  */
 export const DUO_COLORS = {
-  p1: '#4fc3f7', // 〔案 B で --rk-xp に 直す〕今は tokens.css の --rk-info
-  p2: '#3ddc84', // 〔案 B で --rk-rarity-3 に 直す〕今は tokens.css の --rk-ok
+  p1: '#9bf26b',
+  p2: '#c79bff',
   /** 色の 段ごとの 色（0 = ふつう・1 = 1 段目・2 = 2 段目） */
-  tier: ['#ffffff', '#ffd23f', '#ff9a1f'] as const,
+  tier: ['#ffffff', '#ffc83d', '#ff8a1f'] as const,
 } as const;
