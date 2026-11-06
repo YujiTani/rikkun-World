@@ -101,27 +101,73 @@ export class ShaftWorld {
     return rx >= regionOf(b.x0) && rx <= regionOf(b.x1) && rz >= regionOf(b.z0) && rz <= regionOf(b.z1);
   }
 
-  region(rx: number, rz: number): Planned | null {
-    const key = (rx + 100000) * 200003 + (rz + 100000);
-    const hit = this.regions.get(key);
-    if (hit !== undefined) return hit;
-    let planned: Planned | null = null;
-    if (regionHit(this.seed, rx, rz) && !this.blocked(rx, rz) && regionLand(this.G, rx, rz) >= S.minLand) {
-      let budget = 60;
-      outer: for (const site of regionSites(this.G, rx, rz)) {
-        for (let a = 0; a < S.planTries && budget-- > 0; a++) {
-          const plan = planShaft(this.G, site, `r${rx}_${rz}`, false, this.isOld, a);
-          if (plan) {
-            planned = { plan, ops: null };
-            break outer;
-          }
-        }
-        if (budget <= 0) break;
+  /** 区画の 計画を 1 回ぶんずつ すすめる 仕事（1 回 yield するごとに 計画を 1 つ ためした）。終わると Planned | null を 返す */
+  private *regionJob(rx: number, rz: number): Generator<void, Planned | null> {
+    if (!(regionHit(this.seed, rx, rz) && !this.blocked(rx, rz) && regionLand(this.G, rx, rz) >= S.minLand)) return null;
+    let budget = 60;
+    for (const site of regionSites(this.G, rx, rz)) {
+      for (let a = 0; a < S.planTries && budget-- > 0; a++) {
+        const plan = planShaft(this.G, site, `r${rx}_${rz}`, false, this.isOld, a);
+        if (plan) return { plan, ops: null };
+        yield;
       }
+      if (budget <= 0) break;
+      yield;
     }
+    return null;
+  }
+
+  private readonly jobs = new Map<number, Generator<void, Planned | null>>();
+
+  private regionKey(rx: number, rz: number): number {
+    return (rx + 100000) * 200003 + (rz + 100000);
+  }
+
+  private store(key: number, planned: Planned | null): Planned | null {
     if (this.regions.size >= REGION_CAP) this.regions.clear();
     this.regions.set(key, planned);
+    this.jobs.delete(key);
     return planned;
+  }
+
+  region(rx: number, rz: number): Planned | null {
+    const key = this.regionKey(rx, rz);
+    const hit = this.regions.get(key);
+    if (hit !== undefined) return hit;
+    const job = this.jobs.get(key) ?? this.regionJob(rx, rz);
+    let r = job.next();
+    while (!r.done) r = job.next();
+    return this.store(key, r.value);
+  }
+
+  /**
+   * (x, z) の まわり の 区画の 計画を、あいた 時間に ms 以内だけ すすめる（列を 作る ときに 計画で ひっかからない ため。
+   * つなぎ込みが 毎ステップ 呼ぶ）。近い 区画から。
+   */
+  warm(x: number, z: number, ms: number, reach = 176): void {
+    const t0 = performance.now();
+    const list: { rx: number; rz: number; d: number }[] = [];
+    for (let rz = regionOf(z - reach); rz <= regionOf(z + reach); rz++) {
+      for (let rx = regionOf(x - reach); rx <= regionOf(x + reach); rx++) {
+        if (this.regions.has(this.regionKey(rx, rz))) continue;
+        list.push({ rx, rz, d: Math.hypot((rx + 0.5) * S.region - x, (rz + 0.5) * S.region - z) });
+      }
+    }
+    list.sort((a, b) => a.d - b.d);
+    for (const { rx, rz } of list) {
+      const key = this.regionKey(rx, rz);
+      let job = this.jobs.get(key);
+      if (!job) this.jobs.set(key, (job = this.regionJob(rx, rz)));
+      for (;;) {
+        const r = job.next();
+        if (r.done) {
+          this.store(key, r.value);
+          break;
+        }
+        if (performance.now() - t0 >= ms) return;
+      }
+      if (performance.now() - t0 >= ms) return;
+    }
   }
 
   /** 区画の 抽選の 結果 */

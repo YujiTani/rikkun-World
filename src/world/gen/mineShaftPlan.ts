@@ -280,7 +280,8 @@ export function planShaft(G: Geo, site: Site, id: string, start: boolean, isOldC
     const h = Math.ceil(mound.width / 2);
     for (let x = mound.x - h; x <= mound.x + h; x += 2) for (let z = mound.z - h; z <= mound.z + h; z += 2) for (const dx of [-2, 0, 2]) for (const dz of [-2, 0, 2]) cols.add(colKey((x + dx) >> 4, (z + dz) >> 4));
   }
-  for (const r of [...noTrees, ...noPlants]) addCols(r[0], r[1], r[2], r[3]);
+  for (const r of noTrees) addCols(r[0] - 5, r[1] - 5, r[2] + 5, r[3] + 5); // 木の はっぱは 4〜5 マス となりの 列へ はみ出す
+  for (const r of noPlants) addCols(r[0], r[1], r[2], r[3]);
   for (const k of cols) if (isOldCol(k)) return null;
 
   const shaft: Shaft = {

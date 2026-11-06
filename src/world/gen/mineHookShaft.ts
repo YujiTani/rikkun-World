@@ -46,6 +46,8 @@ export interface ShaftHookOptions {
   world?: ChestWorld;
   oldCols?: OldCols;
   metaGen?: () => number | null;
+  /** 坑道の 版（つなぎ込みが SaveManager.KODO_GEN を わたす。なければ gens.ts の 値） */
+  kodoGen?: number;
   chest?: ChestPorts;
 }
 
@@ -131,7 +133,7 @@ export function createShaftHook(o: ShaftHookOptions) {
     chestPreview,
     open,
     caveAt: (x: number, y: number, z: number): string | null => (world().inside(Math.floor(x), Math.floor(y), Math.floor(z)) ? 'kodo' : null),
-    saveGens: () => ({ current: SAVE_GEN, meta: o.metaGen?.() ?? SAVE_GEN, kodo: KODO_GEN as number | null, heya: null as number | null }),
+    saveGens: () => ({ current: SAVE_GEN, meta: o.metaGen?.() ?? SAVE_GEN, kodo: (o.kodoGen ?? KODO_GEN) as number | null, heya: null as number | null }),
     oldCols: (kind: 'kodo' | 'heya'): number => o.oldCols?.[kind]?.size ?? 0,
     isOld: (kind: 'kodo' | 'heya', cx: number, cz: number): boolean => o.oldCols?.[kind]?.has(colKey(cx, cz)) === true,
     work(cx: number, cz: number): { shaftRegions: number; caveRegions: number; emitters: number } {

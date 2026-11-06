@@ -31,6 +31,7 @@ import { createInputHook } from '../input';
 import { createPlayerHook } from '../player/hook';
 import { createBiomeHook } from '../world/gen/biomeHook';
 import { createMineHook } from '../world/gen/mineHook';
+import { KODO_GEN } from '../save/SaveManager';
 import { CHEST_SOUNDS } from '../fx/chestSounds';
 import { createWorldHook } from '../world/hook';
 import { createRenderHook } from '../world/render/renderHook';
@@ -64,6 +65,7 @@ export function installGameHook(deps: WiredLoop): void {
     player: () => controller.state.position,
     spawnHeight: () => yokaiM.config.yokaiSpawnHeight,
     metaGen: () => save.metaGen(),
+    kodoGen: KODO_GEN,
     oldCols: restored.oldCols,
     chest: {
       add: (item, count) => inventory.add(item, count),

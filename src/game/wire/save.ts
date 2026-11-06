@@ -271,7 +271,7 @@ type WiredSave = WiredAchievements & ReturnType<typeof wireSave>;
 export function wireFrame(deps: WiredSave) {
   const {
     shared, hud, game, renderer, furnaceFx, craft, controller, island, screen, time, combat, yokaiM, level,
-    armor, seed, achievements, countryWatch, celebrate,
+    armor, seed, achievements, countryWatch, celebrate, restored,
   } = deps;
   // #144 SHADOW-1: 光の位置から計算する影（?shadow=0 は作らない。くわしくは docs/design/SHADOW.md）
   const overlay = new PerfOverlay(hud, game, {
@@ -342,6 +342,8 @@ export function wireFrame(deps: WiredSave) {
       peakKey = pk;
       ctx.peak = peakNear(seed, Math.floor(st.position.x), Math.floor(st.position.z));
     }
+    // MINE-1C: まわりの 区画の 坑道の 計画を あいた 時間に すすめる（列を 作る ときに ひっかからない ため）
+    shaftWorldFor(seed, restored.oldCols).warm(st.position.x, st.position.z, 3);
     if (!shared.achMuted) {
       achievements.update(ctx);
       // COUNTRY-1 §4.1: やられた画面の 間は 数えない（止まっている 間は screenSteps = 0）

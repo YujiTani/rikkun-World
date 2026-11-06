@@ -142,6 +142,7 @@ export function createMineHook(o: {
   oldCols?: OldCols;
   /** MINE-1C: 開いて いる 世界の meta の 版（保存した あとは 書いた 値。meta が なければ null） */
   metaGen?: () => number | null;
+  kodoGen?: number;
   /** MINE-1C: 宝箱を あけた ときの 出口（持ち物・落とし物・ログ・テロップ・実績） */
   chest?: ChestPorts;
   /** プレイヤーの 足もと（世界の 座標）。なければ スタートの 足もと */
