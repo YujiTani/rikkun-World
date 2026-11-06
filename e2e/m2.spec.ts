@@ -845,7 +845,7 @@ test.describe('M2 もちもの画面', () => {
     expect(e1.open).toBe(false);
     expect(e1.lock.locked).toBe(false);
     expect(e1.lock.overlayVisible).toBe(true);
-    expect(e1.lock.overlayText).toBe('クリックして つづきを あそぼう！');
+    expect(e1.lock.overlayText).toBe('ゲームに 戻る');
     expect(e2).toBe(e1.tick);
     // 案内画面中の E は無視
     await page.keyboard.press('KeyE');

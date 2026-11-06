@@ -10,6 +10,7 @@ import { ruby } from '../text';
 import type { DialogStack } from '../menu/choiceDialog';
 import { CONTROL_ROWS, rowKeys, type ControlRow } from './controlRows';
 import { createPadScreen } from './padScreen';
+import { helpFor } from './helpText';
 import './settingsPanel.css';
 
 export interface SettingsPanel {
@@ -43,38 +44,40 @@ export function createSettingsPanel(
   general.dataset.testid = 'settings-general';
   general.innerHTML =
     `<div class="set-headrow">` +
-    `<button type="button" class="set-text-btn set-back" data-testid="settings-back" data-menu-item hidden>もどる</button>` +
-    `<h2 class="set-title" data-title>せってい</h2>` +
-    `<button type="button" class="set-text-btn set-close" data-testid="settings-close" data-menu-item>とじる</button>` +
+    `<button type="button" class="set-text-btn set-back" data-testid="settings-back" data-help="ui:back" data-menu-item hidden>もどる</button>` +
+    `<h2 class="set-title" data-title>${ruby('設定', 'せってい')}</h2>` +
+    `<button type="button" class="set-text-btn set-close" data-testid="settings-close" data-help="ui:close" data-menu-item>とじる</button>` +
     `</div>` +
     // 1 だん目: 音・カメラ・コントローラー（コントローラーを おすと 2 だん目へ）
     `<div data-screen="top">` +
     `<div class="set-tabs" role="tablist" aria-label="せってい">` +
-    `<button type="button" class="set-tab" role="tab" id="tab-sound" data-testid="tab-sound" data-menu-item aria-selected="true" aria-controls="panel-sound">${ruby('音', 'おと')}</button>` +
-    `<button type="button" class="set-tab" role="tab" id="tab-camera" data-testid="tab-camera" data-menu-item aria-selected="false" aria-controls="panel-camera">カメラ</button>` +
-    `<button type="button" class="set-tab" id="tab-controls" data-testid="tab-controls" data-menu-item>コントローラー</button>` +
+    `<button type="button" class="set-tab" role="tab" id="tab-sound" data-testid="tab-sound" data-help="ui:tabSound" data-menu-item aria-selected="true" aria-controls="panel-sound">${ruby('音', 'おと')}</button>` +
+    `<button type="button" class="set-tab" role="tab" id="tab-camera" data-testid="tab-camera" data-help="ui:tabCamera" data-menu-item aria-selected="false" aria-controls="panel-camera">カメラ</button>` +
+    `<button type="button" class="set-tab" id="tab-controls" data-testid="tab-controls" data-help="ui:tabControls" data-menu-item>コントローラー</button>` +
     `</div>` +
+    `<div data-help-slot></div>` +
     `<div id="panel-sound" class="set-tabpanel" role="tabpanel" data-testid="panel-sound" aria-labelledby="tab-sound">` +
     `<div data-testid="settings-sound"></div>` +
     `</div>` +
     `<div id="panel-camera" class="set-tabpanel" role="tabpanel" data-testid="panel-camera" aria-labelledby="tab-camera" hidden>` +
     `<h3 class="set-h">みる はやさ</h3>` +
     `<p class="set-lead">みぎスティックを たおす はやさ。おしこみではない。</p>` +
-    `<div class="set-slider" data-slider-row data-menu-item tabindex="0">` +
+    `<div class="set-slider" data-help="ui:lookSpeed" data-slider-row data-menu-item tabindex="0">` +
     `<span>おそい</span>` +
     `<input type="range" min="${GAMEPAD_CONFIG.lookMin}" max="${GAMEPAD_CONFIG.lookMax}" step="0.1" data-testid="look-speed" aria-label="みる はやさ">` +
     `<span>はやい</span>` +
     `<span class="set-num" data-testid="look-value"></span>` +
     `</div>` +
-    `<button type="button" class="set-text-btn" data-testid="look-reset" data-menu-item>はやさを もとにもどす</button>` +
+    `<button type="button" class="set-text-btn" data-testid="look-reset" data-help="ui:lookReset" data-menu-item>はやさを もとにもどす</button>` +
     `</div>` +
     `</div>` +
     // 2 だん目: キーボード/マウス・ゲームパッド（ゲームパッドを おすと 3 だん目へ）
     `<div data-screen="controls" hidden>` +
     `<div class="set-tabs" role="tablist" aria-label="コントローラー">` +
-    `<button type="button" class="set-tab is-on" role="tab" data-testid="ctrl-tab-keys" data-menu-item aria-selected="true">キーボード/マウス</button>` +
-    `<button type="button" class="set-tab" data-testid="ctrl-tab-pad" data-menu-item>ゲームパッド</button>` +
+    `<button type="button" class="set-tab is-on" role="tab" data-testid="ctrl-tab-keys" data-help="ui:tabKeys" data-menu-item aria-selected="true">キーボード/マウス</button>` +
+    `<button type="button" class="set-tab" data-testid="ctrl-tab-pad" data-help="ui:tabPad" data-menu-item>ゲームパッド</button>` +
     `</div>` +
+    `<div data-help-slot></div>` +
     `<div data-testid="ctrl-panel-keys">` +
     `<p class="set-lead">キーボードと マウスの そうさ。</p>` +
     `<div class="set-table set-table-keys" data-testid="settings-controls"></div>` +
@@ -101,7 +104,7 @@ export function createSettingsPanel(
     pad: padHost,
   };
   type Screen = keyof typeof screens;
-  const TITLES: Record<Screen, string> = { top: 'せってい', controls: 'コントローラー', pad: 'ゲームパッド' };
+  const TITLES: Record<Screen, string> = { top: ruby('設定', 'せってい'), controls: 'コントローラー', pad: 'ゲームパッド' };
   /** 1 だん目で えらんでいる中身（コントローラーは 中身ではなく 2 だん目への入り口） */
   type Tab = 'sound' | 'camera';
   let tab: Tab = 'sound';
@@ -121,16 +124,43 @@ export function createSettingsPanel(
     tabSound.classList.toggle('is-on', next === 'sound');
     tabCamera.classList.toggle('is-on', next === 'camera');
     if (next === 'camera') paintLook();
+    showHelp(null);
   };
   /** 画面を 1 だん切りかえる。タブの段は 1 つだけ見える */
   const goTo = (next: Screen): void => {
     screen = next;
     for (const k of Object.keys(screens) as Screen[]) screens[k].hidden = k !== next;
     backBtn.hidden = next === 'top';
-    titleEl.textContent = TITLES[next];
+    titleEl.innerHTML = TITLES[next];
     if (next === 'pad') pad.open();
     else pad.close();
+    placeHelp();
   };
+
+  // ---- ヘルプの帯: タブの下の 決まった所に 1 つだけ。当たった・フォーカスした物の説明、なにもなければ その画面の説明
+  const helpBand = document.createElement('p');
+  helpBand.className = 'set-help';
+  helpBand.dataset.testid = 'settings-help';
+  helpBand.setAttribute('role', 'status');
+  const defaultHelp = (): string =>
+    screen === 'top' ? (tab === 'sound' ? 'ui:tabSound' : 'ui:tabCamera') : screen === 'controls' ? 'ui:tabControls' : pad.mode() === 'menu' ? 'ui:tabMenu' : 'ui:tabPad';
+  const showHelp = (key: string | null): void => {
+    helpBand.innerHTML = helpFor(key ?? defaultHelp());
+  };
+  function placeHelp(): void {
+    const host = screen === 'pad' ? pad.el : screens[screen];
+    host.querySelector('[data-help-slot]')?.append(helpBand);
+    showHelp(null);
+  }
+  const helpKeyOf = (t: EventTarget | null): string | null => (t instanceof Element ? t.closest('[data-help]')?.getAttribute('data-help') ?? null : null);
+  general.addEventListener('pointerover', (e) => showHelp(helpKeyOf(e.target)));
+  general.addEventListener('pointerout', (e) => {
+    if (!helpKeyOf(e.relatedTarget)) showHelp(null);
+  });
+  general.addEventListener('focusin', (e) => showHelp(helpKeyOf(e.target)));
+  general.addEventListener('focusout', (e) => {
+    if (!helpKeyOf(e.relatedTarget)) showHelp(null);
+  });
 
   const pad = createPadScreen({
     reader: opts.reader,
@@ -140,6 +170,7 @@ export function createSettingsPanel(
       showTab('camera');
       tabCamera.focus();
     },
+    onMode: () => showHelp(null),
   });
   padHost.append(pad.el);
 
@@ -154,6 +185,10 @@ export function createSettingsPanel(
     { audio: opts.audio, fx: opts.fx, onChange: opts.onAudio },
     general.querySelector('[data-testid="settings-sound"]')!,
   );
+  for (const [id, key] of [['sound-master', 'volMaster'], ['sound-bgm', 'volBgm'], ['sound-fx', 'volFx']] as const) {
+    general.querySelector<HTMLElement>(`[data-testid="${id}"]`)?.closest('label')?.setAttribute('data-help', `ui:${key}`);
+  }
+  general.querySelector('.ss-check')?.setAttribute('data-help', 'ui:mute');
   let raf = 0;
 
   const paintKeys = (): void => {
@@ -255,7 +290,7 @@ export function createSettingsPanel(
     openBtn.type = 'button';
     openBtn.className = 'po-book po-extra';
     openBtn.dataset.testid = 'settings-open';
-    openBtn.textContent = 'せってい';
+    openBtn.innerHTML = ruby('設定', 'せってい');
     openBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       setOpen(root.hidden);

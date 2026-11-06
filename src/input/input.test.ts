@@ -45,7 +45,7 @@ describe('LockController', () => {
     expect(lockHook.get()).toEqual({
       locked: false,
       overlayVisible: true,
-      overlayText: 'クリックして つづきを あそぼう！',
+      overlayText: 'ゲームに 戻る',
     });
   });
 

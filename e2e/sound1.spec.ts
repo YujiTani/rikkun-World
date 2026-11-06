@@ -132,7 +132,7 @@ test.describe('SOUND-1 場面と BGM', () => {
 
 test.describe('SOUND-1 案内画面の おと', () => {
   // 画面の部品の名前・ID は票に無い。SOUND.md §7 の文字と並び順（ぜんぶ・おんがく・こうかおん）で探す。
-  const muteButton = (page: Page) => page.getByRole('button', { name: 'おと', exact: true });
+  const muteButton = (page: Page) => page.getByTestId('sound-mute'); // チェックボックス「おとを けす」
 
   async function openGuide(page: Page) {
     await page.evaluate(() => {
@@ -152,8 +152,8 @@ test.describe('SOUND-1 案内画面の おと', () => {
     await page.getByTestId('settings-open').click();
     await expect(muteButton(page)).toBeVisible();
     const box = await muteButton(page).boundingBox();
-    expect(box!.width).toBeGreaterThanOrEqual(64);
-    expect(box!.height).toBeGreaterThanOrEqual(64);
+    expect(box!.width).toBeGreaterThanOrEqual(44);
+    expect(box!.height).toBeGreaterThanOrEqual(44);
     expect((await audioState(page)).muted).toBe(false);
     await muteButton(page).click();
     expect((await audioState(page)).muted).toBe(true);

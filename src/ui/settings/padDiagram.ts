@@ -44,13 +44,13 @@ export function padSvg(): string {
     `<g class="pad-part" data-pad-face="r1">${pill(444, C.shoulder + 11, 110, 32, 'R', 26)}</g>` +
     `<g class="pad-part" data-pad-face="select">${pill(304, C.mid - 14, 48, 28, '−', 28)}</g>` +
     `<g class="pad-part" data-pad-face="start">${pill(368, C.mid - 14, 48, 28, '＋', 28)}</g>` +
-    stick('stickL', 'l3', 190, C.stickL, 38) +
+    stick('stickL', 'l3', 200, C.stickL, 38) +
     dpad(200, C.dpad) +
-    face('faceTop', 556, C.abxy - 44, 'X') +
-    face('faceLeft', 512, C.abxy, 'Y') +
-    face('faceRight', 600, C.abxy, 'A') +
-    face('faceBottom', 556, C.abxy + 44, 'B') +
-    stick('stickR', 'r3', 520, C.stickR, 36) +
+    face('faceTop', 520, C.abxy - 44, 'X') +
+    face('faceLeft', 476, C.abxy, 'Y') +
+    face('faceRight', 564, C.abxy, 'A') +
+    face('faceBottom', 520, C.abxy + 44, 'B') +
+    stick('stickR', 'r3', 520, C.stickR, 38) +
     boxes +
     `</svg>`
   );

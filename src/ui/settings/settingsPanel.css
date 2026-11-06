@@ -32,7 +32,7 @@
 }
 .set-title {
   margin: 0 0 4px;
-  font-size: 28px;
+  font-size: 40px; /* 画面の名前: いちばん大きい */
   font-weight: 800;
 }
 .set-h {
@@ -312,7 +312,33 @@
   flex: none;
 }
 [data-testid='settings-sound'] .ss-range { flex: 1; width: auto; min-width: 0; }
-[data-testid='settings-sound'] .ss-mute { align-self: flex-start; }
+[data-testid='settings-sound'] .ss-num {
+  min-width: 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 24px;
+  font-weight: 800;
+}
+/* おとを けす: チェックボックス（44px 以上） */
+[data-testid='settings-sound'] .ss-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  font-size: 20px;
+  font-weight: 800;
+  cursor: pointer;
+}
+[data-testid='settings-sound'] .ss-check .ss-mutebox {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--rk-accent, #ffc83d);
+  cursor: pointer;
+}
 /* キー・マウスの表: 2 列にならべて 1 画面に入れる */
 .set-keys-cols { columns: 2; column-gap: 40px; }
 .set-keys-cat { break-inside: avoid; margin-bottom: 8px; }
@@ -330,3 +356,18 @@
 .set-headrow .set-title { flex: 1; margin: 0; }
 .set-headrow .set-text-btn { min-height: 48px; min-width: 88px; padding: 4px 16px; }
 .set-back[hidden] { display: none !important; }
+/* ヘルプの帯: タブの下の きまった所。当たった・フォーカスした物の説明 */
+.set-help {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin: 2px 0 6px;
+  padding: 4px 14px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: var(--rk-bg-700, #252f47);
+  color: var(--rk-text-300, #cfd8dc); /* ヘルプ帯: 小さく しずかな 色（紺の地で 比 4.5 以上） */
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+}

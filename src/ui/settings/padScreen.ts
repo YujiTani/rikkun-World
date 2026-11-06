@@ -21,6 +21,7 @@ export interface PadScreen {
   readonly el: HTMLElement;
   open(): void;
   close(): void;
+  mode(): 'play' | 'menu';
   isOpen(): boolean;
   isCapturing(): boolean;
   cancelCapture(): void;
@@ -57,6 +58,8 @@ export function createPadScreen(opts: {
   dialogs: DialogStack;
   /** みる はやさはせっていのカメラタブだけ。ここからはそこを開く */
   onCamera: () => void;
+  /** タブ（フィールド／もちもの・クラフト）が かわったとき（ヘルプの帯の ふだんの文を えらびなおす） */
+  onMode?: () => void;
 }): PadScreen {
   const el = document.createElement('div');
   el.className = 'pad-screen';
@@ -64,13 +67,14 @@ export function createPadScreen(opts: {
   el.hidden = true;
   el.innerHTML =
     `<div class="pad-tabs" role="tablist" aria-label="ゲームパッド">` +
-    `<button type="button" class="set-tab" role="tab" data-testid="pad-tab-play" data-menu-item aria-selected="true">フィールド</button>` +
-    `<button type="button" class="set-tab" role="tab" data-testid="pad-tab-menu" data-menu-item aria-selected="false">もちもの・クラフト</button>` +
+    `<button type="button" class="set-tab" role="tab" data-testid="pad-tab-play" data-help="ui:tabField" data-menu-item aria-selected="true">フィールド</button>` +
+    `<button type="button" class="set-tab" role="tab" data-testid="pad-tab-menu" data-help="ui:tabMenu" data-menu-item aria-selected="false">もちもの・クラフト</button>` +
     `</div>` +
+    `<div data-help-slot></div>` +
     `<p class="pad-warn" data-testid="pad-unknown" hidden>この コントローラーは ボタンの ならびが わからないよ。この えは Switch の ならび。おした ボタンを、ここで きめられるよ。</p>` +
     `<div class="pad-capture" data-testid="bind-capture" hidden>` +
     `<span>ボタンを おしてね</span>` +
-    `<button type="button" class="set-text-btn" data-testid="bind-cancel" data-menu-item>やめる</button>` +
+    `<button type="button" class="set-text-btn" data-testid="bind-cancel" data-help="ui:cancel" data-menu-item>やめる</button>` +
     `</div>` +
     `<p class="set-note-line" data-testid="bind-note"></p>` +
     `<div class="pad-stage" data-testid="pad-stage">` +
@@ -79,21 +83,21 @@ export function createPadScreen(opts: {
     `<div class="pad-calls" data-calls></div>` +
     `</div>` +
     `<div class="set-actions">` +
-    `<button type="button" class="set-text-btn" data-testid="pad-to-camera" data-menu-item>カメラの はやさ</button>` +
-    `<button type="button" class="set-text-btn" data-testid="binds-reset" data-menu-item>もとにもどす</button>` +
+    `<button type="button" class="set-text-btn" data-testid="pad-to-camera" data-help="ui:toCamera" data-menu-item>カメラの はやさ</button>` +
+    `<button type="button" class="set-text-btn" data-testid="binds-reset" data-help="ui:resetBinds" data-menu-item>もとにもどす</button>` +
     `</div>` +
     `<details class="pad-more" data-testid="settings-diag">` +
-    `<summary data-testid="pad-diag-open">${ruby('動作', 'どうさ')}${ruby('確認', 'かくにん')}</summary>` +
+    `<summary data-testid="pad-diag-open" data-help="ui:diag">${ruby('動作', 'どうさ')}${ruby('確認', 'かくにん')}</summary>` +
     `<div class="set-name" data-testid="gp-id"></div>` +
     `<div class="set-name" data-testid="gp-map"></div>` +
     `<div class="set-name" data-testid="gp-axes"></div>` +
     `<div class="set-name" data-testid="gp-buttons"></div>` +
-    `<div class="set-slider" data-slider-row data-menu-item tabindex="0">` +
+    `<div class="set-slider" data-help="ui:deadZone" data-slider-row data-menu-item tabindex="0">` +
     `<span>あそび</span>` +
     `<input type="range" min="0.05" max="0.5" step="0.01" data-testid="dead-zone" aria-label="スティックの あそび">` +
     `<span class="set-num" data-testid="dead-value"></span>` +
     `</div>` +
-    `<button type="button" class="set-text-btn" data-testid="gp-calib" data-menu-item>まんなかを おぼえる</button>` +
+    `<button type="button" class="set-text-btn" data-testid="gp-calib" data-help="ui:calib" data-menu-item>まんなかを おぼえる</button>` +
     `</details>`;
 
   const q = <T extends Element>(sel: string): T => el.querySelector<T>(sel)!;
@@ -147,6 +151,7 @@ export function createPadScreen(opts: {
       const d = document.createElement('div');
       d.className = 'pad-call is-static';
       d.dataset.testid = `pad-menu-${label.key}`;
+      d.dataset.help = label.help;
       d.innerHTML = inner;
       return d;
     }
@@ -162,6 +167,7 @@ export function createPadScreen(opts: {
         pb.className = 'pad-part-btn';
         pb.dataset.menuItem = '';
         pb.dataset.testid = `bind-${part.action}`;
+        pb.dataset.help = `act:${part.action}`;
         pb.innerHTML = badgeHtml(part.faces);
         if (capture?.key === part.action) {
           pb.classList.add('is-wait');
@@ -183,6 +189,7 @@ export function createPadScreen(opts: {
     b.className = 'pad-call';
     b.dataset.menuItem = '';
     b.dataset.testid = label.action ? `bind-${label.action}` : `pad-call-${label.key}`;
+    b.dataset.help = label.help;
     b.title = label.text;
     b.innerHTML = inner;
     if (capture?.key === label.key) b.classList.add('is-wait');
@@ -365,8 +372,9 @@ export function createPadScreen(opts: {
     tabMenu.setAttribute('aria-selected', String(next === 'menu'));
     tabPlay.classList.toggle('is-on', next === 'play');
     tabMenu.classList.toggle('is-on', next === 'menu');
-    noteEl.textContent = next === 'menu' ? 'メニューを ひらいている ときの ボタン（ここでは かえられないよ）' : '';
+    noteEl.textContent = '';
     paintCalls();
+    opts.onMode?.();
   };
   tabPlay.addEventListener('click', () => showMode('play'));
   tabMenu.addEventListener('click', () => showMode('menu'));
@@ -416,6 +424,7 @@ export function createPadScreen(opts: {
       cancelCapture();
       el.hidden = true;
     },
+    mode: () => mode,
     isOpen: () => !el.hidden,
     isCapturing: () => capture !== null,
     cancelCapture,

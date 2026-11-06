@@ -27,10 +27,11 @@ export const PAD_CENTER = {
   shoulder: PAD_BODY_TOP - SHOULDER_GAP - SHOULDER_BOX_H / 2,
   /** − ＋ は 本体のまんなか（十字と ABXY の あいだ） */
   mid: padY(255),
-  dpad: padY(238),
-  stickL: padY(352),
-  abxy: padY(264),
-  stickR: padY(392),
+  /** 十字と ABXY、左右のスティックは 左右対称（同じ高さ） */
+  dpad: padY(250),
+  abxy: padY(250),
+  stickL: padY(372),
+  stickR: padY(372),
 } as const;
 function at(x: number, cy: number, w: number, h: number): PadGroup['box'] {
   return { x, y: cy - Math.round(h / 2), w, h };
@@ -59,11 +60,11 @@ export const PAD_GROUPS: readonly PadGroup[] = [
   { id: 'zl', side: 'left', box: at(142, PAD_CENTER.shoulder, 146, SHOULDER_BOX_H), faces: ['l2', 'l1'] },
   { id: 'minus', side: 'topLeft', box: at(300, PAD_CENTER.mid, 56, 40), faces: ['select'] },
   { id: 'dpad', side: 'left', box: at(138, PAD_CENTER.dpad, 124, 124), faces: ['dpadUp', 'dpadLeft', 'dpadRight', 'dpadDown'] },
-  { id: 'stickL', side: 'left', box: at(146, PAD_CENTER.stickL, 88, 88), faces: ['l3'], stick: { id: 'stickL', text: 'あるく' } },
+  { id: 'stickL', side: 'left', box: at(156, PAD_CENTER.stickL, 88, 88), faces: ['l3'], stick: { id: 'stickL', text: 'あるく' } },
   { id: 'zr', side: 'right', box: at(432, PAD_CENTER.shoulder, 146, SHOULDER_BOX_H), faces: ['r2', 'r1'] },
   { id: 'plus', side: 'topRight', box: at(364, PAD_CENTER.mid, 56, 40), faces: ['start'] },
-  { id: 'abxy', side: 'right', box: at(488, PAD_CENTER.abxy, 138, 138), faces: ['faceTop', 'faceLeft', 'faceRight', 'faceBottom'] },
-  { id: 'stickR', side: 'right', box: at(476, PAD_CENTER.stickR, 88, 82), faces: ['r3'], stick: { id: 'stickR', text: 'カメラを うごかす' } },
+  { id: 'abxy', side: 'right', box: at(451, PAD_CENTER.abxy, 138, 138), faces: ['faceTop', 'faceLeft', 'faceRight', 'faceBottom'] },
+  { id: 'stickR', side: 'right', box: at(476, PAD_CENTER.stickR, 88, 88), faces: ['r3'], stick: { id: 'stickR', text: 'カメラを うごかす' } },
 ];
 
 /** 札 1 枚。faces は右の印（同じ ことばが 2 つの ボタンに あるときは 並べる） */
@@ -77,6 +78,8 @@ export interface PadLabel {
   action: Action | null;
   /** 札にまとめた操作ごとの 割り当て（ことばが同じ L・R は 1 まいにして 2 つ入る） */
   parts: { action: Action; faces: PadFace[] }[];
+  /** ヘルプの帯の文の名前（data-help。helpText.ts） */
+  help: string;
   /** スティック（印は スティックの絵） */
   stick?: 'stickL' | 'stickR';
 }
@@ -91,7 +94,7 @@ export function playLabels(binds: Binds): PadLabel[] {
   for (const g of PAD_GROUPS) {
     if (g.stick) {
       const stickFace = g.stick.id as 'stickL' | 'stickR';
-      out.push({ key: g.stick.id, text: g.stick.text, group: g.id, faces: [], action: null, parts: [], stick: stickFace });
+      out.push({ key: g.stick.id, text: g.stick.text, group: g.id, faces: [], action: null, parts: [], help: `ui:${stickFace}`, stick: stickFace });
     }
     for (const face of g.faces) {
       const action = binds[face] ?? null;
@@ -113,7 +116,7 @@ export function playLabels(binds: Binds): PadLabel[] {
         (same.faces as PadFace[]).push(face);
         continue;
       }
-      const label: PadLabel = { key: action, text, group: g.id, faces: [face], action, parts: [fresh] };
+      const label: PadLabel = { key: action, text, group: g.id, faces: [face], action, parts: [fresh], help: `act:${action}` };
       byText.set(text, label);
       out.push(label);
     }
@@ -123,8 +126,8 @@ export function playLabels(binds: Binds): PadLabel[] {
 
 /** もちもの・クラフト（メニューを開いているとき）。reader.ts の menuOpen と同じ */
 export const MENU_LABELS: readonly PadLabel[] = [
-  { key: 'menu-dpad', text: 'えらぶ', group: 'dpad', faces: ['dpadUp', 'dpadDown', 'dpadLeft', 'dpadRight'], action: null, parts: [] },
-  { key: 'menu-ok', text: 'きめる', group: 'abxy', faces: ['faceBottom'], action: null, parts: [] },
-  { key: 'menu-back', text: 'もどる', group: 'abxy', faces: ['faceRight'], action: null, parts: [] },
-  { key: 'menu-start', text: 'スタートメニュー', group: 'plus', faces: ['start'], action: null, parts: [] },
+  { key: 'menu-dpad', help: 'ui:menuDpad', text: 'えらぶ', group: 'dpad', faces: ['dpadUp', 'dpadDown', 'dpadLeft', 'dpadRight'], action: null, parts: [] },
+  { key: 'menu-ok', help: 'ui:menuOk', text: 'きめる', group: 'abxy', faces: ['faceBottom'], action: null, parts: [] },
+  { key: 'menu-back', help: 'ui:menuBack', text: 'もどる', group: 'abxy', faces: ['faceRight'], action: null, parts: [] },
+  { key: 'menu-start', help: 'ui:menuStart', text: 'スタートメニュー', group: 'plus', faces: ['start'], action: null, parts: [] },
 ];

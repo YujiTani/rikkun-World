@@ -64,7 +64,7 @@ describe('ScreenController（テスト用の擬似ロック）', () => {
     expect(screen.inventoryOpen()).toBe(false);
     expect(lock.locked()).toBe(false);
     expect(lock.overlayVisible()).toBe(true);
-    expect(lock.overlayText()).toBe('クリックして つづきを あそぼう！');
+    expect(lock.overlayText()).toBe('ゲームに 戻る');
     expect(lock.realtimeAllowed()).toBe(false);
     expect(screen.timeScale()).toBe(0);
   });

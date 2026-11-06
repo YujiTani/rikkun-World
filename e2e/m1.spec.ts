@@ -596,7 +596,7 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
       return { l, held, t0, t1, t2, p0, p1, p2, view, l2, held2, moved };
     });
     expect(r.l.overlayVisible).toBe(true);
-    expect(r.l.overlayText).toBe('クリックして つづきを あそぼう！');
+    expect(r.l.overlayText).toBe('ゲームに 戻る');
     expect(r.held).toEqual([]);
     expect(r.t1).toBe(r.t0);
     expect(r.t2 - r.t1).toBe(60);

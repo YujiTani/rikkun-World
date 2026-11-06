@@ -40,6 +40,15 @@ describe('ゲームパッドの札', () => {
     expect(labels.find((l) => l.action === 'toggleView')?.text).toBe('カメラ きりかえ');
   });
 
+  it('図は 左右対称: 十字と ABXY・左右のスティックは 同じ高さで、まんなか（x=360）をはさんで 同じきょり', () => {
+    const g = (id: string) => PAD_GROUPS.find((x) => x.id === id)!;
+    const mid = (id: string) => ({ x: g(id).box.x + g(id).box.w / 2, y: g(id).box.y + g(id).box.h / 2 });
+    for (const [l, r] of [['dpad', 'abxy'], ['stickL', 'stickR'], ['zl', 'zr']] as const) {
+      expect(mid(l).y).toBe(mid(r).y);
+      expect(360 - mid(l).x).toBe(mid(r).x - 360);
+    }
+  });
+
   it('どの札も、まとまりのどれかに入る', () => {
     const ids = new Set(PAD_GROUPS.map((g) => g.id));
     for (const l of [...labels, ...MENU_LABELS]) expect(ids.has(l.group)).toBe(true);
