@@ -96,6 +96,11 @@ export class DuoPadRouter {
     if (this.saved) {
       this.base1 = toIdx(this.saved.p1);
       this.base2 = toIdx(this.saved.p2);
+      if (this.joined && this.base2 === NONE) {
+        // 2P が パッドなしで 参加中: 2P の パッドが きまる まで 候補を さがし、きまったら そこから 動かさない
+        if (this.joinedBase2 === NONE) this.joinedBase2 = this.firstOther(pads, this.base1);
+        this.base2 = this.joinedBase2;
+      }
       return;
     }
     if (this.joined) {
@@ -108,6 +113,12 @@ export class DuoPadRouter {
     this.firstTwo(pads);
     this.base1 = this.joinedBase1;
     this.base2 = this.joinedBase2;
+  }
+
+  /** exclude 以外の つながっている 物の いちばん 小さい 番号。なければ NONE */
+  private firstOther(pads: Pads, exclude: number): number {
+    for (let i = 0; i < pads.length; i++) if (i !== exclude && connected(pads[i])) return i;
+    return NONE;
   }
 
   /**
@@ -135,7 +146,7 @@ export class DuoPadRouter {
     if (t >= 0 && !this.joined && !connected(pads[t]) && this.base2 >= 0 && connected(pads[this.base2])) t = this.base2;
     if (t === this.p1) return false;
     this.p1 = t;
-    this.reader1.resetPad();
+    this.reader1.resetPad(t >= 0 && connected(pads[t]) ? t : null);
     return true;
   }
 
@@ -165,7 +176,7 @@ export class DuoPadRouter {
     if (t === this.p2) return false;
     this.p2 = t;
     this.lost = false;
-    this.reader2.resetPad();
+    this.reader2.resetPad(t >= 0 && connected(pads[t]) ? t : null);
     return true;
   }
 
@@ -234,6 +245,7 @@ export class DuoPadRouter {
     if (!this.choiceEnabled) return false;
     if (!validSlot(c.p1) || !validSlot(c.p2) || c.p1 === c.p2) return false;
     this.saved = { p1: c.p1, p2: c.p2 };
+    this.joinedBase2 = NONE; // 決めなおしたら 2P の 固定も やりなおす
     writePadChoice(this.choiceStorage, this.saved);
     const pads = this.getPads();
     if (this.assign(pads) && connected(pads[this.p1])) this.reader1.holdButtonsUntilReleased();
@@ -283,7 +295,8 @@ export class DuoPadRouter {
     this.startWas = true; // 参加の ＋ を 押しっぱなしでも すぐ 次の 参加の 求めに ならない
     if (on) {
       const pads = this.getPads();
-      if (!this.saved) this.firstTwo(pads); // 参加中は はじめの 動きを 固定する
+      if (this.saved) this.joinedBase2 = NONE; // 保存で 2P が パッドなしなら、参加中に きまった 物で 固定する(resolveBase)
+      else this.firstTwo(pads); // 参加中は はじめの 動きを 固定する
       this.assign(pads);
       this.p2 = NONE;
       this.assign2(pads);

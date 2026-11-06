@@ -135,9 +135,9 @@ export class GamepadReader {
   }
 
   /** COOP-1 作業 2.5: 読む パッドが かわる とき。パッドの 入力を 全部 はなし、パッドの おぼえも 消す（キー・マウスは そのまま） */
-  resetPad(): void {
+  resetPad(assignTo: number | null = null): void {
     this.releaseAllPadActions();
-    this.assignedIndex = null;
+    this.assignedIndex = assignTo; // つながっている 新しい パッドには すぐ 入れる（hasPad が ちらつかない）
     this.prev.clear();
     this.holdButtons = false;
   }
@@ -251,13 +251,12 @@ export class GamepadReader {
       if (cur.some(Boolean)) cur.fill(false);
       else this.holdButtons = false;
     }
-    if (this.ignoreStart) {
-      for (let i = 0; i < cur.length; i++) if (table[i] === 'start') cur[i] = false;
-    }
     const n = Math.max(prev.length, cur.length, 16);
     for (let i = 0; i < n; i++) {
       const face = table[i];
       if (!face) continue;
+      // 待ちの あいだの ＋ は 操作に しない。おぼえ(prev)は 本当の 値のまま → 押したまま 待ちが おわっても 押した ことに ならない
+      if (this.ignoreStart && face === 'start') continue;
       const was = !!prev[i];
       const on = !!cur[i];
       if (on === was) continue;
