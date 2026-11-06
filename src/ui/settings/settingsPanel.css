@@ -1,0 +1,379 @@
+/* SETTINGS-1: せってい。色はゲームの変数。他作品の絵は使わない */
+.set-root[hidden],
+.choice-dialog[hidden] {
+  display: none !important;
+}
+.set-root {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+.set-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 45%);
+}
+.set-panel {
+  position: relative;
+  z-index: 1;
+  width: min(960px, calc(100% - 32px));
+  /* 画面に入る高さ。はみ出すぶんは中でスクロール（ホットバーより上に出る） */
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  margin: 16px auto;
+  background: var(--rk-bg-900, #10141f);
+  color: var(--rk-text, #fff);
+  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  border: var(--rk-bw, 2px) solid var(--rk-accent, #ffc83d);
+  border-radius: var(--rk-r-l, 24px);
+  padding: var(--rk-sp-4, 16px);
+  box-sizing: border-box;
+}
+.set-title {
+  margin: 0 0 4px;
+  font-size: 40px; /* 画面の名前: いちばん大きい */
+  font-weight: 800;
+}
+.set-h {
+  margin: 16px 0 8px;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--rk-accent, #ffc83d);
+}
+.set-lead {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.set-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+.set-tab {
+  flex: 1;
+  min-height: 48px;
+  padding: 8px 16px;
+  border: 2px solid var(--rk-accent, #ffc83d);
+  border-radius: 999px;
+  background: var(--rk-bg-700, #252f47);
+  color: var(--rk-text, #fff);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+  cursor: pointer;
+}
+.set-tab.is-on,
+.set-tab[aria-selected='true'] {
+  background: var(--rk-accent-grad, linear-gradient(180deg, #ffc83d, #ff8a1f));
+  color: var(--rk-ink, #141414);
+  text-shadow: none;
+}
+.set-tab:focus {
+  outline: 4px solid #4fc3f7;
+  outline-offset: 3px;
+}
+.set-tabpanel[hidden] {
+  display: none !important;
+}
+.set-table {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1.35fr;
+  gap: 8px 12px;
+  align-items: center;
+}
+.set-table-keys {
+  grid-template-columns: 1.2fr 1fr;
+}
+.set-head,
+.set-line {
+  display: contents;
+}
+.set-head span {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--rk-accent, #ffc83d);
+}
+.set-cat {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  font-size: 20px;
+  font-weight: 800;
+}
+.set-name,
+.set-keys {
+  font-size: 16px;
+  font-weight: 700;
+}
+.set-keys {
+  text-align: center;
+}
+.set-note {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--rk-text-sub, #aeb8d0);
+}
+.set-bind,
+.set-fixed,
+.choice-btn,
+.set-text-btn {
+  min-height: 56px;
+  padding: 8px 16px;
+  border: var(--rk-bw, 2px) solid var(--rk-accent, #ffc83d);
+  border-radius: var(--rk-r-m, 14px);
+  background: var(--rk-bg-700, #252f47);
+  color: var(--rk-text, #fff);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  cursor: pointer;
+}
+.set-bind.is-wait {
+  outline: 4px solid var(--rk-info, #4fc3f7);
+  outline-offset: 3px;
+}
+.set-bind:active,
+.set-text-btn:active,
+.choice-btn:active,
+.ss-mute:active {
+  transform: translateY(2px);
+}
+/* コントローラー列は、絵も文字も枠の横中央。枠の大きさ（押せる範囲）は変えない */
+.set-bind,
+.set-fixed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+.set-fixed {
+  cursor: default;
+}
+.gp-g {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  margin: 2px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: none;
+}
+.gp-g-faceBottom { background: #e23b3b; }
+.gp-g-faceRight { background: #3cba54; }
+.gp-g-faceLeft { background: #e0b545; color: #141414; }
+.gp-g-faceTop { background: #3d7fe0; }
+.gp-g-l1,
+.gp-g-r1,
+.gp-g-l2,
+.gp-g-r2,
+.gp-g-select,
+.gp-g-start,
+.gp-g-l3,
+.gp-g-r3 {
+  border-radius: 8px;
+  background: #252f47;
+  border: 2px solid var(--rk-accent, #ffc83d);
+}
+.gp-g-dpadUp,
+.gp-g-dpadDown,
+.gp-g-dpadLeft,
+.gp-g-dpadRight {
+  border-radius: 8px;
+  background: #1a2132;
+  border: 2px solid #d7deee;
+}
+.set-slider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  font-size: 20px;
+  font-weight: 800;
+}
+.set-slider input[type='range'] {
+  flex: 1;
+  height: 44px;
+  accent-color: var(--rk-accent, #ffc83d);
+}
+.set-num {
+  min-width: 3em;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.set-capture[hidden] {
+  display: none !important;
+}
+.set-capture {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+.set-note-line {
+  min-height: 1.4em;
+  margin: 4px 0 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--rk-accent, #ffc83d);
+}
+.set-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.choice-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 55%);
+}
+.choice-card {
+  width: min(640px, calc(100% - 32px));
+  padding: 24px;
+  background: var(--rk-bg-900, #10141f);
+  color: var(--rk-text, #fff);
+  border: 2px solid var(--rk-accent, #ffc83d);
+  border-radius: 24px;
+  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+}
+.choice-q,
+.choice-note {
+  margin: 0 0 16px;
+  font-size: 24px;
+  font-weight: 800;
+}
+.choice-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+.choice-no {
+  background: var(--rk-accent-grad, linear-gradient(180deg, #ffc83d, #ff8a1f));
+  color: var(--rk-ink, #141414);
+  text-shadow: none;
+}
+.set-panel :focus,
+.play-overlay button:focus,
+#inventory-screen :focus,
+.choice-dialog button:focus,
+.inv-slot:focus {
+  outline: 4px solid var(--rk-accent, #ffc83d);
+  outline-offset: 3px;
+}
+.ss-embed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+.po-kicker {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--rk-accent, #ffc83d);
+  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+}
+.po-extra {
+  order: 5;
+  font-size: 24px;
+  min-height: 64px;
+}
+
+.set-subtabs .set-tab,
+.pad-tabs .set-tab { min-height: 44px; font-size: 18px; padding: 4px 16px; }
+.set-note-line:empty { display: none; }
+/* おとの よこぼう: 右まで ひろげる（ことばは左、ぼうは のこり ぜんぶ） */
+[data-testid='settings-sound'] .ss-embed { align-items: stretch; gap: 8px; }
+[data-testid='settings-sound'] .ss-row { width: 100%; gap: 16px; font-size: 20px; min-height: 56px; }
+[data-testid='settings-sound'] .ss-label {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 12em;
+  flex: none;
+}
+[data-testid='settings-sound'] .ss-range { flex: 1; width: auto; min-width: 0; }
+[data-testid='settings-sound'] .ss-num {
+  min-width: 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 24px;
+  font-weight: 800;
+}
+/* おとを けす: チェックボックス（44px 以上） */
+[data-testid='settings-sound'] .ss-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  font-size: 20px;
+  font-weight: 800;
+  cursor: pointer;
+}
+[data-testid='settings-sound'] .ss-check .ss-mutebox {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--rk-accent, #ffc83d);
+  cursor: pointer;
+}
+/* キー・マウスの表: 2 列にならべて 1 画面に入れる */
+.set-keys-cols { columns: 2; column-gap: 40px; }
+.set-keys-cat { break-inside: avoid; margin-bottom: 8px; }
+.set-keys-cat .set-cat { margin-top: 0; }
+.set-keys-grid { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: center; }
+.set-table-keys { display: block; }
+.set-table-keys .set-head { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 4px; }
+/* いちばん上の行: もどる（2・3 だん目だけ）・題・とじる */
+.set-headrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.set-headrow .set-title { flex: 1; margin: 0; }
+.set-headrow .set-text-btn { min-height: 48px; min-width: 88px; padding: 4px 16px; }
+.set-back[hidden] { display: none !important; }
+/* ヘルプの帯: タブの下の きまった所。当たった・フォーカスした物の説明 */
+.set-help {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin: 2px 0 6px;
+  padding: 4px 14px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: var(--rk-bg-700, #252f47);
+  color: var(--rk-text-300, #cfd8dc); /* ヘルプ帯: 小さく しずかな 色（紺の地で 比 4.5 以上） */
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+/* ひくい 画面（高さ 760px 以下）: 見出しと帯を ちぢめて 1 画面に 入れる */
+@media (max-height: 760px) {
+  .set-title { font-size: 32px; }
+  .set-tab { min-height: 44px; padding: 4px 16px; font-size: 24px; }
+  .set-help { min-height: 40px; margin: 0 0 4px; }
+}

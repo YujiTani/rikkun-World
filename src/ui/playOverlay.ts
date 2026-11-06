@@ -1,7 +1,12 @@
 import { INPUT_CONFIG } from '../input/config';
 import type { LockController } from '../input/lockController';
 import { fillMouseSrc, mouseHtml } from './craftPanel.art';
-import { escapeHtml } from './text';
+import { escapeHtml, ruby } from './text';
+
+/** 案内の字を HTML にする（「戻」にふりがな） */
+function overlayHtml(text: string): string {
+  return escapeHtml(text).replace('戻', ruby('戻', 'もど'));
+}
 import { mountPrep, syncPrep } from './prep';
 import './playOverlay.css';
 
@@ -12,7 +17,8 @@ import './playOverlay.css';
 export function buildOverlayHtml(text: string): string {
   return (
     `<div class="po-panel">` +
-    `<button type="button" class="po-button"><span class="po-mouse" aria-hidden="true">${mouseHtml('left')}</span><span class="po-text">${escapeHtml(text)}</span></button>` +
+    `<p class="po-kicker">スタートメニュー</p>` +
+    `<button type="button" class="po-button"><span class="po-mouse" aria-hidden="true">${mouseHtml('left')}</span><span class="po-text">${overlayHtml(text)}</span></button>` +
     `<button type="button" class="po-book" data-book-open><span class="po-gem" aria-hidden="true"></span><span class="po-book-text">あそびかたの ほん</span></button>` +
     `</div>`
   );
@@ -95,7 +101,7 @@ export class PlayOverlay {
       if (!this.prepOn) return;
       this.prepOn = false;
       this.el.classList.remove('po-prep');
-      this.textEl.textContent = this.lockRef.overlayText();
+      this.textEl.innerHTML = overlayHtml(this.lockRef.overlayText());
       return;
     }
     if (!this.prepOn) {
@@ -106,8 +112,37 @@ export class PlayOverlay {
     syncPrep(this.textEl, progress, nowMs);
   }
 
+  /** スタートメニューにボタンを足す（クリックは遊び開始に伝えない） */
+  addButton(labelHtml: string, testId: string, onClick: () => void): HTMLButtonElement {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'po-book po-extra';
+    b.dataset.testid = testId;
+    b.innerHTML = labelHtml;
+    const stop = (e: Event): void => e.stopPropagation();
+    b.addEventListener('click', (e) => {
+      stop(e);
+      onClick();
+    });
+    b.addEventListener('pointerdown', stop);
+    this.menuRow().appendChild(b);
+    return b;
+  }
+
+  /** せってい・タイトル戻りを横に並べて、案内がホットバーに重なりすぎないようにする */
+  menuRow(): HTMLElement {
+    const panel = this.el.querySelector('.po-panel')!;
+    let row = panel.querySelector<HTMLElement>('.po-menu-row');
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'po-menu-row';
+      panel.appendChild(row);
+    }
+    return row;
+  }
+
   private sync(lock: LockController): void {
-    if (!this.prepOn) this.textEl.textContent = lock.overlayText();
+    if (!this.prepOn) this.textEl.innerHTML = overlayHtml(lock.overlayText());
     this.el.hidden = !lock.overlayVisible();
   }
 }

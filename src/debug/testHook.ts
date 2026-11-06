@@ -95,6 +95,8 @@ export interface TestHook {
     snapshot(): unknown;
     openPanel(): void;
     closePanel(): void;
+    binds(): unknown;
+    settings(): { deadZone: number; lookSensitivity: number };
   } | null;
   lock: ReturnType<typeof createLockHook> & { tab(name: string): void; book(target: string): void; bookStats(): { calls: number; triangles: number } };
   settings: ReturnType<typeof createSettingsHook>;

@@ -196,6 +196,63 @@ describe('GamepadReader: 後追いの直し', () => {
     expect(look.consume().dx).toBeGreaterThan(0);
   });
 
+  it('＋ はスタートメニュー。メニュー中は決定・もどる・十字だけで、ほる・移動・look は出ない', () => {
+    const { actions, look, reader, mk, set } = setup();
+    set(mk([9]));
+    reader.poll(16);
+    expect(actions.isHeld('openStartMenu')).toBe(true);
+    expect(actions.isHeld('toggleInventory')).toBe(false);
+    set(mk([]));
+    reader.poll(32);
+    reader.setMenuOpen(true);
+    set(mk([7, 13], [0.9, -0.9, 0.8, 0]));
+    reader.poll(48);
+    expect(actions.isHeld('primary')).toBe(false);
+    expect(actions.isHeld('moveForward')).toBe(false);
+    expect(actions.isHeld('drop')).toBe(false);
+    expect(actions.isHeld('focusDown')).toBe(true);
+    expect(look.consume().dx).toBe(0);
+    set(mk([0]));
+    reader.poll(64);
+    expect(actions.isHeld('confirm')).toBe(true);
+    expect(actions.isHeld('jump')).toBe(false);
+  });
+
+  it('みる はやさはステップごとにかかり、デッドゾーンやフレーム時刻では変わらない', () => {
+    const { look, reader, mk, set } = setup();
+    reader.setSettings({ lookSensitivity: 2, deadZone: 0.24 });
+    set(mk([], [0, 0, 1, 0]));
+    reader.poll(0);
+    const a = look.consume().dx;
+    reader.setSettings({ lookSensitivity: 4, deadZone: 0.4 });
+    set(mk([], [0, 0, 1, 0]));
+    reader.poll(5000);
+    const b = look.consume().dx;
+    expect(a).toBeGreaterThan(0);
+    expect(b).toBeCloseTo(a * 2, 5);
+  });
+
+  it('はやさとデッドゾーンは保存され、校正とは別', () => {
+    const mem = new Map<string, string>();
+    const storage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: () => {} } as unknown as Storage;
+    const first = setup({ storage });
+    first.reader.setSettings({ lookSensitivity: 1.5, deadZone: 0.3 });
+    first.reader.calibrateFromAxes(0.1, 0, 0, 0);
+    const again = setup({ storage });
+    expect(again.reader.getSettings().lookSensitivity).toBe(1.5);
+    expect(again.reader.getSettings().deadZone).toBeCloseTo(0.3);
+    expect(again.reader.getCalib().lx).toBeCloseTo(0.1);
+  });
+
+  it('予備の機種でもメニュー中の決定は届く（遊び中の暴発止めは残る）', () => {
+    const { actions, reader, mk, set } = setup({ id: 'Weird Pad', mapping: '' });
+    reader.setMenuOpen(true);
+    set(mk([0]));
+    reader.poll(16);
+    expect(actions.isHeld('confirm')).toBe(true);
+    expect(actions.isHeld('jump')).toBe(false);
+  });
+
   it('知らない機種でも、割り当て直し(保存)したあとは面ボタンが使える', () => {
     const store = new Map<string, string>();
     const storage = {

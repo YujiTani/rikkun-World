@@ -11,7 +11,7 @@ import { DuoPadRouter } from './duoPads';
  *   クラス    DuoPadRouter（形は duoPads.ts の 宣言の とおり）
  *     - 1P = 最初に 使った 1 本（後から 番号の 小さい パッドが 来ても 1P は 変わらない）。2P = 1P でない 番号の 小さい 方。
  *     - 参加前（setJoined(false)）: 2 本目の ＋（start）だけ 見て poll の joinRequested を true に する。2P の ActionState には 何も 書かない。
- *       1 本目の ＋ は これまでどおり 1P の toggleInventory で、joinRequested は false。
+ *       1 本目の ＋ は 1P の openStartMenu（SETTINGS-1）で、joinRequested は false。
  *     - 参加後（setJoined(true)）: 2 本目の 入力が 2P の ActionState(p2) と look2 に だけ 入る。1P の ActionState(p1) には 入らない。
  *     - 2P の パッドが ぬけた（配列の その場所が null か connected = false）: その poll で p2 の 押している Action を ぜんぶ はなし、padLost() = true。
  *       つなぎ直して どれか ボタンを 押すと padLost() = false（押すまでは true のまま）。
@@ -90,7 +90,7 @@ describe('AC1: パッドの 割り当て', () => {
     poll();
     set(fakePad(0, { buttons: [START] }), fakePad(1));
     expect(poll().joinRequested).toBe(false);
-    expect(p1.isHeld('toggleInventory')).toBe(true); // 1P の ＋ は これまでどおり もちもの
+    expect(p1.isHeld('openStartMenu')).toBe(true); // 1P の ＋ は スタートメニュー（SETTINGS-1）
     expect(held(p2)).toEqual([]);
     set(fakePad(0), fakePad(1, { buttons: [START] }));
     expect(poll().joinRequested).toBe(true);

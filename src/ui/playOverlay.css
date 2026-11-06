@@ -85,7 +85,7 @@
   gap: var(--rk-sp-3);
   box-sizing: border-box;
   width: max(var(--po-btn-w, 40vw), var(--po-btn-minw, 512px));
-  min-height: 80px;
+  min-height: 64px;
   padding: var(--rk-sp-2) var(--rk-sp-6);
   border: 4px solid #e0b545;
   border-radius: 999px;
@@ -93,7 +93,7 @@
   box-shadow: 0 4px 0 #5a3616;
   color: #fff3cf;
   font: inherit;
-  font-size: var(--po-btn-font, 32px);
+  font-size: 32px; /* あそびかたの ほん: 中くらい（高さ 64px・幅いっぱい。主ボタンは 高さ 96px・オレンジ） */
   font-weight: 800;
   text-shadow: none;
   cursor: pointer;
@@ -103,6 +103,29 @@
 }
 .po-book:hover {
   filter: brightness(1.12);
+}
+.po-menu-row {
+  order: 5;
+  display: flex;
+  /* 24px の字が はみ出さないよう、1 だんに 1 つずつ たてに ならべる */
+  flex-direction: column;
+  gap: var(--rk-sp-3);
+  width: max(var(--po-btn-w, 40vw), var(--po-btn-minw, 512px));
+  align-items: center;
+}
+/* 設定・タイトルへもどる: 控えめ（紺の地・細いふち・せまい幅。UI 検査の きまり: 字 24px 以上（ルビ 12px）・決まりの色だけ） */
+.po-book.po-extra {
+  order: 0;
+  flex: none;
+  width: 70%;
+  min-width: 0;
+  min-height: 48px; /* 控えめなボタンだけ 48px（UI 検査のきまりの例外。e2e/helpers/uiRules.ts） */
+  padding: var(--rk-sp-1) var(--rk-sp-3);
+  font-size: 24px;
+  font-weight: 700;
+  border-width: 2px;
+  background: var(--rk-bg-900, #10141f);
+  box-shadow: none;
 }
 .po-book:active {
   transform: translateY(2px);
