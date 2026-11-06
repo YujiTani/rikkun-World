@@ -12,7 +12,8 @@
   --hud-above-hotbar: calc(var(--hb-bottom) + var(--rk-slot-hotbar) + var(--rk-sp-4));
 }
 
-#hotbar {
+#hotbar,
+#hotbar-p2 {
   position: fixed;
   left: calc(50% - var(--hb-w) / 2);
   bottom: var(--hb-bottom);
@@ -39,10 +40,10 @@
   color: var(--rk-text);
   --slot-art: 86%;
 }
-#hotbar .slot:not([data-cat]) {
+:is(#hotbar, #hotbar-p2) .slot:not([data-cat]) {
   background: var(--rk-slot-empty-hud);
 }
-#hotbar .slot {
+:is(#hotbar, #hotbar-p2) .slot {
   width: var(--rk-slot-hotbar);
   height: var(--rk-slot-hotbar);
   --slot-art: 75%;
@@ -126,6 +127,7 @@
 }
 
 .slot-key {
+  font-variant-numeric: tabular-nums;
   position: absolute;
   left: var(--rk-sp-1);
   top: 0;

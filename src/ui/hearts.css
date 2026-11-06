@@ -1,5 +1,5 @@
 /* ハート: 1280px で 28px。A じぶん の 2 行目（左はしは かたまりの左はしにそろう）。防具の絵は右 */
-#hearts {
+:is(#hearts, #hearts-p2) {
   --heart: clamp(23.8px, 2.1875vw, 42px);
   order: 2;
   display: flex;
@@ -25,7 +25,7 @@
 }
 
 /* むてき: ハートのふちが アクセント色 */
-#hearts[data-invincible='true'] .heart-img {
+:is(#hearts, #hearts-p2)[data-invincible='true'] .heart-img {
   filter: drop-shadow(2px 0 0 var(--rk-accent)) drop-shadow(-2px 0 0 var(--rk-accent))
     drop-shadow(0 2px 0 var(--rk-accent)) drop-shadow(0 -2px 0 var(--rk-accent));
 }
