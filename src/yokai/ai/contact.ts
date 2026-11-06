@@ -10,6 +10,7 @@ import type { YokaiFireballs } from './fireballs';
 import type { YokaiManagerOptions } from './managerTypes';
 import { askParry } from './parry';
 import type { YokaiReeler } from './reeler';
+import { aim, aimAt } from './target';
 import type { YokaiStone } from './stone';
 
 const tmp = { x: 0, z: 0 };
@@ -40,21 +41,29 @@ export class YokaiContact {
   contactTick(): void {
     const { f, combat, config, events } = this.d;
     const dmg = config.contactDamage;
-    if (!(dmg > 0) || combat.dead()) return;
-    const pb = playerBox(f, tmpBox);
+    if (!(dmg > 0)) return;
+    // 1 ステップに 1 人あたり 1 回まで（ねらっている 相手の 箱で 見る）
+    let done1 = false;
+    let done2 = false;
     for (const e of f.ents) {
+      if (e.target === 2 ? done2 : done1) continue;
       if (KIND_TRAITS[e.kind].swims) continue; // およぐ 妖怪は 体当たりしない（ぺちんだけ）
       if (e.state === 'dying' || e.state === 'leaving' || e.state === 'appear' || e.state === 'attack' || e.stag) continue; // 攻撃中は攻撃のダメージだけ。よろけ中は 体当たりしない
+      aimAt(f, e);
+      if (combat.dead()) continue;
+      const pb = playerBox(f, tmpBox);
       for (const b of boxesOf(e, this.boxList)) {
         if (aabbOverlap(obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox2), pb) && localOverlap(f, e, b)) {
           if (combat.damage(dmg * KIND_TRAITS[e.kind].contactMul, e.kind, { x: e.x, y: e.y, z: e.z })) {
             events.cues.hurt.push(e.id);
-            return;
+            if (f.who === 2) done2 = true;
+            else done1 = true;
           }
           break;
         }
       }
     }
+    aim(f, 1);
   }
 
   /** 攻撃の model が「当たりを見る」瞬間（ちょうちんは 火の玉を 出す） */

@@ -22,6 +22,8 @@ export interface DigFxDeps {
   /** アイテムが入った（ホットバーの「ぽよん」や飛ぶ絵） */
   onPickup?: (item: ItemId, count: number) => void;
   settings?: FxSettings;
+  /** COOP-1 3a: ねらいの 枠の 色（2P の DigFx は DUO_COLORS.p2）。なければ 今までの 色 */
+  outlineColor?: THREE.ColorRepresentation;
   /** 出来事を main が 1 回だけ drain して配るとき、その列を渡す（なければ dig.drainEvents()） */
   events?: () => DigEvent[];
 }
@@ -37,7 +39,7 @@ const same = (a: Vec3 | null, b: Vec3 | null) => !!a && !!b && a.x === b.x && a.
  * 出来事は dig.drainEvents() で読む（テスト用の peek の列とは別）。
  */
 export class DigFx {
-  readonly outline = new TargetOutline();
+  readonly outline: TargetOutline;
   readonly crack = new CrackOverlay();
   readonly particles = new BreakParticles();
   readonly puffs = new BlockPuffs();
@@ -57,6 +59,7 @@ export class DigFx {
   private wasReady = false;
 
   constructor(private readonly d: DigFxDeps) {
+    this.outline = new TargetOutline(d.outlineColor);
     this.cfg = d.settings ?? FX_SETTINGS;
     const c = this.cfg;
     this.combo = new ComboTracker(

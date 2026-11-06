@@ -19,6 +19,8 @@ export interface YokaiConfig {
   yokaiMax: number;
   /** 地下に いる ときの 同時の数（地上の yokaiMax とは べつ。今 いる 所の 数を 使う） */
   yokaiMaxUnder: number;
+  /** COOP-1: 2 人のときの 世界全体の 同時の数（1 人の yokaiMax より 多く、2 人分より 少ない） */
+  yokaiMaxTotal: number;
   nurikabeMax: number;
   /** およぐ 妖怪（タコはちまき）の 同時に いる 数の 上限（yokaiMax の 中に 入る。TAKO-1） */
   takoHachimakiMax: number;
@@ -58,6 +60,7 @@ export function createYokaiConfig(): YokaiConfig {
     yokaiSpawnIntervalUnder: 480,
     yokaiMax: 3,
     yokaiMaxUnder: 3,
+    yokaiMaxTotal: 5,
     nurikabeMax: 1,
     takoHachimakiMax: 2,
     // COUNTRY-1: 全体の 倍率（4 種とも 1）。30・25・25・20 の 数は 国の表の ものさしの行（countryTable.ts）

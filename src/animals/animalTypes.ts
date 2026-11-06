@@ -192,4 +192,6 @@ export interface AnimalManagerOptions {
   deps: AnimalDeps;
   /** 足もと の 中央 */
   getPlayer: () => { position: Vec3 };
+  /** COOP-1 3a: 仲間（2P）の 足もと。野生の 数は 近い方で 数え、消すのは 2 人とも 遠いとき。なし / null = 1 人。ついてくる・だっこ・小屋は 1P のまま */
+  partner?: () => { position: Vec3 } | null;
 }

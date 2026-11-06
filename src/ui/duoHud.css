@@ -318,3 +318,20 @@ html[data-duo] #hotbar-p2 {
 html[data-duo] :is(#hearts, #hearts-p2) {
   gap: var(--rk-sp-1);
 }
+
+/* COOP-1 3a: 2P が 倒れているあいだ、2P の 側（右半分）に 出る */
+.duo-p2-down {
+  position: fixed;
+  left: 75%;
+  transform: translateX(-50%);
+  bottom: calc(var(--hb-bottom) + var(--rk-slot-hotbar) + var(--rk-sp-7) * 2);
+  max-width: 45vw;
+  padding: var(--rk-sp-2) var(--rk-sp-4);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-m);
+  border: var(--rk-bw) solid var(--duo-p2);
+  color: var(--rk-text);
+  font-size: var(--rk-fs-head);
+  font-weight: 800;
+  pointer-events: none;
+}

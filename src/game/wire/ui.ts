@@ -21,7 +21,7 @@ import { playCraft } from '../../fx/craftSounds';
 import { CraftUiHud } from '../../ui/craftUi';
 import { PickupLog } from '../../ui/pickupLog';
 import { LogSystem, LogPage } from '../../ui/log';
-import { type ItemId, CROP_KINDS, SEED_ITEM, cropKindOfBlock, type AchievementId, type DefeatWith } from '../../contracts';
+import { type Inventory, type ItemId, CROP_KINDS, SEED_ITEM, cropKindOfBlock, type AchievementId, type DefeatWith } from '../../contracts';
 import { itemRarity, rarityIndex } from '../../drops/rarity';
 import { itemType } from '../../inventory/items';
 import { AchievementSystem, AchievementsPageModel, ACHIEVEMENT_DEFS } from '../../achievements';
@@ -596,8 +596,8 @@ export function wireAchievements(deps: WiredWeaponFx) {
   });
   shared.tryOpenTansu = () => dig.tryOpenAimedStorage();
   time.onPhaseChange((p) => achievements.feedPhase(p));
-  const defeatWith = (): DefeatWith => {
-    const h = inventory.held()?.item;
+  const defeatWith = (inv: Inventory = inventory): DefeatWith => {
+    const h = inv.held()?.item;
     if (h === 'bokuto' || h === 'katana' || h === 'naginata' || h === 'crystal_katana' || h === 'yumi') return h;
     if (h === 'kin_yumi' || h === 'kongo_yumi') return 'yumi'; // GOLD-1: きんの 装備 は 実績 の 表 に 武器別 の 行 を 足さず、てつ と 同じ あつかい
     if (h === 'kin_katana' || h === 'kongo_katana') return 'katana';
@@ -606,9 +606,10 @@ export function wireAchievements(deps: WiredWeaponFx) {
     if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe' || h === 'wood_axe' || h === 'stone_axe' || h === 'iron_axe') return 'pickaxe';
     return 'hand';
   };
-  shared.onDefeatAch = (kind) => {
+  // COOP-1 3a: なにで・ハートは たおした 人の もの（2P なら 2P の 持ち物の 手と ハート）
+  shared.onDefeatAch = (kind, who) => {
     log.defeat(YOKAI_NAME[kind]);
-    achievements.feedDefeat({ kind, tick: game.tick, with: defeatWith(), hp: combat.hp() });
+    achievements.feedDefeat({ kind, tick: game.tick, with: defeatWith(who === 2 ? shared.p2.inventory : inventory), hp: who === 2 ? shared.p2Hp() : combat.hp() });
   };
   return {
     achievements, countryWatch, legendBook, ninjaBook, ninjaHave, samuraiBook, samuraiHave, eyePos,

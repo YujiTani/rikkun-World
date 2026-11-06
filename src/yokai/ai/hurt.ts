@@ -26,7 +26,7 @@ export class YokaiHurt {
   constructor(private readonly d: HurtDeps) {}
 
   /** ダメージ。よろけ中の 最初の 1 回は 2 倍（WEAPON-5）。実際に 与えた 数を 返す（当たらなければ 0） */
-  hurtYokai(id: number, amount: number, from: { x: number; y: number; z: number }, knock?: YokaiKnock, by: YokaiHurtBy | 'reflect' = 'player'): number {
+  hurtYokai(id: number, amount: number, from: { x: number; y: number; z: number }, knock?: YokaiKnock, by: YokaiHurtBy | 'reflect' = 'player', who: 1 | 2 = 1): number {
     const { d } = this;
     const e = d.f.ents.find((q) => q.id === id);
     if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove) return 0;
@@ -38,7 +38,7 @@ export class YokaiHurt {
     e.hp = Math.max(0, Math.round((e.hp - amount) * 100 + 1e-7) / 100); // WEAPON-4: 0.01 の位に まるめる（小数の 誤差で のこさない）
     d.marks.showMarks(e);
     if (e.hp <= 0) {
-      d.reward.defeat(e);
+      d.reward.defeat(e, true, who);
       return amount;
     }
     e.model.hit();

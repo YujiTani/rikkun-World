@@ -40,6 +40,7 @@ import { YokaiReeler } from './reeler';
 import { YokaiSpawner } from './spawner';
 import { YokaiStone } from './stone';
 import { YokaiSwimmer } from './swim';
+import { aim, aimAt, currentTarget, pickTarget, writePlayers } from './target';
 
 // 外から使う型の名前は、これまでどおり この ファイルから 読める
 export type { HookYokaiEvent, SpawnOptions, YokaiManagerOptions } from './managerTypes';
@@ -65,7 +66,7 @@ export class YokaiManager implements YokaiWorld {
   private readonly stagBook: StaggerBook;
   private readonly burst = new BurstFx();
   /** 係どうしで共有する「いまのステップ」（妖怪の列・ステップの数・プレイヤーの足もと） */
-  private readonly f: YokaiField = { ents: [], steps: 0, px: 0, py: 0, pz: 0 };
+  private readonly f: YokaiField = { ents: [], steps: 0, px: 0, py: 0, pz: 0, who: 1, p1: { x: 0, y: 0, z: 0 }, p2: { on: false, x: 0, y: 0, z: 0 } };
   /** 部品は ここから 呼ぶときに 読む（つなぎ込みやテストが あとから 書きかえても 効く） */
   private readonly opts: YokaiManagerOptions;
 
@@ -125,10 +126,12 @@ export class YokaiManager implements YokaiWorld {
     const fall = (this.fall = new YokaiFall({ world, config: this.config, events, marks: presenter, reward }));
     const stone = (this.stone = new YokaiStone({ world, reward, opts }));
     const reeler = (this.reeler = new YokaiReeler({ f, stag: this.stagBook, opts }));
-    const fireballs = (this.fireballs = new YokaiFireballs({ world, f, combat: opts.combat, events, opts, settings: this.S, hurt: this.hurt, reeler, burst: this.burst }));
-    const contact = (this.contact = new YokaiContact({ f, combat: opts.combat, config: this.config, events, opts, reeler, stone, fireballs }));
-    this.chaser = new YokaiChaser({ world, f, combat: opts.combat, config: this.config, events, opts, rng, mover, fall });
-    this.swimmer = new YokaiSwimmer({ world, f, combat: opts.combat, events, group: this.group, rng });
+    // 部品には「いま f が ねらっている 人」へ ダメージを とどける 窓口を わたす（1P は PlayerCombat・2P は partner.hurt）
+    const target = currentTarget(f, opts.combat, () => this.opts.partner?.());
+    const fireballs = (this.fireballs = new YokaiFireballs({ world, f, combat: target, events, opts, settings: this.S, hurt: this.hurt, reeler, burst: this.burst }));
+    const contact = (this.contact = new YokaiContact({ f, combat: target, config: this.config, events, opts, reeler, stone, fireballs }));
+    this.chaser = new YokaiChaser({ world, f, combat: target, config: this.config, events, opts, rng, mover, fall });
+    this.swimmer = new YokaiSwimmer({ world, f, combat: target, events, group: this.group, rng });
     const placement = (this.placement = new YokaiPlacement({ world, f, events, opts, titleRng, marks: presenter }));
     this.spawner = new YokaiSpawner({
       world,
@@ -214,8 +217,8 @@ export class YokaiManager implements YokaiWorld {
   }
 
   /** knock（WEAPON-2）: 押す 距離（水平。省くと 1.0）・上への 初速（省くと 0）。ぬりかべ は 押されない */
-  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock, by: YokaiHurtBy = 'player'): number {
-    return this.hurt.hurtYokai(id, amount, from, knock, by);
+  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock, by: YokaiHurtBy = 'player', who: 1 | 2 = 1): number {
+    return this.hurt.hurtYokai(id, amount, from, knock, by, who);
   }
 
   /** WEAPON-9 §5.3.1: (x, z) の ほうへ 水平に dist だけ すいよせる。ふだんの 当たり判定の 中で 動く（かべで 止まる）。上下は かえない */
@@ -326,16 +329,21 @@ export class YokaiManager implements YokaiWorld {
     for (const e of f.ents) e.stag = this.stagBook.get(e.id) !== null;
     this.stagBook.step();
     this.placement.tickAnnounce();
-    const p = this.getPlayer();
-    f.px = p.position.x;
-    f.py = p.position.y;
-    f.pz = p.position.z;
+    writePlayers(f, this.getPlayer().position, this.opts.partner?.() ?? null);
+    aim(f, 1);
+    const p1Alive = !this.opts.combat.dead();
+    // ねらう 相手: ねらえる 人のうち 近い方（攻撃中は かえない）
+    for (const e of f.ents) if (e.state !== 'attack') e.target = pickTarget(f, p1Alive, e);
 
     this.spawner.spawnTick();
     this.spawner.leaveTick();
     this.spawner.farTick();
 
-    for (const e of f.ents) this.stepEntity(e, dt);
+    for (const e of f.ents) {
+      aimAt(f, e);
+      this.stepEntity(e, dt);
+    }
+    aim(f, 1);
     this.spawner.forgetTick();
     this.mover.separate();
     this.contact.contactTick();
@@ -514,12 +522,17 @@ export class YokaiManager implements YokaiWorld {
     const f = this.f;
     const e = f.ents.find((q) => q.id === id);
     if (!e || e.state === 'dying' || e.state === 'leaving' || e.state === 'appear' || e.state === 'attack' || e.remove) return null;
+    aimAt(f, e);
     const dx = f.px - e.x;
     const dz = f.pz - e.z;
     const d = Math.hypot(dx, dz);
     if (d > 1e-6) e.yaw = yawToward(dx / d, dz / d); // プレイヤーの方を すぐ向く
-    if (KIND_TRAITS[e.kind].longNeck && !this.chaser.planNeck(e)) return null;
+    if (KIND_TRAITS[e.kind].longNeck && !this.chaser.planNeck(e)) {
+      aim(f, 1);
+      return null;
+    }
     this.chaser.startAttack(e);
+    aim(f, 1);
     return { hitInSteps: Math.round(YOKAI_STATS[e.kind].hitSeconds * 60) };
   }
 }

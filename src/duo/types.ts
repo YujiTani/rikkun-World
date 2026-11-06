@@ -1,3 +1,4 @@
+import type { ItemId } from '../contracts';
 /**
  * COOP-1（docs/design/COOP-1.md）の 型の 約束。作業 1〜2 で 使う 型を ここに 1 か所で 置く。
  * これは 型だけ（実行する コードを 持たない）。実装（developer）は この 型を そのまま 使う。変えるときは テストも 直す。
@@ -60,7 +61,18 @@ export interface DuoViewportsHook {
  * 〔約束〕2P の「コントローラーを つないでね」は data-testid="duo-pad-lost"(padLost の あいだ だけ 見える)。
  * `join()` と `place()` は `?duo=dev` の ときだけ 使える（作業 3 まで。§8）。
  */
-export interface DuoHook {
+/** 作業 3a（#416。§12.0）: 2P の あそびの 口。aimAt・give・hurt は `?duo=dev` の ときだけ 効く */
+export interface DuoPlayHook {
+  aimAt(who: 1 | 2, cell: DuoVec3): void;
+  target(who: 1 | 2): { block: DuoVec3; place: DuoVec3; id: string } | null;
+  frame(who: 1 | 2): { visible: boolean; color: string };
+  give(who: 1 | 2, item: ItemId, count: number): void;
+  count(who: 1 | 2, item: ItemId): number;
+  hearts(who: 1 | 2): { hp: number; maxHp: number; down: boolean };
+  hurt(who: 1 | 2, amount: number): void;
+}
+
+export interface DuoHook extends DuoPlayHook {
   join(): boolean;
   place(who: 1 | 2, pos: DuoVec3): void;
   state(): DuoState;

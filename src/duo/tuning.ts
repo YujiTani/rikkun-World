@@ -80,6 +80,10 @@ export const DUO_TUNING = {
   layoutDropPerJob: 4,
   /** 2P の 頭の 上の「？」の 高さ（足もとから マス） */
   questionHeightTiles: 2.9,
+
+  // ---- 作業 3a（#416）。値は 仕様 §9.5 ----
+  /** 2P が 倒れてから 1P の 横に 戻るまで（ステップ。180 = 3 秒） */
+  p2ReturnSteps: 180,
 } as const;
 
 /**

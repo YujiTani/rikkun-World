@@ -23,13 +23,13 @@ describe('AC11: 2 人のとき もちもの画面でも 時間の 倍率は 1', 
 });
 
 describe('AC15: 段階 1 の 2P は 本・建築士さん・とりごや・たんすを 開けない', () => {
-  it.each(['book', 'builder', 'henhouse', 'storage'] as const)('%s は 開かない', (kind) => {
+  it.each(['book', 'builder', 'henhouse', 'storage', 'furnace'] as const)('%s は 開かない', (kind) => {
     expect(p2MayOpen(kind)).toBe(false);
   });
   it('2P 自分の もちものは 開ける', () => {
     expect(p2MayOpen('inventory')).toBe(true);
   });
-  it('表は 5 つの 画面を ぜんぶ 持つ（足し忘れを 落とす）', () => {
-    expect([...P2_OPEN_KINDS].sort()).toEqual(['book', 'builder', 'henhouse', 'inventory', 'storage']);
+  it('表は 6 つの 画面（かまどを 足した）を ぜんぶ 持つ（足し忘れを 落とす）', () => {
+    expect([...P2_OPEN_KINDS].sort()).toEqual(['book', 'builder', 'furnace', 'henhouse', 'inventory', 'storage']);
   });
 });

@@ -81,6 +81,8 @@ export class DigSystemImpl implements DigSystem {
   // ほった量の記憶（最後の 1 こだけ）
   private memBlock: Vec3 | null = null;
   private memId: BlockId | null = null;
+  /** ほっている のは 体の 上の マス（#293。世界の ブロックでは ないので 「なくなった」を 世界で 見ない） */
+  private memBody = false;
   /** ほった量（ステップ。小数あり） */
   private mem = 0;
   private active = false;
@@ -343,6 +345,9 @@ export class DigSystemImpl implements DigSystem {
     this.active = false;
     this.blockedReason = null;
 
+    // COOP-1 3a AC36: ほっている ブロックが（だれが こわしても）なくなったら、ひびは 次の ステップで 0 に もどる
+    if (this.memBlock && !this.memBody && this.world.getBlock(this.memBlock.x, this.memBlock.y, this.memBlock.z) === 'air') this.clearMem();
+
     // HOUSE-1A: 建築士さんを ねらって いる 間は 後ろの ブロックを ほらない（左クリックを 押しつづけても。ほりかけの ひびは もどる）
     if (this.input.punching || this.input.yokaiBlocks || (primary && this.aim.architectHit !== null)) {
       this.decay();
@@ -388,6 +393,7 @@ export class DigSystemImpl implements DigSystem {
       if (!this.memBlock || !sameBlock(this.memBlock, t.block) || this.memId !== t.id) {
         this.memBlock = { ...t.block };
         this.memId = t.id;
+        this.memBody = this.aim.bodyTgt;
         this.mem = 0;
         this.ready = false;
       }
@@ -465,6 +471,7 @@ export class DigSystemImpl implements DigSystem {
   private clearMem(): void {
     this.memBlock = null;
     this.memId = null;
+    this.memBody = false;
     this.mem = 0;
     this.ready = false;
   }
