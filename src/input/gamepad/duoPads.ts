@@ -104,8 +104,11 @@ export class DuoPadRouter {
       return;
     }
     if (this.joined) {
-      // 2P の パッドが まだ きまっていない（パッドなしで 参加した）あいだは 候補を さがす。きまったら そこから 動かさない
-      if (this.joinedBase2 === NONE) this.firstTwo(pads);
+      // 2P の パッドが まだ きまっていない（パッドなしで 参加した）あいだは 2P の 候補だけ さがす。1P は 一度 きまったら 動かさない（AC73）
+      if (this.joinedBase2 === NONE) {
+        if (this.joinedBase1 === NONE) this.firstTwo(pads);
+        else this.joinedBase2 = this.firstOther(pads, this.joinedBase1);
+      }
       this.base1 = this.joinedBase1;
       this.base2 = this.joinedBase2;
       return;
