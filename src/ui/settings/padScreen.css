@@ -1,0 +1,106 @@
+/* ゲームパッド画面。図はオリジナル。文字は枠の中央 */
+.pad-screen[hidden] { display: none !important; }
+.pad-screen {
+  position: relative;
+  z-index: 1;
+  width: min(1040px, calc(100% - 24px));
+  max-height: min(92vh, 860px);
+  overflow: auto;
+  margin: 16px auto;
+  padding: 16px;
+  box-sizing: border-box;
+  background: var(--rk-bg-900, #10141f);
+  color: var(--rk-text, #fff);
+  border: 2px solid var(--rk-accent, #ffc83d);
+  border-radius: 24px;
+}
+.pad-warn {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--rk-accent, #ffc83d);
+}
+.pad-warn[hidden] { display: none !important; }
+.pad-capture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+.pad-capture[hidden] { display: none !important; }
+.pad-stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(260px, 420px) minmax(140px, 1fr);
+  gap: 8px 12px;
+  align-items: center;
+  min-height: 420px;
+}
+.pad-wires {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.pad-wires line {
+  stroke: #aeb8d0;
+  stroke-width: 2;
+}
+.pad-wires line.is-on { stroke: #ffc83d; stroke-width: 3; }
+.pad-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  z-index: 1;
+}
+.pad-call {
+  min-height: 44px;
+  padding: 4px 8px;
+  border: 2px solid var(--rk-accent, #ffc83d);
+  border-radius: 14px;
+  background: var(--rk-bg-700, #252f47);
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.pad-call.is-wait,
+.pad-call.is-pick {
+  outline: 4px solid #4fc3f7;
+  outline-offset: 2px;
+}
+.pad-call:focus {
+  outline: 4px solid var(--rk-accent, #ffc83d);
+  outline-offset: 2px;
+}
+.pad-body { position: relative; z-index: 1; }
+.pad-svg { width: 100%; height: auto; display: block; }
+.pad-shell { fill: #e7ebf3; }
+.pad-grip { fill: #c5ccd8; }
+.pad-svg text {
+  fill: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  font-family: inherit;
+}
+.pad-part[data-pad-face='faceLeft'] text { fill: #141414; }
+.pad-part.is-hot circle,
+.pad-part.is-hot rect,
+.pad-part.is-pick circle,
+.pad-part.is-pick rect {
+  stroke: #ffc83d;
+  stroke-width: 4;
+}
+.pad-part.is-pick circle,
+.pad-part.is-pick rect { stroke: #4fc3f7; }

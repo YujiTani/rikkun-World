@@ -41,14 +41,18 @@ test('せってい: 表・はやさ・おと・割り当て・動作確認', asy
   const table = page.getByTestId('settings-controls');
   await expect(table).toContainText('すること');
   await expect(table).toContainText('キー・マウス');
-  await expect(table).toContainText('コントローラー');
   await expect(table).toContainText('Space');
   await expect(table).toContainText('Esc');
   await expect(table).toContainText('ひだりクリック');
-  await expect(page.getByTestId('look-speed')).toBeVisible();
   await expect(page.getByTestId('sound-master')).toBeVisible();
+  await expect(page.getByTestId('pad-open')).toBeVisible();
+  await page.getByTestId('pad-open').click();
+  await expect(page.getByTestId('pad-screen')).toBeVisible();
+  await expect(page.getByTestId('look-speed')).toBeVisible();
   await expect(page.getByTestId('dead-zone')).toBeVisible();
   await expect(page.getByTestId('settings-diag')).toBeVisible();
+  await expect(page.locator('[data-pad-face="faceBottom"] text')).toHaveText('B');
+  await expect(page.locator('[data-pad-face="faceRight"] text')).toHaveText('A');
 
   await page.getByTestId('look-speed').evaluate((el) => {
     const input = el as HTMLInputElement;
@@ -69,6 +73,7 @@ test('せってい: 表・はやさ・おと・割り当て・動作確認', asy
   await press(page, 9, true);
   await press(page, 9, false);
   await page.getByTestId('settings-open').click();
+  await page.getByTestId('pad-open').click();
   await page.getByTestId('bind-jump').click({ force: true });
   await expect(page.getByTestId('bind-capture')).toBeVisible();
   await page.getByTestId('bind-cancel').click({ force: true });

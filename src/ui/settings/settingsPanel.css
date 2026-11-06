@@ -39,11 +39,19 @@
   font-weight: 800;
   color: var(--rk-accent, #ffc83d);
 }
+.set-lead {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+}
 .set-table {
   display: grid;
   grid-template-columns: 1.15fr 1fr 1.35fr;
   gap: 8px 12px;
   align-items: center;
+}
+.set-table-keys {
+  grid-template-columns: 1.2fr 1fr;
 }
 .set-head,
 .set-line {
@@ -64,6 +72,9 @@
 .set-keys {
   font-size: 16px;
   font-weight: 700;
+}
+.set-keys {
+  text-align: center;
 }
 .set-note {
   display: block;

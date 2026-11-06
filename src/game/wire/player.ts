@@ -65,16 +65,18 @@ export function wireInput(deps: WiredRender) {
   game.input.onPress((action) => book.onAction(action));
   const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => book.open());
   startPlan.close(); // スタートメニューを 消す（今の「じゅんびちゅう」→「あそぼう」の 案内画面へ）
+  const settingsGate = { open: () => false };
   gamepadApi = wireGamepad({
     game,
     lock,
     mouseLook,
     actions: game.input,
     menuOpen: () => {
+      const settingsOn = settingsGate.open();
       try {
-        return lock.overlayVisible() || shared.screen.inventoryOpen() || book.active() || shared.houseFrozen();
+        return settingsOn || lock.overlayVisible() || shared.screen.inventoryOpen() || book.active() || shared.houseFrozen();
       } catch {
-        return lock.overlayVisible() || book.active() || shared.houseFrozen();
+        return settingsOn || lock.overlayVisible() || book.active() || shared.houseFrozen();
       }
     },
     hanging: () => shared.controller?.tetherBody.hanging === true,
@@ -106,6 +108,7 @@ export function wireInput(deps: WiredRender) {
     },
     playOverlay.el,
   );
+  settingsGate.open = () => settingsUi.isOpen();
   gamepadApi.setPump(() => settingsUi.pump());
   playOverlay.addButton(`タイトル${ruby('画面', 'がめん')}にもどる`, 'return-title', () => returnDialog.open());
   bindPauseMenu({
