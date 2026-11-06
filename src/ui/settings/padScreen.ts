@@ -81,10 +81,10 @@ export function createPadScreen(opts: {
     `<div class="pad-body">${padSvg()}</div>` +
     `<svg class="pad-wires" data-wires aria-hidden="true"></svg>` +
     `<div class="pad-calls" data-calls></div>` +
-    `</div>` +
-    `<div class="set-actions">` +
+    `<div class="set-actions pad-actions" data-actions>` +
     `<button type="button" class="set-text-btn" data-testid="pad-to-camera" data-help="ui:toCamera" data-menu-item>カメラの はやさ</button>` +
     `<button type="button" class="set-text-btn" data-testid="binds-reset" data-help="ui:resetBinds" data-menu-item>もとにもどす</button>` +
+    `</div>` +
     `</div>` +
     `<details class="pad-more" data-testid="settings-diag">` +
     `<summary data-testid="pad-diag-open" data-help="ui:diag">${ruby('動作', 'どうさ')}${ruby('確認', 'かくにん')}</summary>` +
@@ -105,6 +105,7 @@ export function createPadScreen(opts: {
   const captureEl = q<HTMLElement>('[data-testid="bind-capture"]');
   const unknownEl = q<HTMLElement>('[data-testid="pad-unknown"]');
   const stage = q<HTMLElement>('.pad-stage');
+  const actions = q<HTMLElement>('[data-actions]');
   const body = q<HTMLElement>('.pad-body');
   const calls = q<HTMLElement>('[data-calls]');
   const wires = q<SVGSVGElement>('[data-wires]');
@@ -245,6 +246,7 @@ export function createPadScreen(opts: {
     body.style.width = `${D}px`;
     wires.replaceChildren();
     let bottom = band + svgH;
+    let leftBottom = 0;
     const place = (id: string, left: number, top: number, width: number): void => {
       const rows = [...calls.querySelectorAll<HTMLElement>(`[data-group="${id}"]`)];
       rows.forEach((r, i) => {
@@ -253,7 +255,9 @@ export function createPadScreen(opts: {
         r.style.top = `${top + i * (ROW_H + ROW_GAP)}px`;
         r.style.height = `${ROW_H}px`;
       });
-      bottom = Math.max(bottom, top + stackHeight(rows.length, { rowH: ROW_H, rowGap: ROW_GAP }));
+      const end = top + stackHeight(rows.length, { rowH: ROW_H, rowGap: ROW_GAP });
+      if (left === 0) leftBottom = Math.max(leftBottom, end);
+      bottom = Math.max(bottom, end);
     };
     const draw = (id: string, points: [number, number][]): void => {
       const line = document.createElementNS(NS, 'polyline');
@@ -290,6 +294,9 @@ export function createPadScreen(opts: {
       draw(t.id, t.points);
     }
     for (const g of PAD_GROUPS) body.querySelector(`[data-pad-box="${g.id}"]`)?.classList.toggle('is-off', rowsOf(g.id) === 0);
+    // 「カメラの はやさ」「もとにもどす」は 左の列の すぐ下（図の すきまに）置く
+    actions.style.top = `${leftBottom + 12}px`;
+    bottom = Math.max(bottom, leftBottom + 12 + 44);
     stage.style.height = `${Math.ceil(bottom) + 4}px`;
     wires.setAttribute('viewBox', `0 0 ${W} ${Math.ceil(bottom) + 4}`);
   };

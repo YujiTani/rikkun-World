@@ -173,3 +173,11 @@
 .pad-part-btn.is-pick { outline: 4px solid #4fc3f7; outline-offset: -4px; }
 .pad-part-btn:focus { outline: 4px solid var(--rk-accent, #ffc83d); outline-offset: -4px; }
 .pad-call.is-multi .pad-call-text { white-space: normal; line-height: 1.15; padding: 0 4px; }
+.pad-actions {
+  position: absolute;
+  left: 0;
+  margin: 0;
+}
+.pad-actions .set-text-btn { min-height: 44px; padding-top: 4px; padding-bottom: 4px; }
+.pad-more { margin-top: 0; }
+.pad-more summary { min-height: 44px; }
