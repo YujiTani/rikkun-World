@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ActionState } from '../actions';
 import { AlwaysLook } from './reader';
 import { DuoPadRouter } from './duoPads';
+import { FakeStorage } from './testPad';
 
 /**
  * COOP-1 作業 1（#395）の 先行テスト（赤）。AC1・AC3（ユニット）・AC5（パッド側）・AC16。
@@ -204,6 +205,18 @@ describe('AC5: 2P の パッドが ぬけた', () => {
     expect(router.padLost()).toBe(false);
   });
 
+  it('パッドなしで 参加したあと パッドが つながり、その 2P の パッドが ぬけたら padLost（#401）', () => {
+    const { set, poll, router } = make();
+    router.setJoined(true);
+    set(fakePad(0), fakePad(1));
+    poll();
+    expect(router.p2PadIndex()).toBe(1);
+    set(fakePad(0), null);
+    poll();
+    expect(router.padLost()).toBe(true);
+    expect(router.p1PadIndex()).toBe(0);
+  });
+
   it('1P の パッドが ぬけても 2P は 1P に ならない（段階 1）', () => {
     const { set, poll, router } = joinedWithHeld();
     set(null, fakePad(1));
@@ -245,16 +258,17 @@ describe('AC16: 3 本目の パッド', () => {
   });
 });
 
-/** 開発用 `?duo=dev&pad=2p`: 1 本目の パッドが 2P。1P は キーボード・マウスだけ */
-describe('pad=2p: 1 本目の パッドを 2P に する', () => {
+/** COOP-1 作業 2.5（#401）: 前の `?duo=dev&pad=2p`（firstPadIs2P）は なくなった。同じ ことは「1P を パッドなしに 決める」（setChoice）で する */
+describe('1P が パッドなし（setChoice({ p1: null, p2: 0 })）: 1 本目の パッドを 2P に する', () => {
   function make2p() {
     const p1 = new ActionState();
     const p2 = new ActionState();
     const look1 = new AlwaysLook();
     const look2 = new AlwaysLook();
-    const router = new DuoPadRouter({ p1, p2, look1, look2, storage: null, firstPadIs2P: true });
+    const router = new DuoPadRouter({ p1, p2, look1, look2, storage: null, choiceStorage: new FakeStorage(), choiceEnabled: true });
     let pads: (Gamepad | null)[] = [];
     router.getPads = () => pads;
+    router.setChoice({ p1: null, p2: 0 });
     let t = 0;
     return {
       p1,
@@ -319,7 +333,7 @@ describe('pad=2p: 1 本目の パッドを 2P に する', () => {
     expect(router.ignoredPadIndexes()).toEqual([1]);
   });
 
-  it('pad=2p なしは 今のまま（1 本目 = 1P、2 本目の ＋ で 参加）', () => {
+  it('決めていない とき（setChoice なし）は 今のまま（1 本目 = 1P、2 本目の ＋ で 参加）', () => {
     const { p1, router, set, poll } = make();
     set(fakePad(0, { axes: STICK_UP }), fakePad(1));
     router.bootstrap();

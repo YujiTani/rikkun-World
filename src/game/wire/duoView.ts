@@ -124,6 +124,8 @@ export class DuoViews {
     return { x: this.box.x, y: this.box.y, d: this.box.d };
   }
 
+  private readonly vs = { w: 0, h: 0 };
+
   /** 2P の 向きと 歩く 向き(P2Camera)。PlayerController.update の 前に 呼ぶ */
   camStep(screenYawDeg: number, lookDeltaDeg: number, stickHeld: boolean): P2CameraOutput {
     const ci = this.camIn;
@@ -140,8 +142,9 @@ export class DuoViews {
   update(inp: DuoViewsInput): void {
     const { game } = this.d;
     const cam = game.camera;
-    const W = game.renderer.domElement.clientWidth || window.innerWidth;
-    const H = game.renderer.domElement.clientHeight || window.innerHeight;
+    const vs = game.viewSize(this.vs);
+    const W = vs.w;
+    const H = vs.h;
     cam.updateMatrixWorld();
     this.inv.copy(cam.matrixWorld).invert();
     // 2P の 足もとを 1P の カメラで 映す（外 = ルーペ）

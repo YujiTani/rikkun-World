@@ -240,6 +240,10 @@ export function wireDuo(deps: WiredLoop) {
     leave: () => leave('quit'),
     timeScale: () => shared.gameTimeScale(),
     viewports: () => (session.joined ? views.viewports(controller.state.yawDeg) : [fullViewport()]),
+    // 作業 2.5（#401）: 型だけの スタブ(developer が ルーターに つなぐ)
+    padChoice: () => router.choice(),
+    setPadChoice: (c) => router.setChoice(c),
+    padIndex: (who) => router.padIndex(who),
   };
   return { duo: hook, duoSession: session, leaveDuo: leave };
 }

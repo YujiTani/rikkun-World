@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { viewRects } from './viewRects';
+import { liveViewSize, viewRects } from './viewRects';
 
 const LOUPE = { x: 1000, y: 300, w: 160, h: 160 };
 
@@ -35,5 +35,20 @@ describe('viewRects（切りかえの 範囲）', () => {
     expect(early.circle).toBe(true);
     expect(early.second === null || early.second.w < late.second!.w).toBe(true);
     expect(late.second!.w).toBeLessThanOrEqual(160);
+  });
+});
+
+describe('liveViewSize（resize を 待たない 画面の 大きさ）', () => {
+  it('古い キャンバスの 大きさ(1280×800)に ひきずられず、入れ物の 今の 大きさ(1440×900)を 返す', () => {
+    const staleCanvas = { clientWidth: 1280, clientHeight: 800 };
+    const container = { clientWidth: 1440, clientHeight: 900 };
+    const win = { innerWidth: 1440, innerHeight: 900 };
+    expect(staleCanvas.clientWidth).not.toBe(win.innerWidth);
+    expect(liveViewSize(container, win)).toEqual({ w: 1440, h: 900 });
+  });
+  it('入れ物が 0 か ないときは 窓の 大きさ', () => {
+    const win = { innerWidth: 1440, innerHeight: 900 };
+    expect(liveViewSize({ clientWidth: 0, clientHeight: 0 }, win)).toEqual({ w: 1440, h: 900 });
+    expect(liveViewSize(null, win)).toEqual({ w: 1440, h: 900 });
   });
 });

@@ -3,6 +3,7 @@ import { ActionState } from '../input/actions';
 import { stableOpaqueSort, stableTransparentSort } from '../world/render/drawOrder';
 import { FrameStats } from '../debug/frameStats';
 import { createStepClock, MAX_STEPS_PER_FRAME } from './stepClock';
+import { liveViewSize } from '../duo/viewRects';
 
 /** ゲームの更新は 1/60 秒きざみ（固定）。テストで同じ結果を再現しやすくするため。 */
 export const FIXED_DT = 1 / 60;
@@ -296,6 +297,11 @@ export class Game {
     }
     for (const fn of this.preRenders) fn();
     this.drawWorld();
+  }
+
+  /** 今の 画面の 大きさ（CSS px）。resize を 待たずに わかる（キャンバスの style は あとから かわる） */
+  viewSize(out?: { w: number; h: number }): { w: number; h: number } {
+    return liveViewSize(this.container, window, out);
   }
 
   private readonly onResize = () => {

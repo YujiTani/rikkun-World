@@ -22,10 +22,10 @@ export function wireGamepad(opts: {
   const look = new CombinedLook(opts.mouseLook, padLook);
   const slots = new PlayerInputSlots(opts.actions, 1); // slot 0 = 1P（キー・マウスと 同じ）、slot 1 = 2P（COOP-1）
   // COOP-1: パッドは ルーターが 1P・2P に 振り分ける。1P の 読み（reader）は 今までと 同じ
-  // 開発用 `?duo=dev&pad=2p`: 1 本目の パッドを 2P に する（1P は キーボード＋マウス。ロックは 1P の パッドの 有無で 決まる）
-  const query = new URLSearchParams(location.search);
-  const firstPadIs2P = query.get('duo') === 'dev' && query.get('pad') === '2p';
-  const router = new DuoPadRouter({ p1: slots.get(0), p2: slots.get(1), look1: padLook, look2: padLook2, storage: typeof localStorage !== 'undefined' ? localStorage : null, firstPadIs2P });
+  // 「つかう コントローラー」は 作業 3 までは `?duo=dev` の ときだけ（ふだんは 保存を 読まず はじめの 動き）
+  const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+  const choiceEnabled = new URLSearchParams(location.search).get('duo') === 'dev';
+  const router = new DuoPadRouter({ p1: slots.get(0), p2: slots.get(1), look1: padLook, look2: padLook2, storage, choiceStorage: storage, choiceEnabled });
   const reader = router.reader1;
   router.bootstrap();
   opts.lock.setPadActive(reader.hasPad());
@@ -51,15 +51,15 @@ export function wireGamepad(opts: {
     if (action === 'toggleView') opts.onToggleView();
   });
 
-  let pumpUi = (): void => {};
+  let pumpUi: (active: boolean, dt: number) => void = () => {};
   /** COOP-1: 参加の 求め（2 本目の ＋）と 2P の もちもの画面は wireDuo が つなぐ */
   const duo = { onJoinRequested: (): void => undefined, menuOpen2: (): boolean => false };
-  const step = (active: boolean): void => {
+  const step = (active: boolean, dt: number): void => {
     reader.setMenuOpen(opts.menuOpen());
     reader.setHanging(opts.hanging());
     router.setMenuOpen2(duo.menuOpen2());
     if (router.poll(performance.now(), active).joinRequested) duo.onJoinRequested();
-    pumpUi();
+    pumpUi(active, dt);
     const on = reader.hasPad();
     if (on !== opts.lock.isPadActive()) opts.lock.setPadActive(on);
     if (!opts.menuOpen() || reader.isCapturing()) return;
@@ -73,8 +73,8 @@ export function wireGamepad(opts: {
     else if (a.wasPressed('confirm')) clickFocused(root);
   };
   // 案内中（realtime オフ）でもパッドを読んで padActive にできるように idle でも回す
-  opts.game.onUpdate(() => step(true));
-  opts.game.onIdle(() => step(false));
+  opts.game.onUpdate(() => step(true, 1 / 60));
+  opts.game.onIdle((dt) => step(false, dt));
 
   return {
     reader,
@@ -82,7 +82,7 @@ export function wireGamepad(opts: {
     duo,
     look,
     slots,
-    setPump(fn: () => void): void {
+    setPump(fn: (active: boolean, dt: number) => void): void {
       pumpUi = fn;
     },
     look2: padLook2,
