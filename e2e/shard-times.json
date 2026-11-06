@@ -19,6 +19,7 @@
   "e2e/craft2.spec.ts": 240,
   "e2e/craftPage.spec.ts": 237,
   "e2e/duo1.spec.ts": 40,
+  "e2e/duo2.spec.ts": 45,
   "e2e/e2e179-clock.spec.ts": 72,
   "e2e/e2e180-micro.spec.ts": 39,
   "e2e/fix129.spec.ts": 45,

@@ -1,7 +1,9 @@
 import { columnKey } from '../VoxelWorld';
 import type { FrameClock } from '../frameClock';
 import type { StreamLight, StreamMesh } from '../stream/ChunkStream';
-import { cheb, getRing } from '../stream/ring';
+import type { RingCenter } from '../stream/layout';
+import { DUO_TUNING } from '../../duo/tuning';
+import { getRing, type RingSpec } from '../stream/ring';
 import { CHUNK_DRAW_DISTANCE } from './config';
 import type { SectionMeshStore } from './sectionMeshStore';
 import type { ColState, SecState } from './sectionState';
@@ -32,6 +34,8 @@ interface StreamHost {
   build(st: SecState, boxOnly: boolean, deadline?: number): void;
   rebuildLod(col: ColState): void;
   updateLod(col: ColState): void;
+  /** 全部の列の 段(小ブロック・箱・LOD)を 決めなおす */
+  retier(): void;
 }
 
 /**
@@ -41,7 +45,17 @@ interface StreamHost {
 export class StreamDriver {
   /** ストリーミングにしたか */
   on = false;
-  private ringC = { cx: 0, cz: 0 };
+  /** 描く輪の 中心（COOP-1: 1P と、いれば 2P。1 人のときは 長さ 1） */
+  private centers: RingCenter[] = [{ cx: 0, cz: 0 }];
+  /** setLayout で もらった 輪。無ければ getRing() */
+  private spec: RingSpec | null = null;
+  /** 2P の 正しい 位置（水平。COOP-1）。無ければ 2 つ目の 中心の 列の まん中 */
+  private hasV2 = false;
+  private v2x = 0;
+  private v2z = 0;
+  private readonly ex = { x: 0, z: 0 };
+  /** 輪が 小さくなって 捨てる 待ちの 列（runJob が 少しずつ 捨てる） */
+  private readonly dropQ = new Set<ColState>();
   /** 光を計算ずみの列 */
   private readonly litCols = new Set<number>();
   /** 箱から小ブロックへの差しかえを してよいか（ストリーミングでは ready のあと） */
@@ -75,6 +89,7 @@ export class StreamDriver {
   streamMesh(): StreamMesh {
     return {
       setRing: (cx, cz) => this.setRing(cx, cz),
+      setLayout: (centers, spec) => this.setLayout(centers, spec),
       pendingJobs: () => this.pendingJobs(),
       nextJobDist: () => this.nextJobDist(),
       runJob: (deadline) => this.runJob(deadline),
@@ -107,6 +122,7 @@ export class StreamDriver {
     this.litCols.delete(k);
     const col = this.cols.get(k);
     if (col !== undefined) {
+      this.dropQ.delete(col);
       for (const st of col.secs) {
         this.host.dropMeshes(st);
         this.host.dequeue(st);
@@ -130,32 +146,109 @@ export class StreamDriver {
   }
 
   private setRingOf(col: ColState): void {
-    col.ring = cheb(col.cx, col.cz, this.ringC.cx, this.ringC.cz);
-    col.inDraw = col.ring <= getRing().draw;
+    let best = Infinity;
+    for (const c of this.centers) {
+      const d = Math.max(Math.abs(col.cx - c.cx), Math.abs(col.cz - c.cz));
+      if (d < best) best = d;
+    }
+    col.ring = best; // どの 中心からでも いい、いちばん 近い 中心との チェビシェフ距離（COOP-1 §5）
+    col.inDraw = col.ring <= (this.spec ?? getRing()).draw;
   }
 
-  /** 描く輪の中心（プレイヤーのいる列）。輪の外（> R_DRAW_DROP）になった列の絵は捨てる */
+  /** 中心との ユークリッド距離の 2 乗（近い 方の 中心。同じ 輪の 距離の 並び用） */
+  private nearEuclid(col: ColState): number {
+    let best = Infinity;
+    for (const c of this.centers) {
+      const e = (col.cx - c.cx) ** 2 + (col.cz - c.cz) ** 2;
+      if (e < best) best = e;
+    }
+    return best;
+  }
+
+  /** 描く輪の中心（プレイヤーのいる列）。輪の外（> R_DRAW_DROP）になった列の絵は捨てる。setLayout の 中心 1 つの ばん */
   setRing(cx: number, cz: number): void {
-    this.ringC = { cx, cz };
+    this.setLayout([{ cx, cz }], getRing());
+  }
+
+  /** 1P の ほかに 絵の 段(小ブロック・箱・LOD)を 決める 点（2P。無ければ null）。同じ 入れものを 使い回す */
+  extraViewer(): { x: number; z: number } | null {
+    if (this.hasV2) {
+      this.ex.x = this.v2x;
+      this.ex.z = this.v2z;
+      return this.ex;
+    }
+    const c = this.centers[1];
+    if (c === undefined) return null;
+    this.ex.x = c.cx * 16 + 8;
+    this.ex.z = c.cz * 16 + 8;
+    return this.ex;
+  }
+
+  /** 2P の 正しい 位置（水平）。段を 決めなおすのは 2P が 列を またいだ ときだけ（毎ステップは しない） */
+  setViewer2(x: number, z: number): void {
+    const moved = !this.hasV2 || x >> 4 !== this.v2x >> 4 || z >> 4 !== this.v2z >> 4;
+    this.hasV2 = true;
+    this.v2x = x;
+    this.v2z = z;
+    if (moved) this.host.retier();
+  }
+
+  /** 2P が いなくなった */
+  clearViewer2(): void {
+    if (!this.hasV2) return;
+    this.hasV2 = false;
+    this.host.retier();
+  }
+
+  /** 描く輪の 中心（1 つか 2 つ）と 大きさ（COOP-1）。どの 中心からも 遠い（> drawDrop）列の 絵は 捨てる。輪の 形が かわる(1⇔2・大きさ)ときは 一部だけ 先に 捨て、のこりは runJob で 少しずつ */
+  setLayout(centers: readonly RingCenter[], spec: RingSpec): void {
+    const hadTwo = this.centers.length > 1;
+    const bulk = hadTwo !== centers.length > 1 || (this.spec ?? getRing()) !== spec;
+    this.centers = centers.map((c) => ({ cx: c.cx, cz: c.cz }));
+    this.spec = spec;
+    let now = bulk ? DUO_TUNING.layoutDropPerJob : Infinity; // 1 コマで すぐ 捨てる 列の 数
     for (const col of this.cols.values()) {
       const was = col.inDraw;
       this.setRingOf(col);
-      if (col.ring > getRing().drawDrop) {
-        for (const st of col.secs) {
-          if (st.built !== null || st.voxel || st.extras || st.water) this.host.dropMeshes(st);
-          st.built = null;
-          st.dirty = true;
-          st.evicted = false;
-          this.host.dequeue(st);
-        }
-        if (col.lodOpaque || col.lodWater) this.host.dropLod(col);
-        col.lodStale = true;
-        col.lodHold = false;
-      } else if (col.inDraw && !was) {
+      if (col.ring > spec.drawDrop) {
+        if (now > 0) {
+          now--;
+          this.dropDraw(col);
+        } else this.dropQ.add(col);
+        continue;
+      }
+      this.dropQ.delete(col);
+      if (col.inDraw && !was) {
         for (const st of col.secs) this.host.enqueue(st);
       } else if (!col.inDraw && was) {
         for (const st of col.secs) this.host.dequeue(st);
       }
+    }
+    if (hadTwo || this.centers.length > 1) this.host.retier(); // 2P の まわりも 近い 段(小ブロック・箱)で 描く
+  }
+
+  /** 輪の 外に なった 列の 絵を 捨てる */
+  private dropDraw(col: ColState): void {
+    for (const st of col.secs) {
+      if (st.built !== null || st.voxel || st.extras || st.water) this.host.dropMeshes(st);
+      st.built = null;
+      st.dirty = true;
+      st.evicted = false;
+      this.host.dequeue(st);
+    }
+    if (col.lodOpaque || col.lodWater) this.host.dropLod(col);
+    col.lodStale = true;
+    col.lodHold = false;
+  }
+
+  /** 捨てる 待ちの 列を 1 仕事ぶん(数列)捨てる。まだ 輪の 外の ときだけ */
+  private dropSome(): void {
+    let n = DUO_TUNING.layoutDropPerJob;
+    for (const col of this.dropQ) {
+      this.dropQ.delete(col);
+      if (this.cols.get(columnKey(col.cx, col.cz)) !== col || col.ring <= (this.spec ?? getRing()).drawDrop) continue;
+      this.dropDraw(col);
+      if (--n <= 0) break;
     }
   }
 
@@ -173,7 +266,7 @@ export class StreamDriver {
 
   /** 光ずみで まだ作っていない仕事の数（セクション 1 つ・LOD 1 列が 1 つ） */
   pendingJobs(): number {
-    let n = this.lodJobCount();
+    let n = this.lodJobCount() + this.dropQ.size;
     for (const col of this.cols.values()) {
       if (!col.meshable || !col.inDraw) continue;
       for (const st of col.work) if (this.host.needsWork(st)) n++;
@@ -186,7 +279,6 @@ export class StreamDriver {
     let best: { col: ColState; st: SecState | null; p: number } | null = null;
     let bd = Infinity;
     let be = Infinity;
-    const { cx: pcx, cz: pcz } = this.ringC;
     for (const col of this.cols.values()) {
       if (!col.inDraw || !col.meshable) continue;
       let p = Infinity;
@@ -210,7 +302,7 @@ export class StreamDriver {
         bs = null;
       }
       if (p === Infinity) continue;
-      const e = (col.cx - pcx) ** 2 + (col.cz - pcz) ** 2;
+      const e = this.nearEuclid(col);
       const better = best === null || p < best.p || (p === best.p && jobBefore(col, e, bd, be, best.col));
       if (better) {
         best = { col, st: bs, p };
@@ -223,6 +315,7 @@ export class StreamDriver {
 
   /** 次の仕事の近さ（チェビシェフ。プレイヤーが変えた所は −1）。無ければ null */
   nextJobDist(): number | null {
+    if (this.dropQ.size > 0) return -1; // 捨てる 仕事は 軽いので 先に
     const j = this.pickJob();
     if (j === null) return null;
     return j.p === 0 ? -1 : j.col.ring;
@@ -230,6 +323,12 @@ export class StreamDriver {
 
   /** 仕事を 1 つ進める（セクション 1 つのメッシュ、または 列 1 つの LOD）。進めたら true */
   runJob(deadline?: number): boolean {
+    if (this.dropQ.size > 0) {
+      this.store.logged = 0;
+      this.store.loggedMicro = false;
+      this.dropSome();
+      return true;
+    }
     const j = this.pickJob();
     if (j === null) return false;
     this.store.logged = 0;

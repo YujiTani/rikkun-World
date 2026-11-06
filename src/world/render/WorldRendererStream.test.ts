@@ -1,8 +1,9 @@
 import { Mesh, Scene } from 'three';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { ChunkColumn } from '../../contracts';
 import { ChunkStream, type StreamIO } from '../stream/ChunkStream';
-import { R_DRAW, R_DRAW_DROP, cheb } from '../stream/ring';
+import type { LayoutMesh } from '../stream/layout';
+import { R_DRAW, R_DRAW_DROP, RING_FULL, RING_SMALL, cheb, setRing } from '../stream/ring';
 import { ArrayVoxelWorld } from '../VoxelWorld';
 import { WorldRenderer } from './WorldRenderer';
 
@@ -325,5 +326,56 @@ describe('PERF-2 小ブロックの仕事を 分ける（clock=time・偽物の�
     expect(s.job().slices).toBe(0);
     expect(s.job().finished).toBe(0);
     expect(s.job().active).toBeNull();
+  });
+});
+
+/**
+ * COOP-1 作業 2（#399）AC28: 実物の StreamMesh（streamDriver）が setLayout(centers, spec) で 描く輪を 切りかえる。
+ * 約束は src/world/stream/layout.ts の 先頭。1 中心のときは setRing(cx, cz) と 同じ 動き。
+ */
+describe('StreamMesh.setLayout（輪の切りかえ。COOP-1 AC28）', () => {
+  afterEach(() => setRing(RING_FULL));
+  const layoutOf = (r: WorldRenderer) => r.streamMesh() as unknown as LayoutMesh;
+
+  it('小さい輪に かえると、描く輪の捨てる線（drawDrop = 5）より 外の絵は 捨て、内がわは のこす', () => {
+    const { r, stream, view, run } = make();
+    view(0, 0);
+    stream.restart(0, 0, 'boot');
+    run();
+    expect(r.streamMesh().columnState(6, 0)).not.toBe('none'); // ふだんの輪: 距離 6 は 描く
+    setRing(RING_SMALL);
+    layoutOf(r).setLayout([{ cx: 0, cz: 0 }], RING_SMALL);
+    r.update();
+    expect(r.sectionInfo(6, 0, 0).meshes, '距離 6 > 5: 捨てる').toBe(0);
+    expect(r.sectionInfo(-6, 0, 0).meshes).toBe(0);
+    expect(r.streamMesh().columnState(RING_SMALL.drawDrop, 0)).not.toBe('none'); // 距離 5: のこす
+    expect(r.streamMesh().columnState(RING_SMALL.draw, 0)).not.toBe('none');
+  });
+
+  it('中心が 2 つのとき: 近い方の 中心から 数える(2P の まわりの 絵は のこり、どちらからも 遠い 絵だけ 捨てる)', () => {
+    const { r, stream, view, run } = make();
+    view(0, 0);
+    stream.restart(0, 0, 'boot');
+    run();
+    setRing(RING_SMALL);
+    layoutOf(r).setLayout([{ cx: 0, cz: 0 }, { cx: 3, cz: 0 }], RING_SMALL);
+    run(); // 仕事(runJob)を 回して から 見る
+    expect(r.sectionInfo(6, 0, 0).meshes, '(6,0) は 1P から 6 > 5 だが 2 つ目の 中心 (3,0) から 距離 3: 箱・小ブロックで 描かれる').toBeGreaterThan(0);
+    expect(r.sectionInfo(-6, 0, 0).meshes, '(-6,0) は どちらからも 6 以上: 捨てる').toBe(0);
+  });
+
+  it('ふだんの輪に もどすと、描く輪の中の 列は また 作られる', () => {
+    const { r, stream, view, run } = make();
+    view(0, 0);
+    stream.restart(0, 0, 'boot');
+    run();
+    setRing(RING_SMALL);
+    layoutOf(r).setLayout([{ cx: 0, cz: 0 }], RING_SMALL);
+    r.update();
+    expect(r.sectionInfo(6, 0, 0).meshes).toBe(0);
+    setRing(RING_FULL);
+    layoutOf(r).setLayout([{ cx: 0, cz: 0 }], RING_FULL);
+    run();
+    expect(r.streamMesh().columnState(6, 0)).not.toBe('none');
   });
 });

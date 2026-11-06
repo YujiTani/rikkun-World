@@ -7,7 +7,8 @@ import { regionRect } from '../gen/region';
 import type { WorldRenderer } from '../render/WorldRenderer';
 import type { ChunkedVoxelWorld } from '../VoxelWorld';
 import { ChunkStream, type StreamInfo, type StreamIO } from './ChunkStream';
-import { colKey } from './ring';
+import { ringSpecFor } from './layout';
+import { colKey, getRing, type RingSpec } from './ring';
 import type { WaterSystem } from '../water/waterSystem';
 
 /** プレイヤーを どこへ どう立たせるか */
@@ -64,6 +65,13 @@ export class StreamHost {
   private firstReady = false;
   private readonly holdCols = new Set<number>();
   private readonly regionCols: { cx: number; cz: number }[] = [];
+  /** 起動で 決めた 輪（1 人の ときの 大きさ。2 つの ときは 小さい 輪に かえる）。COOP-1 */
+  private readonly baseRing: RingSpec = getRing();
+  /** 2P の いる 列（輪を 2 つにする とき）。null = 輪は 1 つ */
+  private hasSecond = false;
+  private secondCx = 0;
+  private secondCz = 0;
+  private twoRings = false;
 
   constructor(private readonly d: StreamHostDeps) {
     this.placed = !d.newWorld;
@@ -147,15 +155,42 @@ export class StreamHost {
     this.stream.restart(cx, cz, 'wait');
   }
 
+  /** COOP-1: 2P の いる 列（輪を 2 つにする）。null で 輪は 1 つに もどる。毎ステップ 呼んでよい */
+  setSecond(cx: number, cz: number): void {
+    this.hasSecond = true;
+    this.secondCx = cx;
+    this.secondCz = cz;
+  }
+
+  /** 輪を 1 つに もどす */
+  clearSecond(): void {
+    this.hasSecond = false;
+  }
+
   /** 毎コマ（固定ステップ）。px, pz = プレイヤーの位置 */
   update(px: number, pz: number): void {
-    if (this.stream.ready && this.stand === null) this.stream.setCenter(Math.floor(px) >> 4, Math.floor(pz) >> 4);
+    if (this.stream.ready && this.stand === null) this.centerNow(Math.floor(px) >> 4, Math.floor(pz) >> 4);
     this.stream.update();
     if (!this.placed) this.tryPlace();
     if (this.rescanNeeded) {
       this.rescanNeeded = false;
       this.d.onColumnsLoaded?.();
     }
+  }
+
+  /** 中心(1P)と 2P の 列から 輪を 決める。変わったときだけ ChunkStream に 伝える */
+  private centerNow(cx: number, cz: number): void {
+    if (!this.hasSecond) {
+      if (this.twoRings) {
+        this.twoRings = false;
+        this.stream.setLayout([{ cx, cz }], this.baseRing);
+      } else this.stream.setCenter(cx, cz);
+      return;
+    }
+    const cur = this.stream.ringCenters();
+    if (this.twoRings && cur.length === 2 && cur[0]!.cx === cx && cur[0]!.cz === cz && cur[1]!.cx === this.secondCx && cur[1]!.cz === this.secondCz) return;
+    this.twoRings = true;
+    this.stream.setLayout([{ cx, cz }, { cx: this.secondCx, cz: this.secondCz }], ringSpecFor(2, this.baseRing));
   }
 
   /** R の列が ぜんぶ 生成ずみになったら 置きものを 1 回だけ書く（K5） */

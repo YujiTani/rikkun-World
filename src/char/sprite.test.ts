@@ -359,3 +359,25 @@ describe('影の板が 使う cardCell（段・向きを 指定して いまの�
     expect(mat.uniforms.uMap!.value).toBeNull();
   });
 });
+
+describe('render(cam): 区画ごとに 板の 向きを かえる（COOP-1 作業2）', () => {
+  it('渡した カメラの 方へ 板が 向く。渡さなければ 作ったときの カメラ', async () => {
+    const { sprite, parent } = make(makeLoader().loadImage);
+    await flush();
+    step(sprite, {});
+    const mesh = parent.getObjectByName('charSprite') as THREE.Mesh;
+    const camA = new THREE.PerspectiveCamera();
+    camA.position.set(0, 1, 10); // +z がわ
+    camA.updateMatrixWorld(true);
+    const camB = new THREE.PerspectiveCamera();
+    camB.position.set(10, 1, 0); // +x がわ
+    camB.updateMatrixWorld(true);
+    const normal = (): THREE.Vector3 => new THREE.Vector3(0, 0, 1).applyQuaternion(mesh.quaternion);
+    sprite.render(camA);
+    const a = normal();
+    sprite.render(camB);
+    const b = normal();
+    expect(Math.abs(a.z)).toBeGreaterThan(0.9);
+    expect(Math.abs(b.x)).toBeGreaterThan(0.9);
+  });
+});

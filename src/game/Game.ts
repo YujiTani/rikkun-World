@@ -65,6 +65,7 @@ export class Game {
   private modalAcc = 0;
   /** 本が 出ている 間に 画面の 大きさが かわって、世界の 絵が きえた */
   private worldStale = false;
+  private viewPass: { active(): boolean; render(): void } | null = null;
   private worldPass: { active(): boolean; render(r: THREE.WebGLRenderer, s: THREE.Scene, c: THREE.PerspectiveCamera): void } | null = null;
 
   constructor(private readonly container: HTMLElement) {
@@ -129,9 +130,16 @@ export class Game {
     this.worldPass = p;
   }
 
+  /** COOP-1: 2 人で 区画を わけて 描く 道（ルーペ・分割の あいだだけ active）。落雷の 道が 先 */
+  setViewPass(p: { active(): boolean; render(): void }): void {
+    this.viewPass = p;
+  }
+
   private drawWorld(): void {
     const wp = this.worldPass;
+    const vp = this.viewPass;
     if (wp && wp.active()) wp.render(this.renderer, this.scene, this.camera);
+    else if (vp && vp.active()) vp.render();
     else this.renderer.render(this.scene, this.camera);
   }
 

@@ -40,22 +40,16 @@ html[data-duo] #hud-self-p2 {
   left: calc(75% - var(--hb-w) * var(--duo-scale) / 2);
 }
 
-/* 1P・2P を わける 色の ふち（ホットバーの 下に 細い 線） */
-html[data-duo] #hotbar::after,
-html[data-duo] #hotbar-p2::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(-1 * var(--rk-sp-2));
-  height: var(--rk-sp-1);
-  border-radius: var(--rk-r-pill);
+/* 1P・2P を わける 色の ふち（案 B: 1P = --rk-xp・2P = --rk-rarity-3。外がわに こい 2px のふち）。ふちの ぶんは 外へ 出す */
+html[data-duo] #hotbar,
+html[data-duo] #hotbar-p2 {
+  border: 2px solid var(--rk-xp);
+  border-radius: var(--rk-r-m);
+  margin: 0 -2px -2px;
+  box-shadow: 0 0 0 2px var(--rk-bg-900);
 }
-html[data-duo] #hotbar::after {
-  background: var(--duo-p1, #4fc3f7);
-}
-html[data-duo] #hotbar-p2::after {
-  background: var(--duo-p2, #3ddc84);
+html[data-duo] #hotbar-p2 {
+  border-color: var(--rk-rarity-3);
 }
 
 /* 距離メーター: 上の 中央。棒は 距離に 比例して 左から のびる */
@@ -65,7 +59,7 @@ html[data-duo] #hotbar-p2::after {
   left: 50%;
   transform: translateX(-50%);
   box-sizing: border-box;
-  padding: var(--rk-sp-5) var(--rk-sp-3) var(--rk-sp-2);
+  padding: var(--rk-sp-6) var(--rk-sp-3) var(--rk-sp-2); /* 上は P1・P2 の バッジの ぶん（UI の きまりの 段 32px） */
   background: var(--rk-hud-bg);
   border-radius: var(--rk-r-m);
   text-shadow: var(--rk-text-outline);
@@ -86,13 +80,13 @@ html[data-duo] #hotbar-p2::after {
   height: 100%;
   width: calc(var(--duo-meter, 0) * 100%);
   border-radius: var(--rk-r-pill);
-  background: var(--duo-tier-0, #ffffff);
+  background: var(--rk-text); /* 段 0 = 白 */
 }
 .duo-meter[data-tier='1'] .duo-bar {
-  background: var(--duo-tier-1, #ffd23f);
+  background: var(--rk-accent);
 }
 .duo-meter[data-tier='2'] .duo-bar {
-  background: var(--duo-tier-2, #ff9a1f);
+  background: var(--rk-accent-2);
 }
 /* 分かれる 印（24 マス = 真ん中） */
 .duo-mark {
@@ -108,20 +102,29 @@ html[data-duo] #hotbar-p2::after {
 .duo-pin {
   position: absolute;
   bottom: calc(100% + var(--rk-sp-1));
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  min-width: 1.6em;
+  height: 1.6em;
+  padding: 0 var(--rk-sp-1);
+  border: 2px solid var(--rk-bg-900); /* こい 2px の ふち */
+  border-radius: var(--rk-r-pill); /* 丸い バッジ */
   font-size: var(--rk-fs-small);
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
-  color: var(--rk-text);
+  color: var(--rk-bg-900);
+  text-shadow: none;
 }
 .duo-pin-1 {
   left: 0;
   transform: translateX(-100%); /* 棒の はじの 左がわ */
-  color: var(--duo-p1, #4fc3f7);
+  background: var(--rk-xp);
 }
 .duo-pin-2 {
-  left: calc(var(--duo-meter, 0) * 100%);
-  color: var(--duo-p2, #3ddc84); /* 棒の さきの 右がわ（P1 と かさならない） */
+  left: calc(var(--duo-meter, 0) * 100%); /* 棒の さきの 右がわ（P1 と かさならない） */
+  background: var(--rk-rarity-3);
 }
 .duo-more {
   position: absolute;
@@ -145,7 +148,7 @@ html[data-duo] #hotbar-p2::after {
   padding: var(--rk-sp-2) var(--rk-sp-4);
   background: var(--rk-hud-bg);
   border-radius: var(--rk-r-m);
-  border: var(--rk-bw) solid var(--duo-p2, #3ddc84);
+  border: var(--rk-bw) solid var(--rk-rarity-3);
   color: var(--rk-text);
   font-size: var(--rk-fs-head);
   font-weight: 800;
@@ -156,6 +159,95 @@ html[data-duo] #hotbar-p2::after {
 }
 .duo-pad-lost[hidden] {
   display: none;
+}
+.duo-pad-lost {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-3);
+}
+.duo-pad-lost-icon {
+  flex: none;
+  display: block;
+  width: calc(var(--rk-fs-head) * 2.4);
+  height: calc(var(--rk-fs-head) * 1.6);
+  color: var(--rk-rarity-3);
+}
+
+/* 2P の 頭の 上の「？」（HTML の 重ね。2P の 頭に 合わせて 動く） */
+.duo-p2-question {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  min-width: 1.4em;
+  padding: 0 var(--rk-sp-2);
+  text-align: center;
+  font-size: var(--rk-fs-title); /* 字の 大きさの 段（1280 で 32px） */
+  font-weight: 900;
+  line-height: 1.3;
+  color: var(--rk-bg-900);
+  background: var(--rk-rarity-3);
+  border: 2px solid var(--rk-bg-900);
+  border-radius: var(--rk-r-pill);
+  text-shadow: none;
+  pointer-events: none;
+  z-index: 7;
+}
+.duo-p2-question[hidden] {
+  display: none;
+}
+
+/* 分割の まん中の 線（高さいっぱい。太さは DUO_TUNING.splitLinePx。暗い 灰色） */
+.duo-split-line {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - var(--duo-split-px, 4px) / 2);
+  width: var(--duo-split-px, 4px);
+  background: var(--rk-bg-700);
+  pointer-events: none;
+  z-index: 4;
+}
+.duo-split-line[hidden] {
+  display: none;
+}
+
+/* ルーペの 丸わく（中の 絵は ゲームの 画面に 描く。ここは わくだけ）。段で 色と 太さ(4 → 6 → 8px)が かわる。案 B: 白 → こがね → オレンジ */
+.duo-loupe {
+  position: fixed;
+  box-sizing: border-box;
+  border-style: solid;
+  border-radius: var(--rk-r-pill); /* まる（UI の きまりは px。999px で まるになる） */
+  border-color: var(--rk-text);
+  border-width: 4px;
+  box-shadow: 0 0 0 2px var(--rk-bg-900), inset 0 0 0 2px var(--rk-bg-900); /* こい 2px の ふち（外と 内） */
+  pointer-events: none;
+  z-index: 4;
+}
+.duo-loupe[hidden] {
+  display: none;
+}
+.duo-loupe[data-tier='1'] {
+  border-color: var(--rk-accent);
+  border-width: 6px;
+}
+.duo-loupe[data-tier='2'] {
+  border-color: var(--rk-accent-2);
+  border-width: 8px;
+}
+/* ルーペの 外の 2P を 指す 三角（上向きの 三角を 回して つかう） */
+.duo-loupe-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 13px solid var(--rk-text);
+  filter: drop-shadow(0 0 0 var(--rk-bg-900)) drop-shadow(1px 0 0 var(--rk-bg-900)) drop-shadow(-1px 0 0 var(--rk-bg-900)) drop-shadow(0 1px 0 var(--rk-bg-900)) drop-shadow(0 -1px 0 var(--rk-bg-900));
+}
+.duo-loupe[data-tier='1'] .duo-loupe-arrow {
+  border-bottom-color: var(--rk-accent);
+}
+.duo-loupe[data-tier='2'] .duo-loupe-arrow {
+  border-bottom-color: var(--rk-accent-2);
 }
 
 /* 2P の もちもの: 右半分の 画面（1P の 画面は ひらかない） */
@@ -174,7 +266,7 @@ html[data-duo] #hotbar-p2::after {
   gap: var(--rk-sp-3);
   overflow: hidden;
   background: var(--rk-panel-bg);
-  border: var(--rk-bw) solid var(--duo-p2, #3ddc84);
+  border: var(--rk-bw) solid var(--rk-rarity-3);
   border-radius: var(--rk-r-l);
   color: var(--rk-text);
   text-shadow: var(--rk-text-outline);
@@ -215,7 +307,7 @@ html[data-duo] #hotbar-p2::after {
   position: absolute;
   inset: 0;
   width: calc(var(--duo-quit, 0) * 100%);
-  background: var(--duo-p2, #3ddc84);
+  background: var(--rk-rarity-3);
   opacity: 0.55;
 }
 .duo-quit-text {

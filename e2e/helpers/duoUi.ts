@@ -3,7 +3,7 @@ import { standOnGround } from './aim';
 
 /**
  * COOP-1 作業 1（#395。docs/design/COOP-1.md §3.1・§9.4・AC12・AC13）の UI 検査の 部品。UI 検査ゲート（e2e/ui-gate.spec.ts の 'duo-hud'）が 使う。
- * 作業 2 で ルーペ・分割の 画面を 足すときは ここに `openDuoLoupe`・`openDuoSplit` と 検査を 足す（AC24・AC33・AC33b）。
+ * 作業 2（#399）で ルーペ・分割・「つないでね」の 画面 `openDuoLoupe`・`openDuoSplit`・`openDuoPadLost` と 検査 `duoViewIssues`・`duoPadLostIssues` を 足した（AC24・AC33・AC33b・色の 案 B）。
  *
  * ---- 開発への つなぎ目の 約束（DOM の data-testid。仕様に 名前が ないので ここで 決めた）----
  *   duo-hotbar-p1 / duo-hotbar-p2   1P・2P の ホットバーの 外わく（2 人のとき だけ ある。1 人のときは 出さない）
@@ -12,6 +12,16 @@ import { standOnGround } from './aim';
  *   duo-meter-bar                   メーターの 棒。見える 長さ（getBoundingClientRect().width）が `duo.state().meter` に 比例する。色は 段で かわる
  *   duo-meter-mark                  真ん中の 印「｜」（24 マス = 棒の 真ん中）
  * 2 人のときの ホットバーは 半分の はばの 90% 以下に 縮める（§3.1）。
+ *
+ * ---- 作業 2 で 足す data-testid（仕様に 名前が ないので ここで 決めた）----
+ *   duo-loupe                   ルーペの 丸わく(1 画面+ルーペの ときだけ ある)。属性 data-tier="0|1|2"。CSS の border-width が 段で 4/6/8px、border-color が 段の 色
+ *   duo-loupe-arrow             ルーペの 外の 2P を 指す 小さな 三角。属性 data-angle = 指す 向き(度。画面で 右 = 0・下 = 90。atan2(y, x))。ルーペの 外がわ(まん中から 遠い 方)に ある
+ *   duo-split-line              分割の まん中の 線(分割の ときだけ ある。高さは 画面いっぱい・左右の まん中)
+ *   duo-meter-badge-p1/-p2      メーターの「P1」「P2」の 丸いバッジ。背景色が 1P・2P の 色
+ *   duo-hotbar-p1 / -p2         ふち(border-color)が 1P・2P の 色
+ *   duo-pad-lost                (作業 1 で 決めた)パッドが ぬけた 表示。文字「コントローラーを つないでね」を ふくむ。子に duo-pad-lost-icon(パッドの 絵)
+ *   duo-p2-question             2P の 頭の 上の「？」(HTML の 重ね。2P の 頭の 位置に 合わせて 動く)。padLost の あいだだけ 見える
+ * 色は 案 B（§11.1。--rk-xp / --rk-rarity-3 / 段 --rk-text → --rk-accent → --rk-accent-2。CSS の 変数を 読んで 確かめる）。
  */
 
 export interface DuoUiIssue {
@@ -83,7 +93,7 @@ async function readMeterAt(page: Page, d: number) {
 
 /**
  * AC12・AC13 の 検査（3 つの 大きさごとに 呼ぶ）。見つけた くずれを 返す（空 = 合格）。
- * 終わったら 2P を 1P の 右 2 マスに 戻す（スクショと 次の 大きさの ため）。
+ * 終わったら 2P を 1P の 右 2 マスに 戻す（スクショと 次の 大きさの ため。作業 2 では 分割から 戻るのに 80 ステップ 進める）。
  */
 export async function duoHudIssues(page: Page): Promise<DuoUiIssue[]> {
   const out: DuoUiIssue[] = [];
@@ -123,6 +133,17 @@ export async function duoHudIssues(page: Page): Promise<DuoUiIssue[]> {
     if (Math.abs((mt.l + mt.r) / 2 - half) > vw * 0.02) add('place', 'duo-meter', '距離メーターが 左右の まん中に ない');
   }
 
+  // ---- AC13: 色の 段（近い方から 遠い方へ。作業 2 では 24 以上で 分割に なり 段は 2 の まま なので、遠い方へ だけ 順に 見る）----
+  const lo = await readMeterAt(page, 8);
+  const mid = await readMeterAt(page, 18);
+  const hi = await readMeterAt(page, 30);
+  for (const [want, r] of [[0, lo], [1, mid], [2, hi]] as const) {
+    if (r.tier !== want) add('tier', 'duo-state', `距離 ${r.distance} の 色の 段は ${want} のはず（state().tier = ${r.tier}）`);
+    if (r.domTier !== String(r.tier)) add('tier', 'duo-meter', `data-tier ${r.domTier} が state().tier ${r.tier} と ちがう`);
+  }
+  if (new Set([lo.color, mid.color, hi.color]).size !== 3) add('tier', 'duo-meter-bar', `棒の 色が 3 つの 段で 別々に ならない（${lo.color} / ${mid.color} / ${hi.color}）`);
+
+
   // ---- AC13: メーターの 長さ・色の 段 ----
   const at48 = await readMeterAt(page, 48);
   const at24 = await readMeterAt(page, 24);
@@ -137,21 +158,219 @@ export async function duoHudIssues(page: Page): Promise<DuoUiIssue[]> {
   const mark = await boxOf(page, 'duo-meter-mark');
   if (!mark) add('missing', 'duo-meter-mark', '真ん中の 印が 見えない');
 
-  const lo = await readMeterAt(page, 8);
-  const mid = await readMeterAt(page, 18);
-  const hi = await readMeterAt(page, 30);
-  for (const [want, r] of [[0, lo], [1, mid], [2, hi]] as const) {
-    if (r.tier !== want) add('tier', 'duo-state', `距離 ${r.distance} の 色の 段は ${want} のはず（state().tier = ${r.tier}）`);
-    if (r.domTier !== String(r.tier)) add('tier', 'duo-meter', `data-tier ${r.domTier} が state().tier ${r.tier} と ちがう`);
-  }
-  if (new Set([lo.color, mid.color, hi.color]).size !== 3) add('tier', 'duo-meter-bar', `棒の 色が 3 つの 段で 別々に ならない（${lo.color} / ${mid.color} / ${hi.color}）`);
-
   // 戻す
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
     const p1 = h.duo.pos(1);
     h.duo.place(2, { x: p1.x + 2, y: p1.y, z: p1.z });
-    h.step(2);
+    h.step(80); // 作業 2: 分割から 1 画面に 戻るのは 17 以下が 60 ステップ つづいたとき
   });
+  return out;
+}
+
+// ===================================================================== 作業 2（#399）
+
+/** CSS の 変数(例 --rk-xp)を、画面で 実際に 使われる rgb(...) の 形に する */
+async function tokenRgb(page: Page, name: string): Promise<string> {
+  return page.evaluate((name) => {
+    const el = document.createElement('div');
+    el.style.color = `var(${name})`;
+    document.body.appendChild(el);
+    const c = getComputedStyle(el).color;
+    el.remove();
+    return c;
+  }, name);
+}
+
+const TIER_TOKENS = ['--rk-text', '--rk-accent', '--rk-accent-2'] as const;
+const LOUPE_BORDER_PX = [4, 6, 8] as const;
+
+async function openDuoBase(page: Page): Promise<void> {
+  await openDuoHud(page);
+}
+
+/** 2P を 1P の 向きを もとに (前, 右) マスに 置く(yaw 90 = 前が +x・右が +z)。足もとは 平らに ならす */
+async function placeP2(page: Page, fwd: number, right: number): Promise<void> {
+  await page.evaluate(
+    ({ fwd, right }) => {
+      const h = (window as any).__rikkun;
+      const p1 = h.duo.pos(1);
+      const x = p1.x + fwd;
+      const z = p1.z + right;
+      const fy: number = h.world.groundHeight(Math.floor(x), Math.floor(z));
+      h.world.fill(Math.floor(x) - 4, fy, Math.floor(z) - 4, Math.floor(x) + 4, fy, Math.floor(z) + 4, 'stone');
+      h.world.fill(Math.floor(x) - 4, fy + 1, Math.floor(z) - 4, Math.floor(x) + 4, fy + 12, Math.floor(z) + 4, 'air');
+      h.duo.place(2, { x, y: fy + 1, z });
+    },
+    { fwd, right },
+  );
+}
+
+/** 1 画面 + ルーペ(2P は 1P の うしろ 21 マス = 2 段目・画面の 外)を 出す。わくは いちばん 太い 8px */
+export async function openDuoLoupe(page: Page): Promise<void> {
+  await openDuoBase(page);
+  await placeP2(page, -21, 0);
+  await page.evaluate(() => (window as any).__rikkun.step(80));
+}
+
+/** 左右に 分割(2P は 1P の 左 40 マス。画面の 左右の 割り当ては 入れかわらない)を 出す */
+export async function openDuoSplit(page: Page): Promise<void> {
+  await openDuoBase(page);
+  await placeP2(page, 0, -40);
+  await page.evaluate(() => (window as any).__rikkun.step(100));
+}
+
+/** 2P の パッドが ぬけた 画面。view = 'one'(2P は 1P の 右 2 マス) か 'split' */
+export async function openDuoPadLost(page: Page, view: 'one' | 'split'): Promise<void> {
+  await openDuoBase(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.__pads = [0, 1].map((index) => ({
+      id: 'Xbox Wireless Controller',
+      index,
+      connected: true,
+      mapping: 'standard',
+      axes: [0, 0, 0, 0],
+      buttons: Array.from({ length: 16 }, () => ({ pressed: false, touched: false, value: 0 })),
+      timestamp: 0,
+    }));
+    w.__rikkun.gamepad.injectPads(w.__pads);
+    w.__rikkun.step(3);
+  });
+  if (view === 'split') {
+    await placeP2(page, 0, -40);
+    await page.evaluate(() => (window as any).__rikkun.step(100));
+  }
+  await page.evaluate(() => {
+    const w = window as any;
+    w.__rikkun.gamepad.injectPads([w.__pads[0], null]);
+    w.__rikkun.step(3);
+  });
+}
+
+/**
+ * AC24・AC33・色（案 B）の 検査: いまの ようす expect('one' | 'loupe' | 'split')で、メーター・ホットバー・ハート・ルーペ・線が 重ならず、
+ * ルーペは 下 22%・上 12% に かからず、わくの 太さと 色が 段と 合い、棒・バッジ・ホットバーの 色が 案 B。空 = 合格。
+ */
+export async function duoViewIssues(page: Page, expect: 'one' | 'loupe' | 'split'): Promise<DuoUiIssue[]> {
+  const out: DuoUiIssue[] = [];
+  const add = (kind: string, target: string, detail: string) => out.push({ kind, target, detail });
+  const vw: number = await page.evaluate(() => innerWidth);
+  const vh: number = await page.evaluate(() => innerHeight);
+  const st = await page.evaluate(() => (window as any).__rikkun.duo.state());
+  if (st.view !== expect) add('view', 'duo-state', `ようすは ${expect} のはず（state().view = ${st.view}）`);
+
+  const ids = ['duo-hotbar-p1', 'duo-hotbar-p2', 'duo-hearts-p1', 'duo-hearts-p2', 'duo-meter', 'duo-loupe', 'duo-split-line'] as const;
+  const b: Record<string, Box | null> = {};
+  for (const id of ids) b[id] = await boxOf(page, id);
+  for (const id of ['duo-hotbar-p1', 'duo-hotbar-p2', 'duo-hearts-p1', 'duo-hearts-p2', 'duo-meter']) if (!b[id]) add('missing', id, `${id} が 見えない`);
+
+  // ---- 重なり(AC33): ルーペ・メーター・ホットバー・ハート ----
+  const names = ['duo-hotbar-p1', 'duo-hotbar-p2', 'duo-hearts-p1', 'duo-hearts-p2', 'duo-meter', 'duo-loupe'] as const;
+  for (let i = 0; i < names.length; i++) {
+    for (let j = i + 1; j < names.length; j++) {
+      const a = b[names[i]!];
+      const c = b[names[j]!];
+      if (a && c && overlap(a, c)) add('overlap', `${names[i]}/${names[j]}`, `${names[i]} と ${names[j]} が 重なる`);
+    }
+  }
+
+  // ---- ようすごとの 部品 ----
+  if (expect === 'loupe') {
+    const lp = b['duo-loupe'];
+    if (!lp) add('missing', 'duo-loupe', 'ルーペが 見えない');
+    else {
+      if (lp.l < 16 - 0.5 || lp.r > vw - 16 + 0.5) add('loupe', 'duo-loupe', `ルーペが 左右の ふちから 16px 内側に おさまらない（${lp.l.toFixed(0)}〜${lp.r.toFixed(0)}）`);
+      if (lp.t < vh * 0.12 - 0.5) add('loupe', 'duo-loupe', 'ルーペが 上の 12% に かかる');
+      if (lp.b > vh * 0.78 + 0.5) add('loupe', 'duo-loupe', 'ルーペが 下の 22% に かかる');
+      if (Math.abs(lp.w - vh * 0.2) > 2) add('loupe', 'duo-loupe', `直径 ${lp.w.toFixed(0)}px が 画面の 高さの 20% ${(vh * 0.2).toFixed(0)}px と ちがう`);
+      const s = st.loupe as { x: number; y: number; d: number } | null;
+      if (!s) add('loupe', 'duo-state', 'state().loupe が null');
+      else if (Math.abs(s.x - (lp.l + lp.r) / 2) > 2 || Math.abs(s.y - (lp.t + lp.b) / 2) > 2 || Math.abs(s.d - lp.w) > 2) add('loupe', 'duo-state', 'state().loupe が 画面の ルーペと 合わない');
+      const info = await page.evaluate(() => {
+        const el = document.querySelector('[data-testid="duo-loupe"]') as HTMLElement;
+        const cs = getComputedStyle(el);
+        return { bw: parseFloat(cs.borderTopWidth), bc: cs.borderTopColor, tier: el.getAttribute('data-tier'), radius: cs.borderTopLeftRadius };
+      });
+      if (info.bw !== LOUPE_BORDER_PX[st.tier as 0 | 1 | 2]) add('loupe', 'duo-loupe', `わくの 太さ ${info.bw}px が 段 ${st.tier} の ${LOUPE_BORDER_PX[st.tier as 0 | 1 | 2]}px と ちがう`);
+      const want = await tokenRgb(page, TIER_TOKENS[st.tier as 0 | 1 | 2]);
+      if (info.bc !== want) add('color', 'duo-loupe', `わくの 色 ${info.bc} が 段 ${st.tier} の ${TIER_TOKENS[st.tier as 0 | 1 | 2]}（${want}）と ちがう`);
+      if (info.tier !== String(st.tier)) add('tier', 'duo-loupe', `data-tier ${info.tier} が state().tier ${st.tier} と ちがう`);
+      if (!/50%|9999|\d{2,}px/.test(info.radius)) add('loupe', 'duo-loupe', `丸く ない（border-radius ${info.radius}）`);
+      const ar = await boxOf(page, 'duo-loupe-arrow');
+      if (!ar) add('missing', 'duo-loupe-arrow', 'ルーペの 外の 三角が 見えない');
+      else {
+        const lc = { x: (lp.l + lp.r) / 2, y: (lp.t + lp.b) / 2 };
+        const ac = { x: (ar.l + ar.r) / 2, y: (ar.t + ar.b) / 2 };
+        const angle = await page.evaluate(() => Number((document.querySelector('[data-testid="duo-loupe-arrow"]') as HTMLElement).getAttribute('data-angle')));
+        // 2P の 方向: 画面の まん中から ルーペへ(ルーペは 2P の 方向の はしに 置く)。三角は そちらを 指す(45° 以内)
+        const toward = (Math.atan2(lc.y - vh / 2, lc.x - vw / 2) * 180) / Math.PI;
+        const dd = Math.abs((((angle - toward) % 360) + 540) % 360 - 180);
+        if (!Number.isFinite(angle)) add('loupe', 'duo-loupe-arrow', 'data-angle が ない');
+        else if (dd > 45) add('loupe', 'duo-loupe-arrow', `三角の 向き ${angle.toFixed(0)}° が 2P の 方向 ${toward.toFixed(0)}° と 45° 以上 ちがう`);
+        if (Math.hypot(ac.x - lc.x, ac.y - lc.y) < lp.w / 2) add('loupe', 'duo-loupe-arrow', '三角が ルーペの 外に ない');
+      }
+    }
+    if (b['duo-split-line']) add('place', 'duo-split-line', 'ルーペのときに 分割の 線が 出ている');
+  } else {
+    if (b['duo-loupe']) add('place', 'duo-loupe', `${expect} のときに ルーペが 出ている`);
+  }
+  if (expect === 'split') {
+    const ln = b['duo-split-line'];
+    if (!ln) add('missing', 'duo-split-line', '分割の 線が 見えない');
+    else {
+      if (Math.abs((ln.l + ln.r) / 2 - vw / 2) > 1.5) add('place', 'duo-split-line', '線が 左右の まん中に ない');
+      if (ln.h < vh - 2) add('place', 'duo-split-line', '線が 画面の 高さいっぱいに ない');
+    }
+  } else if (b['duo-split-line']) add('place', 'duo-split-line', `${expect} のときに 分割の 線が 出ている`);
+
+  // ---- 色(案 B): 棒は 段の 色・バッジは 1P/2P の 色・ホットバーの ふちは 1P/2P の 色 ----
+  const colors = await page.evaluate(() => {
+    const q = (id: string) => document.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
+    const bg = (id: string) => (q(id) ? getComputedStyle(q(id)!).backgroundColor : '');
+    const bd = (id: string) => (q(id) ? getComputedStyle(q(id)!).borderTopColor : '');
+    return { bar: bg('duo-meter-bar'), b1: bg('duo-meter-badge-p1'), b2: bg('duo-meter-badge-p2'), h1: bd('duo-hotbar-p1'), h2: bd('duo-hotbar-p2') };
+  });
+  const [t, xp, r3] = [await tokenRgb(page, TIER_TOKENS[st.tier as 0 | 1 | 2]), await tokenRgb(page, '--rk-xp'), await tokenRgb(page, '--rk-rarity-3')];
+  if (colors.bar !== t) add('color', 'duo-meter-bar', `棒の 色 ${colors.bar} が 段 ${st.tier} の 色 ${t} と ちがう`);
+  if (colors.b1 !== xp) add('color', 'duo-meter-badge-p1', `P1 バッジの 色 ${colors.b1} が --rk-xp ${xp} と ちがう`);
+  if (colors.b2 !== r3) add('color', 'duo-meter-badge-p2', `P2 バッジの 色 ${colors.b2} が --rk-rarity-3 ${r3} と ちがう`);
+  if (colors.h1 !== xp) add('color', 'duo-hotbar-p1', `1P ホットバーの ふち ${colors.h1} が --rk-xp ${xp} と ちがう`);
+  if (colors.h2 !== r3) add('color', 'duo-hotbar-p2', `2P ホットバーの ふち ${colors.h2} が --rk-rarity-3 ${r3} と ちがう`);
+  return out;
+}
+
+/** AC33b の 検査: 「コントローラーを つないでね」・パッドの 絵・2P の 頭の 上の「？」が 見えて、ホットバー・ハート・メーターと 重ならない。空 = 合格 */
+export async function duoPadLostIssues(page: Page, expect: 'one' | 'split'): Promise<DuoUiIssue[]> {
+  const out: DuoUiIssue[] = [];
+  const add = (kind: string, target: string, detail: string) => out.push({ kind, target, detail });
+  const vw: number = await page.evaluate(() => innerWidth);
+  const st = await page.evaluate(() => (window as any).__rikkun.duo.state());
+  if (st.view !== expect) add('view', 'duo-state', `ようすは ${expect} のはず（state().view = ${st.view}）`);
+  if (!st.padLost) add('state', 'duo-state', 'padLost が true のはず');
+  const box = await boxOf(page, 'duo-pad-lost');
+  const icon = await boxOf(page, 'duo-pad-lost-icon');
+  const q = await boxOf(page, 'duo-p2-question');
+  if (!box) add('missing', 'duo-pad-lost', '「コントローラーを つないでね」が 見えない');
+  if (!icon) add('missing', 'duo-pad-lost-icon', 'パッドの 絵が 見えない');
+  if (!q) add('missing', 'duo-p2-question', '2P の 頭の 上の「？」が 見えない');
+  const text: string = await page.evaluate(() => (document.querySelector('[data-testid="duo-pad-lost"]') as HTMLElement | null)?.textContent ?? '');
+  if (box && !text.replace(/\s/g, '').includes('コントローラーをつないでね')) add('text', 'duo-pad-lost', `文字が「コントローラーを つないでね」でない（${text}）`);
+  const qText: string = await page.evaluate(() => (document.querySelector('[data-testid="duo-p2-question"]') as HTMLElement | null)?.textContent ?? '');
+  if (q && !/[？?]/.test(qText)) add('text', 'duo-p2-question', `「？」の 文字が ない（${qText}）`);
+  const hud: Array<[string, Box | null]> = [];
+  for (const id of ['duo-hotbar-p1', 'duo-hotbar-p2', 'duo-hearts-p1', 'duo-hearts-p2', 'duo-meter']) hud.push([id, await boxOf(page, id)]);
+  for (const [name, mine] of [['duo-pad-lost', box], ['duo-pad-lost-icon', icon], ['duo-p2-question', q]] as const) {
+    if (!mine) continue;
+    for (const [id, other] of hud) if (other && overlap(mine, other)) add('overlap', `${name}/${id}`, `${name} が ${id} と 重なる`);
+    if (mine.l < -0.5 || mine.r > vw + 0.5) add('offscreen', name, `${name} が 画面の よこに はみ出す`);
+  }
+  if (box) {
+    const cx = (box.l + box.r) / 2;
+    if (cx < vw / 2) add('place', 'duo-pad-lost', '2P の 側(右半分)に ない');
+    if (expect === 'split' && Math.abs(cx - vw * 0.75) > vw * 0.1) add('place', 'duo-pad-lost', '分割では 右半分の 中央に あるはず');
+    const hb2 = hud.find(([id]) => id === 'duo-hotbar-p2')?.[1];
+    if (expect === 'one' && hb2 && box.b > hb2.t + 0.5) add('place', 'duo-pad-lost', '1 画面では 2P の ホットバーの 上に あるはず');
+  }
   return out;
 }

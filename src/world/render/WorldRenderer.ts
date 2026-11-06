@@ -2,17 +2,15 @@ import { Group, type MeshBasicMaterial, type Scene } from 'three';
 import type { CropStageSource } from '../../contracts';
 import { COUNT_MESH_MAX, COUNT_MESH_TOTAL_MAX, type FrameClock } from '../frameClock';
 import { WorldLight } from '../light/WorldLight';
-import { lodSortKey } from './drawOrder';
 import { columnKey, type ArrayVoxelWorld } from '../VoxelWorld';
 import type { StreamLight, StreamMesh } from '../stream/ChunkStream';
-import { CHUNK_DRAW_DISTANCE, RENDER_CONFIG } from './config';
 import { setRipeMinBrightness } from './cropLight';
-import { meshChunkLod } from './lodMesh';
+import { dropLodOf, rebuildLodOf, updateLodOf, type LodCtx } from './lodDriver';
 import { sectionAllAir, sectionHasCross } from './rendererGeometry';
 import { createRenderMaterials, disposeRenderMaterials, type RenderMaterials } from './rendererMaterials';
-import { chunkStats, meshCount, meshDigest, sectionStats, triangleCount } from './rendererStats';
+import { chunkStats, meshCount, meshDigest, sectionInfoOf, sectionStats, triangleCount } from './rendererStats';
 import type {
-  ChunkStats, MeshJobStats, MeshStats, NoneReason, RebuildLogEntry, RebuildStats, SectionInfo, SectionStats, SectionTier, WorldRenderConfig,
+  ChunkStats, MeshJobStats, MeshStats, RebuildLogEntry, RebuildStats, SectionInfo, SectionStats, WorldRenderConfig,
 } from './rendererTypes';
 import { SectionMeshStore } from './sectionMeshStore';
 import {
@@ -70,6 +68,7 @@ export class WorldRenderer {
   private attached = false;
   private viewer: { x: number; z: number } | null = null;
   private microR = DEFAULT_MICRO_R;
+  private readonly lodCtx: LodCtx;
   private crops: CropStageSource | undefined;
   private readonly queue = new Set<SecState>();
   private evictedCount = 0;
@@ -100,6 +99,15 @@ export class WorldRenderer {
     this.mats = createRenderMaterials(this.microR);
     this.store = new SectionMeshStore(this.group, this.mats, (cx, cz) => this.meshChanged(cx, cz));
     this.sway = new SwayDriver(world, this.light, this.group, this.mats.opaqueMaterial);
+    this.lodCtx = {
+      group: this.group,
+      store: this.store,
+      mats: this.mats,
+      world,
+      light: this.light,
+      changed: (cx, cz) => this.meshChanged(cx, cz),
+      canBuild: (col) => this.attached && !this.stream.on && this.light.isColumnLit(col.cx, col.cz),
+    };
     this.stream = new StreamDriver(this.cols, clock, this.store, this.light, {
       newCol: (cx, cz) => newColState(cx, cz, this.nSections),
       setTier: (col) => this.setTier(col),
@@ -114,6 +122,7 @@ export class WorldRenderer {
       build: (st, boxOnly, deadline) => this.build(st, boxOnly, deadline),
       rebuildLod: (col) => this.rebuildLod(col),
       updateLod: (col) => this.updateLod(col),
+      retier: () => this.retier(),
     });
     this.syncColumns();
   }
@@ -169,6 +178,8 @@ export class WorldRenderer {
   private setTier(col: ColState): boolean {
     const v = this.viewer;
     col.dist = v ? columnDistance(col.cx, col.cz, v.x, v.z) : 0;
+    const v2 = this.stream.extraViewer(); // 2P（COOP-1）の まわりも 近い 段で 描く: 近い 方の 点から 数える
+    if (v && v2) col.dist = Math.min(col.dist, columnDistance(col.cx, col.cz, v2.x, v2.z));
     const next = nextTier(col.dist, col.tier, this.microR);
     if (next === col.tier) return false;
     const was = col.tier;
@@ -562,71 +573,35 @@ export class WorldRenderer {
   }
 
   /** ChunkStream の光の窓口。1 列の光を計算し、その列を 描く候補に足す */
-  streamLight(): StreamLight {
-    return this.stream.streamLight();
-  }
-
+  streamLight = (): StreamLight => this.stream.streamLight();
   /** ChunkStream のメッシュの窓口 */
-  streamMesh(): StreamMesh {
-    return this.stream.streamMesh();
-  }
-
+  streamMesh = (): StreamMesh => this.stream.streamMesh();
   /** 光ができた列を足す */
-  noteLit(cx: number, cz: number): void {
-    this.stream.noteLit(cx, cz);
-  }
-
+  noteLit = (cx: number, cz: number): void => this.stream.noteLit(cx, cz);
   /** 世界から列を捨てた（ブロックを捨てる前後どちらでもよい）。この列の絵と状態を捨てる。となりの絵は そのまま */
-  noteUnloaded(cx: number, cz: number): void {
-    this.stream.noteUnloaded(cx, cz);
-  }
-
+  noteUnloaded = (cx: number, cz: number): void => this.stream.noteUnloaded(cx, cz);
   /** 描く輪の中心（プレイヤーのいる列）。輪の外（> R_DRAW_DROP）になった列の絵は捨てる */
-  setRing(cx: number, cz: number): void {
-    this.stream.setRing(cx, cz);
-  }
-
+  setRing = (cx: number, cz: number): void => this.stream.setRing(cx, cz);
+  /** 2P の 正しい 位置（水平。COOP-1）。null = いない */
+  setViewer2 = (x: number, z: number): void => this.stream.setViewer2(x, z);
+  clearViewer2 = (): void => this.stream.clearViewer2();
   /** 光ずみで まだ作っていない仕事の数（セクション 1 つ・LOD 1 列が 1 つ） */
-  pendingJobs(): number {
-    return this.stream.pendingJobs();
-  }
-
+  pendingJobs = (): number => this.stream.pendingJobs();
   /** 次の仕事の近さ（チェビシェフ。プレイヤーが変えた所は −1）。無ければ null */
-  nextJobDist(): number | null {
-    return this.stream.nextJobDist();
-  }
-
+  nextJobDist = (): number | null => this.stream.nextJobDist();
   /** 仕事を 1 つ進める（セクション 1 つのメッシュ、または 列 1 つの LOD）。進めたら true */
-  runJob(deadline?: number): boolean {
-    return this.stream.runJob(deadline);
-  }
-
+  runJob = (deadline?: number): boolean => this.stream.runJob(deadline);
   /** 'true' = その列の本当の段まで・'drawn' = 何かの絵を出している・'none' = まだ */
-  columnState(cx: number, cz: number): 'none' | 'drawn' | 'true' {
-    return this.stream.columnState(cx, cz);
-  }
-
+  columnState = (cx: number, cz: number): 'none' | 'drawn' | 'true' => this.stream.columnState(cx, cz);
   // ------------------------------------------------------------ LOD（列ごと 1 まい）
 
   /** この列の LOD を 見せる／消す（作るのは 1 列 0.3ms ほどなので その場で） */
   private updateLod(col: ColState): void {
-    const want = (col.tier === 'lod' && col.dist <= CHUNK_DRAW_DISTANCE) || col.lodHold;
-    if (want && col.lodStale && this.attached && !this.stream.on && this.light.isColumnLit(col.cx, col.cz)) this.rebuildLod(col);
-    const on = want && !!col.lodOpaque;
-    if (col.lodOpaque && col.lodOpaque.visible !== want) this.meshChanged(col.cx, col.cz);
-    if (col.lodOpaque) col.lodOpaque.visible = want;
-    if (col.lodWater) col.lodWater.visible = want;
-    if (!on && col.lodHold && !col.lodOpaque) col.lodHold = false;
+    updateLodOf(this.lodCtx, col);
   }
 
   private rebuildLod(col: ColState): void {
-    const data = meshChunkLod(this.world, col.cx, col.cz, this.light);
-    if (col.lodOpaque) this.group.remove(col.lodOpaque), col.lodOpaque.geometry.dispose();
-    if (col.lodWater) this.group.remove(col.lodWater), col.lodWater.geometry.dispose();
-    col.lodOpaque = data.opaque.faceCount > 0 ? this.store.atlasMesh(data.opaque, this.mats.lodOpaqueMaterial, 0, lodSortKey(col.cx, col.cz, false)) : null;
-    col.lodWater = data.water.faceCount > 0 ? this.store.atlasMesh(data.water, this.mats.lodWaterMaterial, RENDER_CONFIG.waterRenderOrder, lodSortKey(col.cx, col.cz, true)) : null;
-    col.lodStale = false;
-    this.meshChanged(col.cx, col.cz);
+    rebuildLodOf(this.lodCtx, col);
   }
 
   private meshChanged(cx: number, cz: number): void {
@@ -635,9 +610,7 @@ export class WorldRenderer {
   }
 
   private dropLod(col: ColState): void {
-    if (col.lodOpaque) this.group.remove(col.lodOpaque), col.lodOpaque.geometry.dispose();
-    if (col.lodWater) this.group.remove(col.lodWater), col.lodWater.geometry.dispose();
-    col.lodOpaque = col.lodWater = null;
+    dropLodOf(this.group, col);
   }
 
   // ------------------------------------------------------------ 見る（テスト・計測）
@@ -647,21 +620,7 @@ export class WorldRenderer {
     const col = this.colAt(sx, sz);
     const st = col?.secs[sy];
     if (!col || !st) return { tier: 'none', reason: 'empty', meshes: 0, triangles: 0, dist: 0 };
-    const cls = this.classify(st);
-    const dist = col.dist;
-    const none = (reason: NoneReason): SectionInfo => ({ tier: 'none', reason, meshes: 0, triangles: 0, dist });
-    if (cls === CLS_AIR) return none('empty');
-    if (cls === CLS_HIDDEN) return none('hidden');
-    if (col.tier === 'lod') return { tier: 'lod', reason: null, meshes: 0, triangles: 0, dist };
-    // 上限をこえて捨てた（evicted）セクションは いま描いていない: tier 'none'（reason は unlit 扱い＝まだ作っていない）
-    if (st.evicted) return none('unlit');
-    const meshes = (st.voxel ? 1 : 0) + (st.extras ? 1 : 0) + (st.water ? 1 : 0);
-    if (meshes === 0) {
-      if (st.built !== null && st.faceless) return none('empty'); // 見える面が 0
-      if (this.stream.on ? !col.meshable : !this.light.isColumnLit(st.cx, st.cz)) return none('unlit');
-    }
-    const tier: SectionTier = meshes > 0 && st.built ? st.built : (col.tier ?? 'micro');
-    return { tier, reason: null, meshes, triangles: st.tris, dist };
+    return sectionInfoOf(col, st, this.classify(st), this.stream.on ? col.meshable : this.light.isColumnLit(st.cx, st.cz));
   }
 
   /** 見えているセクションのメッシュ（voxel・extras・water の全部の attribute と index のバイト、うまり）を、セクションの鍵の順に FNV-1a でまとめた値（hook render.meshDigest。PERF-2） */
