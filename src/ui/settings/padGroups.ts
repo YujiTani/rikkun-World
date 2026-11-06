@@ -6,33 +6,43 @@ import type { Action } from '../../input/actions';
 import type { PadFace } from '../../input/gamepad/mapping';
 import { labelOfAction } from './controlRows';
 
-/** 図の高さを のばす倍率（札の列の高さに ちかづけて、線を ほぼ横にするため） */
-const PAD_STRETCH = 1.6;
+/** 図の高さを のばす倍率（四角と札の高さを ちかづけて、線を ほぼ横にするため） */
+const PAD_STRETCH = 1.5;
 /** 図の viewBox の高さ */
 export const PAD_VIEW_H = Math.round(460 * PAD_STRETCH);
 /** もとの y（高さ 460 の図）を、のばした図の y にする。ボタンのまとまりの中心だけ動かし、まとまりの大きさは変えない */
 export function padY(y: number): number {
   return Math.round(y * PAD_STRETCH);
 }
-/** まとまりの中心の y（のばした図） */
+/**
+ * 肩ボタン（上から見た図）と 本体（正面図）の あいだの あき。図の座標で 90 ≒ 画面で 50px（図の幅 400px のとき）。
+ * 本体のてっぺんは もとの y=136 あたり
+ */
+const SHOULDER_GAP = 90;
+/** 本体（正面図）のてっぺんの y（のばした図） */
+export const PAD_BODY_TOP = padY(136);
+const SHOULDER_BOX_H = 106;
+/** まとまりの中心の y（のばした図）。肩ボタンだけは 本体から はなして 上に置く */
 export const PAD_CENTER = {
-  shoulder: padY(93),
-  mid: padY(168),
-  stickL: padY(238),
-  dpad: padY(352),
+  shoulder: PAD_BODY_TOP - SHOULDER_GAP - SHOULDER_BOX_H / 2,
+  /** − ＋ は 本体のまんなか（十字と ABXY の あいだ） */
+  mid: padY(255),
+  dpad: padY(238),
+  stickL: padY(352),
   abxy: padY(264),
-  stickR: padY(384),
+  stickR: padY(392),
 } as const;
 function at(x: number, cy: number, w: number, h: number): PadGroup['box'] {
   return { x, y: cy - Math.round(h / 2), w, h };
 }
 
-export type PadSide = 'left' | 'right';
+/** left・right: 図の左右に札のかたまり。topLeft・topRight: 図の上の まんなかに、左はんぶん・右はんぶんの札 */
+type PadSide = 'left' | 'right' | 'topLeft' | 'topRight';
 
-export interface PadGroup {
+interface PadGroup {
   id: string;
   side: PadSide;
-  /** 図（viewBox 720×460）の中の四角 */
+  /** 図（viewBox 720 × PAD_VIEW_H）の中の四角 */
   box: { x: number; y: number; w: number; h: number };
   /** このまとまりに入る面。札はこの順に縦に並ぶ */
   faces: readonly PadFace[];
@@ -40,14 +50,18 @@ export interface PadGroup {
   stick?: { id: string; text: string };
 }
 
-/** 左は上から ZL/L・−・ひだりスティック・十字、右は ZR/R・＋・ABXY・みぎスティック */
+/**
+ * 札は、まとまりごとに そのまとまりの近くに置く。
+ * 左: ZL/L（左上）・十字・ひだりスティック（左下）。上: − ＋（図のまんなかにあるボタン。札は図の上の中央で、線は まっすぐ上へ）。右: ZR/R（右上）・ABXY・みぎスティック（右下）。
+ * 先に書いたまとまりに、同じ意味の札が入る（できごとは − の札に十字の左もまとめる）
+ */
 export const PAD_GROUPS: readonly PadGroup[] = [
-  { id: 'zl', side: 'left', box: at(140, PAD_CENTER.shoulder, 160, 106), faces: ['l2', 'l1'] },
-  { id: 'minus', side: 'left', box: at(244, PAD_CENTER.mid, 76, 40), faces: ['select'] },
-  { id: 'stickL', side: 'left', box: at(146, PAD_CENTER.stickL, 88, 88), faces: ['l3'], stick: { id: 'stickL', text: 'あるく' } },
+  { id: 'zl', side: 'left', box: at(142, PAD_CENTER.shoulder, 146, SHOULDER_BOX_H), faces: ['l2', 'l1'] },
+  { id: 'minus', side: 'topLeft', box: at(300, PAD_CENTER.mid, 56, 40), faces: ['select'] },
   { id: 'dpad', side: 'left', box: at(138, PAD_CENTER.dpad, 124, 124), faces: ['dpadUp', 'dpadLeft', 'dpadRight', 'dpadDown'] },
-  { id: 'zr', side: 'right', box: at(420, PAD_CENTER.shoulder, 160, 106), faces: ['r2', 'r1'] },
-  { id: 'plus', side: 'right', box: at(394, PAD_CENTER.mid, 76, 40), faces: ['start'] },
+  { id: 'stickL', side: 'left', box: at(146, PAD_CENTER.stickL, 88, 88), faces: ['l3'], stick: { id: 'stickL', text: 'あるく' } },
+  { id: 'zr', side: 'right', box: at(432, PAD_CENTER.shoulder, 146, SHOULDER_BOX_H), faces: ['r2', 'r1'] },
+  { id: 'plus', side: 'topRight', box: at(364, PAD_CENTER.mid, 56, 40), faces: ['start'] },
   { id: 'abxy', side: 'right', box: at(488, PAD_CENTER.abxy, 138, 138), faces: ['faceTop', 'faceLeft', 'faceRight', 'faceBottom'] },
   { id: 'stickR', side: 'right', box: at(476, PAD_CENTER.stickR, 88, 82), faces: ['r3'], stick: { id: 'stickR', text: 'みる' } },
 ];
@@ -67,7 +81,7 @@ export interface PadLabel {
 
 type Binds = Partial<Record<PadFace, Action | null>>;
 
-/** あそぶ とき。同じ意味は 1 枚にまとめ、割り当てのない面は出さない（SETTINGS-1） */
+/** フィールド（あそぶ とき）。同じ意味は 1 枚にまとめ、割り当てのない面は出さない（SETTINGS-1） */
 export function playLabels(binds: Binds): PadLabel[] {
   const out: PadLabel[] = [];
   const byAction = new Map<Action, PadLabel>();

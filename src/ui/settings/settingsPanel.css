@@ -320,3 +320,13 @@
 .set-keys-grid { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: center; }
 .set-table-keys { display: block; }
 .set-table-keys .set-head { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 4px; }
+/* いちばん上の行: もどる（2・3 だん目だけ）・題・とじる */
+.set-headrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.set-headrow .set-title { flex: 1; margin: 0; }
+.set-headrow .set-text-btn { min-height: 48px; min-width: 88px; padding: 4px 16px; }
+.set-back[hidden] { display: none !important; }

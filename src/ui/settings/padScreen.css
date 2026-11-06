@@ -23,18 +23,13 @@
   font-weight: 800;
 }
 .pad-capture[hidden] { display: none !important; }
-/* 左の札の列・真ん中の図・右の札の列。線を曲げる すきまは column-gap */
+/* 図は stage の まんなか。札のかたまりは JS が まとまりの近くに置く（padLayout） */
 .pad-stage {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px) minmax(0, 1fr);
-  column-gap: 56px;
-  align-items: start;
   min-height: 260px;
 }
-.pad-col { position: relative; align-self: stretch; }
-.pad-center { position: relative; }
-.pad-body { width: 100%; }
+.pad-body { position: absolute; }
+.pad-calls { position: absolute; inset: 0; z-index: 4; }
 .pad-wires {
   position: absolute;
   inset: 0;
@@ -65,8 +60,6 @@
 .pad-box.is-off { display: none; }
 .pad-call {
   position: absolute;
-  left: 0;
-  right: 0;
   display: flex;
   align-items: stretch;
   padding: 0;

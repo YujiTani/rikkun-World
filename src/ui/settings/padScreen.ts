@@ -1,7 +1,7 @@
 /**
  * ゲームパッドの中身（せっていの「コントローラー」→「ゲームパッド」タブにはめこむ）。
  * 中央の図・ボタンのまとまりの四角・四角から札までの折れ線・[ことば | ボタン] の札。
- * タブは「あそぶ とき」と「もちもの・クラフト」。割り当て直しは「あそぶ とき」だけ。
+ * タブは「フィールド」と「もちもの・クラフト」。割り当て直しは「フィールド」だけ。
  */
 import type { GamepadReader } from '../../input/gamepad';
 import type { PadFace } from '../../input/gamepad/mapping';
@@ -13,8 +13,8 @@ import { mountChoiceDialog, type DialogStack } from '../menu/choiceDialog';
 import { labelOfAction } from './controlRows';
 import { padSvg } from './padDiagram';
 import { badgeHtml } from './padBadge';
-import { MENU_LABELS, PAD_GROUPS, playLabels, type PadLabel } from './padGroups';
-import { placeSide, sideHeight, type LayoutParams } from './padLayout';
+import { MENU_LABELS, PAD_GROUPS, PAD_VIEW_H, playLabels, type PadLabel } from './padGroups';
+import { placeSide, placeTop, stackHeight, type LayoutParams } from './padLayout';
 import './padScreen.css';
 
 export interface PadScreen {
@@ -42,8 +42,15 @@ type Mode = 'play' | 'menu';
 const ROW_H = 44;
 const ROW_GAP = 2;
 const STACK_GAP = 8;
-/** 線が曲がる位置を、札の列のふちから何 px にするか */
+/** 線が曲がる位置を、札のかたまりのふちから何 px にするか */
 const RUN = 36;
+/** 左右の札の はば・図との すきま・図の はば（px） */
+const COL_W = 208;
+const GUTTER = 56;
+const BODY_W = 400;
+/** 上の札（− ＋）の はばと、その下の線の ながさ */
+const TOP_W = 208;
+const TOP_LINE = 22;
 
 export function createPadScreen(opts: {
   reader: GamepadReader;
@@ -57,7 +64,7 @@ export function createPadScreen(opts: {
   el.hidden = true;
   el.innerHTML =
     `<div class="pad-tabs" role="tablist" aria-label="ゲームパッド">` +
-    `<button type="button" class="set-tab" role="tab" data-testid="pad-tab-play" data-menu-item aria-selected="true">あそぶ とき</button>` +
+    `<button type="button" class="set-tab" role="tab" data-testid="pad-tab-play" data-menu-item aria-selected="true">フィールド</button>` +
     `<button type="button" class="set-tab" role="tab" data-testid="pad-tab-menu" data-menu-item aria-selected="false">もちもの・クラフト</button>` +
     `</div>` +
     `<p class="pad-warn" data-testid="pad-unknown" hidden>この コントローラーは ボタンの ならびが わからないよ。この えは Switch の ならび。おした ボタンを、ここで きめられるよ。</p>` +
@@ -67,10 +74,9 @@ export function createPadScreen(opts: {
     `</div>` +
     `<p class="set-note-line" data-testid="bind-note"></p>` +
     `<div class="pad-stage" data-testid="pad-stage">` +
-    `<div class="pad-col" data-col="left"></div>` +
-    `<div class="pad-center"><div class="pad-body">${padSvg()}</div></div>` +
-    `<div class="pad-col" data-col="right"></div>` +
+    `<div class="pad-body">${padSvg()}</div>` +
     `<svg class="pad-wires" data-wires aria-hidden="true"></svg>` +
+    `<div class="pad-calls" data-calls></div>` +
     `</div>` +
     `<div class="set-actions">` +
     `<button type="button" class="set-text-btn" data-testid="pad-to-camera" data-menu-item>カメラの はやさ</button>` +
@@ -96,8 +102,7 @@ export function createPadScreen(opts: {
   const unknownEl = q<HTMLElement>('[data-testid="pad-unknown"]');
   const stage = q<HTMLElement>('.pad-stage');
   const body = q<HTMLElement>('.pad-body');
-  const colL = q<HTMLElement>('[data-col="left"]');
-  const colR = q<HTMLElement>('[data-col="right"]');
+  const calls = q<HTMLElement>('[data-calls]');
   const wires = q<SVGSVGElement>('[data-wires]');
   const deadInput = q<HTMLInputElement>('[data-testid="dead-zone"]');
   const deadValue = q<HTMLElement>('[data-testid="dead-value"]');
@@ -134,7 +139,7 @@ export function createPadScreen(opts: {
 
   const labelsNow = (): readonly PadLabel[] => (mode === 'play' ? playLabels(opts.reader.getBinds()) : MENU_LABELS);
 
-  /** 札 1 まい: [ことば | ボタンの印]。あそぶ ときは押せる、もちもの・クラフトは見るだけ */
+  /** 札 1 まい: [ことば | ボタンの印]。フィールドは押せる、もちもの・クラフトは見るだけ */
   const makeCall = (label: PadLabel): HTMLElement => {
     const shown = label.text.replace('/', '<span class="pad-slash">/</span>');
     const inner = `<span class="pad-call-text">${shown}</span><span class="pad-call-badge">${badgeHtml(label.faces, label.stick)}</span>`;
@@ -170,14 +175,12 @@ export function createPadScreen(opts: {
 
   const paintCalls = (): void => {
     const labels = labelsNow();
-    colL.replaceChildren();
-    colR.replaceChildren();
-    const side = new Map(PAD_GROUPS.map((g) => [g.id, g.side]));
+    calls.replaceChildren();
     for (const g of PAD_GROUPS) {
       for (const l of labels.filter((x) => x.group === g.id)) {
         const c = makeCall(l);
         c.dataset.group = g.id;
-        (side.get(g.id) === 'left' ? colL : colR).append(c);
+        calls.append(c);
       }
     }
     paintHot();
@@ -186,57 +189,74 @@ export function createPadScreen(opts: {
 
   const NS = 'http://www.w3.org/2000/svg';
 
-  /** 札を置き、四角から札までの線を引く。計算は padLayout（線が交わらない決まり） */
+  /**
+   * 札のかたまりを、まとまりの近くに置き、四角から札までの線を引く。計算は padLayout。
+   * 左右: 図の左・右がわの列。上: 図のまうえの中央（− ＋）
+   */
   const layout = (): void => {
     const st = stage.getBoundingClientRect();
     if (st.width < 8) return;
-    const svg = body.querySelector('svg')!.getBoundingClientRect();
-    const scale = svg.width / 720;
-    const svgLeft = svg.left - st.left;
-    const rowsOf = (id: string): number => colL.querySelectorAll(`[data-group="${id}"]`).length + colR.querySelectorAll(`[data-group="${id}"]`).length;
-    const params = (side: 'left' | 'right', edgeX: number, span?: number): LayoutParams => ({
-      side, edgeX, rowH: ROW_H, rowGap: ROW_GAP, stackGap: STACK_GAP, run: RUN, span,
-    });
-    const heightOf = (sd: 'left' | 'right'): number =>
-      sideHeight(PAD_GROUPS.filter((g) => g.side === sd).map((g) => rowsOf(g.id)), params(sd, 0));
-    // 左右の札の列は 上と下をそろえ、図はその高さの まんなかに置く
-    const colH = Math.max(heightOf('left'), heightOf('right'));
-    const stageH = Math.max(colH, svg.height);
-    const colTop = (stageH - colH) / 2;
-    const off = (stageH - svg.height) / 2;
-    body.style.marginTop = `${off}px`;
+    const W = st.width;
+    const D = Math.max(280, Math.min(BODY_W, W - 2 * (COL_W + GUTTER)));
+    const bodyLeft = (W - D) / 2;
+    const scale = D / 720;
+    const svgH = PAD_VIEW_H * scale;
+    const rowsOf = (id: string): number => calls.querySelectorAll(`[data-group="${id}"]`).length;
+    const topGroups = PAD_GROUPS.filter((g) => g.side === 'topLeft' || g.side === 'topRight').filter((g) => rowsOf(g.id) > 0);
+    // 上の札の ぶんだけ 図を 下げる
+    const band = topGroups.length > 0 ? ROW_H + TOP_LINE : 0;
+    body.style.left = `${bodyLeft}px`;
+    body.style.top = `${band}px`;
+    body.style.width = `${D}px`;
     wires.replaceChildren();
+    let bottom = band + svgH;
+    const place = (id: string, left: number, top: number, width: number): void => {
+      const rows = [...calls.querySelectorAll<HTMLElement>(`[data-group="${id}"]`)];
+      rows.forEach((r, i) => {
+        r.style.left = `${left}px`;
+        r.style.width = `${width}px`;
+        r.style.top = `${top + i * (ROW_H + ROW_GAP)}px`;
+        r.style.height = `${ROW_H}px`;
+      });
+      bottom = Math.max(bottom, top + stackHeight(rows.length, { rowH: ROW_H, rowGap: ROW_GAP }));
+    };
+    const draw = (id: string, points: [number, number][]): void => {
+      const line = document.createElementNS(NS, 'polyline');
+      line.setAttribute('points', points.map(([x, y]) => `${x},${y}`).join(' '));
+      const on = [...calls.querySelectorAll(`[data-group="${id}"]`)].some((r) => r.classList.contains('is-pick') || r.classList.contains('is-wait'));
+      line.setAttribute('class', on ? 'is-on' : '');
+      wires.append(line);
+    };
     for (const sd of ['left', 'right'] as const) {
-      const col = sd === 'left' ? colL : colR;
-      const cr = col.getBoundingClientRect();
-      const edgeX = (sd === 'left' ? cr.right : cr.left) - st.left;
+      const edgeX = sd === 'left' ? COL_W : W - COL_W;
       const groups = PAD_GROUPS.filter((g) => g.side === sd).map((g) => ({
         id: g.id,
-        boxX: svgLeft + (sd === 'left' ? g.box.x : g.box.x + g.box.w) * scale,
-        boxY: off + (g.box.y + g.box.h / 2) * scale,
+        boxX: bodyLeft + (sd === 'left' ? g.box.x : g.box.x + g.box.w) * scale,
+        boxY: band + (g.box.y + g.box.h / 2) * scale,
         rows: rowsOf(g.id),
       }));
-      const colOrigin = cr.top - st.top;
-      // 図の高さのずれ（off）ぶん、札の座標を stage にそろえる
-      const shifted = groups.map((g) => ({ ...g, boxY: g.boxY - colTop }));
-      for (const pl of placeSide(shifted, params(sd, edgeX, colH))) {
-        const rows = [...col.querySelectorAll<HTMLElement>(`[data-group="${pl.id}"]`)];
-        rows.forEach((r, i) => {
-          r.style.top = `${colTop + pl.top + i * (ROW_H + ROW_GAP) - colOrigin}px`;
-          r.style.height = `${ROW_H}px`;
-        });
-        const line = document.createElementNS(NS, 'polyline');
-        line.setAttribute('points', pl.points.map(([x, y]) => `${x},${y + colTop}`).join(' '));
-        const on = rows.some((r) => r.classList.contains('is-pick') || r.classList.contains('is-wait'));
-        line.setAttribute('class', on ? 'is-on' : '');
-        wires.append(line);
-      }
-      for (const g of PAD_GROUPS.filter((x) => x.side === sd)) {
-        body.querySelector(`[data-pad-box="${g.id}"]`)?.classList.toggle('is-off', rowsOf(g.id) === 0);
+      const params: LayoutParams = { side: sd, edgeX, rowH: ROW_H, rowGap: ROW_GAP, stackGap: STACK_GAP, run: RUN };
+      for (const pl of placeSide(groups, params)) {
+        place(pl.id, sd === 'left' ? 0 : W - COL_W, pl.top, COL_W);
+        draw(pl.id, pl.points);
       }
     }
-    stage.style.height = `${Math.ceil(stageH)}px`;
-    wires.setAttribute('viewBox', `0 0 ${st.width} ${Math.ceil(stageH)}`);
+    const tops = placeTop(
+      topGroups.map((g) => ({
+        id: g.id,
+        boxX: bodyLeft + (g.box.x + g.box.w / 2) * scale,
+        boxY: band + g.box.y * scale,
+        half: g.side as 'topLeft' | 'topRight',
+      })),
+      { centerX: W / 2, width: TOP_W, gap: 6, bottomY: ROW_H, rowH: ROW_H },
+    );
+    for (const t of tops) {
+      place(t.id, t.left, t.top, t.width);
+      draw(t.id, t.points);
+    }
+    for (const g of PAD_GROUPS) body.querySelector(`[data-pad-box="${g.id}"]`)?.classList.toggle('is-off', rowsOf(g.id) === 0);
+    stage.style.height = `${Math.ceil(bottom) + 4}px`;
+    wires.setAttribute('viewBox', `0 0 ${W} ${Math.ceil(bottom) + 4}`);
   };
 
   const paintHot = (): void => {

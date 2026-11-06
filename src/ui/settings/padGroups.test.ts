@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PLAY_BINDS } from '../../input/gamepad/mapping';
-import { MENU_LABELS, PAD_GROUPS, playLabels } from './padGroups';
+import { MENU_LABELS, PAD_BODY_TOP, PAD_GROUPS, playLabels } from './padGroups';
 import { CONTROL_ROWS } from './controlRows';
 
 describe('ゲームパッドの札', () => {
@@ -28,9 +28,26 @@ describe('ゲームパッドの札', () => {
     expect(t.some((x) => x.includes('・'))).toBe(false);
   });
 
+  it('できごとは − の札に まとまり、十字の左の札は出ない', () => {
+    expect(labels.find((l) => l.action === 'openLog')!.group).toBe('minus');
+    expect(PAD_GROUPS.find((g) => g.id === 'minus')!.side).toBe('topLeft');
+  });
+
   it('どの札も、まとまりのどれかに入る', () => {
     const ids = new Set(PAD_GROUPS.map((g) => g.id));
     for (const l of [...labels, ...MENU_LABELS]) expect(ids.has(l.group)).toBe(true);
+  });
+
+  it('肩ボタンと 本体の あいだは 50px ほど（図の座標で 90）あいている。− ＋ は 本体のまんなか', () => {
+    const zl = PAD_GROUPS.find((g) => g.id === 'zl')!;
+    expect(PAD_BODY_TOP - (zl.box.y + zl.box.h)).toBeGreaterThanOrEqual(90);
+    const minus = PAD_GROUPS.find((g) => g.id === 'minus')!;
+    const plus = PAD_GROUPS.find((g) => g.id === 'plus')!;
+    const dpad = PAD_GROUPS.find((g) => g.id === 'dpad')!;
+    const abxy = PAD_GROUPS.find((g) => g.id === 'abxy')!;
+    expect(minus.box.x).toBeGreaterThan(dpad.box.x + dpad.box.w);
+    expect(plus.box.x + plus.box.w).toBeLessThan(abxy.box.x);
+    expect(minus.box.x + minus.box.w).toBeLessThanOrEqual(plus.box.x);
   });
 
   it('もちもの・クラフトは 十字=えらぶ・B=きめる・A=もどる・＋=スタートメニュー', () => {

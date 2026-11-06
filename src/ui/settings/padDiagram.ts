@@ -38,12 +38,12 @@ export function padSvg(): string {
     `C560 438 618 392 630 330 C642 260 620 214 580 196 C565 162 530 142 470 150 ` +
     `C420 132 300 132 250 150 Z"/>` +
     `<ellipse cx="360" cy="168" rx="150" ry="28" fill="#ffffff" opacity="0.28"/></g>` +
-    `<g class="pad-part" data-pad-face="l2">${pill(150, C.shoulder - 45, 140, 34, 'ZL', 26)}</g>` +
-    `<g class="pad-part" data-pad-face="l1">${pill(168, C.shoulder + 11, 116, 32, 'L', 26)}</g>` +
-    `<g class="pad-part" data-pad-face="r2">${pill(430, C.shoulder - 45, 140, 34, 'ZR', 26)}</g>` +
-    `<g class="pad-part" data-pad-face="r1">${pill(436, C.shoulder + 11, 116, 32, 'R', 26)}</g>` +
-    `<g class="pad-part" data-pad-face="select">${pill(250, C.mid - 14, 64, 28, '−', 28)}</g>` +
-    `<g class="pad-part" data-pad-face="start">${pill(400, C.mid - 14, 64, 28, '＋', 28)}</g>` +
+    `<g class="pad-part" data-pad-face="l2">${pill(150, C.shoulder - 45, 130, 34, 'ZL', 26)}</g>` +
+    `<g class="pad-part" data-pad-face="l1">${pill(166, C.shoulder + 11, 110, 32, 'L', 26)}</g>` +
+    `<g class="pad-part" data-pad-face="r2">${pill(440, C.shoulder - 45, 130, 34, 'ZR', 26)}</g>` +
+    `<g class="pad-part" data-pad-face="r1">${pill(444, C.shoulder + 11, 110, 32, 'R', 26)}</g>` +
+    `<g class="pad-part" data-pad-face="select">${pill(304, C.mid - 14, 48, 28, '−', 28)}</g>` +
+    `<g class="pad-part" data-pad-face="start">${pill(368, C.mid - 14, 48, 28, '＋', 28)}</g>` +
     stick('stickL', 'l3', 190, C.stickL, 38) +
     dpad(200, C.dpad) +
     face('faceTop', 556, C.abxy - 44, 'X') +

@@ -42,11 +42,17 @@ export function createSettingsPanel(
   general.className = 'set-panel';
   general.dataset.testid = 'settings-general';
   general.innerHTML =
-    `<h2 class="set-title">せってい</h2>` +
+    `<div class="set-headrow">` +
+    `<button type="button" class="set-text-btn set-back" data-testid="settings-back" data-menu-item hidden>もどる</button>` +
+    `<h2 class="set-title" data-title>せってい</h2>` +
+    `<button type="button" class="set-text-btn set-close" data-testid="settings-close" data-menu-item>とじる</button>` +
+    `</div>` +
+    // 1 だん目: 音・カメラ・コントローラー（コントローラーを おすと 2 だん目へ）
+    `<div data-screen="top">` +
     `<div class="set-tabs" role="tablist" aria-label="せってい">` +
     `<button type="button" class="set-tab" role="tab" id="tab-sound" data-testid="tab-sound" data-menu-item aria-selected="true" aria-controls="panel-sound">${ruby('音', 'おと')}</button>` +
     `<button type="button" class="set-tab" role="tab" id="tab-camera" data-testid="tab-camera" data-menu-item aria-selected="false" aria-controls="panel-camera">カメラ</button>` +
-    `<button type="button" class="set-tab" role="tab" id="tab-controls" data-testid="tab-controls" data-menu-item aria-selected="false" aria-controls="panel-controls">コントローラー</button>` +
+    `<button type="button" class="set-tab" id="tab-controls" data-testid="tab-controls" data-menu-item>コントローラー</button>` +
     `</div>` +
     `<div id="panel-sound" class="set-tabpanel" role="tabpanel" data-testid="panel-sound" aria-labelledby="tab-sound">` +
     `<div data-testid="settings-sound"></div>` +
@@ -62,18 +68,20 @@ export function createSettingsPanel(
     `</div>` +
     `<button type="button" class="set-text-btn" data-testid="look-reset" data-menu-item>はやさを もとにもどす</button>` +
     `</div>` +
-    `<div id="panel-controls" class="set-tabpanel" role="tabpanel" data-testid="panel-controls" aria-labelledby="tab-controls" hidden>` +
-    `<div class="set-tabs set-subtabs" role="tablist" aria-label="コントローラー">` +
-    `<button type="button" class="set-tab" role="tab" data-testid="ctrl-tab-keys" data-menu-item aria-selected="true">キーボード/マウス</button>` +
-    `<button type="button" class="set-tab" role="tab" data-testid="ctrl-tab-pad" data-menu-item aria-selected="false">ゲームパッド</button>` +
+    `</div>` +
+    // 2 だん目: キーボード/マウス・ゲームパッド（ゲームパッドを おすと 3 だん目へ）
+    `<div data-screen="controls" hidden>` +
+    `<div class="set-tabs" role="tablist" aria-label="コントローラー">` +
+    `<button type="button" class="set-tab is-on" role="tab" data-testid="ctrl-tab-keys" data-menu-item aria-selected="true">キーボード/マウス</button>` +
+    `<button type="button" class="set-tab" data-testid="ctrl-tab-pad" data-menu-item>ゲームパッド</button>` +
     `</div>` +
     `<div data-testid="ctrl-panel-keys">` +
     `<p class="set-lead">キーボードと マウスの そうさ。</p>` +
     `<div class="set-table set-table-keys" data-testid="settings-controls"></div>` +
     `</div>` +
-    `<div data-testid="ctrl-panel-pad" hidden></div>` +
     `</div>` +
-    `<div class="set-actions"><button type="button" class="set-text-btn" data-testid="settings-close" data-menu-item>とじる</button></div>`;
+    // 3 だん目: ゲームパッド（フィールド・もちもの・クラフト）
+    `<div data-screen="pad" data-testid="ctrl-panel-pad" hidden></div>`;
 
   const soundPanel = general.querySelector<HTMLElement>('[data-testid="panel-sound"]')!;
   const cameraPanel = general.querySelector<HTMLElement>('[data-testid="panel-camera"]')!;
@@ -81,52 +89,54 @@ export function createSettingsPanel(
   const tabCamera = general.querySelector<HTMLButtonElement>('[data-testid="tab-camera"]')!;
   const lookInput = general.querySelector<HTMLInputElement>('[data-testid="look-speed"]')!;
   const lookValue = general.querySelector<HTMLElement>('[data-testid="look-value"]')!;
-  const controlsPanel = general.querySelector<HTMLElement>('[data-testid="panel-controls"]')!;
   const tabControls = general.querySelector<HTMLButtonElement>('[data-testid="tab-controls"]')!;
-  const keysPanel = general.querySelector<HTMLElement>('[data-testid="ctrl-panel-keys"]')!;
   const padHost = general.querySelector<HTMLElement>('[data-testid="ctrl-panel-pad"]')!;
   const subKeys = general.querySelector<HTMLButtonElement>('[data-testid="ctrl-tab-keys"]')!;
   const subPad = general.querySelector<HTMLButtonElement>('[data-testid="ctrl-tab-pad"]')!;
-  type Tab = 'sound' | 'camera' | 'controls';
+  const backBtn = general.querySelector<HTMLButtonElement>('[data-testid="settings-back"]')!;
+  const titleEl = general.querySelector<HTMLElement>('[data-title]')!;
+  const screens = {
+    top: general.querySelector<HTMLElement>('[data-screen="top"]')!,
+    controls: general.querySelector<HTMLElement>('[data-screen="controls"]')!,
+    pad: padHost,
+  };
+  type Screen = keyof typeof screens;
+  const TITLES: Record<Screen, string> = { top: 'せってい', controls: 'コントローラー', pad: 'ゲームパッド' };
+  /** 1 だん目で えらんでいる中身（コントローラーは 中身ではなく 2 だん目への入り口） */
+  type Tab = 'sound' | 'camera';
   let tab: Tab = 'sound';
-  let sub: 'keys' | 'pad' = 'keys';
+  let screen: Screen = 'top';
 
   const paintLook = (): void => {
     const v = opts.reader.getSettings().lookSensitivity;
     if (Math.abs(Number(lookInput.value) - v) > 1e-9) lookInput.value = String(v);
     lookValue.textContent = v.toFixed(1);
   };
-  const showSub = (next: 'keys' | 'pad'): void => {
-    sub = next;
-    keysPanel.hidden = next !== 'keys';
-    padHost.hidden = next !== 'pad';
-    subKeys.setAttribute('aria-selected', String(next === 'keys'));
-    subPad.setAttribute('aria-selected', String(next === 'pad'));
-    subKeys.classList.toggle('is-on', next === 'keys');
-    subPad.classList.toggle('is-on', next === 'pad');
-    if (next === 'pad' && tab === 'controls') pad.open();
-    else pad.close();
-  };
   const showTab = (next: Tab): void => {
     tab = next;
-    const tabs: [Tab, HTMLButtonElement, HTMLElement][] = [
-      ['sound', tabSound, soundPanel],
-      ['camera', tabCamera, cameraPanel],
-      ['controls', tabControls, controlsPanel],
-    ];
-    for (const [id, btn, panel] of tabs) {
-      panel.hidden = id !== next;
-      btn.setAttribute('aria-selected', String(id === next));
-      btn.classList.toggle('is-on', id === next);
-    }
+    soundPanel.hidden = next !== 'sound';
+    cameraPanel.hidden = next !== 'camera';
+    tabSound.setAttribute('aria-selected', String(next === 'sound'));
+    tabCamera.setAttribute('aria-selected', String(next === 'camera'));
+    tabSound.classList.toggle('is-on', next === 'sound');
+    tabCamera.classList.toggle('is-on', next === 'camera');
     if (next === 'camera') paintLook();
-    showSub(sub);
+  };
+  /** 画面を 1 だん切りかえる。タブの段は 1 つだけ見える */
+  const goTo = (next: Screen): void => {
+    screen = next;
+    for (const k of Object.keys(screens) as Screen[]) screens[k].hidden = k !== next;
+    backBtn.hidden = next === 'top';
+    titleEl.textContent = TITLES[next];
+    if (next === 'pad') pad.open();
+    else pad.close();
   };
 
   const pad = createPadScreen({
     reader: opts.reader,
     dialogs: opts.dialogs,
     onCamera: () => {
+      goTo('top');
       showTab('camera');
       tabCamera.focus();
     },
@@ -190,6 +200,7 @@ export function createSettingsPanel(
       if (raf) cancelAnimationFrame(raf);
       return;
     }
+    goTo('top');
     showTab(tab);
     paintKeys();
     sound.refresh();
@@ -197,22 +208,28 @@ export function createSettingsPanel(
     loop();
   };
 
-  const topTabs: [Tab, HTMLButtonElement][] = [['sound', tabSound], ['camera', tabCamera], ['controls', tabControls]];
-  for (const [id, b] of topTabs) b.addEventListener('click', () => showTab(id));
-  const arrowTabs = <T,>(list: [T, HTMLButtonElement][], pick: (id: T) => void): void => {
-    list.forEach(([id, b], i) => {
-      b.addEventListener('focus', () => pick(id));
+  tabSound.addEventListener('click', () => showTab('sound'));
+  tabCamera.addEventListener('click', () => showTab('camera'));
+  tabControls.addEventListener('click', () => goTo('controls'));
+  subPad.addEventListener('click', () => goTo('pad'));
+  subKeys.addEventListener('click', () => goTo('controls'));
+  backBtn.addEventListener('click', () => goTo(screen === 'pad' ? 'controls' : 'top'));
+  /** 同じ段のタブは 左右で 移せる。音・カメラは えらんだだけで 中身が かわる */
+  const arrowTabs = (list: HTMLButtonElement[], onFocus?: (b: HTMLButtonElement) => void): void => {
+    list.forEach((b, i) => {
+      if (onFocus) b.addEventListener('focus', () => onFocus(b));
       b.addEventListener('keydown', (e) => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
         e.preventDefault();
-        list[(i + (e.key === 'ArrowRight' ? 1 : list.length - 1)) % list.length]![1].focus();
+        list[(i + (e.key === 'ArrowRight' ? 1 : list.length - 1)) % list.length]!.focus();
       });
     });
   };
-  arrowTabs(topTabs, showTab);
-  const subTabs: ['keys' | 'pad', HTMLButtonElement][] = [['keys', subKeys], ['pad', subPad]];
-  for (const [id, b] of subTabs) b.addEventListener('click', () => showSub(id));
-  arrowTabs(subTabs, showSub);
+  arrowTabs([tabSound, tabCamera, tabControls], (b) => {
+    if (b === tabSound) showTab('sound');
+    else if (b === tabCamera) showTab('camera');
+  });
+  arrowTabs([subKeys, subPad]);
   lookInput.addEventListener('input', () => {
     opts.reader.setSettings({ lookSensitivity: Number(lookInput.value) });
     paintLook();
