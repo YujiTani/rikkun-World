@@ -1,0 +1,82 @@
+/* COOP-1 作業 2.5（#401。§3.2）: せっていの「つかう コントローラー」タブ。色・角・すきまは tokens と UI の きまりから */
+.up-root { --up-1: var(--rk-xp); --up-2: var(--rk-rarity-3); }
+.up-root[hidden], .up-none[hidden], .up-rows[hidden], .up-tag[hidden] { display: none !important; }
+.up-head { margin: 8px 0; font-size: 24px; font-weight: 800; color: var(--rk-accent); }
+.up-rows { display: flex; flex-direction: column; gap: 8px; }
+.up-row { --up-c: var(--up-1); display: flex; align-items: center; gap: 16px; min-height: 56px; }
+.up-row[data-who='2'] { --up-c: var(--up-2); }
+.up-badge {
+  flex: none;
+  box-sizing: border-box;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--rk-text);
+  border-radius: 999px;
+  background: var(--up-c);
+  color: var(--rk-ink);
+  font-size: 24px;
+  font-weight: 800;
+  text-shadow: none;
+}
+.up-tag {
+  flex: none;
+  white-space: nowrap;
+  padding: 4px 12px;
+  border-radius: 8px;
+  background: var(--rk-bg-800);
+  color: var(--rk-text-sub);
+  font-size: 16px;
+  font-weight: 700;
+}
+/* 3 本から あとは 2 段に おりかえす（1 段に 2 つまで） */
+.up-btns { display: grid; grid-template-columns: repeat(2, max-content); gap: 8px 12px; }
+.up-btn {
+  box-sizing: border-box;
+  min-height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 4px solid transparent;
+  border-radius: 14px;
+  background: var(--rk-bg-700);
+  color: var(--rk-text);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.up-check { visibility: hidden; }
+.up-btn[aria-pressed='true'] { border-color: var(--up-c); }
+.up-btn[aria-pressed='true'] .up-check { visibility: visible; }
+.up-btn[data-pending='true'] { border-style: dashed; border-color: var(--up-c); }
+.up-btn[data-lit='true'] { background: var(--rk-line); box-shadow: 0 0 0 4px var(--up-lit, var(--rk-text)); }
+.up-btn[data-lit-color='p1'] { --up-lit: var(--up-1); }
+.up-btn[data-lit-color='p2'] { --up-lit: var(--up-2); }
+.up-btn:focus { outline: 4px solid var(--rk-info); outline-offset: 4px; }
+.up-note {
+  box-sizing: border-box;
+  height: 44px;
+  margin: 8px 0 0;
+  padding: 4px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  color: var(--rk-text-sub);
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.up-note[data-who] { border-color: var(--rk-text); color: var(--rk-text); font-size: 20px; }
+.up-note[data-who='1'] { border-color: var(--up-1); }
+.up-note[data-who='2'] { border-color: var(--up-2); }
+.up-none { padding: 16px 0; }
+.up-none-main { margin: 0; font-size: 24px; font-weight: 800; }
+.up-none-sub { margin: 8px 0 0; font-size: 16px; color: var(--rk-text-sub); font-weight: 700; }

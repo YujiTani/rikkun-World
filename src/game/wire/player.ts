@@ -110,11 +110,12 @@ export function wireInput(deps: WiredRender) {
       fx: FX_SETTINGS,
       onAudio: () => audioSync(),
       dialogs,
+      router: gamepadApi.router,
     },
     playOverlay.el,
   );
   settingsGate.open = () => settingsUi.isOpen();
-  gamepadApi.setPump(() => settingsUi.pump());
+  gamepadApi.setPump((active, dt) => settingsUi.pump(active, dt));
   playOverlay.addButton(`タイトル${ruby('画面', 'がめん')}にもどる`, 'return-title', () => returnDialog.open());
   bindPauseMenu({
     actions: game.input,

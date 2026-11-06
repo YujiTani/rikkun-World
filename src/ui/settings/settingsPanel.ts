@@ -1,7 +1,7 @@
 /**
  * せってい: キー・マウスの見本と、おと。コントローラーの変更はゲームパッド画面。
  */
-import type { GamepadReader } from '../../input/gamepad';
+import type { DuoPadRouter, GamepadReader } from '../../input/gamepad';
 import { GAMEPAD_CONFIG } from '../../input/gamepad/config';
 import type { AudioSettings } from '../../fx/audioConfig';
 import type { FxSettings } from '../../fx/config';
@@ -11,6 +11,7 @@ import type { DialogStack } from '../menu/choiceDialog';
 import { CONTROL_ROWS, rowKeys, type ControlRow } from './controlRows';
 import { createPadScreen } from './padScreen';
 import { helpFor } from './helpText';
+import { createUsePadPanel, useHelpKey, type UsePadPanel } from './usePadPanel';
 import './settingsPanel.css';
 
 export interface SettingsPanel {
@@ -20,7 +21,8 @@ export interface SettingsPanel {
   isCapturing(): boolean;
   cancelCapture(): void;
   refreshAudio(): void;
-  pump(): void;
+  /** 固定ステップごと（active = true）か、世界が 止まっている あいだ 毎コマ（active = false。dt = 経過 秒） */
+  pump(active?: boolean, dt?: number): void;
   dispose(): void;
 }
 
@@ -31,9 +33,12 @@ export function createSettingsPanel(
     fx: Pick<FxSettings, 'fxVolume'>;
     onAudio: () => void;
     dialogs: DialogStack;
+    /** 「つかう コントローラー」タブ(`?duo=dev` の ときだけ)。ルーターの getPads と 同じ 所から 読む */
+    router?: DuoPadRouter;
   },
   anchor?: HTMLElement,
 ): SettingsPanel {
+  const useOn = !!opts.router?.choiceUsable();
   const root = document.createElement('div');
   root.className = 'set-root';
   root.dataset.testid = 'settings-panel';
@@ -76,6 +81,7 @@ export function createSettingsPanel(
     `<div class="set-tabs" role="tablist" aria-label="コントローラー">` +
     `<button type="button" class="set-tab is-on" role="tab" data-testid="ctrl-tab-keys" data-help="ui:tabKeys" data-menu-item aria-selected="true">キーボード/マウス</button>` +
     `<button type="button" class="set-tab" data-testid="ctrl-tab-pad" data-help="ui:tabPad" data-menu-item>ゲームパッド</button>` +
+    (useOn ? `<button type="button" class="set-tab" data-testid="ctrl-tab-use" data-help="ui:tabUse" data-menu-item>つかう コントローラー</button>` : '') +
     `</div>` +
     `<div data-help-slot></div>` +
     `<div data-testid="ctrl-panel-keys">` +
@@ -96,6 +102,8 @@ export function createSettingsPanel(
   const padHost = general.querySelector<HTMLElement>('[data-testid="ctrl-panel-pad"]')!;
   const subKeys = general.querySelector<HTMLButtonElement>('[data-testid="ctrl-tab-keys"]')!;
   const subPad = general.querySelector<HTMLButtonElement>('[data-testid="ctrl-tab-pad"]')!;
+  const subUse = general.querySelector<HTMLButtonElement>('[data-testid="ctrl-tab-use"]');
+  const keysPanel = general.querySelector<HTMLElement>('[data-testid="ctrl-panel-keys"]')!;
   const backBtn = general.querySelector<HTMLButtonElement>('[data-testid="settings-back"]')!;
   const titleEl = general.querySelector<HTMLElement>('[data-title]')!;
   const screens = {
@@ -109,6 +117,8 @@ export function createSettingsPanel(
   type Tab = 'sound' | 'camera';
   let tab: Tab = 'sound';
   let screen: Screen = 'top';
+  /** 2 だん目で えらんでいる中身（キーボード/マウス か つかう コントローラー） */
+  let sub: 'keys' | 'use' = 'keys';
 
   const paintLook = (): void => {
     const v = opts.reader.getSettings().lookSensitivity;
@@ -134,8 +144,18 @@ export function createSettingsPanel(
     titleEl.innerHTML = TITLES[next];
     if (next === 'pad') pad.open();
     else pad.close();
+    syncSub();
     placeHelp();
   };
+  /** 2 だん目の 中身を 切りかえる。つかう コントローラーは 見えている あいだだけ 動く */
+  function syncSub(): void {
+    keysPanel.hidden = sub === 'use';
+    subKeys.classList.toggle('is-on', sub === 'keys');
+    subKeys.setAttribute('aria-selected', String(sub === 'keys'));
+    subUse?.classList.toggle('is-on', sub === 'use');
+    subUse?.setAttribute('aria-selected', String(sub === 'use'));
+    use?.setActive(sub === 'use' && screen === 'controls' && !root.hidden);
+  }
 
   // ---- ヘルプの帯: タブの下の 決まった所に 1 つだけ。当たった・フォーカスした物の説明、なにもなければ その画面の説明
   const helpBand = document.createElement('p');
@@ -143,7 +163,7 @@ export function createSettingsPanel(
   helpBand.dataset.testid = 'settings-help';
   helpBand.setAttribute('role', 'status');
   const defaultHelp = (): string =>
-    screen === 'top' ? (tab === 'sound' ? 'ui:tabSound' : 'ui:tabCamera') : screen === 'controls' ? 'ui:tabControls' : pad.mode() === 'menu' ? 'ui:tabMenu' : 'ui:tabPad';
+    screen === 'top' ? (tab === 'sound' ? 'ui:tabSound' : 'ui:tabCamera') : screen === 'controls' ? (sub === 'use' && use ? useHelpKey(use.notice(), use.isNone()) : 'ui:tabControls') : pad.mode() === 'menu' ? 'ui:tabMenu' : 'ui:tabPad';
   const showHelp = (key: string | null): void => {
     helpBand.innerHTML = helpFor(key ?? defaultHelp());
   };
@@ -173,6 +193,8 @@ export function createSettingsPanel(
     onMode: () => showHelp(null),
   });
   padHost.append(pad.el);
+  const use: UsePadPanel | null = useOn ? createUsePadPanel(opts.router!, () => showHelp(null)) : null;
+  if (use) keysPanel.after(use.el);
 
   const scrim = document.createElement('div');
   scrim.className = 'set-scrim';
@@ -225,17 +247,20 @@ export function createSettingsPanel(
 
   const loop = (): void => {
     pad.pump();
+    use?.paint();
     if (!root.hidden) raf = requestAnimationFrame(loop);
   };
 
   const setOpen = (on: boolean): void => {
     root.hidden = !on;
     if (!on) {
+      use?.setActive(false);
       pad.close();
       if (raf) cancelAnimationFrame(raf);
       return;
     }
     goTo('top');
+    syncSub();
     showTab(tab);
     paintKeys();
     sound.refresh();
@@ -247,7 +272,22 @@ export function createSettingsPanel(
   tabCamera.addEventListener('click', () => showTab('camera'));
   tabControls.addEventListener('click', () => goTo('controls'));
   subPad.addEventListener('click', () => goTo('pad'));
-  subKeys.addEventListener('click', () => goTo('controls'));
+  subKeys.addEventListener('click', () => {
+    sub = 'keys';
+    goTo('controls');
+  });
+  subUse?.addEventListener('click', () => {
+    sub = 'use';
+    goTo('controls');
+  });
+  // 待ちの あいだに マウスで ほかを おしたら 待ちを やめる（えらぶ ボタンは 待ちを うつすので のぞく）
+  general.addEventListener(
+    'pointerdown',
+    (e) => {
+      if (use?.pending() && !(e.target instanceof Element && e.target.closest('.up-btn'))) use.cancel('mouse');
+    },
+    true,
+  );
   backBtn.addEventListener('click', () => goTo(screen === 'pad' ? 'controls' : 'top'));
   /** 同じ段のタブは 左右で 移せる。音・カメラは えらんだだけで 中身が かわる */
   const arrowTabs = (list: HTMLButtonElement[], onFocus?: (b: HTMLButtonElement) => void): void => {
@@ -264,7 +304,7 @@ export function createSettingsPanel(
     if (b === tabSound) showTab('sound');
     else if (b === tabCamera) showTab('camera');
   });
-  arrowTabs([subKeys, subPad]);
+  arrowTabs(subUse ? [subKeys, subPad, subUse] : [subKeys, subPad]);
   lookInput.addEventListener('input', () => {
     opts.reader.setSettings({ lookSensitivity: Number(lookInput.value) });
     paintLook();
@@ -303,10 +343,17 @@ export function createSettingsPanel(
     open: () => setOpen(true),
     close: () => setOpen(false),
     isOpen: () => !root.hidden,
-    isCapturing: () => pad.isCapturing(),
-    cancelCapture: () => pad.cancelCapture(),
+    // 待ちの 最中は Esc・もどるが 先に 待ちを やめる（せってい画面は とじない）
+    isCapturing: () => pad.isCapturing() || !!use?.pending(),
+    cancelCapture: () => {
+      pad.cancelCapture();
+      use?.cancel('esc');
+    },
     refreshAudio: () => sound.refresh(),
-    pump: () => pad.pump(),
+    pump: (active = true, dt = 0) => {
+      pad.pump();
+      use?.pump(active, dt);
+    },
     dispose() {
       if (raf) cancelAnimationFrame(raf);
       root.remove();
