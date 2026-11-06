@@ -66,8 +66,9 @@ test('せってい: 表・はやさ・おと・割り当て・動作確認', asy
   await page.getByTestId('pad-open').click();
   await expect(page.getByTestId('pad-screen')).toBeVisible();
   await expect(page.getByTestId('pad-screen').getByTestId('look-speed')).toHaveCount(0);
-  await expect(page.getByTestId('dead-zone')).toBeVisible();
   await expect(page.getByTestId('settings-diag')).toBeVisible();
+  await page.getByTestId('pad-diag-open').click();
+  await expect(page.getByTestId('dead-zone')).toBeVisible();
   await expect(page.locator('[data-pad-face="faceBottom"] text')).toHaveText('B');
   await expect(page.locator('[data-pad-face="faceRight"] text')).toHaveText('A');
   await page.getByTestId('dead-zone').evaluate((el) => {

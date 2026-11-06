@@ -29,9 +29,26 @@ interface Capture {
   seen: Partial<Record<PadFace, boolean>>;
 }
 
-/** 左列・右列。図の上から下の順（線が交差しないように） */
-const LEFT: PadFace[] = ['l2', 'l1', 'select', 'dpadUp', 'dpadLeft', 'dpadDown', 'dpadRight'];
-const RIGHT: PadFace[] = ['r2', 'r1', 'start', 'faceTop', 'faceLeft', 'faceRight', 'faceBottom', 'r3'];
+/** ふきだし。side は線を横にまっすぐ引く側。dpad は十字のすぐそば */
+const SPOTS: { id: string; face: PadFace | null; side: 'left' | 'right' | 'near'; fixed?: string }[] = [
+  { id: 'l2', face: 'l2', side: 'left' },
+  { id: 'l1', face: 'l1', side: 'left' },
+  { id: 'select', face: 'select', side: 'left' },
+  { id: 'stickL', face: null, side: 'left', fixed: 'あるく' },
+  { id: 'dpadUp', face: 'dpadUp', side: 'near' },
+  { id: 'dpadLeft', face: 'dpadLeft', side: 'near' },
+  { id: 'dpadDown', face: 'dpadDown', side: 'near' },
+  { id: 'dpadRight', face: 'dpadRight', side: 'near' },
+  { id: 'r2', face: 'r2', side: 'right' },
+  { id: 'r1', face: 'r1', side: 'right' },
+  { id: 'start', face: 'start', side: 'right' },
+  { id: 'faceTop', face: 'faceTop', side: 'right' },
+  { id: 'faceLeft', face: 'faceLeft', side: 'near' },
+  { id: 'faceRight', face: 'faceRight', side: 'right' },
+  { id: 'faceBottom', face: 'faceBottom', side: 'right' },
+  { id: 'stickR', face: null, side: 'right', fixed: 'みる' },
+  { id: 'r3', face: 'r3', side: 'right' },
+];
 
 export function createPadScreen(opts: {
   reader: GamepadReader;
@@ -54,15 +71,14 @@ export function createPadScreen(opts: {
     `<p class="set-note-line" data-testid="bind-note"></p>` +
     `<div class="pad-stage" data-testid="pad-stage">` +
     `<svg class="pad-wires" data-wires aria-hidden="true"></svg>` +
-    `<div class="pad-col" data-col="left"></div>` +
     `<div class="pad-body">${padSvg()}</div>` +
-    `<div class="pad-col" data-col="right"></div>` +
+    `<div class="pad-calls" data-calls></div>` +
     `</div>` +
     `<div class="set-actions">` +
     `<button type="button" class="set-text-btn" data-testid="pad-to-camera" data-menu-item>カメラの はやさ</button>` +
     `</div>` +
-    `<h3 class="set-h">${ruby('動作', 'どうさ')}${ruby('確認', 'かくにん')}</h3>` +
-    `<section data-testid="settings-diag">` +
+    `<details class="pad-more" data-testid="settings-diag">` +
+    `<summary data-testid="pad-diag-open">${ruby('動作', 'どうさ')}${ruby('確認', 'かくにん')}</summary>` +
     `<div class="set-name" data-testid="gp-id"></div>` +
     `<div class="set-name" data-testid="gp-map"></div>` +
     `<div class="set-name" data-testid="gp-axes"></div>` +
@@ -73,7 +89,7 @@ export function createPadScreen(opts: {
     `<span class="set-num" data-testid="dead-value"></span>` +
     `</div>` +
     `<button type="button" class="set-text-btn" data-testid="gp-calib" data-menu-item>まんなかを おぼえる</button>` +
-    `</section>` +
+    `</details>` +
     `<div class="set-actions">` +
     `<button type="button" class="set-text-btn" data-testid="binds-reset" data-menu-item>もとにもどす</button>` +
     `<button type="button" class="set-text-btn" data-testid="pad-back" data-menu-item>せっていへ</button>` +
@@ -82,8 +98,7 @@ export function createPadScreen(opts: {
   const noteEl = el.querySelector<HTMLElement>('[data-testid="bind-note"]')!;
   const captureEl = el.querySelector<HTMLElement>('[data-testid="bind-capture"]')!;
   const unknownEl = el.querySelector<HTMLElement>('[data-testid="pad-unknown"]')!;
-  const leftCol = el.querySelector<HTMLElement>('[data-col="left"]')!;
-  const rightCol = el.querySelector<HTMLElement>('[data-col="right"]')!;
+  const calls = el.querySelector<HTMLElement>('[data-calls]')!;
   const wires = el.querySelector<SVGSVGElement>('[data-wires]')!;
   const deadInput = el.querySelector<HTMLInputElement>('[data-testid="dead-zone"]')!;
   const deadValue = el.querySelector<HTMLElement>('[data-testid="dead-value"]')!;
@@ -142,23 +157,60 @@ export function createPadScreen(opts: {
 
   const paintCalls = (): void => {
     const binds = opts.reader.getBinds();
-    leftCol.replaceChildren();
-    rightCol.replaceChildren();
-    const place = (face: PadFace, col: HTMLElement): void => {
-      const action = binds[face] ?? null;
-      const label = action ? labelOfAction(action) : 'あき';
-      col.append(callButton(face, face, label, action));
-    };
-    for (const f of LEFT) {
-      if (f === 'dpadUp') leftCol.append(callButton(null, 'stickL', 'あるく', null));
-      place(f, leftCol);
-    }
-    for (const f of RIGHT) {
-      if (f === 'r3') rightCol.append(callButton(null, 'stickR', 'みる', null));
-      place(f, rightCol);
+    calls.replaceChildren();
+    for (const spot of SPOTS) {
+      const action = spot.face ? binds[spot.face] ?? null : null;
+      const full = spot.fixed ?? (action ? labelOfAction(action) : 'あき');
+      const label = full === 'もちもの・クラフト' ? 'もちもの' : full === 'スタートメニュー' ? 'スタート' : full;
+      const b = callButton(spot.face, spot.id, label, action);
+      b.title = full;
+      b.dataset.side = spot.side;
+      calls.append(b);
     }
     paintHot();
-    requestAnimationFrame(paintLines);
+    requestAnimationFrame(layoutCalls);
+  };
+
+  const layoutCalls = (): void => {
+    const stage = el.querySelector('.pad-stage')!.getBoundingClientRect();
+    if (stage.width < 8) return;
+    const at = (id: string) => {
+      const d = el.querySelector<SVGCircleElement>(`[data-pad-dot="${id}"]`);
+      const r = d?.getBoundingClientRect();
+      if (!r) return null;
+      return { x: r.left + r.width / 2 - stage.left, y: r.top + r.height / 2 - stage.top };
+    };
+    for (const b of calls.querySelectorAll<HTMLElement>('.pad-call')) {
+      const id = b.dataset.face!;
+      const p = at(id);
+      if (!p) continue;
+      const near = b.dataset.side === 'near';
+      let x = b.dataset.side === 'left' ? 120 : stage.width - 120;
+      let y = p.y;
+      if (id === 'dpadUp') { x = 118; y = p.y; }
+      else if (id === 'dpadDown') { x = p.x; y = p.y + 48; }
+      else if (id === 'dpadLeft') { x = p.x - 120; y = p.y; }
+      else if (id === 'dpadRight') { x = p.x + 36; y = p.y + 56; }
+      else if (id === 'faceLeft') { x = p.x; y = 42; }
+      else if (id === 'r3') y = p.y + 36;
+      b.style.left = `${x}px`;
+      b.style.top = `${y}px`;
+      b.style.width = near ? '108px' : '148px';
+    }
+    separate(calls.querySelectorAll<HTMLElement>('.pad-call[data-side="left"]'));
+    separate(calls.querySelectorAll<HTMLElement>('.pad-call[data-side="right"]'));
+    paintLines();
+  };
+
+  const separate = (list: NodeListOf<HTMLElement>): void => {
+    const rows = [...list].sort((a, b) => parseFloat(a.style.top) - parseFloat(b.style.top));
+    let prev = -999;
+    for (const el of rows) {
+      let y = parseFloat(el.style.top);
+      if (y < prev + 42) y = prev + 42;
+      el.style.top = `${y}px`;
+      prev = y;
+    }
   };
 
   const paintLines = (): void => {
