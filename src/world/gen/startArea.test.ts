@@ -83,7 +83,7 @@ describe('スタートの広場（基準 12・13）', () => {
         }
       }
     }
-  });
+  }, 30_000); // 20 シードの はじまりの 坑道の 計画〔ほたるへ つなぐ 形さがし〕を 作る ぶん 5 秒では たりない
 });
 
 describe('はじまりの木・岩山（基準 14）', () => {
@@ -135,7 +135,7 @@ describe('はじまりの木・岩山（基準 14）', () => {
       expect(coal, `seed ${seed}`).toBeGreaterThanOrEqual(6);
       expect(south, `seed ${seed}`).toBeGreaterThanOrEqual(3);
     }
-  });
+  }, 30_000); // 同上
 });
 
 describe('洞くつの口（基準 8）', () => {
