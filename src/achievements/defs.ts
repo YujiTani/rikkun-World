@@ -363,6 +363,17 @@ function build(): AchievementDef[] {
   add({ series: 'mine.bottom', category: 'adventure', stat: 'mineBottom', tiers: [t(1)], name: () => 'こうどう の いちばん したに ついた！' });
   add({ series: 'mine.chest', category: 'adventure', stat: 'mineChest', tiers: [t(1)], name: () => 'はじめて たからばこ を あけた！' });
 
+  // MINE-1D §4.10: ほらあなの 種類。足が はじめて その 種類の 部屋に 入った（すいしょうは 中、ほかは 小）
+  for (const [kind, name, small] of [
+    ['hiroi', 'ひろい ほらあな', true],
+    ['shonyudo', 'しょうにゅうどう', true],
+    ['chiteiko', 'ちていこ', true],
+    ['hotaru', 'ほたるの ほらあな', true],
+    ['suisho', 'すいしょうの ほらあな', false],
+  ] as const) {
+    add({ series: `mine.cave.${kind}`, category: 'adventure', stat: `cave:${kind}`, tiers: [t(1, small)], name: () => `はじめて ${name} を みつけた！` });
+  }
+
   // #293: がしゃどくろ（ボス）を たおした。ふだんの ようかい（defeat.all）には 数えず、これ 1 つだけ（大きい 実績・金メダル）
   add({ series: 'defeat.gashadokuro', category: 'fight', stat: 'defeat:gashadokuro', tiers: [t(1)], name: () => 'がしゃどくろ を たおした！' });
 

@@ -855,6 +855,21 @@ describe('列を捨てる・出てよい列（VOX-D）', () => {
     s.step(1);
     expect(s.m.list()).toHaveLength(1);
   });
+  it('noSpawnAt が true を返す床には 出ない・false なら 出る（MINE-1D）', () => {
+    const asked: number[] = [];
+    const s = setup({ phase: 'night' });
+    s.m.config.yokaiAutoSpawn = true;
+    const o = (s.m as unknown as { opts: { noSpawnAt?: (x: number, y: number, z: number) => boolean } }).opts;
+    o.noSpawnAt = (_x, y) => (asked.push(y), true);
+    s.player.position = { x: 20.5, y: 9, z: 20.5 };
+    s.step(600);
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked.every(Number.isInteger)).toBe(true);
+    expect(s.m.list()).toHaveLength(0);
+    o.noSpawnAt = () => false;
+    s.step(1);
+    expect(s.m.list()).toHaveLength(1);
+  });
   it('読みこんでいない列にいる妖怪は 静かに消える（落とし物なし）', () => {
     const s = setup();
     s.m.spawn('karakasa', 10.5, 9, 10.5, { ai: false });

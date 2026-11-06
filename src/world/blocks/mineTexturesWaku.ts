@@ -3,6 +3,7 @@
  * art/MINE-1/chest_hint/chest_hint_rows.txt（ヒント「あける」の 絵）。宝箱の ブロックの 平らな 絵（遠くの 箱の 段・かけら用）は 段ごとの 色から 作る。
  * 乱数なし。
  */
+import { TSURARA_TILE, paintTsuraraTile } from './tsuraraTexture';
 import { CHEST_FLAT_LOCK, CHEST_PAL, KODO_WAKU_COLORS as W, type ChestArtTier } from './chestArt';
 
 /** ヒント「あける」の 絵は 1 段目の 色 */
@@ -86,8 +87,8 @@ const ART = {
   },
 } as const satisfies Record<string, RowArt>;
 
-// アトラスは 4 まいで 1 だん（マグマの 4 コマが 1 だんに ぴったり ならぶ ため）。kodo_pad は 8 まいに そろえる ための 1 まい（わくの 上の 絵と 同じ。どこにも つかわない）
-export const KODO_TILE_NAMES = ['kodo_waku_side', 'kodo_waku_top', 'chest_1', 'chest_2', 'chest_3', 'chest_4', 'chest_hint', 'kodo_pad'] as const;
+// アトラスは 4 まいで 1 だん（マグマの 4 コマが 1 だんに ぴったり ならぶ ため）。さいごの 1 まいは 8 まいに そろえる ための 空き枠だった（kodo_pad）。MINE-1D で つららの 絵に した（アトラスの 大きさと 絵の 位置は かわらない）
+export const KODO_TILE_NAMES = ['kodo_waku_side', 'kodo_waku_top', 'chest_1', 'chest_2', 'chest_3', 'chest_4', 'chest_hint', TSURARA_TILE] as const;
 export type KodoTileName = (typeof KODO_TILE_NAMES)[number];
 
 const KODO_SET: ReadonlySet<string> = new Set(KODO_TILE_NAMES);
@@ -123,7 +124,7 @@ const PAINT: Readonly<Record<KodoTileName, () => Rgba[]>> = {
   chest_3: () => paintChest(3),
   chest_4: () => paintChest(4),
   chest_hint: () => paintRows(ART.chest_hint),
-  kodo_pad: () => paintRows(ART.kodo_waku_top), // 8 まいに そろえる ための 1 まい
+  tsurara: paintTsuraraTile, // MINE-1D
 };
 
 export function paintKodoTile(name: KodoTileName): Rgba[] {

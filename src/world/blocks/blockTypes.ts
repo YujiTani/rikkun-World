@@ -128,7 +128,7 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   // MINE-1C（#350。番号は 後ろに 足す。186〜）: 坑道の わく（ほれる）・宝箱 16 こ（固い・ほっても こわれない。2 マス。`chestBlock.ts`）
   { id: 'kodo_waku', name: 'こうどうの わく', solid: true, breakable: true },
   ...CHEST_BLOCK_IDS.map((id): BlockType => ({ id, name: chestBlockName(chestBlockInfo(id)!.tier, chestBlockInfo(id)!.open), solid: true, breakable: false })),
-  // MINE-1D（#351。番号は 後ろに 足す。203）: つらら。固くない（体が 通る）・光を 通す・十字の 板で 描く（render/voxel/tsurara.ts）
+  // MINE-1D（#351。番号は 後ろに 足す。203）: つらら。固くない（体が 通る）・光を 通す・十字の 板で 描く（絵は tsuraraTexture.ts）
   { id: 'tsurara', name: 'つらら', solid: false, breakable: true },
 ];
 
@@ -189,6 +189,7 @@ const CROSS_IDS: ReadonlySet<string> = new Set([
   'toriya_fence', 'toriya_gate', // LIVE-2.1: とりごや の さく・もん（当たり は 今 の まま ブロック）
   'flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana',
   'rope', 'rope_coil', 'rope_stake', 'rope_fence', 'rope_fence_post', // ROPE-1: ロープ（たてに たれる なわ）・ロープだまり（下の まき）
+  'tsurara', // MINE-1D: つらら（天井の 下に さがる 十字の 板。ゆれない = swayDriver が のぞく）
 ]);
 const CROSS = BLOCK_TYPES.map((t) => CROSS_IDS.has(t.id));
 /** 十字の板で描くブロックか（作物・やせいの やさい・かかし・さく）。固くない・光を通す・まわりの面を隠さない */
@@ -216,7 +217,7 @@ export function isChalkIndex(index: number): boolean {
   return CHALK[index] === true;
 }
 
-/** つらら（MINE-1D）か。十字の 板で 描く（絵は render/voxel/tsurara.ts）。固くない・光を通す・まわりの面を隠さない */
+/** つらら（MINE-1D）か。十字の 板の なかま（isCrossIndex も true）で、ゆれない 所だけ これで 分ける */
 const TSURARA = BLOCK_TYPES.map((t) => t.id === 'tsurara');
 export function isTsuraraIndex(index: number): boolean {
   return TSURARA[index] === true;
@@ -224,7 +225,7 @@ export function isTsuraraIndex(index: number): boolean {
 
 /** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板・しるしはちがう */
 export function isOpaqueIndex(index: number): boolean {
-  return index !== AIR && !isLiquidIndex(index) && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index) && !isTsuraraIndex(index);
+  return index !== AIR && !isLiquidIndex(index) && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index);
 }
 
 /** 固いブロックか（番号で） */

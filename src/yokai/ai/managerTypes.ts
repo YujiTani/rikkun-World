@@ -65,6 +65,8 @@ export interface YokaiManagerOptions {
   groundY?: (x: number, z: number) => number;
   /** あれば、妖怪が出てよい (x, z) か聞く（VOX-D: つなぎ込みが「描く輪のメッシュずみの列」を渡す。無ければ 読みこんでいる列ならどこでも） */
   canSpawnAt?: (x: number, z: number) => boolean;
+  /** MINE-1D §4.3・D6: 妖怪が 立つ 床の マス（x・足の y・z。整数）を 聞く。true なら そこには 出ない（ほたるの ほらあなの 床）。なければ どこでも 出る */
+  noSpawnAt?: (x: number, y: number, z: number) => boolean;
   /** はじまりの場所（水平）。世界の設定から読む。複数なら いちばん近い所から d をはかる。省くと (0, 0) */
   origin?: () => { x: number; z: number } | readonly { x: number; z: number }[];
   /** 海面の高さ。世界の設定（contracts の SEA_Y）。省くと SEA_Y */
