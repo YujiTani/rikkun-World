@@ -107,13 +107,15 @@
 .po-menu-row {
   order: 5;
   display: flex;
+  /* 24px の字が はみ出さないよう、1 だんに 1 つずつ たてに ならべる */
+  flex-direction: column;
   gap: var(--rk-sp-3);
   width: max(var(--po-btn-w, 40vw), var(--po-btn-minw, 512px));
 }
 .po-book.po-extra {
   order: 0;
-  flex: 1;
-  width: auto;
+  flex: none;
+  width: 100%;
   min-width: 0;
   min-height: 64px;
   padding: var(--rk-sp-2) var(--rk-sp-3);
