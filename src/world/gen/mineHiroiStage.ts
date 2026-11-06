@@ -1,5 +1,5 @@
 import type { Geo } from './mineShaftSite';
-import { stageRoom, type RoomStage } from './mineCaveRoom';
+import { drain, stageRoomSteps, type RoomStage } from './mineCaveRoom';
 import type { Overlay } from './mineCaveGrid';
 import { colId } from './mineHiroiRoom';
 import { hiroiShape, type HiroiLayout } from './mineHiroiShape';
@@ -27,9 +27,14 @@ function dropBumps(l: HiroiLayout, drop: { x: number; z: number }[]): HiroiLayou
  * salt は 乱数の 材料（抽選は 区画の 番号・坑道の へやは 坑道ごとの 数）。over は 坑道の へやだけ。
  */
 export function stageHiroi(G: Geo, seed: number, salt: readonly [number, number], layout0: HiroiLayout, x0: number, y0: number, z0: number, over?: Overlay): { room: RoomStage; layout: HiroiLayout } | null {
+  return drain(stageHiroiSteps(G, seed, salt, layout0, x0, y0, z0, over));
+}
+
+/** `stageHiroi` を 短い 仕事ごとに yield する 仕事に した もの〔結果は 同じ〕 */
+export function* stageHiroiSteps(G: Geo, seed: number, salt: readonly [number, number], layout0: HiroiLayout, x0: number, y0: number, z0: number, over?: Overlay): Generator<void, { room: RoomStage; layout: HiroiLayout } | null> {
   let layout = layout0;
   for (let pass = 0; pass < 2; pass++) {
-    const room = stageRoom({ G, seed, kind: 'hiroi', shape: hiroiShape(layout), ox: x0, oy: y0, oz: z0, rng: createRng(hashInts(subSeed(seed, 935), salt[0], salt[1], pass)), over });
+    const room = yield* stageRoomSteps({ G, seed, kind: 'hiroi', shape: hiroiShape(layout), ox: x0, oy: y0, oz: z0, rng: createRng(hashInts(subSeed(seed, 935), salt[0], salt[1], pass)), over });
     const hit = frontHits(layout, room.fronts, x0, z0);
     if (hit === null) return null;
     if (hit.length === 0) return { room, layout };

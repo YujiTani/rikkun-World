@@ -98,12 +98,28 @@ export interface RoomStage {
   readonly fronts: Set<number>;
 }
 
+/** 短い 仕事ごとに yield する 仕事を 最後まで いっきに すすめて 結果を 返す */
+export function drain<T>(job: Generator<void, T>): T {
+  for (;;) {
+    const r = job.next();
+    if (r.done) return r.value;
+  }
+}
+
+/** 数 ms ごとに ひと休み する 間隔〔マスの 数。先読みが 時間で 止まれる ように〕 */
+const SLICE = 600;
+
 /** 部屋を 作る。まわりの 世界との 都合で 作れない（床の 下を かためられない など）ことは ないので、いつも 返す */
 export function buildRoom(args: BuildArgs): BuiltRoom {
   return finishRoom(stageRoom(args));
 }
 
 export function stageRoom(args: BuildArgs): RoomStage {
+  return drain(stageRoomSteps(args));
+}
+
+/** 部屋づくりの 前半。短い 仕事ごとに yield する〔結果は stageRoom と 同じ〕 */
+export function* stageRoomSteps(args: BuildArgs): Generator<void, RoomStage> {
   const { G, shape, ox, oy, oz } = args;
   const { sx, sy, sz, floorK, ceil, water } = shape;
   const g = new Grid(ox - 1, oy - 3, oz - 1, sx + 2, sy + 4, sz + 2);
@@ -130,6 +146,7 @@ export function stageRoom(args: BuildArgs): RoomStage {
       }
     }
   }
+  yield;
   const cells: number[] = [];
   for (let i = 0; i < g.a.length; i++) if (g.a[i]) cells.push(i);
   // 呼ぶ たびに 新しい 配列を 作らない（すぐ 取りだして 使う）
@@ -144,7 +161,9 @@ export function stageRoom(args: BuildArgs): RoomStage {
     return scratch;
   };
   // 床の 下 2 マスは かならず 固い（空気や 水の すぐ 下が 岩の とき）
+  let n = 0;
   for (const i of cells) {
+    if (++n % (SLICE * 8) === 0) yield;
     const [x, y, z] = coord(i);
     if (g.a[g.idx(x, y - 1, z)]) continue;
     for (const d of [1, 2]) {
@@ -155,7 +174,9 @@ export function stageRoom(args: BuildArgs): RoomStage {
   }
   // まわり 1 マス: 自然の 岩なら 石。自然の 空気は 穴
   const holes: number[] = [];
+  n = 0;
   for (const i of cells) {
+    if (++n % SLICE === 0) yield;
     const [x, y, z] = coord(i);
     for (const [dx, dy, dz] of SIX) {
       const qx = x + dx;
@@ -171,13 +192,20 @@ export function stageRoom(args: BuildArgs): RoomStage {
       else g.b[j] = STONE;
     }
   }
-  const openings = sealHoles(g, W, holes, coord);
+  yield;
+  const openings = yield* sealHoles(g, W, holes, coord);
+  yield;
   const fronts = shape.hiroi && openings > 0 ? openingFronts(g, W, cells, coord) : new Set<number>();
   return { args, g, W, cells, coord, openings, fronts };
 }
 
 /** 部屋づくりの 後半: かざり・数える・置く 物 */
 export function finishRoom(st: RoomStage): BuiltRoom {
+  return drain(finishRoomSteps(st));
+}
+
+/** 部屋づくりの 後半。短い 仕事ごとに yield する */
+export function* finishRoomSteps(st: RoomStage): Generator<void, BuiltRoom> {
   const { args, g, W, cells, coord } = st;
   const { G, seed, kind, shape, ox, oy, oz, rng } = args;
   const { sx, sy, sz } = shape;
@@ -196,12 +224,14 @@ export function finishRoom(st: RoomStage): BuiltRoom {
   };
   stat.openings = st.openings;
   decorate(g, kind, seed, ox, oy, oz, rng, coord, shape);
+  yield;
   tallyStats(g, W, stat, G, coord, cells);
+  yield;
   return { kind, fronts: st.fronts, box: { x0: ox, y0: oy, z0: oz, x1: ox + sx - 1, y1: oy + sy - 1, z1: oz + sz - 1 }, stats: stat, ops: opsOf(g, cells, coord), has: (x, y, z) => g.inside(x, y, z) && g.a[g.idx(x, y, z)]! > 0 };
 }
 
 /** 穴を 分ける: 歩いて 行き来 できて 外を 4 歩 すすめる 物は のこし、ほかは 石で ふさぐ。のこした 数を 返す */
-function sealHoles(g: Grid, W: Combined, holes: number[], coord: (i: number) => [number, number, number]): number {
+function* sealHoles(g: Grid, W: Combined, holes: number[], coord: (i: number) => [number, number, number]): Generator<void, number> {
   const isHole = new Map<number, boolean>(holes.map((i) => [i, true]));
   const seen = new Set<number>();
   let openings = 0;
@@ -230,7 +260,11 @@ function sealHoles(g: Grid, W: Combined, holes: number[], coord: (i: number) => 
   let live = comps;
   for (;;) {
     const dead = new Set<number>(); // 歩いても 外へ 出られない つながり（同じ つながりの 別の マスは しらべ なおさない）
-    const bad = live.filter((comp) => !comp.some((i) => walkable(W, dead, ...coord(i))));
+    const bad: number[][] = [];
+    for (const comp of live) {
+      if (!comp.some((i) => walkable(W, dead, ...coord(i)))) bad.push(comp);
+      yield;
+    }
     if (bad.length === 0) break;
     for (const comp of bad) for (const i of comp) g.b[i] = STONE;
     live = live.filter((c) => !bad.includes(c));

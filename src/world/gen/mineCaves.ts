@@ -1,12 +1,12 @@
 import { SEA_Y } from '../../contracts';
 import { colKey } from '../stream/ring';
 import { CAVE_CONFIG as C, CAVE_LAYERS, CAVE_KIND_LIST, type CaveKind } from './mineCaveConfig';
-import { buildRoom, finishRoom, stageRoom, type BuiltRoom, type RoomColOps, type RoomStage } from './mineCaveRoom';
+import { buildRoom, drain, finishRoomSteps, stageRoomSteps, type BuiltRoom, type RoomColOps, type RoomStage } from './mineCaveRoom';
 import { makeShape } from './mineCaveShape';
 import { layerSpan } from './mineLayers';
 import type { MineLayerId } from './mineConfig';
 import type { Geo } from './mineShaftSite';
-import { stageHiroi } from './mineHiroiStage';
+import { stageHiroiSteps } from './mineHiroiStage';
 import { tryHiroiPlan } from './mineHiroiPlan';
 import { exitOps, plainLayout } from './mineHiroiScene';
 import { hiroiShape, turnPlan, worldPlan, type HiroiLayout, type HiroiWorldPlan, type Turn } from './mineHiroiShape';
@@ -132,7 +132,7 @@ export class CaveWorld {
       const fixed = this.host.fixedRoom(rx, rz, layer);
       const kind = fixed ? fixed.kind : this.rollKind(rx, rz, layer);
       p.rolls.push(kind);
-      const room = fixed ?? (kind ? this.place(rx, rz, layer, li, kind, placed, p) : null);
+      const room = fixed ?? (kind ? yield* this.place(rx, rz, layer, li, kind, placed, p) : null);
       if (room) placed.push(room);
       p.rooms.push(room);
       if (p.tries.length < p.rooms.length) p.tries.push(null);
@@ -147,55 +147,57 @@ export class CaveWorld {
 
   private readonly jobs = new Map<number, Generator<void, RegionPlan>>();
 
-  private place(rx: number, rz: number, layer: MineLayerId, li: number, kind: CaveKind, placed: PlacedCave[], region: RegionPlan): PlacedCave | null {
+  private *place(rx: number, rz: number, layer: MineLayerId, li: number, kind: CaveKind, placed: PlacedCave[], region: RegionPlan): Generator<void, PlacedCave | null> {
     const { seed } = this.host;
     const rng = createRng(hashInts(subSeed(seed, 932), rx, rz, li));
     const id = `c${rx}_${rz}_${layer}`;
-    if (kind === 'hiroi') return this.placeHiroi(rx, rz, layer, li, id, placed, region, rng);
+    if (kind === 'hiroi') return yield* this.placeHiroi(rx, rz, layer, li, id, placed, region, rng);
     const shape = makeShape(kind, rng);
     if (!shape) return null;
-    const at = this.spot(rx, rz, layer, shape.sx, shape.sy, shape.sz, rng, placed, (x0, y0, z0) => stageRoom({ G: this.host.G, seed, kind, shape, ox: x0, oy: y0, oz: z0, rng }));
-    return at ? this.finish(id, kind, layer, at) : null;
+    const at = yield* this.spot(rx, rz, layer, shape.sx, shape.sy, shape.sz, rng, placed, (x0, y0, z0) => stageRoomSteps({ G: this.host.G, seed, kind, shape, ox: x0, oy: y0, oz: z0, rng }));
+    return at ? yield* this.finish(id, kind, layer, at) : null;
   }
 
   /** ひろい ほらあな: 計画（局所）を 作り、向きを きめて、場所を さがす。計画は 区画 × 層ごとに 1 つ */
-  private placeHiroi(rx: number, rz: number, layer: MineLayerId, li: number, id: string, placed: PlacedCave[], region: RegionPlan, rng: Rng): PlacedCave | null {
+  private *placeHiroi(rx: number, rz: number, layer: MineLayerId, li: number, id: string, placed: PlacedCave[], region: RegionPlan, rng: Rng): Generator<void, PlacedCave | null> {
     const { seed } = this.host;
     const planSeed = hashInts(subSeed(seed, 933), rx, rz, li);
+    yield;
     const t = tryHiroiPlan(planSeed);
+    yield;
     const row: HiroiTryRow = { rx, rz, layer, shaft: null, cave: null, placed: t.plan !== null, small: t.small, work: t.work };
     region.tries[li] = row;
     if (!t.plan) return null;
     const turn = (hashInts(subSeed(seed, 934), rx, rz, li) & 3) as Turn;
-    const cave = this.hiroiAt(rx, rz, layer, id, placed, rng, turnPlan(t.plan, turn), t.work);
+    const cave = yield* this.hiroiAt(rx, rz, layer, id, placed, rng, turnPlan(t.plan, turn), t.work);
     row.cave = cave ? id : null;
     return cave;
   }
 
   /** 向きの きまった 計画を 場所に ほる。出口の 前に こぶ・柱が かかる 場所は さける（こぶは けずる） */
-  private hiroiAt(rx: number, rz: number, layer: MineLayerId, id: string, placed: PlacedCave[], rng: Rng, layout0: HiroiLayout, work: HiroiWork): PlacedCave | null {
+  private *hiroiAt(rx: number, rz: number, layer: MineLayerId, id: string, placed: PlacedCave[], rng: Rng, layout0: HiroiLayout, work: HiroiWork): Generator<void, PlacedCave | null> {
     const { G, seed } = this.host;
     const { x: sx, z: sz, h: sy } = layout0.size;
-    const build = (x0: number, y0: number, z0: number): { room: RoomStage; layout: HiroiLayout } | null => stageHiroi(G, seed, [rx, rz], layout0, x0, y0, z0);
     const layouts = new Map<RoomStage, HiroiLayout>();
-    const at = this.spot(rx, rz, layer, sx, sy, sz, rng, placed, (x0, y0, z0) => {
-      const r = build(x0, y0, z0);
+    const at = yield* this.spot(rx, rz, layer, sx, sy, sz, rng, placed, function* (x0, y0, z0) {
+      const r = yield* stageHiroiSteps(G, seed, [rx, rz], layout0, x0, y0, z0);
       if (r) layouts.set(r.room, r.layout);
       return r?.room ?? null;
     });
     const layout = at ? layouts.get(at.stage) : undefined;
     if (!at || !layout) return null;
-    const cave = this.finish(id, 'hiroi', layer, at);
+    const cave = yield* this.finish(id, 'hiroi', layer, at);
     cave.hiroi = worldPlan(layout, { x: cave.box.x0, y: cave.box.y0, z: cave.box.z0 }, work);
     return cave;
   }
 
   /** 場所を さがす: 層の はんい・地面・海・口・古い 列・坑道に ぶつからない 所。出口の ある 場所を 先に さがす */
-  private spot(rx: number, rz: number, layer: MineLayerId, sx: number, sy: number, sz: number, rng: Rng, placed: PlacedCave[], make: (x0: number, y0: number, z0: number) => RoomStage | null): Spot | null {
+  private *spot(rx: number, rz: number, layer: MineLayerId, sx: number, sy: number, sz: number, rng: Rng, placed: PlacedCave[], make: (x0: number, y0: number, z0: number) => Generator<void, RoomStage | null>): Generator<void, Spot | null> {
     const { G } = this.host;
     const span = layerSpan(layer);
     let fallback: Spot | null = null;
     for (let t = 0; t < C.placeTries; t++) {
+      yield; // ためし 1 回ごとに ひと休み
       const x0 = rx * R + C.edge + randInt(rng, 0, R - 2 * C.edge - sx);
       const z0 = rz * R + C.edge + randInt(rng, 0, R - 2 * C.edge - sz);
       let hmin = Infinity;
@@ -210,7 +212,7 @@ export class CaveWorld {
       const y0 = lo + Math.floor(rng() * (hi - lo + 1));
       const box = { x0, y0, z0, x1: x0 + sx - 1, y1: y0 + sy - 1, z1: z0 + sz - 1 };
       if (!this.clear(box, placed)) continue;
-      const stage = make(x0, y0, z0);
+      const stage = yield* make(x0, y0, z0);
       if (!stage) continue;
       if (stage.openings > 0) return { box, stage };
       fallback ??= { box, stage };
@@ -219,8 +221,8 @@ export class CaveWorld {
   }
 
   /** えらんだ 場所の 部屋を 仕上げる */
-  private finish(id: string, kind: CaveKind, layer: MineLayerId, at: Spot): PlacedCave {
-    return { id, kind, layer, box: at.box, room: finishRoom(at.stage), shaft: null, hiroi: null };
+  private *finish(id: string, kind: CaveKind, layer: MineLayerId, at: Spot): Generator<void, PlacedCave> {
+    return { id, kind, layer, box: at.box, room: yield* finishRoomSteps(at.stage), shaft: null, hiroi: null };
   }
 
   /** 口・いけ・古い 列・坑道・同じ 区画の ほかの 部屋と ぶつからないか */
@@ -280,7 +282,7 @@ export class CaveWorld {
       const rx = 24 + (n % 8) * 2;
       const rz = 24 + Math.floor(n / 8) * 2;
       const rng = createRng(hashInts(subSeed(this.host.seed, 936), rx, rz, seed));
-      const cave = this.hiroiAt(rx, rz, 'asai', `c${rx}_${rz}_asai`, [], rng, layout, t.work);
+      const cave = drain(this.hiroiAt(rx, rz, 'asai', `c${rx}_${rz}_asai`, [], rng, layout, t.work));
       if (!cave) continue;
       const { x0, y0, z0 } = cave.box;
       const room = plain ? buildRoom({ G: this.host.G, seed: this.host.seed, kind: 'hiroi', shape: hiroiShape(plainLayout(layout), true), ox: x0, oy: y0, oz: z0, rng: createRng(1) }) : cave.room;
@@ -293,41 +295,77 @@ export class CaveWorld {
     throw new Error('場面を 置ける 場所が ない');
   }
 
+  private warmSig = Number.NaN;
+  private warmList: { rx: number; rz: number; key: number }[] = [];
+  private warmAt = 0;
+
   /**
-   * 中心の まわりの 区画の 計画を、あいた 時間に ms 以内だけ すすめる（列を 作る ときに 計画で ひっかからない ため）。近い 区画から。
-   * 区画 1 つの 計画は 途中で 止められない ので、時間が のこって いる 間だけ 次の 区画を はじめる
+   * 中心〔プレイヤー・2P・ワープ先など〕の まわりの 区画の 計画を、あいた 時間に ms 以内だけ すすめる（列を 作る ときに 計画で ひっかからない ため）。
+   * 近い 区画から。仕事は 数 ms ごとに 止まれる。中心の 区画が かわらない 間は 一覧を 作らない。
    */
   warm(centers: readonly { x: number; z: number }[], ms: number, reach: number): void {
+    this.warmPrep(centers, reach);
     const t0 = performance.now();
-    const list: { rx: number; rz: number; d: number }[] = [];
+    while (performance.now() - t0 < ms && this.warmStep()) {
+      /* 1 つ すすめる */
+    }
+  }
+
+  /** 先読みの 一覧を 中心の 区画が かわった ときだけ 作りなおす */
+  warmPrep(centers: readonly { x: number; z: number }[], reach: number): void {
+    let sig = reach;
+    for (const c of centers) sig = sig * 1000003 + Math.floor(c.x / R) * 4001 + Math.floor(c.z / R);
+    if (sig === this.warmSig) return;
+    this.warmSig = sig;
+    const list: { rx: number; rz: number; key: number; d: number }[] = [];
     const seen = new Set<number>();
     for (const c of centers) {
       for (let rz = Math.floor((c.z - reach) / R); rz <= Math.floor((c.z + reach) / R); rz++) {
         for (let rx = Math.floor((c.x - reach) / R); rx <= Math.floor((c.x + reach) / R); rx++) {
           const key = this.key(rx, rz);
-          if (seen.has(key)) continue;
-          if (this.regions.has(key)) {
-            this.jobs.delete(key); // 別の 呼び出しで 先に 終わった 仕事は すてる
-            continue;
-          }
+          if (seen.has(key) || this.regions.has(key)) continue;
           seen.add(key);
-          list.push({ rx, rz, d: Math.min(...centers.map((q) => Math.hypot((rx + 0.5) * R - q.x, (rz + 0.5) * R - q.z))) });
+          let d = Infinity;
+          for (const q of centers) d = Math.min(d, Math.hypot((rx + 0.5) * R - q.x, (rz + 0.5) * R - q.z));
+          list.push({ rx, rz, key, d });
         }
       }
     }
     list.sort((a, b) => a.d - b.d);
-    for (const r of list) {
-      const key = this.key(r.rx, r.rz);
-      let job = this.jobs.get(key);
-      if (!job) this.jobs.set(key, (job = this.regionJob(r.rx, r.rz)));
-      while (performance.now() - t0 < ms) {
-        if (job.next().done) {
-          this.jobs.delete(key);
-          break;
-        }
-      }
-      if (performance.now() - t0 >= ms) return;
+    this.warmList = list;
+    this.warmAt = 0;
+    for (const k of this.jobs.keys()) if (!seen.has(k)) this.jobs.delete(k); // 範囲の 外に のこった 仕事は すてる
+  }
+
+  /** 先読みで 次に 計画する 区画〔なければ null〕 */
+  warmFront(): { rx: number; rz: number } | null {
+    while (this.warmAt < this.warmList.length) {
+      const e = this.warmList[this.warmAt]!;
+      if (!this.regions.has(e.key)) return e;
+      this.jobs.delete(e.key);
+      this.warmAt++;
     }
+    return null;
+  }
+
+  /** 先読みを 短い 仕事 1 つ だけ すすめる。まだ のこって いれば true */
+  warmStep(): boolean {
+    while (this.warmAt < this.warmList.length) {
+      const e = this.warmList[this.warmAt]!;
+      if (this.regions.has(e.key)) {
+        this.jobs.delete(e.key);
+        this.warmAt++;
+        continue;
+      }
+      let job = this.jobs.get(e.key);
+      if (!job) this.jobs.set(e.key, (job = this.regionJob(e.rx, e.rz)));
+      if (job.next().done) {
+        this.jobs.delete(e.key);
+        this.warmAt++;
+      }
+      return true;
+    }
+    return false;
   }
 
   /** 範囲の 区画で ひろい ほらあなの 計画を ためした 記録（置けなかった 物も） */

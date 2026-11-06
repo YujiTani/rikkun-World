@@ -10,7 +10,7 @@ import type { PathCell, Pt, ShaftLayer, ShaftSide } from './mineShaftTypes';
 import { CAVE_CONFIG as CC, type CaveKind } from './mineCaveConfig';
 import type { Overlay } from './mineCaveGrid';
 import type { HiroiTryRow, PlacedCave } from './mineCaves';
-import { heyaSource, pickKind, type HeyaBuilt, type HeyaPrep, type HeyaSource } from './mineShaftHeya';
+import { HEYA_TRIES, LINK_TRIES, cellsSig, heyaSource, heyaTail, pickKind, planBoxOk, type HeyaBuilt, type HeyaPrep, type HeyaSource, type SideRef, type StartLink } from './mineShaftHeya';
 import { createRng, hash01, hashInts, subSeed, type Rng } from './random';
 
 /**
@@ -126,23 +126,6 @@ function layerOres(layer: ShaftLayer): number[] {
   return MINE_CONFIG.ores.filter((r) => r.layer === layer && r.hidden !== true).map((r) => BLOCK_INDEX[r.block]);
 }
 
-/** 1C の 計画の 横穴の しるし〔はじまりの 坑道を 1C の まま に する ため。横穴ごとの 道の マスの ハッシュ〕 */
-export interface SideRef {
-  /** 横穴を 計画した 順の しるし〔横穴が なかった おどりばは null〕 */
-  sigs: (number | null)[];
-  /** なかほどで いちばん 上の 横穴の 順 〔なければ −1〕 */
-  target: number;
-}
-
-/** はじまりの 坑道を ほたるへ つなぐ ための ためし〔1C の 計画を ref に して 1 本だけ かえる〕 */
-export interface StartLink {
-  ref: SideRef;
-  /** へやの 形を ためす 番号の はじまり */
-  from: number;
-  /** ためして 当たった 番号〔計画が ref と ちがって 落ちた とき、次は used + 1 から〕 */
-  used: number;
-}
-
 /** 坑道の へやに 使う もの〔1D〕 */
 export interface HeyaCtx {
   shaftId: string;
@@ -159,22 +142,6 @@ export interface SidesOut {
   rooms: PlacedCave[];
   tries: HiroiTryRow[];
   ref: SideRef;
-}
-
-/** 坑道の へやの くじに 当たった 横穴を ためす 回数〔横穴の 形を かえて〕 */
-export const HEYA_TRIES = 24;
-/** はじまりの 坑道を ほたるへ つなぐ 形を ためす 回数〔1C の ほかの 横穴が かわらない 形を さがす ので 多め〕 */
-export const LINK_TRIES = 120;
-
-/** 道の マスの ハッシュ */
-function cellsSig(path: readonly PathCell[], from: number): number {
-  let h = 0x811c9dc5;
-  for (let i = from; i < path.length; i++) {
-    const c = path[i]!;
-    h = Math.imul(h ^ keyOf(c.x, c.y, c.z), 0x01000193) >>> 0;
-    h = Math.imul(h ^ (c.part.length + 31 * c.part.charCodeAt(0)), 0x01000193) >>> 0;
-  }
-  return h;
 }
 
 /** 横穴を 計画する。短い 仕事ごとに yield する〔先読みが 時間で 止まれる ように。結果は 同じ〕 */
@@ -202,43 +169,14 @@ export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean,
     return false;
   };
   /** 道・山・部屋を 入れた 箱が 大きさ・区画の きまりに 合うか〔合わないと 計画ごと だめに なる ので へやの 形を 取りさげる〕 */
-  const boxOk = (): boolean => {
-    let x0 = Infinity;
-    let x1 = -Infinity;
-    let z0 = Infinity;
-    let z1 = -Infinity;
-    for (const c of b.path) {
-      if (c.x < x0) x0 = c.x;
-      if (c.x > x1) x1 = c.x;
-      if (c.z < z0) z0 = c.z;
-      if (c.z > z1) z1 = c.z;
-    }
-    if (site.mound) {
-      const h = site.mound.tc;
-      x0 = Math.min(x0, site.mound.x - h);
-      x1 = Math.max(x1, site.mound.x + h);
-      z0 = Math.min(z0, site.mound.z - h);
-      z1 = Math.max(z1, site.mound.z + h);
-    }
-    for (const r of [...b.reserved, ...out.rooms.map((q) => q.box)]) {
-      x0 = Math.min(x0, r.x0 - 1);
-      x1 = Math.max(x1, r.x1 + 1);
-      z0 = Math.min(z0, r.z0 - 1);
-      z1 = Math.max(z1, r.z1 + 1);
-    }
-    x0 -= S.boxMargin;
-    x1 += S.boxMargin;
-    z0 -= S.boxMargin;
-    z1 += S.boxMargin;
-    if (x1 - x0 + 1 > S.boxMax || z1 - z0 + 1 > S.boxMax) return false;
-    return start || (Math.floor(x0 / S.region) === Math.floor(x1 / S.region) && Math.floor(z0 / S.region) === Math.floor(z1 / S.region));
-  };
+  const boxOk = (): boolean => planBoxOk(b.path, site, [...b.reserved, ...out.rooms.map((q) => q.box)], start);
   /** 坑道の へやを つくる 横穴〔決まった 種類で 横穴の 形を かえて ためす。t0 〜 t1 番の 形〕 */
-  const heyaSide = (h: Hub, s0: number, kind: CaveKind, owner: string | null, t0: number, t1: number): { side: ShaftSide; t: number } | null => {
+  const heyaSide = function* (h: Hub, s0: number, kind: CaveKind, owner: string | null, t0: number, t1: number): Generator<void, { side: ShaftSide; t: number } | null> {
     const layer = layerAt(h.y) ?? 'fukai';
     const salt = hashInts(site.x, site.z, h.y, h.u);
     const src = heyaSource({ G, kind, layer, id: (box) => (owner === null ? `c${Math.floor(box.x0 / CC.region)}_${Math.floor(box.z0 / CC.region)}_nakahodo` : `${hc.shaftId}_h${out.rooms.length}`), shaft: owner, salt, rooms: b.reserved, isOld: hc.isOld, snap: owner === null });
     for (let t = t0; t < t1; t++) {
+      yield; // 形を 1 つ ためす ごとに ひと休み
       const hrng = createRng(hashInts(subSeed(G.seed, 953), site.x, site.z, h.y, t));
       const side = tryWinding(G, b, h, hrng, F, region, site, chestCells, t % 2 === 0 ? s0 : -s0, src);
       const cave = src.built();
@@ -289,7 +227,7 @@ export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean,
         // はじまりの 坑道: この 横穴を ほたるの ほらあなへ かえる〔1C の 形が 古い 列に かかる ときは かえない〕
         if (!side || touchesOld) return null;
         b.restore(snap0);
-        const r = heyaSide(h, s0, 'hotaru', null, hc.link!.from, LINK_TRIES);
+        const r = yield* heyaSide(h, s0, 'hotaru', null, hc.link!.from, LINK_TRIES);
         if (!r) return null;
         hc.link!.used = r.t;
         if (!boxOk()) return null;
@@ -300,7 +238,7 @@ export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean,
         const nr = out.rooms.length;
         const nt = out.tries.length;
         b.restore(snap0);
-        const r = heyaSide(h, s0, pickKind(layer, hash01(subSeed(G.seed, 952), site.x, site.z, h.y, h.u)), hc.shaftId, 0, HEYA_TRIES);
+        const r = yield* heyaSide(h, s0, pickKind(layer, hash01(subSeed(G.seed, 952), site.x, site.z, h.y, h.u)), hc.shaftId, 0, HEYA_TRIES);
         if (r && boxOk()) side = r.side;
         else {
           out.rooms.length = nr; // 取りさげた 部屋は 記録からも 外す
@@ -556,30 +494,15 @@ function build(
   let prep: HeyaPrep | null = null;
   if (end === 'heya') {
     if (center.some((c) => spec.heya!.oldAt(c.x, c.z))) return null; // 古い 列が かかる 横穴は 1C の 形のまま
-    // 部屋が 層・地面に 入る ように、さいごの 道を 階段で 上げ下げ する〔0 段 → ±1 段 → ±2 段 …〕
-    let m = 0;
-    let sgn: 1 | -1 = 1;
-    for (let n = 0; n <= 2 * S.side.heyaStairsMax && !prep; n++) {
-      m = Math.ceil(n / 2);
-      sgn = n % 2 === 1 ? 1 : -1;
-      prep = spec.heya!.prepare({ x: lastC.x + ldx * (2 * m + 1), y: y + sgn * m, z: lastC.z + ldz * (2 * m + 1) }, [ldx, ldz]);
-    }
-    if (!prep) return null;
-    // 2 マス すすんで 1 段〔上り下りは 2 マスに 1 段 まで〕
-    for (let k = 1; k <= 2 * m; k++) {
-      const yy = y + sgn * Math.floor(k / 2);
-      const sx = lastC.x + ldx * k;
-      const sz = lastC.z + ldz * k;
-      for (const j of [-1, 0, 1]) add(sx - ldz * j, yy, sz + ldx * j, 'side');
-      if (k % 4 === 0 || k === 2 * m) torches.push({ x: sx - ldz * (k % 8 < 4 ? 1 : -1), y: yy, z: sz + ldx * (k % 8 < 4 ? 1 : -1) });
-      if (k === 2 * m) torches.push({ x: sx + ldz * (k % 8 < 4 ? 1 : -1), y: yy, z: sz - ldx * (k % 8 < 4 ? 1 : -1) });
-    }
-    faceY = y + sgn * m;
-    faceX = lastC.x + ldx * 2 * m;
-    faceZ = lastC.z + ldz * 2 * m;
+    const tail = heyaTail(spec.heya!, y, lastC, ldx, ldz, center);
+    if (!tail) return null;
+    prep = tail.prep;
+    for (const c of tail.cells) add(c.x, c.y, c.z, 'side');
+    torches.push(...tail.torches);
+    faceX = tail.face.x;
+    faceY = tail.face.y;
+    faceZ = tail.face.z;
     to = { x: faceX, y: faceY, z: faceZ };
-    const lastLeg = lastC.leg;
-    if (prep.hits(center.filter((c) => c.leg < lastLeg).map((c) => ({ x: c.x, y, z: c.z })))) return null; // 前の 道が 部屋に かかる
   }
   if (end === 'cave' || end === 'joint' || end === 'heya') {
     for (let j = -1; j <= 1; j++) for (let h = 0; h < 4; h++) exempt.add(keyOf(faceX + ldx - ldz * j, faceY + h, faceZ + ldz + ldx * j));

@@ -11,7 +11,9 @@ import { hiroiShape, turnCell, turnPlan, worldPlan, type HiroiLayout, type Turn 
 import { stageHiroi } from './mineHiroiStage';
 import { layerSpan } from './mineLayers';
 import { keyOf } from './mineShaftBuild';
+import { SHAFT_CONFIG as SS } from './mineShaftConfig';
 import type { Geo } from './mineShaftSite';
+import type { PathCell } from './mineShaftTypes';
 import { createRng, hash01, hashInts, subSeed } from './random';
 
 /**
@@ -306,3 +308,107 @@ export function pickKind(layer: MineLayerId, u: number): CaveKind {
   }
   return list[list.length - 1]![0];
 }
+
+/** 横穴の さいごの 道〔階段〕と 部屋の 出口: 部屋が 層・地面に 入る ように、さいごの 道を 階段で 上げ下げ する〔0 段 → ±1 段 → ±2 段 …〕 */
+export interface HeyaTail {
+  prep: HeyaPrep;
+  /** 階段の 道の マス〔part は 'side'〕 */
+  cells: { x: number; y: number; z: number }[];
+  torches: { x: number; y: number; z: number }[];
+  /** 道の 先の マス〔部屋の 出口の 手前〕 */
+  face: { x: number; y: number; z: number };
+}
+
+export function heyaTail(src: HeyaSource, y: number, lastC: { x: number; z: number; leg: number }, ldx: number, ldz: number, center: readonly { x: number; z: number; leg: number }[]): HeyaTail | null {
+  let prep: HeyaPrep | null = null;
+  let m = 0;
+  let sgn: 1 | -1 = 1;
+  for (let n = 0; n <= 2 * SS.side.heyaStairsMax && !prep; n++) {
+    m = Math.ceil(n / 2);
+    sgn = n % 2 === 1 ? 1 : -1;
+    prep = src.prepare({ x: lastC.x + ldx * (2 * m + 1), y: y + sgn * m, z: lastC.z + ldz * (2 * m + 1) }, [ldx, ldz]);
+  }
+  if (!prep) return null;
+  const cells: HeyaTail['cells'] = [];
+  const torches: HeyaTail['torches'] = [];
+  // 2 マス すすんで 1 段〔上り下りは 2 マスに 1 段 まで〕
+  for (let k = 1; k <= 2 * m; k++) {
+    const yy = y + sgn * Math.floor(k / 2);
+    const sx = lastC.x + ldx * k;
+    const sz = lastC.z + ldz * k;
+    for (const j of [-1, 0, 1]) cells.push({ x: sx - ldz * j, y: yy, z: sz + ldx * j });
+    if (k % 4 === 0 || k === 2 * m) torches.push({ x: sx - ldz * (k % 8 < 4 ? 1 : -1), y: yy, z: sz + ldx * (k % 8 < 4 ? 1 : -1) });
+    if (k === 2 * m) torches.push({ x: sx + ldz * (k % 8 < 4 ? 1 : -1), y: yy, z: sz - ldx * (k % 8 < 4 ? 1 : -1) });
+  }
+  const face = { x: lastC.x + ldx * 2 * m, y: y + sgn * m, z: lastC.z + ldz * 2 * m };
+  const lastLeg = lastC.leg;
+  if (prep.hits(center.filter((c) => c.leg < lastLeg).map((c) => ({ x: c.x, y, z: c.z })))) return null; // 前の 道が 部屋に かかる
+  return { prep, cells, torches, face };
+}
+
+/** 道・山・部屋を 入れた 計画の 箱が 大きさ〔boxMax〕・区画〔坑道の 区画の 中〕の きまりに 合うか */
+export function planBoxOk(path: readonly { x: number; z: number }[], site: { mound: { x: number; z: number; tc: number } | null }, rooms: readonly Bounds[], start: boolean): boolean {
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let z0 = Infinity;
+  let z1 = -Infinity;
+  for (const c of path) {
+    if (c.x < x0) x0 = c.x;
+    if (c.x > x1) x1 = c.x;
+    if (c.z < z0) z0 = c.z;
+    if (c.z > z1) z1 = c.z;
+  }
+  if (site.mound) {
+    const h = site.mound.tc;
+    x0 = Math.min(x0, site.mound.x - h);
+    x1 = Math.max(x1, site.mound.x + h);
+    z0 = Math.min(z0, site.mound.z - h);
+    z1 = Math.max(z1, site.mound.z + h);
+  }
+  for (const r of rooms) {
+    x0 = Math.min(x0, r.x0 - 1);
+    x1 = Math.max(x1, r.x1 + 1);
+    z0 = Math.min(z0, r.z0 - 1);
+    z1 = Math.max(z1, r.z1 + 1);
+  }
+  x0 -= SS.boxMargin;
+  x1 += SS.boxMargin;
+  z0 -= SS.boxMargin;
+  z1 += SS.boxMargin;
+  if (x1 - x0 + 1 > SS.boxMax || z1 - z0 + 1 > SS.boxMax) return false;
+  return start || (Math.floor(x0 / SS.region) === Math.floor(x1 / SS.region) && Math.floor(z0 / SS.region) === Math.floor(z1 / SS.region));
+}
+
+/** 1C の 計画の 横穴の しるし〔はじまりの 坑道を 1C の まま に する ため。横穴ごとの 道の マスの ハッシュ〕 */
+export interface SideRef {
+  /** 横穴を 計画した 順の しるし〔横穴が なかった おどりばは null〕 */
+  sigs: (number | null)[];
+  /** なかほどで いちばん 上の 横穴の 順 〔なければ −1〕 */
+  target: number;
+}
+
+/** はじまりの 坑道を ほたるへ つなぐ ための ためし〔1C の 計画を ref に して 1 本だけ かえる〕 */
+export interface StartLink {
+  ref: SideRef;
+  /** へやの 形を ためす 番号の はじまり */
+  from: number;
+  /** ためして 当たった 番号〔計画が ref と ちがって 落ちた とき、次は used + 1 から〕 */
+  used: number;
+}
+
+/** 坑道の へやの くじに 当たった 横穴を ためす 回数〔横穴の 形を かえて〕 */
+export const HEYA_TRIES = 24;
+/** はじまりの 坑道を ほたるへ つなぐ 形を ためす 回数〔1C の ほかの 横穴が かわらない 形を さがす ので 多め〕 */
+export const LINK_TRIES = 120;
+
+/** 道の マスの ハッシュ */
+export function cellsSig(path: readonly PathCell[], from: number): number {
+  let h = 0x811c9dc5;
+  for (let i = from; i < path.length; i++) {
+    const c = path[i]!;
+    h = Math.imul(h ^ keyOf(c.x, c.y, c.z), 0x01000193) >>> 0;
+    h = Math.imul(h ^ (c.part.length + 31 * c.part.charCodeAt(0)), 0x01000193) >>> 0;
+  }
+  return h;
+}
+

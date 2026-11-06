@@ -2,7 +2,7 @@ import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { keyOf, keyX, keyY, keyZ } from './mineShaftBuild';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import { planShaft, planShaftSteps, type PlanEnv, type ShaftPlan } from './mineShaftPlan';
-import { LINK_TRIES, type StartLink } from './mineShaftSide';
+import { LINK_TRIES, type StartLink } from './mineShaftHeya';
 import { geoFor, regionHit, regionLand, regionOf, regionSites, startSiteAt, startSites, type Geo, type Site } from './mineShaftSite';
 import type { PathCell, Shaft, ShaftRoll } from './mineShaftTypes';
 import { CaveWorld, type CaveHost, type HiroiTryRow, type PlacedCave } from './mineCaves';
@@ -292,7 +292,45 @@ export class ShaftWorld implements CaveHost {
       this.warmSig = sig;
       this.rebuildWarm(centers, reach);
     }
+    this.caves.warmPrep(centers, reach);
+    // 坑道の 先読みと ほらあなの 先読みで 時間を わけあう〔交互に 短い 仕事を 1 つずつ。どちらかが おわれば のこりを 使う〕
     const t0 = performance.now();
+    for (;;) {
+      const a = this.warmShaftStep();
+      // ほらあなの 区画は、そこに かかる 坑道の 区画を 先に 計画して から はじめる〔ほらあなの 計画の 中で 坑道の 計画が いっきに 走らない ように〕
+      const front = this.caves.warmFront();
+      let b = false;
+      if (front) {
+        const miss = this.missingShaftRegion(front.rx, front.rz);
+        b = miss ? this.stepShaftRegion(miss[0], miss[1]) : this.caves.warmStep();
+      }
+      if (!a && !b && !front) return;
+      if (performance.now() - t0 >= ms) return;
+    }
+  }
+
+  /** ほらあなの 区画 (rx, rz) の 計画で 坑道を しらべる はんいに かかる 区画の うち、まだ 計画して いない 1 つ */
+  private missingShaftRegion(rx: number, rz: number): [number, number] | null {
+    const g = CAVE_CONFIG.gap + 2;
+    for (let sz = regionOf(rz * CAVE_REGION - g); sz <= regionOf(rz * CAVE_REGION + CAVE_REGION + g); sz++) {
+      for (let sx = regionOf(rx * CAVE_REGION - g); sx <= regionOf(rx * CAVE_REGION + CAVE_REGION + g); sx++) if (!this.regions.has(this.regionKey(sx, sz))) return [sx, sz];
+    }
+    return null;
+  }
+
+  /** 坑道の 区画 (rx, rz) の 計画を 短い 仕事 1 つ だけ すすめる */
+  private stepShaftRegion(rx: number, rz: number): boolean {
+    const key = this.regionKey(rx, rz);
+    if (this.regions.has(key)) return false;
+    let job = this.jobs.get(key);
+    if (!job) this.jobs.set(key, (job = this.regionJob(rx, rz)));
+    const r = job.next();
+    if (r.done) this.store(key, r.value);
+    return true;
+  }
+
+  /** 坑道の 先読みを 短い 仕事 1 つ だけ すすめる。まだ のこって いれば true */
+  private warmShaftStep(): boolean {
     while (this.warmAt < this.warmKeys.length) {
       const key = this.warmKeys[this.warmAt]!;
       if (this.regions.has(key)) {
@@ -306,9 +344,9 @@ export class ShaftWorld implements CaveHost {
         this.store(key, r.value);
         this.warmAt++;
       }
-      if (performance.now() - t0 >= ms) return;
+      return true;
     }
-    this.caves.warm(centers, ms - (performance.now() - t0), reach); // ほらあなの 種類の 部屋〔1D〕の 計画も
+    return false;
   }
 
   private rebuildWarm(centers: readonly { x: number; z: number }[], reach: number): void {
