@@ -180,7 +180,7 @@
 
 ## 6. セーブ
 
-- 2P の分は **世界のセーブに 1 か所** 足す（例: `p2: { inventory, level }`。`level` は 1P の `level` と同じ形 `{ level, xp }`。段階 2 で `armor` も）。セーブの版を 1 つ上げる。
+- 2P の分は **世界のセーブに 1 か所** 足す（例: `p2: { inventory, level }`。`level` は 1P の `level` と同じ形 `{ level, xp }`。段階 2 で `armor` も）。`p2` は足すだけのキーなので **セーブの版（`SAVE_VERSION`）は上げない**（上げると `validMeta` が古いセーブを読まなくなるため。PO 2026-11-06）。
 - 実績は世界で 1 つ（今の `achievements` のまま）。2P の分を別に持たない。
 - 2P の場所・向きは保存しない（次に参加したら 1P の横に出る）。ハートは満タンで始まる（1P の今の決まりと同じ）。
 - 2P が一度も参加していない世界: `p2` はなし。古いセーブはそのまま読める（2P なしとして）。
@@ -338,6 +338,8 @@
 | `duo.join()` | `(): boolean` | 2P をすぐ参加させる（パッドなしでも。§9.5 の出る所に出す）。参加できたら true |
 | `duo.place(who, pos)` | `(who: 1 \| 2, pos: { x: number; y: number; z: number }): void` | 1P か 2P を その場所に置く（速さ 0）。距離を作るのに使う |
 | `duo.state()` | `(): { joined: boolean; view: 'one' \| 'loupe' \| 'split'; tier: 0 \| 1 \| 2; distance: number; meter: number; loupe: { x: number; y: number; d: number } \| null; rings: 1 \| 2; columns: number; light: boolean; padLost: boolean }` | ようす・`tier`＝ルーペとメーターの **色の段**（0＝ふつう・1＝1 段目・2＝2 段目。§9.2）・距離・メーターの長さ（0〜1）・ルーペの位置と直径（px）・輪の数・持つ列の数・軽くする工夫が入っているか・2P のパッドがぬけているか |
+| `duo.pos(who)` | `(who: 1 \| 2): { x: number; y: number; z: number } \| null` | 1P か 2P の今の場所（2P がいなければ null） |
+| `duo.leave()` | `(): void` | 2P をすぐ「やめる」（長押しと同じあとしまつ: 保存してからいなくなる） |
 | `gamepad.injectPads(pads)` | `(pads: Array<Gamepad \| null>): void` | 偽パッドを何本でも入れる（並び順が つないだ順）。`null` は「ぬけた」。今の `injectPad(pad)` は `injectPads([pad])` と同じ動きのまま残す |
 
 - 2P の持ち物・ハートなどは、今の口（`inventory`・`combat` など）に「だれの」を足すか `duo` の下に足すかは tester と developer が決める（名前は `duo` の下にそろえるのが望ましい）。
