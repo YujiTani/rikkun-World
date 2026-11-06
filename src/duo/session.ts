@@ -84,18 +84,18 @@ export class DuoSession {
     this.deps.onLeft?.(reason);
   }
 
-  /** なめらかに 変わる カメラの 距離（1 人 4.0・2 人 6.0。§9.1。0.5 秒 = 30 ステップで とどく） */
+  /** なめらかに 変わる カメラの 距離（1 人 4.0・2P が いる あいだ 5.0。§9.1。0.5 秒 = 30 ステップで とどく） */
   cameraDistance(): number {
     return this.camera;
   }
 
   cameraDistanceTarget(): number {
-    return this.on ? DUO_TUNING.cameraDuo : DUO_TUNING.cameraSolo;
+    return this.on ? DUO_TUNING.cameraSplit : DUO_TUNING.cameraSolo;
   }
 
   private easeCamera(): void {
     const target = this.cameraDistanceTarget();
-    const speed = (DUO_TUNING.cameraDuo - DUO_TUNING.cameraSolo) / DUO_TUNING.cameraEaseSteps;
+    const speed = (DUO_TUNING.cameraSplit - DUO_TUNING.cameraSolo) / DUO_TUNING.cameraEaseSteps;
     const d = target - this.camera;
     this.camera = Math.abs(d) <= speed ? target : this.camera + Math.sign(d) * speed;
   }

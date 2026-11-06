@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { InventoryImpl } from '../inventory/Inventory';
 import { P2State } from './p2State';
 import { DuoSession, type DuoStepInput } from './session';
+import { DUO_TUNING } from './tuning';
 import type { DuoLeaveReason, P2Save } from './types';
 
 /**
@@ -15,7 +16,8 @@ import type { DuoLeaveReason, P2Save } from './types';
  *     - step({ padPresent, quitHeld }):
  *         quitHeld が 120 ステップ つづいたら leave('quit')。はなすと ゲージは すぐ 0（途中までは 何も 起きない）。
  *         padPresent = false に なった その step で padLost() = true。つづけて 3600 ステップ ぬけたままなら leave('padLost')。つながれば 数えなおし。
- *     - cameraDistance(): 参加で 1 人 4.0 → 2 人 6.0、やめて 6.0 → 4.0。30 ステップ（0.5 秒）で とどく なめらかな 変化。step() ごとに 進む。
+ *     - cameraDistance(): 参加で 1 人 4.0 → 2 人（2P が いる あいだ いつも）DUO_TUNING.cameraSplit = 5.0、やめて 5.0 → 4.0。30 ステップ（0.5 秒）で とどく なめらかな 変化。step() ごとに 進む。
+ *       作業 3e（#422。1.8）: 6.0（1 画面・ルーペの 距離）は なくなった。2P が 近くても（2 マス）遠くても 同じ 5.0（距離は 見ない）。`DUO_TUNING.cameraDuo` を なくす。
  *   配線: 「さいしょから」「別の世界」「セーブ読み直し」は leave('newGame' | 'otherWorld' | 'reload') を 呼ぶ（AC17）。
  */
 
@@ -76,7 +78,7 @@ describe('AC6: 「やめる」を 2 秒（120 ステップ）長押し', () => {
     const { session, run } = make();
     session.join();
     run(60);
-    expect(session.cameraDistance()).toBeCloseTo(6.0, 1);
+    expect(session.cameraDistance()).toBeCloseTo(DUO_TUNING.cameraSplit, 1);
     run(120, { padPresent: true, quitHeld: true });
     expect(session.cameraDistanceTarget()).toBe(4.0);
     run(30);
@@ -108,28 +110,29 @@ describe('AC5: パッドが ぬけて 60 秒（3600 ステップ）で やめる
   });
 });
 
-describe('AC8: 2 人のとき カメラの 距離は 2 人の 値（0.5 秒以内）', () => {
-  it('1 人は 4.0、参加で 6.0 に むかい、30 ステップで とどく。行き過ぎない', () => {
+describe('AC8: 2P が いる あいだ カメラの 距離は 分割の 値（5.0。0.5 秒以内）', () => {
+  it('1 人は 4.0、参加で 5.0 に むかい、30 ステップで とどく。行き過ぎない', () => {
     const { session, run } = make();
     expect(session.cameraDistance()).toBe(4.0);
     session.join();
-    expect(session.cameraDistanceTarget()).toBe(6.0);
+    expect(session.cameraDistanceTarget()).toBe(DUO_TUNING.cameraSplit);
+    expect(DUO_TUNING.cameraSplit).toBe(5.0);
     let prev = session.cameraDistance();
     for (let i = 0; i < 30; i++) {
       run(1);
       const d = session.cameraDistance();
       expect(d).toBeGreaterThanOrEqual(prev - 1e-9);
-      expect(d).toBeLessThanOrEqual(6.0 + 1e-9);
+      expect(d).toBeLessThanOrEqual(DUO_TUNING.cameraSplit + 1e-9);
       prev = d;
     }
-    expect(session.cameraDistance()).toBeCloseTo(6.0, 1);
+    expect(session.cameraDistance()).toBeCloseTo(DUO_TUNING.cameraSplit, 1);
   });
   it('参加 した 次の step では まだ 途中（いきなり とばない）', () => {
     const { session, run } = make();
     session.join();
     run(1);
     expect(session.cameraDistance()).toBeGreaterThan(4.0);
-    expect(session.cameraDistance()).toBeLessThan(6.0);
+    expect(session.cameraDistance()).toBeLessThan(DUO_TUNING.cameraSplit);
   });
 });
 

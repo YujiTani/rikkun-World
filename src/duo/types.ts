@@ -6,24 +6,30 @@ import type { ItemId } from '../contracts';
 
 import type { PadChoice } from '../input/gamepad/padChoice';
 
-/** 距離メーター・ルーペの 色の 段（§9.2）。0 = ふつう・1 = 1 段目・2 = 2 段目 */
-export type DuoTier = 0 | 1 | 2;
-
-/** 画面の ようす（§2.3）。作業 1 では 'one' だけ 使う */
-export type DuoView = 'one' | 'loupe' | 'split';
+/** 画面の ようす（§2.3。1.8）。2P が いなければ 'one'（1 人の 全面）、いれば いつも 'split'（左右） */
+export type DuoView = 'one' | 'split';
 
 /** `window.__rikkun.duo.state()` の 形（§12.0） */
 export interface DuoState {
   joined: boolean;
   view: DuoView;
-  tier: DuoTier;
   distance: number;
   meter: number;
-  loupe: { x: number; y: number; d: number } | null;
   rings: 1 | 2;
   columns: number;
   light: boolean;
   padLost: boolean;
+}
+
+/**
+ * `duo.arrow(who)` が 返す、相手の 向きの 矢印（§2.4・§9.3。1.8）。
+ * x・y = 矢印の 先の 画面の 位置（CSS px。左上が 0,0）、angle = 度（画面の 上 0°・時計回り。0 以上 360 未満）、color = 相手の 色（#rrggbb）。
+ */
+export interface DuoArrow {
+  x: number;
+  y: number;
+  angle: number;
+  color: string;
 }
 
 export interface DuoVec3 {
@@ -34,7 +40,7 @@ export interface DuoVec3 {
 
 /**
  * `duo.viewports()` が 返す、いま 描いている 画面の 区画(作業 2。AC25・AC26)。CSS px(画面の 左上が 0,0)。
- * 'one' = [1P の 全面]、'loupe' = [1P の 全面, 2P の ルーペ(外接の 四角)]、'split' = [1P の 左半分, 2P の 右半分]。
+ * 2P が いなければ [1P の 全面]、いれば いつも [1P の 左半分, 2P の 右半分]（1.8）。
  * camera = その 区画を 描く カメラの 位置(世界)、yawDeg = 向き(`player.get().yawDeg` と 同じ 決まり)。
  */
 export interface DuoViewport {
@@ -89,6 +95,8 @@ export interface DuoHook extends DuoPlayHook {
   timeScale(): number;
   /** いま 描いている 区画(作業 2。AC25・AC26。型は DuoViewport) */
   viewports(): DuoViewport[];
+  /** 1.8（§12.0）: その 人の 半分に 出ている 相手の 向きの 矢印。出ていない・2P が いない → null */
+  arrow(who: 1 | 2): DuoArrow | null;
   /** 作業 2.5（#401。§12.0）: 決めて 保存してある えらび。なし・こわれた・つかえない → null(はじめの動き) */
   padChoice(): PadChoice | null;
   /** 作業 2.5: タブで 決めたのと 同じ(＋ の 確認は とばす)。変な 値・`?duo=dev` で ない → false で 何もかえない */

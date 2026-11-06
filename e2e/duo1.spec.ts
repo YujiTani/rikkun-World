@@ -13,7 +13,7 @@ import type { DuoState, DuoVec3, DuoView } from '../src/duo/types';
  *   gamepad.injectPads(pads)   偽パッドを 何本でも（null は ぬけた）。injectPad(pad) は injectPads([pad]) と 同じ
  *   ?duo=dev       この URL の ときだけ 2 本目の ＋ で 参加できる。ふつうの URL では ＋ を 押しても 何も 起きない（§8。作業 3 まで）
  *   2P の 出る 所   1P の 右 2 マス（空いて いれば）。ここでは 床を ならして 空けてから 試す
- *   2P の 歩き     1 画面の とき 2P の 左スティック上は 1P の カメラの 向き（player.get().yawDeg）の 奥
+ *   2P の 歩き     2P の 左スティック上は 2P の カメラの 向き（duo.viewports()[1].yawDeg）の 奥（作業 3e・1.8: 2P は いつも 自分の カメラ。AC86）
  */
 
 const START = 9;
@@ -93,7 +93,7 @@ test('AC2: 2 本目の ＋ を 押した 次の ステップに 2P が 1P の �
   expect(s.joined).toBe(true);
   expect(s.padLost).toBe(false);
   const view: DuoView = s.view;
-  expect(view, '作業 1 は 1 画面だけ').toBe('one');
+  expect(view, '作業 3e（1.8）: 2P が いれば 近くても 左右に 分かれる').toBe('split');
   const p1 = (await pos(page, 1))!;
   const p2 = (await pos(page, 2))!;
   const yaw: number = await page.evaluate(() => (window as any).__rikkun.player.get().yawDeg);
@@ -117,7 +117,7 @@ test('AC2: ふつうの URL（?duo=dev なし）では 2 本目の ＋ を 押�
   expect(joined).toBe(false);
 });
 
-test('AC3: 2P の パッドで 2P だけが 動き、1P の キー入力で 2P は 動かない（向きは カメラの 奥・ずれ 10° 以内 = AC4）', async ({ page }) => {
+test('AC3・AC86: 2P の パッドで 2P だけが 動き、1P の キー入力で 2P は 動かない（向きは 2P の カメラの 奥・ずれ 10° 以内）', async ({ page }) => {
   await open(page);
   await standOnGround(page, 100.5, 100.5, { yaw: 90 });
   await installPads(page);
@@ -133,10 +133,12 @@ test('AC3: 2P の パッドで 2P だけが 動き、1P の キー入力で 2P �
   expect(Math.hypot(b1.x - a1.x, b1.z - a1.z), '1P は 動かない').toBeLessThan(0.05);
   const moved = Math.hypot(b2.x - a2.x, b2.z - a2.z);
   expect(moved, '2P は 動く').toBeGreaterThan(0.5);
-  const yaw: number = await page.evaluate(() => (window as any).__rikkun.player.get().yawDeg);
+  const vps = await page.evaluate(() => (window as any).__rikkun.duo.viewports() as Array<{ who: number; yawDeg: number }>);
+  expect(vps.map((v) => v.who), '2P が いれば 近くても 左右に 分かれる').toEqual([1, 2]);
+  const yaw2 = vps[1]!.yawDeg; // 2P の カメラの 向き
   const walk = (Math.atan2(b2.x - a2.x, -(b2.z - a2.z)) * 180) / Math.PI; // 歩いた 向き（yawDeg と 同じ 決まり）
-  const diff = Math.abs((((walk - yaw) % 360) + 540) % 360 - 180);
-  expect(diff, '画面の 奥へ（カメラの 向きから 10° 以内）').toBeLessThanOrEqual(10);
+  const diff = Math.abs((((walk - yaw2) % 360) + 540) % 360 - 180);
+  expect(diff, '2P の カメラの 奥へ（2P の カメラの 向きから 10° 以内）').toBeLessThanOrEqual(10);
 
   // 2P を 止めて、1P を キー入力 で 歩かせる → 2P は 動かない
   await setPad(page, 1, {});
