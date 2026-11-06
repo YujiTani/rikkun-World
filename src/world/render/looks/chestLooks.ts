@@ -192,7 +192,15 @@ function toUW(right: readonly [number, number], front: readonly [number, number]
   return [u, w];
 }
 
-const FRONT_VEC: Readonly<Record<ChestCompass, readonly [number, number]>> = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
+export const CHEST_FRONT_VEC: Readonly<Record<ChestCompass, readonly [number, number]>> = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
+
+/** ふたが 動いて いる 間 ふたを 描かない マス（あいた 宝箱の 形を「ふた なし」に する）。キーは lidlessKey */
+const LIDLESS = new Set<number>();
+const lidlessKey = (x: number, y: number, z: number): number => (x * 4194304 + z) * 512 + y;
+export function setChestLidless(x: number, y: number, z: number, on: boolean): void {
+  if (on) LIDLESS.add(lidlessKey(x, y, z));
+  else LIDLESS.delete(lidlessKey(x, y, z));
+}
 
 /** 宝箱 64 この 見た目。P = パレットに 色を 入れて 色番号を 返す 関数 */
 export function createChestKinds(P: (hex: string) => number): Record<string, KindSpec> {
@@ -203,16 +211,18 @@ export function createChestKinds(P: (hex: string) => number): Record<string, Kin
     let ci = idx.get(info.tier);
     if (!ci) idx.set(info.tier, (ci = colorIndex(P, info.tier)));
     const color = ci;
-    const grid = (info.open ? gridsOf(info.tier).open : gridsOf(info.tier).closed);
+    const g = gridsOf(info.tier);
+    const openGrid = info.open ? g.open : g.closed;
     const right = CHEST_RIGHT[info.front];
-    const front = FRONT_VEC[info.front];
+    const front = CHEST_FRONT_VEC[info.front];
     const du = info.rest ? N : 0;
     const base = P(PAL[info.tier].W!);
     out[id] = {
       base,
       occludes: false, // ひくい 箱 なので どの 面にも すきまが ある（となりの 面は かくさない）
-      fill: (_bx, _by, _bz, _exposed, o) => {
+      fill: (bx, by, bz, _exposed, o) => {
         o.fill(0);
+        const grid = info.open && LIDLESS.has(lidlessKey(bx, by, bz)) ? g.bodyOpen : openGrid;
         for (let y = 0; y < N; y++) {
           for (let sz = 0; sz < N; sz++) {
             for (let sx = 0; sx < N; sx++) {
