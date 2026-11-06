@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GEN_CONFIG } from './config';
 import { generateChunk } from './chunk';
 import { caveAirFor } from './mineCaveAir';
+import { shaftWorldFor } from './mineShafts';
 import { nearMouth } from './mouths';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { SECTION_VOLUME, sectionToArray } from '../sections';
@@ -9,7 +10,7 @@ import { terrainFor } from './terrain';
 
 /**
  * 洞くつの 空気を 列を 作らずに 答える CaveAir（MINE-1C。坑道の 横穴が ほらあなに つながるか 見る のに 使う）が、
- * 実際に 作った 列の 空気と 1 マス ずつ 同じか。洞くつの 口〔さか道・へや〕の まわりは 口が 空気に するので のぞく。
+ * 実際に 作った 列の 空気と 1 マス ずつ 同じか。洞くつの 口〔さか道・へや〕の まわりは 口が 空気に するので のぞく。ほらあなの 種類の 部屋〔1D〕が かかる 列も のぞく〔部屋が 空気を ほるため。期待は かえない〕。
  */
 const AIR = BLOCK_INDEX.air;
 
@@ -17,8 +18,10 @@ describe('CaveAir は carveCaves と 同じ 空気を 答える', () => {
   it.each([GEN_CONFIG.defaultSeed, 777])('seed %i: 列 6 つの 地下で 1 マスも ずれない', (seed) => {
     const T = terrainFor(seed);
     const cave = caveAirFor(T);
+    const rooms = shaftWorldFor(seed).caves;
     let airCells = 0;
     for (const [cx, cz] of [[5, 5], [-7, 3], [12, -9], [30, 30], [-20, -18], [3, 40]] as const) {
+      if (rooms.touches(cx, cz)) continue;
       const col = generateChunk(seed, cx, cz);
       const flat = new Uint8Array(352 * 256);
       col.sections.forEach((s, sy) => flat.set(sectionToArray(s), sy * SECTION_VOLUME));

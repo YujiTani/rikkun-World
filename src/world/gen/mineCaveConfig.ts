@@ -66,16 +66,11 @@ export const CAVE_CONFIG = {
   /** 出口の 外を 歩ける 歩数（歩）の 下限（§4.7.3 の 5） */
   exitOutside: 4,
   /** 出口の 外を さがす 打ちきり（マス数） */
-  walkLimit: 400,
+  walkLimit: 150,
   /** 陸の わりあいを はかる 点の 数（1 辺） */
   landSamples: 8,
   /** ほかの 物（坑道・同じ 区画の 別の 層の 部屋）と あける きょり（マス） */
   gap: 6,
   /** 区画の 計画を おぼえる 数の 上限（区画） */
   regionCap: 600,
-} as const;
-
-export const CAVE_ORE_COUNT = {
-  /** ひろい ほらあな（仮。区切り 2 で 本番の 形に する）: かべの せきたん・てつの わりあい（0〜1） */
-  hiroiShare: 0.08,
 } as const;

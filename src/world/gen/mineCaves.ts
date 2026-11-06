@@ -1,12 +1,17 @@
 import { SEA_Y } from '../../contracts';
 import { colKey } from '../stream/ring';
 import { CAVE_CONFIG as C, CAVE_LAYERS, CAVE_KIND_LIST, type CaveKind } from './mineCaveConfig';
-import { buildRoom, type BuiltRoom, type RoomColOps } from './mineCaveRoom';
+import { buildRoom, finishRoom, stageRoom, type BuiltRoom, type RoomColOps, type RoomStage } from './mineCaveRoom';
 import { makeShape } from './mineCaveShape';
 import { layerSpan } from './mineLayers';
 import type { MineLayerId } from './mineConfig';
 import type { Geo } from './mineShaftSite';
-import { createRng, hash01, hashInts, randInt, subSeed } from './random';
+import { colId } from './mineHiroiRoom';
+import { tryHiroiPlan } from './mineHiroiPlan';
+import { exitOps, plainLayout } from './mineHiroiScene';
+import { hiroiShape, turnPlan, worldPlan, type HiroiLayout, type HiroiWorldPlan, type Turn } from './mineHiroiShape';
+import type { HiroiWork } from './mineHiroiTable';
+import { createRng, hash01, hashInts, randInt, subSeed, type Rng } from './random';
 
 /**
  * 区画 × 層の 抽選と、部屋の 置き場所（MINE-1D §4.7.1）。列を 作る ときは 自分の 区画の 部屋だけ 見る（列 1 つで 見る 区画は 1 つ）。
@@ -31,6 +36,20 @@ export interface PlacedCave {
   room: BuiltRoom;
   /** 4 版: 坑道の へやは その 坑道の id */
   shaft: string | null;
+  /** ひろい ほらあなの 計画（ほかは null） */
+  hiroi: HiroiWorldPlan | null;
+}
+
+/** ひろい ほらあなの 計画を ためした 記録（窓口 hiroiTries の 1 行） */
+export interface HiroiTryRow {
+  rx: number;
+  rz: number;
+  layer: MineLayerId;
+  shaft: string | null;
+  cave: string | null;
+  placed: boolean;
+  small: boolean;
+  work: HiroiWork;
 }
 
 export interface CaveRollRow {
@@ -45,9 +64,33 @@ export interface CaveRollRow {
 interface RegionPlan {
   rolls: (CaveKind | null)[];
   rooms: (PlacedCave | null)[];
+  tries: (HiroiTryRow | null)[];
 }
 
 const R = C.region;
+
+/** えらんだ 場所: 箱 と 前半まで 作った 部屋 */
+interface Spot {
+  box: BuiltRoom['box'];
+  stage: RoomStage;
+}
+
+/** 出口の 前 4 マスに かかる 床の こぶ（局所の 番号）。根もとの まるが かかる 柱が あれば null（その 場所は やめる） */
+function frontHits(l: HiroiLayout, fronts: Set<number>, ox: number, oz: number): { x: number; z: number }[] | null {
+  if (fronts.size === 0) return [];
+  for (const p of l.pillars) {
+    const r = Math.ceil(p.widths[0]! / 2);
+    for (let z = p.z - r; z <= p.z + r; z++) for (let x = p.x - r; x <= p.x + r; x++) if (Math.hypot(x - p.x, z - p.z) < p.widths[0]! / 2 && fronts.has(colId(ox + x, oz + z))) return null;
+  }
+  return l.bumps.filter((b) => fronts.has(colId(ox + b.x, oz + b.z)));
+}
+
+/** こぶ（床）を 取りのぞいた 計画 */
+function dropBumps(l: HiroiLayout, drop: { x: number; z: number }[]): HiroiLayout {
+  const lo = l.lo.slice();
+  for (const b of drop) lo[b.z * l.size.x + b.x] = 0;
+  return { ...l, lo, bumps: l.bumps.filter((b) => !drop.includes(b)) };
+}
 
 export class CaveWorld {
   private readonly regions = new Map<number, RegionPlan>();
@@ -88,27 +131,78 @@ export class CaveWorld {
     let p = this.regions.get(key);
     if (p) return p;
     if (this.regions.size >= C.regionCap) this.regions.clear();
-    p = { rolls: [], rooms: [] };
+    p = { rolls: [], rooms: [], tries: [] };
     const placed: PlacedCave[] = [];
     CAVE_LAYERS.forEach((layer, li) => {
       const kind = this.rollKind(rx, rz, layer);
       p!.rolls.push(kind);
-      const room = kind ? this.place(rx, rz, layer, li, kind, placed) : null;
+      const room = kind ? this.place(rx, rz, layer, li, kind, placed, p!) : null;
       if (room) placed.push(room);
       p!.rooms.push(room);
+      if (p!.tries.length < p!.rooms.length) p!.tries.push(null);
     });
     this.regions.set(key, p);
     return p;
   }
 
-  private place(rx: number, rz: number, layer: MineLayerId, li: number, kind: CaveKind, placed: PlacedCave[]): PlacedCave | null {
-    const { G, seed } = this.host;
+  private place(rx: number, rz: number, layer: MineLayerId, li: number, kind: CaveKind, placed: PlacedCave[], region: RegionPlan): PlacedCave | null {
+    const { seed } = this.host;
     const rng = createRng(hashInts(subSeed(seed, 932), rx, rz, li));
+    const id = `c${rx}_${rz}_${layer}`;
+    if (kind === 'hiroi') return this.placeHiroi(rx, rz, layer, li, id, placed, region, rng);
     const shape = makeShape(kind, rng);
     if (!shape) return null;
-    const { sx, sy, sz } = shape;
+    const at = this.spot(rx, rz, layer, shape.sx, shape.sy, shape.sz, rng, placed, (x0, y0, z0) => stageRoom({ G: this.host.G, seed, kind, shape, ox: x0, oy: y0, oz: z0, rng }));
+    return at ? this.finish(id, kind, layer, at) : null;
+  }
+
+  /** ひろい ほらあな: 計画（局所）を 作り、向きを きめて、場所を さがす。計画は 区画 × 層ごとに 1 つ */
+  private placeHiroi(rx: number, rz: number, layer: MineLayerId, li: number, id: string, placed: PlacedCave[], region: RegionPlan, rng: Rng): PlacedCave | null {
+    const { seed } = this.host;
+    const planSeed = hashInts(subSeed(seed, 933), rx, rz, li);
+    const t = tryHiroiPlan(planSeed);
+    const row: HiroiTryRow = { rx, rz, layer, shaft: null, cave: null, placed: t.plan !== null, small: t.small, work: t.work };
+    region.tries[li] = row;
+    if (!t.plan) return null;
+    const turn = (hashInts(subSeed(seed, 934), rx, rz, li) & 3) as Turn;
+    const cave = this.hiroiAt(rx, rz, layer, id, placed, rng, turnPlan(t.plan, turn), t.work);
+    row.cave = cave ? id : null;
+    return cave;
+  }
+
+  /** 向きの きまった 計画を 場所に ほる。出口の 前に こぶ・柱が かかる 場所は さける（こぶは けずる） */
+  private hiroiAt(rx: number, rz: number, layer: MineLayerId, id: string, placed: PlacedCave[], rng: Rng, layout0: HiroiLayout, work: HiroiWork): PlacedCave | null {
+    const { G, seed } = this.host;
+    const { x: sx, z: sz, h: sy } = layout0.size;
+    const build = (x0: number, y0: number, z0: number): { room: RoomStage; layout: HiroiLayout } | null => {
+      let layout = layout0;
+      for (let pass = 0; pass < 2; pass++) {
+        const room = stageRoom({ G, seed, kind: 'hiroi', shape: hiroiShape(layout), ox: x0, oy: y0, oz: z0, rng: createRng(hashInts(subSeed(seed, 935), rx, rz, pass)) });
+        const hit = frontHits(layout, room.fronts, x0, z0);
+        if (hit === null) return null;
+        if (hit.length === 0) return { room, layout };
+        layout = dropBumps(layout, hit);
+      }
+      return null;
+    };
+    const layouts = new Map<RoomStage, HiroiLayout>();
+    const at = this.spot(rx, rz, layer, sx, sy, sz, rng, placed, (x0, y0, z0) => {
+      const r = build(x0, y0, z0);
+      if (r) layouts.set(r.room, r.layout);
+      return r?.room ?? null;
+    });
+    const layout = at ? layouts.get(at.stage) : undefined;
+    if (!at || !layout) return null;
+    const cave = this.finish(id, 'hiroi', layer, at);
+    cave.hiroi = worldPlan(layout, { x: cave.box.x0, y: cave.box.y0, z: cave.box.z0 }, work);
+    return cave;
+  }
+
+  /** 場所を さがす: 層の はんい・地面・海・口・古い 列・坑道に ぶつからない 所。出口の ある 場所を 先に さがす */
+  private spot(rx: number, rz: number, layer: MineLayerId, sx: number, sy: number, sz: number, rng: Rng, placed: PlacedCave[], make: (x0: number, y0: number, z0: number) => RoomStage | null): Spot | null {
+    const { G } = this.host;
     const span = layerSpan(layer);
-    let fallback: PlacedCave | null = null;
+    let fallback: Spot | null = null;
     for (let t = 0; t < C.placeTries; t++) {
       const x0 = rx * R + C.edge + randInt(rng, 0, R - 2 * C.edge - sx);
       const z0 = rz * R + C.edge + randInt(rng, 0, R - 2 * C.edge - sz);
@@ -124,12 +218,17 @@ export class CaveWorld {
       const y0 = lo + Math.floor(rng() * (hi - lo + 1));
       const box = { x0, y0, z0, x1: x0 + sx - 1, y1: y0 + sy - 1, z1: z0 + sz - 1 };
       if (!this.clear(box, placed)) continue;
-      const room = buildRoom({ G, seed, kind, shape, ox: x0, oy: y0, oz: z0, rng });
-      const cave: PlacedCave = { id: `c${rx}_${rz}_${layer}`, kind, layer, box, room, shaft: null };
-      if (room.stats.openings > 0) return cave;
-      fallback ??= cave;
+      const stage = make(x0, y0, z0);
+      if (!stage) continue;
+      if (stage.openings > 0) return { box, stage };
+      fallback ??= { box, stage };
     }
     return fallback;
+  }
+
+  /** えらんだ 場所の 部屋を 仕上げる */
+  private finish(id: string, kind: CaveKind, layer: MineLayerId, at: Spot): PlacedCave {
+    return { id, kind, layer, box: at.box, room: finishRoom(at.stage), shaft: null, hiroi: null };
   }
 
   /** 口・いけ・古い 列・坑道・同じ 区画の ほかの 部屋と ぶつからないか */
@@ -164,6 +263,49 @@ export class CaveWorld {
       for (let rx = Math.floor(x0 / R); rx <= Math.floor(x1 / R); rx++) {
         for (const c of this.region(rx, rz).rooms) if (c && c.box.x0 <= x1 && c.box.x1 >= x0 && c.box.z0 <= z1 && c.box.z1 >= z0) out.push(c);
       }
+    }
+    return out;
+  }
+
+  /** 性能の くらべ用の 場面（hiroiScene）。この 世界は 場面の 部屋だけに なる */
+  private sceneOps: Map<number, RoomColOps[]> | null = null;
+
+  get inScene(): boolean {
+    return this.sceneOps !== null;
+  }
+
+  sceneColumn(cx: number, cz: number): RoomColOps[] | null {
+    return this.sceneOps?.get(colKey(cx, cz)) ?? null;
+  }
+
+  /** 部屋の 乱数 seed の ひろい ほらあなを あさい 層に 1 つ ほる 場面。出口は 南の かべ・立つ 所は 出口から 4 マス（北向き）。plain は 柱・こぶ・鉱石 なし */
+  scene(seed: number, plain: boolean): { caveId: string; size: { x: number; z: number }; stand: { x: number; y: number; z: number; facing: 'n' } } {
+    const t = tryHiroiPlan(seed);
+    if (!t.plan) throw new Error(`部屋の 乱数 ${seed} では 計画が 作れない`);
+    const layout = turnPlan(t.plan, 0);
+    this.regions.clear();
+    for (let n = 0; n < 64; n++) {
+      const rx = 24 + (n % 8) * 2;
+      const rz = 24 + Math.floor(n / 8) * 2;
+      const rng = createRng(hashInts(subSeed(this.host.seed, 936), rx, rz, seed));
+      const cave = this.hiroiAt(rx, rz, 'asai', `c${rx}_${rz}_asai`, [], rng, layout, t.work);
+      if (!cave) continue;
+      const { x0, y0, z0 } = cave.box;
+      const room = plain ? buildRoom({ G: this.host.G, seed: this.host.seed, kind: 'hiroi', shape: hiroiShape(plainLayout(layout), true), ox: x0, oy: y0, oz: z0, rng: createRng(1) }) : cave.room;
+      const ops = new Map<number, RoomColOps[]>();
+      for (const [k, o] of room.ops) ops.set(k, [o]);
+      for (const [k, o] of exitOps(layout, x0, y0, z0)) (ops.get(k) ?? ops.set(k, []).get(k)!).push(o);
+      this.sceneOps = ops;
+      return { caveId: cave.id, size: { x: layout.size.x, z: layout.size.z }, stand: { x: x0 + layout.exit.x, y: y0, z: z0 + layout.exit.z - 4, facing: 'n' } };
+    }
+    throw new Error('場面を 置ける 場所が ない');
+  }
+
+  /** 範囲の 区画で ひろい ほらあなの 計画を ためした 記録（置けなかった 物も） */
+  hiroiTries(x0: number, z0: number, x1: number, z1: number): HiroiTryRow[] {
+    const out: HiroiTryRow[] = [];
+    for (let rz = Math.floor(z0 / R); rz <= Math.floor(z1 / R); rz++) {
+      for (let rx = Math.floor(x0 / R); rx <= Math.floor(x1 / R); rx++) for (const row of this.region(rx, rz).tries) if (row) out.push({ ...row, work: { ...row.work } });
     }
     return out;
   }

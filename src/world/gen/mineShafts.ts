@@ -95,6 +95,7 @@ export class ShaftWorld implements CaveHost {
 
   /** 列に 置く 部屋の 物（`?mine=0` では 作らない） */
   caveOps(cx: number, cz: number): RoomColOps[] | null {
+    if (this.caves.inScene) return this.caves.sceneColumn(cx, cz);
     return shaftsOn ? this.caves.opsFor(cx, cz) : null;
   }
 

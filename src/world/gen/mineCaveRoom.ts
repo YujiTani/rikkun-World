@@ -1,10 +1,11 @@
-import { SEA_Y } from '../../contracts';
 import { BLOCK_INDEX, BLOCK_TYPES } from '../blocks/blockTypes';
 import { colKey } from '../stream/ring';
-import { CAVE_CONFIG as C, CAVE_ORE_COUNT, type CaveKind } from './mineCaveConfig';
+import { CAVE_CONFIG as C, type CaveKind } from './mineCaveConfig';
 import type { LocalShape } from './mineCaveShape';
 import { keyOf } from './mineShaftBuild';
 import type { Geo } from './mineShaftSite';
+import { Combined, FOUR, Grid, SIX } from './mineCaveGrid';
+import { openingFronts, placeHiroiOres } from './mineHiroiRoom';
 import { hash01, randInt, subSeed, type Rng } from './random';
 
 /**
@@ -63,89 +64,12 @@ export interface BuiltRoom {
   ops: Map<number, RoomColOps>;
   /** 部屋の 空気・水の マスか（caveAt 用） */
   has(x: number, y: number, z: number): boolean;
+  /** ひろい ほらあなだけ: 残した 出口の 前 4 マスの 列（colId）。柱の 根もと・床の こぶを おかない 列 */
+  fronts: Set<number>;
 }
 
 const pack = (block: number, y: number, lz: number, lx: number): number => block | (y << 8) | (lz << 17) | (lx << 21);
 const NAMES = BLOCK_TYPES.map((t) => t.id);
-
-/** 地図の 入れもの。a ＝ 0 岩・1 空気・2 水。b ＝ 置く ブロック（0 ＝ 自然のまま）。s ＝ 1 部屋の となり・2 床の 下の 追加 */
-class Grid {
-  readonly a: Uint8Array;
-  readonly b: Uint8Array;
-  readonly s: Uint8Array;
-  constructor(
-    readonly x0: number,
-    readonly y0: number,
-    readonly z0: number,
-    readonly gx: number,
-    readonly gy: number,
-    readonly gz: number,
-  ) {
-    const n = gx * gy * gz;
-    this.a = new Uint8Array(n);
-    this.b = new Uint8Array(n);
-    this.s = new Uint8Array(n);
-  }
-  inside(x: number, y: number, z: number): boolean {
-    const i = x - this.x0;
-    const j = y - this.y0;
-    const k = z - this.z0;
-    return i >= 0 && j >= 0 && k >= 0 && i < this.gx && j < this.gy && k < this.gz;
-  }
-  idx(x: number, y: number, z: number): number {
-    return ((y - this.y0) * this.gz + (z - this.z0)) * this.gx + (x - this.x0);
-  }
-}
-
-const SIX: readonly (readonly [number, number, number])[] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
-const FOUR: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-
-/** 部屋と 自然の 世界を あわせて 答える（穴の しらべ用） */
-class Combined {
-  constructor(
-    private readonly g: Grid,
-    private readonly G: Geo,
-  ) {}
-  natSolid(x: number, y: number, z: number): boolean {
-    if (y <= 0) return true;
-    if (y > this.G.h(x, z)) return false;
-    return !this.G.cave.airAt(x, y, z);
-  }
-  natAir(x: number, y: number, z: number): boolean {
-    return y > 0 && y <= this.G.h(x, z) && this.G.cave.airAt(x, y, z);
-  }
-  solid(x: number, y: number, z: number): boolean {
-    if (this.g.inside(x, y, z)) {
-      const i = this.g.idx(x, y, z);
-      if (this.g.a[i]) return false;
-      if (this.g.b[i]) return true;
-    }
-    return this.natSolid(x, y, z);
-  }
-  body(x: number, y: number, z: number): boolean {
-    if (this.g.inside(x, y, z)) {
-      const i = this.g.idx(x, y, z);
-      if (this.g.a[i]) return this.g.a[i] === 1;
-      if (this.g.b[i]) return false;
-    }
-    return !this.natSolid(x, y, z) && !(y <= SEA_Y && y > this.G.h(x, z));
-  }
-  standable(x: number, y: number, z: number): boolean {
-    return this.body(x, y, z) && this.body(x, y + 1, z) && this.solid(x, y - 1, z);
-  }
-  /** 東西南北 1 歩（仕様 §6.1 の 歩ける きまり） */
-  step(x: number, y: number, z: number, dx: number, dz: number): { x: number; y: number; z: number } | null {
-    const nx = x + dx;
-    const nz = z + dz;
-    if (this.standable(nx, y, nz)) return { x: nx, y, z: nz };
-    if (this.standable(nx, y - 1, nz) && this.body(nx, y + 1, nz)) return { x: nx, y: y - 1, z: nz };
-    if (this.standable(nx, y + 1, nz) && this.body(x, y + 2, z) && this.body(x, y + 3, z)) return { x: nx, y: y + 1, z: nz };
-    return null;
-  }
-  isRoomAir(x: number, y: number, z: number): boolean {
-    return this.g.inside(x, y, z) && this.g.a[this.g.idx(x, y, z)] === 1;
-  }
-}
 
 export interface BuildArgs {
   G: Geo;
@@ -159,9 +83,26 @@ export interface BuildArgs {
   rng: Rng;
 }
 
+/** 部屋づくりの 前半（空気・かべ・穴の ふさぎ まで。かざり・数える・置く物は まだ）。場所を えらぶ ときは これで 穴の 数だけ 見る */
+export interface RoomStage {
+  readonly args: BuildArgs;
+  readonly g: Grid;
+  readonly W: Combined;
+  readonly cells: number[];
+  readonly coord: (i: number) => [number, number, number];
+  /** のこした 穴の 数 */
+  readonly openings: number;
+  /** ひろい ほらあなだけ: 出口の 前 4 マスの 列（colId） */
+  readonly fronts: Set<number>;
+}
+
 /** 部屋を 作る。まわりの 世界との 都合で 作れない（床の 下を かためられない など）ことは ないので、いつも 返す */
 export function buildRoom(args: BuildArgs): BuiltRoom {
-  const { G, seed, kind, shape, ox, oy, oz, rng } = args;
+  return finishRoom(stageRoom(args));
+}
+
+export function stageRoom(args: BuildArgs): RoomStage {
+  const { G, shape, ox, oy, oz } = args;
   const { sx, sy, sz, floorK, ceil, water } = shape;
   const g = new Grid(ox - 1, oy - 3, oz - 1, sx + 2, sy + 4, sz + 2);
   const W = new Combined(g, G);
@@ -172,16 +113,33 @@ export function buildRoom(args: BuildArgs): BuiltRoom {
       if (c === 0) continue;
       const w = water[z * sx + x]!;
       for (let k = floorK - w; k < floorK; k++) g.a[g.idx(ox + x, oy + k, oz + z)] = 2;
-      for (let k = floorK; k < floorK + c; k++) g.a[g.idx(ox + x, oy + k, oz + z)] = 1;
+      for (let k = floorK + (shape.lift?.[z * sx + x] ?? 0); k < floorK + c; k++) g.a[g.idx(ox + x, oy + k, oz + z)] = 1;
+    }
+  }
+  // 柱の 中など: 空気で ない マスは 自然の 穴が あっても 固い
+  if (shape.force) {
+    for (let z = 0; z < sz; z++) {
+      for (let x = 0; x < sx; x++) {
+        if (!shape.force[z * sx + x]) continue;
+        for (let k = floorK; k < floorK + sy; k++) {
+          const j = g.idx(ox + x, oy + k, oz + z);
+          if (!g.a[j] && W.natAir(ox + x, oy + k, oz + z)) g.b[j] = STONE;
+        }
+      }
     }
   }
   const cells: number[] = [];
   for (let i = 0; i < g.a.length; i++) if (g.a[i]) cells.push(i);
+  // 呼ぶ たびに 新しい 配列を 作らない（すぐ 取りだして 使う）
+  const scratch: [number, number, number] = [0, 0, 0];
   const coord = (i: number): [number, number, number] => {
     const x = i % g.gx;
     const r = (i - x) / g.gx;
     const z = r % g.gz;
-    return [x + g.x0, (r - z) / g.gz + g.y0, z + g.z0];
+    scratch[0] = x + g.x0;
+    scratch[1] = (r - z) / g.gz + g.y0;
+    scratch[2] = z + g.z0;
+    return scratch;
   };
   // 床の 下 2 マスは かならず 固い（空気や 水の すぐ 下が 岩の とき）
   for (const i of cells) {
@@ -211,6 +169,16 @@ export function buildRoom(args: BuildArgs): BuiltRoom {
       else g.b[j] = STONE;
     }
   }
+  const openings = sealHoles(g, W, holes, coord);
+  const fronts = shape.hiroi && openings > 0 ? openingFronts(g, W, cells, coord) : new Set<number>();
+  return { args, g, W, cells, coord, openings, fronts };
+}
+
+/** 部屋づくりの 後半: かざり・数える・置く 物 */
+export function finishRoom(st: RoomStage): BuiltRoom {
+  const { args, g, W, cells, coord } = st;
+  const { G, seed, kind, shape, ox, oy, oz, rng } = args;
+  const { sx, sy, sz } = shape;
   const stat: RoomStats = {
     wall: 0,
     visible: {},
@@ -224,10 +192,10 @@ export function buildRoom(args: BuildArgs): BuiltRoom {
     floorOre: 0,
     torches: 0,
   };
-  stat.openings = sealHoles(g, W, holes, coord);
-  decorate(g, kind, seed, ox, oy, oz, rng, coord);
+  stat.openings = st.openings;
+  decorate(g, kind, seed, ox, oy, oz, rng, coord, shape);
   tallyStats(g, W, stat, G, coord, cells);
-  return { kind, box: { x0: ox, y0: oy, z0: oz, x1: ox + sx - 1, y1: oy + sy - 1, z1: oz + sz - 1 }, stats: stat, ops: opsOf(g, cells, coord), has: (x, y, z) => g.inside(x, y, z) && g.a[g.idx(x, y, z)]! > 0 };
+  return { kind, fronts: st.fronts, box: { x0: ox, y0: oy, z0: oz, x1: ox + sx - 1, y1: oy + sy - 1, z1: oz + sz - 1 }, stats: stat, ops: opsOf(g, cells, coord), has: (x, y, z) => g.inside(x, y, z) && g.a[g.idx(x, y, z)]! > 0 };
 }
 
 /** 穴を 分ける: 歩いて 行き来 できて 外を 4 歩 すすめる 物は のこし、ほかは 石で ふさぐ。のこした 数を 返す */
@@ -259,7 +227,8 @@ function sealHoles(g: Grid, W: Combined, holes: number[], coord: (i: number) => 
   // 歩ける 穴だけ のこす。ふさぐと 別の 穴の 外の 道が 切れる ことが あるので、変わらなく なるまで くりかえす
   let live = comps;
   for (;;) {
-    const bad = live.filter((comp) => !comp.some((i) => walkable(W, ...coord(i))));
+    const dead = new Set<number>(); // 歩いても 外へ 出られない つながり（同じ つながりの 別の マスは しらべ なおさない）
+    const bad = live.filter((comp) => !comp.some((i) => walkable(W, dead, ...coord(i))));
     if (bad.length === 0) break;
     for (const comp of bad) for (const i of comp) g.b[i] = STONE;
     live = live.filter((c) => !bad.includes(c));
@@ -269,8 +238,8 @@ function sealHoles(g: Grid, W: Combined, holes: number[], coord: (i: number) => 
 }
 
 /** 穴の マス p が 部屋の 床と 行き来 できて、外を 4 歩 すすめるか */
-function walkable(W: Combined, x: number, y: number, z: number): boolean {
-  if (!W.standable(x, y, z)) return false;
+function walkable(W: Combined, dead: Set<number>, x: number, y: number, z: number): boolean {
+  if (!W.standable(x, y, z) || dead.has(keyOf(x, y, z))) return false;
   let linked = false;
   for (const [dx, dz] of FOUR) {
     const r = W.step(x, y, z, dx, dz);
@@ -319,11 +288,12 @@ function walkable(W: Combined, x: number, y: number, z: number): boolean {
     for (const k of cur) for (const m of adj.get(k) ?? []) if (!dist.has(m)) (dist.set(m, d + 1), next.push(m));
     cur = next;
   }
+  for (const k of nodes.keys()) dead.add(k);
   return false;
 }
 
 /** かべの 中身: 種類ごとの 石・鉱石・つらら */
-function decorate(g: Grid, kind: CaveKind, seed: number, ox: number, oy: number, oz: number, rng: Rng, coord: (i: number) => [number, number, number]): void {
+function decorate(g: Grid, kind: CaveKind, seed: number, ox: number, oy: number, oz: number, rng: Rng, coord: (i: number) => [number, number, number], shape: LocalShape): void {
   const salt = subSeed(seed, 941);
   const shell: number[] = [];
   const airNear = (x: number, y: number, z: number, upOrSide: boolean): boolean => {
@@ -380,23 +350,14 @@ function decorate(g: Grid, kind: CaveKind, seed: number, ox: number, oy: number,
       }
       break;
     }
-    case 'hiroi': {
-      // 仮: かべの せきたん・てつ（区切り 2 で 柱・こぶと いっしょに 本番の 置き方に する）。床の 下には 置かない
-      const ores = pick(Math.round(shell.length * CAVE_ORE_COUNT.hiroiShare), (i) => {
-        const [x, y, z] = coord(i);
-        return airNear(x, y, z, true);
-      });
-      ores.forEach((i, n) => (g.b[i] = n % 5 < 2 ? IRON : COAL));
+    case 'hiroi':
+      placeHiroiOres(g, shell, coord, ox, oy, oz, shape, seed);
       break;
-    }
     default: {
       const never: never = kind;
       throw new Error(`知らない 種類 ${String(never)}`);
     }
   }
-  void ox;
-  void oy;
-  void oz;
 }
 
 function tallyStats(g: Grid, W: Combined, st: RoomStats, G: Geo, coord: (i: number) => [number, number, number], cells: number[]): void {

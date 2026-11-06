@@ -3,7 +3,7 @@ import { randInt, type Rng } from './random';
 
 /**
  * 部屋の 形（MINE-1D §4.7.2）。部屋の 中の 座標（x・z は 0 から）で 「列ごとの 空気の 高さ」の 地図を 作る。
- * 世界には さわらない。ひろい ほらあな B の 本番の 形は 別（区切り 2）。ここの ひろいは 仮の たまご 1 つ。
+ * 世界には さわらない。ひろい ほらあな B の 形は mineHiroiShape.ts（計画から 作る）。
  */
 
 export interface LocalShape {
@@ -17,6 +17,12 @@ export interface LocalShape {
   ceil: Int8Array;
   /** 列ごとの 水の ふかさ（ちていこの 池。0 ＝ なし） */
   water: Int8Array;
+  /** ひろい ほらあなだけ: 列ごとの 空気の 下（床から。柱の すそ・床の こぶ）。空気は lift 〜 ceil。ない ときは 0 */
+  lift?: Int8Array;
+  /** ひろい ほらあなだけ: 1 の 列は 空気で ない マスを 箱の 高さまで（自然の 穴が あれば）石に する（柱の 中。自然の 穴が あっても 固い） */
+  force?: Uint8Array;
+  /** ひろい ほらあなだけ: 鉱石の 場所に つかう 柱と いちばん 高い 天井（床から。段）。plain ＝ 鉱石 なし（性能の くらべ用） */
+  hiroi?: { pillars: { x: number; z: number; ceil: number; widths: number[] }[]; maxTop: number; plain: boolean };
 }
 
 /** たまごの 形（床の 面で 楕円）。ふちほど 天井が ひくい。ふちでも edge 以上 */
@@ -83,7 +89,7 @@ function chiteiko(rng: Rng, sx: number, sy: number, sz: number): LocalShape | nu
 }
 
 /** 種類ごとの 大きさと 形を 乱数から 作る。作れなければ null */
-export function makeShape(kind: CaveKind, rng: Rng): LocalShape | null {
+export function makeShape(kind: Exclude<CaveKind, 'hiroi'>, rng: Rng): LocalShape | null {
   const K = C.kinds[kind];
   const sx = randInt(rng, K.x[0], K.x[1]);
   const sz = randInt(rng, K.z[0], K.z[1]);

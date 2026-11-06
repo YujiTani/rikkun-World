@@ -1,8 +1,11 @@
 import { CAVE_CONFIG as C, CAVE_KIND_LIST, CAVE_LAYERS, type CaveKind } from './mineCaveConfig';
 import type { PlacedCave } from './mineCaves';
+import { tryHiroiPlan } from './mineHiroiPlan';
+import { turnPlan, worldPlan } from './mineHiroiShape';
+import { hiroiTable } from './mineHiroiTable';
 import type { MineLayerId } from './mineConfig';
 import type { RoomStats } from './mineCaveRoom';
-import type { ShaftWorld } from './mineShafts';
+import { setShaftsOn, type ShaftWorld } from './mineShafts';
 
 /**
  * window.__rikkun.mine の ほらあなの 種類の 窓口（MINE-1D §6.1）。計画から 答える（世界は 読まない）。
@@ -53,6 +56,20 @@ export function createCaveHook(world: () => ShaftWorld, spawn: () => { x: number
       kinds: Object.fromEntries(CAVE_KIND_LIST.map((k) => [k, { layers: [...C.kinds[k].layers], x: [...C.kinds[k].x], z: [...C.kinds[k].z], y: [...C.kinds[k].y] }])),
       rules: JSON.parse(JSON.stringify(C.rules)) as typeof C.rules,
     }),
+    hiroiTable,
+    hiroiPlan: (id: string) => find(id)?.hiroi ?? null,
+    hiroiTries: (x0: number, z0: number, x1: number, z1: number) => caves().hiroiTries(x0, z0, x1, z1),
+    /** 部屋の 乱数 seed で 計画だけ 作る（向きは そのまま・origin は 0） */
+    hiroiTry(seed: number) {
+      const t = tryHiroiPlan(seed);
+      const origin = { x: 0, y: 0, z: 0 };
+      return { size: { x: t.size.x, z: t.size.z }, small: t.small, work: { ...t.work }, plan: t.plan ? worldPlan(turnPlan(t.plan, 0), origin, t.work) : null };
+    },
+    /** 性能の くらべ用の 場面（D16）。坑道は 切って、この 世界の ほらあなは 場面の 1 つだけ に する */
+    hiroiScene(o: { seed: number; plain?: boolean }) {
+      setShaftsOn(false);
+      return caves().scene(o.seed, o.plain === true);
+    },
     caveStats(id: string): RoomStats {
       const c = find(id);
       if (!c) throw new Error(`知らない 部屋 ${id}`);
