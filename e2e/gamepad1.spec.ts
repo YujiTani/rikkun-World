@@ -111,6 +111,10 @@ test('パッド疑似: もちもの → つくる で 十字で レシピを え
         /* 無い id は とばす */
       }
     }
+    // どの レシピが えらばれても つくれるように、全レシピの 材料を 先に もちものへ（開く前。あとで 画面が 作りなおされない）
+    const need = new Map<string, number>();
+    for (const r of k.craft.list()) for (const i of r.inputs) need.set(i.item, Math.max(need.get(i.item) ?? 0, i.count));
+    for (const [item, n] of need) k.inventory.add(item, n * 2);
     const buttons = Array.from({ length: 16 }, () => ({ pressed: false, touched: false, value: 0 }));
     const pad = { id: 'Xbox Wireless Controller', index: 0, connected: true, mapping: 'standard' as GamepadMappingType, axes: [0, 0, 0, 0], buttons, timestamp: performance.now() };
     (window as any).__rikkunPad = pad;
@@ -146,6 +150,8 @@ test('パッド疑似: もちもの → つくる で 十字で レシピを え
     const out = r.output.item as string;
     return { id, out, n: k.inventory.count(out) as number, input: r.inputs[0].item as string, m: k.inventory.count(r.inputs[0].item) as number };
   });
+  // つくる前に、このレシピが 本当に つくれる状態か
+  expect(await page.evaluate((id) => (window.__rikkun! as any).craft.sources(id).ok, before.id)).toBe(true);
   await tap(0); // B（きめる）= えらぶ。右に せつめい
   await expect(page.locator('.cp-detail')).toBeVisible();
   expect(await page.evaluate((o) => window.__rikkun!.inventory.count(o as never), before.out)).toBe(before.n);

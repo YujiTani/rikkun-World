@@ -1,3 +1,5 @@
+import { RepeatCounter } from './sliderRepeat';
+
 export type FocusDir = 'up' | 'down' | 'left' | 'right';
 
 export interface FocusBox {
@@ -100,16 +102,11 @@ export function handleMenuDir(root: ParentNode, dir: FocusDir): void {
   moveFocus(root, dir);
 }
 
-/** 十字の 押しっぱなしで つまみを くりかえし 動かす（だんだん 速く）。数えるのは 固定ステップの 秒 */
-const REPEAT_DELAY_SEC = 0.3; // 【秒】押してから くりかえしが はじまるまで
-const REPEAT_SLOW_SEC = 0.5; // 【秒】ゆっくり（0.1 秒に 1 回）の 長さ
-const REPEAT_MID_SEC = 0.5; // 【秒】ふつう（0.05 秒に 1 回）の 長さ。そのあとは 1/60 秒に 1 回
+/** 十字の 押しっぱなしで つまみを くりかえし 動かす（だんだん 速く）。回数の 計算は sliderRepeat.ts */
 export class SliderRepeat {
-  private t = 0;
-  private acc = 0;
+  private counter = new RepeatCounter();
   reset(): void {
-    this.t = 0;
-    this.acc = 0;
+    this.counter.reset();
   }
   /** 押しっぱなしの 間 毎ステップ 呼ぶ。つまみの 行に いないときは 何もしない */
   tick(root: ParentNode, dir: 'left' | 'right', dt: number): void {
@@ -120,18 +117,7 @@ export class SliderRepeat {
       this.reset();
       return;
     }
-    this.t += dt;
-    if (this.t < REPEAT_DELAY_SEC) return;
-    const since = this.t - REPEAT_DELAY_SEC;
-    const interval = since < REPEAT_SLOW_SEC ? 0.1 : since < REPEAT_SLOW_SEC + REPEAT_MID_SEC ? 0.05 : 1 / 60;
-    this.acc += dt;
-    let n = 0;
-    while (this.acc >= interval - 1e-9 && n < 4) {
-      this.acc -= interval;
-      n++;
-      stepRange(input, dir);
-    }
-    if (this.acc > interval) this.acc = 0;
+    for (let n = this.counter.step(dt); n > 0; n--) stepRange(input, dir);
   }
 }
 
