@@ -15,6 +15,8 @@ export class AnimalCore {
   readonly world: AnimalWorld;
   readonly d: AnimalDeps;
   readonly getPlayer: () => { position: Vec3 };
+  /** COOP-1 3a: 仲間（2P）の 足もと（なければ null を 返す） */
+  readonly partner: () => { position: Vec3 } | null;
   readonly rng: Rng;
   readonly ents: Ent[] = [];
   queue: AnimalEvent[] = [];
@@ -89,6 +91,7 @@ export class AnimalCore {
     this.d = o.deps;
     this.settings = o.deps.settings ?? createLiveSettings();
     this.getPlayer = o.getPlayer;
+    this.partner = o.partner ?? (() => null);
     this.rng = createRng((o.deps.seed ^ RNG_SALT) >>> 0);
     this.eggRng = createRng((o.deps.seed ^ EGG_SALT) >>> 0);
     this.breedRng = createRng((o.deps.seed ^ BREED_SALT) >>> 0);
