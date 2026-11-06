@@ -1,6 +1,8 @@
+import { DUO_TUNING } from './tuning';
+
 /**
- * COOP-1 作業 3d（§2.1・AC46・AC64）: 「＋で さんか」を いつ 出すか。
- * 型だけの スタブ（developer が 作る。テストは src/duo/joinHint.test.ts）。DOM なし。固定ステップごとに step() を 1 回 呼ぶ。
+ * COOP-1 作業 3d（§2.1・AC46・AC64）: 「＋で さんか」を いつ 出すか。DOM なし。固定ステップごとに step() を 1 回 呼ぶ。
+ * 出るのは 候補が いない → いる に なった とき だけ。出す 長さは 世界が 動いている ステップで `DUO_TUNING.joinHintSteps`。
  */
 export interface DuoJoinHintInput {
   /** 2P の 候補が いる（`DuoPadRouter.joinCandidate() !== null`） */
@@ -14,12 +16,30 @@ export interface DuoJoinHintInput {
 }
 
 export class DuoJoinHint {
-  step(_input: DuoJoinHintInput): void {
-    throw new Error('COOP-1 3d: DuoJoinHint.step は まだ ない');
+  private prevCandidate = false;
+  /** 出す つもり（まだ 3 秒たっていない・ボタンも 押していない） */
+  private pending = false;
+  private count = 0;
+  private shown = false;
+
+  step(i: DuoJoinHintInput): void {
+    if (!i.candidate) {
+      this.pending = false;
+    } else if (!this.prevCandidate) {
+      this.pending = !i.joined;
+      this.count = 0;
+    }
+    this.prevCandidate = i.candidate;
+    if (i.joined || i.anyButton) this.pending = false;
+    if (this.pending && i.active) {
+      this.count++;
+      if (this.count >= DUO_TUNING.joinHintSteps) this.pending = false;
+    }
+    this.shown = this.pending && i.active;
   }
 
   /** 「＋で さんか」が 出ているか */
   visible(): boolean {
-    throw new Error('COOP-1 3d: DuoJoinHint.visible は まだ ない');
+    return this.shown;
   }
 }

@@ -1,6 +1,6 @@
 /**
  * COOP-1 作業 3d（AC72）: おとなの「よみこむ」（ファイルから 読み直す）の 流れ。
- * 型だけの スタブ（developer が 作って wire/save.ts の mountAdult.importSave に つなぐ。テストは src/duo/reloadLeave.test.ts）。
+ * wire/save.ts の mountAdult.importSave が 使う（テストは src/duo/reloadLeave.test.ts）。
  */
 export interface ImportFlow {
   /** 「いまの せかいが ファイルの ものに かわります。いいですか？」 */
@@ -19,6 +19,18 @@ export interface ImportFlow {
 
 export type ImportResult = 'reloaded' | 'declined' | 'failed';
 
-export async function runImport(_f: ImportFlow): Promise<ImportResult> {
-  throw new Error('COOP-1 3d: runImport は まだ ない');
+export async function runImport(f: ImportFlow): Promise<ImportResult> {
+  if (!f.confirm()) return 'declined';
+  f.suspendSave();
+  try {
+    await f.idle();
+    await f.writeFile();
+  } catch (e) {
+    f.resumeSave();
+    f.alert(e instanceof Error ? e.message : 'よみこめませんでした');
+    return 'failed';
+  }
+  f.leaveDuo('import');
+  f.reload();
+  return 'reloaded';
 }

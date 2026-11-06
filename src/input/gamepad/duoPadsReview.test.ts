@@ -13,7 +13,7 @@ function make(init: Record<string, string> = {}) {
   const p1 = new ActionState();
   const p2 = new ActionState();
   const storage = new FakeStorage(init);
-  const router = new DuoPadRouter({ p1, p2, look1: new AlwaysLook(), look2: new AlwaysLook(), storage: null, choiceStorage: storage, choiceEnabled: true });
+  const router = new DuoPadRouter({ p1, p2, look1: new AlwaysLook(), look2: new AlwaysLook(), storage: null, choiceStorage: storage });
   let pads: (Gamepad | null)[] = [];
   router.getPads = () => pads;
   let t = 0;

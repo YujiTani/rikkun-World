@@ -38,9 +38,14 @@ export interface TitleReturnFlow {
 }
 
 /**
- * 保存 → 'reload' なら 2P を やめさせて（`leaveDuo('reload')`）読みなおす。'stay'（保存できず「ほぞん できなかったよ」）なら 2P は のこる。
- * 型だけの スタブ（developer が 作って wire/save.ts の setTitleReturn に つなぐ。テストは src/duo/reloadLeave.test.ts）。
+ * 保存 → 'reload' なら 2P を やめさせて（`leaveDuo('reload')`）読みなおす。'stay'（保存できず「ほぞん できなかったよ」）なら 2P は のこる（AC71）。
+ * wire/save.ts の setTitleReturn が 使う。
  */
-export async function runTitleReturn(_f: TitleReturnFlow): Promise<TitleReturnDecision> {
-  throw new Error('COOP-1 3d: runTitleReturn は まだ ない');
+export async function runTitleReturn(f: TitleReturnFlow): Promise<TitleReturnDecision> {
+  const decision = decideTitleReturn(await f.saveNow());
+  if (decision === 'reload') {
+    f.leaveDuo('reload');
+    f.reload();
+  }
+  return decision;
 }

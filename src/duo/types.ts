@@ -57,9 +57,9 @@ export interface DuoViewportsHook {
  * 〔tester が 足した 口〕`pos(who)` = 1P・2P の 足もとの 位置。E2E で「だれが 動いたか」を 聞くのに 要る。
  * 〔tester が 足した 口〕`leave()` = 2P を「やめる」と 同じに いなくする（理由 'quit'。持ち物は 保存される）。AC14 の「参加して やめたあと」で 使う。
  * `timeScale()` も tester が 足した 口(AC11)。どれも 仕様 §12.0 の 表に 足してほしい（designer へ）。
- * 〔約束〕`__rikkun.duo` は ふつうの URL でも いつも ある(`?.` は 要らない)。`join()` と `place()` だけ `?duo=dev` の ときしか 効かない。
+ * 〔約束〕`__rikkun.duo` は ふつうの URL でも いつも ある(`?.` は 要らない)。`place()` だけ `?duo=dev` の ときしか 効かない（作業 3d から `join()`・`setPadChoice()` は ふつうの URL でも 効く）。
  * 〔約束〕2P の「コントローラーを つないでね」は data-testid="duo-pad-lost"(padLost の あいだ だけ 見える)。
- * `join()` と `place()` は `?duo=dev` の ときだけ 使える（作業 3 まで。§8）。
+ * `place()` は `?duo=dev` の ときだけ 使える（§12.0）。
  */
 /** 作業 3a（#416。§12.0）: 2P の あそびの 口。aimAt・give・hurt は `?duo=dev` の ときだけ 効く */
 export interface DuoPlayHook {
@@ -79,13 +79,13 @@ export interface DuoHook extends DuoPlayHook {
   /** 2P が いないとき who=2 は null(仕様 §12.0) */
   pos(who: 1 | 2): DuoVec3 | null;
   leave(): void;
-  /** Game に 渡している 時間の 倍率(AC11。2 人のとき もちもの画面でも 1) */
+  /** Game に 渡している 時間の 倍率(AC11・AC84。2 人のとき 1P の 全面の もちもの画面は 0 = 世界が 止まる。2P の パネルだけ なら 1) */
   timeScale(): number;
   /** いま 描いている 区画(作業 2。AC25・AC26。型は DuoViewport) */
   viewports(): DuoViewport[];
   /** 作業 2.5（#401。§12.0）: 決めて 保存してある えらび。なし・こわれた・つかえない → null(はじめの動き) */
   padChoice(): PadChoice | null;
-  /** 作業 2.5: タブで 決めたのと 同じ(＋ の 確認は とばす)。変な 値・`?duo=dev` で ない → false で 何もかえない */
+  /** 作業 2.5: タブで 決めたのと 同じ(＋ の 確認は とばす)。変な 値 → false で 何もかえない（作業 3d から ふつうの URL でも 効く） */
   setPadChoice(c: PadChoice): boolean;
   /** 作業 2.5: 1P・2P が 今 読んでいる パッドの 番号(1 本のときの かわりも 出る)。なし → null */
   padIndex(who: 1 | 2): number | null;

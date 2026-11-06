@@ -22,7 +22,7 @@ function make(opts: { init?: Record<string, string>; storage?: FakeStorage } = {
   const look1 = new AlwaysLook();
   const look2 = new AlwaysLook();
   const storage = opts.storage ?? new FakeStorage(opts.init ?? {});
-  const router = new DuoPadRouter({ p1, p2, look1, look2, storage: null, choiceStorage: storage, choiceEnabled: true });
+  const router = new DuoPadRouter({ p1, p2, look1, look2, storage: null, choiceStorage: storage });
   let pads: (Gamepad | null)[] = [];
   router.getPads = () => pads;
   const set = (...p: (Gamepad | null)[]) => {

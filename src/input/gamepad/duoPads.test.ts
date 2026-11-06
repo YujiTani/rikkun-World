@@ -265,7 +265,7 @@ describe('1P が パッドなし（setChoice({ p1: null, p2: 0 })）: 1 本目�
     const p2 = new ActionState();
     const look1 = new AlwaysLook();
     const look2 = new AlwaysLook();
-    const router = new DuoPadRouter({ p1, p2, look1, look2, storage: null, choiceStorage: new FakeStorage(), choiceEnabled: true });
+    const router = new DuoPadRouter({ p1, p2, look1, look2, storage: null, choiceStorage: new FakeStorage() });
     let pads: (Gamepad | null)[] = [];
     router.getPads = () => pads;
     router.setChoice({ p1: null, p2: 0 });
