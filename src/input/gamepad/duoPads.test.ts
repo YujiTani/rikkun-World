@@ -205,6 +205,18 @@ describe('AC5: 2P の パッドが ぬけた', () => {
     expect(router.padLost()).toBe(false);
   });
 
+  it('パッドなしで 参加したあと パッドが つながり、その 2P の パッドが ぬけたら padLost（#401）', () => {
+    const { set, poll, router } = make();
+    router.setJoined(true);
+    set(fakePad(0), fakePad(1));
+    poll();
+    expect(router.p2PadIndex()).toBe(1);
+    set(fakePad(0), null);
+    poll();
+    expect(router.padLost()).toBe(true);
+    expect(router.p1PadIndex()).toBe(0);
+  });
+
   it('1P の パッドが ぬけても 2P は 1P に ならない（段階 1）', () => {
     const { set, poll, router } = joinedWithHeld();
     set(null, fakePad(1));

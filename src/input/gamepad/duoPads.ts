@@ -99,6 +99,8 @@ export class DuoPadRouter {
       return;
     }
     if (this.joined) {
+      // 2P の パッドが まだ きまっていない（パッドなしで 参加した）あいだは 候補を さがす。きまったら そこから 動かさない
+      if (this.joinedBase2 === NONE) this.firstTwo(pads);
       this.base1 = this.joinedBase1;
       this.base2 = this.joinedBase2;
       return;

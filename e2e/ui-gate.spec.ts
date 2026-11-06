@@ -578,7 +578,7 @@ SCREENS.push(
  * COOP-1 作業 2.5（#401）AC62: せっていの「つかう コントローラー」タブ(`?duo=dev`)。2 本・待ち / 4 本(おりかえし) / 0 本。
  * 3 つの 大きさで スクロールなし・字 20px・すきま・角・押せる 高さ 56・下の 1 行が ずれない。検査は e2e/helpers/duoUi.ts の duoUsePadIssues。
  */
-const USE_PAD_ROOTS = ['[data-testid="settings-panel"]'];
+const USE_PAD_ROOTS = ['[data-testid="ctrl-panel-use"]'];
 SCREENS.push(
   {
     id: 'duo-use-pad-2-wait',
