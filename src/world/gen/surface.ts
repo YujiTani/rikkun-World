@@ -6,10 +6,10 @@ import { floraOfChunk } from './flora';
 import { plantsOfChunk } from './plants';
 import { treesInRect, type Tree } from './trees';
 import { fallColumn } from './liquidPonds';
-import { BLOCK_INDEX, BLOCK_TYPES } from '../blocks/blockTypes';
+import { BLOCK_INDEX, BLOCK_TYPES, isLeafIndex } from '../blocks/blockTypes';
 import { buildBlocks } from './chunk';
 import { COL_VOLUME, LAYER } from './columnLayout';
-import { shaftWorldFor } from './mineShafts';
+import { shaftWorldFor, type ShaftWorld } from './mineShafts';
 
 /**
  * ブロックを読みこまずに出す「地面・木・たいまつ」の答え（VOX-D G2）。
@@ -42,11 +42,15 @@ const K_FLORA = 6;
 const K_SOLID = 7;
 const KIND_OF = new Uint8Array(256).fill(K_SOLID);
 /** 種類ごとの ブロック id（水の 量ちがいは 名前の 形で 見分ける） */
-const KIND_IDS: readonly (readonly string[])[] = [['air'], ['magma'], ['log'], ['leaves', 'matsu_leaves', 'momiji_leaves'], ['start_torch'], ['flower_y', 'flower_o', 'flower_p', 'susuki', 'bamboo'], ['nobana', 'kusa']];
+const KIND_IDS: readonly (readonly string[])[] = [['air'], ['magma'], ['log'], [], ['start_torch'], ['flower_y', 'flower_o', 'flower_p', 'susuki', 'bamboo'], ['nobana', 'kusa']];
 KIND_IDS.forEach((ids, k) => {
   for (const id of ids) KIND_OF[BLOCK_INDEX[id as keyof typeof BLOCK_INDEX]!] = k;
 });
-for (let i = 0; i < BLOCK_TYPES.length; i++) if (/^water(_\d)?$/.test(BLOCK_TYPES[i]!.id)) KIND_OF[i] = 1;
+for (let i = 0; i < BLOCK_TYPES.length; i++) {
+  if (/^water(_\d)?$/.test(BLOCK_TYPES[i]!.id)) KIND_OF[i] = 1;
+  else if (isLeafIndex(i)) KIND_OF[i] = K_LEAVES;
+  else if (KIND_OF[i] === K_SOLID && !BLOCK_TYPES[i]!.solid) KIND_OF[i] = K_AIR; // 表に ない かたくない ブロック〔坑道の たいまつ など〕は 空気あつかい
+}
 const VBLOCK: readonly VBlock[] = ['air', 'water', 'log', 'leaves', 'torch', 'plant', 'plant', 'solid'];
 
 class SurfaceImpl implements Surface {
@@ -59,7 +63,7 @@ class SurfaceImpl implements Surface {
   private readonly seed: number;
 
   /** flora = false: くさ・のばな を 数えない（ふるい はたけ・やせいの やさい の 場所を 決めるときの 答え。くさ・のばな は その場所を よけるので 循環しない） */
-  constructor(seed: number, private readonly flora: boolean) {
+  constructor(seed: number, private readonly flora: boolean, private readonly shafts: ShaftWorld) {
     this.seed = seed;
     this.T = terrainFor(seed);
     const sp = this.T.spawn();
@@ -76,7 +80,7 @@ class SurfaceImpl implements Surface {
       const z0 = (z >> 3) * 8;
       t = treesInRect(this.T, x0 - 5, z0 - 5, x0 + 12, z0 + 12);
       // 坑道の 木を おかない 四角（列を 作る ときと 同じ）
-      const zone = shaftWorldFor(this.seed).zones(x >> 4, z >> 4);
+      const zone = this.shafts.zones(x >> 4, z >> 4);
       if (zone && zone.trees.length > 0) t = t.filter((tr) => !zone.trees.some((r) => tr.x >= r[0] && tr.x <= r[2] && tr.z >= r[1] && tr.z <= r[3]));
       if (this.treeCache.size > 4000) this.treeCache.clear();
       this.treeCache.set(k, t);
@@ -92,7 +96,7 @@ class SurfaceImpl implements Surface {
     let m = this.plantCache.get(k);
     if (m === undefined) {
       m = new Map();
-      const zone = shaftWorldFor(this.seed).zones(cx, cz);
+      const zone = this.shafts.zones(cx, cz);
       const skip = (p: { x: number; z: number }): boolean => zone !== null && zone.plants.some((r) => p.x >= r[0] && p.x <= r[2] && p.z >= r[1] && p.z <= r[3]);
       for (const p of plantsOfChunk(this.T, cx, cz)) if (!skip(p)) m.set(p.x * 100003 + p.z, p.height);
       if (this.flora) for (const p of floraOfChunk(this.T, cx, cz)) if (!skip(p)) m.set(p.x * 100003 + p.z, p.height);
@@ -118,7 +122,7 @@ class SurfaceImpl implements Surface {
     const k = cx * 1000003 + cz;
     let b = this.shaftCols.get(k);
     if (b === undefined) {
-      b = shaftWorldFor(this.seed).opsFor(cx, cz) ? Uint8Array.from(buildBlocks(this.seed, cx, cz).blocks.subarray(0, COL_VOLUME)) : null;
+      b = this.shafts.opsFor(cx, cz) ? Uint8Array.from(buildBlocks(this.seed, cx, cz, undefined, this.shafts.oldCols).blocks.subarray(0, COL_VOLUME)) : null;
       if (this.shaftCols.size > 64) this.shaftCols.clear();
       this.shaftCols.set(k, b);
     }
@@ -274,16 +278,26 @@ class SurfaceImpl implements Surface {
 }
 
 const cache = new Map<string, Surface>();
+const byShafts = new WeakMap<ShaftWorld, Map<string, Surface>>();
 
-/** シードごとに 覚えておく。opts.flora = false なら くさ・のばな を 数えない（farmPlacement 用） */
-export function surfaceFor(seed: number, opts: { flora?: boolean } = {}): Surface {
+/**
+ * シードごとに 覚えておく。opts.flora = false なら くさ・のばな を 数えない（farmPlacement 用）。
+ * opts.shafts = その 世界の 坑道の 世界〔古い 列の 一覧つき。ゲームの 中では つなぎ込みが 1 つ 作って わたす〕。なければ 古い 列の ない 世界。
+ */
+export function surfaceFor(seed: number, opts: { flora?: boolean; shafts?: ShaftWorld } = {}): Surface {
   const flora = opts.flora !== false;
   const key = `${seed}|${flora}`;
-  let s = cache.get(key);
+  let c = cache;
+  if (opts.shafts) {
+    let m = byShafts.get(opts.shafts);
+    if (!m) byShafts.set(opts.shafts, (m = new Map()));
+    c = m;
+  }
+  let s = c.get(key);
   if (s === undefined) {
-    if (cache.size >= 12) cache.delete(cache.keys().next().value as string);
-    s = new SurfaceImpl(seed, flora);
-    cache.set(key, s);
+    if (c.size >= 12) c.delete(c.keys().next().value as string);
+    s = new SurfaceImpl(seed, flora, opts.shafts ?? shaftWorldFor(seed, undefined));
+    c.set(key, s);
   }
   return s;
 }

@@ -66,6 +66,14 @@ export function geoFor(seed: number): Geo {
   return g;
 }
 
+/** 道の 足の マス 1 つの 天井の 上に、地面まで cover.ground・海の 下は 海の 底まで cover.sea 以上 石が あるか（入口から roofedWithin マスは ゆるす。§4.5.3 の 6）。airH は 空気の 高さ */
+export function coverOk(G: Geo, site: { x: number; z: number }, c: { x: number; y: number; z: number }, airH: number): boolean {
+  const C = S.cover;
+  if (Math.hypot(c.x - site.x, c.z - site.z) <= C.roofedWithin) return true;
+  const ground = G.h(c.x, c.z);
+  return ground - (c.y + airH) >= (ground <= SEA_Y - 1 ? C.sea : C.ground);
+}
+
 export const regionOf = (v: number): number => Math.floor(v / S.region);
 
 /** 区画の 抽選（当たりか） */
@@ -140,7 +148,7 @@ function trySlope(G: Geo, x: number, z: number, dir: Dir): Site | null {
   const E = S.entrance;
   const h = G.h(x, z);
   const ey = h + 1;
-  if (!inRange(ey) || G.special(x, z, 6) || G.nearMouth(x, z, 6)) return null;
+  if (!inRange(ey) || G.special(x, z, E.ledgeRadius + 1) || G.nearMouth(x, z, E.ledgeRadius + 1)) return null; // 入口の まわり 8 マスに いけ・滝・洞くつの 口を ふくめない〔その ふちで 落ちない ため〕
   const v = DV[dir]!;
   if (G.h(x - v[0] * E.inland, z - v[1] * E.inland) - h < E.rise) return null;
   if (!noLedge(G, x, z, E.ledgeRadius)) return null;
@@ -170,13 +178,14 @@ function tryMound(G: Geo, ex: number, ez: number, dir: Dir): Site | null {
   return null;
 }
 
-/** 区画 (rx, rz) の 入口の 候補を 順に 出す（斜面 slopeTries 回 → 山 moundTries 回） */
-export function* regionSites(G: Geo, rx: number, rz: number): Generator<Site> {
+/** 区画 (rx, rz) の 入口の 候補を 順に 出す（斜面 slopeTries 回 → 山 moundTries 回）。siteChunk 回ごとに null〔ひと休み の 合図〕を 出す */
+export function* regionSites(G: Geo, rx: number, rz: number): Generator<Site | null> {
   const rng = regionRng(G.seed, rx, rz, 1);
   const m = S.edgeMargin;
   const span = S.region - 2 * m;
   const E = S.entrance;
   for (let i = 0; i < E.slopeTries; i++) {
+    if (i % S.plan.siteChunk === 0) yield null;
     const x = rx * S.region + m + Math.floor(rng() * span);
     const z = rz * S.region + m + Math.floor(rng() * span);
     const d0 = Math.floor(rng() * 4);
@@ -186,11 +195,31 @@ export function* regionSites(G: Geo, rx: number, rz: number): Generator<Site> {
     }
   }
   for (let i = 0; i < E.moundTries; i++) {
+    if (i % S.plan.siteChunk === 0) yield null;
     const x = rx * S.region + m + Math.floor(rng() * span);
     const z = rz * S.region + m + Math.floor(rng() * span);
     const s = tryMound(G, x, z, Math.floor(rng() * 4) as Dir);
     if (s) yield s;
   }
+}
+
+/** スタートの ほうを 向く 向き（はじまりの 坑道の 入口の 向き） */
+function dirToSpawn(sp: { x: number; z: number }, ex: number, ez: number): Dir {
+  let best: Dir = 0;
+  let bestDot = -Infinity;
+  for (let k = 0; k < 4; k++) {
+    const dot = DV[k]![0] * (sp.x - ex) + DV[k]![1] * (sp.z - ez);
+    if (dot > bestDot) {
+      bestDot = dot;
+      best = k as Dir;
+    }
+  }
+  return best;
+}
+
+/** meta に 書いて あった 入口 (x, z) から 入口の 場所を 作りなおす（さがしなおさない） */
+export function startSiteAt(G: Geo, x: number, z: number): Site | null {
+  return tryMound(G, x, z, dirToSpawn(G.T.spawn(), x, z));
 }
 
 /** はじまりの 坑道の 入口の 候補: スタートから 24〜48（置けない ときは 48〜96・96〜160）。北の 左右 60 度を 先に */
@@ -207,16 +236,7 @@ export function* startSites(G: Geo): Generator<Site> {
         const ez = sp.z - Math.round(Math.cos(ang) * dist);
         const d = Math.hypot(ex - sp.x, ez - sp.z);
         if (d < a || d > b) continue;
-        // スタートの ほうを 向く 向き
-        let best: Dir = 0;
-        let bestDot = -Infinity;
-        for (let k = 0; k < 4; k++) {
-          const dot = DV[k]![0] * (sp.x - ex) + DV[k]![1] * (sp.z - ez);
-          if (dot > bestDot) {
-            bestDot = dot;
-            best = k as Dir;
-          }
-        }
+        const best = dirToSpawn(sp, ex, ez);
         const s = tryMound(G, ex, ez, best);
         if (s) yield s;
       }

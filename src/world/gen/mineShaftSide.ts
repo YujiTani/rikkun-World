@@ -4,7 +4,7 @@ import { MINE_CONFIG } from './mineConfig';
 import { layerAt } from './mineLayers';
 import { Frame, ShaftBuilder, airHeightOf, keyOf, keyX, keyY, keyZ, ringFor, type Pt3 } from './mineShaftBuild';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
-import type { Geo, Site } from './mineShaftSite';
+import { coverOk, type Geo, type Site } from './mineShaftSite';
 import type { PathCell, Pt, ShaftLayer, ShaftSide } from './mineShaftTypes';
 import { hashInts, type Rng } from './random';
 
@@ -121,8 +121,10 @@ function layerOres(layer: ShaftLayer): number[] {
   return MINE_CONFIG.ores.filter((r) => r.layer === layer && !HIDDEN_ORES.has(r.block)).map((r) => BLOCK_INDEX[r.block]);
 }
 
-export function planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean, rng: Rng, F: Frame, site: Site, chestCells: ReadonlySet<number>): ShaftSide[] | null {
+/** 横穴を 計画する。短い 仕事ごとに yield する〔先読みが 時間で 止まれる ように。結果は 同じ〕 */
+export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean, rng: Rng, F: Frame, site: Site, chestCells: ReadonlySet<number>): Generator<void, ShaftSide[] | null> {
   const E = S.side;
+  const inMid = (y: number): boolean => y >= E.startMidY[0] && y <= E.startMidY[1];
   const count = E.countMin + weightedIndex(rng, E.countWeights);
   const sides: ShaftSide[] = [];
   // はじまりの 坑道は なかほど〔y 64〜84〕の おどりばを 先に
@@ -130,15 +132,15 @@ export function planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean, 
     .map((h, i) => ({ h, i, r: rng() }))
     .sort((p, q) => {
       if (start) {
-        const pm = p.h.y >= 64 && p.h.y <= 84 ? 0 : 1;
-        const qm = q.h.y >= 64 && q.h.y <= 84 ? 0 : 1;
+        const pm = inMid(p.h.y) ? 0 : 1;
+        const qm = inMid(q.h.y) ? 0 : 1;
         if (pm !== qm) return pm - qm;
       }
       return p.r - q.r;
     });
   const region = start ? null : { x0: Math.floor(site.x / S.region) * S.region, z0: Math.floor(site.z / S.region) * S.region };
-  const inMid = (y: number): boolean => y >= 64 && y <= 84;
   for (const { h } of order) {
+    yield;
     const haveMid = sides.some((d) => d.layer === 'nakahodo' && inMid(d.from.y));
     if (sides.length >= count && (!start || haveMid)) break;
     if (sides.length >= count && !inMid(h.y)) continue;
@@ -148,10 +150,15 @@ export function planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean, 
     if (wantAimed) {
       for (const sg of [s0, -s0]) {
         if (side) break;
-        side = tryAimed(G, b, h, rng, F, region, site, chestCells, sg, scanFloors(G, h, F, sg));
+        const found = scanFloors(G, h, F, sg);
+        yield;
+        side = tryAimed(G, b, h, rng, F, region, site, chestCells, sg, found);
       }
     }
-    for (let t = 0; t < E.tries && side === null; t++) side = tryWinding(G, b, h, rng, F, region, site, chestCells, t % 2 === 0 ? s0 : -s0);
+    for (let t = 0; t < E.tries && side === null; t++) {
+      yield;
+      side = tryWinding(G, b, h, rng, F, region, site, chestCells, t % 2 === 0 ? s0 : -s0);
+    }
     if (side) sides.push(side);
   }
   return sides.length >= 2 ? sides : null;
@@ -346,6 +353,7 @@ function build(
   });
   for (const cn of corners) torches.push({ x: cn.x + 1, y, z: cn.z + 1 });
   torches.push({ x: lastC.x - ldz, y, z: lastC.z + ldx });
+  torches.push({ x: lastC.x + ldz, y, z: lastC.z - ldx }); // 出口の 両がわ（§4.5.2）
   let to: Pt = { x: lastC.x, y, z: lastC.z };
   const exempt = new Set<number>();
   let faceY = y;
@@ -368,6 +376,7 @@ function build(
         for (const j of [-1, 0, 1]) add(sx - ldz * j, yy, sz + ldx * j, 'joint');
         // 階段にも 2 だんおきに たいまつ〔光 6 を ほしょうする〕
         if (k % 2 === 0 || k === spec.stairs) torches.push({ x: sx - ldz * (k % 4 < 2 ? 1 : -1), y: yy, z: sz + ldx * (k % 4 < 2 ? 1 : -1) });
+        if (k === spec.stairs) torches.push({ x: sx + ldz * (k % 4 < 2 ? 1 : -1), y: yy, z: sz - ldx * (k % 4 < 2 ? 1 : -1) }); // 出口の 両がわ
       }
       faceY = y + spec.stairSgn * spec.stairs;
       faceX = lastC.x + ldx * (K + spec.stairs);
@@ -404,6 +413,7 @@ function build(
   for (const c of cells) {
     if (G.nearMouth(c.x, c.z, 2)) return null;
     if (G.special(c.x, c.z, 2)) return null;
+    if (!coverOk(G, site, c, airHeightOf(c.part))) return null;
   }
   if (cells.filter((c) => c.part === 'side').length > 3 * S.side.lengthMax) return null;
   // ほかの 横穴と 上から 見て かさならない〔かたまりを 見わけやすく する〕
@@ -443,9 +453,9 @@ function build(
     // 先: 前の 面が ひらいて いて、4 歩 いじょう 先の ほらあなの 床へ 行き来 できる
     const pathKeys = new Set<number>(b.pathKeys);
     for (const c of cells) pathKeys.add(keyOf(c.x, c.y, c.z));
-    const out = v.walk(to, 300, (p, d) => d >= 4 && !pathKeys.has(keyOf(p.x, p.y, p.z)));
+    const out = v.walk(to, S.side.walkLimit, (p, d) => d >= S.side.beyondSteps && !pathKeys.has(keyOf(p.x, p.y, p.z)));
     if (!out.hit) return null;
-    const back = v.walk(out.hit, 300, (p) => p.x === to.x && p.y === to.y && p.z === to.z);
+    const back = v.walk(out.hit, S.side.walkLimit, (p) => p.x === to.x && p.y === to.y && p.z === to.z);
     if (!back.hit) return null;
   } else {
     // こべやの かべに その 層の 鉱石を 4 こ いじょう

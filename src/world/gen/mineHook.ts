@@ -4,7 +4,7 @@ import { isUnderground } from '../../yokai/ai/terrain';
 import { BLOCK_INDEX, BLOCK_TYPES, blockIdFromIndex } from '../blocks/blockTypes';
 import { buildBlocks } from './chunk';
 import { createShaftHook, type ChestPorts, type ShaftHook } from './mineHookShaft';
-import type { OldCols } from './mineShafts';
+import type { OldCols, ShaftWorld } from './mineShafts';
 import { HW } from './columnLayout';
 import { MINE_CONFIG, type MineLayerDef, type MineLayerId, type MineOreRow } from './mineConfig';
 import { layerAt } from './mineLayers';
@@ -140,6 +140,8 @@ export function createMineHook(o: {
   world?: Pick<VoxelWorld, 'getBlock'> & Partial<Pick<VoxelWorld, 'setBlock'>>;
   /** MINE-1C: 古い 保存の 列の 一覧（坑道を かかない 列。新しい 世界は なし） */
   oldCols?: OldCols;
+  /** MINE-1C: 世界ごとに 1 つ だけ 作った 坑道の 世界（つなぎ込みが わたす。同じ 世界の 実績・surface・生成と 計画を 共有する） */
+  shafts?: ShaftWorld;
   /** MINE-1C: 開いて いる 世界の meta の 版（保存した あとは 書いた 値。meta が なければ null） */
   metaGen?: () => number | null;
   kodoGen?: number;

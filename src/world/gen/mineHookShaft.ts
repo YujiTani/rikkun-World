@@ -2,8 +2,9 @@ import type { BlockId, ItemId, Rarity, VoxelWorld } from '../../contracts';
 import { itemDef } from '../../content/items/registry';
 import { RARITY_ORDER } from '../../drops/rarityTable';
 import { KODO_GEN, SAVE_GEN } from '../../save/gens';
-import { chestBlockId, chestBlockInfo, chestFrontAt, chestPartner, type ChestCompass } from '../blocks/chestBlock';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
+import { EMISSION } from '../light/opacity';
+import { chestBlockId, chestBlockInfo, chestFrontAt, chestPartner, type ChestCompass } from '../blocks/chestBlock';
 import { colKey } from '../stream/ring';
 import { buildBlocks } from './chunk';
 import { chestExcluded, chestPool, rollChest } from './mineChest';
@@ -45,19 +46,22 @@ export interface ShaftHookOptions {
   seed: number;
   world?: ChestWorld;
   oldCols?: OldCols;
+  /** 世界ごとに 1 つ だけ 作った 坑道の 世界（つなぎ込みが わたす。なければ oldCols から 引く） */
+  shafts?: ShaftWorldType;
   metaGen?: () => number | null;
   /** 坑道の 版（つなぎ込みが SaveManager.KODO_GEN を わたす。なければ gens.ts の 値） */
   kodoGen?: number;
   chest?: ChestPorts;
 }
 
-const TORCHES = [BLOCK_INDEX.torch, BLOCK_INDEX.hotaruishi, BLOCK_INDEX.start_torch];
+/** 坑道が 置く 光る ブロック〔たいまつ・ほたるいし。マグマ・あんどんは 数えない〕 */
+const EMITTERS: ReadonlySet<number> = new Set([BLOCK_INDEX.torch, BLOCK_INDEX.hotaruishi, BLOCK_INDEX.start_torch].filter((i) => EMISSION[i]! > 0));
 const SUPER = RARITY_ORDER.indexOf('superRare');
 const idxOf = (r: Rarity): number => RARITY_ORDER.indexOf(r);
 
 export function createShaftHook(o: ShaftHookOptions) {
   const { seed } = o;
-  const world = (): ShaftWorldType => shaftWorldFor(seed, o.oldCols);
+  const world = (): ShaftWorldType => o.shafts ?? shaftWorldFor(seed, o.oldCols);
 
   function chestAt(x: number, y: number, z: number): ChestAtInfo | null {
     if (!o.world) return null;
@@ -123,7 +127,7 @@ export function createShaftHook(o: ShaftHookOptions) {
 
   return {
     shafts: (x0: number, z0: number, x1: number, z1: number): Shaft[] => world().shafts(x0, z0, x1, z1),
-    startShaft: (): Shaft => world().start().plan.shaft,
+    startShaft: (): Shaft | null => world().start()?.plan.shaft ?? null,
     shaftPath: (id: string): PathCell[] => world().path(id),
     shaftRolls: (x0: number, z0: number, x1: number, z1: number): ShaftRoll[] => world().rolls(x0, z0, x1, z1),
     chestAt,
@@ -140,7 +144,7 @@ export function createShaftHook(o: ShaftHookOptions) {
     work(cx: number, cz: number): { shaftRegions: number; caveRegions: number; emitters: number } {
       const b = buildBlocks(seed, cx, cz, undefined, o.oldCols).blocks;
       let emitters = 0;
-      for (let i = 0; i < b.length; i++) if (TORCHES.includes(b[i]!)) emitters++;
+      for (let i = 0; i < b.length; i++) if (EMITTERS.has(b[i]!)) emitters++;
       return { shaftRegions: world().regionCount(cx, cz), caveRegions: 0, emitters };
     },
     /** 坑道が かかる 列か（かかる 列は 「ふつうの 列」ではない） */

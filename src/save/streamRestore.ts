@@ -1,6 +1,7 @@
 import type { BlockId, ChunkColumn } from '../contracts';
 import { blockIndexOf } from '../world/blocks/blockTypes';
 import { colKey } from '../world/stream/ring';
+import { shaftWorldFor } from '../world/gen/mineShafts';
 import { KODO_GEN } from './gens';
 import { SAVE_VERSION } from './SaveManager';
 import { NO_SAVE, readPending, removePendingOf, validMeta, type RestoreOptions, type RestoredSave } from './restore';
@@ -23,6 +24,8 @@ export interface StreamRestore extends RestoredSave {
   keys: Set<number>;
   /** 古い 列の 一覧（colKey。MINE-1C §4.8）: 坑道（kodo）を かかない 列。開いた とき 決まり、増やさず 減らさない。部屋（heya）は 1D */
   oldCols: { kodo: Set<number>; heya: Set<number> };
+  /** はじまりの 坑道の 入口 (x, z)（MINE-1C §4.8）。meta に あれば それ。なければ ここで えらんで 書く〔次から 同じ〕 */
+  shaftStart?: { x: number; z: number };
   /** 保険にあるマスを持つ列（colKey → 中身） */
   pending: Map<number, PendingColumn>;
 }
@@ -30,6 +33,12 @@ export interface StreamRestore extends RestoredSave {
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 export const emptyStreamRestore = (base: RestoredSave = NO_SAVE): StreamRestore => ({ ...base, keys: new Set(), pending: new Map(), oldCols: { kodo: new Set(), heya: new Set() } });
+
+/** はじまりの 坑道を 計画して 入口を 返す（置けなければ なし）。世界は 一覧ごとに 1 つ 作って、あとで ゲームが 同じ ものを 使う */
+function startOf(seed: number, oldCols: { kodo: Set<number>; heya: Set<number> }, hint?: { x: number; z: number }): { x: number; z: number } | undefined {
+  const e = shaftWorldFor(seed, oldCols, hint).start()?.plan.shaft.entrance;
+  return e ? { x: e.x, z: e.z } : undefined;
+}
 
 const ints = (v: unknown): number[] => (Array.isArray(v) ? v.filter((x): x is number => typeof x === 'number' && Number.isFinite(x)) : []);
 
@@ -43,6 +52,12 @@ function oldColsOf(meta: Record<string, unknown> | null, keys: ReadonlySet<numbe
   const gen = meta?.gen;
   if (typeof gen === 'number' && Number.isInteger(gen) && gen >= KODO_GEN) return { kodo: new Set(), heya: new Set() };
   return { kodo: new Set(keys), heya: new Set() };
+}
+
+/** meta に 書いて あった はじまりの 坑道の 入口（形が おかしければ なし） */
+function shaftStartOf(meta: Record<string, unknown> | null): { x: number; z: number } | undefined {
+  const s = meta?.shaftStart;
+  return isObj(s) && Number.isInteger(s.x) && Number.isInteger(s.z) ? { x: s.x as number, z: s.z as number } : undefined;
 }
 
 export async function openStoredKeys(o: Pick<RestoreOptions, 'db' | 'store' | 'seed' | 'saveId' | 'reset' | 'signal'>): Promise<StreamRestore> {
@@ -85,6 +100,8 @@ export async function openStoredKeys(o: Pick<RestoreOptions, 'db' | 'store' | 's
       out.fromPending = true;
     }
     out.oldCols = oldColsOf(out.meta, out.keys);
+    // はじまりの 坑道は じゅんびちゅうの この 間に 作る〔最初の 列の 生成に のせない〕。えらんだ 場所は meta に 書いて 次から 同じ
+    out.shaftStart = startOf(seed, out.oldCols, shaftStartOf(out.meta));
     return out;
   } catch {
     return emptyStreamRestore(); // 読めなかった: 新しい世界で始める（こわれた保存は次の保存で上書き）

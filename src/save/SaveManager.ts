@@ -580,20 +580,23 @@ export class SaveManager {
       farm,
       ...p2Part,
       ...(this.d.strength ? { strength: this.d.strength } : {}),
-      ...this.oldColsMeta(),
     });
     // inventory などは 2 回 serialize しない: 比べる側の meta から 取りだす
     const keyObj = make(bagsKey, farmKey);
     const key = JSON.stringify(keyObj);
-    const meta: StoredMeta = { ...keyObj, bags: bagsFull, farm: farmFull };
+    // 古い 列の 一覧・はじまりの 坑道の 場所は 開いた とき 決まって かわらない ので、くらべる 文字〔key〕には 入れない（§4.8）
+    const meta: StoredMeta = { ...keyObj, bags: bagsFull, farm: farmFull, ...this.shaftMeta() };
     return { meta, key };
   }
 
-  /** meta に 書く 古い 列の 一覧（MINE-1C §4.8）。開いた とき 決まり、増やさず 減らさない。ない／空の ときは 書かない */
-  private oldColsMeta(): { oldCols?: { kodo: number[]; heya?: number[] } } {
-    const o = (this.restored as { oldCols?: { kodo: ReadonlySet<number>; heya: ReadonlySet<number> } }).oldCols;
-    if (!o || (o.kodo.size === 0 && o.heya.size === 0)) return {};
-    return { oldCols: { kodo: [...o.kodo], ...(o.heya.size > 0 ? { heya: [...o.heya] } : {}) } };
+  /** meta に 書く 古い 列の 一覧・はじまりの 坑道の 場所（MINE-1C §4.8）。開いた とき 決まり、増やさず 減らさない。ない／空の ときは 書かない */
+  private shaftMeta(): { oldCols?: { kodo: number[]; heya?: number[] }; shaftStart?: { x: number; z: number } } {
+    const o = this.restored.oldCols;
+    const st = this.restored.shaftStart;
+    return {
+      ...(o && (o.kodo.size > 0 || o.heya.size > 0) ? { oldCols: { kodo: [...o.kodo], ...(o.heya.size > 0 ? { heya: [...o.heya] } : {}) } } : {}),
+      ...(st ? { shaftStart: { x: st.x, z: st.z } } : {}),
+    };
   }
 
   /** 開いて いる 世界の meta の 版（開いた ときは 保存の 版、保存した あとは 書いた 版。meta が なければ null） */

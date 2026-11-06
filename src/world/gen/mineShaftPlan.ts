@@ -1,11 +1,12 @@
+import { SEA_Y } from '../../contracts';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { CHEST_RIGHT, chestBlockId } from '../blocks/chestBlock';
 import { colKey } from '../stream/ring';
 import { chestPlaced, chestTierAt } from './mineChestTable';
-import { COMPASS, DV, Frame, ShaftBuilder, keyOf, keyX, keyY, keyZ, type Pt3 } from './mineShaftBuild';
+import { COMPASS, DV, Frame, ShaftBuilder, airHeightOf, keyOf, keyX, keyY, keyZ, type Pt3 } from './mineShaftBuild';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import { planSides, type Hub } from './mineShaftSide';
-import { Geo, type Dir, type Site } from './mineShaftSite';
+import { Geo, coverOk, type Dir, type Site } from './mineShaftSite';
 import type { Compass, PathCell, Shaft } from './mineShaftTypes';
 import { createRng, hashInts, subSeed, type Rng } from './random';
 
@@ -16,6 +17,8 @@ import { createRng, hashInts, subSeed, type Rng } from './random';
  */
 
 const STONE = BLOCK_INDEX.stone;
+const GRASS = BLOCK_INDEX.grass;
+const DIRT = BLOCK_INDEX.dirt;
 const TORCH = BLOCK_INDEX.torch;
 const WAKU = BLOCK_INDEX.kodo_waku;
 const KIN = BLOCK_INDEX.kin_ore;
@@ -50,7 +53,7 @@ function planRamps(ey: number, yRoom: number, rng: Rng): Ramp[] | null {
   const lo = Math.ceil((total + 1) / (R.stepsMax + 1));
   const hi = Math.floor((total + 1) / (R.stepsMin + 1));
   if (hi < lo) return null;
-  for (let t = 0; t < 400; t++) {
+  for (let t = 0; t < R.tries; t++) {
     const m = lo + Math.floor(rng() * (hi - lo + 1));
     const sum = total - (m - 1);
     if (sum < R.stepsMin * m || sum > R.stepsMax * m) continue;
@@ -80,7 +83,7 @@ function planRamps(ey: number, yRoom: number, rng: Rng): Ramp[] | null {
       start = last;
       sgn = (sgn === 1 ? -1 : 1) as 1 | -1;
       // おどりば（last から 3 マス）・さいごは へや（9 マス）まで 入口の 手前に でない
-      const reach = i < m - 1 ? 3 : 9;
+      const reach = i < m - 1 ? S.landing.depth : S.room.size;
       if (Math.min(last, last + sgnOld * reach) < 2) ok = false;
     }
     if (ok) return out;
@@ -91,7 +94,29 @@ function planRamps(ey: number, yRoom: number, rng: Rng): Ramp[] | null {
 /** 山の 形: 中心から の きょり r に ある 地面の 上の 高さ。Tc − floor(r)（r が Tc 以上は 0） */
 const moundBump = (tc: number, r: number): number => (r < tc ? tc - Math.floor(r) : 0);
 
+/** 入口の 前〔外へ 向かって 4 マス〕を 歩いて 出られる か〔地面が 1 段ずつ・海でない〕。入口の 足もとの 地面は ey−1 */
+function outsideWalkable(G: Geo, F: Frame, ey: number): boolean {
+  let prev = ey - 1;
+  for (let d = 1; d <= S.entrance.outsideSteps; d++) {
+    const x = F.x(-d, 0);
+    const z = F.z(-d, 0);
+    const h = G.h(x, z);
+    if (h <= SEA_Y || Math.abs(h - prev) > 1 || Math.abs(h + 1 - ey) > S.entrance.outsideDy) return false;
+    prev = h;
+  }
+  return true;
+}
+
+/** 計画を いっきに 作る（はじまりの 坑道・テスト用） */
 export function planShaft(G: Geo, site: Site, id: string, start: boolean, isOldCol: (k: number) => boolean, attempt: number): ShaftPlan | null {
+  const job = planShaftSteps(G, site, id, start, isOldCol, attempt);
+  let r = job.next();
+  while (!r.done) r = job.next();
+  return r.value;
+}
+
+/** 計画を 少しずつ 作る 仕事（短い 仕事ごとに yield。先読みが 時間で 止まれる ように。結果は planShaft と 同じ） */
+export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, isOldCol: (k: number) => boolean, attempt: number): Generator<void, ShaftPlan | null> {
   const seed = G.seed;
   const rng = createRng(hashInts(subSeed(seed, 811), site.x, site.z, attempt));
   const ey = site.y;
@@ -99,6 +124,7 @@ export function planShaft(G: Geo, site: Site, id: string, start: boolean, isOldC
   const ramps = planRamps(ey, yRoom, rng);
   if (!ramps) return null;
   const F = new Frame(site.x, site.z, site.dir);
+  if (!outsideWalkable(G, F, ey)) return null;
   const b = new ShaftBuilder();
   const hubs: Hub[] = [];
 
@@ -130,7 +156,7 @@ export function planShaft(G: Geo, site: Site, id: string, start: boolean, isOldC
     if (i < ramps.length - 1) {
       // おどりば: 7 × 3、平ら。ramp の 終わりの 1 つ 下
       const ly = r.y0 - r.n - 1;
-      const rows = [1, 2, 3].map((d) => last + r.sgn * d);
+      const rows = Array.from({ length: S.landing.depth }, (_, d) => last + r.sgn * (d + 1));
       for (const u of rows) for (let v = -1; v <= 5; v++) b.addCell(F.pt(u, v, ly), 'landing');
       torchCells.push(F.pt(rows[1]!, 2, ly));
       hubs.push({ kind: 'landing', y: ly, u: rows[1]!, vMin: -1, vMax: 5, frame: F, alongU: true });
@@ -142,13 +168,14 @@ export function planShaft(G: Geo, site: Site, id: string, start: boolean, isOldC
   const yR = lastRamp.y0 - lastRamp.n - 1;
   if (yR !== yRoom) return null;
   const uIn0 = lastU + rs;
-  const uBack = lastU + rs * 9;
-  for (let k = 1; k <= 9; k++) for (let v = rLane - 4; v <= rLane + 4; v++) b.addCell(F.pt(lastU + rs * k, v, yR), 'room');
+  const uBack = lastU + rs * S.room.size;
+  for (let k = 1; k <= S.room.size; k++) for (let v = rLane - 4; v <= rLane + 4; v++) b.addCell(F.pt(lastU + rs * k, v, yR), 'room');
   for (const [u, v] of [[uIn0, rLane - 4], [uIn0, rLane + 4], [uBack, rLane - 4], [uBack, rLane + 4]] as const) torchCells.push(F.pt(u, v, yR));
-  const uMid = lastU + rs * 5;
+  const uMid = lastU + rs * Math.ceil(S.room.size / 2);
   hubs.push({ kind: 'room', y: yR, u: uMid, vMin: rLane - 4, vMax: rLane + 4, frame: F, alongU: true });
   // 洞くつの 口の 外わく（まわり 2 マス）に かかる 道は ゆるさない
-  for (const c of b.path) if (G.nearMouth(c.x, c.z, 2)) return null;
+  for (const c of b.path) for (const dx of [-2, 0, 2]) for (const dz of [-2, 0, 2]) if (isOldCol(colKey((c.x + dx) >> 4, (c.z + dz) >> 4))) return null; // 古い 列に かかる 計画は 早く あきらめる
+  for (const c of b.path) if (G.nearMouth(c.x, c.z, 2) || !coverOk(G, site, c, airHeightOf(c.part))) return null;
 
   // 宝箱 〔ある 坑道だけ〕
   const room = {
@@ -181,9 +208,13 @@ export function planShaft(G: Geo, site: Site, id: string, start: boolean, isOldC
     const k = keyOf(t.x, t.y, t.z);
     if (!chestCells.has(k)) b.put.set(k, TORCH);
   }
+  // 入口の 外がわの 面（u=-1）は かべに しない（外へ ひらく。§4.5.2）
+  for (let v = -1; v <= 1; v++) for (let k = 0; k < airHeightOf('entrance'); k++) b.exempt.add(keyOf(F.x(-1, v), ey + k, F.z(-1, v)));
+  yield;
   b.buildRing();
+  yield;
   // 横穴
-  const sides = planSides(G, b, hubs, start, rng, F, site, chestCells);
+  const sides = yield* planSides(G, b, hubs, start, rng, F, site, chestCells);
   if (sides === null) return null;
 
   // わく: 入口と 道に そって ６ マスごと（かべ・天井の 中に うめる）
@@ -233,7 +264,7 @@ export function planShaft(G: Geo, site: Site, id: string, start: boolean, isOldC
         const h = G.h(x, z);
         for (let k = 1; k <= bump; k++) {
           const key = keyOf(x, h + k, z);
-          if (!b.air.has(key) && !b.put.has(key)) b.put.set(key, STONE);
+          if (!b.air.has(key) && !b.put.has(key)) b.put.set(key, k === bump ? GRASS : k === bump - 1 ? DIRT : STONE); // 上は くさ・その 下は つち・のこりは 石（§4.5.1）
         }
       }
     }
@@ -241,7 +272,38 @@ export function planShaft(G: Geo, site: Site, id: string, start: boolean, isOldC
     noTrees.push([mx - tc - 8, mz - tc - 8, mx + tc + 8, mz + tc + 8]);
   } else {
     noPlants.push([site.x - 3, site.z - 3, site.x + 3, site.z + 3]);
-    noTrees.push([site.x - 6, site.z - 6, site.x + 6, site.z + 6]);
+    const tc = S.entrance.ledgeRadius + S.entrance.leafSpill; // 木の はっぱを 足場に して 4 以上 落ちない ように、入口の まわり 8 マスに はっぱが かからない 広さ
+    noTrees.push([site.x - tc, site.z - tc, site.x + tc, site.z + tc]);
+  }
+
+  // 入口の 屋根が 地面から とびだして いる 所は、まわりの 地面より 2 以上 高い 石の だいに する〔屋根の 上を 歩いて 4 以上 落ちる ふちを 作らない。§4.5.3 の 4〕
+  const surfAt = (x: number, z: number): number => G.h(x, z) + (site.mound ? moundBump(site.mound.tc, Math.hypot(x - site.mound.x, z - site.mound.z)) : 0);
+  const deck = new Map<number, number>(); // 台に する 列〔x, z の キー〕→ 屋根の 高さ
+  const dk = (x: number, z: number): number => (x + 1_048_576) * 2_097_152 + (z + 1_048_576);
+  for (const c of b.path) {
+    if ((c.part !== 'entrance' && c.part !== 'ramp') || Math.hypot(c.x - site.x, c.z - site.z) > S.entrance.deckWithin) continue;
+    const top = c.y + airHeightOf(c.part);
+    if (top <= surfAt(c.x, c.z)) continue;
+    for (let dv = -1; dv <= 1; dv++) {
+      const k = dk(c.x + F.lx * dv, c.z + F.lz * dv);
+      deck.set(k, Math.max(deck.get(k) ?? -Infinity, top));
+    }
+  }
+  if (deck.size > 0) {
+    let topY = Math.max(...deck.values());
+    const cols: [number, number][] = [];
+    for (const k of deck.keys()) cols.push([Math.floor(k / 2_097_152) - 1_048_576, (k % 2_097_152) - 1_048_576]);
+    for (const [x, z] of cols) {
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        if (!deck.has(dk(x + dx, z + dz))) topY = Math.max(topY, surfAt(x + dx, z + dz) + S.entrance.deckAbove);
+      }
+    }
+    for (const [x, z] of cols) {
+      for (let y = surfAt(x, z) + 1; y <= topY; y++) {
+        const key = keyOf(x, y, z);
+        if (!b.air.has(key) && !b.put.has(key)) b.put.set(key, STONE);
+      }
+    }
   }
 
   // 箱
@@ -269,6 +331,7 @@ export function planShaft(G: Geo, site: Site, id: string, start: boolean, isOldC
     const R = S.region;
     if (Math.floor(box.x0 / R) !== Math.floor(box.x1 / R) || Math.floor(box.z0 / R) !== Math.floor(box.z1 / R)) return null;
   }
+  yield;
   // 形が かわる 列
   const cols = new Set<number>();
   const addCols = (xa: number, za: number, xb: number, zb: number): void => {
