@@ -6,7 +6,8 @@ import { PlayerCombatImpl } from '../../combat';
 import { StaggerIcons } from '../../fx/parryFx';
 import { SamuraiBook } from '../../craft/SamuraiBook';
 import { LogSystem } from '../../ui/log';
-import type { ItemId, YokaiKind, CombatEvent, DigEvent, SwingAnim } from '../../contracts';
+import type { ItemId, YokaiKind, CombatEvent, DigEvent, SwingAnim, Inventory, Vec3 } from '../../contracts';
+import type { YokaiPartner } from '../../yokai/ai/target';
 import { AchievementSystem } from '../../achievements';
 import { CelebrateUi } from '../../ui/celebrate';
 import { DragOut } from '../../ui/dragOut';
@@ -41,6 +42,14 @@ interface Shared {
   p2Store: { saved: P2Save | null };
   /** COOP-1: 2P が 参加しているか（時間の 倍率・セーブが 読む。wireDuo が 差しかえる） */
   duoJoined: () => boolean;
+  /** COOP-1 3a: 仲間（2P）の 足もとと 持ち物（参加していなければ null。落とし物・動物・1P の 置く が 読む。wireDuo が 差しかえる。返す 物は いつも 同じ 1 つ） */
+  duoMate: () => { position: Vec3; inventory: Inventory } | null;
+  /** COOP-1 3a: 妖怪が ねらう 仲間（参加していなければ null。wireDuo が 差しかえる） */
+  duoYokai: () => YokaiPartner | null;
+  /** COOP-1 3a: 2P の レベルアップ（ハートを 満タンに。wireDuo が 差しかえる） */
+  p2LevelUp: () => void;
+  /** COOP-1 3a: 2P の 今の ハート（たおした ときの 実績の hp 用。wireDuo が 差しかえる） */
+  p2Hp: () => number;
   /** COOP-1: 2 人のときの カメラの 距離（null = 1 人。step.ts が rig に 渡す。wireDuo が 毎ステップ 書く） */
   duoCamDistance: number | null;
   /** COOP-1: Game に 渡している 時間の 倍率（テストの 口 duo.timeScale() が 読む。wireLoop が 差しかえる） */
@@ -66,7 +75,7 @@ interface Shared {
   onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
   yokaiManager: YokaiManager | null;
   achievementsRef: { feedWorn(n: number): void };
-  onDefeatAch: (kind: YokaiKind) => void;
+  onDefeatAch: (kind: YokaiKind, who: 1 | 2) => void;
   domeEraseThisStep: boolean;
   // #293 試作: 間欠泉の 中・あと は 落下ダメージなし（?proto=gashaBig）
   protoNoFall: boolean;
@@ -106,8 +115,12 @@ interface Shared {
 }
 
 export function createShared(): Shared {
-  return {
-    p2: new P2State(),
+  const s = {
+    p2: new P2State({ onLevelUp: () => s.p2LevelUp() }),
+    duoMate: () => null,
+    duoYokai: () => null,
+    p2LevelUp: () => {},
+    p2Hp: () => 0,
     p2Store: { saved: null },
     duoJoined: () => false,
     duoCamDistance: null,
@@ -145,4 +158,5 @@ export function createShared(): Shared {
     shadowSystem: null,
     achMuted: false,
   } as unknown as Shared;
+  return s;
 }

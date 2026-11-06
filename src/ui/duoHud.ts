@@ -70,6 +70,8 @@ export class DuoHud {
   private b: Built | null = null;
   private on = false;
   private dirty = true;
+  /** 「たおれちゃった」（倒れているあいだだけ ある） */
+  private downEl: HTMLDivElement | null = null;
   private lastW = -1;
   private tier: DuoTier | -1 = -1;
   /** 画面に 書いた 最後の 値（変わらなければ style・hidden を 書かない） */
@@ -212,6 +214,7 @@ export class DuoHud {
       this.d.hotbar1.removeAttribute('data-testid');
       this.d.hearts1.removeAttribute('data-testid');
     }
+    if (!on) this.clearDown();
     const b = this.b;
     if (b) {
       b.meter.hidden = !on;
@@ -225,6 +228,26 @@ export class DuoHud {
         b.question.hidden = true;
       }
     }
+  }
+
+  /** 2P の ハート（毎ステップ）と、倒れているあいだだけ「たおれちゃった」（COOP-1 3a。出ていないときは 画面に 置かない） */
+  updateLife(dt: number, hp: number, invincible: boolean, down: boolean): void {
+    const b = this.b;
+    if (!b || !this.on) return;
+    b.hearts2.update(dt, hp, invincible);
+    if (down && !this.downEl) {
+      const el = document.createElement('div');
+      el.className = 'duo-p2-down';
+      el.setAttribute('data-testid', 'duo-p2-down');
+      el.textContent = 'たおれちゃった';
+      this.d.hud.append(el);
+      this.downEl = el;
+    } else if (!down) this.clearDown();
+  }
+
+  private clearDown(): void {
+    this.downEl?.remove();
+    this.downEl = null;
   }
 
   /** 2P の ホットバー（選んでいる マスの 表示を 毎ステップ 直す） */

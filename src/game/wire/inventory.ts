@@ -136,7 +136,10 @@ export function wireDrops(deps: WiredInventory) {
       lastFullSignal = game.tick;
       hudSignal.full();
     },
-    onPickup: (item, count, fromYokai) => shared.onDropPicked(item, count, fromYokai),
+    onPickup: (item, count, fromYokai, who) => {
+      if (who === 1) shared.onDropPicked(item, count, fromYokai);
+    },
+    partner: () => shared.duoMate(),
   });
   /** 置いて たいら に した 足もと の 列（土けむり。次 の ステップ で AnimalFx へ） */
   const pendingDust: Array<{ x: number; y: number; z: number }> = [];
@@ -147,6 +150,7 @@ export function wireDrops(deps: WiredInventory) {
   const animals = createAnimalManager({
     world,
     getPlayer: () => controller.state,
+    partner: () => shared.duoMate(),
     deps: {
       seed,
       settings: live,

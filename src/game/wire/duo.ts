@@ -14,6 +14,7 @@ import { DuoHud } from '../../ui/duoHud';
 import { charBasePath } from './player';
 import type { WiredLoop } from './save';
 import { DuoViews, type DuoViewsInput } from './duoView';
+import { wireDuoPlay } from './duoPlay';
 
 const DEG = Math.PI / 180;
 /** 角度の 差を -180〜180 に */
@@ -83,6 +84,7 @@ export function wireDuo(deps: WiredLoop) {
       distance = 0;
       pendingLook = 0;
       views.reset();
+      play.onLeave();
       body.hide();
       ui.setJoined(false);
       shared.duoCamDistance = session.cameraDistance() === DUO_TUNING.cameraSolo ? null : session.cameraDistance();
@@ -94,7 +96,8 @@ export function wireDuo(deps: WiredLoop) {
     locked: () => lock.locked(),
     overlayVisible: () => lock.overlayVisible(),
     realtimeAllowed: () => lock.realtimeAllowed(),
-    playInputEnabled: () => lock.playInputEnabled() && !panelOpen,
+    // 倒れている あいだは 2P の 入力を ぜんぶ はなす（歩く・ほる・おく・こうげき）
+    playInputEnabled: () => lock.playInputEnabled() && !panelOpen && !play.down(),
   };
 
   /** 2P が 出る 所: 1P の 右 2 マス。ふさがっていたら 左・うしろ・前。どこも だめなら 1P の 真上 */
@@ -113,6 +116,18 @@ export function wireDuo(deps: WiredLoop) {
     return { x: s.position.x, y: s.position.y + DUO_TUNING.joinAboveTiles, z: s.position.z };
   }
 
+  const play = wireDuoPlay({
+    deps,
+    ui,
+    actions: p2Actions,
+    lock: lock2,
+    ctl2: () => controller2(),
+    joined: () => session.joined,
+    padPresent: () => !router.padLost(),
+    joinSpot,
+    dev,
+  });
+
   function controller2(): PlayerController {
     ctl2 ??= new PlayerController(world, walk, gamepadApi.look2, lock2, () => ({ ...joinSpot(), yawDeg: controller.state.yawDeg, pitchDeg: 0 }));
     return ctl2;
@@ -127,6 +142,7 @@ export function wireDuo(deps: WiredLoop) {
     ui.setJoined(true);
     body.show();
     body.step(c.state);
+    play.onJoin();
     return true;
   }
   // 2 本目の ＋: 作業 3 までは ?duo=dev の ときだけ 参加できる
@@ -143,9 +159,9 @@ export function wireDuo(deps: WiredLoop) {
   function step(dt: number): void {
     if (session.joined) {
       // 2P の もちもの画面（Y・＋で ひらく / B で とじる）と ホットバーの 切りかえ。本・建築士さん・とりごや・たんすは 開かない（AC15）
-      if (p2Actions.wasPressed('toggleInventory')) panelOpen = !panelOpen;
+      if (!play.down() && p2Actions.wasPressed('toggleInventory')) panelOpen = !panelOpen;
       if (p2Actions.wasPressed('closeMenu')) panelOpen = false;
-      if (!panelOpen) {
+      if (!panelOpen && !play.down()) {
         const inv = p2.inventory;
         if (p2Actions.wasPressed('hotbarNext')) inv.selectNext(1);
         if (p2Actions.wasPressed('hotbarPrev')) inv.selectNext(-1);
@@ -168,7 +184,7 @@ export function wireDuo(deps: WiredLoop) {
       } else {
         walk.sync(cam.walkYawDeg);
         const heading = walk.heading();
-        if (heading !== null) ctl2.state.yawDeg = heading;
+        if (heading !== null && !play.down()) ctl2.state.yawDeg = heading;
       }
       if (worldReady()) ctl2.update(dt);
       pendingLook = split ? wrapDeg(ctl2.state.yawDeg - yaw0) : 0;
@@ -176,6 +192,7 @@ export function wireDuo(deps: WiredLoop) {
       const b = ctl2.state.position;
       distance = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
       body.step(ctl2.state);
+      play.step(dt);
       const vi = viewIn;
       vi.p1 = a;
       vi.p2 = b;
@@ -226,6 +243,7 @@ export function wireDuo(deps: WiredLoop) {
   });
 
   const hook: DuoHook = {
+    ...play.hook,
     join: () => dev && join(),
     place(who, pos) {
       if (!dev) return;
