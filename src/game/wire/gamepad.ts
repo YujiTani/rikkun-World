@@ -22,7 +22,10 @@ export function wireGamepad(opts: {
   const look = new CombinedLook(opts.mouseLook, padLook);
   const slots = new PlayerInputSlots(opts.actions, 1); // slot 0 = 1P（キー・マウスと 同じ）、slot 1 = 2P（COOP-1）
   // COOP-1: パッドは ルーターが 1P・2P に 振り分ける。1P の 読み（reader）は 今までと 同じ
-  const router = new DuoPadRouter({ p1: slots.get(0), p2: slots.get(1), look1: padLook, look2: padLook2, storage: typeof localStorage !== 'undefined' ? localStorage : null });
+  // 開発用 `?duo=dev&pad=2p`: 1 本目の パッドを 2P に する（1P は キーボード＋マウス。ロックは 1P の パッドの 有無で 決まる）
+  const query = new URLSearchParams(location.search);
+  const firstPadIs2P = query.get('duo') === 'dev' && query.get('pad') === '2p';
+  const router = new DuoPadRouter({ p1: slots.get(0), p2: slots.get(1), look1: padLook, look2: padLook2, storage: typeof localStorage !== 'undefined' ? localStorage : null, firstPadIs2P });
   const reader = router.reader1;
   router.bootstrap();
   opts.lock.setPadActive(reader.hasPad());
