@@ -421,6 +421,14 @@ test.describe('MINE-1C 通し', () => {
       await rightClick(page, at);
       const lines = await page.evaluate(() => ((window as any).__rikkun.log.history() as { text: string }[]).map((e) => e.text));
       expect(lines.filter((t) => t.includes('からっぽ だよ')), `あいた 宝箱〔${name}〕を 右クリック → ログ`).toHaveLength(1);
+      // 画面の 合図〔「もちものが いっぱい！」と 同じ 出し方〕: #notice-signal-text に 字が 出る
+      const sig = await page.evaluate(() => {
+        const el = document.getElementById('notice-signal-text');
+        return el ? { hidden: el.hidden, text: el.textContent ?? '' } : null;
+      });
+      expect(sig, `あいた 宝箱〔${name}〕を 右クリック → #notice-signal-text が ある`).not.toBeNull();
+      expect(sig!.hidden, `${name}: 合図が 見えて いる`).toBe(false);
+      expect(sig!.text, `${name}: 合図の 字`).toContain('からっぽ だよ');
     }
   });
 
