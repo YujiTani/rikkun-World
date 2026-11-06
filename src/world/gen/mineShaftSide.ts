@@ -1,5 +1,6 @@
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { SEA_Y } from '../../contracts';
+import { colKey } from '../stream/ring';
 import { MINE_CONFIG } from './mineConfig';
 import { layerAt } from './mineLayers';
 import { Frame, ShaftBuilder, airHeightOf, keyOf, keyX, keyY, keyZ, ringFor, type Pt3 } from './mineShaftBuild';
@@ -125,11 +126,30 @@ function layerOres(layer: ShaftLayer): number[] {
   return MINE_CONFIG.ores.filter((r) => r.layer === layer && r.hidden !== true).map((r) => BLOCK_INDEX[r.block]);
 }
 
+/** 1C の 計画の 横穴の しるし〔はじまりの 坑道を 1C の まま に する ため。横穴ごとの 道の マスの ハッシュ〕 */
+export interface SideRef {
+  /** 横穴を 計画した 順の しるし〔横穴が なかった おどりばは null〕 */
+  sigs: (number | null)[];
+  /** なかほどで いちばん 上の 横穴の 順 〔なければ −1〕 */
+  target: number;
+}
+
+/** はじまりの 坑道を ほたるへ つなぐ ための ためし〔1C の 計画を ref に して 1 本だけ かえる〕 */
+export interface StartLink {
+  ref: SideRef;
+  /** へやの 形を ためす 番号の はじまり */
+  from: number;
+  /** ためして 当たった 番号〔計画が ref と ちがって 落ちた とき、次は used + 1 から〕 */
+  used: number;
+}
+
 /** 坑道の へやに 使う もの〔1D〕 */
 export interface HeyaCtx {
   shaftId: string;
-  /** はじまりの 坑道で なかほどの いちばん 上の 横穴を ほたるの ほらあなへ つなぐか */
-  link: boolean;
+  /** 横穴ごとの くじ〔坑道の へや〕を 引くか。false は 1C の まま */
+  lottery: boolean;
+  /** はじまりの 坑道で なかほどの いちばん 上の 横穴を ほたるの ほらあなへ つなぐ ための ためし〔なければ 1C の 形〕 */
+  link: StartLink | null;
   /** 古い 列〔坑道・部屋〕か */
   isOld(k: number): boolean;
 }
@@ -138,17 +158,31 @@ export interface SidesOut {
   sides: ShaftSide[];
   rooms: PlacedCave[];
   tries: HiroiTryRow[];
+  ref: SideRef;
 }
 
 /** 坑道の へやの くじに 当たった 横穴を ためす 回数〔横穴の 形を かえて〕 */
-const HEYA_TRIES = 24;
+export const HEYA_TRIES = 24;
+/** はじまりの 坑道を ほたるへ つなぐ 形を ためす 回数〔1C の ほかの 横穴が かわらない 形を さがす ので 多め〕 */
+export const LINK_TRIES = 120;
+
+/** 道の マスの ハッシュ */
+function cellsSig(path: readonly PathCell[], from: number): number {
+  let h = 0x811c9dc5;
+  for (let i = from; i < path.length; i++) {
+    const c = path[i]!;
+    h = Math.imul(h ^ keyOf(c.x, c.y, c.z), 0x01000193) >>> 0;
+    h = Math.imul(h ^ (c.part.length + 31 * c.part.charCodeAt(0)), 0x01000193) >>> 0;
+  }
+  return h;
+}
 
 /** 横穴を 計画する。短い 仕事ごとに yield する〔先読みが 時間で 止まれる ように。結果は 同じ〕 */
 export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean, rng: Rng, F: Frame, site: Site, chestCells: ReadonlySet<number>, hc: HeyaCtx): Generator<void, SidesOut | null> {
   const E = S.side;
   const inMid = (y: number): boolean => y >= E.startMidY[0] && y <= E.startMidY[1];
   const count = E.countMin + weightedIndex(rng, E.countWeights);
-  const out: SidesOut = { sides: [], rooms: [], tries: [] };
+  const out: SidesOut = { sides: [], rooms: [], tries: [], ref: { sigs: [], target: -1 } };
   const sides = out.sides;
   // はじまりの 坑道は なかほど〔y 64〜84〕の おどりばを 先に
   const order = hubs
@@ -162,12 +196,49 @@ export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean,
       return p.r - q.r;
     });
   const region = start ? null : { x0: Math.floor(site.x / S.region) * S.region, z0: Math.floor(site.z / S.region) * S.region };
-  /** 坑道の へやを つくる 横穴〔決まった 種類で 横穴の 形を かえて ためす〕 */
-  const heyaSide = (h: Hub, s0: number, kind: CaveKind, owner: string | null): ShaftSide | null => {
+  /** 古い 列〔坑道・部屋〕が かかる マスか */
+  const oldCell = (c: { x: number; z: number }): boolean => {
+    for (const dz of [-2, 0, 2]) for (const dx of [-2, 0, 2]) if (hc.isOld(colKey((c.x + dx) >> 4, (c.z + dz) >> 4))) return true;
+    return false;
+  };
+  /** 道・山・部屋を 入れた 箱が 大きさ・区画の きまりに 合うか〔合わないと 計画ごと だめに なる ので へやの 形を 取りさげる〕 */
+  const boxOk = (): boolean => {
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let z0 = Infinity;
+    let z1 = -Infinity;
+    for (const c of b.path) {
+      if (c.x < x0) x0 = c.x;
+      if (c.x > x1) x1 = c.x;
+      if (c.z < z0) z0 = c.z;
+      if (c.z > z1) z1 = c.z;
+    }
+    if (site.mound) {
+      const h = site.mound.tc;
+      x0 = Math.min(x0, site.mound.x - h);
+      x1 = Math.max(x1, site.mound.x + h);
+      z0 = Math.min(z0, site.mound.z - h);
+      z1 = Math.max(z1, site.mound.z + h);
+    }
+    for (const r of [...b.reserved, ...out.rooms.map((q) => q.box)]) {
+      x0 = Math.min(x0, r.x0 - 1);
+      x1 = Math.max(x1, r.x1 + 1);
+      z0 = Math.min(z0, r.z0 - 1);
+      z1 = Math.max(z1, r.z1 + 1);
+    }
+    x0 -= S.boxMargin;
+    x1 += S.boxMargin;
+    z0 -= S.boxMargin;
+    z1 += S.boxMargin;
+    if (x1 - x0 + 1 > S.boxMax || z1 - z0 + 1 > S.boxMax) return false;
+    return start || (Math.floor(x0 / S.region) === Math.floor(x1 / S.region) && Math.floor(z0 / S.region) === Math.floor(z1 / S.region));
+  };
+  /** 坑道の へやを つくる 横穴〔決まった 種類で 横穴の 形を かえて ためす。t0 〜 t1 番の 形〕 */
+  const heyaSide = (h: Hub, s0: number, kind: CaveKind, owner: string | null, t0: number, t1: number): { side: ShaftSide; t: number } | null => {
     const layer = layerAt(h.y) ?? 'fukai';
     const salt = hashInts(site.x, site.z, h.y, h.u);
     const src = heyaSource({ G, kind, layer, id: (box) => (owner === null ? `c${Math.floor(box.x0 / CC.region)}_${Math.floor(box.z0 / CC.region)}_nakahodo` : `${hc.shaftId}_h${out.rooms.length}`), shaft: owner, salt, rooms: b.reserved, isOld: hc.isOld, snap: owner === null });
-    for (let t = 0; t < HEYA_TRIES; t++) {
+    for (let t = t0; t < t1; t++) {
       const hrng = createRng(hashInts(subSeed(G.seed, 953), site.x, site.z, h.y, t));
       const side = tryWinding(G, b, h, hrng, F, region, site, chestCells, t % 2 === 0 ? s0 : -s0, src);
       const cave = src.built();
@@ -175,39 +246,32 @@ export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean,
         out.rooms.push(cave);
         const row = src.row();
         if (row) out.tries.push(row);
-        return side;
+        return { side, t };
       }
     }
     const row = src.row();
     if (row) out.tries.push(row);
     return null;
   };
-  let linked: Hub | null = null;
-  if (start && hc.link) {
-    // はじまりの 坑道: なかほどの いちばん 上の おどりばの 横穴を ほたるの ほらあなへ〔くじを ひかず かならず〕
-    const naka = hubs.filter((h) => layerAt(h.y) === 'nakahodo');
-    if (naka.length === 0) return null;
-    const top = naka.reduce((a, h) => (h.y > a.y ? h : a));
-    yield;
-    const side = heyaSide(top, hash01(subSeed(G.seed, 957), site.x, site.z) < 0.5 ? -1 : 1, 'hotaru', null);
-    if (!side) return null;
-    sides.push(side);
-    linked = top;
-  }
+  let slot = -1;
+  const slotOf: number[] = [];
   for (const { h } of order) {
     yield;
-    if (h === linked) continue;
     const haveMid = sides.some((d) => d.layer === 'nakahodo' && inMid(d.from.y));
     if (sides.length >= count && (!start || haveMid)) break;
     if (sides.length >= count && !inMid(h.y)) continue;
+    slot++;
     const wantAimed = rng() < E.aimedChance;
-    let side: ShaftSide | null = null;
     const s0 = rng() < 0.5 ? -1 : 1;
     // 坑道の へやの くじ〔横穴 1 本ごと。主の 乱数は つかわない〕
     const layer = layerAt(h.y) ?? 'fukai';
-    const hit = !start && hash01(subSeed(G.seed, 951), site.x, site.z, h.y, h.u) < CC.link[layer].draw;
-    if (hit) side = heyaSide(h, s0, pickKind(layer, hash01(subSeed(G.seed, 952), site.x, site.z, h.y, h.u)), hc.shaftId);
-    if (wantAimed && !side) {
+    const hit = hc.lottery && !start && hash01(subSeed(G.seed, 951), site.x, site.z, h.y, h.u) < CC.link[layer].draw;
+    const linkHere = hc.link !== null && slot === hc.link.ref.target;
+    const snap0 = hit || linkHere ? b.snapshot() : null;
+    const p0 = b.path.length;
+    // まず 1C の 形を 作る〔主の 乱数は 1C と 同じだけ すすむ〕
+    let side: ShaftSide | null = null;
+    if (wantAimed) {
       for (const sg of [s0, -s0]) {
         if (side) break;
         const found = scanFloors(G, h, F, sg);
@@ -219,9 +283,51 @@ export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean,
       yield;
       side = tryWinding(G, b, h, rng, F, region, site, chestCells, t % 2 === 0 ? s0 : -s0);
     }
-    if (side) sides.push(side);
+    if (snap0 !== null) {
+      const touchesOld = b.path.slice(p0).some(oldCell);
+      if (linkHere) {
+        // はじまりの 坑道: この 横穴を ほたるの ほらあなへ かえる〔1C の 形が 古い 列に かかる ときは かえない〕
+        if (!side || touchesOld) return null;
+        b.restore(snap0);
+        const r = heyaSide(h, s0, 'hotaru', null, hc.link!.from, LINK_TRIES);
+        if (!r) return null;
+        hc.link!.used = r.t;
+        if (!boxOk()) return null;
+        side = r.side;
+      } else if (!touchesOld) {
+        // 1C の 形が 古い 列に かからない ときだけ へやの 形を ためす。入らなければ 1C の 形
+        const snapA = b.snapshot();
+        const nr = out.rooms.length;
+        const nt = out.tries.length;
+        b.restore(snap0);
+        const r = heyaSide(h, s0, pickKind(layer, hash01(subSeed(G.seed, 952), site.x, site.z, h.y, h.u)), hc.shaftId, 0, HEYA_TRIES);
+        if (r && boxOk()) side = r.side;
+        else {
+          out.rooms.length = nr; // 取りさげた 部屋は 記録からも 外す
+          out.tries.length = nt;
+          b.restore(snapA);
+        }
+      }
+      if (hit && side) side.heyaHit = true;
+    }
+    if (side) {
+      sides.push(side);
+      slotOf.push(slot);
+    }
+    out.ref.sigs.push(side ? cellsSig(b.path, p0) : null);
   }
-  return sides.length >= 2 ? out : null;
+  if (sides.length < 2) return null;
+  if (start) {
+    const top = sides.reduce((best, d, i) => (d.layer === 'nakahodo' && (best < 0 || d.from.y > sides[best]!.from.y) ? i : best), -1);
+    out.ref.target = top < 0 ? -1 : slotOf[top]!;
+  }
+  if (hc.link) {
+    // ほたるへ かえた 1 本の ほかは 1C の 計画と 1 マスも ちがわない こと
+    const ref = hc.link.ref.sigs;
+    if (out.ref.sigs.length !== ref.length) return null;
+    for (let i = 0; i < ref.length; i++) if (i !== hc.link.ref.target && out.ref.sigs[i] !== ref[i]) return null;
+  }
+  return out;
 }
 
 function weightedIndex(rng: Rng, w: readonly number[]): number {

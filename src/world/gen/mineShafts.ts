@@ -2,6 +2,7 @@ import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { keyOf, keyX, keyY, keyZ } from './mineShaftBuild';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import { planShaft, planShaftSteps, type PlanEnv, type ShaftPlan } from './mineShaftPlan';
+import { LINK_TRIES, type StartLink } from './mineShaftSide';
 import { geoFor, regionHit, regionLand, regionOf, regionSites, startSiteAt, startSites, type Geo, type Site } from './mineShaftSite';
 import type { PathCell, Shaft, ShaftRoll } from './mineShaftTypes';
 import { CaveWorld, type CaveHost, type HiroiTryRow, type PlacedCave } from './mineCaves';
@@ -81,8 +82,8 @@ export class ShaftWorld implements CaveHost {
 
   isOldHeya = (k: number): boolean => this.oldCols?.heya.has(k) === true;
 
-  private env(link: boolean): PlanEnv {
-    return { isOld: this.isOld, isOldHeya: this.isOldHeya, link };
+  private env(link: StartLink | null): PlanEnv {
+    return { isOld: this.isOld, isOldHeya: this.isOldHeya, link, heya: true };
   }
 
   /** ほらあなの 種類（部屋）の 世界（MINE-1D）。坑道と 同じ シード・同じ 古い 列の 一覧 */
@@ -172,28 +173,37 @@ export class ShaftWorld implements CaveHost {
 
   private planStart(): Planned | null {
     if (this.startHint === null) return null; // meta に「さがしたが 置けなかった」と ある
-    let link = true;
+    // 場所と 試行は 1C の 順〔link なし〕で きめる。そのあと、なかほどの いちばん 上の 横穴 1 本だけ ほたるへ かえる
     const tryAt = (site: Site): Planned | null => {
       for (let a = 0; a < S.planTries; a++) {
-        const plan = planShaft(this.G, site, 'start', true, this.env(link), a);
-        if (plan) return { plan, ops: null };
+        const plain = planShaft(this.G, site, 'start', true, this.env(null), a);
+        if (!plain) continue;
+        return this.linkUp(site, a, plain) ?? { plan: plain, ops: null };
       }
       return null;
     };
     const hint = this.startHint ? startSiteAt(this.G, this.startHint.x, this.startHint.z) : null;
-    // ほたるの ほらあなへ つなげる 場所を 先に さがす。どこにも なければ つながない 1C の 形
     if (hint) {
-      // 場所は もう きまって いる: ほたるへ つなぐ → だめなら 1C の 形
-      for (link of [true, false]) {
-        const hinted = tryAt(hint);
-        if (hinted) return hinted;
-      }
+      const hinted = tryAt(hint);
+      if (hinted) return hinted;
     }
-    for (link of [true, false]) {
-      for (const site of startSites(this.G)) {
-        const p = tryAt(site);
-        if (p) return p;
-      }
+    for (const site of startSites(this.G)) {
+      const p = tryAt(site);
+      if (p) return p;
+    }
+    return null;
+  }
+
+  /** 1C の 計画 plain の ほかは そのままで、横穴 1 本を ほたるの ほらあなへ かえた 計画〔かえられなければ null〕 */
+  private linkUp(site: Site, a: number, plain: ShaftPlan): Planned | null {
+    if (plain.ref.target < 0) return null;
+    const link = { ref: plain.ref, from: 0, used: -1 };
+    while (link.from < LINK_TRIES) {
+      link.used = -1;
+      const plan = planShaft(this.G, site, 'start', true, this.env(link), a);
+      if (plan) return { plan, ops: null };
+      if (link.used < 0) return null; // へやの 形が どれも だめ
+      link.from = link.used + 1; // 当たったが 1C の ほかの 横穴が ずれた → 次の 形から
     }
     return null;
   }
@@ -223,7 +233,7 @@ export class ShaftWorld implements CaveHost {
         continue;
       }
       for (let a = 0; a < S.planTries && budget-- > 0; a++) {
-        const plan = yield* planShaftSteps(this.G, site, `r${rx}_${rz}`, false, this.env(false), a);
+        const plan = yield* planShaftSteps(this.G, site, `r${rx}_${rz}`, false, this.env(null), a);
         if (plan) {
           yield;
           return { plan, ops: buildOps(plan) };

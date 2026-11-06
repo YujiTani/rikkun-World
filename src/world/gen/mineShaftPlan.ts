@@ -5,7 +5,7 @@ import { colKey } from '../stream/ring';
 import { chestPlaced, chestTierAt } from './mineChestTable';
 import { COMPASS, DV, Frame, ShaftBuilder, airHeightOf, keyOf, keyX, keyY, keyZ, type Pt3 } from './mineShaftBuild';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
-import { planSides, type Hub } from './mineShaftSide';
+import { planSides, type Hub, type SideRef, type StartLink } from './mineShaftSide';
 import { Geo, coverOk, type Dir, type Site } from './mineShaftSite';
 import type { HiroiTryRow, PlacedCave } from './mineCaves';
 import type { Compass, PathCell, Shaft } from './mineShaftTypes';
@@ -41,6 +41,8 @@ export interface ShaftPlan {
   roomCols: Set<number>;
   /** 坑道の へやの ひろい ほらあなを ためした 記録 */
   tries: HiroiTryRow[];
+  /** 横穴の しるし〔はじまりの 坑道を 1C の まま に する ための くらべ〕 */
+  ref: SideRef;
 }
 
 /** 計画の 外の 事情 */
@@ -49,8 +51,10 @@ export interface PlanEnv {
   isOld(k: number): boolean;
   /** 古い 部屋の 列か */
   isOldHeya(k: number): boolean;
-  /** はじまりの 坑道で ほたるの ほらあなへ つなぐか〔古い 列に かかる ときは つながない 1C の 形〕 */
-  link: boolean;
+  /** はじまりの 坑道: 1C の 計画を ref に して、なかほどの いちばん 上の 横穴を ほたるの ほらあなへ かえる ためし〔null は 1C の 形〕 */
+  link: StartLink | null;
+  /** 坑道の へやの くじを 引くか〔false は 1C の 形。テストの くらべ用〕 */
+  heya: boolean;
 }
 
 const dirOf = (dx: number, dz: number): Dir => DV.findIndex((d) => d[0] === dx && d[1] === dz) as Dir;
@@ -234,7 +238,7 @@ export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, 
   b.buildRing();
   yield;
   // 横穴
-  const out = yield* planSides(G, b, hubs, start, rng, F, site, chestCells, { shaftId: id, link: env.link, isOld: (k) => env.isOld(k) || env.isOldHeya(k) });
+  const out = yield* planSides(G, b, hubs, start, rng, F, site, chestCells, { shaftId: id, lottery: env.heya, link: env.link, isOld: (k) => env.isOld(k) || env.isOldHeya(k) });
   if (out === null) return null;
   const sides = out.sides;
 
@@ -391,7 +395,7 @@ export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, 
   };
   const roomCols = new Set<number>();
   for (const r of out.rooms) if (r.shaft !== null) for (const k of r.room.ops.keys()) roomCols.add(k); // はじまりの ほたるは 抽選の 部屋として 置く
-  return { shaft, path: b.path, b, noTrees, noPlants, cols, rooms: out.rooms, roomCols, tries: out.tries };
+  return { shaft, path: b.path, b, noTrees, noPlants, cols, rooms: out.rooms, roomCols, tries: out.tries, ref: out.ref };
 }
 
 function frameCell(b: ShaftBuilder, x: number, y: number, z: number): void {
