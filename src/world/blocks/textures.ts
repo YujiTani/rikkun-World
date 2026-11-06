@@ -1,5 +1,6 @@
 import { DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType } from 'three';
 import type { BlockId } from '../../contracts';
+import { CHEST_BLOCK_IDS, chestBlockInfo } from './chestBlock';
 import { CHALK_MARK_IDS } from './chalkMark';
 import { RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_PARTIAL_IDS } from './water';
 import { tansuPixels } from '../../storage/tansuArt';
@@ -8,6 +9,7 @@ import { GADGET_TILE_NAMES, isGadgetTile, paintGadgetTile, type GadgetTileName }
 import { KOTATSU_ART_ROWS, kotatsuTileOrder, paintKotatsuArt, type KotatsuTileName } from './kotatsuArt';
 import { LIVE_TILE_NAMES, paintLiveTile, type LiveTileName } from './liveTextures';
 import { MINE_TILE_NAMES, isMineTile, paintMineTile, type MineTileName } from './mineTextures';
+import { KODO_TILE_NAMES, isKodoTile, paintKodoTile, type KodoTileName } from './mineTexturesWaku';
 import { ROPE_TILE_NAMES, isRopeTile, paintRopeTile, type RopeTileName } from './ropeTextures';
 import { BOIL_NAMES, WATERFALL_BLOCK_TILES, WATERFALL_TILE_NAMES, isWaterfallTile, paintWaterfallTile, type WaterfallTileName } from './waterfallTextures';
 import { HOUSE_ATLAS_TILE_NAMES, HOUSE_BLOCK_TILES, isHouseTile, paintHouseTile, type HouseAtlasTile } from './houseTextures';
@@ -44,6 +46,7 @@ export type TileName =
   | 'geyser_dirt_top' | 'geyser_dirt_side'
   | GadgetTileName
   | MineTileName
+  | KodoTileName
   | HouseAtlasTile
   | RopeTileName
   | WaterfallTileName;
@@ -97,6 +100,8 @@ export const TILE_NAMES: readonly TileName[] = [
   ...kotatsuTileOrder(TILE_NAMES_BASE.length).map((n): TileName => (n.startsWith('kotatsu_pad') && gadgetAt < GADGET_TILE_NAMES.length ? GADGET_TILE_NAMES[gadgetAt++]! : n)),
   // MINE-1B（#349）: 鉱物・ねんど・チョークの しるしの 絵。さいごに 足す（今の 絵の 位置は かわらない。アトラスが 下に のびる）
   ...MINE_TILE_NAMES,
+  // MINE-1C（#350）: 坑道の わく・宝箱の 平らな 絵・ヒントの 絵。さいごに 足す
+  ...KODO_TILE_NAMES,
   // HOUSE-1C PR-1（#340）: 家の ブロック 12 まい・家具 20 まい。さいごに 足す（今の 絵の 位置は かわらない。アトラスが 下に のびる）
   ...HOUSE_ATLAS_TILE_NAMES,
   // ROPE-1: ロープ・ロープだまり。さいごに 足す
@@ -345,6 +350,7 @@ function geyserDirt(top: boolean): Tile {
 function paintTile(name: TileName): Tile {
   if (isGadgetTile(name)) return paintGadgetTile(name).slice(); // ITEM-FX-1: 置き物の 絵
   if (isMineTile(name)) return paintMineTile(name).slice(); // MINE-1B: 鉱物・ねんど・チョークの しるし
+  if (isKodoTile(name)) return paintKodoTile(name).slice(); // MINE-1C: わく・宝箱
   if (isRopeTile(name)) return paintRopeTile(name).slice(); // ROPE-1
   if (isWaterfallTile(name)) return paintWaterfallTile(name).slice(); // WATERFALL-1
   if (isHouseTile(name)) return paintHouseTile(name).map((c): Rgba => [(c >> 16) & 255, (c >> 8) & 255, c & 255, 255]); // HOUSE-1C: 家の ブロック・家具
@@ -465,6 +471,12 @@ export function getTilePixels(name: TileName): readonly Rgba[] {
 }
 
 /** チョークの しるし 12 こ（MINE-1B）。どれも 同じ 絵 [上, 下, 横] */
+const CHEST_BLOCK_TILES: Partial<Record<BlockId, readonly [TileName, TileName, TileName]>> = Object.fromEntries(
+  CHEST_BLOCK_IDS.map((id) => {
+    const t = `chest_${chestBlockInfo(id)!.tier}` as KodoTileName;
+    return [id, [t, t, t] as const];
+  }),
+);
 const CHALK_BLOCK_TILES: Partial<Record<BlockId, readonly [TileName, TileName, TileName]>> = Object.fromEntries(
   CHALK_MARK_IDS.map((id) => [id, ['chalk_1_e', 'chalk_1_e', 'chalk_1_e'] as const]),
 );
@@ -549,6 +561,9 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   kin_ore: ['kin_ore', 'kin_ore', 'kin_ore'],
   suisho_ore: ['suisho_ore', 'suisho_ore', 'suisho_ore'],
   diamond_ore: ['diamond_ore', 'diamond_ore', 'diamond_ore'],
+  // MINE-1C（#350）: 坑道の わく（横・上下）。宝箱は 平らな 箱の 絵（近くは 小ブロックの 形〔render/looks/chestLooks.ts〕）
+  kodo_waku: ['kodo_waku_top', 'kodo_waku_side', 'kodo_waku_top'],
+  ...CHEST_BLOCK_TILES,
   // チョークの しるし 12 こ: 立方体では ない（面に はる 板。render/chalkMesh.ts）。ここは かけらの 色・アイテムの 絵などの ため
   ...CHALK_BLOCK_TILES,
   // HOUSE-1C PR-1（#340）: ゆか・かべ・やね・向きごとの たんす・かまど（平らな 箱。しょうじ・戸・ほかの 家具は 箱の 組み合わせ〔render/houseProp.ts〕）

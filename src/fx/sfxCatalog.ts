@@ -1,4 +1,5 @@
 import { COMBAT_SOUNDS } from './combatSounds';
+import { CHEST_SOUNDS } from './chestSounds';
 import { CRAFT_SOUNDS } from './craftSounds';
 import { FARM_SOUNDS } from './farmSounds';
 import { WHIFF_TONES } from './sfxVoices';
@@ -153,6 +154,13 @@ export const SFX_CATALOG: readonly SfxCatalogEntry[] = [
     ['modalSparkle', 'キラキラ'],
     ['badge', 'メダル'],
     ['closeReady', 'とじる できる'],
+  ]),
+  // ---- 坑道（MINE-1C）----
+  ...fromTable('craft', CHEST_SOUNDS, [
+    ['chestOpen1', 'たからばこ（きの）'],
+    ['chestOpen2', 'たからばこ（てつ）'],
+    ['chestOpen3', 'たからばこ（うるし）'],
+    ['chestOpen4', 'たからばこ（ミラクル）'],
   ]),
   // ---- はたけ・みず・どうぶつ ----
   ...fromTable('farm', FARM_SOUNDS, [
