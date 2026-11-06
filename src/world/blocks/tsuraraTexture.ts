@@ -3,7 +3,6 @@
  * 天井から さがる 細い 3 本（はば 4→2・3→2・4→2、長さ 12・8・10 行）。先の 2 行は 白く まるい（1 点の とがった 先に しない。仕様 §3.2・D13）。乱数なし。
  */
 export const TSURARA_TILE = 'tsurara' as const;
-export const isTsuraraTile = (name: string): name is typeof TSURARA_TILE => name === TSURARA_TILE;
 
 type Rgba = readonly [number, number, number, number];
 const N = 16;
