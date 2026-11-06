@@ -28,6 +28,8 @@ export interface MineOreRow {
   all: number;
   /** かたまりの 大きさの 表（なければ `cluster.sizes`）。ダイヤの いしだけ 小さい（1〜2 こ） */
   sizes?: readonly MineClusterSize[];
+  /** かくれた 鉱石〔壁に 見せない。坑道の こべやの 壁にも 使わない〕 */
+  hidden?: true;
 }
 
 /** かたまりの 目当ての 大きさ 1 行 */
@@ -70,10 +72,10 @@ export const MINE_CONFIG = {
     // ---- MINE-1B（#349）
     { layer: 'asai', block: 'nendo', visible: 0.6, all: 22 },
     { layer: 'nakahodo', block: 'sekkaiseki', visible: 0.5, all: 19 },
-    { layer: 'nakahodo', block: 'hotaruishi', visible: 0.3, all: 11 },
+    { layer: 'nakahodo', block: 'hotaruishi', visible: 0.3, all: 11, hidden: true },
     { layer: 'fukai', block: 'kin_ore', visible: 0.2, all: 7.4 },
     { layer: 'fukai', block: 'suisho_ore', visible: 0.15, all: 5.6 },
-    { layer: 'fukai', block: 'diamond_ore', visible: 0.04, all: 1.5, sizes: DIAMOND_SIZES },
+    { layer: 'fukai', block: 'diamond_ore', visible: 0.04, all: 1.5, sizes: DIAMOND_SIZES, hidden: true },
   ] satisfies readonly MineOreRow[],
 
   /** かたまり（§4.2）。同じ 鉱石が 面で くっついた 2〜5 こ。大きい ほど 少ない */

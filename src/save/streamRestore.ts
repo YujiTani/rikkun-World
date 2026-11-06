@@ -24,8 +24,8 @@ export interface StreamRestore extends RestoredSave {
   keys: Set<number>;
   /** 古い 列の 一覧（colKey。MINE-1C §4.8）: 坑道（kodo）を かかない 列。開いた とき 決まり、増やさず 減らさない。部屋（heya）は 1D */
   oldCols: { kodo: Set<number>; heya: Set<number> };
-  /** はじまりの 坑道の 入口 (x, z)（MINE-1C §4.8）。meta に あれば それ。なければ ここで えらんで 書く〔次から 同じ〕 */
-  shaftStart?: { x: number; z: number };
+  /** はじまりの 坑道の 入口 (x, z)（MINE-1C §4.8）。null ＝ さがしたが 置ける 所が なかった〔meta に 書いて 次から さがさない〕。キーが ない ＝ まだ さがして いない */
+  shaftStart?: { x: number; z: number } | null;
   /** 保険にあるマスを持つ列（colKey → 中身） */
   pending: Map<number, PendingColumn>;
 }
@@ -35,9 +35,8 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 export const emptyStreamRestore = (base: RestoredSave = NO_SAVE): StreamRestore => ({ ...base, keys: new Set(), pending: new Map(), oldCols: { kodo: new Set(), heya: new Set() } });
 
 /** はじまりの 坑道を 計画して 入口を 返す（置けなければ なし）。世界は 一覧ごとに 1 つ 作って、あとで ゲームが 同じ ものを 使う */
-function startOf(seed: number, oldCols: { kodo: Set<number>; heya: Set<number> }, hint?: { x: number; z: number }): { x: number; z: number } | undefined {
-  const e = shaftWorldFor(seed, oldCols, hint).start()?.plan.shaft.entrance;
-  return e ? { x: e.x, z: e.z } : undefined;
+function startOf(seed: number, oldCols: { kodo: Set<number>; heya: Set<number> }, hint?: { x: number; z: number } | null): { x: number; z: number } | null {
+  return shaftWorldFor(seed, oldCols, hint).startEntrance();
 }
 
 const ints = (v: unknown): number[] => (Array.isArray(v) ? v.filter((x): x is number => typeof x === 'number' && Number.isFinite(x)) : []);
@@ -55,8 +54,9 @@ function oldColsOf(meta: Record<string, unknown> | null, keys: ReadonlySet<numbe
 }
 
 /** meta に 書いて あった はじまりの 坑道の 入口（形が おかしければ なし） */
-function shaftStartOf(meta: Record<string, unknown> | null): { x: number; z: number } | undefined {
+function shaftStartOf(meta: Record<string, unknown> | null): { x: number; z: number } | null | undefined {
   const s = meta?.shaftStart;
+  if (s === null) return null;
   return isObj(s) && Number.isInteger(s.x) && Number.isInteger(s.z) ? { x: s.x as number, z: s.z as number } : undefined;
 }
 
@@ -101,7 +101,12 @@ export async function openStoredKeys(o: Pick<RestoreOptions, 'db' | 'store' | 's
     }
     out.oldCols = oldColsOf(out.meta, out.keys);
     // はじまりの 坑道は じゅんびちゅうの この 間に 作る〔最初の 列の 生成に のせない〕。えらんだ 場所は meta に 書いて 次から 同じ
-    out.shaftStart = startOf(seed, out.oldCols, shaftStartOf(out.meta));
+    // 計画が 投げても 保存の 読みこみは そのまま〔世界が 消えない ように、別の try〕
+    try {
+      out.shaftStart = startOf(seed, out.oldCols, shaftStartOf(out.meta));
+    } catch {
+      out.shaftStart = undefined;
+    }
     return out;
   } catch {
     return emptyStreamRestore(); // 読めなかった: 新しい世界で始める（こわれた保存は次の保存で上書き）

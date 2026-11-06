@@ -67,7 +67,7 @@ export class ShaftWorld {
     readonly seed: number,
     readonly oldCols: OldCols | undefined,
     /** meta に 書いて あった はじまりの 坑道の 入口（あれば まず そこだけ 計画する。§4.8） */
-    private readonly startHint?: { x: number; z: number },
+    private readonly startHint?: { x: number; z: number } | null,
   ) {
     this.G = geoFor(seed);
   }
@@ -84,6 +84,7 @@ export class ShaftWorld {
   }
 
   private planStart(): Planned | null {
+    if (this.startHint === null) return null; // meta に「さがしたが 置けなかった」と ある
     const tryAt = (site: Site): Planned | null => {
       for (let a = 0; a < S.planTries; a++) {
         const plan = planShaft(this.G, site, 'start', true, this.isOld, a);
@@ -146,7 +147,10 @@ export class ShaftWorld {
   }
 
   private store(key: number, planned: Planned | null): Planned | null {
-    if (this.regions.size >= S.plan.regionCap) this.regions.clear();
+    if (this.regions.size >= S.plan.regionCap) {
+      this.regions.clear();
+      this.warmSig = Number.NaN; // 先読みの 一覧を 作りなおす
+    }
     this.regions.set(key, planned);
     this.jobs.delete(key);
     return planned;
@@ -355,7 +359,7 @@ const worlds = new Map<number, { plain: ShaftWorld; byOld: WeakMap<OldCols, Shaf
  * シードごとの 坑道の 世界。古い 列の 一覧を わたすと、その 一覧ごとに 1 つ〔一覧の 入れものが 同じ ならば 同じ 世界〕。
  * startHint は 最初に 作った ときだけ 使う。ゲームの 中では 世界ごとに 1 つ だけ 作って みんなに わたす〔実績・surface・窓口〕。
  */
-export function shaftWorldFor(seed: number, oldCols?: OldCols, startHint?: { x: number; z: number }): ShaftWorld {
+export function shaftWorldFor(seed: number, oldCols?: OldCols, startHint?: { x: number; z: number } | null): ShaftWorld {
   let e = worlds.get(seed);
   if (!e) {
     if (worlds.size > 6) worlds.clear();

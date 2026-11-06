@@ -6,6 +6,7 @@ import { columnHash, generateChunk } from './chunk';
 import { GEN_CONFIG as C } from './config';
 import { startFeaturesOf, type StartFeatures } from './features';
 import { mouthsInRegion, regionRect, type Bounds, type MouthInfo } from './region';
+import type { ShaftWorld } from './mineShafts';
 import { surfaceFor } from './surface';
 import type { CountryKind } from './config';
 import { terrainAt, terrainFor } from './terrain';
@@ -88,7 +89,8 @@ function cloneRegions(r: WorldRegions): WorldRegions {
 }
 
 /** 世界の目印の窓口を作る。world は 地面の高さ（groundHeight）を聞くときだけ使う */
-export function createWorldInfo(seed: number, world: ChunkedVoxelWorld): WorldGenInfo {
+/** shafts = その 世界の 坑道の 世界を あとから 答える 関数（ゲームの つなぎ込みが 古い 列の 一覧を 読んだ あとで 作る ため）。なければ 古い 列の ない 世界 */
+export function createWorldInfo(seed: number, world: ChunkedVoxelWorld, shafts?: () => ShaftWorld | undefined): WorldGenInfo {
   const t0 = performance.now();
   const T = terrainFor(seed);
   const sp = T.spawn();
@@ -109,7 +111,7 @@ export function createWorldInfo(seed: number, world: ChunkedVoxelWorld): WorldGe
     groundHeight: (x, z) => terrainTopOf(world, x, z),
     spawn(): SpawnPoint {
       // スタートの列は 広場（高さ sp.h・くさ）。木・口は 近くに無い
-      return { x: sp.x + 0.5, y: surfaceFor(seed).ground(sp.x, sp.z) + 1, z: sp.z + 0.5, yawDeg: C.spawn.yawDeg, pitchDeg: C.spawn.pitchDeg };
+      return { x: sp.x + 0.5, y: surfaceFor(seed, { shafts: shafts?.() }).ground(sp.x, sp.z) + 1, z: sp.z + 0.5, yawDeg: C.spawn.yawDeg, pitchDeg: C.spawn.pitchDeg };
     },
     testArea: () => ({ ...testArea }),
     regions: () => cloneRegions(regions),

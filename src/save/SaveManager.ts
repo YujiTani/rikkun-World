@@ -590,12 +590,12 @@ export class SaveManager {
   }
 
   /** meta に 書く 古い 列の 一覧・はじまりの 坑道の 場所（MINE-1C §4.8）。開いた とき 決まり、増やさず 減らさない。ない／空の ときは 書かない */
-  private shaftMeta(): { oldCols?: { kodo: number[]; heya?: number[] }; shaftStart?: { x: number; z: number } } {
+  private shaftMeta(): { oldCols?: { kodo: number[]; heya?: number[] }; shaftStart?: { x: number; z: number } | null } {
     const o = this.restored.oldCols;
     const st = this.restored.shaftStart;
     return {
       ...(o && (o.kodo.size > 0 || o.heya.size > 0) ? { oldCols: { kodo: [...o.kodo], ...(o.heya.size > 0 ? { heya: [...o.heya] } : {}) } } : {}),
-      ...(st ? { shaftStart: { x: st.x, z: st.z } } : {}),
+      ...(st === undefined ? {} : { shaftStart: st === null ? null : { x: st.x, z: st.z } }), // null ＝ さがしたが 置けなかった
     };
   }
 
@@ -686,7 +686,7 @@ export function parseSaveOptions(search: string): { reset: boolean; nosave: bool
     const v = q.get(name);
     return v !== null && v !== '0' && v !== 'false';
   };
-  return { reset: on('reset'), nosave: on('nosave') };
+  return { reset: on('reset'), nosave: on('nosave') || q.get('mine') === '0' }; // ?mine=0〔坑道 なしの くらべ用〕は 保存しない（坑道 なしの 列を 保存しない ため）
 }
 
 /**

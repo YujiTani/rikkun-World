@@ -222,7 +222,7 @@ export function startSiteAt(G: Geo, x: number, z: number): Site | null {
   return tryMound(G, x, z, dirToSpawn(G.T.spawn(), x, z));
 }
 
-/** はじまりの 坑道の 入口の 候補: スタートから 24〜48（置けない ときは 48〜96・96〜160）。北の 左右 60 度を 先に */
+/** はじまりの 坑道の 入口の 候補: スタートから 24〜48（置けない ときは 48〜96・96〜160・さらに 1280 まで ひろげる）。北の 左右 60 度を 先に */
 export function* startSites(G: Geo): Generator<Site> {
   const sp = G.T.spawn();
   const rng = createRng(hashInts(subSeed(G.seed, 803), 1, 2));

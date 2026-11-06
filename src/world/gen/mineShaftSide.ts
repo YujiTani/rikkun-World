@@ -14,8 +14,6 @@ import { hashInts, type Rng } from './random';
  */
 
 const TORCH = BLOCK_INDEX.torch;
-/** こべやの かべに 出さない 鉱石 */
-const HIDDEN_ORES: ReadonlySet<string> = new Set(['hotaruishi', 'diamond_ore']);
 const FOUR: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 export interface Hub {
@@ -118,7 +116,7 @@ const MAX_BOX = S.boxMax - 2 * S.boxMargin - 4;
 
 /** 層の 鉱石の ブロック〔光る ほたるいしと 一番 まれな ダイヤは のぞく〕 */
 function layerOres(layer: ShaftLayer): number[] {
-  return MINE_CONFIG.ores.filter((r) => r.layer === layer && !HIDDEN_ORES.has(r.block)).map((r) => BLOCK_INDEX[r.block]);
+  return MINE_CONFIG.ores.filter((r) => r.layer === layer && r.hidden !== true).map((r) => BLOCK_INDEX[r.block]);
 }
 
 /** 横穴を 計画する。短い 仕事ごとに yield する〔先読みが 時間で 止まれる ように。結果は 同じ〕 */
@@ -152,7 +150,7 @@ export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean,
         if (side) break;
         const found = scanFloors(G, h, F, sg);
         yield;
-        side = tryAimed(G, b, h, rng, F, region, site, chestCells, sg, found);
+        side = yield* tryAimed(G, b, h, rng, F, region, site, chestCells, sg, found);
       }
     }
     for (let t = 0; t < E.tries && side === null; t++) {
@@ -228,7 +226,7 @@ function scanFloors(G: Geo, hub: Hub, F: Frame, s: number): Found[] {
   return found;
 }
 
-function tryAimed(G: Geo, b: ShaftBuilder, hub: Hub, rng: Rng, F: Frame, region: { x0: number; z0: number } | null, site: Site, chestCells: ReadonlySet<number>, s: number, found: Found[]): ShaftSide | null {
+function* tryAimed(G: Geo, b: ShaftBuilder, hub: Hub, rng: Rng, F: Frame, region: { x0: number; z0: number } | null, site: Site, chestCells: ReadonlySet<number>, s: number, found: Found[]): Generator<void, ShaftSide | null> {
   const E = S.side;
   const { tx, tz, c1x, c1z, px, pz } = exitOf(F, hub, s);
   const y = hub.y;
@@ -259,6 +257,7 @@ function tryAimed(G: Geo, b: ShaftBuilder, hub: Hub, rng: Rng, F: Frame, region:
     }
     const spec: Spec = { center, dirs, corners, end: m > 0 ? 'joint' : 'cave', stairs: m, stairSgn: f.dy > 0 ? 1 : -1 };
     if (center.some((c) => G.nearMouth(c.x, c.z, 3))) continue;
+    yield; // 1 つ ためす ごとに ひと休み
     const c = build(G, b, hub, y, spec, F, region, site, chestCells, rng, s);
     if (c) return commit(b, hub, c, Math.min(E.lengthMax, Math.max(E.lengthMin, center.length + tail)), corners.length, s, F);
   }

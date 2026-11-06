@@ -29,7 +29,7 @@ export interface RestoredSave {
   /** 古い 列の 一覧（MINE-1C §4.8。起動の 読みこみ〔streamRestore〕が 決める。ない 形では 空） */
   oldCols?: { kodo: ReadonlySet<number>; heya: ReadonlySet<number> };
   /** はじまりの 坑道の 入口 (x, z)（MINE-1C §4.8。meta に 書いて 次から 同じ 場所にする） */
-  shaftStart?: { x: number; z: number };
+  shaftStart?: { x: number; z: number } | null;
 }
 
 export const NO_SAVE: RestoredSave = { meta: null, fromPending: false, columns: 0, corrupt: 0 };

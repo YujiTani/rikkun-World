@@ -173,10 +173,12 @@ export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, 
   for (const [u, v] of [[uIn0, rLane - 4], [uIn0, rLane + 4], [uBack, rLane - 4], [uBack, rLane + 4]] as const) torchCells.push(F.pt(u, v, yR));
   const uMid = lastU + rs * Math.ceil(S.room.size / 2);
   hubs.push({ kind: 'room', y: yR, u: uMid, vMin: rLane - 4, vMax: rLane + 4, frame: F, alongU: true });
+  yield;
   // 洞くつの 口の 外わく（まわり 2 マス）に かかる 道は ゆるさない
   for (const c of b.path) for (const dx of [-2, 0, 2]) for (const dz of [-2, 0, 2]) if (isOldCol(colKey((c.x + dx) >> 4, (c.z + dz) >> 4))) return null; // 古い 列に かかる 計画は 早く あきらめる
   for (const c of b.path) if (G.nearMouth(c.x, c.z, 2) || !coverOk(G, site, c, airHeightOf(c.part))) return null;
 
+  yield;
   // 宝箱 〔ある 坑道だけ〕
   const room = {
     x0: Math.min(F.x(uIn0, rLane - 4), F.x(uBack, rLane + 4), F.x(uIn0, rLane + 4), F.x(uBack, rLane - 4)),
@@ -217,6 +219,7 @@ export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, 
   const sides = yield* planSides(G, b, hubs, start, rng, F, site, chestCells);
   if (sides === null) return null;
 
+  yield;
   // わく: 入口と 道に そって ６ マスごと（かべ・天井の 中に うめる）
   for (const f of wallFrames) {
     for (const v of [f.vc - 2, f.vc + 2]) for (let k = 0; k < 4; k++) frameCell(b, F.x(f.u, v), f.y + k, F.z(f.u, v));
@@ -251,6 +254,7 @@ export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, 
   order.slice(0, S.room.goldWall).forEach((e) => b.put.set(e.k, KIN));
   order.slice(S.room.goldWall, S.room.goldWall + S.room.ironWall).forEach((e) => b.put.set(e.k, IRON));
 
+  yield;
   // 山
   let mound: Shaft['mound'] = null;
   const noTrees: [number, number, number, number][] = [];
@@ -276,6 +280,7 @@ export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, 
     noTrees.push([site.x - tc, site.z - tc, site.x + tc, site.z + tc]);
   }
 
+  yield;
   // 入口の 屋根が 地面から とびだして いる 所は、まわりの 地面より 2 以上 高い 石の だいに する〔屋根の 上を 歩いて 4 以上 落ちる ふちを 作らない。§4.5.3 の 4〕
   const surfAt = (x: number, z: number): number => G.h(x, z) + (site.mound ? moundBump(site.mound.tc, Math.hypot(x - site.mound.x, z - site.mound.z)) : 0);
   const deck = new Map<number, number>(); // 台に する 列〔x, z の キー〕→ 屋根の 高さ
@@ -337,7 +342,9 @@ export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, 
   const addCols = (xa: number, za: number, xb: number, zb: number): void => {
     for (let cz = za >> 4; cz <= zb >> 4; cz++) for (let cx = xa >> 4; cx <= xb >> 4; cx++) cols.add(colKey(cx, cz));
   };
+  yield;
   for (const set of [b.air, b.ring, b.put]) for (const k of set instanceof Map ? set.keys() : set) cols.add(colKey(keyX(k) >> 4, keyZ(k) >> 4));
+  yield;
   for (const c of b.path) for (const dx of [-2, 0, 2]) for (const dz of [-2, 0, 2]) cols.add(colKey((c.x + dx) >> 4, (c.z + dz) >> 4));
   if (mound) {
     const h = Math.ceil(mound.width / 2);

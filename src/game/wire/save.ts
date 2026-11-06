@@ -34,7 +34,6 @@ import { createFarmVisual } from '../../world/render/farmVisual';
 import type { WiredAchievements } from './ui';
 import { isWaterIndex } from '../../world/blocks/water';
 import { SHAFT_CONFIG } from '../../world/gen/mineShaftConfig';
-import { setShaftsOn, shaftWorldFor } from '../../world/gen/mineShafts';
 import { readP2Save } from '../../duo/p2State';
 import { duoTimeScale } from '../../duo/rules';
 
@@ -44,14 +43,10 @@ export function wireSave(deps: WiredAchievements) {
     strengthToWrite, screenSettings, combat, time, craft, armor, level, storage, achievements,
     countryWatch, animals, deliverAnimalEvents, legendBook, ninjaBook, kodachi, ninjaHave, samuraiBook,
     samuraiHave, farm, saveOptions, island, hud, renderer, frameClock, raiseAboveBlocks, startPoint,
-    playOverlay, m7, celebrate, lock, book, screen, inventoryScreen, toItemsTab, house, setTitleReturn,
+    playOverlay, m7, celebrate, lock, book, screen, inventoryScreen, toItemsTab, house, setTitleReturn, shafts,
   } = deps;
-  // MINE-1C: 1 つの 世界に ShaftWorld は 1 つだけ。生成・先読み・実績・surface・窓口が みんな これを 見る〔古い 列の 一覧と はじまりの 坑道の 場所つき〕
-  if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('mine') === '0') setShaftsOn(false); // くらべ用: 坑道を 作らない（性能ループ。§4.9）
-  const shafts = shaftWorldFor(seed, restored.oldCols, restored.shaftStart);
-  const startAt = shafts.startEntrance(); // じゅんびちゅうに 計画する〔openStoredKeys で 済んで いれば おぼえた もの〕
+  // MINE-1C: ShaftWorld は 世界ごとに 1 つ〔wireBoot が 作り、生成・先読み・実績・surface・置きもの・窓口が みんな 同じ ものを 見る〕
   shafts.warm([spawnPlain()], SHAFT_CONFIG.plan.prepWarmMs); // はじめの 場所の まわりの 区画を じゅんびちゅうに 先に 計画する
-  if (!restored.shaftStart && startAt) restored.shaftStart = startAt; // meta に 書いて 次から 同じ 場所にする
   // 自動セーブ（?nosave=1 は保存しない、?reset=1 は消してから始める。消すのは開発サーバーだけ）
   const save = new SaveManager({
     world,

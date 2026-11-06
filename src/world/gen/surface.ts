@@ -284,7 +284,7 @@ const byShafts = new WeakMap<ShaftWorld, Map<string, Surface>>();
  * シードごとに 覚えておく。opts.flora = false なら くさ・のばな を 数えない（farmPlacement 用）。
  * opts.shafts = その 世界の 坑道の 世界〔古い 列の 一覧つき。ゲームの 中では つなぎ込みが 1 つ 作って わたす〕。なければ 古い 列の ない 世界。
  */
-export function surfaceFor(seed: number, opts: { flora?: boolean; shafts?: ShaftWorld } = {}): Surface {
+export function surfaceFor(seed: number, opts: { flora?: boolean; shafts?: ShaftWorld | undefined } = {}): Surface {
   const flora = opts.flora !== false;
   const key = `${seed}|${flora}`;
   let c = cache;
@@ -296,7 +296,7 @@ export function surfaceFor(seed: number, opts: { flora?: boolean; shafts?: Shaft
   let s = c.get(key);
   if (s === undefined) {
     if (c.size >= 12) c.delete(c.keys().next().value as string);
-    s = new SurfaceImpl(seed, flora, opts.shafts ?? shaftWorldFor(seed, undefined));
+    s = new SurfaceImpl(seed, flora, opts.shafts ?? shaftWorldFor(seed, undefined) /* 古い 列の ない 世界。テスト・つなぎ込みの 前だけ。ゲームの 中では 必ず shafts を わたす */);
     c.set(key, s);
   }
   return s;
