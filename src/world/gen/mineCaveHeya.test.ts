@@ -21,7 +21,7 @@ import { spawnOf } from './terrain';
  *       出口と 部屋の 床の 段差 0・部屋の 床の どこからも 坑道の 入口へ 行き来 できる〔道さがし〕。
  *   D14【4 版】: はじまりの 坑道を のぞく 坑道〔シード いくつか。数は `heyaLinkTable()` から 読む。はばは ゆれの 約 3 倍〕:
  *       ・層ごとの `heyaHit` の わりあいが 表から あさい・なかほど ± 0.04〔層ごとに 横穴 1,200 本 いじょう〕・ふかい ± 0.03〔600 本 いじょう〕
- *       ・当たりの 8 割 いじょうが `end: 'heya'`・'heya' の 種類の わりあいが 当たりの 中で 表から ± 0.09〔あさい・なかほど の 層ごとに 当たり 300 こ いじょう。ふかいは すいしょうだけ〕
+ *       ・層ごとに 当たりの minPlaced〔7 割〕いじょうが `end: 'heya'`・'heya' の 種類の わりあいが 当たりの 中で 表から ± 0.09〔あさい・なかほど の 層ごとに 当たり 300 こ いじょう。ふかいは すいしょうだけ〕
  *       ・'heya' の 横穴 ぜんぶ: `cave` の 部屋が `caves()` に あり `shaft` が その 坑道の id・大きさと 中身と 安全が D2・D3・D4 を みたす・
  *         部屋が 坑道の `box` の 中・出口と 部屋の 床の 段差 0・出口の 両がわに たいまつ・部屋の 床の どのマスとも 坑道の 入口が 行き来 できる
  *       ・抽選の 部屋が 坑道の へやの まわり 4 マスに ない
@@ -54,6 +54,7 @@ interface Side {
   end: string;
   hit: boolean;
   caveId: string | null;
+  kind: string | null;
   to: Pt;
 }
 interface Tally {
@@ -87,19 +88,18 @@ beforeAll(() => {
       const cs = new Map(h.caves(shaft.box.x0, shaft.box.z0, shaft.box.x1, shaft.box.z1).filter((c) => c.shaft === shaft.id).map((c) => [c.id, c] as const));
       for (const d of shaft.sides) {
         const hit = d.heyaHit === true;
-        const side: Side = { seed, shaft, layer: d.layer, end: d.end, hit, caveId: d.cave ?? null, to: d.to };
+        const side: Side = { seed, shaft, layer: d.layer, end: d.end, hit, caveId: d.cave ?? null, kind: d.heyaKind ?? null, to: d.to };
         allSides.push(side);
         const t = tally[d.layer];
         t.sides++;
         if (hit) t.hits++;
+        // 種類の わりあいは くじに 当たった 種類〔heyaKind。入らず はずれに した 分も 数える〕
+        if (hit && d.heyaKind) t.kinds.set(d.heyaKind as CaveKind, (t.kinds.get(d.heyaKind as CaveKind) ?? 0) + 1);
         if (d.end === 'heya') {
           t.heya++;
           heyaSides.push(side);
           const c = d.cave ? cs.get(d.cave) : undefined;
-          if (c) {
-            caveOf.set(`${seed}:${c.id}`, c);
-            t.kinds.set(c.kind, (t.kinds.get(c.kind) ?? 0) + 1);
-          }
+          if (c) caveOf.set(`${seed}:${c.id}`, c);
         }
       }
     }
@@ -122,11 +122,19 @@ describe('D14: 坑道の へやの くじ〔計画〕', () => {
     }
   });
 
-  it('当たりの 8 割 いじょうが end が heya〔のこりは 部屋が 入らず はずれに した 横穴〕・heyaHit が false の 横穴は heya でも cave でも ない', () => {
+  it('層ごとに 当たりの minPlaced〔表から。7 割〕いじょうが end が heya〔のこりは 部屋が 入らず はずれに した 横穴〕・heyaHit が false の 横穴は heya でも cave でも ない・当たりには heyaKind', () => {
+    const table = hookCave(SEEDS_3[0]!).heyaLinkTable();
     for (const l of LAYERS) {
       const t = tally[l];
+      const row = table.find((r) => r.layer === l);
+      expect(row?.minPlaced, `${l} の minPlaced〔heyaLinkTable〕`).toBeTypeOf('number');
       expect(t.hits, `${l} の 当たり`).toBeGreaterThan(0);
-      expect(t.heya / t.hits, `${l}: heya ${t.heya} / 当たり ${t.hits}`).toBeGreaterThanOrEqual(0.8);
+      expect(t.heya / t.hits, `${l}: heya ${t.heya} / 当たり ${t.hits}`).toBeGreaterThanOrEqual(row!.minPlaced);
+    }
+    for (const s of allSides) {
+      if (s.hit) expect(s.kind, `seed ${s.seed} ${s.shaft.id}: 当たりの heyaKind`).not.toBeNull();
+      else expect(s.kind, `seed ${s.seed} ${s.shaft.id}: はずれの heyaKind`).toBeNull();
+      if (s.end === 'heya') expect(caveOf.get(`${s.seed}:${s.caveId}`)?.kind ?? s.kind, `seed ${s.seed} ${s.shaft.id}: 部屋の 種類 ＝ heyaKind`).toBe(s.kind);
     }
     for (const s of allSides) {
       if (s.end === 'heya') {
@@ -138,7 +146,7 @@ describe('D14: 坑道の へやの くじ〔計画〕', () => {
     }
   });
 
-  it("'heya' の 種類の わりあい: あさい・なかほどの 層ごとに 当たりの 中で 表から ± 0.09・ふかい は すいしょうの ほらあな だけ", () => {
+  it("種類の わりあい〔くじに 当たった 種類 ＝ heyaKind。入らなかった 分も 数える〕: あさい・なかほどの 層ごとに 当たりの 中で 表から ± 0.09・ふかい は すいしょうの ほらあな だけ", () => {
     const table = hookCave(SEEDS_3[0]!).heyaLinkTable();
     for (const row of table) {
       const t = tally[row.layer];
@@ -148,7 +156,7 @@ describe('D14: 坑道の へやの くじ〔計画〕', () => {
       }
       expect(t.hits, `${row.layer} の 当たり`).toBeGreaterThanOrEqual(HIT_MIN_FOR_KINDS);
       const total = [...t.kinds.values()].reduce((a, b) => a + b, 0);
-      expect(total, `${row.layer} の heya の 部屋`).toBeGreaterThan(0);
+      expect(total, `${row.layer} の 当たりの 種類`).toBeGreaterThan(0);
       const sum = Object.values(row.kinds).reduce((a, b) => a + b, 0);
       for (const kind of Object.keys(CAVE_SPEC) as CaveKind[]) {
         const want = (row.kinds[kind] ?? 0) / sum;

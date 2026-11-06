@@ -72,6 +72,8 @@ interface HeyaLinkRow {
   layer: Layer;
   chance: number;
   kinds: Partial<Record<CaveKind, number>>;
+  /** 当たりの うち 部屋が 入って end が 'heya' に なる わりあいの 下の 限り〔7 割〕 */
+  minPlaced: number;
 }
 interface CaveStats {
   wall: number;
