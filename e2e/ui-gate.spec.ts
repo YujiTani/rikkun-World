@@ -16,7 +16,7 @@ import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid
 import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house';
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
-import { duoHudIssues, duoPadLostIssues, duoUsePadIssues, duoViewIssues, openDuoHud, openDuoUsePad, openDuoLoupe, openDuoPadLost, openDuoSplit } from './helpers/duoUi';
+import { duoArrowPanelIssues, duoHudIssues, duoPadLostIssues, duoUsePadIssues, duoViewIssues, openDuoArrowPanel, openDuoHud, openDuoUsePad, openDuoPadLost, openDuoSplit } from './helpers/duoUi';
 import { PICK_ROOTS, SITE_NEED_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen, siteNeedIssues } from './helpers/houseSite';
 
 /**
@@ -531,46 +531,40 @@ SCREENS.push(coopMenuScreen('coop-menu-1', 1), coopMenuScreen('coop-menu-2', 2),
 
 /**
  * COOP-1 作業 1（#395）AC12・AC13: 2 人のときの HUD（左右の ホットバー・ハート・距離メーター）。3 つの 大きさで 重ならない・はみ出さない・
- * 左右の 半分の 90% に おさまる。メーターの 長さ・色の 段は `extra`（e2e/helpers/duoUi.ts）。
- * 作業 2 で ルーペ・分割・「つないでね」の 画面を ここに 足す（AC24・AC33・AC33b。openDuoLoupe など）。
+ * 左右の 半分の 90% に おさまる。メーターの 長さ・色（白 1 色。1.8）は `extra`（e2e/helpers/duoUi.ts）。
+ * 作業 3e（#422。1.8）: 2P が 参加した まま（近い）の 画面も いつも 左右に 分かれる。矢印は まだ 出ていない（2 マス）。
  */
 SCREENS.push({
   id: 'duo-hud',
-  roots: ['#hud', '[data-testid="duo-hotbar-p1"]', '[data-testid="duo-hotbar-p2"]', '[data-testid="duo-meter"]'],
+  roots: ['#hud', '[data-testid="duo-hotbar-p1"]', '[data-testid="duo-hotbar-p2"]', '[data-testid="duo-meter"]', '[data-testid="duo-split-line"]'],
   open: openDuoHud,
-  extra: async (page: Page) => [...(await duoHudIssues(page)), ...(await duoViewIssues(page, 'one'))],
+  extra: async (page: Page) => [...(await duoHudIssues(page)), ...(await duoViewIssues(page, 'none'))],
 });
 
 /**
- * COOP-1 作業 2（#399）AC24・AC33・AC33b: ルーペ(2 段目 = わく 8px)・左右分割・パッドが ぬけた 画面(1 画面と 分割)。
- * 3 つの 大きさで メーター・ホットバー・ハート・ルーペ・「つないでね」・2P の「？」が 重ならない。色は 案 B。
- * 部品の 名前(data-testid)は e2e/helpers/duoUi.ts の 先頭。
+ * COOP-1 作業 2（#399）AC33・AC33b・作業 3e（#422。1.8）AC87: 左右分割（両方の 半分に 矢印）・パッドが ぬけた 画面（分割の 1 枚）・2P の パネルが ひらいた 画面（矢印は パネルの 上に 出ない）。
+ * 3 つの 大きさで メーター・ホットバー・ハート・矢印・「つないでね」・2P の「？」が 重ならない。色は 案 B。
+ * 部品の 名前(data-testid)は e2e/helpers/duoUi.ts の 先頭。ルーペの 画面（duo-loupe）・1 画面の パッドぬけ（duo-pad-lost-one）は 1.8 で なくなった。
  */
 const DUO_HUD_ROOTS = ['#hud', '[data-testid="duo-hotbar-p1"]', '[data-testid="duo-hotbar-p2"]', '[data-testid="duo-meter"]'];
 SCREENS.push(
   {
-    id: 'duo-loupe',
-    roots: [...DUO_HUD_ROOTS, '[data-testid="duo-loupe"]'],
-    open: openDuoLoupe,
-    extra: (page: Page) => duoViewIssues(page, 'loupe'),
-  },
-  {
     id: 'duo-split',
-    roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]'],
+    roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-arrow-p1"]', '[data-testid="duo-arrow-p2"]'],
     open: openDuoSplit,
-    extra: (page: Page) => duoViewIssues(page, 'split'),
+    extra: (page: Page) => duoViewIssues(page, 'both'),
   },
   {
-    id: 'duo-pad-lost-one',
-    roots: [...DUO_HUD_ROOTS, '[data-testid="duo-pad-lost"]', '[data-testid="duo-p2-question"]'],
-    open: (page: Page) => openDuoPadLost(page, 'one'),
-    extra: (page: Page) => duoPadLostIssues(page, 'one'),
-  },
-  {
-    id: 'duo-pad-lost-split',
+    id: 'duo-pad-lost',
     roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-pad-lost"]', '[data-testid="duo-p2-question"]'],
-    open: (page: Page) => openDuoPadLost(page, 'split'),
-    extra: (page: Page) => duoPadLostIssues(page, 'split'),
+    open: openDuoPadLost,
+    extra: (page: Page) => duoPadLostIssues(page),
+  },
+  {
+    id: 'duo-arrow-panel',
+    roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-inv-p2"]', '[data-testid="duo-arrow-p1"]'],
+    open: openDuoArrowPanel,
+    extra: (page: Page) => duoArrowPanelIssues(page),
   },
 );
 
