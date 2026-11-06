@@ -117,6 +117,15 @@ describe('AC42: 落ちている 物は 先に ふれた 人の 持ち物に 入�
     expect(r.inv1.count('dirt')).toBe(0);
     expect(r.inv2.count('dirt')).toBe(3);
   });
+  it('2P が ひろった 袋の id が update() の 戻り値に 入る（ひろう 音・ログの もとに なる。3c の 見張り。今の 実装で 緑）', () => {
+    const r = rig('far', 'near');
+    r.drop();
+    r.settle();
+    const id = r.f.list()[0]!.id;
+    expect(r.f.update(true)).toEqual([id]);
+    expect(r.inv2.count('dirt')).toBe(3);
+    expect(r.f.update(true)).toEqual([]);
+  });
   it('拾えない あいだ（canPickup=false）は 2P も 拾わない', () => {
     const r = rig('far', 'near');
     r.drop();

@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import type { CombatEvent, DigEvent, DigState, DigSystem, TargetInfo } from '../contracts';
+import type { BladeEvent, BowEvent, CombatEvent, DigEvent, DigState, DigSystem, TargetInfo } from '../contracts';
 import { COMBAT_SOUNDS, playCombat } from '../fx/combatSounds';
 import { FX_SETTINGS } from '../fx/config';
 import { createFootsteps, FOOTSTEP_TUNING } from '../fx/footsteps';
 import { SoundFx, type Tone } from '../fx/sound';
 import { playSwing } from '../ui/craftUi';
-import type { ArrowEvent } from '../tools';
+import { WEAPON_SOUNDS, playBladeSound, playBowSound } from '../fx/weaponSounds';
 import { createP2DigFx } from './p2DigFx';
 import { createP2Sounds } from './p2Sounds';
 
@@ -16,9 +16,17 @@ import { createP2Sounds } from './p2Sounds';
  * （`createP2Sounds` に 位置の 引数は ない。液体の 音のような 距離の 段は かけない）。E2E は 書かない。
  *
  * ---- 実装への 約束（developer が 作る 名前・形）----
- *   src/duo/p2Sounds.ts   createP2Sounds(sound: Pick<SoundFx, 'playTones'>): P2Sounds
+ *   src/fx/weaponSounds.ts（切り出し。WeaponFx の onBlade・onBow の 「音を 鳴らす 部分」を 純粋な 関数に する。WeaponFx も これを 呼ぶ。1P の 音は かわらない）
+ *     playBladeSound(sound: Pick<SoundFx, 'playTones'>, e: BladeEvent): void
+ *       techStart → playWeapon(tech)（step 2 は 続けて combo2・step 3 は combo3）／ techHit → kesa なら playWeapon('kesaHit')、それ以外は playCombat('hit')／
+ *       stance → playWeapon('stance')／ ほかの 出来事（techMiss・cancel）は 何も 鳴らさない。
+ *       （WeaponFx の replaceTechSound — 虹の 刀が 斬撃音を 入れかえる 枝 — は WeaponFx に のこす。2P は 虹の 刀を 持たない 段階）
+ *     playBowSound(sound: Pick<SoundFx, 'play' | 'playTones'>, e: BowEvent): void
+ *       stage → drawStage1〜3／ arrowShot → shoot1〜3（stage で）／ arrowHit → 'arrowHit' ＋ playCombat('hit')／ arrowStick → 'arrowStick'／ dryRelease → 'dry'／
+ *       noArrow → sound.play('clink')／ pickup → sound.play('pickup')／ ほか（drawStart・arrowEnd）は 何も 鳴らさない。（今の WeaponFx.onBow の 音の 部分そのまま）
+ *   src/duo/p2Sounds.ts   createP2Sounds(sound: Pick<SoundFx, 'play' | 'playTones'>): P2Sounds
  *     2P が 鳴らす 音（ほる・ひび・こわす・おく・ひろう は 今の 2P の DigFx = `createP2DigFx` が 出す ので、下の 見張りの とおり 今のまま）。
- *     まだ ない 2 つ（足音・こうげき）を ここに 集める。1P と 同じ 音の 表・同じ 大きさ（距離で 小さく しない）。数の 上限は 渡された SoundFx の もの 1 つ（2 人で 1 つ）。
+ *     まだ ない 3 つ（足音・こうげき・刀と 弓の わざ）を ここに 集める。1P と 同じ 音の 表・同じ 大きさ（距離で 小さく しない）。数の 上限は 渡された SoundFx の もの 1 つ（2 人で 1 つ）。
  *     P2Sounds = {
  *       // 毎ステップ。2P の 足音。作りは `createFootsteps(sound)` を 2P 用に もう 1 つ（1 歩の 数え方は 2P だけの 分）。鳴らした ときは 種類、鳴らさない ときは null
  *       step(body: GetaPlayer, groundId: () => string): FootKind | null;
@@ -26,11 +34,18 @@ import { createP2Sounds } from './p2Sounds';
  *       combat(events: readonly CombatEvent[]): void;
  *       // 2P の tools.drainSwings()。`playSwing(sound, anim, held)` と 同じ 音
  *       swings(swings: readonly { anim: SwingAnim }[], held: ItemId | null): void;
- *       // 2P の tools.drainArrowEvents()。arrowHit → `playCombat(sound, 'hit')`（1P の step.ts と 同じ）
- *       arrows(events: readonly ArrowEvent[]): void;
+ *       // 2P の blade.drainEvents()。1 つずつ `playBladeSound(sound, e)`
+ *       blade(events: readonly BladeEvent[]): void;
+ *       // 2P の tools.drainArrowEvents()。1 つずつ「`playBowSound(sound, e)` ＋ arrowHit なら もう 1 つ `playCombat(sound, 'hit')`（1P の step.ts:270 と 同じ）」。
+ *       // noArrow だけは 鳴らさない（1P も 画面の 合図だけ。2P は 合図の 画面が ない）
+ *       arrows(events: readonly BowEvent[]): void;
  *     }
- *   配線（テストの 外）: wire/duoPlay.ts の step() で、いま 捨てている l.combat.drainEvents()・l.tools.drainSwings()・l.tools.drainArrowEvents() を ここへ 渡し、
- *     2P の 体（ctl.state）の 足もとの ブロックで step() を 呼ぶ（倒れている あいだは 歩いて いない ことにする）。
+ *   配線（テストの 外）: wire/duoPlay.ts の
+ *     - Live に 2P 用の blade（いま build() の 中の ローカル）を 持たせ、step() で `l.blade.drainEvents()` を 毎ステップ 取り出して blade() に わたす（取り出さないと たまり続ける）。
+ *       combat.drainEvents()・tools.drainSwings()・tools.drainArrowEvents() も いま 捨てている 所を 上の 口へ。
+ *     - 足音: 2P の 体（ctl.state）の 足もとの ブロックで step() を 呼ぶ。1P の step.ts:192 と 同じに、2P の 遊び画面が 開いて いない（panelOpen でない）・
+ *       2P の combat.dead() でない・flinching() でない ときだけ 歩く。そうでない ときは running と onGround を false にして わたす（倒れている あいだも 含む）。
+ *     - ?duo=dev で 起動した ときも duo.ts の dev join で duoSplit が 1 つ 鳴る（`createSplitSound.onJoined()` は join() の 中なので 同じ。E2E で `audio.sfx()` の duoSplit を 数える なら この 1 つを 考えに 入れる）。
  *   ※ 2P の「やられた／ダメージ」の 音（hurt・faint・respawn）は AC67 の 対象外。決めるのは 段階 2 以降（報告に 書いた）。
  */
 
@@ -39,7 +54,8 @@ type Played = readonly Tone[];
 /** 鳴らす 部品の 並びを ためる だけの にせ の 音 */
 function recorder() {
   const played: Played[] = [];
-  return { played, sound: { playTones: (t: Played) => void played.push(t) } };
+  const names: string[] = [];
+  return { played, names, sound: { playTones: (t: Played) => void played.push(t), play: (n: string) => void names.push(n) } };
 }
 
 const walk = (o: Partial<{ running: boolean; onGround: boolean; inWater: boolean; v: number }> = {}) => ({
@@ -158,14 +174,94 @@ describe('AC67: 2P の こうげき', () => {
     expect(r.played.length).toBe(0);
   });
 
-  it('矢が 当たった → hit（1P の step.ts と 同じ）。ほかの 矢の 出来事では 鳴らさない', () => {
+  const bladeEv = (e: Omit<Extract<BladeEvent, { type: 'techStart' }>, 'tick'>): BladeEvent => ({ tick: 1, ...e });
+  const hitEv = (tech: 'thrust' | 'kesa' | 'kiriage', step?: 1 | 2 | 3): BladeEvent => ({ type: 'techHit', tick: 1, tech, yokaiId: 1, damage: 2, knock: 1, up: 0, position: { x: 0, y: 0, z: 0 }, ...(step ? { step } : {}) });
+
+  it('刀の わざ: techStart は 1 段目 = わざの 音、2 段目 = わざ ＋ combo2、3 段目 = わざ ＋ combo3（playBladeSound と 同じ）', () => {
+    for (const tech of ['thrust', 'kesa', 'kiriage'] as const) {
+      const cases: Array<[1 | 2 | 3 | undefined, Played[]]> = [
+        [undefined, [WEAPON_SOUNDS[tech]]],
+        [1, [WEAPON_SOUNDS[tech]]],
+        [2, [WEAPON_SOUNDS[tech], WEAPON_SOUNDS.combo2]],
+        [3, [WEAPON_SOUNDS[tech], WEAPON_SOUNDS.combo3]],
+      ];
+      for (const [step, want] of cases) {
+        const e = bladeEv({ type: 'techStart', tech, ...(step ? { step } : {}) });
+        const ref = recorder();
+        playBladeSound(ref.sound, e);
+        const r = recorder();
+        createP2Sounds(r.sound).blade([e]);
+        expect(r.played, `${tech}/${step}`).toEqual(ref.played);
+        expect(r.played.length, `${tech}/${step}`).toBe(want.length);
+        want.forEach((w, i) => expect(r.played[i], `${tech}/${step}/${i}`).toBe(w));
+      }
+    }
+  });
+
+  it('刀の 当たり: 大げさ斬り（kesa）は kesaHit、それ以外は hit', () => {
+    for (const tech of ['thrust', 'kesa', 'kiriage'] as const) {
+      const e = hitEv(tech);
+      const ref = recorder();
+      playBladeSound(ref.sound, e);
+      const r = recorder();
+      createP2Sounds(r.sound).blade([e]);
+      expect(r.played, tech).toEqual(ref.played);
+      expect(r.played.length, tech).toBe(1);
+      expect(r.played[0], tech).toBe(tech === 'kesa' ? WEAPON_SOUNDS.kesaHit : COMBAT_SOUNDS.hit);
+    }
+  });
+
+  it('かまえ（stance）は stance の 音。techMiss・cancel は 鳴らさない', () => {
     const r = recorder();
     const p2 = createP2Sounds(r.sound);
-    p2.arrows([{ type: 'arrowHit', yokaiId: 3 } as ArrowEvent]);
+    p2.blade([{ type: 'stance', tick: 1, from: 'chudan', to: 'jodan' }]);
     expect(r.played.length).toBe(1);
-    expect(r.played[0]).toBe(COMBAT_SOUNDS.hit);
-    p2.arrows([{ type: 'noArrow' } as ArrowEvent]);
+    expect(r.played[0]).toBe(WEAPON_SOUNDS.stance);
+    p2.blade([{ type: 'techMiss', tick: 2, tech: 'thrust' }, { type: 'cancel', tick: 3 }]);
     expect(r.played.length).toBe(1);
+  });
+
+  it('弓: ArrowEvent の 全種類が 1P の 参照（playBowSound ＋ arrowHit の hit）と 同じ。noArrow だけは 鳴らさない', () => {
+    const P0 = { x: 0, y: 0, z: 0 };
+    const events: BowEvent[] = [
+      { type: 'drawStart', tick: 1 },
+      { type: 'stage', tick: 1, stage: 1 },
+      { type: 'stage', tick: 2, stage: 2 },
+      { type: 'stage', tick: 3, stage: 3 },
+      { type: 'arrowShot', tick: 4, stage: 1, speed: 10, position: P0, velocity: P0 },
+      { type: 'arrowShot', tick: 5, stage: 2, speed: 10, position: P0, velocity: P0 },
+      { type: 'arrowShot', tick: 6, stage: 3, speed: 10, position: P0, velocity: P0 },
+      { type: 'arrowHit', tick: 7, yokaiId: 3, damage: 2, position: P0 },
+      { type: 'arrowStick', tick: 8, position: P0 },
+      { type: 'arrowEnd', tick: 9, position: P0 },
+      { type: 'dryRelease', tick: 10 },
+      { type: 'noArrow', tick: 11 },
+      { type: 'pickup', tick: 12 },
+    ];
+    for (const e of events) {
+      const ref = recorder();
+      if (e.type !== 'noArrow') {
+        playBowSound(ref.sound, e);
+        if (e.type === 'arrowHit') playCombat(ref.sound, 'hit'); // step.ts:270
+      }
+      const r = recorder();
+      createP2Sounds(r.sound).arrows([e]);
+      expect(r.played, e.type).toEqual(ref.played);
+      expect(r.names, e.type).toEqual(ref.names);
+    }
+    // 目で 見て わかる 形: 当たりは コツ ＋ ポコーン ＋ ポコーン（1P と 同じ）、ひく・とばす・ささる・からうち は 1 つ、noArrow は 0
+    const count = (e: BowEvent) => {
+      const r = recorder();
+      createP2Sounds(r.sound).arrows([e]);
+      return r.played.length + r.names.length;
+    };
+    expect(count(events.find((e) => e.type === 'arrowHit')!)).toBe(3);
+    expect(count(events.find((e) => e.type === 'stage')!)).toBe(1);
+    expect(count(events.find((e) => e.type === 'arrowShot')!)).toBe(1);
+    expect(count(events.find((e) => e.type === 'arrowStick')!)).toBe(1);
+    expect(count(events.find((e) => e.type === 'dryRelease')!)).toBe(1);
+    expect(count(events.find((e) => e.type === 'noArrow')!)).toBe(0);
+    expect(count(events.find((e) => e.type === 'drawStart')!)).toBe(0);
   });
 });
 
@@ -190,7 +286,7 @@ function fakeOutput() {
 }
 
 describe('AC67: 記録（audio.sfx()）に 入り、dropped で なく、1P と 同じ', () => {
-  it('2P の 足音・パンチ・ふり・矢が 全部 記録に 入り、dropped は 1 つも ない（1 秒ずつ あけて 鳴らす）', () => {
+  it('2P の 足音・パンチ・ふり・矢（当たり は コツ ＋ ポコーン ＋ ポコーン）が 全部 記録に 入り、dropped は 1 つも ない（1 秒ずつ あけて 鳴らす）', () => {
     const f = fakeOutput();
     const fx = new SoundFx({ output: f.output, seed: 5 });
     const p2 = createP2Sounds(fx);
@@ -203,11 +299,11 @@ describe('AC67: 記録（audio.sfx()）に 入り、dropped で なく、1P と 
     at();
     p2.swings([{ anim: 'slash' }], null);
     at();
-    p2.arrows([{ type: 'arrowHit', yokaiId: 1 } as ArrowEvent]);
+    p2.arrows([{ type: 'arrowHit', tick: 1, yokaiId: 1, damage: 1, position: { x: 0, y: 0, z: 0 } }]);
     const rec = fx.drainRecords();
-    expect(rec.length).toBe(5);
+    expect(rec.length).toBe(7);
     expect(rec.filter((x) => x.dropped)).toEqual([]);
-    expect(rec.map((x) => x.name)).toEqual(['', 'punch', 'hit', 'slash', 'hit']);
+    expect(rec.map((x) => x.name)).toEqual(['', 'punch', 'hit', 'slash', 'arrowHit', 'hit', 'hit']);
   });
 
   it('1P の 同じ 音と 記録が 同じ（同じ たね の SoundFx で くらべる = 大きさ・ゆらぎの 段を かえない）', () => {
