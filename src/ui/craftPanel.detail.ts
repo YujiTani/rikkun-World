@@ -62,6 +62,7 @@ export const EMPTY_TEXT = 'ざいりょう を あつめよう！';
 
 export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnter(): void; onPage(delta: -1 | 1): void }): DetailEls {
   const root = el('div', 'rk-card cp-detail', parent);
+  root.dataset.focusGroup = 'cp-detail';
   root.addEventListener('mouseenter', h.onEnter);
   const head = el('div', 'cp-head', root);
   const headArt = el('img', 'cp-head-art rk-art', head);
