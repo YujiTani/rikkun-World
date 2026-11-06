@@ -80,24 +80,7 @@ html[data-duo] #hotbar-p2 {
   height: 100%;
   width: calc(var(--duo-meter, 0) * 100%);
   border-radius: var(--rk-r-pill);
-  background: var(--rk-text); /* 段 0 = 白 */
-}
-.duo-meter[data-tier='1'] .duo-bar {
-  background: var(--rk-accent);
-}
-.duo-meter[data-tier='2'] .duo-bar {
-  background: var(--rk-accent-2);
-}
-/* 分かれる 印（24 マス = 真ん中） */
-.duo-mark {
-  position: absolute;
-  left: 50%;
-  top: calc(-0.35 * var(--rk-sp-3));
-  bottom: calc(-0.35 * var(--rk-sp-3));
-  width: 3px;
-  margin-left: -1.5px;
-  background: var(--rk-text);
-  border-radius: var(--rk-r-s);
+  background: var(--rk-text); /* 白 1 色（距離で かえない。1.8） */
 }
 .duo-pin {
   position: absolute;
@@ -210,44 +193,51 @@ html[data-duo] #hotbar-p2 {
   display: none;
 }
 
-/* ルーペの 丸わく（中の 絵は ゲームの 画面に 描く。ここは わくだけ）。段で 色と 太さ(4 → 6 → 8px)が かわる。案 B: 白 → こがね → オレンジ */
-.duo-loupe {
+/* 相手の 向きの 矢印（1.8。HTML の 重ね）。外接の 四角と 中の 三角・バッジの 位置は duoHud.ts が 毎コマ 決める。色は 相手の 色（1P の 半分の 矢印は 2P の むらさき） */
+.duo-arrow {
   position: fixed;
-  box-sizing: border-box;
-  border-style: solid;
-  border-radius: var(--rk-r-pill); /* まる（UI の きまりは px。999px で まるになる） */
-  border-color: var(--rk-text);
-  border-width: 4px;
-  box-shadow: 0 0 0 2px var(--rk-bg-900), inset 0 0 0 2px var(--rk-bg-900); /* こい 2px の ふち（外と 内） */
   pointer-events: none;
-  z-index: 4;
+  z-index: 5;
+  --duo-arrow: var(--rk-rarity-3);
+  color: var(--duo-arrow);
 }
-.duo-loupe[hidden] {
+.duo-arrow-p2 {
+  --duo-arrow: var(--rk-xp);
+}
+.duo-arrow[hidden] {
   display: none;
 }
-.duo-loupe[data-tier='1'] {
-  border-color: var(--rk-accent);
-  border-width: 6px;
-}
-.duo-loupe[data-tier='2'] {
-  border-color: var(--rk-accent-2);
-  border-width: 8px;
-}
-/* ルーペの 外の 2P を 指す 三角（上向きの 三角を 回して つかう） */
-.duo-loupe-arrow {
+/* 三角: 先が 左上の 角、うしろへ のびる。先を 中心に 回す。こい 2px の ふちは 影で 4 方向 */
+.duo-arrow-tri {
   position: absolute;
-  width: 0;
-  height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-bottom: 13px solid var(--rk-text);
-  filter: drop-shadow(0 0 0 var(--rk-bg-900)) drop-shadow(1px 0 0 var(--rk-bg-900)) drop-shadow(-1px 0 0 var(--rk-bg-900)) drop-shadow(0 1px 0 var(--rk-bg-900)) drop-shadow(0 -1px 0 var(--rk-bg-900));
+  transform-origin: 50% 0;
+  filter: drop-shadow(2px 0 0 var(--rk-bg-900)) drop-shadow(-2px 0 0 var(--rk-bg-900)) drop-shadow(0 2px 0 var(--rk-bg-900)) drop-shadow(0 -2px 0 var(--rk-bg-900));
 }
-.duo-loupe[data-tier='1'] .duo-loupe-arrow {
-  border-bottom-color: var(--rk-accent);
+.duo-arrow-shape {
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
-.duo-loupe[data-tier='2'] .duo-loupe-arrow {
-  border-bottom-color: var(--rk-accent-2);
+/* ねもとの 丸バッジ（メーターの バッジと 同じ 大きさ・形。字は 相手の 名前） */
+.duo-arrow-badge {
+  position: absolute;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  min-width: 1.6em;
+  height: 1.6em;
+  padding: 0 var(--rk-sp-1);
+  border: 2px solid var(--rk-bg-900);
+  border-radius: var(--rk-r-pill);
+  background: var(--duo-arrow);
+  color: var(--rk-bg-900);
+  font-size: var(--rk-fs-small);
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: none;
 }
 
 /* 2P の もちもの: 右半分の 画面（1P の 画面は ひらかない） */
@@ -294,6 +284,7 @@ html[data-duo] #hotbar-p2 {
   position: relative;
   overflow: hidden;
   min-width: 14em;
+  min-height: var(--rk-slot-inv); /* 押せる 大きさ（56。UI 検査） */
   padding: var(--rk-sp-2) var(--rk-sp-4);
   font: inherit;
   font-size: var(--rk-fs-small);

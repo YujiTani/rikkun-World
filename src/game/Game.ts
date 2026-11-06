@@ -131,7 +131,7 @@ export class Game {
     this.worldPass = p;
   }
 
-  /** COOP-1: 2 人で 区画を わけて 描く 道（ルーペ・分割の あいだだけ active）。落雷の 道が 先 */
+  /** COOP-1: 2 人で 区画を わけて 描く 道（2P が いる あいだ・見せ方の とちゅうだけ active）。落雷の 道が 先 */
   setViewPass(p: { active(): boolean; render(): void }): void {
     this.viewPass = p;
   }
