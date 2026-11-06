@@ -1,6 +1,7 @@
 import type { ItemId, TargetInfo, VoxelWorld } from '../contracts';
 import { isFloraBlock } from '../world/blocks/flora';
 import { CHALK_FACES, CHALK_NORMAL, chalkInfo, isChalkMarkId } from '../world/blocks/chalkMark';
+import { chestBlockInfo, chestFrontAt, chestPartner } from '../world/blocks/chestBlock';
 import { futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
 import { K_TANSU, doorInfo, furnSiblings, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
@@ -49,6 +50,7 @@ export class BlockBreaker {
     if (COOP_BLOCKS.has(t.id)) return this.breakCoopBlock(t);
     if (isChalkMarkId(t.id)) return this.breakChalkMark(t);
     if (isRopeBlock(t.id)) return this.breakRope(t);
+    if (chestBlockInfo(t.id)) return this.breakChest(t);
     const { x, y, z } = t.block;
     // こたつ 2×2: どの マス を こわして も 4 マス ぜんぶ 消える（`nukunuku` 1 と 中 の たまご は 1 回 だけ）
     if (isKotatsuBlock(t.id)) this.clearKotatsuCells(t);
@@ -91,6 +93,26 @@ export class BlockBreaker {
       }
     }
     c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: houseDrop ?? t.id, gotItem: got > 0, count: got });
+    this.wearForBlock();
+    return 'done';
+  }
+
+  /**
+   * MINE-1C 宝箱: どちらの マスを こわして も 2 マス とも 消える〔ふつうは ぬりかべも 手も こわせない。こわす 処理を 直接 よんだ ときの 保険〕。
+   * 落とし物なし・持ち物に 入らない。相手の いない 1 マスは その 1 マスだけ。
+   */
+  private breakChest(t: TargetInfo): BreakEnd {
+    const { x, y, z } = t.block;
+    const w = this.c.world;
+    const info = chestBlockInfo(t.id)!;
+    const front = chestFrontAt((px, py, pz) => w.getBlock(px, py, pz), x, y, z);
+    if (front) {
+      const o = chestPartner(x, z, info, front);
+      w.setBlock(o.x, y, o.z, 'air');
+    }
+    w.setBlock(x, y, z, 'air');
+    this.clearChalkMarks(x, y, z);
+    this.c.emit({ type: 'break', tick: this.c.tick(), block: { x, y, z }, id: t.id, gotItem: false, count: 0 });
     this.wearForBlock();
     return 'done';
   }

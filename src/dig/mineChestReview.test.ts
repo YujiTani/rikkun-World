@@ -152,7 +152,7 @@ describe('RB4〔重大 4〕: あいた 宝箱を 右クリックすると 宝箱
       const r = clickRig();
       const c = putChest(r.world, 26, 10, 24, tier, true);
       const at = viaRest ? { x: c.restX, z: c.restZ } : { x: 26, z: 24 };
-      r.look(at.x + 0.5, 10.5, at.z + 0.5);
+      r.look(at.x + 0.5, 10.99, at.z + 0.5); // 上の 面を ねらう〔横から だと 手前の マスに 当たる〕
       r.click();
       expect(r.opened, `${viaRest ? 'のこりの マス' : '本体'}を ねらって 右クリック`).toEqual([{ x: at.x, y: 10, z: at.z }]);
       expect(r.inv.slots()[0], '手の ブロックは へらない').toMatchObject({ item: 'dirt', count: 5 });

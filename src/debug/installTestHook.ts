@@ -1,7 +1,6 @@
 // 開発用の 窓口 `window.__rikkun` の 中身を 集める（main.ts から 移した）。名前と 中身は かえない。
+// 宝箱を あける つなぎは game/wire/mine.ts〔ここは mine の 窓口を わたす だけ〕。
 import { type Fog as ThreeFog, Color as ThreeColor } from 'three';
-import { RARITY_ORDER } from '../drops/rarity';
-import { itemDef } from '../content/items/registry';
 import { createPickupHook, createFurnaceHook, createArmorHook } from '../craft';
 import { createBladeHook } from '../tools/blade/hook';
 import { parryGlowLevel } from '../combat/parry';
@@ -32,11 +31,6 @@ import { createSettingsHook } from '../game/settings';
 import { createInputHook } from '../input';
 import { createPlayerHook } from '../player/hook';
 import { createBiomeHook } from '../world/gen/biomeHook';
-import { createMineHook } from '../world/gen/mineHook';
-import { KODO_GEN } from '../save/SaveManager';
-import { CHEST_SOUNDS } from '../fx/chestSounds';
-import { ChestLidFx } from '../fx/chestLidFx';
-import { setChestLidless, setChestWorldReader } from '../world/render/looks/chestLooks';
 import { createWorldHook } from '../world/hook';
 import { createRenderHook } from '../world/render/renderHook';
 import { createShadowHook } from '../world/render/shadow/shadowHook';
@@ -45,9 +39,9 @@ import { createHouseHook } from '../house/hook';
 import { lookDirection } from '../dig/raycast';
 import { computeFarmPlacement } from '../world/gen/farmPlacement';
 import { digSettingsView, settingsViewOf, sharedSettingsView } from './settingsViews';
-import type { WiredDuo } from '../game/wire/duo';
+import type { WiredMine } from '../game/wire/mine';
 
-export function installGameHook(deps: WiredDuo): void {
+export function installGameHook(deps: WiredMine): void {
   const {
     shared, game, overlay, host, startBoot, world, charCtl, controller, setShadow, seed, achievements,
     countryWatch, renderer, island, save, blobShadow, sky, parry, thunderFx, legend, legendBook, waveSys,
@@ -60,90 +54,8 @@ export function installGameHook(deps: WiredDuo): void {
     currentKitRows, animalFx, animalHint, aimPointInto, combat, lockHook, book, look, wheel, mixer, bgm,
     bgmScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
     m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets, seat, water,
-    gamepadApi, reducedMotionMq, duo,
+    gamepadApi, duo, mine,
   } = deps;
-  // MINE-1C: 宝箱を あける〔右クリック → mine.open〕。持ち物・落とし物・テロップ・実績は ここで つなぐ。
-  // ふたが 動く 0.46 秒の あいだは「中身」を ためて おいて、ふたが 90° に なる 0.30 秒に 出す（ふた → 中身）。
-  type Call = { k: 'add'; item: ItemId; count: number } | { k: 'telop'; item: ItemId } | { k: 'opened'; tier: 1 | 2 | 3 | 4 };
-  let defer: Call[] | null = null;
-  const give = (item: ItemId, count: number): number => {
-    const rest = inventory.add(item, count);
-    if (rest > 0) {
-      const p = controller.state.position;
-      drops.scatter({ x: p.x, y: p.y + 0.5, z: p.z }, [{ item, count: rest }], { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 });
-    }
-    return 0;
-  };
-  const replay = (c: Call): void => {
-    if (c.k === 'add') give(c.item, c.count);
-    else if (c.k === 'telop') celebrate.enqueueTelop(c.item, 'chest');
-    else achievements.feedMine([{ type: 'chestOpen', tick: game.tick, tier: c.tier }]);
-  };
-  const mine = createMineHook({
-    seed,
-    world,
-    player: () => controller.state.position,
-    spawnHeight: () => yokaiM.config.yokaiSpawnHeight,
-    metaGen: () => save.metaGen(),
-    kodoGen: KODO_GEN,
-    oldCols: restored.oldCols,
-    chest: {
-      add: (item, count) => {
-        if (defer) {
-          defer.push({ k: 'add', item, count });
-          return 0;
-        }
-        return inventory.add(item, count);
-      },
-      drop: (item, count) => {
-        const p = controller.state.position;
-        drops.scatter({ x: p.x, y: p.y + 0.5, z: p.z }, [{ item, count }], { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 });
-      },
-      say: () => {}, // あいた 宝箱は 'chestDone' で 右クリックを うけつけない ので ログは 出さない
-      telop: (item) => (defer ? defer.push({ k: 'telop', item }) : celebrate.enqueueTelop(item, 'chest')),
-      opened: (tier) => {
-        fxSound.playTones(CHEST_SOUNDS[`chestOpen${tier}` as keyof typeof CHEST_SOUNDS]); // 案 A。4 段目だけ「大」（BGM が さがる）
-        const c: Call = { k: 'opened', tier };
-        if (defer) defer.push(c);
-        else replay(c);
-      },
-    },
-  });
-  setChestWorldReader((x, y, z) => world.getBlock(x, y, z));
-  const lidFx = new ChestLidFx(game.scene);
-  const pending = new Set<() => void>();
-  game.onUpdate(() => lidFx.step());
-  window.addEventListener('pagehide', () => [...pending].forEach((f) => f())); // 動きの 途中で 閉じても 中身は 失わない
-  dig.chestPort = {
-    open: (x, y, z) => {
-      const at = mine.chestAt(x, y, z);
-      if (!at || at.opened) return;
-      if (reducedMotionMq?.matches) {
-        mine.open(x, y, z); // 「うごきを へらす」: ふたは すぐ 90°（あいた 形）
-        return;
-      }
-      for (const c of at.cells) setChestLidless(c.x, c.y, c.z, true);
-      defer = [];
-      mine.open(x, y, z); // ブロックは すぐ あいた 形（ふたは 動く 間 消えて いる）
-      const calls = defer;
-      defer = null;
-      const finish = (): void => {
-        if (!pending.delete(finish)) return;
-        for (const c of at.cells) {
-          setChestLidless(c.x, c.y, c.z, false);
-          const id = world.getBlock(c.x, c.y, c.z);
-          if (id === 'outside') continue;
-          world.setBlock(c.x, c.y, c.z, 'air'); // 同じ ブロックでは 作りなおしに ならない ので 1 回 空気を はさむ
-          world.setBlock(c.x, c.y, c.z, id);
-        }
-        calls.forEach(replay);
-      };
-      pending.add(finish);
-      let top = 0;
-      for (const c of calls) if (c.k === 'add') top = Math.max(top, RARITY_ORDER.indexOf(itemDef(c.item)!.rarity));
-      lidFx.start(at.main, at.tier, at.front, RARITY_ORDER[top]!, finish);
-    },
-  };
   installTestHook(game, overlay, () => host.everReady, {
     start: startBoot.hook,
     work: createWorkHook(() => game.tick, world, () => water.computed()),

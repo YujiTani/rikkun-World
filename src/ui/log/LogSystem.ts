@@ -203,6 +203,16 @@ export class LogSystem {
     this.push({ tick: this.now, kind: 'farmHint', category: 'info', item, count: null, text });
   }
 
+  /** 宝箱の 中身〔ふたが あいた あとに 1 行。文は つなぎ込みが 作る〕。履歴だけ（左の ログの 1 こずつの 行は 出さない） */
+  chestGot(text: string): void {
+    this.push({ tick: this.now, kind: 'chestGot', category: 'pickup', item: null, count: null, text });
+  }
+
+  /** 宝箱を ひらく ときの ひと言〔あいた 宝箱の「からっぽ だよ」〕 */
+  chestSay(text: string): void {
+    this.push({ tick: this.now, kind: 'chestSay', category: 'info', item: null, count: null, text });
+  }
+
   wearLow(item: ItemId): void {
     this.push({ tick: this.now, kind: 'wearLow', category: 'info', item, count: null, text: `${this.nameOf(item)} が もうすぐ こわれるよ` });
   }

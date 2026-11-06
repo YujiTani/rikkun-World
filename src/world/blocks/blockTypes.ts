@@ -125,7 +125,7 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'kogeta', name: 'こげた ブロック', solid: true, breakable: true },
   // WAKIDOKORO（番号は 後ろに 足す。185）: マグマの たきつぼ
   { id: 'magma_takitsubo', name: 'マグマの たきつぼ', solid: true, breakable: true },
-  // MINE-1C（#350。番号は 後ろに 足す。186〜）: 坑道の わく（ほれる）・宝箱 64 こ（固い・ほっても こわれない。2 マス。`chestBlock.ts`）
+  // MINE-1C（#350。番号は 後ろに 足す。186〜）: 坑道の わく（ほれる）・宝箱 16 こ（固い・ほっても こわれない。2 マス。`chestBlock.ts`）
   { id: 'kodo_waku', name: 'こうどうの わく', solid: true, breakable: true },
   ...CHEST_BLOCK_IDS.map((id): BlockType => ({ id, name: chestBlockName(chestBlockInfo(id)!.tier, chestBlockInfo(id)!.open), solid: true, breakable: false })),
 ];
