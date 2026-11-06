@@ -34,12 +34,12 @@ export function createSettingsPanel(
     fx: Pick<FxSettings, 'fxVolume'>;
     onAudio: () => void;
     dialogs: DialogStack;
-    /** 「つかう コントローラー」タブ(`?duo=dev` の ときだけ)。ルーターの getPads と 同じ 所から 読む */
+    /** 「つかう コントローラー」タブ(いつも（作業 3d・AC65）)。ルーターの getPads と 同じ 所から 読む */
     router?: DuoPadRouter;
   },
   anchor?: HTMLElement,
 ): SettingsPanel {
-  const useOn = !!opts.router?.choiceUsable();
+  const useOn = !!opts.router;
   const root = document.createElement('div');
   root.className = 'set-root';
   root.dataset.testid = 'settings-panel';

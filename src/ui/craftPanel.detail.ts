@@ -62,6 +62,7 @@ export const EMPTY_TEXT = 'ざいりょう を あつめよう！';
 
 export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnter(): void; onPage(delta: -1 | 1): void }): DetailEls {
   const root = el('div', 'rk-card cp-detail', parent);
+  root.dataset.focusGroup = 'cp-detail';
   root.addEventListener('mouseenter', h.onEnter);
   const head = el('div', 'cp-head', root);
   const headArt = el('img', 'cp-head-art rk-art', head);
@@ -283,6 +284,8 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
       chip.classList.add('cp-fuelchip');
       chip.dataset.next = String(d.fuel.next === item);
       chip.dataset.item = item;
+      chip.dataset.menuItem = ''; // 十字で 動いて B で えらべる
+      chip.tabIndex = 0;
       chip.style.cursor = 'pointer';
       chip.style.pointerEvents = 'auto';
       const t = d.fuel.inTansu?.[item] ?? 0;

@@ -2,6 +2,8 @@
 import { BLOCK_INDEX } from '../../world/blocks/blockTypes';
 import { aimPivot } from '../../camera/pivot';
 import { PlayerCombatImpl } from '../../combat';
+import { bindWho } from '../../duo/credit';
+import type { YokaiWorld } from '../../contracts';
 import { ArmorSystemImpl, CraftSystemImpl } from '../../craft';
 import { ToolSystemImpl } from '../../tools';
 import { createBladeSystem } from '../../tools/blade/BladeSystem';
@@ -217,6 +219,9 @@ export function wireFighters(deps: WiredWeapons) {
     lock,
     onSleepStart: () => playSleepJingle(fxSound),
   });
+  // COOP-1 3a: 1P の 妖怪の 世界は 「1P の こうげき」と 名前を つけた 物（けいけんちは 当てた 人に）。妖怪の 係は あとで 作るので 初めて 使う とき 包む
+  let yokai1: YokaiWorld | null = null;
+  const yokaiOf1 = (): YokaiWorld => (yokai1 ??= bindWho(shared.yokaiManager!, 1));
   const combat = new PlayerCombatImpl({
     config: combatCfg,
     tool: tools,
@@ -228,7 +233,7 @@ export function wireFighters(deps: WiredWeapons) {
       set: (v) => controller.set(v),
     },
     inventory,
-    yokai: () => shared.yokaiManager!,
+    yokai: yokaiOf1,
     spawn: startPoint,
     // WEAPON-9: シャイニング中は 受ける ダメージ 1/3・落下ダメージなし
     takenMul: () => legend.takenMul(),
@@ -422,7 +427,8 @@ export function wireFighters(deps: WiredWeapons) {
       legend,
       parry,
       w2,
-      yokai: () => shared.yokaiManager!,
+      yokai: yokaiOf1,
+      partner: () => shared.duoMate()?.position ?? null,
       gadgets: gadgets.port,
       furniture: furniture.port,
     },

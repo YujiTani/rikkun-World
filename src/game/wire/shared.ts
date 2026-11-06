@@ -6,7 +6,8 @@ import { PlayerCombatImpl } from '../../combat';
 import { StaggerIcons } from '../../fx/parryFx';
 import { SamuraiBook } from '../../craft/SamuraiBook';
 import { LogSystem } from '../../ui/log';
-import type { ItemId, YokaiKind, CombatEvent, DigEvent, SwingAnim } from '../../contracts';
+import type { ItemId, YokaiKind, CombatEvent, DigEvent, SwingAnim, Inventory, Vec3 } from '../../contracts';
+import type { YokaiPartner } from '../../yokai/ai/target';
 import { AchievementSystem } from '../../achievements';
 import { CelebrateUi } from '../../ui/celebrate';
 import { DragOut } from '../../ui/dragOut';
@@ -21,7 +22,7 @@ import type { BossHandle, GashaRelease } from '../../gasha/release';
 import { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
 import type { HouseSystem } from '../../house/system';
 import { P2State } from '../../duo/p2State';
-import type { P2Save } from '../../duo/types';
+import type { DuoLeaveReason, P2Save } from '../../duo/types';
 
 // WEAPON-7: 雷の 見た目（十字の ドット絵・着地の 光・光の つぶ）
 export const IDLE_THUNDER_LOOK = { charging: false, ready: false, aimS: null };
@@ -41,6 +42,18 @@ interface Shared {
   p2Store: { saved: P2Save | null };
   /** COOP-1: 2P が 参加しているか（時間の 倍率・セーブが 読む。wireDuo が 差しかえる） */
   duoJoined: () => boolean;
+  /** COOP-1 3d（AC71・AC72）: 2P を やめさせる（タイトルへ もどる・よみこむ で 読みなおす 直前に 呼ぶ。2P が いなければ 何もしない。wireDuo が 差しかえる） */
+  leaveDuo: (reason: DuoLeaveReason) => void;
+  /** COOP-1 3a: 仲間（2P）の 足もとと 持ち物（参加していなければ null。落とし物・動物・1P の 置く が 読む。wireDuo が 差しかえる。返す 物は いつも 同じ 1 つ） */
+  duoMate: () => { position: Vec3; inventory: Inventory } | null;
+  /** COOP-1 3a: 落とし物を ひろえる 仲間（倒れている あいだは null。DropField だけが 読む。wireDuo が 差しかえる） */
+  duoDropMate: () => { position: Vec3; inventory: Inventory } | null;
+  /** COOP-1 3a: 妖怪が ねらう 仲間（参加していなければ null。wireDuo が 差しかえる） */
+  duoYokai: () => YokaiPartner | null;
+  /** COOP-1 3a: 2P の レベルアップ（ハートを 満タンに。wireDuo が 差しかえる） */
+  p2LevelUp: () => void;
+  /** COOP-1 3a: 2P の 今の ハート（たおした ときの 実績の hp 用。wireDuo が 差しかえる） */
+  p2Hp: () => number;
   /** COOP-1: 2 人のときの カメラの 距離（null = 1 人。step.ts が rig に 渡す。wireDuo が 毎ステップ 書く） */
   duoCamDistance: number | null;
   /** COOP-1: Game に 渡している 時間の 倍率（テストの 口 duo.timeScale() が 読む。wireLoop が 差しかえる） */
@@ -61,12 +74,16 @@ interface Shared {
   houseFrozen: () => boolean;
   /** HOUSE-1B: エディターが 開いて いる 間の 1 コマ（見本の 向き・ふきだしの 時間）と 描画（見本）。player.ts の 窓が 呼ぶ。開いて いなければ 何も しない */
   houseModal: { tick: () => void; render: () => void };
+  /** COOP-1 作業 3d（AC84）: modal が active の あいだ 1 コマごとに 呼ぶ（2P の「ちょっと まってね」・「＋で さんか」の 出し入れ。wireDuo が 差しかえる） */
+  duoModalTick: () => void;
+  /** COOP-1 AC84: もちもの画面まわりの 1 コマ（createStep が 差しかえる）。2 人で 1P の 全面が 世界を 止めている あいだ、player.ts の modal tick が 呼ぶ */
+  inventoryUiTick: () => void;
   requestSave: () => void;
   skipSignalLog: boolean;
   onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
   yokaiManager: YokaiManager | null;
   achievementsRef: { feedWorn(n: number): void };
-  onDefeatAch: (kind: YokaiKind) => void;
+  onDefeatAch: (kind: YokaiKind, who: 1 | 2) => void;
   domeEraseThisStep: boolean;
   // #293 試作: 間欠泉の 中・あと は 落下ダメージなし（?proto=gashaBig）
   protoNoFall: boolean;
@@ -106,10 +123,16 @@ interface Shared {
 }
 
 export function createShared(): Shared {
-  return {
-    p2: new P2State(),
+  const s = {
+    p2: new P2State({ onLevelUp: () => s.p2LevelUp() }),
+    duoMate: () => null,
+    duoDropMate: () => null,
+    duoYokai: () => null,
+    p2LevelUp: () => {},
+    p2Hp: () => 0,
     p2Store: { saved: null },
     duoJoined: () => false,
+    leaveDuo: () => {},
     duoCamDistance: null,
     gameTimeScale: () => 1,
     gashaBgmFade: {},
@@ -121,6 +144,8 @@ export function createShared(): Shared {
     house: null,
     houseFrozen: () => false,
     houseModal: { tick: () => undefined, render: () => undefined },
+    duoModalTick: () => {},
+    inventoryUiTick: () => {},
     requestSave: () => {},
     skipSignalLog: false,
     onDropPicked: () => {},
@@ -145,4 +170,5 @@ export function createShared(): Shared {
     shadowSystem: null,
     achMuted: false,
   } as unknown as Shared;
+  return s;
 }

@@ -2,11 +2,10 @@ import * as THREE from 'three';
 import { type W2Settings, type ArmorSystem, type BladeStep, type BladeTech, BladeEvent, BladeSystem, BowEvent, BowSystem, Inventory, ItemId, Vec3, WearEvent } from '../contracts';
 import type { BladeHud } from '../ui/bladeHud';
 import type { WearNotice } from '../ui/wearNotice';
-import { playCombat } from './combatSounds';
 import type { SoundFx } from './sound';
 import { WEAPON_FX, pickShardColors } from './weaponFxModel';
 import { BladeTrail, type TrailSnapshot } from './bladeTrail';
-import { playWeapon } from './weaponSounds';
+import { playBladeSound, playBowSound, playWeapon } from './weaponSounds';
 
 export interface WeaponFxDeps {
   scene: THREE.Scene;
@@ -108,29 +107,20 @@ export class WeaponFx {
     switch (e.type) {
       case 'techStart':
         this.d.bladeHud.techStarted(e.tech);
-        if (this.d.replaceTechSound?.(this.d.blade.state().item, e.step ?? 1)) {
-          this.d.onTechItem?.(this.d.blade.state().item, e.tech, e.step ?? 1);
-          break;
-        }
-        playWeapon(s, e.tech);
+        // 虹の 刀は 斬撃音を 入れかえる（鳴らさない）。ほかは 2P と 共通の playBladeSound
+        if (!this.d.replaceTechSound?.(this.d.blade.state().item, e.step ?? 1)) playBladeSound(s, e);
         this.d.onTechItem?.(this.d.blade.state().item, e.tech, e.step ?? 1);
-        if (e.step === 2) playWeapon(s, 'combo2');
-        else if (e.step === 3) playWeapon(s, 'combo3');
         break;
       case 'techHit':
         // 画面の ゆれ・ヒットストップは #276 の ImpactBus（main の onTechHit）が 出す
-        if (e.tech === 'kesa') {
-          playWeapon(s, 'kesaHit');
-        } else {
-          playCombat(s, 'hit');
-        }
+        playBladeSound(s, e);
         this.burst(e.position, WEAPON_FX.starCount, 0xffffff, WEAPON_FX.starSeconds, 0.12, false);
         this.d.onTechHit?.(this.d.blade.state().item, e);
         break;
       case 'techMiss':
         break;
       case 'stance':
-        playWeapon(s, 'stance');
+        playBladeSound(s, e);
         this.d.bladeHud.stanceChanged(e.to);
         break;
       case 'cancel':
@@ -140,34 +130,8 @@ export class WeaponFx {
   }
 
   private onBow(e: BowEvent): void {
-    const s = this.d.sound;
-    switch (e.type) {
-      case 'stage':
-        playWeapon(s, e.stage === 1 ? 'drawStage1' : e.stage === 2 ? 'drawStage2' : 'drawStage3');
-        break;
-      case 'arrowShot':
-        playWeapon(s, e.stage === 1 ? 'shoot1' : e.stage === 2 ? 'shoot2' : 'shoot3');
-        break;
-      case 'arrowHit':
-        playWeapon(s, 'arrowHit');
-        playCombat(s, 'hit');
-        break;
-      case 'arrowStick':
-        playWeapon(s, 'arrowStick');
-        break;
-      case 'dryRelease':
-        playWeapon(s, 'dry');
-        break;
-      case 'noArrow':
-        s.play('clink');
-        break;
-      case 'pickup':
-        s.play('pickup');
-        this.d.onArrowPickup?.();
-        break;
-      default:
-        break;
-    }
+    playBowSound(this.d.sound, e);
+    if (e.type === 'pickup') this.d.onArrowPickup?.();
   }
 
   private onWear(e: WearEvent): void {

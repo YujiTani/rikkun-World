@@ -184,7 +184,9 @@ export class BlockPlacer {
   }
 
   private overlapsBody(x: number, y: number, z: number): boolean {
-    return overlapsBody(this.c.player().position, x, y, z);
+    if (overlapsBody(this.c.player().position, x, y, z)) return true;
+    const mate = this.c.m4.partner?.();
+    return mate ? overlapsBody(mate, x, y, z) : false;
   }
 
   /**

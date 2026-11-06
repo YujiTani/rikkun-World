@@ -1,19 +1,24 @@
 // main.ts の 流れ 9: 2 人で あそぶ（COOP-1 作業 1。docs/design/COOP-1.md）。
-// 作業 1・2 の あいだ 2P は ふだんの 遊びに 出さない: 参加できるのは `?duo=dev` の ときの テストの 口と 2 本目の ＋ だけ。
+// 作業 3d から: 2 本目の ＋・`duo.join()`・つかう コントローラーは ふつうの URL でも 効く。`?duo=dev` は E2E 用（`duo.place()` と 3a の 口だけ）。
 import * as THREE from 'three';
 import { DuoBody } from '../../duo/body';
+import { hearFrom } from '../../duo/hearing';
 import { distanceMeter } from '../../duo/meter';
+import { DuoJoinHint, type DuoJoinHintInput } from '../../duo/joinHint';
+import { duoWaitNotice } from '../../duo/rules';
 import { DuoSession } from '../../duo/session';
+import { createSplitSound } from '../../duo/splitSound';
 import { DUO_TUNING } from '../../duo/tuning';
 import type { DuoHook, DuoLeaveReason, DuoState, DuoVec3, DuoViewport } from '../../duo/types';
-import { WalkRelativeActions } from '../../duo/walkActions';
 import type { LockStatus } from '../../contracts';
 import { PlayerController } from '../../player/PlayerController';
 import { isBodyPlaceable } from '../../save';
 import { DuoHud } from '../../ui/duoHud';
+import { DuoNotices } from '../../ui/duoNotice';
 import { charBasePath } from './player';
 import type { WiredLoop } from './save';
 import { DuoViews, type DuoViewsInput } from './duoView';
+import { wireDuoPlay } from './duoPlay';
 
 const DEG = Math.PI / 180;
 /** 角度の 差を -180〜180 に */
@@ -40,9 +45,36 @@ export function wireDuo(deps: WiredLoop) {
   /** 分割のとき 2P の 右スティックで 回った 角度（次のステップの P2Camera に 渡す） */
   let pendingLook = 0;
   let ctl2: PlayerController | null = null;
-  const walk = new WalkRelativeActions(p2Actions);
 
-  const ui = new DuoHud({ hud, p2Inventory: p2.inventory, hotbar1: hotbar.el, hearts1: combatUi.hearts.el });
+  /** 分割の「しゅっ」（COOP-1 3c）: 参加が 成功して 左右に 分かれた 時だけ 1 回 */
+  const splitSound = createSplitSound(deps.fxSound);
+  const ui = new DuoHud({ hud, p2Inventory: p2.inventory, hotbar1: hotbar.el, hearts1: combatUi.hearts.el, levelbar1: deps.levelHud.barEl });
+  const notices = new DuoNotices(hud);
+  const joinHint = new DuoJoinHint();
+  /**
+   * 「＋で さんか」(AC46・AC64)と 2P の 側の「ちょっと まってね」(AC84)の 出し入れ。active = 世界が 動いている。
+   * 世界が 止まっている あいだは updaters が 動かない ので、modal の tick (shared.duoModalTick) と onIdle からも 呼ぶ
+   */
+  const hintIn: DuoJoinHintInput = { candidate: false, joined: false, active: false, anyButton: false };
+  const waitIn = { joined: false, inventoryOpen: false, modal: false };
+  function noticeStep(active: boolean): void {
+    const joined = session.joined;
+    // 候補の 番号・「何か 押している」は gamepad の poll が 出した 物を 読む（ここで パッドの 一覧を 作らない）
+    const poll = router.lastPoll();
+    hintIn.candidate = poll.candidate >= 0;
+    hintIn.joined = joined;
+    hintIn.active = active;
+    hintIn.anyButton = poll.candidatePressed;
+    joinHint.step(hintIn);
+    notices.setJoinHint(joinHint.visible());
+    waitIn.joined = joined;
+    waitIn.inventoryOpen = shared.screen.mode() === 'inventory';
+    waitIn.modal = deps.book.active() || shared.houseFrozen();
+    notices.setWait(duoWaitNotice(waitIn));
+  }
+  shared.duoModalTick = () => noticeStep(false);
+  game.onIdle(() => noticeStep(false));
+
   /** 参加のとき 1P の 今の キャラを 読む（1P が キャラを かえたら 2P も ついてくる） */
   const kindNow = (): 'girl' | 'boy' | null => (blockDollOnly || charCtl.get().kind === 'block' ? null : (charCtl.get().kind as 'girl' | 'boy'));
   const body = new DuoBody({
@@ -60,7 +92,6 @@ export function wireDuo(deps: WiredLoop) {
     host,
     isSolid: (x, y, z) => world.isSolid(x, y, z),
     shadow: () => shared.shadowSystem,
-    cameraDistance: () => session.cameraDistance(),
     beforePane: (c) => {
       sprite?.render(c);
       body.faceCamera(c);
@@ -68,7 +99,7 @@ export function wireDuo(deps: WiredLoop) {
   });
   const view = views.hud;
   /** views.update に 毎ステップ 渡す 入力（使いまわす） */
-  const viewIn: DuoViewsInput = { p1: controller.state.position, p2: controller.state.position, p1YawDeg: 0, p2PitchDeg: 0, distance: 0, padLost: false };
+  const viewIn: DuoViewsInput = { p1: controller.state.position, p2: controller.state.position, p1YawDeg: 0, p2PitchDeg: 0, distance: 0, padLost: false, panelOpen: false };
 
   const session = new DuoSession({
     p2,
@@ -83,18 +114,23 @@ export function wireDuo(deps: WiredLoop) {
       distance = 0;
       pendingLook = 0;
       views.reset();
+      views.p2cam.reset();
+      play.onLeave();
+      splitSound.onLeft();
       body.hide();
       ui.setJoined(false);
       shared.duoCamDistance = session.cameraDistance() === DUO_TUNING.cameraSolo ? null : session.cameraDistance();
     },
   });
   shared.duoJoined = () => session.joined;
+  shared.leaveDuo = (reason) => session.leave(reason);
 
   const lock2: LockStatus = {
     locked: () => lock.locked(),
     overlayVisible: () => lock.overlayVisible(),
     realtimeAllowed: () => lock.realtimeAllowed(),
-    playInputEnabled: () => lock.playInputEnabled() && !panelOpen,
+    // 倒れている あいだは 2P の 入力を ぜんぶ はなす（歩く・ほる・おく・こうげき）
+    playInputEnabled: () => lock.playInputEnabled() && !panelOpen && !play.down(),
   };
 
   /** 2P が 出る 所: 1P の 右 2 マス。ふさがっていたら 左・うしろ・前。どこも だめなら 1P の 真上 */
@@ -113,8 +149,20 @@ export function wireDuo(deps: WiredLoop) {
     return { x: s.position.x, y: s.position.y + DUO_TUNING.joinAboveTiles, z: s.position.z };
   }
 
+  const play = wireDuoPlay({
+    deps,
+    ui,
+    actions: p2Actions,
+    lock: lock2,
+    ctl2: () => controller2(),
+    joined: () => session.joined,
+    padPresent: () => !router.padLost(),
+    joinSpot,
+    dev,
+  });
+
   function controller2(): PlayerController {
-    ctl2 ??= new PlayerController(world, walk, gamepadApi.look2, lock2, () => ({ ...joinSpot(), yawDeg: controller.state.yawDeg, pitchDeg: 0 }));
+    ctl2 ??= new PlayerController(world, p2Actions, gamepadApi.look2, lock2, () => ({ ...joinSpot(), yawDeg: controller.state.yawDeg, pitchDeg: 0 }));
     return ctl2;
   }
 
@@ -127,11 +175,13 @@ export function wireDuo(deps: WiredLoop) {
     ui.setJoined(true);
     body.show();
     body.step(c.state);
+    play.onJoin();
+    splitSound.onJoined();
     return true;
   }
-  // 2 本目の ＋: 作業 3 までは ?duo=dev の ときだけ 参加できる
+  // 2 本目の ＋: ふつうの URL でも 参加できる（作業 3d・AC64）
   gamepadApi.duo.onJoinRequested = () => {
-    if (dev) join();
+    join();
   };
   gamepadApi.duo.menuOpen2 = () => session.joined && panelOpen;
 
@@ -141,11 +191,12 @@ export function wireDuo(deps: WiredLoop) {
 
   /** 毎ステップ（固定）。1P の 更新（createStep）の あとに 呼ばれる */
   function step(dt: number): void {
+    noticeStep(true);
     if (session.joined) {
       // 2P の もちもの画面（Y・＋で ひらく / B で とじる）と ホットバーの 切りかえ。本・建築士さん・とりごや・たんすは 開かない（AC15）
-      if (p2Actions.wasPressed('toggleInventory')) panelOpen = !panelOpen;
+      if (!play.down() && p2Actions.wasPressed('toggleInventory')) panelOpen = !panelOpen;
       if (p2Actions.wasPressed('closeMenu')) panelOpen = false;
-      if (!panelOpen) {
+      if (!panelOpen && !play.down()) {
         const inv = p2.inventory;
         if (p2Actions.wasPressed('hotbarNext')) inv.selectNext(1);
         if (p2Actions.wasPressed('hotbarPrev')) inv.selectNext(-1);
@@ -156,26 +207,18 @@ export function wireDuo(deps: WiredLoop) {
     const camNow = session.cameraDistance();
     shared.duoCamDistance = camNow === DUO_TUNING.cameraSolo ? null : camNow;
     if (session.joined && ctl2) {
-      // 向き: 1 画面・ルーペは 1P の 画面の 向きで 歩く。分割は 2P 自分の カメラ（右スティックで 回る。§2.5）
-      const held = p2Actions.isHeld('moveForward') || p2Actions.isHeld('moveBack') || p2Actions.isHeld('moveLeft') || p2Actions.isHeld('moveRight');
-      const cam = views.camStep(controller.state.yawDeg, pendingLook, held);
-      const split = views.view === 'split';
-      walk.relative = !split;
-      let yaw0 = ctl2.state.yawDeg;
-      if (split) {
-        ctl2.state.yawDeg = cam.camYawDeg;
-        yaw0 = cam.camYawDeg;
-      } else {
-        walk.sync(cam.walkYawDeg);
-        const heading = walk.heading();
-        if (heading !== null) ctl2.state.yawDeg = heading;
-      }
+      // 向き: 2P は いつも 自分の カメラ（右スティックで 回る。左スティック上は その カメラの 奥へ。1P と 同じ。§2.5）
+      const cam = views.camStep(controller.state.yawDeg, pendingLook);
+      const yaw0 = cam.camYawDeg;
+      ctl2.state.yawDeg = yaw0;
       if (worldReady()) ctl2.update(dt);
-      pendingLook = split ? wrapDeg(ctl2.state.yawDeg - yaw0) : 0;
+      pendingLook = wrapDeg(ctl2.state.yawDeg - yaw0);
       const a = controller.state.position;
       const b = ctl2.state.position;
       distance = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+      body.setShown(!play.down());
       body.step(ctl2.state);
+      play.step(dt);
       const vi = viewIn;
       vi.p1 = a;
       vi.p2 = b;
@@ -183,6 +226,7 @@ export function wireDuo(deps: WiredLoop) {
       vi.p2PitchDeg = ctl2.state.pitchDeg;
       vi.distance = distance;
       vi.padLost = session.padLost();
+      vi.panelOpen = panelOpen;
       views.update(vi);
       view.meter = distanceMeter(distance);
       view.distance = distance;
@@ -190,6 +234,9 @@ export function wireDuo(deps: WiredLoop) {
       view.quitGauge = session.quitGauge();
       view.panelOpen = panelOpen;
       ui.update(view);
+    } else {
+      // 2P が いなくても ようす・軽くする 工夫・矢印の 数えは すすめる（やめた あとも 120 ステップ 軽いまま）
+      views.update(null);
     }
     p2Actions.endFrame();
   }
@@ -204,13 +251,11 @@ export function wireDuo(deps: WiredLoop) {
   const state = (): DuoState => ({
     joined: session.joined,
     view: session.joined ? views.view : 'one',
-    tier: session.joined ? views.tier : 0,
     distance: session.joined ? distance : 0,
     meter: session.joined ? distanceMeter(distance) : 0,
-    loupe: session.joined ? views.loupe() : null,
     rings: session.joined ? views.rings : 1,
     columns: columnCount(),
-    light: session.joined ? views.light : false,
+    light: views.light, // やめた あとも 120 ステップは true（工夫は まとめて 元に もどす）
     padLost: session.padLost(),
   });
 
@@ -226,7 +271,8 @@ export function wireDuo(deps: WiredLoop) {
   });
 
   const hook: DuoHook = {
-    join: () => dev && join(),
+    ...play.hook,
+    join,
     place(who, pos) {
       if (!dev) return;
       const target = who === 1 ? controller : session.joined ? ctl2 : null;
@@ -240,10 +286,13 @@ export function wireDuo(deps: WiredLoop) {
     leave: () => leave('quit'),
     timeScale: () => shared.gameTimeScale(),
     viewports: () => (session.joined ? views.viewports(controller.state.yawDeg) : [fullViewport()]),
+    arrow: (who) => (session.joined ? views.arrow(who) : null),
     // 作業 2.5（#401）: 型だけの スタブ(developer が ルーターに つなぐ)
     padChoice: () => router.choice(),
     setPadChoice: (c) => router.setChoice(c),
     padIndex: (who) => router.padIndex(who),
+    // 作業 3c（#417）: 場所の ある 音を 聞く 人（近い 方）
+    hearFrom: (pos) => hearFrom(controller.state.position, session.joined && ctl2 ? ctl2.state.position : null, pos),
   };
   return { duo: hook, duoSession: session, leaveDuo: leave };
 }

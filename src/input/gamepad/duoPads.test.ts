@@ -251,10 +251,11 @@ describe('AC16: 3 本目の パッド', () => {
     expect(router.ignoredPadIndexes()).toEqual([2]);
   });
 
-  it('文字を 返す 口を 持たない（poll の 結果は joinRequested だけ）', () => {
+  it('文字を 返す 口を 持たない（poll の 結果は 真偽と 番号だけ）', () => {
     const { set, poll } = make();
     set(fakePad(0), fakePad(1), fakePad(2, { buttons: [START] }));
-    expect(Object.keys(poll())).toEqual(['joinRequested']);
+    expect(Object.keys(poll())).toEqual(['joinRequested', 'candidate', 'candidatePressed']);
+    expect(Object.values(poll()).every((v) => typeof v !== 'string')).toBe(true);
   });
 });
 
@@ -265,7 +266,7 @@ describe('1P が パッドなし（setChoice({ p1: null, p2: 0 })）: 1 本目�
     const p2 = new ActionState();
     const look1 = new AlwaysLook();
     const look2 = new AlwaysLook();
-    const router = new DuoPadRouter({ p1, p2, look1, look2, storage: null, choiceStorage: new FakeStorage(), choiceEnabled: true });
+    const router = new DuoPadRouter({ p1, p2, look1, look2, storage: null, choiceStorage: new FakeStorage() });
     let pads: (Gamepad | null)[] = [];
     router.getPads = () => pads;
     router.setChoice({ p1: null, p2: 0 });

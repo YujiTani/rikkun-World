@@ -28,7 +28,8 @@ export interface RenderStats {
  */
 export interface GameModal {
   active(): boolean;
-  tick(): void;
+  /** inFrame: 実時間の コマ（frame）から。step()（テスト）の 道では false */
+  tick(inFrame?: boolean): void;
   render(): void;
 }
 
@@ -131,7 +132,7 @@ export class Game {
     this.worldPass = p;
   }
 
-  /** COOP-1: 2 人で 区画を わけて 描く 道（ルーペ・分割の あいだだけ active）。落雷の 道が 先 */
+  /** COOP-1: 2 人で 区画を わけて 描く 道（2P が いる あいだ・見せ方の とちゅうだけ active）。落雷の 道が 先 */
   setViewPass(p: { active(): boolean; render(): void }): void {
     this.viewPass = p;
   }
@@ -226,7 +227,7 @@ export class Game {
       // 本: 世界は 止まる。本の 動きだけ 1/60 秒で 数える
       this.modalAcc = Math.min(this.modalAcc + Math.min(elapsed, 100) / 1000, FIXED_DT * MAX_STEPS_PER_FRAME);
       while (this.modalAcc >= FIXED_DT && this.modal.active()) {
-        this.modal.tick();
+        this.modal.tick(true);
         this.modalAcc -= FIXED_DT;
       }
       for (const fn of this.idleUpdaters) fn(Math.min(elapsed / 1000, 0.1));

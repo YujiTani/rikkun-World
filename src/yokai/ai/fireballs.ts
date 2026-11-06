@@ -10,6 +10,7 @@ import type { YokaiHurt } from './hurt';
 import type { BurstFx } from './effects';
 import type { FireballView, YokaiManagerOptions } from './managerTypes';
 import { askParry } from './parry';
+import { aim } from './target';
 import type { YokaiReeler } from './reeler';
 
 const tmpBox: Aabb = { minX: 0, minY: 0, minZ: 0, maxX: 0, maxY: 0, maxZ: 0 };
@@ -47,7 +48,7 @@ export class YokaiFireballs {
     const idx = model.fireballs.findIndex((f) => f.alive && f.traveled === 0);
     if (idx < 0) return;
     const fb = model.fireballs.splice(idx, 1)[0]!;
-    this.fireballs.push({ id: ++this.fireballSeq, fb, owner: e.id, damage: e.attack, reflected: false });
+    this.fireballs.push({ id: ++this.fireballSeq, fb, owner: e.id, damage: e.attack, reflected: false, who: e.target });
     const spare = this.freeFireballs.pop();
     if (spare) model.fireballs.push(spare);
   }
@@ -68,12 +69,12 @@ export class YokaiFireballs {
   tick(dt: number): void {
     if (this.fireballs.length === 0) return;
     const { world, f: field, combat, events, opts } = this.d;
-    const pb = playerBox(field, tmpBox);
     const keep: LiveFireball[] = [];
     const half = AI_CONST.fireballBox / 2;
     const dome = opts.dome?.() ?? null;
     for (const f of this.fireballs) {
       f.fb.update(dt);
+      aim(field, f.who); // 出した 妖怪が ねらっていた 人の 箱で 見る
       const p = f.fb.position;
       const kind: YokaiKind = 'chochin';
       let end = false;
@@ -100,7 +101,7 @@ export class YokaiFireballs {
         if (f.reflected) {
           // はね返した 火の玉: 妖怪に 当たる（プレイヤーには もう 当たらない）
           if (this.reflectedHit(f, tmpBox2)) end = true;
-        } else if (aabbOverlap(tmpBox2, pb)) {
+        } else if (aabbOverlap(tmpBox2, playerBox(field, tmpBox))) {
           // WEAPON-5: 受けの間なら はね返す（火の玉は のこる）。おしいは 半分で 消える
           const v = askParry(opts.parry, field, 'fireball', f.owner, { x: p.x, y: p.y, z: p.z }, f.damage);
           if (v?.result === 'success') {
@@ -120,6 +121,7 @@ export class YokaiFireballs {
       }
     }
     this.fireballs = keep;
+    aim(field, 1);
   }
 
   /** テスト用: いま飛んでいる火の玉の数（はね返した分も 数える） */

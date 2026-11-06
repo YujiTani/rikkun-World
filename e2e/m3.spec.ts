@@ -191,7 +191,7 @@ test.describe('M3 出現と帰る', () => {
     console.log('day spawns (roofed only):', r.spawns);
   });
 
-  test('AC4/AC5: よるに出る（5 体まで・ぬりかべ 1 体まで・12〜28・水の上でない）、同じシードで同じ並び', async ({ page }) => {
+  test('AC4/AC5: よるに出る（3 体まで〔2026-11-06 オーナー決定〕・ぬりかべ 1 体まで・12〜28・水の上でない）、同じシードで同じ並び', async ({ page }) => {
     test.setTimeout(120_000);
     const run = async () => {
       await open(page);
@@ -209,7 +209,7 @@ test.describe('M3 出現と帰る', () => {
         const spawns: any[] = [];
         let maxN = 0;
         let maxNuri = 0;
-        let fiveAt = -1;
+        let fullAt = -1;
         for (let i = 0; i < 3000; i += 10) {
           h.combat.setHp(20);
           h.player.set({ position: { x: sp.x, y: h.player.get().position.y, z: sp.z }, velocity: { x: 0, y: 0, z: 0 } });
@@ -217,20 +217,20 @@ test.describe('M3 出現と帰る', () => {
           const list = h.yokai.list();
           maxN = Math.max(maxN, list.length);
           maxNuri = Math.max(maxNuri, list.filter((y: any) => y.kind === 'nurikabe').length);
-          if (fiveAt < 0 && list.length >= 5) fiveAt = i + 10;
+          if (fullAt < 0 && list.length >= 3) fullAt = i + 10;
           for (const e of h.yokai.events()) if (e.type === 'spawn') spawns.push(e);
         }
         const below = spawns.map((e) => h.world.getBlock(Math.floor(e.position.x), Math.floor(e.position.y - 0.5), Math.floor(e.position.z)));
-        return { sp, spawns, maxN, maxNuri, fiveAt, below, P };
+        return { sp, spawns, maxN, maxNuri, fullAt, below, P };
       });
     };
     const a = await run();
-    expect(a.spawns.length).toBeGreaterThanOrEqual(5);
+    expect(a.spawns.length).toBeGreaterThanOrEqual(3);
     expect(a.spawns[0].tick).toBeLessThanOrEqual(5); // よるの始めの 1 回目（1 ステップ目）
-    expect(a.maxN).toBeLessThanOrEqual(5);
+    expect(a.maxN).toBeLessThanOrEqual(3);
     expect(a.maxNuri).toBeLessThanOrEqual(1);
-    expect(a.fiveAt).toBeGreaterThan(0);
-    expect(a.fiveAt).toBeLessThanOrEqual(1500);
+    expect(a.fullAt).toBeGreaterThan(0);
+    expect(a.fullAt).toBeLessThanOrEqual(1500);
     for (const e of a.spawns) {
       const d = Math.hypot(e.position.x - a.P.x, e.position.z - a.P.z);
       expect(d, `spawn ${e.kind} @${e.position.x.toFixed(1)},${e.position.z.toFixed(1)}`).toBeGreaterThanOrEqual(11.5);
@@ -239,7 +239,7 @@ test.describe('M3 出現と帰る', () => {
     expect(a.below.filter((b: string) => b === 'water')).toEqual([]);
     const b = await run();
     expect(b.spawns.map((e: any) => [e.kind, e.position.x, e.position.z])).toEqual(a.spawns.map((e: any) => [e.kind, e.position.x, e.position.z]));
-    console.log('night spawns', a.spawns.length, 'fiveAt', a.fiveAt, 'first tick', a.spawns[0].tick);
+    console.log('night spawns', a.spawns.length, 'fullAt', a.fullAt, 'first tick', a.spawns[0].tick);
   });
 
   test('AC6: あさ になると外の妖怪は 600 ステップ以内に全員帰る（defeat なし・持ち物そのまま）', async ({ page }) => {

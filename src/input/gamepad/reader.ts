@@ -255,10 +255,10 @@ export class GamepadReader {
     for (let i = 0; i < n; i++) {
       const face = table[i];
       if (!face) continue;
-      // 待ちの あいだの ＋ は 操作に しない。おぼえ(prev)は 本当の 値のまま → 押したまま 待ちが おわっても 押した ことに ならない
-      if (this.ignoreStart && face === 'start') continue;
       const was = !!prev[i];
       const on = !!cur[i];
+      // 待ちの あいだの ＋ は 押すのを 操作に しない（はなすのは 読む。AC74）。おぼえ(prev)は 本当の 値のまま → 押したまま 待ちが おわっても 押した ことに ならない
+      if (this.ignoreStart && face === 'start' && on) continue;
       if (on === was) continue;
       this.lastInput = 'gamepad';
       if (on) this.pressFace(face, nowMs);

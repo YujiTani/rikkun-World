@@ -22,10 +22,9 @@ export function wireGamepad(opts: {
   const look = new CombinedLook(opts.mouseLook, padLook);
   const slots = new PlayerInputSlots(opts.actions, 1); // slot 0 = 1P（キー・マウスと 同じ）、slot 1 = 2P（COOP-1）
   // COOP-1: パッドは ルーターが 1P・2P に 振り分ける。1P の 読み（reader）は 今までと 同じ
-  // 「つかう コントローラー」は 作業 3 までは `?duo=dev` の ときだけ（ふだんは 保存を 読まず はじめの 動き）
+  // 「つかう コントローラー」は いつも つかえる（保存を 読む。作業 3d・AC65）
   const storage = typeof localStorage !== 'undefined' ? localStorage : null;
-  const choiceEnabled = new URLSearchParams(location.search).get('duo') === 'dev';
-  const router = new DuoPadRouter({ p1: slots.get(0), p2: slots.get(1), look1: padLook, look2: padLook2, storage, choiceStorage: storage, choiceEnabled });
+  const router = new DuoPadRouter({ p1: slots.get(0), p2: slots.get(1), look1: padLook, look2: padLook2, storage, choiceStorage: storage });
   const reader = router.reader1;
   router.bootstrap();
   opts.lock.setPadActive(reader.hasPad());
@@ -82,6 +81,7 @@ export function wireGamepad(opts: {
   };
   // 案内中（realtime オフ）でもパッドを読んで padActive にできるように idle でも回す
   opts.game.onUpdate(() => step(true, 1 / 60));
+  // 実時間の コマは modal の あいだも idle が 毎コマ 1 回 読む。modal.tick は 0〜N 回 回る ので、そこでは 読まない
   opts.game.onIdle((dt) => step(false, dt));
 
   return {
@@ -94,6 +94,13 @@ export function wireGamepad(opts: {
       pumpUi = fn;
     },
     look2: padLook2,
+    /**
+     * AC84: __rikkun.step() の 道（idle が 回らない）で 2 人の もちもの画面が 世界を 止めている あいだ、`game.setModal` の tick から 呼ぶ。
+     * 1P の パッドを ここで 読む（B などで とじられる）。2P は 読まない（世界が 止まっている）。実時間の コマでは 呼ばない（idle が 読む）
+     */
+    modalStep(): void {
+      step(false, 1 / 60);
+    },
     /** E2E: 偽パッドを差し込む */
     injectPad(pad: Gamepad | null): void {
       router.getPads = () => (pad ? [pad] : []);

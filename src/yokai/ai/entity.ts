@@ -119,6 +119,8 @@ export interface Ent {
   auto: boolean;
   /** MINE-1A §4.3: 出た とき、または 最後に プレイヤーを 見つけて いた ステップ（YokaiField.steps）。ここから yokaiForgetSteps たつと 去る */
   foundAt: number;
+  /** COOP-1: ねらっている 相手（1 = 1P・2 = 2P。ステップの はじめに 近い方から 決める） */
+  target: 1 | 2;
 }
 
 export interface LiveFireball {
@@ -129,6 +131,8 @@ export interface LiveFireball {
   damage: number;
   /** WEAPON-5: はね返した（プレイヤーには もう 当たらない） */
   reflected: boolean;
+  /** COOP-1: 出した 妖怪が ねらっていた 相手（この 人の 箱で 当たりを 見る） */
+  who: 1 | 2;
 }
 
 
@@ -140,8 +144,14 @@ export interface YokaiField {
   ents: Ent[];
   /** update を 呼んだ 回数 */
   steps: number;
-  /** 今のステップの プレイヤー（足もとの中央） */
+  /** いま 見ている ねらい相手（f.who）の 足もとの中央。部品は ここを 読む（妖怪ごとに aimAt で 書きかえる） */
   px: number;
   py: number;
   pz: number;
+  /** px/py/pz は だれか（1 = 1P・2 = 2P） */
+  who: 1 | 2;
+  /** 1P の 足もと（ステップの はじめに 書く） */
+  p1: { x: number; y: number; z: number };
+  /** ねらえる 2P の 足もと（on = いる） */
+  p2: { on: boolean; x: number; y: number; z: number };
 }

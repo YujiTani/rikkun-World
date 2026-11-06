@@ -12,6 +12,7 @@ import { AnimalRenderer, ViewBuffer } from '../../animals/models/AnimalRenderer'
 import { countryAt } from '../../world/gen/biome';
 import { groundHeightAt } from '../../world/gen/terrain';
 import { YokaiManager } from '../../yokai';
+import { creditDefeat, type CreditDeps } from '../../duo/credit';
 import { MachoMarks } from '../../ui/machoMarks';
 import { FX_SETTINGS } from '../../fx/config';
 import { playKodachi } from '../../fx/weaponSounds';
@@ -23,10 +24,12 @@ export function wireYokai(deps: WiredFighters) {
     shared, world, time, controller, combat, inventory, drops, game, seed, harapanRoll, armor,
     strengthLevel, renderer, island, w2, legend, parry, parryFx, sparkAt, reducedMotionMq, fxSound, level,
   } = deps;
+  const credit: CreditDeps = { level1: level, level2: shared.p2.levels, feedDefeat: (who, kind) => shared.onDefeatAch(kind, who) };
   shared.yokaiManager = new YokaiManager({
     world,
     time,
     getPlayer: () => controller.state,
+    partner: () => shared.duoYokai(),
     combat,
     inventory,
     drops,
@@ -73,10 +76,8 @@ export function wireYokai(deps: WiredFighters) {
         playParry(fxSound, 'staggerBreak');
       }
     },
-    onDefeat: (kind, info) => {
-      level.onDefeat(kind, info.xp);
-      shared.onDefeatAch(kind);
-    },
+    // COOP-1 3a: さいごの 1 発を 当てた 人の けいけんちに だけ 入る。実績は 2 人で 1 つ
+    onDefeat: (kind, info) => creditDefeat(credit, info.who, kind, info.xp),
     // ぬりかべ: たおれこみでこわす・みず で石になる（くだけるつぶと音。fx はあとで作るので関数で包む）
     onBlocks: (cells, why) => {
       for (const c of cells) shared.fx.particles.burst({ x: c.x, y: c.y, z: c.z }, why === 'stone' ? c.to : c.from, FX_SETTINGS);

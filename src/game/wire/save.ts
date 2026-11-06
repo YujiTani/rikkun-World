@@ -25,16 +25,16 @@ import { MICRO_RADII } from '../../world/render/voxel/tier';
 import { groundBelow } from '../../fx/blobShadow';
 import { isSolidIndex } from '../../world/blocks/blockTypes';
 import { createTetherLine } from '../../world/render/tetherLine';
-import { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
-import { saveShadowPref } from '../../world/render/shadow/shadowPref';
-import { decideTitleReturn } from '../../ui/menu/titleReturn';
-import { createShadowSetting } from '../../ui/shadowSetting';
+import { runTitleReturn } from '../../ui/menu/titleReturn';
+import { runImport } from '../../save/importFlow';
+import { wireShadow } from './shadow';
 import { START_PITCH_DEG } from '../../player/config';
 import { computeFarmPlacement, applyFarmPlacement } from '../../world/gen/farmPlacement';
 import { createFarmVisual } from '../../world/render/farmVisual';
 import type { WiredAchievements } from './ui';
 import { isWaterIndex } from '../../world/blocks/water';
 import { SHAFT_CONFIG } from '../../world/gen/mineShaftConfig';
+import { sharedLevel } from '../../duo/credit';
 import { readP2Save } from '../../duo/p2State';
 import { duoTimeScale } from '../../duo/rules';
 
@@ -235,7 +235,7 @@ export function wireSave(deps: WiredAchievements) {
     }
     seedsInInv = n;
   }
-  achievements.syncSilently({ level: level.get().level, armor: [armor.equipped('head'), armor.equipped('body'), armor.equipped('arms'), armor.equipped('legs')] });
+  achievements.syncSilently({ level: sharedLevel(level.get().level, shared.duoJoined() ? shared.p2.levels.level() : null), armor: [armor.equipped('head'), armor.equipped('body'), armor.equipped('arms'), armor.equipped('legs')] });
   celebrate.setPending(achievements.pendingCount());
   lock.onChange((locked) => {
     if (!locked) save.saveIfChanged();
@@ -248,22 +248,26 @@ export function wireSave(deps: WiredAchievements) {
     craft.closeFurnace();
     save.saveIfChanged();
   });
-  setTitleReturn(async () => {
-    const before = save.info().failures;
-    await save.now();
-    const info = save.info();
-    const decision = decideTitleReturn({
-      enabled: info.enabled,
-      nosave: saveOptions.nosave,
-      failuresBefore: before,
-      failuresAfter: info.failures,
-      held: save.holdWrites,
-      dirty: info.pendingChunks > 0,
-    });
-    // 成功しても「ほぞんした」とは言わない。失敗したら読みこまない（呼び出し側が文を出す）
-    if (decision === 'reload') location.reload();
-    return decision;
-  });
+  // 成功しても「ほぞんした」とは言わない。失敗したら読みこまない（呼び出し側が文を出す）。読みなおす 直前に 2P を やめさせる（COOP-1 AC71）
+  setTitleReturn(() =>
+    runTitleReturn({
+      saveNow: async () => {
+        const before = save.info().failures;
+        await save.now();
+        const info = save.info();
+        return {
+          enabled: info.enabled,
+          nosave: saveOptions.nosave,
+          failuresBefore: before,
+          failuresAfter: info.failures,
+          held: save.holdWrites,
+          dirty: info.pendingChunks > 0,
+        };
+      },
+      leaveDuo: (reason) => shared.leaveDuo(reason),
+      reload: () => location.reload(),
+    }),
+  );
   save.bindPageEvents(window, document);
   if (idb) {
     // おとな向け: ほぞんを ファイル（.rikkun.gz）に だす・よみこむ（Safari の 7 日消去にそなえる）
@@ -278,17 +282,19 @@ export function wireSave(deps: WiredAchievements) {
         setTimeout(() => URL.revokeObjectURL(a.href), 10000);
       },
       importSave: async (file) => {
-        if (!window.confirm('いまの せかいが ファイルの ものに かわります。いいですか？')) return;
-        try {
-          save.suspend(); // 読みなおすまで、いまの世界で ファイルの中身を 上書きしない
-          await save.idle();
-          await importSave(idb, saveId, new Uint8Array(await file.arrayBuffer()), seed);
-          store?.removeItem(PENDING_KEY);
-          location.reload();
-        } catch (e) {
-          save.resume();
-          window.alert(e instanceof Error ? e.message : 'よみこめませんでした');
-        }
+        await runImport({
+          confirm: () => window.confirm('いまの せかいが ファイルの ものに かわります。いいですか？'),
+          suspendSave: () => save.suspend(), // 読みなおすまで、いまの世界で ファイルの中身を 上書きしない
+          resumeSave: () => save.resume(),
+          idle: () => save.idle(),
+          writeFile: async () => {
+            await importSave(idb, saveId, new Uint8Array(await file.arrayBuffer()), seed);
+            store?.removeItem(PENDING_KEY);
+          },
+          leaveDuo: (reason) => shared.leaveDuo(reason), // 2P の 持ち物は 保存に 書かない（ファイルの p2 を のこす。COOP-1 AC72）
+          reload: () => location.reload(),
+          alert: (m) => window.alert(m),
+        });
       },
     });
   }
@@ -361,7 +367,7 @@ export function wireFrame(deps: WiredSave) {
     ctx.dead = combat.dead();
     if (game.tick % 10 === 0) yokaiSample = yokaiM.list();
     ctx.yokai = yokaiSample;
-    ctx.level = level.get().level;
+    ctx.level = sharedLevel(level.get().level, shared.duoJoined() ? shared.p2.levels.level() : null);
     armorNow[0] = armor.equipped('head');
     armorNow[1] = armor.equipped('body');
     armorNow[2] = armor.equipped('arms');
@@ -477,16 +483,14 @@ export function wireLoop(deps: WiredFrame) {
   const hudHook = { toolHint: () => { const h = dig.toolHint(); return h ? { slot: h.slot, ticksLeft: h.ticksLeft } : null; }, actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount(), hpBar: (id: number) => shared.yokaiManager?.hpBarInfo(id) ?? null, announce: () => shared.yokaiManager?.announce() ?? null, nameplate: (id: number) => shared.yokaiManager?.nameplateInfo(id) ?? null, staggerIcon: (id: number) => shared.yokaiManager?.staggerIconInfo(id) ?? null };
   const lockHook = createLockHook(lock);
   const combatHook = createCombatHook(combat);
-  const shadowStore = store;
   const shadowStart = weighted.shadow;
   startBoot.setInfo({ strength: strengthLevel, microR: weighted.microR, ring: weighted.ring, shadowBuilt: shadowStart.build });
-  const shadowHost = document.createElement('div');
-  shadowHost.className = 'ss-root';
-  playOverlay.el.appendChild(shadowHost);
-  const shadowSettingUi = createShadowSetting(shadowHost);
-  if (shadowStart.build) {
-    ShadowSystem.activate();
-    const sys = new ShadowSystem({
+  const { system, setShadow } = wireShadow({
+    game,
+    start: shadowStart,
+    store,
+    parent: playOverlay.el,
+    deps: () => ({
       renderer: game.renderer,
       worldRenderer: renderer,
       timeSettings,
@@ -495,22 +499,10 @@ export function wireLoop(deps: WiredFrame) {
       player: () => controller.state.position,
       facing: () => controller.state.facingDeg,
       world,
-    });
-    sys.enabled = shadowStart.on;
-    const sprite = rig.doll.group.getObjectByName('charSprite');
-    if (sprite) sys.attachSprite(sprite as import('three').Mesh);
-    game.onBeforeRender(() => sys.preRender());
-    shared.shadowSystem = sys;
-    window.addEventListener('pagehide', () => sys.dispose());
-  }
-  const setShadow = (on: boolean): void => {
-    if (!shared.shadowSystem) return;
-    shared.shadowSystem.enabled = on;
-    saveShadowPref(shadowStore, on);
-    shadowSettingUi.refresh(on);
-    game.step(0); // 次のコマで画面を合わせる
-  };
-  shadowSettingUi.bind(shared.shadowSystem !== null, shadowStart.on, setShadow);
+    }),
+    sprite: () => rig.doll.group.getObjectByName('charSprite'),
+  });
+  shared.shadowSystem = system;
   return {
     cameraHook, toolHook, craftHook, logHook, craftUiHook, storageHook, achievementsHook, facingTmp,
     hudHook, lockHook, combatHook, setShadow,

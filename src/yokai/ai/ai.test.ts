@@ -791,7 +791,7 @@ describe('BAL-B: 二つ名・場所の倍率（つなぎ）', () => {
     expect(m.announce()).toBeNull();
     expect(m.nameplateInfo(id)).toEqual({ visible: true, text: 'からかさおばけ の ヌシ' });
     m.damage(id, 24, s.player.position);
-    expect(got).toEqual({ xp: 15, title: 'nushi', m: 1 });
+    expect(got).toEqual({ who: 1, xp: 15, title: 'nushi', m: 1 });
     expect(m.drainEvents().find((e) => e.type === 'defeat')).toMatchObject({ title: 'nushi' });
   });
   it('たいしょう・ヌシ は 1 体まで・ぬりかべ も 同じ（#270）・16 ブロックより遠いと名前なし', () => {

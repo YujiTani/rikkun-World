@@ -31,12 +31,12 @@ export class YokaiDefeat {
   constructor(private readonly d: DefeatDeps) {}
 
   /** byPlayer が false（落下など）なら、ドロップも経験値もなし */
-  defeat(e: Ent, byPlayer = true): void {
+  defeat(e: Ent, byPlayer = true, who: 1 | 2 = 1): void {
     const { d } = this;
     d.stag.remove(e.id);
     e.state = 'dying';
     e.model.die();
-    if (byPlayer) d.opts.onDefeat?.(e.kind, { xp: e.xp, title: e.title, m: e.m });
+    if (byPlayer) d.opts.onDefeat?.(e.kind, { who, xp: e.xp, title: e.title, m: e.m });
     // 水の 中の 妖怪の ドロップは 水にういて ひろいにくいので、たおした ときに そのまま 持ち物に 入る（子どもが 追いかけなくていい）
     const direct = KIND_TRAITS[e.kind].swims;
     let total = 0;

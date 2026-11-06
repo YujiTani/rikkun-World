@@ -16,6 +16,7 @@ import { KIND_TRAITS } from '../traits';
 import { syncTransform } from './body';
 import { AI_CONST, KIND_AI, type YokaiConfig } from './config';
 import { DEG, type Ent, type YokaiField } from './entity';
+import { nearestWho } from './target';
 import type { YokaiEvents } from './events';
 import type { SpawnOptions, YokaiManagerOptions } from './managerTypes';
 import type { YokaiPlacement } from './placement';
@@ -155,6 +156,7 @@ export class YokaiSpawner {
       // 自動で 出た 妖怪だけ 見つけられない まま 去る（MINE-1A §4.3。ふくらんで 出てくるのも 自動の 出現だけ）
       auto: how.auto,
       foundAt: f.steps,
+      target: 1,
     };
     model.onHit = (ev) => this.d.onModelHit(e, ev.box);
     model.root.scale.setScalar(Math.max(e.appearScale, 1e-4));
@@ -166,22 +168,47 @@ export class YokaiSpawner {
 
   /** 光の少ない場所か: 空が見えない（上がふさがっている）か、よる */
   spawnTick(): void {
-    if (!this.d.config.yokaiAutoSpawn) return;
+    const { f, config } = this.d;
+    if (!config.yokaiAutoSpawn) return;
     if (this.spawnCountdown > 0) {
       this.spawnCountdown--;
       return;
     }
-    // 間かくと 上限は プレイヤーが 今 いる 所（地上か 地下）の 数を 使う（MINE-1A §4.3）
-    const under = this.playerUnder();
-    const interval = under ? this.d.config.yokaiSpawnIntervalUnder : this.d.config.yokaiSpawnInterval;
+    // 出る 場所は「いま 数が 少ない方」のプレイヤーのまわり（同じなら 1P）。間かくと 上限は その人が 今 いる 所（地上か 地下）の 数を 使う（MINE-1A §4.3）
+    const who = this.pickSpawnCenter();
+    const c = who === 2 ? f.p2 : f.p1; // 出せる 人が いないときは 1P の 間かくで 数えなおす
+    const under = this.isUnder(c);
+    const interval = under ? config.yokaiSpawnIntervalUnder : config.yokaiSpawnInterval;
     this.spawnCountdown = Math.max(1, interval) - 1;
-    this.trySpawn(under);
+    if (who === 0) return;
+    this.trySpawn(c, who === 2);
   }
 
-  /** プレイヤーは 地下に いるか。groundY（生成の 地形の 高さ）が なければ いつも 地上 */
-  private playerUnder(): boolean {
-    const { f, opts } = this.d;
-    return opts.groundY !== undefined && isUnderground(f.py, opts.groundY(f.px, f.pz));
+  /** その人は 地下に いるか。groundY（生成の 地形の 高さ）が なければ いつも 地上 */
+  private isUnder(c: { x: number; y: number; z: number }): boolean {
+    const { opts } = this.d;
+    return opts.groundY !== undefined && isUnderground(c.y, opts.groundY(c.x, c.z));
+  }
+
+  /**
+   * 出す 相手を えらぶ。「その人の まわり」の 数 = その 妖怪から いちばん 近い プレイヤー（3 次元）が その人。
+   * 上限（その人の 地上/地下の 数）に 届いていない 人のうち 数が 少ない方（同じなら 1P）。2 人のときは 世界全体の 上限（yokaiMaxTotal）も 見る。
+   * 出せる 人が いなければ 0
+   */
+  private pickSpawnCenter(): 0 | 1 | 2 {
+    const { f, config } = this.d;
+    if (!f.p2.on) return f.ents.length >= (this.isUnder(f.p1) ? config.yokaiMaxUnder : config.yokaiMax) ? 0 : 1;
+    if (f.ents.length >= config.yokaiMaxTotal) return 0;
+    let n1 = 0;
+    let n2 = 0;
+    for (const e of f.ents) {
+      if (nearestWho(f, e.x, e.y, e.z) === 2) n2++;
+      else n1++;
+    }
+    const ok1 = n1 < (this.isUnder(f.p1) ? config.yokaiMaxUnder : config.yokaiMax);
+    const ok2 = n2 < (this.isUnder(f.p2) ? config.yokaiMaxUnder : config.yokaiMax);
+    if (ok1 && ok2) return n2 < n1 ? 2 : 1;
+    return ok1 ? 1 : ok2 ? 2 : 0;
   }
 
   /** COUNTRY-1: その場所の 国の行（行 × 倍率の 合計が 0 なら ものさしの行 = はらっぱ） */
@@ -209,21 +236,22 @@ export class YokaiSpawner {
     return n;
   }
 
-  private trySpawn(under: boolean): void {
-    const { world, time, f, config, opts, rng, events } = this.d;
-    if (f.ents.length >= (under ? config.yokaiMaxUnder : config.yokaiMax)) return;
+  private trySpawn(c: { x: number; y: number; z: number }, aroundP2 = false): void {
+    const { world, time, config, opts, rng, events } = this.d;
     const night = time.phase() === 'night';
     const minD = Math.max(config.yokaiSpawnMinDist, config.yokaiSpawnNearExclude);
     const maxD = Math.max(minD, config.yokaiSpawnMaxDist);
     // 出る 高さ: 床の 足の 高さが プレイヤーの 足 ±yokaiSpawnHeight の 中（地上も 地下も 同じ。MINE-1A §4.3）
-    const lo = Math.ceil(f.py - config.yokaiSpawnHeight - HEIGHT_EPS);
-    const hi = Math.floor(f.py + config.yokaiSpawnHeight + HEIGHT_EPS);
+    const lo = Math.ceil(c.y - config.yokaiSpawnHeight - HEIGHT_EPS);
+    const hi = Math.floor(c.y + config.yokaiSpawnHeight + HEIGHT_EPS);
     for (let t = 0; t < AI_CONST.spawnTries; t++) {
       const a = rng() * Math.PI * 2;
       const d = minD + rng() * (maxD - minD);
-      const x = f.px + Math.sin(a) * d;
-      const z = f.pz - Math.cos(a) * d;
+      const x = c.x + Math.sin(a) * d;
+      const z = c.z - Math.cos(a) * d;
       if (!bodyInWall(x, z, 2)) continue;
+      // 2P の まわりに 出す ときも、1P の すぐ そばには 出さない（近さの 除外)
+      if (aroundP2 && Math.hypot(x - this.d.f.p1.x, z - this.d.f.p1.z) < config.yokaiSpawnNearExclude) continue;
       // 出る場所は 読みこんでいる列だけ。つなぎ込みが「描く輪のメッシュずみの列」を聞く窓口を渡す
       if (!world.isLoaded(Math.floor(x), Math.floor(z))) continue;
       if (opts.canSpawnAt && !opts.canSpawnAt(x, z)) continue;
@@ -303,9 +331,14 @@ export class YokaiSpawner {
     const lim = AI_CONST.farRemoveDist;
     for (const e of f.ents) {
       if (e.remove) continue;
-      const dx = e.x - f.px;
-      const dz = e.z - f.pz;
-      if (dx * dx + dz * dz > lim * lim) e.remove = true;
+      // 気づける 全員（1P と ねらえる 2P）から 遠いとき
+      const dx = e.x - f.p1.x;
+      const dz = e.z - f.p1.z;
+      const far1 = dx * dx + dz * dz > lim * lim;
+      const dx2 = e.x - f.p2.x;
+      const dz2 = e.z - f.p2.z;
+      const far2 = !f.p2.on || dx2 * dx2 + dz2 * dz2 > lim * lim;
+      if (far1 && far2) e.remove = true;
       // 列が捨てられたら、その列の妖怪は 静かに消す（VOX-D。落とし物なし）
       else if (!world.isLoaded(Math.floor(e.x), Math.floor(e.z))) e.remove = true;
     }

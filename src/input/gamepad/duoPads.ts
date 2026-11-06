@@ -20,13 +20,15 @@ export interface DuoPadRouterOptions {
   storage: Storage | null;
   /** COOP-1 作業 2.5（#401）: 「つかう コントローラー」の えらびを 保存する 所(`rikkun.duo.pads.v1`。この 機械に 1 つ) */
   choiceStorage?: Storage | null;
-  /** 「つかう コントローラー」が つかえる(作業 3 までは `?duo=dev` の ときだけ)。false なら 保存を 読まず、setChoice は false */
-  choiceEnabled?: boolean;
 }
 
 export interface DuoPadPoll {
   /** 2P の パッドの ＋ が 押された（まだ 参加していないとき だけ true。参加するかは 呼んだ 側が 決める） */
   joinRequested: boolean;
+  /** 2P の 候補の パッドの 番号（-1 = いない）。poll の たびに 書きかわる（毎ステップ 配列を 作らず ここを 読む） */
+  candidate: number;
+  /** 候補の パッドの どれかの ボタンを 押している（候補が いなければ false） */
+  candidatePressed: boolean;
 }
 
 type Pads = (Gamepad | null)[];
@@ -46,7 +48,6 @@ export class DuoPadRouter {
   getPads: () => Pads = () => (typeof navigator !== 'undefined' && navigator.getGamepads ? [...navigator.getGamepads()] : []);
 
   private readonly choiceStorage: Storage | null;
-  private readonly choiceEnabled: boolean;
   /** 決めて 保存してある えらび（なし・こわれた・つかえない → null = はじめの 動き） */
   private saved: PadChoice | null = null;
   /** 参加した 時点の はじめの 動き（参加中に 1P の パッドが ぬけても 2P の パッドを 1P に しない） */
@@ -60,9 +61,11 @@ export class DuoPadRouter {
   private joined = false;
   private lost = false;
   private startWas = false;
+  /** 前の poll が 世界の 止まっている とき（active = false）だった */
+  private frozen = false;
   /** 「つかう コントローラー」で ＋ を 待っている あいだの えらんだ 番号（NONE = 待っていない） */
   private picking = NONE;
-  private readonly out: DuoPadPoll = { joinRequested: false };
+  private readonly out: DuoPadPoll = { joinRequested: false, candidate: NONE, candidatePressed: false };
   private readonly eff: PadChoice = { p1: null, p2: null };
   private readonly view1: Pads = [];
   private readonly view2: Pads = [];
@@ -70,9 +73,8 @@ export class DuoPadRouter {
   private cache: Pads | null = null;
 
   constructor(opts: DuoPadRouterOptions) {
-    this.choiceEnabled = opts.choiceEnabled ?? false;
     this.choiceStorage = opts.choiceStorage ?? null;
-    if (this.choiceEnabled) this.saved = readPadChoice(this.choiceStorage);
+    this.saved = readPadChoice(this.choiceStorage);
     this.reader1 = new GamepadReader(opts.p1, opts.look1, opts.storage);
     this.reader2 = new GamepadReader(opts.p2, opts.look2, opts.storage);
     this.reader1.getPads = () => this.windowOf(this.view1, this.p1, true);
@@ -104,8 +106,11 @@ export class DuoPadRouter {
       return;
     }
     if (this.joined) {
-      // 2P の パッドが まだ きまっていない（パッドなしで 参加した）あいだは 候補を さがす。きまったら そこから 動かさない
-      if (this.joinedBase2 === NONE) this.firstTwo(pads);
+      // 2P の パッドが まだ きまっていない（パッドなしで 参加した）あいだは 2P の 候補だけ さがす。1P は 一度 きまったら 動かさない（AC73）
+      if (this.joinedBase2 === NONE) {
+        if (this.joinedBase1 === NONE) this.firstTwo(pads);
+        else this.joinedBase2 = this.firstOther(pads, this.joinedBase1);
+      }
       this.base1 = this.joinedBase1;
       this.base2 = this.joinedBase2;
       return;
@@ -165,6 +170,22 @@ export class DuoPadRouter {
     return c === this.p1 ? NONE : c;
   }
 
+  /** COOP-1 作業 3d（AC64）: 2P の 候補（その ＋ で 参加できる パッド）の 番号。いなければ null */
+  joinCandidate(): number | null {
+    const pads = this.cache ?? this.getPads();
+    this.assign(pads);
+    const c = this.candidate(pads);
+    return c < 0 ? null : c;
+  }
+
+  /** COOP-1 作業 3d（AC46）: 2P の 候補の パッドの どれかの ボタンを 押している（「＋で さんか」を 消す）。候補が いなければ false */
+  joinPadPressed(): boolean {
+    const pads = this.cache ?? this.getPads();
+    this.assign(pads);
+    const c = this.candidate(pads);
+    return c >= 0 && this.anyButton(pads[c]!);
+  }
+
   /** 参加中の 2P の パッドの 番号（えらび。パッドなしなら 候補） */
   private target2(pads: Pads): number {
     return this.base2 >= 0 ? this.base2 : this.candidate(pads);
@@ -178,6 +199,11 @@ export class DuoPadRouter {
     this.lost = false;
     this.reader2.resetPad(t >= 0 && connected(pads[t]) ? t : null);
     return true;
+  }
+
+  /** 直前の poll の 結果（まだ 呼んでいなければ 候補なし）。使いまわしの 入れもの。新しく 読み直さない */
+  lastPoll(): DuoPadPoll {
+    return this.out;
   }
 
   /** 固定ステップごとに 呼ぶ */
@@ -199,15 +225,24 @@ export class DuoPadRouter {
     this.assign(pads);
     this.reader1.poll(nowMs);
     this.out.joinRequested = false;
-    if (!active) return this.out;
+    const c = this.candidate(pads);
+    this.out.candidate = c;
+    this.out.candidatePressed = c >= 0 && this.anyButton(pads[c]!);
+    if (!active) {
+      this.frozen = true;
+      return this.out;
+    }
+    const thawed = this.frozen;
+    this.frozen = false;
     if (!this.joined) {
-      const c = this.candidate(pads);
       const start = c >= 0 && this.startPressed(pads[c]!);
       this.out.joinRequested = start && !this.startWas && !picking;
       this.startWas = start;
       return this.out;
     }
     this.assign2(pads);
+    // 止まっている あいだ 2P は 読まなかった: とけた 最初の ステップで 押しっぱなしの ボタンが「今 押した」に ならない ように
+    if (thawed) this.reader2.holdButtonsUntilReleased();
     if (this.p2 >= 0) {
       const pad = pads[this.p2];
       if (!connected(pad)) {
@@ -242,7 +277,6 @@ export class DuoPadRouter {
    * 決めた ＋ は だれの 操作にも ならない（はなすまで）。変な 値・使えない ときは false。
    */
   setChoice(c: PadChoice): boolean {
-    if (!this.choiceEnabled) return false;
     if (!validSlot(c.p1) || !validSlot(c.p2) || c.p1 === c.p2) return false;
     this.saved = { p1: c.p1, p2: c.p2 };
     this.joinedBase2 = NONE; // 決めなおしたら 2P の 固定も やりなおす
@@ -252,11 +286,6 @@ export class DuoPadRouter {
     if (this.joined && this.assign2(pads) && connected(pads[this.p2])) this.reader2.holdButtonsUntilReleased();
     this.startWas = this.candidate(pads) >= 0; // 決めた ＋ は はなすまで 参加の 求めに ならない
     return true;
-  }
-
-  /** 「つかう コントローラー」が つかえる（`?duo=dev` の とき。せってい画面の タブを 出すか どうか） */
-  choiceUsable(): boolean {
-    return this.choiceEnabled;
   }
 
   /** 保存してある えらび。なし・こわれた・使えない → null */

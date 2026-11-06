@@ -1,15 +1,17 @@
 /**
  * COOP-1（docs/design/COOP-1.md §3.1・§9.4）: 2 人のときの HUD。
- * 2P の ホットバー・ハート・もちもの、距離メーター、パッドぬけの 文。参加するまで DOM を 作らない（1 人のときは 今までと 同じ）。
+ * 2P の ホットバー・ハート・もちもの、距離メーター、相手の 向きの 矢印（1.8）、パッドぬけの 文。参加するまで DOM を 作らない（1 人のときは 今までと 同じ）。
  * data-testid は e2e/helpers/duoUi.ts の 約束どおり。
  */
 import type { Inventory } from '../contracts';
+import type { LevelState } from '../level/LevelSystem';
 import { DUO_COLORS, DUO_TUNING } from '../duo/tuning';
-import type { DuoTier, DuoView } from '../duo/types';
+import type { DuoView } from '../duo/types';
 import { INVENTORY_SIZE } from '../inventory/items';
 import { Hearts } from './hearts';
 import { Hotbar, createSlotEl, paintSlot, type SlotEls } from './hotbar';
 import { HEART_CONFIG } from './heartsModel';
+import { LevelHud } from './levelHud';
 import './duoHud.css';
 
 export interface DuoHudDeps {
@@ -18,10 +20,22 @@ export interface DuoHudDeps {
   /** 1P の ホットバー（#hotbar）と ハート（#hearts） */
   hotbar1: HTMLElement;
   hearts1: HTMLElement;
+  /** 1P の レベルの 棒（#levelbar）。UI 検査の 目印（data-testid）を 付けるだけ */
+  levelbar1: HTMLElement;
+}
+
+/** 矢印 1 つの 画面への 出し方（`DuoArrowTracker` の last() と opacity()）。濃さ 0 なら かくす */
+export interface DuoHudArrow {
+  /** 矢印の 先の 画面の 位置（CSS px） */
+  x: number;
+  y: number;
+  /** 度（画面の 上 0°・時計回り） */
+  angle: number;
+  /** 0〜1 */
+  opacity: number;
 }
 
 export interface DuoHudView {
-  tier: DuoTier;
   /** 棒の 長さ 0〜1 */
   meter: number;
   distance: number;
@@ -29,17 +43,30 @@ export interface DuoHudView {
   /** 「やめる」ゲージ 0〜1 */
   quitGauge: number;
   panelOpen: boolean;
-  /** 画面の ようす（ルーペ・分割の 部品を 出し入れ する） */
+  /** 画面の ようす（分割の 線を 出し入れ する） */
   view: DuoView;
-  /** ルーペ（丸）の 今の 位置と 大きさ（CSS px。中心 x・y と 直径 d）。出さない ときは null */
-  loupe: { x: number; y: number; d: number } | null;
-  /** ルーペの わくの 太さ(px) */
-  loupeBorderPx: number;
-  /** ルーペの 外の 三角が 指す 向き（度。画面で 右 = 0・下 = 90） */
-  arrowDeg: number;
+  /** 相手の 向きの 矢印。[1P の 半分（2P を さす）, 2P の 半分（1P を さす）] */
+  arrows: readonly [DuoHudArrow, DuoHudArrow];
+  /** 矢印の 三角の 高さ（px。置き場の 計算と 同じ 値: arrowHeightPx(画面の 高さ)） */
+  arrowHeight: number;
   /** 2P の 頭の 上の「？」を 出す 画面の 位置（CSS px）。出さない ときは null */
   question: { x: number; y: number } | null;
 }
+
+/** 矢印の 部品（HTML。3D では 描かない） */
+interface ArrowEls {
+  root: HTMLDivElement;
+  /** 三角を 先を 中心に 回す 入れもの */
+  tri: HTMLDivElement;
+  badge: HTMLSpanElement;
+}
+
+/** 三角の はば / 高さ。「▼」と 同じ 形（二等辺） */
+const ARROW_WIDTH_RATIO = 0.9;
+/** 三角の 色の ふちの 太さ（px。こい --rk-bg-900） */
+const ARROW_OUTLINE_PX = 2;
+/** ねもとの バッジの 中心を 三角の ねもとから 外へ ずらす 割合（バッジの 半径に 対して） */
+const ARROW_BADGE_SHIFT = 0.3;
 
 interface Built {
   meter: HTMLDivElement;
@@ -49,8 +76,8 @@ interface Built {
   root: HTMLDivElement;
   hotbar2: Hotbar;
   hearts2: Hearts;
-  loupe: HTMLDivElement;
-  arrow: HTMLDivElement;
+  level2: LevelHud;
+  arrows: [ArrowEls, ArrowEls];
   line: HTMLDivElement;
   question: HTMLDivElement;
   panel: HTMLDivElement;
@@ -63,6 +90,11 @@ interface Built {
 const PAD_SVG =
   '<svg viewBox="0 0 48 32" width="100%" height="100%" aria-hidden="true"><path d="M12 5h24c5 0 8 4 10 12l1 8c1 4-3 6-6 3l-5-5H12l-5 5c-3 3-7 1-6-3l1-8C6 9 7 5 12 5z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M13 12v6M10 15h6" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="13" r="2" fill="currentColor"/><circle cx="37" cy="17" r="2" fill="currentColor"/></svg>';
 
+/** 画面に 書いた 最後の 値の 初期値（変わらなければ style・hidden を 書かない） */
+function newShown() {
+  return { meter: '', more: false, padLost: false, panel: false, quit: '', view: '' as string, q: [NaN, NaN, 0] as number[], arrows: [[NaN, NaN, NaN, NaN], [NaN, NaN, NaN, NaN]] as number[][] };
+}
+
 /** 満タンの ハート（体力 20 = 10 こ）。2P の ダメージは 作業 3 */
 const FULL_HP = HEART_CONFIG.count * 2;
 
@@ -70,10 +102,13 @@ export class DuoHud {
   private b: Built | null = null;
   private on = false;
   private dirty = true;
+  /** 「たおれちゃった」（倒れているあいだだけ ある） */
+  private downEl: HTMLDivElement | null = null;
   private lastW = -1;
-  private tier: DuoTier | -1 = -1;
+  /** 矢印の バッジの 大きさ（px。画面の 大きさが かわったら 0 に して はかりなおす） */
+  private badgePx = 0;
   /** 画面に 書いた 最後の 値（変わらなければ style・hidden を 書かない） */
-  private shown = { meter: '', more: false, padLost: false, panel: false, quit: '', view: '' as string, lp: [NaN, NaN, NaN, NaN, NaN, 0] as number[], q: [NaN, NaN, 0] as number[], tier: -1 };
+  private shown = newShown();
 
   constructor(private readonly d: DuoHudDeps) {}
 
@@ -88,9 +123,6 @@ export class DuoHud {
     const bar = document.createElement('div');
     bar.className = 'duo-bar';
     bar.setAttribute('data-testid', 'duo-meter-bar');
-    const mark = document.createElement('div');
-    mark.className = 'duo-mark';
-    mark.setAttribute('data-testid', 'duo-meter-mark');
     // P1・P2 の 丸い バッジ（色は 1P・2P の 色。棒の はじ / 棒の さき に ついていく）
     const pin1 = document.createElement('span');
     pin1.className = 'duo-pin duo-pin-1 duo-badge duo-badge-1';
@@ -104,7 +136,7 @@ export class DuoHud {
     more.className = 'duo-more';
     more.textContent = '▶';
     more.hidden = true;
-    track.append(bar, mark, pin1, pin2, more);
+    track.append(bar, pin1, pin2, more);
     meter.append(track);
 
     const padLost = document.createElement('div');
@@ -120,15 +152,8 @@ export class DuoHud {
     padLost.append(padIcon, padText);
     padLost.hidden = true;
 
-    // ルーペの 丸わく・外の 三角・分割の 線・2P の 頭の 上の「？」
-    const loupe = document.createElement('div');
-    loupe.className = 'duo-loupe';
-    loupe.setAttribute('data-testid', 'duo-loupe');
-    loupe.hidden = true;
-    const arrow = document.createElement('div');
-    arrow.className = 'duo-loupe-arrow';
-    arrow.setAttribute('data-testid', 'duo-loupe-arrow');
-    loupe.append(arrow);
+    // 相手の 向きの 矢印（2 つ）・分割の 線・2P の 頭の 上の「？」
+    const arrows: [ArrowEls, ArrowEls] = [this.buildArrow(1), this.buildArrow(2)];
     const line = document.createElement('div');
     line.className = 'duo-split-line';
     line.setAttribute('data-testid', 'duo-split-line');
@@ -154,6 +179,9 @@ export class DuoHud {
     hearts2.el.setAttribute('data-testid', 'duo-hearts-p2');
     (hearts2.el.parentElement as HTMLElement).id = 'hud-self-p2';
     hearts2.update(0, FULL_HP, false);
+    // 2P の レベル: 1P と 同じ LevelHud を 2P の かたまり（ハートの 上）に 作る。数は updateLevel で 毎ステップ 入れる
+    const level2 = new LevelHud(root, { cluster: hearts2.el.parentElement as HTMLElement, idSuffix: '-p2' });
+    level2.barEl.setAttribute('data-testid', 'duo-levelbar-p2');
 
     // 2P の もちもの（右半分。読むだけ。「やめる」の 長押しが ある）
     const panel = document.createElement('div');
@@ -182,14 +210,31 @@ export class DuoHud {
     text.textContent = 'ながおし で やめる';
     quit.append(fill, text);
     panel.append(title, grid, quit);
-    hud.append(meter, padLost, panel, loupe, line, question);
+    hud.append(meter, padLost, panel, arrows[0].root, arrows[1].root, line, question);
 
     // 色は tokens.css の 変数（案 B）。DUO_COLORS は 同じ 値の 写し（palette.test.ts が 見はる）。css は --rk-* を 直接 使う
     document.documentElement.style.setProperty('--duo-p1', DUO_COLORS.p1);
     document.documentElement.style.setProperty('--duo-p2', DUO_COLORS.p2);
-    DUO_COLORS.tier.forEach((c, i) => document.documentElement.style.setProperty(`--duo-tier-${i}`, c));
     const off = inv.onChange(() => (this.dirty = true));
-    return { meter, bar, more, padLost, root, hotbar2, hearts2, loupe, arrow, line, question, panel, quit, cells, off };
+    return { meter, bar, more, padLost, root, hotbar2, hearts2, level2, arrows, line, question, panel, quit, cells, off };
+  }
+
+  /** 矢印 1 つ。who = 矢印が 出る 画面の 持ち主（1 = 1P の 半分。2P を さすので バッジは「P2」）。色は css が 相手の 色に する */
+  private buildArrow(who: 1 | 2): ArrowEls {
+    const root = document.createElement('div');
+    root.className = `duo-arrow duo-arrow-p${who}`;
+    root.setAttribute('data-testid', `duo-arrow-p${who}`);
+    root.hidden = true;
+    const tri = document.createElement('div');
+    tri.className = 'duo-arrow-tri';
+    const shape = document.createElement('div');
+    shape.className = 'duo-arrow-shape';
+    tri.append(shape);
+    const badge = document.createElement('span');
+    badge.className = 'duo-arrow-badge';
+    badge.textContent = who === 1 ? 'P2' : 'P1';
+    root.append(tri, badge);
+    return { root, tri, badge };
   }
 
   /** 参加した / やめた。やめたら 2 人用の 物を ぜんぶ かくし、1 人の 見た目に もどす */
@@ -201,17 +246,20 @@ export class DuoHud {
       this.b ??= this.build();
       this.dirty = true;
       this.lastW = -1;
-      this.tier = -1;
-      this.shown = { meter: '', more: false, padLost: false, panel: false, quit: '', view: '', lp: [NaN, NaN, NaN, NaN, NaN, 0] as number[], q: [NaN, NaN, 0] as number[], tier: -1 };
+      this.badgePx = 0;
+      this.shown = newShown();
       this.d.hotbar1.setAttribute('data-testid', 'duo-hotbar-p1');
       this.d.hearts1.setAttribute('data-testid', 'duo-hearts-p1');
+      this.d.levelbar1.setAttribute('data-testid', 'duo-levelbar-p1');
       html.setAttribute('data-duo', '');
     } else {
       html.removeAttribute('data-duo');
       html.style.removeProperty('--duo-scale');
       this.d.hotbar1.removeAttribute('data-testid');
       this.d.hearts1.removeAttribute('data-testid');
+      this.d.levelbar1.removeAttribute('data-testid');
     }
+    if (!on) this.clearDown();
     const b = this.b;
     if (b) {
       b.meter.hidden = !on;
@@ -220,11 +268,40 @@ export class DuoHud {
       if (!on) {
         b.padLost.hidden = true;
         b.panel.hidden = true;
-        b.loupe.hidden = true;
+        for (const a of b.arrows) a.root.hidden = true;
         b.line.hidden = true;
         b.question.hidden = true;
       }
     }
+  }
+
+  /** 2P の ハート（毎ステップ）と、倒れているあいだだけ「たおれちゃった」（COOP-1 3a。出ていないときは 画面に 置かない） */
+  updateLife(dt: number, hp: number, invincible: boolean, down: boolean): void {
+    const b = this.b;
+    if (!b || !this.on) return;
+    b.hearts2.update(dt, hp, invincible);
+    if (down && !this.downEl) {
+      const el = document.createElement('div');
+      el.className = 'duo-p2-down';
+      el.setAttribute('data-testid', 'duo-p2-down');
+      el.textContent = 'たおれちゃった';
+      this.d.hud.append(el);
+      this.downEl = el;
+    } else if (!down) this.clearDown();
+  }
+
+  /** 2P の レベルの 棒（毎ステップ）。`up` は このステップで 2P の レベルが 上がった とき（1P と 同じ 演出を 2P の 半分に 出す） */
+  updateLevel(dt: number, st: LevelState, up: boolean): void {
+    const b = this.b;
+    if (!b || !this.on) return;
+    b.level2.update(st);
+    if (up) b.level2.celebrate();
+    b.level2.tick(dt);
+  }
+
+  private clearDown(): void {
+    this.downEl?.remove();
+    this.downEl = null;
   }
 
   /** 2P の ホットバー（選んでいる マスの 表示を 毎ステップ 直す） */
@@ -233,10 +310,6 @@ export class DuoHud {
     if (!b || !this.on) return;
     this.fit();
     b.hotbar2.update();
-    if (v.tier !== this.tier) {
-      this.tier = v.tier;
-      b.meter.dataset.tier = String(v.tier);
-    }
     const meter = v.meter.toFixed(3);
     if (meter !== this.shown.meter) {
       this.shown.meter = meter;
@@ -264,40 +337,65 @@ export class DuoHud {
     }
   }
 
-  /** ルーペ・外の 三角・分割の 線・「？」（変わったときだけ 書く） */
+  /** 相手の 向きの 矢印（変わったときだけ 書く）: 外接の 四角を 先・三角の 角・バッジから 決め、中の 三角と バッジを その 四角の 中に 置く */
+  private updateArrow(i: 0 | 1, a: ArrowEls, v: DuoHudArrow, h: number): void {
+    const sa = this.shown.arrows[i]!;
+    const show = v.opacity > 0.001;
+    if (a.root.hidden === show) {
+      a.root.hidden = !show;
+      if (show) sa.fill(NaN);
+    }
+    if (!show) return;
+    const op = Math.round(v.opacity * 100);
+    const x = Math.round(v.x * 10);
+    const y = Math.round(v.y * 10);
+    const ang = Math.round(v.angle * 10);
+    if (op === sa[3] && x === sa[0] && y === sa[1] && ang === sa[2]) return;
+    if (op !== sa[3]) a.root.style.opacity = (op / 100).toFixed(2);
+    sa[0] = x;
+    sa[1] = y;
+    sa[2] = ang;
+    sa[3] = op;
+    if (this.badgePx <= 0) this.badgePx = Math.max(a.badge.offsetWidth, a.badge.offsetHeight);
+    const rad = (v.angle * Math.PI) / 180;
+    const dx = Math.sin(rad);
+    const dy = -Math.cos(rad);
+    const tw = h * ARROW_WIDTH_RATIO;
+    const o = ARROW_OUTLINE_PX;
+    const br = this.badgePx / 2;
+    // 三角の 角: 先 と ねもとの 両はし（ねもとの まん中 = 先 から うしろへ h）
+    const bx = v.x - dx * h;
+    const by = v.y - dy * h;
+    const px = (dy * tw) / 2; // ねもとの 横むき（-dy, dx）の 半分
+    const py = (dx * tw) / 2;
+    // バッジの 中心: ねもとの すこし うしろ
+    const cx = bx - dx * br * ARROW_BADGE_SHIFT;
+    const cy = by - dy * br * ARROW_BADGE_SHIFT;
+    const left = Math.min(v.x, bx - px, bx + px, cx - br) - o;
+    const right = Math.max(v.x, bx - px, bx + px, cx + br) + o;
+    const top = Math.min(v.y, by + py, by - py, cy - br) - o;
+    const bottom = Math.max(v.y, by + py, by - py, cy + br) + o;
+    const st = a.root.style;
+    st.left = `${left.toFixed(1)}px`;
+    st.top = `${top.toFixed(1)}px`;
+    st.width = `${(right - left).toFixed(1)}px`;
+    st.height = `${(bottom - top).toFixed(1)}px`;
+    a.root.setAttribute('data-angle', String(Math.round(v.angle)));
+    const tt = a.tri.style;
+    tt.width = `${tw.toFixed(1)}px`;
+    tt.height = `${h.toFixed(1)}px`;
+    tt.left = `${(v.x - left - tw / 2).toFixed(1)}px`;
+    tt.top = `${(v.y - top).toFixed(1)}px`;
+    tt.transform = `rotate(${v.angle.toFixed(1)}deg)`;
+    const bs = a.badge.style;
+    bs.left = `${(cx - left).toFixed(1)}px`;
+    bs.top = `${(cy - top).toFixed(1)}px`;
+  }
+
+  /** 矢印・分割の 線・「？」（変わったときだけ 書く） */
   private updateViewParts(b: Built, v: DuoHudView): void {
-    const lp = v.loupe;
-    const sl = this.shown.lp;
-    const lx = lp === null ? -1 : Math.round(lp.x * 10);
-    const ly = lp === null ? -1 : Math.round(lp.y * 10);
-    const ld = lp === null ? -1 : Math.round(lp.d * 10);
-    const la = Math.round(v.arrowDeg);
-    if (lx !== sl[0] || ly !== sl[1] || ld !== sl[2] || v.loupeBorderPx !== sl[3] || la !== sl[4]) {
-      sl[0] = lx;
-      sl[1] = ly;
-      sl[2] = ld;
-      sl[3] = v.loupeBorderPx;
-      sl[4] = la;
-      b.loupe.hidden = lp === null;
-      if (lp !== null) {
-        const st = b.loupe.style;
-        st.left = `${(lp.x - lp.d / 2).toFixed(1)}px`;
-        st.top = `${(lp.y - lp.d / 2).toFixed(1)}px`;
-        st.width = st.height = `${lp.d.toFixed(1)}px`;
-        // 外の 三角: ルーペの ふちの すぐ 外（指す 向きに おく）。ふちの 太さは 内がわに ふくまれる
-        const rad = (v.arrowDeg * Math.PI) / 180;
-        const r = lp.d / 2 + DUO_TUNING.loupeArrowGapPx;
-        const c = lp.d / 2 - v.loupeBorderPx; // 子の 位置は ふちの 内がわ(padding box)から 数える
-        b.arrow.style.left = `${(c + Math.cos(rad) * r).toFixed(1)}px`;
-        b.arrow.style.top = `${(c + Math.sin(rad) * r).toFixed(1)}px`;
-        b.arrow.style.transform = `translate(-50%, -50%) rotate(${(v.arrowDeg + 90).toFixed(0)}deg)`;
-        b.arrow.setAttribute('data-angle', String(Math.round(v.arrowDeg)));
-      }
-    }
-    if (v.tier !== this.shown.tier) {
-      this.shown.tier = v.tier;
-      b.loupe.dataset.tier = String(v.tier);
-    }
+    this.updateArrow(0, b.arrows[0], v.arrows[0], v.arrowHeight);
+    this.updateArrow(1, b.arrows[1], v.arrows[1], v.arrowHeight);
     const split = v.view === 'split';
     if (split !== (this.shown.view === 'split')) b.line.hidden = !split;
     this.shown.view = v.view;
@@ -321,6 +419,7 @@ export class DuoHud {
     const w = window.innerWidth;
     if (w === this.lastW) return;
     this.lastW = w;
+    this.badgePx = 0;
     const hbW = this.d.hotbar1.offsetWidth;
     if (hbW <= 0) {
       this.lastW = -1;
@@ -347,7 +446,7 @@ export class DuoHud {
     b.root.remove();
     b.meter.remove();
     b.padLost.remove();
-    b.loupe.remove();
+    for (const a of b.arrows) a.root.remove();
     b.line.remove();
     b.question.remove();
     b.panel.remove();

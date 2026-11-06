@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { InventoryImpl } from '../inventory/Inventory';
 import { P2State } from './p2State';
 import { DuoSession, type DuoStepInput } from './session';
+import { DUO_TUNING } from './tuning';
 import type { DuoLeaveReason, P2Save } from './types';
 
 /**
@@ -15,7 +16,8 @@ import type { DuoLeaveReason, P2Save } from './types';
  *     - step({ padPresent, quitHeld }):
  *         quitHeld が 120 ステップ つづいたら leave('quit')。はなすと ゲージは すぐ 0（途中までは 何も 起きない）。
  *         padPresent = false に なった その step で padLost() = true。つづけて 3600 ステップ ぬけたままなら leave('padLost')。つながれば 数えなおし。
- *     - cameraDistance(): 参加で 1 人 4.0 → 2 人 6.0、やめて 6.0 → 4.0。30 ステップ（0.5 秒）で とどく なめらかな 変化。step() ごとに 進む。
+ *     - cameraDistance(): 参加で 1 人 4.0 → 2 人（2P が いる あいだ いつも）DUO_TUNING.cameraSplit = 5.0、やめて 5.0 → 4.0。30 ステップ（0.5 秒）で とどく なめらかな 変化。step() ごとに 進む。
+ *       作業 3e（#422。1.8）: 6.0（1 画面・ルーペの 距離）は なくなった。2P が 近くても（2 マス）遠くても 同じ 5.0（距離は 見ない）。`DUO_TUNING.cameraDuo` を なくす。
  *   配線: 「さいしょから」「別の世界」「セーブ読み直し」は leave('newGame' | 'otherWorld' | 'reload') を 呼ぶ（AC17）。
  */
 
@@ -76,7 +78,7 @@ describe('AC6: 「やめる」を 2 秒（120 ステップ）長押し', () => {
     const { session, run } = make();
     session.join();
     run(60);
-    expect(session.cameraDistance()).toBeCloseTo(6.0, 1);
+    expect(session.cameraDistance()).toBeCloseTo(DUO_TUNING.cameraSplit, 1);
     run(120, { padPresent: true, quitHeld: true });
     expect(session.cameraDistanceTarget()).toBe(4.0);
     run(30);
@@ -108,28 +110,29 @@ describe('AC5: パッドが ぬけて 60 秒（3600 ステップ）で やめる
   });
 });
 
-describe('AC8: 2 人のとき カメラの 距離は 2 人の 値（0.5 秒以内）', () => {
-  it('1 人は 4.0、参加で 6.0 に むかい、30 ステップで とどく。行き過ぎない', () => {
+describe('AC8: 2P が いる あいだ カメラの 距離は 分割の 値（5.0。0.5 秒以内）', () => {
+  it('1 人は 4.0、参加で 5.0 に むかい、30 ステップで とどく。行き過ぎない', () => {
     const { session, run } = make();
     expect(session.cameraDistance()).toBe(4.0);
     session.join();
-    expect(session.cameraDistanceTarget()).toBe(6.0);
+    expect(session.cameraDistanceTarget()).toBe(DUO_TUNING.cameraSplit);
+    expect(DUO_TUNING.cameraSplit).toBe(5.0);
     let prev = session.cameraDistance();
     for (let i = 0; i < 30; i++) {
       run(1);
       const d = session.cameraDistance();
       expect(d).toBeGreaterThanOrEqual(prev - 1e-9);
-      expect(d).toBeLessThanOrEqual(6.0 + 1e-9);
+      expect(d).toBeLessThanOrEqual(DUO_TUNING.cameraSplit + 1e-9);
       prev = d;
     }
-    expect(session.cameraDistance()).toBeCloseTo(6.0, 1);
+    expect(session.cameraDistance()).toBeCloseTo(DUO_TUNING.cameraSplit, 1);
   });
   it('参加 した 次の step では まだ 途中（いきなり とばない）', () => {
     const { session, run } = make();
     session.join();
     run(1);
     expect(session.cameraDistance()).toBeGreaterThan(4.0);
-    expect(session.cameraDistance()).toBeLessThan(6.0);
+    expect(session.cameraDistance()).toBeLessThan(DUO_TUNING.cameraSplit);
   });
 });
 
@@ -207,5 +210,53 @@ describe('AC17: 「さいしょから」・別の世界・読み直しで 2P の
     const { session, log } = make();
     session.leave('newGame');
     expect(log).toEqual([]);
+  });
+});
+
+/**
+ * COOP-1 作業 3d（#418。AC72）: おとなの「よみこむ」は ファイルの 中身で 世界が かわるので、今の 2P の 持ち物は 保存に 書かない。
+ * 約束: `DuoSession.leave('import')` は saveP2 を 呼ばず、joined = false → onLeft('import') だけ（p2 は からに する）。ほかの わけは 今までどおり 保存してから。
+ * 流れ（runImport）は src/duo/reloadLeave.test.ts。
+ */
+describe('AC72: leave("import") は 保存しない', () => {
+  it('saveP2 を 呼ばず、2P は いなくなり、持ち物は からに なる', () => {
+    const { session, p2, log, store } = make();
+    session.join();
+    p2.inventory.add('dirt', 9);
+    session.leave('import');
+    expect(log).toEqual(['left:import']);
+    expect(store.saved, '保存に 書いていない').toBeNull();
+    expect(session.joined).toBe(false);
+    expect(p2.inventory.count('dirt')).toBe(0);
+  });
+  it('保存に すでに ある 2P の 分（ファイルの p2）は のこる', () => {
+    const file = new P2State();
+    file.inventory.add('stone', 5);
+    file.level = { level: 4, xp: 7 };
+    const fileSave = file.serialize();
+    const { session, p2, store } = make(fileSave);
+    session.join();
+    p2.inventory.add('dirt', 9); // 今の 2P の 持ち物
+    session.leave('import');
+    expect(store.saved).toBe(fileSave);
+  });
+  it('2P が いなければ 何も 呼ばない', () => {
+    const { session, log } = make();
+    session.leave('import');
+    expect(log).toEqual([]);
+  });
+  it('読み直した あと（新しい DuoSession）: ＋ で 参加すると ファイルの p2 の 持ち物・レベルで 始まる。p2 が なければ からっぽ', () => {
+    const file = new P2State();
+    file.inventory.add('stone', 5);
+    file.level = { level: 4, xp: 7 };
+    const withP2 = make(file.serialize());
+    expect(withP2.session.joined, '読み直した あとは 2P が いない').toBe(false);
+    withP2.session.join();
+    expect(withP2.p2.inventory.count('stone')).toBe(5);
+    expect(withP2.p2.level).toEqual({ level: 4, xp: 7 });
+    const without = make(null);
+    without.session.join();
+    expect(without.p2.inventory.count('stone')).toBe(0);
+    expect(without.p2.level).toEqual({ level: 1, xp: 0 });
   });
 });

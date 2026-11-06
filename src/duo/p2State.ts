@@ -1,5 +1,6 @@
 import type { Inventory } from '../contracts';
 import { InventoryImpl } from '../inventory/Inventory';
+import { LevelSystem } from '../level/LevelSystem';
 import type { P2Save } from './types';
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -15,10 +16,22 @@ export function readP2Save(data: unknown): P2Save | null {
 /** 2P の もちものと レベル（1P とは 別。§2.6・§6）。`inventory` は 差しかえず 中身だけ 入れかえる */
 export class P2State {
   readonly inventory: Inventory = new InventoryImpl();
-  level = { level: 1, xp: 0 };
+  /** 2P の レベルと けいけんち（1P の LevelSystem と 同じ 物） */
+  readonly levels: LevelSystem;
+
+  constructor(opts: { onLevelUp?: (level: number) => void } = {}) {
+    this.levels = new LevelSystem({ onLevelUp: opts.onLevelUp });
+  }
+
+  get level(): { level: number; xp: number } {
+    return { level: this.levels.level(), xp: this.levels.xp() };
+  }
+  set level(v: { level: number; xp: number }) {
+    this.levels.set(v.level, v.xp);
+  }
 
   serialize(): P2Save {
-    return { inventory: this.inventory.serialize(), level: { ...this.level } };
+    return { inventory: this.inventory.serialize(), level: this.level };
   }
 
   /** 形が おかしい・null は からっぽ（レベル 1・xp 0）に する */
@@ -33,11 +46,11 @@ export class P2State {
     } catch {
       this.inventory.clear();
     }
-    this.level = { ...d.level };
+    this.level = d.level;
   }
 
   clear(): void {
     this.inventory.clear();
-    this.level = { level: 1, xp: 0 };
+    this.levels.set(1, 0);
   }
 }

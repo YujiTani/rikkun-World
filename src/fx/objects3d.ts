@@ -11,8 +11,13 @@ export class TargetOutline {
   readonly mesh: THREE.Mesh;
   private readonly mat: THREE.MeshBasicMaterial;
   private red = false;
+  /** ふだんの 枠の 色・「いま押して！」の 光の 色（COOP-1 3a: 2P の わくは 2P の 色） */
+  private readonly baseColor: THREE.ColorRepresentation;
+  private readonly readyColor: THREE.ColorRepresentation;
 
-  constructor() {
+  constructor(color?: THREE.ColorRepresentation) {
+    this.baseColor = color ?? OUTLINE_COLOR;
+    this.readyColor = color ?? OUTLINE_READY;
     const e = 0.004; // ブロックより少し大きく
     const t = 0.022; // 線の太さ
     const L = 1 + 2 * e + t;
@@ -32,7 +37,7 @@ export class TargetOutline {
     const geo = mergeGeometries(bars)!;
     for (const g of bars) g.dispose();
     this.mat = new THREE.MeshBasicMaterial({
-      color: OUTLINE_COLOR,
+      color: this.baseColor,
       transparent: true,
       opacity: OUTLINE_OPACITY,
       depthWrite: false,
@@ -51,18 +56,18 @@ export class TargetOutline {
   setRed(red: boolean): void {
     if (red === this.red) return;
     this.red = red;
-    this.mat.color.setHex(red ? OUTLINE_RED : OUTLINE_COLOR);
+    this.mat.color.set(red ? OUTLINE_RED : this.baseColor);
     this.mat.opacity = red ? 0.9 : OUTLINE_OPACITY;
   }
   /** 「いま押して！」のやさしい光（明るさ 0〜1。null でふつうの枠にもどす）。赤のあいだは赤が先 */
   setGlow(level: number | null): void {
     if (this.red) return;
     if (level === null) {
-      this.mat.color.setHex(OUTLINE_COLOR);
+      this.mat.color.set(this.baseColor);
       this.mat.opacity = OUTLINE_OPACITY;
       return;
     }
-    this.mat.color.setHex(OUTLINE_READY);
+    this.mat.color.set(this.readyColor);
     this.mat.opacity = 0.55 + 0.45 * level;
   }
   get isRed(): boolean {

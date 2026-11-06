@@ -5,7 +5,8 @@ import type { DuoState, DuoVec3 } from '../src/duo/types';
 
 /**
  * COOP-1 作業 2.5（#401。docs/design/COOP-1.md §2.7・§3.2・§12.0）の E2E。実装の 前に 書いた 赤の テスト。
- * 通し 1 本（AC53。URL に &pad=2p を 付けても 何もしない）と、タブの 画面 1 本（AC50・AC52 の 読みなおし・AC56・AC59・AC60）。
+ * 通し 1 本（AC53。URL に &pad=2p を 付けても 何もしない。E2E 用に `?duo=dev` のまま）と、タブの 画面 1 本（AC50・AC52 の 読みなおし・AC56・AC59・AC60）。
+ * 作業 3d（#418）: タブの 1 本は ふつうの URL（`?nosave=1`）で 見る（AC65。タブは いつも 出る・保存は いつも 効く）。AC59 の 最後の 文と AC61 は AC65 に かわった。
  * 数・座標は 決め打ちせず ゲーム（window.__rikkun.duo）に 聞く。進めるのは step の 数で、時間（ms）では 合否を 決めない（#255）。
  * 待ち・900 ステップ・光る 30 ステップ・入れかえの 全部の 組み合わせ・保存の こわれかたは ユニット
  * （src/input/gamepad/padChoice.test.ts・duoPadChoice.test.ts・src/ui/settings/padPicker.test.ts）。画面の 重なり・大きさは UI 検査（e2e/ui-gate.spec.ts の duo-use-pad-*）。
@@ -17,6 +18,19 @@ import type { DuoState, DuoVec3 } from '../src/duo/types';
 const START = 9; // ＋
 const L3 = 10; // 左スティックの おしこみ
 const FWD = [0, -1, 0, 0]; // 左スティック 上
+
+/** ふつうの URL（または 指定の query）で 遊べる 状態まで（ロックして 案内を とじる） */
+async function openPlay(page: Page, query: string): Promise<void> {
+  await page.goto('/' + query);
+  await page.waitForFunction(() => (window as any).__rikkun?.ready === true);
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.pause();
+    h.achievements.mute(true);
+    h.lock.simulate(true); // 「クリックして あそぼう」を とじる
+    h.step(2);
+  });
+}
 
 const step = (page: Page, n: number) => page.evaluate((n) => (window as any).__rikkun.step(n), n);
 const duoState = (page: Page) => page.evaluate(() => (window as any).__rikkun.duo.state() as DuoState);
@@ -34,15 +48,7 @@ async function tapPlus(page: Page, pad: number): Promise<void> {
 }
 
 test('AC53: 通し（?duo=dev&pad=2p）: setPadChoice({p1:1,p2:0}) → 番号 1 の 左スティックで 1P、番号 0 の ＋ で 2P が 参加、番号 0 の 左スティックで 2P だけ 動く。pad=2p は 何もしない', async ({ page }) => {
-  await page.goto('/?nosave=1&duo=dev&pad=2p');
-  await page.waitForFunction(() => (window as any).__rikkun?.ready === true);
-  await page.evaluate(() => {
-    const h = (window as any).__rikkun;
-    h.pause();
-    h.achievements.mute(true);
-    h.lock.simulate(true); // 「クリックして あそぼう」を とじる
-    h.step(2);
-  });
+  await openPlay(page, '?nosave=1&duo=dev&pad=2p');
   await standOnGround(page, 100.5, 100.5, { yaw: 90 });
   await installFakePads(page, 2);
   expect(await page.evaluate(() => (window as any).__rikkun.duo.setPadChoice({ p1: 1, p2: 0 }))).toBe(true);
@@ -79,8 +85,8 @@ test('AC53: 通し（?duo=dev&pad=2p）: setPadChoice({p1:1,p2:0}) → 番号 1 
   expect(moved(p1Before, p1After), '1P は 動かない').toBeLessThan(0.3);
 });
 
-test('AC50・AC52・AC56・AC59・AC60: 「つかう コントローラー」タブ（0 本 → 2 本 → 光る → 待ち → ＋ で 決まる → 読みなおし → ふつうの URL）', async ({ page }) => {
-  await openUsePadTab(page);
+test('AC50・AC52・AC56・AC59・AC60・AC65: ふつうの URL の「つかう コントローラー」タブ（0 本 → 2 本 → 光る → 待ち → ＋ で 決まる → 読みなおし → 保存 {p1:null,p2:0} で 参加）', async ({ page }) => {
+  await openUsePadTab(page, '?nosave=1'); // AC65: ふつうの URL でも タブが ある
 
   // AC59: 2 だん目に タブが あり、おすと 2 だん目のまま 中身が かわる
   const tab = page.getByTestId('ctrl-tab-use');
@@ -168,7 +174,7 @@ test('AC50・AC52・AC56・AC59・AC60: 「つかう コントローラー」タ
   expect(JSON.parse(raw ?? 'null')).toEqual({ p1: 1, p2: 0 });
 
   // AC50・AC52: ページを 読みなおしても 同じ
-  await openUsePadTab(page);
+  await openUsePadTab(page, '?nosave=1');
   await installFakePads(page, 2);
   await step(page, 2);
   expect(await padChoice(page)).toEqual({ p1: 1, p2: 0 });
@@ -176,11 +182,29 @@ test('AC50・AC52・AC56・AC59・AC60: 「つかう コントローラー」タ
   await expect(page.getByTestId('use-p1-c2')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('use-p2-c1')).toHaveAttribute('aria-pressed', 'true');
 
-  // AC59・AC61: ふつうの URL では タブが 出ず、setPadChoice は false で 保存も かわらない
-  await openUsePadTab(page, '?nosave=1');
-  await expect(page.getByTestId('ctrl-tab-pad')).toBeVisible();
-  await expect(page.getByTestId('ctrl-tab-use')).toHaveCount(0);
-  expect(await page.evaluate(() => (window as any).__rikkun.duo.setPadChoice({ p1: 0, p2: 1 }))).toBe(false);
-  expect(await padChoice(page)).toBeNull();
-  expect(await page.evaluate(() => localStorage.getItem('rikkun.duo.pads.v1'))).toBe(raw);
+  // AC65: 保存 {"p1":null,"p2":0}（1 本だけ つないで 2P に 決めた）は ふつうの URL でも 効く。番号 0 の 左スティックで 1P は 動かず、番号 0 の ＋ で 2P が 参加
+  const only2p = '{"p1":null,"p2":0}';
+  await page.addInitScript((v) => localStorage.setItem('rikkun.duo.pads.v1', v), only2p);
+  await openPlay(page, '?nosave=1');
+  await standOnGround(page, 100.5, 100.5, { yaw: 90 });
+  await installFakePads(page, 1);
+  expect(await padChoice(page)).toEqual({ p1: null, p2: 0 });
+  expect(await padIndex(page, 1), '1P は パッドなし').toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('rikkun.duo.pads.v1')), '保存は 消さない').toBe(only2p);
+  const q1 = (await pos(page, 1))!;
+  await setFakePad(page, 0, { axes: FWD });
+  await step(page, 30);
+  expect(moved(q1, (await pos(page, 1))!), '番号 0 の 左スティックで 1P は 動かない').toBeLessThan(0.05);
+  await setFakePad(page, 0, {});
+  await step(page, 5);
+  expect((await duoState(page)).joined).toBe(false);
+  await tapPlus(page, 0);
+  expect((await duoState(page)).joined, '番号 0 の ＋ で 2P が 参加').toBe(true);
+  expect(await padIndex(page, 2)).toBe(0);
+  const r1 = (await pos(page, 1))!;
+  const r2 = (await pos(page, 2))!;
+  await setFakePad(page, 0, { axes: FWD });
+  await step(page, 30);
+  expect(moved(r2, (await pos(page, 2))!), '2P が 動いた').toBeGreaterThan(0.5);
+  expect(moved(r1, (await pos(page, 1))!), '1P は 動かない').toBeLessThan(0.3);
 });

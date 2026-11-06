@@ -270,7 +270,10 @@ export class CraftPanel {
     barFill.root.hidden = true;
     root.append(barFill.root);
     root.addEventListener('mouseenter', () => this.hover(r.id));
-    root.addEventListener('mouseleave', () => this.hover(null));
+    root.addEventListener('mouseleave', () => { if (this.hovered_ === r.id) this.hover(null); }); // 十字で 別の マスに 来たあとの 古い mouseleave で 消さない
+    // 十字で マスに フォーカスが 来たら、マウスを 合わせたのと おなじに せつめいを 切りかえる（のこった マウスの hovered_ も ここで 上書き）。
+    // blur では 消さない: せつめい パネルへ 十字で 移っても、直前の マスの せつめいの まま
+    root.addEventListener('focus', () => this.hover(r.id));
     root.addEventListener('click', (e) => {
       e.stopPropagation();
       this.tileClick(r.id);
@@ -659,6 +662,7 @@ export class CraftPanel {
     if (!visibleCards(this.views()[station]).some((c) => c.id === id)) return { action: 'select', ok: false, reason: 'hidden' };
     if (this.selected_[station] !== id) {
       this.selected_[station] = id;
+      this.hovered_ = id; // 最後の 操作（クリック・B）の マスが せつめいに 出る
       this.d.onSelect?.(id);
       this.dirty = true;
       this.sync();
