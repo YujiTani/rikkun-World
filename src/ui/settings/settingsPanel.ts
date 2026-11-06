@@ -2,9 +2,11 @@
  * せってい: キー・マウスの見本と、おと。コントローラーの変更はゲームパッド画面。
  */
 import type { GamepadReader } from '../../input/gamepad';
+import { GAMEPAD_CONFIG } from '../../input/gamepad/config';
 import type { AudioSettings } from '../../fx/audioConfig';
 import type { FxSettings } from '../../fx/config';
 import { mountSoundKnobs } from '../soundSettings';
+import { ruby } from '../text';
 import type { DialogStack } from '../menu/choiceDialog';
 import { CONTROL_ROWS, rowKeys, type ControlRow } from './controlRows';
 import { createPadScreen } from './padScreen';
@@ -44,18 +46,64 @@ export function createSettingsPanel(
     `<div class="set-actions">` +
     `<button type="button" class="set-text-btn" data-testid="pad-open" data-menu-item>ゲームパッド</button>` +
     `</div>` +
-    `<h3 class="set-h">おと</h3>` +
+    `<div class="set-tabs" role="tablist" aria-label="せってい">` +
+    `<button type="button" class="set-tab" role="tab" id="tab-sound" data-testid="tab-sound" data-menu-item aria-selected="true" aria-controls="panel-sound">${ruby('音', 'おと')}</button>` +
+    `<button type="button" class="set-tab" role="tab" id="tab-camera" data-testid="tab-camera" data-menu-item aria-selected="false" aria-controls="panel-camera">カメラ</button>` +
+    `</div>` +
+    `<div id="panel-sound" class="set-tabpanel" role="tabpanel" data-testid="panel-sound" aria-labelledby="tab-sound">` +
     `<div data-testid="settings-sound"></div>` +
+    `</div>` +
+    `<div id="panel-camera" class="set-tabpanel" role="tabpanel" data-testid="panel-camera" aria-labelledby="tab-camera" hidden>` +
+    `<h3 class="set-h">みる はやさ</h3>` +
+    `<p class="set-lead">みぎスティックを たおす はやさ。おしこみではない。</p>` +
+    `<div class="set-slider" data-slider-row data-menu-item tabindex="0">` +
+    `<span>おそい</span>` +
+    `<input type="range" min="${GAMEPAD_CONFIG.lookMin}" max="${GAMEPAD_CONFIG.lookMax}" step="0.1" data-testid="look-speed" aria-label="みる はやさ">` +
+    `<span>はやい</span>` +
+    `<span class="set-num" data-testid="look-value"></span>` +
+    `</div>` +
+    `<button type="button" class="set-text-btn" data-testid="look-reset" data-menu-item>はやさを もとにもどす</button>` +
+    `</div>` +
     `<h3 class="set-h">キー・マウス</h3>` +
     `<p class="set-lead">キーボードとマウスのそうさ。コントローラーは「ゲームパッド」。</p>` +
     `<div class="set-table set-table-keys" data-testid="settings-controls"></div>` +
     `<div class="set-actions"><button type="button" class="set-text-btn" data-testid="settings-close" data-menu-item>とじる</button></div>`;
+
+  const soundPanel = general.querySelector<HTMLElement>('[data-testid="panel-sound"]')!;
+  const cameraPanel = general.querySelector<HTMLElement>('[data-testid="panel-camera"]')!;
+  const tabSound = general.querySelector<HTMLButtonElement>('[data-testid="tab-sound"]')!;
+  const tabCamera = general.querySelector<HTMLButtonElement>('[data-testid="tab-camera"]')!;
+  const lookInput = general.querySelector<HTMLInputElement>('[data-testid="look-speed"]')!;
+  const lookValue = general.querySelector<HTMLElement>('[data-testid="look-value"]')!;
+  let tab: 'sound' | 'camera' = 'sound';
+
+  const paintLook = (): void => {
+    const v = opts.reader.getSettings().lookSensitivity;
+    if (Math.abs(Number(lookInput.value) - v) > 1e-9) lookInput.value = String(v);
+    lookValue.textContent = v.toFixed(1);
+  };
+  const showTab = (next: 'sound' | 'camera'): void => {
+    tab = next;
+    const soundOn = next === 'sound';
+    soundPanel.hidden = !soundOn;
+    cameraPanel.hidden = soundOn;
+    tabSound.setAttribute('aria-selected', String(soundOn));
+    tabCamera.setAttribute('aria-selected', String(!soundOn));
+    tabSound.classList.toggle('is-on', soundOn);
+    tabCamera.classList.toggle('is-on', !soundOn);
+    if (!soundOn) paintLook();
+  };
 
   const pad = createPadScreen({
     reader: opts.reader,
     dialogs: opts.dialogs,
     onBack: () => {
       general.hidden = false;
+    },
+    onCamera: () => {
+      general.hidden = false;
+      showTab('camera');
+      tabCamera.focus();
     },
   });
 
@@ -109,10 +157,32 @@ export function createSettingsPanel(
       return;
     }
     general.hidden = false;
+    showTab(tab);
     paintKeys();
     sound.refresh();
+    paintLook();
     loop();
   };
+
+  tabSound.addEventListener('click', () => showTab('sound'));
+  tabCamera.addEventListener('click', () => showTab('camera'));
+  for (const b of [tabSound, tabCamera]) {
+    b.addEventListener('focus', () => showTab(b === tabSound ? 'sound' : 'camera'));
+    b.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const next = e.key === 'ArrowRight' ? tabCamera : tabSound;
+      next.focus();
+    });
+  }
+  lookInput.addEventListener('input', () => {
+    opts.reader.setSettings({ lookSensitivity: Number(lookInput.value) });
+    paintLook();
+  });
+  general.querySelector('[data-testid="look-reset"]')!.addEventListener('click', () => {
+    opts.reader.setSettings({ lookSensitivity: GAMEPAD_CONFIG.lookSensitivity });
+    paintLook();
+  });
 
   general.querySelector('[data-testid="pad-open"]')!.addEventListener('click', () => {
     general.hidden = true;

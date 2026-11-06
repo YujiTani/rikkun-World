@@ -2,7 +2,6 @@
  * ゲームパッド専用画面。中央の図と、ボタンまでの線。割り当て直しは今までの決まり。
  */
 import type { GamepadReader } from '../../input/gamepad';
-import { GAMEPAD_CONFIG } from '../../input/gamepad/config';
 import type { PadFace } from '../../input/gamepad/mapping';
 import { PAD_FACES } from '../../input/gamepad/mapping';
 import { assignFaceToAction } from '../../input/gamepad/rebind';
@@ -34,7 +33,13 @@ interface Capture {
 const LEFT: PadFace[] = ['l2', 'l1', 'select', 'dpadUp', 'dpadLeft', 'dpadDown', 'dpadRight'];
 const RIGHT: PadFace[] = ['r2', 'r1', 'start', 'faceTop', 'faceLeft', 'faceRight', 'faceBottom', 'r3'];
 
-export function createPadScreen(opts: { reader: GamepadReader; dialogs: DialogStack; onBack: () => void }): PadScreen {
+export function createPadScreen(opts: {
+  reader: GamepadReader;
+  dialogs: DialogStack;
+  onBack: () => void;
+  /** みる はやさはせっていのカメラタブだけ。ここからはそこを開く */
+  onCamera: () => void;
+}): PadScreen {
   const el = document.createElement('div');
   el.className = 'pad-screen';
   el.dataset.testid = 'pad-screen';
@@ -53,14 +58,9 @@ export function createPadScreen(opts: { reader: GamepadReader; dialogs: DialogSt
     `<div class="pad-body">${padSvg()}</div>` +
     `<div class="pad-col" data-col="right"></div>` +
     `</div>` +
-    `<h3 class="set-h">みる はやさ</h3>` +
-    `<div class="set-slider" data-slider-row data-menu-item tabindex="0">` +
-    `<span>おそい</span>` +
-    `<input type="range" min="${GAMEPAD_CONFIG.lookMin}" max="${GAMEPAD_CONFIG.lookMax}" step="0.1" data-testid="look-speed" aria-label="みる はやさ">` +
-    `<span>はやい</span>` +
-    `<span class="set-num" data-testid="look-value"></span>` +
+    `<div class="set-actions">` +
+    `<button type="button" class="set-text-btn" data-testid="pad-to-camera" data-menu-item>カメラの はやさ</button>` +
     `</div>` +
-    `<button type="button" class="set-text-btn" data-testid="look-reset" data-menu-item>はやさを もとにもどす</button>` +
     `<h3 class="set-h">${ruby('動作', 'どうさ')}${ruby('確認', 'かくにん')}</h3>` +
     `<section data-testid="settings-diag">` +
     `<div class="set-name" data-testid="gp-id"></div>` +
@@ -85,8 +85,6 @@ export function createPadScreen(opts: { reader: GamepadReader; dialogs: DialogSt
   const leftCol = el.querySelector<HTMLElement>('[data-col="left"]')!;
   const rightCol = el.querySelector<HTMLElement>('[data-col="right"]')!;
   const wires = el.querySelector<SVGSVGElement>('[data-wires]')!;
-  const lookInput = el.querySelector<HTMLInputElement>('[data-testid="look-speed"]')!;
-  const lookValue = el.querySelector<HTMLElement>('[data-testid="look-value"]')!;
   const deadInput = el.querySelector<HTMLInputElement>('[data-testid="dead-zone"]')!;
   const deadValue = el.querySelector<HTMLElement>('[data-testid="dead-value"]')!;
   const idEl = el.querySelector<HTMLElement>('[data-testid="gp-id"]')!;
@@ -111,12 +109,10 @@ export function createPadScreen(opts: { reader: GamepadReader; dialogs: DialogSt
   });
   opts.dialogs.add(resetDialog);
 
-  const paintNums = (): void => {
-    const s = opts.reader.getSettings();
-    if (Math.abs(Number(lookInput.value) - s.lookSensitivity) > 1e-9) lookInput.value = String(s.lookSensitivity);
-    lookValue.textContent = s.lookSensitivity.toFixed(1);
-    if (Math.abs(Number(deadInput.value) - s.deadZone) > 1e-9) deadInput.value = String(s.deadZone);
-    deadValue.textContent = s.deadZone.toFixed(2);
+  const paintDead = (): void => {
+    const v = opts.reader.getSettings().deadZone;
+    if (Math.abs(Number(deadInput.value) - v) > 1e-9) deadInput.value = String(v);
+    deadValue.textContent = v.toFixed(2);
   };
 
   const callButton = (face: PadFace | null, id: string, label: string, action: Action | null): HTMLButtonElement => {
@@ -260,17 +256,9 @@ export function createPadScreen(opts: { reader: GamepadReader; dialogs: DialogSt
     }
   };
 
-  lookInput.addEventListener('input', () => {
-    opts.reader.setSettings({ lookSensitivity: Number(lookInput.value) });
-    paintNums();
-  });
   deadInput.addEventListener('input', () => {
     opts.reader.setSettings({ deadZone: Number(deadInput.value) });
-    paintNums();
-  });
-  el.querySelector('[data-testid="look-reset"]')!.addEventListener('click', () => {
-    opts.reader.setSettings({ lookSensitivity: GAMEPAD_CONFIG.lookSensitivity });
-    paintNums();
+    paintDead();
   });
   el.querySelector('[data-testid="binds-reset"]')!.addEventListener('click', () => resetDialog.open());
   el.querySelector('[data-testid="bind-cancel"]')!.addEventListener('click', () => {
@@ -291,12 +279,17 @@ export function createPadScreen(opts: { reader: GamepadReader; dialogs: DialogSt
     el.hidden = true;
     opts.onBack();
   });
+  el.querySelector('[data-testid="pad-to-camera"]')!.addEventListener('click', () => {
+    cancelCapture();
+    el.hidden = true;
+    opts.onCamera();
+  });
 
   return {
     el,
     open() {
       el.hidden = false;
-      paintNums();
+      paintDead();
       paintCalls();
     },
     close() {

@@ -44,26 +44,42 @@ test('せってい: 表・はやさ・おと・割り当て・動作確認', asy
   await expect(table).toContainText('Space');
   await expect(table).toContainText('Esc');
   await expect(table).toContainText('ひだりクリック');
+  await expect(page.getByTestId('tab-sound')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('sound-master')).toBeVisible();
+  await expect(page.getByTestId('look-speed')).toBeHidden();
   await expect(page.getByTestId('pad-open')).toBeVisible();
-  await page.getByTestId('pad-open').click();
-  await expect(page.getByTestId('pad-screen')).toBeVisible();
+  await page.getByTestId('tab-camera').click();
+  await expect(page.getByTestId('tab-camera')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('look-speed')).toBeVisible();
-  await expect(page.getByTestId('dead-zone')).toBeVisible();
-  await expect(page.getByTestId('settings-diag')).toBeVisible();
-  await expect(page.locator('[data-pad-face="faceBottom"] text')).toHaveText('B');
-  await expect(page.locator('[data-pad-face="faceRight"] text')).toHaveText('A');
-
+  await expect(page.getByTestId('sound-master')).toBeHidden();
   await page.getByTestId('look-speed').evaluate((el) => {
     const input = el as HTMLInputElement;
     input.value = '4';
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
+  await page.getByTestId('tab-sound').click();
+  await expect(page.getByTestId('sound-master')).toBeVisible();
+  await expect(page.getByTestId('look-speed')).toBeHidden();
+  await page.getByTestId('tab-camera').click();
+  await expect(page.getByTestId('look-speed')).toHaveValue('4');
+
+  await page.getByTestId('pad-open').click();
+  await expect(page.getByTestId('pad-screen')).toBeVisible();
+  await expect(page.getByTestId('pad-screen').getByTestId('look-speed')).toHaveCount(0);
+  await expect(page.getByTestId('dead-zone')).toBeVisible();
+  await expect(page.getByTestId('settings-diag')).toBeVisible();
+  await expect(page.locator('[data-pad-face="faceBottom"] text')).toHaveText('B');
+  await expect(page.locator('[data-pad-face="faceRight"] text')).toHaveText('A');
   await page.getByTestId('dead-zone').evaluate((el) => {
     const input = el as HTMLInputElement;
     input.value = '0.33';
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
+  await page.getByTestId('pad-to-camera').click();
+  await expect(page.getByTestId('pad-screen')).toBeHidden();
+  await expect(page.getByTestId('tab-camera')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('look-speed')).toBeVisible();
+  await expect(page.getByTestId('look-speed')).toHaveValue('4');
   const sens = await page.evaluate(() => window.__rikkun!.gamepad!.settings());
   expect(sens.lookSensitivity).toBe(4);
   expect(sens.deadZone).toBeCloseTo(0.33);
