@@ -71,11 +71,26 @@ export function decidePadChoice(current: PadChoice, who: 1 | 2, index: number, c
   return { choice, swapped: other !== before };
 }
 
-export function listPads(pads: ReadonlyArray<Gamepad | null>): PadListItem[] {
-  const out: PadListItem[] = [];
+const PAD_NAMES = ['コントローラー 1', 'コントローラー 2', 'コントローラー 3', 'コントローラー 4'] as const;
+const nameOf = (n: number): string => PAD_NAMES[n] ?? `コントローラー ${n + 1}`;
+
+/** listPads と 同じ 中身を out に 入れる(out の 物を 使いまわす。毎フレーム 呼ぶ 所用) */
+export function listPadsInto(out: PadListItem[], pads: ReadonlyArray<Gamepad | null>): PadListItem[] {
+  let n = 0;
   for (let i = 0; i < pads.length; i++) {
     const p = pads[i];
-    if (p && p.connected) out.push({ index: i, name: `コントローラー ${out.length + 1}` });
+    if (!p || !p.connected) continue;
+    const it = out[n];
+    if (it) {
+      it.index = i;
+      it.name = nameOf(n);
+    } else out[n] = { index: i, name: nameOf(n) };
+    n++;
   }
+  out.length = n;
   return out;
+}
+
+export function listPads(pads: ReadonlyArray<Gamepad | null>): PadListItem[] {
+  return listPadsInto([], pads);
 }

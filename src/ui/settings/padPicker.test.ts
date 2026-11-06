@@ -297,3 +297,54 @@ describe('AC60: 光る', () => {
     expect(m.picker.litColor(0)).toBeNull();
   });
 });
+
+describe('#401 レビューの 直し', () => {
+  it('直し 5: pending()・buttons()・一覧は 呼ぶたびに 新しい 物を 作らない', () => {
+    const m = make();
+    m.picker.start(2, 0);
+    expect(m.picker.pending()).toBe(m.picker.pending());
+    const a = m.picker.buttons(1);
+    const first = a[0];
+    m.picker.step();
+    const b = m.picker.buttons(1);
+    expect(b).toBe(a);
+    expect(b[0]).toBe(first);
+    expect(b.map((v) => v.name)).toEqual(['コントローラー 1', 'コントローラー 2']);
+  });
+
+  it('直し 6: 1P の パッドの 十字で 待ちを やめた ステップは endedByPad() が true（フォーカスを 動かさない）。つぎの ステップで false', () => {
+    const m = make();
+    m.picker.start(2, 0);
+    m.picker.step();
+    expect(m.picker.endedByPad()).toBe(false);
+    m.set(fakePad(0, { buttons: [DPAD_UP] }), fakePad(1));
+    m.picker.step();
+    expect(m.picker.pending()).toBeNull();
+    expect(m.picker.endedByPad()).toBe(true);
+    m.set(fakePad(0), fakePad(1));
+    m.picker.step();
+    expect(m.picker.endedByPad()).toBe(false);
+    // 待ちが ないときの 十字は 数えない
+    m.set(fakePad(0, { buttons: [DPAD_UP] }), fakePad(1));
+    m.picker.step();
+    expect(m.picker.endedByPad()).toBe(false);
+  });
+
+  it('直し 6: advanceTime の 途中で やめても endedByPad() が true', () => {
+    const m = make();
+    m.picker.start(2, 0);
+    m.set(fakePad(0, { buttons: [DPAD_UP] }), fakePad(1));
+    m.picker.advanceTime(3 / 60);
+    expect(m.picker.endedByPad()).toBe(true);
+  });
+
+  it('直し 6: 待ちの あいだに もう 決まっている 物(今の 行の)を おすと 待ちを やめる。何も かわらない', () => {
+    const m = make({ p1: 0, p2: 1 });
+    m.picker.start(1, 1);
+    expect(m.picker.pending()).not.toBeNull();
+    m.picker.start(1, 0); // 1P は もう 0
+    expect(m.picker.pending()).toBeNull();
+    expect(m.picking.at(-1)).toBeNull();
+    expect(m.commits).toEqual([]);
+  });
+});

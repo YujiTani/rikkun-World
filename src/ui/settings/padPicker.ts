@@ -16,7 +16,7 @@
  *   buttons(who)        その 行の えらぶ ボタン(つながっている 本数だけ。host.getPads() から 今 読む)
  *   isNone()            つながっている コントローラーが 0 本
  */
-import { decidePadChoice, listPads, type PadChoice } from '../../input/gamepad/padChoice';
+import { decidePadChoice, listPadsInto, type PadChoice, type PadListItem } from '../../input/gamepad/padChoice';
 import { detectMappingKind, faceTable } from '../../input/gamepad/mapping';
 
 export type PickCancel = 'back' | 'esc' | 'mouse' | 'dpad';
@@ -66,11 +66,25 @@ export class PadPicker {
   private readonly wasDpad: boolean[] = [false, false, false, false];
   private timeAcc = 0;
   private readonly buttonViews: [PadButtonView[], PadButtonView[]] = [[], []];
+  /** つながっている 一覧(使いまわす) */
+  private readonly listBuf: PadListItem[] = [];
+  /** 1P の パッドの もどる・十字で 待ちを やめた(このステップ。advanceTime は 中の どれか) */
+  private endedByPadFlag = false;
 
   constructor(private readonly host: PadPickerHost) {}
 
-  pending(): { who: 1 | 2; index: number } | null {
-    return this.pend.index >= 0 ? { who: this.pend.who, index: this.pend.index } : null;
+  /** 待ちの 中身を そのまま 返す(読むだけ。使いまわし) */
+  pending(): Readonly<{ who: 1 | 2; index: number }> | null {
+    return this.pend.index >= 0 ? this.pend : null;
+  }
+
+  /** このステップ(advanceTime なら 今回の 中の どれか)に 1P の パッドで 待ちを やめた。呼んだ 側は フォーカスを 動かさない */
+  endedByPad(): boolean {
+    return this.endedByPadFlag;
+  }
+
+  private list(): PadListItem[] {
+    return listPadsInto(this.listBuf, this.host.getPads());
   }
 
   private isConnected(index: number): boolean {
@@ -81,7 +95,10 @@ export class PadPicker {
   start(who: 1 | 2, index: number): void {
     if (!this.isConnected(index)) return;
     const c = this.host.choice();
-    if ((who === 1 ? c.p1 : c.p2) === index) return;
+    if ((who === 1 ? c.p1 : c.p2) === index) {
+      this.cancel('mouse'); // もう 決まっている 物を おしても 待ちは つづけない
+      return;
+    }
     this.pend.who = who;
     this.pend.index = index;
     this.waitSteps = 0;
@@ -142,16 +159,22 @@ export class PadPicker {
   }
 
   step(): void {
+    this.endedByPadFlag = false;
+    this.stepOnce();
+  }
+
+  private stepOnce(): void {
     if (this.noticeLeft > 0 && --this.noticeLeft === 0) this.noticeKind = null;
     const pads = this.host.getPads();
     const bits = this.sample(pads, this.pend.index >= 0);
     if (this.pend.index < 0) return;
     if (!this.isConnected(this.pend.index) || bits & 2) {
+      if (bits & 2) this.endedByPadFlag = true;
       this.end();
       return;
     }
     if (bits & 1) {
-      const d = decidePadChoice(this.host.choice(), this.pend.who, this.pend.index, listPads(pads).map((x) => x.index));
+      const d = decidePadChoice(this.host.choice(), this.pend.who, this.pend.index, this.list().map((x) => x.index));
       this.end();
       this.host.commit(d.choice);
       this.setNotice(d.swapped ? 'swapped' : 'decided');
@@ -167,7 +190,13 @@ export class PadPicker {
     this.timeAcc += sec * 60;
     const n = Math.floor(this.timeAcc + 1e-6);
     this.timeAcc -= n;
-    for (let i = 0; i < n; i++) this.step();
+    this.endedByPadFlag = false;
+    let ended = false;
+    for (let i = 0; i < n; i++) {
+      this.stepOnce();
+      if (this.endedByPadFlag) ended = true;
+    }
+    this.endedByPadFlag = ended;
     return n;
   }
 
@@ -183,24 +212,23 @@ export class PadPicker {
   }
 
   buttons(who: 1 | 2): PadButtonView[] {
-    const list = listPads(this.host.getPads());
+    const list = this.list();
     const c = this.host.choice();
     const mine = who === 1 ? c.p1 : c.p2;
     const out = this.buttonViews[who - 1]!;
-    out.length = 0;
-    for (const it of list) {
-      out.push({
-        index: it.index,
-        name: it.name,
-        chosen: mine === it.index,
-        pending: this.pend.index === it.index && this.pend.who === who,
-        lit: this.isLit(it.index),
-      });
-    }
+    list.forEach((it, n) => {
+      const v = out[n] ?? (out[n] = { index: 0, name: '', chosen: false, pending: false, lit: false });
+      v.index = it.index;
+      v.name = it.name;
+      v.chosen = mine === it.index;
+      v.pending = this.pend.index === it.index && this.pend.who === who;
+      v.lit = this.isLit(it.index);
+    });
+    out.length = list.length;
     return out;
   }
 
   isNone(): boolean {
-    return listPads(this.host.getPads()).length === 0;
+    return this.list().length === 0;
   }
 }
