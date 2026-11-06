@@ -4,6 +4,8 @@ import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import { planShaft, planShaftSteps, type ShaftPlan } from './mineShaftPlan';
 import { geoFor, regionHit, regionLand, regionOf, regionSites, startSiteAt, startSites, type Geo, type Site } from './mineShaftSite';
 import type { PathCell, Shaft, ShaftRoll } from './mineShaftTypes';
+import { CaveWorld, type CaveHost } from './mineCaves';
+import type { RoomColOps } from './mineCaveRoom';
 import { colKey } from '../stream/ring';
 
 /**
@@ -59,8 +61,9 @@ export function setShaftsOn(on: boolean): void {
   shaftsOn = on;
 }
 
-export class ShaftWorld {
+export class ShaftWorld implements CaveHost {
   readonly G: Geo;
+  private caveWorld: CaveWorld | undefined;
   private startPlanned: Planned | null | undefined;
   private readonly regions = new Map<number, Planned | null>();
   constructor(
@@ -73,6 +76,27 @@ export class ShaftWorld {
   }
 
   isOld = (k: number): boolean => this.oldCols?.kodo.has(k) === true;
+
+  isOldHeya = (k: number): boolean => this.oldCols?.heya.has(k) === true;
+
+  /** ほらあなの 種類（部屋）の 世界（MINE-1D）。坑道と 同じ シード・同じ 古い 列の 一覧 */
+  get caves(): CaveWorld {
+    return (this.caveWorld ??= new CaveWorld(this));
+  }
+
+  /** 箱（両はし ふくむ）の 中に 坑道の 道の マスが あるか */
+  nearShaft(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean {
+    for (const s of this.shafts(x0, z0, x1, z1)) {
+      const plan = this.planById(s.id);
+      if (plan) for (const c of plan.path) if (c.x >= x0 && c.x <= x1 && c.z >= z0 && c.z <= z1 && c.y >= y0 && c.y <= y1) return true;
+    }
+    return false;
+  }
+
+  /** 列に 置く 部屋の 物（`?mine=0` では 作らない） */
+  caveOps(cx: number, cz: number): RoomColOps[] | null {
+    return shaftsOn ? this.caves.opsFor(cx, cz) : null;
+  }
 
   /** はじまりの 坑道。置ける 所が どこにも なければ null（坑道 なしで 世界は 作る。§5） */
   start(): Planned | null {

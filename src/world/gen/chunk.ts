@@ -365,6 +365,8 @@ export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCl
   placePlants(out, T, cx, cz, H, zones?.plants);
   const shaftOps = shafts.opsFor(cx, cz);
   if (shaftOps) applyShaftOps(out, shaftOps);
+  const caveOps = shafts.caveOps(cx, cz);
+  if (caveOps) applyShaftOps(out, caveOps);
 
   // MAGMA-SPAWN: 滝（はしら・わきどころ・ふた・たきつぼ）。木・草の あとに 置く（はっぱを どける）
   for (const p of T.liquid.pondsIn(x0, z0, x0 + CHUNK_SIZE - 1, z0 + CHUNK_SIZE - 1)) {
