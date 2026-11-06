@@ -234,10 +234,6 @@ export async function duoInvIssues(page: Page, which: InvScreenPage): Promise<Du
   // 1P と 2P が 重ならない
   const [a, b] = info;
   if (a?.box && b?.box && a.box.l < b.box.r && b.box.l < a.box.r) add('overlap', 'duo-inv-p1', '1P と 2P の パネルが 重なる');
-  // 矢印は 開いた パネルの 上に 出ない（AC87）
-  for (const who of [1, 2] as const) {
-    const arrow = await page.evaluate((who) => (window as any).__rikkun.duo.arrow(who) as unknown, who);
-    if (arrow !== null) add('arrow', `duo-arrow-p${who}`, 'パネルが 開いている あいだは duo.arrow が null のはず');
-  }
+  // 矢印が 開いた パネルの 上に 出ない こと（AC87）は、2P を 遠くに 置く openDuoArrowPanel（duoArrowPanelIssues）が 見る。ここは 近い 場面で duo.arrow が いつも null なので 見ない
   return out;
 }

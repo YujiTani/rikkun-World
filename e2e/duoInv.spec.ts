@@ -54,6 +54,10 @@ test('AC75・AC76: 2P は パッドだけで 開いて つくる。そのあい�
   await expect(p2).toHaveAttribute('data-layout', 'duo');
   await expect(p2).toHaveAttribute('data-page', 'items');
   expect(await page.evaluate(() => (window as any).__rikkun.duo.timeScale()), '世界は 止めない・ゆっくりにも しない').toBe(1);
+  // マウスは 1P の 物: 1P の マウスで 2P の「つくる」タブを 押しても 2P の ページは items の まま（AC77）
+  await page.getByTestId('duo-inv-p2').getByTestId('duo-inv-tab-craft').click({ force: true });
+  await stepN(page, 2);
+  expect((await invOf(page, 2)).page, '1P の マウスでは 2P の ページは かわらない').toBe('items');
   await expect(page.getByTestId('duo-wait')).toBeHidden();
   expect((await invOf(page, 1)).open, '1P は まだ 開いていない').toBe(false);
   await expect(page.locator('#inventory-screen')).toBeHidden();

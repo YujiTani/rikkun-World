@@ -15,7 +15,7 @@ import { InvFocus } from './invFocus';
  *     reset(items): void              開いた とき（1 人の ときと 同じ「はじめの 物」= items[0]）。2P だけ（1P は DOM で 何も しない）。
  *     clear(): void                   とじた とき（current() = null、padMarks() = []）。
  *     move(items, dir): void          十字 1 回（2P）。`pickNext(items, current(), dir)` と 同じ。端では その場。1P では 何も しない（1P は 今の focusNav が DOM を 動かす）。
- *     sync(items): void               毎ステップ（開いている あいだ）。えらんでいた 物が 一覧から 消えたら（ページが かわった など）はじめの 物に もどす。一覧が 空なら null。
+ *     sync(items): void               ページが かわった とき・パネルを 描きなおした ときだけ 呼ぶ（毎ステップは 呼ばない。毎ステップ 一覧を 作らない ため）。えらんでいた 物が 一覧から 消えていたら はじめの 物に もどす。一覧が 空なら null。
  *     onChange: えらびが かわった とき 1 回（reset・move・sync で 名前が かわった ときだけ。端で その場なら 呼ばない）。#419 の せつめいの 切りかえ（えらんだ レシピの せつめい）が これを 聞く。
  *   配線: 2P の 十字（invPadCommand 'up'…）→ move、'press' → current の 物を クリック、`duo.inv(2).focus` = current()。1P の `duo.inv(1).focus` = new InvFocus({ who: 1, dom }).current()。
  */
