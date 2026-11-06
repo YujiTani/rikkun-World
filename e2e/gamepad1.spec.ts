@@ -152,14 +152,37 @@ test('パッド疑似: もちもの → つくる で 十字で レシピを え
   });
   // つくる前に、このレシピが 本当に つくれる状態か
   expect(await page.evaluate((id) => (window.__rikkun! as any).craft.sources(id).ok, before.id)).toBe(true);
-  await tap(0); // B（きめる）= えらぶ。右に せつめい
+  await tap(0); // B 1 回目（きめる）= えらぶ。せつめいが そのマスに かわる
   await expect(page.locator('.cp-detail')).toBeVisible();
-  expect(await page.evaluate((o) => window.__rikkun!.inventory.count(o as never), before.out)).toBe(before.n);
-  await tap(0); // もう 1 回 = つくる
+  expect(await page.evaluate(() => (document.querySelector('.cp-tile[data-selected="true"]') as HTMLElement | null)?.dataset.id)).toBe(before.id);
+  expect(await page.evaluate(() => document.querySelector('.cp-detail .cp-name')?.textContent?.length)).toBeGreaterThan(0);
+  await tap(0); // B 2 回目 = つくる
   const after = await page.evaluate((b) => {
     const k = window.__rikkun! as any;
     return { n: k.inventory.count(b.out) as number, m: k.inventory.count(b.input) as number };
   }, before);
   expect(after.n).toBeGreaterThan(before.n);
   if (before.input !== before.out) expect(after.m).toBeLessThan(before.m);
+
+  // (b) 十字で せつめいパネルの 中に 入り、下で 「つくる」へ。B で つくれる
+  const active = () => page.evaluate(() => {
+    const a = document.activeElement as HTMLElement | null;
+    return { inDetail: !!a?.closest('.cp-detail'), press: a?.classList.contains('cp-press') ?? false };
+  });
+  let inDetail = false;
+  for (let i = 0; i < 8 && !inDetail; i++) {
+    await tap(15); // 右
+    inDetail = (await active()).inDetail;
+  }
+  expect(inDetail).toBe(true);
+  let onPress = false;
+  for (let i = 0; i < 8 && !onPress; i++) {
+    await tap(13); // 下
+    onPress = (await active()).press;
+  }
+  expect(onPress).toBe(true);
+  const before2 = await page.evaluate((out) => (window.__rikkun! as any).inventory.count(out) as number, before.out);
+  await tap(0);
+  const after2 = await page.evaluate((out) => (window.__rikkun! as any).inventory.count(out) as number, before.out);
+  expect(after2).toBeGreaterThan(before2);
 });

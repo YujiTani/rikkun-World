@@ -8,13 +8,23 @@ export interface FocusBox {
   t: number;
   w: number;
   h: number;
+  /** まとまり（data-focus-group）。同じ まとまりが 方向に あれば、そちらを 先に えらぶ */
+  group?: string;
 }
 
-/** 矩形の中心から、方向にある一番近い項目 */
+/** 矩形の中心から、方向にある一番近い項目。まとまりの中を先に、なければ全体から */
 export function pickNext(boxes: readonly FocusBox[], current: string | null, dir: FocusDir): string | null {
   if (boxes.length === 0) return null;
   const cur = current ? boxes.find((b) => b.id === current) : undefined;
   if (!cur) return boxes[0]!.id;
+  if (cur.group !== undefined) {
+    const inGroup = pickFrom(boxes.filter((b) => b.group === cur.group), cur, dir);
+    if (inGroup) return inGroup.id;
+  }
+  return (pickFrom(boxes, cur, dir) ?? cur).id;
+}
+
+function pickFrom(boxes: readonly FocusBox[], cur: FocusBox, dir: FocusDir): FocusBox | null {
   const cx = cur.l + cur.w / 2;
   const cy = cur.t + cur.h / 2;
   let best: FocusBox | null = null;
@@ -38,7 +48,7 @@ export function pickNext(boxes: readonly FocusBox[], current: string | null, dir
       best = b;
     }
   }
-  return best?.id ?? cur.id;
+  return best;
 }
 
 function visible(el: HTMLElement): boolean {
@@ -54,7 +64,10 @@ function menuItems(root: ParentNode): HTMLElement[] {
 
 function boxOf(el: HTMLElement, i: number): FocusBox {
   const r = el.getBoundingClientRect();
-  return { id: String(i), l: r.left, t: r.top, w: r.width, h: r.height };
+  const g = el.closest<HTMLElement>('[data-focus-group]');
+  const box: FocusBox = { id: String(i), l: r.left, t: r.top, w: r.width, h: r.height };
+  if (g) box.group = g.dataset.focusGroup || 'g';
+  return box;
 }
 
 function currentIndex(items: HTMLElement[]): number {
