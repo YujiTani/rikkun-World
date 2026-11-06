@@ -26,6 +26,7 @@ import { isSolidIndex } from '../../world/blocks/blockTypes';
 import { createTetherLine } from '../../world/render/tetherLine';
 import { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
 import { saveShadowPref } from '../../world/render/shadow/shadowPref';
+import { decideTitleReturn } from '../../ui/menu/titleReturn';
 import { createShadowSetting } from '../../ui/shadowSetting';
 import { START_PITCH_DEG } from '../../player/config';
 import { computeFarmPlacement, applyFarmPlacement } from '../../world/gen/farmPlacement';
@@ -43,7 +44,7 @@ export function wireSave(deps: WiredAchievements) {
     strengthToWrite, screenSettings, combat, time, craft, armor, level, storage, achievements,
     countryWatch, animals, deliverAnimalEvents, legendBook, ninjaBook, kodachi, ninjaHave, samuraiBook,
     samuraiHave, farm, saveOptions, island, hud, renderer, frameClock, raiseAboveBlocks, startPoint,
-    playOverlay, m7, celebrate, lock, book, screen, inventoryScreen, toItemsTab, house,
+    playOverlay, m7, celebrate, lock, book, screen, inventoryScreen, toItemsTab, house, setTitleReturn,
   } = deps;
   // MINE-1C: 1 つの 世界に ShaftWorld は 1 つだけ。生成・先読み・実績・surface・窓口が みんな これを 見る〔古い 列の 一覧と はじまりの 坑道の 場所つき〕
   if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('mine') === '0') setShaftsOn(false); // くらべ用: 坑道を 作らない（性能ループ。§4.9）
@@ -251,6 +252,22 @@ export function wireSave(deps: WiredAchievements) {
     craft.closeFurnace();
     save.saveIfChanged();
   });
+  setTitleReturn(async () => {
+    const before = save.info().failures;
+    await save.now();
+    const info = save.info();
+    const decision = decideTitleReturn({
+      enabled: info.enabled,
+      nosave: saveOptions.nosave,
+      failuresBefore: before,
+      failuresAfter: info.failures,
+      held: save.holdWrites,
+      dirty: info.pendingChunks > 0,
+    });
+    // 成功しても「ほぞんした」とは言わない。失敗したら読みこまない（呼び出し側が文を出す）
+    if (decision === 'reload') location.reload();
+    return decision;
+  });
   save.bindPageEvents(window, document);
   if (idb) {
     // おとな向け: ほぞんを ファイル（.rikkun.gz）に だす・よみこむ（Safari の 7 日消去にそなえる）
@@ -385,7 +402,7 @@ export function wireLoop(deps: WiredFrame) {
     shared, game, rig, overlay, frameClock, host, streamFrame, controller, renderer, world, blobShadow,
     lock, screen, parry, tools, craft, log, inventoryScreen, inventory, pickupLog, armor, storage,
     achievements, pageModel, syncPages, celebrate, dig, actionHint, yokaiFocus, combat, store, weighted,
-    startBoot, strengthLevel, soundSettingsUi, timeSettings, time,
+    startBoot, strengthLevel, timeSettings, time, playOverlay,
   } = deps;
   // ヒットストップで 世界が 止まっている 間も カメラの ゆれだけは 動く
   game.onFrozenUpdate((dt) => rig.updateFrozen(dt));
@@ -462,7 +479,10 @@ export function wireLoop(deps: WiredFrame) {
   const shadowStore = store;
   const shadowStart = weighted.shadow;
   startBoot.setInfo({ strength: strengthLevel, microR: weighted.microR, ring: weighted.ring, shadowBuilt: shadowStart.build });
-  const shadowSettingUi = createShadowSetting(soundSettingsUi.el);
+  const shadowHost = document.createElement('div');
+  shadowHost.className = 'ss-root';
+  playOverlay.el.appendChild(shadowHost);
+  const shadowSettingUi = createShadowSetting(shadowHost);
   if (shadowStart.build) {
     ShadowSystem.activate();
     const sys = new ShadowSystem({

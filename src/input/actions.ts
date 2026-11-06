@@ -40,6 +40,11 @@ export const ACTIONS = [
   'pageNext', // 本の ▶（→。BOOK-1。遊びの moveRight にも なる）
   'bookBack', // 本の もどる（Backspace。BOOK-1）
   'confirm', // きめる（Enter。上空の 視点の 決定。HOUSE-1C PR-2）
+  'openStartMenu', // スタートメニューを ひらく・とじる（Esc 画面。パッドの ＋。SETTINGS-1）
+  'focusUp', // メニュー中の 十字 うえ
+  'focusDown',
+  'focusLeft',
+  'focusRight',
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];

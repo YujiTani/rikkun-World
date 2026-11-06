@@ -15,4 +15,16 @@ describe('GAMEPAD-1: padActive', () => {
     expect(lock.playInputEnabled()).toBe(false);
     expect(lock.realtimeAllowed()).toBe(true);
   });
+
+  it('スタートメニューはパッド中でも案内を出して遊びと時間を止める', () => {
+    const lock = new LockController();
+    lock.setPadActive(true);
+    lock.setPauseMenu(true);
+    expect(lock.overlayVisible()).toBe(true);
+    expect(lock.playInputEnabled()).toBe(false);
+    expect(lock.realtimeAllowed()).toBe(false);
+    lock.setPauseMenu(false);
+    expect(lock.overlayVisible()).toBe(false);
+    expect(lock.playInputEnabled()).toBe(true);
+  });
 });

@@ -1,8 +1,22 @@
 import type { Action } from '../actions';
 import { GAMEPAD_CONFIG } from './config';
-import { DEFAULT_PLAY_BINDS, type PadFace } from './mapping';
+import { DEFAULT_PLAY_BINDS, PAD_FACES, type PadFace } from './mapping';
 
 export type BindMap = Partial<Record<PadFace, Action | null>>;
+
+/**
+ * 古い初期値（＋ = もちもの、左の面も もちもの）だけ ＋ をスタートメニューにする。
+ * ほかのボタンを変えてある保存は、＋ の値もそのまま残す。
+ */
+export function migrateBinds(raw: BindMap, merged: BindMap): BindMap {
+  if (raw.start !== 'toggleInventory') return merged;
+  if (raw.faceLeft !== undefined && raw.faceLeft !== 'toggleInventory') return merged;
+  for (const face of PAD_FACES) {
+    if (face === 'start' || face === 'faceLeft') continue;
+    if (raw[face] !== undefined && raw[face] !== DEFAULT_PLAY_BINDS[face]) return merged;
+  }
+  return { ...merged, start: 'openStartMenu' };
+}
 
 export function loadBinds(storage: Storage | null): BindMap {
   if (!storage) return { ...DEFAULT_PLAY_BINDS };
@@ -10,7 +24,7 @@ export function loadBinds(storage: Storage | null): BindMap {
     const raw = storage.getItem(GAMEPAD_CONFIG.bindsKey);
     if (!raw) return { ...DEFAULT_PLAY_BINDS };
     const o = JSON.parse(raw) as BindMap;
-    return { ...DEFAULT_PLAY_BINDS, ...o };
+    return migrateBinds(o, { ...DEFAULT_PLAY_BINDS, ...o });
   } catch {
     return { ...DEFAULT_PLAY_BINDS };
   }

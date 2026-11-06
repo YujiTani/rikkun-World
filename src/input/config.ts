@@ -3,7 +3,7 @@ export const INPUT_CONFIG = {
   /** はじめての案内文字 */
   textFirst: 'クリックして あそぼう！',
   /** ロックが外れたあとの案内文字 */
-  textResume: 'クリックして つづきを あそぼう！',
+  textResume: 'ゲームに 戻る',
   /** ボタンの最小の大きさ（px） */
   buttonMinWidthPx: 512,
   buttonMinHeightPx: 96,

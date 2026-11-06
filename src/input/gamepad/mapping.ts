@@ -21,6 +21,14 @@ export type PadFace =
 
 export type MappingKind = 'standard' | 'switch' | 'fallback';
 
+/** 論理面の 並び（割り当て表で 回す） */
+export const PAD_FACES: readonly PadFace[] = [
+  'faceBottom', 'faceRight', 'faceLeft', 'faceTop',
+  'l1', 'r1', 'l2', 'r2',
+  'select', 'start', 'l3', 'r3',
+  'dpadUp', 'dpadDown', 'dpadLeft', 'dpadRight',
+];
+
 /** standard 番号 → 論理面 */
 const STANDARD_FACE: Readonly<Record<number, PadFace>> = {
   0: 'faceBottom',
@@ -75,7 +83,8 @@ export const DEFAULT_PLAY_BINDS: Readonly<Record<PadFace, Action | null>> = {
   l2: 'secondary',
   r2: 'primary',
   select: 'openLog',
-  start: 'toggleInventory',
+  /** ＋ は スタートメニュー（Esc と同じ）。もちものではない（SETTINGS-1） */
+  start: 'openStartMenu',
   l3: null,
   r3: 'dropStack',
   dpadUp: null,

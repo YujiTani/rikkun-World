@@ -1,0 +1,185 @@
+/* ゲームパッドの中身。図はオリジナル。札は [ことば | ボタン] の 1 まい */
+.pad-screen[hidden] { display: none !important; }
+.pad-screen { position: relative; }
+.pad-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.pad-warn {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--rk-accent, #ffc83d);
+}
+.pad-warn[hidden] { display: none !important; }
+.pad-capture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+.pad-capture[hidden] { display: none !important; }
+/* 図は stage の まんなか。札のかたまりは JS が まとまりの近くに置く（padLayout） */
+.pad-stage {
+  position: relative;
+  min-height: 260px;
+}
+.pad-body { position: absolute; }
+.pad-calls { position: absolute; inset: 0; z-index: 4; pointer-events: none; } /* 札の すきまは クリックを 通す（下の ボタンを 押せるように） */
+.pad-calls .pad-call { pointer-events: auto; }
+.pad-wires {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 3;
+}
+.pad-wires polyline {
+  fill: none;
+  stroke: #aeb8d0;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.pad-wires polyline.is-on { stroke: #ffc83d; stroke-width: 3; }
+.pad-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.pad-svg text {
+  fill: #fff;
+  font-weight: 800;
+  font-family: inherit;
+}
+.pad-box {
+  fill: rgb(127 179 255 / 8%);
+  stroke: #7fb3ff;
+  stroke-width: 3;
+}
+.pad-box.is-off { display: none; }
+.pad-call {
+  position: absolute;
+  display: flex;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid var(--rk-accent, #ffc83d);
+  border-radius: 12px;
+  background: #1a2132;
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  text-shadow: none;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+.pad-call.is-static { cursor: default; border-color: #aeb8d0; }
+.pad-call-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  white-space: nowrap;
+  text-align: center;
+}
+.pad-call-badge {
+  flex: none;
+  min-width: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 6px;
+  background: #2c3344;
+  border-left: 2px solid var(--rk-accent, #ffc83d);
+}
+.pad-call.is-static .pad-call-badge { border-left-color: #aeb8d0; }
+.pad-call.is-wait,
+.pad-call.is-pick {
+  outline: 4px solid #4fc3f7;
+  outline-offset: 1px;
+}
+.pad-call:focus {
+  outline: 4px solid var(--rk-accent, #ffc83d);
+  outline-offset: 1px;
+}
+.pad-badge-svg { width: 28px; height: 28px; display: block; }
+.pad-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  background: #3a4254;
+  border: 2px solid #aeb8d0;
+}
+.pad-b-key { border-radius: 8px; }
+.pad-b-faceTop { background: #1f5fbf; border-color: #1f5fbf; }
+.pad-b-faceLeft { background: #e0b545; border-color: #e0b545; color: #141414; }
+.pad-b-faceRight { background: #1b7f3a; border-color: #1b7f3a; }
+.pad-b-faceBottom { background: #c62828; border-color: #c62828; }
+.pad-more {
+  margin-top: 8px;
+  font-size: 16px;
+  font-weight: 800;
+}
+.pad-more summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--rk-accent, #ffc83d);
+}
+.pad-part[data-pad-face='faceLeft'] text { fill: #141414; }
+.pad-part.is-hot circle,
+.pad-part.is-hot rect,
+.pad-part.is-pick circle,
+.pad-part.is-pick rect {
+  stroke: #ffc83d;
+  stroke-width: 4;
+}
+.pad-part.is-pick circle,
+.pad-part.is-pick rect { stroke: #4fc3f7; }
+.pad-slash { margin: 0 3px; color: var(--rk-accent, #ffc83d); }
+/* ことばが同じ操作（L・R）を 1 まいにした札: 印は 1 つずつ押せる */
+.pad-call.is-multi { cursor: default; }
+.pad-call.is-multi .pad-call-badge { padding: 0; gap: 0; }
+.pad-part-btn {
+  min-width: 44px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.pad-part-btn + .pad-part-btn { border-left: 2px solid var(--rk-accent, #ffc83d); }
+.pad-part-btn.is-wait,
+.pad-part-btn.is-pick { outline: 4px solid #4fc3f7; outline-offset: -4px; }
+.pad-part-btn:focus { outline: 4px solid var(--rk-accent, #ffc83d); outline-offset: -4px; }
+.pad-call.is-multi .pad-call-text { white-space: normal; line-height: 1.15; padding: 0 4px; }
+.pad-actions {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  margin: 0;
+}
+.pad-actions .set-text-btn { min-height: 44px; padding-top: 4px; padding-bottom: 4px; }
+.pad-more { margin-top: 0; }
+.pad-more summary { min-height: 44px; }
