@@ -8,6 +8,7 @@ import { columnHash, generateChunk } from './chunk';
 import { inMouthFootprint, mouthsNear } from './mouths';
 import { countryAt } from './biome';
 import { createMineHook } from './mineHook';
+import { shaftTouchesCol } from './mineShaftKit';
 import { clearTerrainCache, terrainFor } from './terrain';
 import { treesInRect } from './trees';
 
@@ -120,8 +121,10 @@ describe('基準 2: 列をまたぐ 木・岩山・洞くつの口は、とな�
     let checked = 0;
     for (const seed of SEEDS_10) {
       const T = terrainFor(seed);
+      const touches = shaftTouchesCol(seed);
       for (let cz = 0; cz < 8 && checked < 6; cz++) {
         for (let cx = 0; cx < 7 && checked < 6; cx++) {
+          if (touches(cx, cz) || touches(cx + 1, cz)) continue; // 坑道が かかる 列は 木が 消えて いる ことが ある〔葉の はみ出しは 見ない〕
           const x0 = cx * 16;
           // 右のはし（lx = 14, 15）に みきがある木
           const t = treesInRect(T, x0 + 14, cz * 16, x0 + 15, cz * 16 + 15)[0];
@@ -213,6 +216,7 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
       const T = terrainFor(seed);
       const trunkSet = new Set<number>();
       const trunks: [number, number][] = [];
+      const touches = shaftTouchesCol(seed); // 坑道が かかる 列〔山・入口。木・地面が 変わる〕は この 基準の 数えから のぞく
       // 読みこみ範囲の 64 列 ＋（10 シードは）海の列を 4 つ
       const list: [number, number][] = [];
       for (let cz = 0; cz < 8; cz++) for (let cx = 0; cx < 8; cx++) list.push([cx, cz]);
@@ -239,6 +243,7 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
           for (let i = 0; i < 256; i++) if (arr[i] !== BEDROCK) st.bedrockBad++;
           for (let i = 256; i < arr.length; i++) if (arr[i]! >= NB) st.badId++;
           if (!SEEDS_10.includes(seed)) continue;
+          if (touches(cx, cz)) continue; // 坑道が かかる 列は 地層・洞くつ・木の 数えから のぞく〔基準 3 の 番号の 確かめは 上で 全部の 列〕
 
           st.chunks++;
           const x0 = cx * 16;

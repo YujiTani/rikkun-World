@@ -122,7 +122,7 @@ describe('C6: 横穴', () => {
       const comps = components(s.path.filter((c) => c.part === 'side'));
       for (const d of s.shaft.sides) {
         // この 横穴の かたまり〔出口 to に いちばん 近い〕
-        const near = (c: Pt[]): number => Math.min(...c.map((p) => cheb(p, d.to)));
+        const near = (c: Pt[]): number => Math.min(...c.filter((p) => Math.abs(p.y - d.to.y) <= 2).map((p) => cheb(p, d.to)), Infinity); // 層〔y〕も 見る: ちがう 層の 穴と 取りちがえない
         const comp = comps.slice().sort((p, q) => near(p) - near(q))[0];
         if (!comp || near(comp) > 3) continue; // つなぎの へや・こべやが 出口の すぐ 先に ある 横穴は 数えない
         tunnels++;

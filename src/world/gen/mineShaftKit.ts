@@ -148,9 +148,9 @@ export const SEEDS_20: readonly number[] = Array.from({ length: 20 }, (_, i) => 
 
 /**
  * 【PO 案】出会える 数〔C2。仕様 §4.5.1〕: スタートから 横 radius マス 以内に、はじまり いがいの 坑道が count 以上 ある シードが share 以上。
- * 試作が ないので 実装の あとで 数えて、足りなければ ここと 仕様の 数を いっしょに 直す〔テストは この 表を 読む〕
+ * 実装の あと 数えて 決めた（2026-11-06）: 768・2 で 85%、1024・2 で 100% なので N 1024・M 2。仕様の 数も いっしょに 直す〔テストは この 表を 読む〕
  */
-export const SHAFT_MEET = { radius: 768, count: 2, share: 0.9 } as const;
+export const SHAFT_MEET = { radius: 1024, count: 2, share: 0.9 } as const;
 
 // ------------------------------------------------------------------ 生成した 列を 読む
 
@@ -542,13 +542,19 @@ export function touchedColKeys(s: Shaft, path: readonly { x: number; z: number }
 }
 
 /**
- * ある シードで、坑道〔はじまり ＋ 区画の ほか〕が かかる 列。窓口が まだ 無い〔1C が 入る 前〕ときは 空〔どの 列も かからない〕。
- * 坑道が かかる 列は 「前の 作り方と 同じ」を くらべない 確かめ〔mineOres.test.ts の A4 など〕で 外す。範囲は 世界の ブロック座標。
+ * ある シードで、坑道〔はじまり ＋ 区画の ほか〕が かかる 列。実装の 窓口 `touchesShaft(cx, cz)`〔`columnOres().normal` の 元と 同じ 一覧。
+ * 木を 置かない 四角の 広げも ふくむ〕から 読む〔数を テストに 書かない〕。窓口が まだ 無い ときは 空。範囲は 世界の ブロック座標。
  */
 export function shaftCoveredCols(seed: number, x0: number, z0: number, x1: number, z1: number): Set<number> {
   const out = new Set<number>();
-  const h = hook1c(seed);
-  if (typeof (h as Partial<MineHook1C>).startShaft !== 'function' || typeof (h as Partial<MineHook1C>).shafts !== 'function') return out;
-  for (const s of [h.startShaft(), ...h.shafts(x0, z0, x1, z1)]) for (const k of touchedColKeys(s, h.shaftPath(s.id))) out.add(k);
+  const h = hook1c(seed) as unknown as { touchesShaft?: (cx: number, cz: number) => boolean };
+  if (typeof h.touchesShaft !== 'function') return out;
+  for (let cz = z0 >> 4; cz <= z1 >> 4; cz++) for (let cx = x0 >> 4; cx <= x1 >> 4; cx++) if (h.touchesShaft(cx, cz)) out.add(colKey(cx, cz));
   return out;
+}
+
+/** ある シードで「坑道が かかる 列か」を 答える 関数〔窓口 `touchesShaft`。窓口が まだ 無い ときは いつも false〕 */
+export function shaftTouchesCol(seed: number): (cx: number, cz: number) => boolean {
+  const h = hook1c(seed) as unknown as { touchesShaft?: (cx: number, cz: number) => boolean };
+  return typeof h.touchesShaft === 'function' ? (cx, cz) => h.touchesShaft!(cx, cz) : () => false;
 }
