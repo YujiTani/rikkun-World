@@ -66,7 +66,7 @@ describe('スタートの広場（基準 12・13）', () => {
       }
       expect(w.get(sp.x + GEN_CONFIG.startTorch.dx, sp.h + 1, sp.z + GEN_CONFIG.startTorch.dz)).toBe(BLOCK_INDEX.start_torch);
     }
-  });
+  }, 30_000); // 20 シードの 初めの 列ごとに 1D の 部屋の 計画〔区画 1 つ〕を 作る ぶん 5 秒では たりない
 
   it('4 方向（北・東・南・西）へ 1 マスずつ 歩いて 広場の外へ出られる（となりとの高さの差が 1 以下）', () => {
     for (const seed of SEEDS_20) {

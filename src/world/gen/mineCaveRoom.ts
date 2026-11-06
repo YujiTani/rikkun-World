@@ -35,7 +35,7 @@ export interface RoomBox {
   z1: number;
 }
 
-/** 列に 置く 物（mineShafts.ts の ColOps と 同じ 並び。ring は 使わない） */
+/** 列に 置く 物（mineShafts.ts の ColOps と 同じ 並び。ring ＝ かべの 石〔固く する だけ〕） */
 export interface RoomColOps {
   ring: Int32Array;
   air: Int32Array;
@@ -411,11 +411,11 @@ function tallyStats(g: Grid, W: Combined, st: RoomStats, G: Geo, coord: (i: numb
 }
 
 function opsOf(g: Grid, cells: number[], coord: (i: number) => [number, number, number]): Map<number, RoomColOps> {
-  const lists = new Map<number, { air: number[]; put: number[] }>();
-  const slot = (x: number, z: number): { air: number[]; put: number[] } => {
+  const lists = new Map<number, { ring: number[]; air: number[]; put: number[] }>();
+  const slot = (x: number, z: number): { ring: number[]; air: number[]; put: number[] } => {
     const k = colKey(x >> 4, z >> 4);
     let l = lists.get(k);
-    if (!l) lists.set(k, (l = { air: [], put: [] }));
+    if (!l) lists.set(k, (l = { ring: [], air: [], put: [] }));
     return l;
   };
   for (const i of cells) {
@@ -425,12 +425,13 @@ function opsOf(g: Grid, cells: number[], coord: (i: number) => [number, number, 
     else if (g.b[i]) l.put.push(pack(g.b[i]!, y, z & 15, x & 15));
     else l.air.push(pack(BLOCK_INDEX.air, y, z & 15, x & 15));
   }
+  // かべの 石は「固く する」だけ（もとが 鉱石など 固い 物なら そのまま。鉱石は ほらあなを ほった あとに 置く きまり）
   for (let i = 0; i < g.b.length; i++) {
     if (!g.b[i] || g.a[i]) continue;
     const [x, y, z] = coord(i);
-    slot(x, z).put.push(pack(g.b[i]!, y, z & 15, x & 15));
+    (g.b[i] === STONE ? slot(x, z).ring : slot(x, z).put).push(pack(g.b[i]!, y, z & 15, x & 15));
   }
   const out = new Map<number, RoomColOps>();
-  for (const [k, l] of lists) out.set(k, { ring: new Int32Array(0), air: Int32Array.from(l.air), put: Int32Array.from(l.put) });
+  for (const [k, l] of lists) out.set(k, { ring: Int32Array.from(l.ring), air: Int32Array.from(l.air), put: Int32Array.from(l.put) });
   return out;
 }

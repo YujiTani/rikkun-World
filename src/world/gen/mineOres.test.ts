@@ -4,7 +4,7 @@ import { BLOCK_INDEX, blockIdFromIndex, BLOCK_TYPES } from '../blocks/blockTypes
 import { SECTION_VOLUME, sectionToArray } from '../sections';
 import { generateChunk } from './chunk';
 import { createMineHook, type MineHook } from './mineHook';
-import { shaftCoveredCols } from './mineShaftKit';
+import { underCoveredCols } from './mineShaftKit';
 import type { OreCluster } from './mineOres';
 import { terrainFor } from './terrain';
 import { colKey } from '../stream/ring';
@@ -101,11 +101,11 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
   };
   const cellAt = (seed: number, x: number, y: number, z: number): number => col(seed, x >> 4, z >> 4)[(y * 16 + (z & 15)) * 16 + (x & 15)]!;
 
-  // MINE-1C: 坑道〔道・山。まわり 2 マス〕が かかる 列は 前と 形が ちがう ので くらべない〔C3〜C7 が 見る〕。1C が 入る 前は 空 ＝ ぜんぶ くらべる
+  // MINE-1C・1D: 坑道〔道・山。まわり 2 マス〕と ほらあなの 種類の 部屋が かかる 列は 前と 形が ちがう ので くらべない〔C3〜C7 が 見る〕。1C が 入る 前は 空 ＝ ぜんぶ くらべる
   const covered = new Map<number, Set<number>>();
   const coveredOf = (seed: number): Set<number> => {
     let c = covered.get(seed);
-    if (!c) covered.set(seed, (c = shaftCoveredCols(seed, -640, -640, 1280, 1280)));
+    if (!c) covered.set(seed, (c = underCoveredCols(seed, -640, -640, 1280, 1280)));
     return c;
   };
 
@@ -124,7 +124,7 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
     }
     expect(n).toBeGreaterThan(0);
     expect(bad.slice(0, 8), `${bad.length} / ${n} 列が 前と ちがう`).toEqual([]);
-  }, 60_000); // 列を 作る 時間は 手元でも 2 秒。回す 数が 多い ときの ゆとり（おそくて 落ちない）
+  }, 180_000); // 列を 作る 時間は 手元でも 2 秒。回す 数が 多い ときの ゆとり（おそくて 落ちない）。1D の 部屋の 計画〔区画ごとに 初めの 1 回〕の 分を ふくめて 60 秒から ふやした
 
   it('山の 面の 見える 鉱石は 前と 同じ 場所（同じ 鉱石）', () => {
     const bad: string[] = [];
@@ -188,7 +188,7 @@ describe('A2: 鉱石の 量（せきたん・てつ。はらっぱ・もりの �
   const rows = () => createMineHook({ seed: G.seeds[0]! }).oreTable().filter((r) => (BLOCKS as readonly string[]).includes(r.block));
 
   it('数える 列が 十分 ある（normal の 列）', () => {
-    expect(samples.length).toBeGreaterThan(150);
+    expect(samples.length).toBeGreaterThan(100); // 坑道・ほらあなの 部屋〔1D〕が かかる 列は 数えない ので、150 から へらした〔平均を 取るには 十分〕
   });
 
   it('層ごとの 平均が oreTable() の 見える・ぜんぶ の 0.7〜1.4 倍（目安が 1 未満の 物は 0.6〜1.6 倍）', () => {
@@ -418,7 +418,9 @@ describe('鉱石は 地形・ふつうの ほらあな・洞くつの 口を 掘
     let cells = 0;
     for (const seed of G.seeds) {
       const mine = createMineHook({ seed });
+      const covered = underCoveredCols(seed, -640, -640, 1280, 1280);
       for (const [cx, cz] of G.mouth[String(seed)]!) {
+        if (covered.has(colKey(cx, cz))) continue; // 坑道・ほらあなの 部屋〔1D〕が かかる 列は 部屋が 鉱石を 切る ので のぞく
         const arr = flat(seed, cx, cz);
         for (const c of mine.oreClusters(cx, cz)) {
           const want = BLOCK_INDEX[c.block];
@@ -430,7 +432,7 @@ describe('鉱石は 地形・ふつうの ほらあな・洞くつの 口を 掘
       }
     }
     expect(cells).toBeGreaterThan(0);
-  });
+  }, 180_000); // 部屋の 計画〔1D。区画ごとに 初めの 1 回〕の ぶん
 });
 
 // ------------------------------------------------------------------ B6: ★の 量（MINE-1B。§4.2）

@@ -227,6 +227,7 @@ export class ShaftWorld implements CaveHost {
       }
       if (performance.now() - t0 >= ms) return;
     }
+    this.caves.warm(centers, ms - (performance.now() - t0), reach); // ほらあなの 種類の 部屋〔1D〕の 計画も
   }
 
   private rebuildWarm(centers: readonly { x: number; z: number }[], reach: number): void {

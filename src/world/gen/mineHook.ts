@@ -194,7 +194,7 @@ export function createMineHook(o: {
           }
         }
       }
-      return { normal: !shaft.touchesShaft(cx, cz), layers };
+      return { normal: !shaft.touchesShaft(cx, cz) && !shaft.touchesRoom(cx, cz), layers };
     },
 
     oreClusters(cx, cz): OreCluster[] {

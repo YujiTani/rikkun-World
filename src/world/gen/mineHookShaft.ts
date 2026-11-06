@@ -152,7 +152,9 @@ export function createShaftHook(o: ShaftHookOptions) {
       return { shaftRegions: world().regionCount(cx, cz), caveRegions: world().caves.touches(cx, cz) ? 1 : 0, emitters };
     },
     /** 坑道が かかる 列か（かかる 列は 「ふつうの 列」ではない） */
-    touchesShaft: (cx: number, cz: number): boolean => world().touches(cx, cz) || world().caves.touches(cx, cz),
+    touchesShaft: (cx: number, cz: number): boolean => world().touches(cx, cz),
+    /** ほらあなの 種類の 部屋が かかる 列か（地下の 中身が かわる） */
+    touchesRoom: (cx: number, cz: number): boolean => world().caves.touches(cx, cz),
   };
 }
 

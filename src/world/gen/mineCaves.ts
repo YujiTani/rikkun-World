@@ -301,6 +301,31 @@ export class CaveWorld {
     throw new Error('場面を 置ける 場所が ない');
   }
 
+  /**
+   * 中心の まわりの 区画の 計画を、あいた 時間に ms 以内だけ すすめる（列を 作る ときに 計画で ひっかからない ため）。近い 区画から。
+   * 区画 1 つの 計画は 途中で 止められない ので、時間が のこって いる 間だけ 次の 区画を はじめる
+   */
+  warm(centers: readonly { x: number; z: number }[], ms: number, reach: number): void {
+    const t0 = performance.now();
+    const list: { rx: number; rz: number; d: number }[] = [];
+    const seen = new Set<number>();
+    for (const c of centers) {
+      for (let rz = Math.floor((c.z - reach) / R); rz <= Math.floor((c.z + reach) / R); rz++) {
+        for (let rx = Math.floor((c.x - reach) / R); rx <= Math.floor((c.x + reach) / R); rx++) {
+          const key = this.key(rx, rz);
+          if (seen.has(key) || this.regions.has(key)) continue;
+          seen.add(key);
+          list.push({ rx, rz, d: Math.min(...centers.map((q) => Math.hypot((rx + 0.5) * R - q.x, (rz + 0.5) * R - q.z))) });
+        }
+      }
+    }
+    list.sort((a, b) => a.d - b.d);
+    for (const r of list) {
+      if (performance.now() - t0 >= ms) return;
+      this.region(r.rx, r.rz);
+    }
+  }
+
   /** 範囲の 区画で ひろい ほらあなの 計画を ためした 記録（置けなかった 物も） */
   hiroiTries(x0: number, z0: number, x1: number, z1: number): HiroiTryRow[] {
     const out: HiroiTryRow[] = [];
