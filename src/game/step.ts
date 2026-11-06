@@ -71,7 +71,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       controller.motion.noRun = lm.noRun;
       // WEAPON-9: シャイニングの うかぶ（重力を 使わず 目標の 高さへ）と カメラを 引く
       controller.motion.hoverY = lm.hoverY ?? null;
-      rig.distanceOverride = legend.camDistance();
+      rig.distanceOverride = legend.camDistance() ?? shared.duoCamDistance; // COOP-1: 2 人のときは 引く
       // CHAR-2: わざのあいだは 向きを わざの向きに 固定（わざを始めたステップは あとで その場で）
       // WEAPON-3: 刀の わざ・パンチの あいだは 攻撃の向き u。攻撃・空ぶりは ＋マークへ 回らない（leftAims）
       // WEAPON-5: パリィの あいだは 今 向いている 方（カメラの 向き）を向く。始めた ステップは すべらず 止まる

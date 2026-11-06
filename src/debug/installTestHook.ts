@@ -45,9 +45,9 @@ import { createHouseHook } from '../house/hook';
 import { lookDirection } from '../dig/raycast';
 import { computeFarmPlacement } from '../world/gen/farmPlacement';
 import { digSettingsView, settingsViewOf, sharedSettingsView } from './settingsViews';
-import type { WiredLoop } from '../game/wire/save';
+import type { WiredDuo } from '../game/wire/duo';
 
-export function installGameHook(deps: WiredLoop): void {
+export function installGameHook(deps: WiredDuo): void {
   const {
     shared, game, overlay, host, startBoot, world, charCtl, controller, setShadow, seed, achievements,
     countryWatch, renderer, island, save, blobShadow, sky, parry, thunderFx, legend, legendBook, waveSys,
@@ -60,7 +60,7 @@ export function installGameHook(deps: WiredLoop): void {
     currentKitRows, animalFx, animalHint, aimPointInto, combat, lockHook, book, look, wheel, mixer, bgm,
     bgmScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
     m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets, seat, water,
-    gamepadApi, reducedMotionMq,
+    gamepadApi, reducedMotionMq, duo,
   } = deps;
   // MINE-1C: 宝箱を あける〔右クリック → mine.open〕。持ち物・落とし物・テロップ・実績は ここで つなぐ。
   // ふたが 動く 0.46 秒の あいだは「中身」を ためて おいて、ふたが 90° に なる 0.30 秒に 出す（ふた → 中身）。
@@ -414,12 +414,14 @@ export function installGameHook(deps: WiredLoop): void {
     gamepad: gamepadApi
       ? {
           injectPad: (pad: Gamepad | null) => gamepadApi!.injectPad(pad),
+          injectPads: (pads: Array<Gamepad | null>) => gamepadApi!.injectPads(pads),
           hasPad: () => gamepadApi!.reader.hasPad(),
           snapshot: () => gamepadApi!.reader.snapshot(),
           openPanel: () => gamepadApi!.panel.open(),
           closePanel: () => gamepadApi!.panel.close(),
         }
       : null,
+    duo,
     audio: createAudioHook({
       mixer,
       bgm,

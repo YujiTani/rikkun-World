@@ -23,6 +23,11 @@ import { BlobShadow, BLOB } from '../../fx/blobShadow';
 import { START_PITCH_DEG } from '../../player/config';
 import type { WiredRender } from './world';
 
+/** キャラの 板の 絵の 置き場（?charsheets=orig は 開発サーバーだけ。2P の 体も 同じ 絵を 読む） */
+export function charBasePath(kind: 'girl' | 'boy'): string {
+  return `${import.meta.env.DEV && new URLSearchParams(location.search).get('charsheets') === 'orig' ? './__char-orig/' : './models/char/'}${kind}/`;
+}
+
 export function wireInput(deps: WiredRender) {
   const {
     shared, game, fxSound, hud, startPlan, audioSettings, mixer, audioPersist, bgm, bgmScene, time,
@@ -154,8 +159,7 @@ export function wirePlayer(deps: WiredInput) {
   const blockDollOnly = useBlockDoll(location.search);
   // CHAR-5: キャラの 決め方（?char=・おぼえた値）と 窓口 char.get / char.set
   // ?charsheets=orig（開発サーバーだけ）: 切りつめる前の 格子の絵を 読む（AC34 の くらべ用）
-  const charBase = (kind: 'girl' | 'boy'): string =>
-    `${import.meta.env.DEV && new URLSearchParams(location.search).get('charsheets') === 'orig' ? './__char-orig/' : './models/char/'}${kind}/`;
+  const charBase = charBasePath;
   let sprite: ReturnType<typeof createCharSprite> | null = null;
   const charCtl = createCharController({
     search: location.search,

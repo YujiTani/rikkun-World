@@ -15,6 +15,8 @@ export function createPlayerHook(controller: PlayerController): HookNamespace {
         position: { ...s.position },
         velocity: { ...s.velocity },
         yaw: normalizeYaw(s.yawDeg),
+        /** COOP-1 の E2E が 読む（yaw と 同じ 値） */
+        yawDeg: normalizeYaw(s.yawDeg),
         pitch: s.pitchDeg,
         forward: { x: Math.sin(yaw), z: -Math.cos(yaw) },
         onGround: s.onGround,

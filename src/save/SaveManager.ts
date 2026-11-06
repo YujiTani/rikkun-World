@@ -117,6 +117,8 @@ export interface SaveDeps {
   house?: SaveExtra;
   /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
   farm?: SaveFarm;
+  /** COOP-1 §6: 2P の 持ち物とレベル（`meta.p2` = `{ inventory, level }`。serialize が null なら 書かない。場所・向きは 入れない）。前の保存に ない ときは deserialize(null) */
+  p2?: SaveExtra;
   /** 時刻と何日目。なければ保存しない */
   clock?: SaveClock;
   /** START-1: この 世界の つよさ（meta の `strength` に 書く。なければ 書かない = 古い 保存と 同じ） */
@@ -363,7 +365,18 @@ export class SaveManager {
     } catch {
       this.d.house?.deserialize(null);
     }
+    // COOP-1 §6: 2P の 持ち物・レベル。窓口が ない ときは 読んだ 値を そのまま 次の 保存へ ひきつぐ
+    if (this.d.p2) {
+      try {
+        this.d.p2.deserialize(data.p2);
+      } catch {
+        this.d.p2.deserialize(null);
+      }
+    } else this.carriedP2 = data.p2 ?? null;
   }
+
+  /** COOP-1: p2 の 窓口を 渡さない 呼び出し（ふだんの 起動は 渡す。テスト・別の 呼び手用）で、読んだ 保存の p2 を そのまま 書きもどす */
+  private carriedP2: unknown = null;
 
   /** すぐ保存する。書き終わると解決する（失敗しても 解決する） */
   now(): Promise<void> {
@@ -536,6 +549,9 @@ export class SaveManager {
       return { ...f, crops: zeroLast(f.crops, 5), watered: zeroLast(f.watered, 4), happy: zeroLast(f.happy, 4) };
     })();
     const sp = this.d.spawn();
+    // COOP-1: 2P が 一度も 参加して いない 世界は p2 の キーを 書かない（古い セーブと 同じ 形）
+    const p2Value = this.d.p2 ? this.d.p2.serialize() : this.carriedP2;
+    const p2Part = p2Value === null || p2Value === undefined ? {} : { p2: p2Value };
     const make = (bags: unknown, farm: unknown): StoredMeta => ({
       v: SAVE_VERSION,
       gen: SAVE_GEN,
@@ -562,6 +578,7 @@ export class SaveManager {
       gasha: this.d.gasha?.serialize() ?? null,
       house: this.d.house?.serialize() ?? null,
       farm,
+      ...p2Part,
       ...(this.d.strength ? { strength: this.d.strength } : {}),
       ...this.oldColsMeta(),
     });
