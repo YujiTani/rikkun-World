@@ -358,9 +358,9 @@ describe('StreamMesh.setLayout（輪の切りかえ。COOP-1 AC28）', () => {
     stream.restart(0, 0, 'boot');
     run();
     setRing(RING_SMALL);
-    layoutOf(r).setLayout([{ cx: 0, cz: 0 }, { cx: 8, cz: 0 }], RING_SMALL);
-    r.update();
-    expect(r.sectionInfo(6, 0, 0).meshes, '(6,0) は 2 つ目の 中心 (8,0) から 距離 2: のこす').toBeGreaterThan(0);
+    layoutOf(r).setLayout([{ cx: 0, cz: 0 }, { cx: 3, cz: 0 }], RING_SMALL);
+    run(); // 仕事(runJob)を 回して から 見る
+    expect(r.sectionInfo(6, 0, 0).meshes, '(6,0) は 1P から 6 > 5 だが 2 つ目の 中心 (3,0) から 距離 3: 箱・小ブロックで 描かれる').toBeGreaterThan(0);
     expect(r.sectionInfo(-6, 0, 0).meshes, '(-6,0) は どちらからも 6 以上: 捨てる').toBe(0);
   });
 
