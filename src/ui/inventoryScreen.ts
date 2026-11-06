@@ -152,7 +152,6 @@ export class InventoryScreen {
         c.root.dataset.index = String(i);
         c.root.dataset.menuItem = '';
         c.root.tabIndex = 0;
-        c.root.setAttribute('role', 'button');
         c.root.addEventListener('click', (e) => {
           e.stopPropagation();
           // Ctrl（Mac は ⌘）クリック: たんす に しまう ものを えらぶ（✓）

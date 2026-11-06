@@ -111,14 +111,14 @@ export function createPadScreen(opts: {
 
   const resetDialog = mountChoiceDialog({
     testId: 'reset-binds-dialog',
-    questionHtml: 'ボタンを はじめの 並びに もどす？',
+    questionHtml: `ボタンを はじめの ${ruby('並', 'なら')}びに もどす？`,
     yesLabel: 'もどす',
     yesTestId: 'reset-yes',
     noTestId: 'reset-no',
     onYes: () => {
       opts.reader.resetBinds();
       resetDialog.close();
-      noteEl.textContent = 'はじめの 並びに もどしたよ';
+      noteEl.textContent = 'はじめの ならびに もどしたよ';
       paintCalls();
     },
   });

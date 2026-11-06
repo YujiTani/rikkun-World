@@ -117,7 +117,7 @@
   min-width: 0;
   min-height: 64px;
   padding: var(--rk-sp-2) var(--rk-sp-3);
-  font-size: 20px;
+  font-size: 24px; /* 24px 以上の太字なら 比 3 でよい（#fff3cf と 木の地は 3.6）。ルビも 12px になる */
 }
 .po-book:active {
   transform: translateY(2px);
