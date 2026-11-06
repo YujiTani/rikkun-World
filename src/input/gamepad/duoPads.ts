@@ -168,6 +168,14 @@ export class DuoPadRouter {
     return c === this.p1 ? NONE : c;
   }
 
+  /**
+   * COOP-1 作業 3d（AC64）: 2P の 候補（その ＋ で 参加できる パッド）の 番号。いなければ null。
+   * 型だけの スタブ（developer が `candidate()` に つなぐ。テストは duoPadsProd.test.ts）。
+   */
+  joinCandidate(): number | null {
+    throw new Error('COOP-1 3d: joinCandidate は まだ ない');
+  }
+
   /** 参加中の 2P の パッドの 番号（えらび。パッドなしなら 候補） */
   private target2(pads: Pads): number {
     return this.base2 >= 0 ? this.base2 : this.candidate(pads);

@@ -44,3 +44,11 @@ export function hitsTarget(_attacker: 1 | 2, target: HitTarget): boolean {
 export function pickableMate<T>(mate: T | null, down: boolean): T | null {
   return down ? null : mate;
 }
+
+/**
+ * COOP-1 作業 3d（AC84）: 2P の 側に「ちょっと まってね」を 出すか。2 人の とき、世界が 止まっている あいだ（1P の 全面の もちもの画面・本・建築士さん）。
+ * 型だけの スタブ（developer が 作る。テストは rules.test.ts）。
+ */
+export function duoWaitNotice(_i: { joined: boolean; inventoryOpen: boolean; modal: boolean }): boolean {
+  throw new Error('COOP-1 3d: duoWaitNotice は まだ ない');
+}

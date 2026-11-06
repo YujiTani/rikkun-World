@@ -99,5 +99,8 @@ export interface P2Save {
   level: { level: number; xp: number };
 }
 
-/** 2P が いなくなる わけ（§2.2・§2.6・§10） */
-export type DuoLeaveReason = 'quit' | 'padLost' | 'newGame' | 'otherWorld' | 'reload';
+/**
+ * 2P が いなくなる わけ（§2.2・§2.6・§10）。
+ * 'import'（作業 3d・AC72。おとなの「よみこむ」）だけは **保存しない**（今の 2P の 持ち物を 書かない）。ほかは 保存してから いなくなる。
+ */
+export type DuoLeaveReason = 'quit' | 'padLost' | 'newGame' | 'otherWorld' | 'reload' | 'import';

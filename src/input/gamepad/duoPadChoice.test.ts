@@ -7,7 +7,7 @@ import { PadPicker } from '../../ui/settings/padPicker';
 import { FakeStorage, fakePad } from './testPad';
 
 /**
- * COOP-1 作業 2.5（#401。docs/design/COOP-1.md §2.7・§12.0）の 先行テスト（赤）。AC48（ルーター側）・AC50・AC52・AC53・AC54・AC55・AC57・AC58・AC61。
+ * COOP-1 作業 2.5（#401。docs/design/COOP-1.md §2.7・§12.0）の 先行テスト（赤）。AC48（ルーター側）・AC50・AC52・AC53・AC54・AC55・AC57・AC58・AC61（→ 作業 3d で AC65 に かわった）。
  * ルーターの 新しい 口は src/input/gamepad/duoPads.ts の setChoice / choice / effectiveChoice / padIndex / setPicking（型だけの スタブ）。
  * 画面の 決まり（待ち・光る）は src/ui/settings/padPicker.test.ts。
  */
@@ -16,13 +16,13 @@ const START = 9;
 const ZR = 7;
 const STICK_UP = [0, -1, 0, 0];
 
-function make(opts: { init?: Record<string, string>; enabled?: boolean; storage?: FakeStorage } = {}) {
+function make(opts: { init?: Record<string, string>; storage?: FakeStorage } = {}) {
   const p1 = new ActionState();
   const p2 = new ActionState();
   const look1 = new AlwaysLook();
   const look2 = new AlwaysLook();
   const storage = opts.storage ?? new FakeStorage(opts.init ?? {});
-  const router = new DuoPadRouter({ p1, p2, look1, look2, storage: null, choiceStorage: storage, choiceEnabled: opts.enabled ?? true });
+  const router = new DuoPadRouter({ p1, p2, look1, look2, storage: null, choiceStorage: storage, choiceEnabled: true });
   let pads: (Gamepad | null)[] = [];
   router.getPads = () => pads;
   const set = (...p: (Gamepad | null)[]) => {
@@ -123,26 +123,84 @@ describe('AC50・AC52: 決める → 保存して すぐ 効く（この 機械�
 
 type PadChoiceLike = { p1: number | null; p2: number | null };
 
-describe('AC61: ふつうの URL（choiceEnabled = false）では 保存を 読まない・書かない', () => {
-  it('保存に {"p1":null,"p2":0} が あっても はじめの 動き（番号 0 で 1P が 動く）。保存は 消さない', () => {
+/**
+ * 作業 3d（#418）: AC61（ふつうの URL では 保存を 読まない）は AC65 に かわった。ふつうの URL でも 保存を 読み、setChoice も 効く。
+ * `choiceEnabled` を わたさない（ふつうの URL と 同じ）。`choiceEnabled` / `choiceUsable()` は けす 約束（duoPadsProd.test.ts の 頭）。
+ */
+describe('AC65: ふつうの URL でも 保存を 読む・書く（choiceEnabled を わたさない）', () => {
+  function makeProd(init: Record<string, string> = {}) {
+    const p1 = new ActionState();
+    const p2 = new ActionState();
+    const storage = new FakeStorage(init);
+    const router = new DuoPadRouter({ p1, p2, look1: new AlwaysLook(), look2: new AlwaysLook(), storage: null, choiceStorage: storage });
+    let pads: (Gamepad | null)[] = [];
+    router.getPads = () => pads;
+    let t = 0;
+    return {
+      p1,
+      p2,
+      router,
+      storage,
+      set: (...p: (Gamepad | null)[]) => {
+        pads = p;
+      },
+      poll: () => router.poll((t += 16)),
+    };
+  }
+
+  it('保存に {"p1":null,"p2":0} が あれば それが 効く: 番号 0 の 左スティックで 1P は 動かず、番号 0 の ＋ で 参加の 求め。保存は 消さない', () => {
     const raw = '{"p1":null,"p2":0}';
-    const m = make({ init: { [PAD_CHOICE_KEY]: raw }, enabled: false });
-    m.set(fakePad(0, { axes: STICK_UP }), fakePad(1));
+    const m = makeProd({ [PAD_CHOICE_KEY]: raw });
+    m.set(fakePad(0, { axes: STICK_UP }));
     m.router.bootstrap();
     m.poll();
-    expect(m.p1.isHeld('moveForward')).toBe(true);
-    expect(m.router.padIndex(1)).toBe(0);
-    expect(m.router.choice()).toBeNull();
-    expect(m.router.effectiveChoice()).toEqual({ p1: 0, p2: 1 });
+    expect(m.router.choice()).toEqual({ p1: null, p2: 0 });
+    expect(m.router.effectiveChoice()).toEqual({ p1: null, p2: 0 });
+    expect(m.p1.isHeld('moveForward')).toBe(false);
+    expect(m.router.padIndex(1)).toBeNull();
+    m.set(fakePad(0, { buttons: [START] }));
+    expect(m.poll().joinRequested).toBe(true);
+    expect(m.p1.isHeld('openStartMenu'), '2P の ＋ は 1P の スタートメニューに ならない').toBe(false);
     expect(m.storage.data.get(PAD_CHOICE_KEY)).toBe(raw);
+    expect(m.storage.writes).toBe(0);
   });
-  it('setChoice は false。保存も 割り当ても かえない', () => {
-    const m = make({ enabled: false });
+  it('参加したあと 番号 0 の 左スティックで 2P だけ 動く', () => {
+    const m = makeProd({ [PAD_CHOICE_KEY]: '{"p1":null,"p2":0}' });
+    m.set(fakePad(0));
+    m.router.bootstrap();
+    m.poll();
+    m.router.setJoined(true);
+    m.set(fakePad(0, { axes: STICK_UP }));
+    m.poll();
+    expect(m.p2.isHeld('moveForward')).toBe(true);
+    expect(m.p1.isHeld('moveForward')).toBe(false);
+    expect(m.router.padIndex(2)).toBe(0);
+    expect(m.router.padIndex(1)).toBeNull();
+  });
+  it('こわれた 保存は はじめの 動き（AC48 と 同じ）: 書きかえない', () => {
+    const m = makeProd({ [PAD_CHOICE_KEY]: '{"p1":1,"p2":1}' });
     m.set(fakePad(0), fakePad(1));
     m.poll();
-    expect(m.router.setChoice({ p1: 1, p2: 0 })).toBe(false);
-    expect(m.storage.writes).toBe(0);
-    expect(m.router.padIndex(1)).toBe(0);
+    expect(m.router.choice()).toBeNull();
+    expect(m.router.effectiveChoice()).toEqual({ p1: 0, p2: 1 });
+    expect(m.storage.data.get(PAD_CHOICE_KEY)).toBe('{"p1":1,"p2":1}');
+  });
+  it('setChoice は 効く: true を 返し、この 機械の キーに 保存して すぐ 割り当てが かわる', () => {
+    const m = makeProd();
+    m.set(fakePad(0), fakePad(1));
+    m.poll();
+    expect(m.router.setChoice({ p1: 1, p2: 0 })).toBe(true);
+    expect(m.storage.writes).toBe(1);
+    expect(saved(m.storage)).toEqual({ p1: 1, p2: 0 });
+    expect(m.router.padIndex(1)).toBe(1);
+    expect(m.router.choice()).toEqual({ p1: 1, p2: 0 });
+  });
+  it('setChoice({p1:null,p2:0})（1 本だけ つないで 2P に 決める）も 効く', () => {
+    const m = makeProd();
+    m.set(fakePad(0));
+    expect(m.router.setChoice({ p1: null, p2: 0 })).toBe(true);
+    expect(saved(m.storage)).toEqual({ p1: null, p2: 0 });
+    expect(m.router.padIndex(1)).toBeNull();
   });
 });
 
