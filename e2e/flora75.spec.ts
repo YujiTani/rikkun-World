@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs';
 import { fine, wide } from './helpers/fine';
 import { measureCountry, measureStart, openFlora } from './helpers/flora';
 
+/** はじまりの 坑道〔地下の セクションの たいまつ・わく・地形〕の ぶんの 描画回数の ふえの 上限の 上げ幅〔回〕。CI 094818d で +15〔10 ＋ 5〕。決定 13 */
+const START_SHAFT_DRAWS = 5;
+
 /**
  * #75 FLORA-75（docs/design/FLORA-75.md 1.3 版）の E2E。AC10・AC11・AC17b（【E2E】と書いた物）。
  * ユニットで見る物（AC1〜9・14〜16・18・19）は src/world/gen/*.test.ts（developer が書く）。
@@ -134,7 +137,7 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
     expect(r.k3Above, `上は くうき ${ctx}`).toBe('air');
   });
 
-  test('AC11: スタートの 描画回数 300 以内・+10 以下（国は +25 以下）・三角形の ふえ ≤ 36,864。ふえの大きい 3 国（12 国ぜんぶは perf）', async ({ page }) => {
+  test('AC11: スタートの 描画回数 300 以内・+10 ＋ はじまりの 坑道の ぶん（+15）以下（国は +25 以下）・三角形の ふえ ≤ 36,864。ふえの大きい 3 国（12 国ぜんぶは perf）', async ({ page }) => {
     test.setTimeout(580_000);
     // ゴールデン = 今の main（FLORA-75 の前）で 同じやり方で 記録した値（e2e/golden/flora75-main.json）
     const golden = JSON.parse(readFileSync('e2e/golden/flora75-main.json', 'utf8')) as {
@@ -166,7 +169,7 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
     expect(flora.maxTris, '1 列の くさ＋のばな の三角形').toBeLessThanOrEqual(256);
     // 仕様 1.4 版 §6: 描画回数は スタートで 300 以内・ふえ +10 以下、どの国も ふえ +25 以下（十字の板は 区ごとの extras メッシュ）
     expect(start.drawCalls, `描画回数 300 以内`).toBeLessThanOrEqual(300);
-    expect(start.drawCalls - golden.start.drawCalls, `描画回数の ふえ（ゴールデン ${golden.start.drawCalls}）`).toBeLessThanOrEqual(10);
+    expect(start.drawCalls - golden.start.drawCalls, `描画回数の ふえ（ゴールデン ${golden.start.drawCalls}）`).toBeLessThanOrEqual(10 + START_SHAFT_DRAWS);
     expect(start.triangles - golden.start.triangles, `三角形の ふえ（ゴールデン ${golden.start.triangles}）`).toBeLessThanOrEqual(36_864);
     // 国の測りは E2E では「ふえの大きい国 3 つ」を まん中 1 か所だけ（12 国 × 5 か所は CI の E2E に 重すぎた）。
     // 12 国ぜんぶ・5 か所は e2e-perf/flora75.perf.ts（`npm run perf`）。ゴールデンは 5 か所の最大なので、ここは ゆるい側の くらべ。
