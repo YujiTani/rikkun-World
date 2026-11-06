@@ -15,7 +15,7 @@ import { meatBird, meatTick } from './animalMeat';
 import { behaveAnimal, clear2, friendWarpChecks, kidRespawn, separateFriend, settleOnGround, turnAnimal, unbury, unstraddle, warpToPlayer } from './animalMove';
 
 /** この 係 が 使う ものだけ（`AnimalCore` の 一部） */
-type LifeCtx = Pick<AnimalCore, 'bangBuf' | 'breedRng' | 'breedState' | 'carriedId' | 'catches' | 'coopAtSpot' | 'coopById' | 'coopCheckT' | 'coopList' | 'd' | 'dropGold' | 'eggRng' | 'ents' | 'everCarried' | 'everGrew' | 'everHatched' | 'fightCands' | 'fighterIds' | 'find' | 'friendCount' | 'getPlayer' | 'goldRng' | 'hintOut' | 'joinSeq' | 'kidCount' | 'kitList' | 'kitScratch' | 'lastDay' | 'lockHintAt' | 'lockState' | 'make' | 'markOut' | 'nextCoopId' | 'nextStopOff' | 'night' | 'oneFighter' | 'push' | 'putWhy' | 'rng' | 'setLock' | 'setState' | 'settings' | 'spawnTimer' | 'targetId' | 'tick' | 'tryAdd' | 'waitHintAt' | 'wildAnnounced' | 'world'>;
+type LifeCtx = Pick<AnimalCore, 'bangBuf' | 'breedRng' | 'breedState' | 'carriedId' | 'catches' | 'coopAtSpot' | 'coopById' | 'coopCheckT' | 'coopList' | 'd' | 'dropGold' | 'eggRng' | 'ents' | 'everCarried' | 'everGrew' | 'everHatched' | 'fightCands' | 'fighterIds' | 'find' | 'friendCount' | 'getPlayer' | 'goldRng' | 'hintOut' | 'joinSeq' | 'kidCount' | 'kitList' | 'kitScratch' | 'lastDay' | 'lockHintAt' | 'lockState' | 'make' | 'markOut' | 'nextCoopId' | 'nextStopOff' | 'night' | 'partner' | 'oneFighter' | 'push' | 'putWhy' | 'rng' | 'setLock' | 'setState' | 'settings' | 'spawnTimer' | 'targetId' | 'tick' | 'tryAdd' | 'waitHintAt' | 'wildAnnounced' | 'world'>;
 
 export function spawnAnimal(core: LifeCtx, x: number, y: number, z: number, opts: AnimalSpawnOpts = {}): number | null {
   // 小屋 の 子 として 置く（`home`）: 小屋 が 無い・6 わ いる → null
@@ -53,10 +53,24 @@ export function spawnAnimal(core: LifeCtx, x: number, y: number, z: number, opts
 export function trySpawn(core: LifeCtx): number | null {
   const s = core.settings;
   if (core.d.phase() !== 'day') return null;
-  const p = core.getPlayer().position;
-  let wild = 0;
-  for (const e of core.ents) if (!e.friend && dist2d(e.x, e.z, p.x, p.z) <= s.animalRemoveDist) wild++;
-  if (wild >= s.animalWildMax) return null;
+  const p1 = core.getPlayer().position;
+  const p2 = core.partner()?.position ?? null;
+  // 野生は いちばん 近い プレイヤーに わりふり、その 人から animalRemoveDist 以内の 分を 数える（上限は 1 人ごと）
+  let wild1 = 0;
+  let wild2 = 0;
+  for (const e of core.ents) {
+    if (e.friend) continue;
+    const d1 = dist2d(e.x, e.z, p1.x, p1.z);
+    const d2 = p2 ? dist2d(e.x, e.z, p2.x, p2.z) : Infinity;
+    if (d2 < d1) {
+      if (d2 <= s.animalRemoveDist) wild2++;
+    } else if (d1 <= s.animalRemoveDist) wild1++;
+  }
+  const ok1 = wild1 < s.animalWildMax;
+  const ok2 = p2 !== null && wild2 < s.animalWildMax;
+  if (!ok1 && !ok2) return null;
+  // 2 人とも 未満なら 数が 少ない方（同じなら 1P）
+  const p = ok1 && (!ok2 || wild1 <= wild2) ? p1 : p2!;
   for (let i = 0; i < 20; i++) {
     const ang = core.rng() * TAU;
     const r = s.animalSpawnMinDist + core.rng() * (s.animalSpawnMaxDist - s.animalSpawnMinDist);
@@ -159,7 +173,10 @@ function stepAnimal(core: LifeCtx, e: Ent, p: Vec3): boolean {
   const d = dist2d(e.x, e.z, p.x, p.z);
 
   if (!e.friend) {
-    if (d > (e.hearts >= 1 ? Math.max(s.animalRemoveDist, HEART_REMOVE_DIST) : s.animalRemoveDist)) return removeAnimal(core, e, 'far');
+    // 消すのは 2 人とも 遠いとき（COOP-1 3a）
+    const pp = core.partner()?.position;
+    const dNear = pp ? Math.min(d, dist2d(e.x, e.z, pp.x, pp.z)) : d;
+    if (dNear > (e.hearts >= 1 ? Math.max(s.animalRemoveDist, HEART_REMOVE_DIST) : s.animalRemoveDist)) return removeAnimal(core, e, 'far');
     if (e.y < -10) return removeAnimal(core, e, 'void');
   }
   const loaded = core.world.isLoaded(Math.floor(e.x), Math.floor(e.z));

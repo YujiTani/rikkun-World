@@ -139,7 +139,9 @@ export interface DropFieldDeps {
   /** 近づいたのに 1 つも入らなかった（もちものがいっぱい）。ステップごとに呼ばれうる */
   onFull?: () => void;
   /** 拾って持ち物に入った（入った数）。拾ったログ用（M4） */
-  onPickup?: (item: ItemStack['item'], count: number, fromYokai: boolean) => void;
+  onPickup?: (item: ItemStack['item'], count: number, fromYokai: boolean, who: 1 | 2) => void;
+  /** COOP-1 3a: 仲間（2P）の 足もとと 持ち物。1P が 1 つも ひろえない（遠い・いっぱい）ときだけ 仲間が ひろう。なし / null は 1 人のとき */
+  partner?: () => { position: Vec3; inventory: Inventory } | null;
   /** WAKIDOKORO §8: マグマで 燃えて 消えた */
   onBurn?: (item: ItemStack['item'], count: number) => void;
 }
@@ -314,6 +316,7 @@ export class DropField {
     if (this.items.length === 0) return picked;
     const p = this.d.player();
     const radius = this.d.live?.pickupRadius ?? this.radius;
+    const partner = this.d.partner?.() ?? null;
     let changed = false;
     for (const b of this.items) {
       b.ticksLeft--;
@@ -339,20 +342,39 @@ export class DropField {
         } else b.burn = 0;
       }
       if (!canPickup || b.age < b.pickupAt) continue;
-      if (Math.hypot(p.x - b.x, p.z - b.z) <= radius && Math.abs(p.y - b.y) <= DROP.pickupHeight) {
+      const near1 = this.reaches(p, b, radius);
+      if (near1) {
         const left = addStack(this.d.inventory, b.item);
         if (left !== b.item.count) {
-          this.d.onPickup?.(b.item.item, b.item.count - left, b.yokai);
+          this.d.onPickup?.(b.item.item, b.item.count - left, b.yokai, 1);
           b.item = { ...b.item, count: left };
           picked.push(b.id);
           changed = true;
-        } else this.d.onFull?.();
+          continue;
+        }
       }
+      // 1P が 1 つも ひろえなかった: 仲間（2P）を ためす
+      const near2 = partner !== null && this.reaches(partner.position, b, radius);
+      if (partner && near2) {
+        const left = addStack(partner.inventory, b.item);
+        if (left !== b.item.count) {
+          this.d.onPickup?.(b.item.item, b.item.count - left, b.yokai, 2);
+          b.item = { ...b.item, count: left };
+          picked.push(b.id);
+          changed = true;
+          continue;
+        }
+      }
+      if (near1 || near2) this.d.onFull?.();
     }
     const before = this.items.length;
     this.items = this.items.filter((b) => b.ticksLeft > 0 && b.item.count > 0);
     if (changed || this.items.length !== before) this.d.requestSave?.();
     return picked;
+  }
+
+  private reaches(p: Vec3, b: Entity, radius: number): boolean {
+    return Math.hypot(p.x - b.x, p.z - b.z) <= radius && Math.abs(p.y - b.y) <= DROP.pickupHeight;
   }
 
   private waterSurface(x: number, y: number, z: number): number {
