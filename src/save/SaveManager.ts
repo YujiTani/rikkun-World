@@ -116,6 +116,8 @@ export interface SaveDeps {
   house?: SaveExtra;
   /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
   farm?: SaveFarm;
+  /** COOP-1 §6: 2P の 持ち物とレベル（`meta.p2` = `{ inventory, level }`。serialize が null なら 書かない。場所・向きは 入れない）。前の保存に ない ときは deserialize(null) */
+  p2?: SaveExtra;
   /** 時刻と何日目。なければ保存しない */
   clock?: SaveClock;
   /** START-1: この 世界の つよさ（meta の `strength` に 書く。なければ 書かない = 古い 保存と 同じ） */
