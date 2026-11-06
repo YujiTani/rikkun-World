@@ -239,18 +239,26 @@ describe('D7: 上の ブロックを こわすと つららも こわれる', ()
     const got = bag(r.inv);
     delete got['iron_pickaxe'];
     expect(got['sekkaiseki'], 'せっかいせき 1').toBe(1);
-    expect(Object.values(got).reduce((a, b) => a + b, 0), '持ち物は せっかいせき 1 と 石の 分だけ').toBeLessThanOrEqual(2);
+    // 石の 分は 石〔落とし物は 1 から 設定の 上の 限り まで〕。せっかいせき 1 の ほかは 石 だけ
+    const stoneMax = Math.max(1, DIG.dropMax[DIG.rarity['stone']!] ?? 1);
+    const rest = { ...got };
+    delete rest['sekkaiseki'];
+    expect(Object.keys(rest).every((k) => k === 'stone'), `せっかいせき 1 ＋ 石 だけ: ${JSON.stringify(got)}`).toBe(true);
+    expect(rest['stone'] ?? 0, '石の 数').toBeGreaterThanOrEqual(1);
+    expect(rest['stone'] ?? 0, '石の 数は 設定の 上の 限り まで').toBeLessThanOrEqual(stoneMax);
   });
 
   it('つららの 上の ブロックでない 所を ほっても つららは のこる〔となりの 石〕', () => {
     const r = rig('iron_pickaxe' as ItemId);
     expect(r.world.setBlock(26, FLOOR + 2, 24, B('stone'))).toBe(true);
-    expect(r.world.setBlock(27, FLOOR + 1, 24, B('stone'))).toBe(true);
+    expect(r.world.setBlock(25, FLOOR + 1, 24, B('stone'))).toBe(true);
     expect(r.world.setBlock(26, FLOOR + 1, 24, B('tsurara'))).toBe(true);
     r.tick(2);
-    r.look(27.5, FLOOR + 1.5, 24.5);
+    // 手前〔となり〕の 石を まっすぐ ねらう〔つららは その 向こう。つららは ねらえる ので 手前に 置かない〕
+    r.look(25.5, FLOOR + 1.5, 24.5);
+    expect(r.dig.target(), 'ねらいが となりの 石').toMatchObject({ id: 'stone', block: { x: 25, y: FLOOR + 1, z: 24 } });
     digOut(r);
-    expect(r.world.getBlock(27, FLOOR + 1, 24), '石は 消えた').toBe('air');
+    expect(r.world.getBlock(25, FLOOR + 1, 24), '石は 消えた').toBe('air');
     expect(r.world.getBlock(26, FLOOR + 1, 24), 'つららは のこる').toBe('tsurara');
   });
 });
