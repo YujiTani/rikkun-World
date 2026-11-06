@@ -564,6 +564,7 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   diamond_ore: ['diamond_ore', 'diamond_ore', 'diamond_ore'],
   // MINE-1C（#350）: 坑道の わく（横・上下）。宝箱は 平らな 箱の 絵（近くは 小ブロックの 形〔render/looks/chestLooks.ts〕）
   kodo_waku: ['kodo_waku_top', 'kodo_waku_side', 'kodo_waku_top'],
+  tsurara: ['sekkaiseki', 'sekkaiseki', 'sekkaiseki'], // MINE-1D: 仮（十字の 板の 絵は 次の コミットで 足す）
   ...CHEST_BLOCK_TILES,
   // チョークの しるし 12 こ: 立方体では ない（面に はる 板。render/chalkMesh.ts）。ここは かけらの 色・アイテムの 絵などの ため
   ...CHALK_BLOCK_TILES,

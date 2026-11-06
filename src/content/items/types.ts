@@ -45,6 +45,8 @@ export const BLOCK_ONLY_IDS = [
   // MINE-1C（#350）: 坑道の わく（ほると き 1 こ）・宝箱（持てない。ほっても こわれない）
   'kodo_waku',
   ...CHEST_BLOCK_IDS,
+  // MINE-1D（#351）: つらら（持てない。ほると せっかいせき `sekkaiseki` いつも 1 こ）
+  'tsurara',
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 

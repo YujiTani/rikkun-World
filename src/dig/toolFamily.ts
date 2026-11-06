@@ -52,6 +52,7 @@ const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
   kin_ore: 'stone',
   suisho_ore: 'stone',
   diamond_ore: 'stone',
+  tsurara: 'stone', // MINE-1D: つらら（なかま いし）
   kodo_waku: 'log', // MINE-1C: 坑道の わくは き の なかま（おの）
   // つち（あう道具: くわ）
   grass: 'dirt',
