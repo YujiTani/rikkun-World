@@ -70,7 +70,7 @@ export function createSettingsPanel(
     `<p class="set-lead">みぎスティックを たおす はやさ。おしこみではない。</p>` +
     `<div class="set-slider" data-help="ui:lookSpeed" data-slider-row data-menu-item tabindex="0">` +
     `<span>おそい</span>` +
-    `<input type="range" min="${GAMEPAD_CONFIG.lookMin}" max="${GAMEPAD_CONFIG.lookMax}" step="0.1" data-testid="look-speed" aria-label="みる はやさ">` +
+    `<input type="range" min="${GAMEPAD_CONFIG.lookMin}" max="${GAMEPAD_CONFIG.lookMax}" step="0.1" data-pad-step="0.5" data-testid="look-speed" aria-label="みる はやさ">` +
     `<span>はやい</span>` +
     `<span class="set-num" data-testid="look-value"></span>` +
     `</div>` +

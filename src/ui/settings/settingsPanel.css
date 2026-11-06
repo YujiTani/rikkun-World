@@ -275,7 +275,8 @@
 .play-overlay button:focus,
 #inventory-screen :focus,
 .choice-dialog button:focus,
-.inv-slot:focus {
+.inv-slot:focus,
+.cp-tile:focus {
   outline: 4px solid var(--rk-accent, #ffc83d);
   outline-offset: 3px;
 }

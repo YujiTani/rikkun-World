@@ -270,3 +270,15 @@ describe('GamepadReader: 後追いの直し', () => {
   });
 });
 
+
+describe('みる はやさの 範囲（パッド修正）', () => {
+  it('はじめの 値は 8、上限は 18、下限は 0.4。0.5 の 値も そのまま 通る', async () => {
+    const { GAMEPAD_CONFIG } = await import('./config');
+    const { clampLook } = await import('./settingsStore');
+    expect(GAMEPAD_CONFIG.lookSensitivity).toBe(8);
+    expect(GAMEPAD_CONFIG.lookMax).toBe(18);
+    expect(GAMEPAD_CONFIG.lookMin).toBe(0.4);
+    expect(clampLook(99)).toBe(18);
+    expect(clampLook(8.5)).toBe(8.5);
+  });
+});

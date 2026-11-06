@@ -1,3 +1,5 @@
+import { RepeatCounter } from './sliderRepeat';
+
 export type FocusDir = 'up' | 'down' | 'left' | 'right';
 
 export interface FocusBox {
@@ -74,14 +76,14 @@ function moveFocus(root: ParentNode, dir: FocusDir): void {
 }
 
 function stepRange(input: HTMLInputElement, dir: 'left' | 'right'): void {
-  const step = Number(input.step);
+  const step = Number(input.dataset.padStep ?? input.step);
   const add = Number.isFinite(step) && step > 0 ? step : 0.1;
   const min = Number(input.min);
   const max = Number(input.max);
   const cur = Number(input.value);
   const lo = Number.isFinite(min) ? min : 0;
   const hi = Number.isFinite(max) ? max : 1;
-  const v = Math.min(hi, Math.max(lo, cur + (dir === 'right' ? add : -add)));
+  const v = Math.round(Math.min(hi, Math.max(lo, cur + (dir === 'right' ? add : -add))) * 1000) / 1000;
   input.value = String(v);
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
@@ -98,6 +100,25 @@ export function handleMenuDir(root: ParentNode, dir: FocusDir): void {
     }
   }
   moveFocus(root, dir);
+}
+
+/** 十字の 押しっぱなしで つまみを くりかえし 動かす（だんだん 速く）。回数の 計算は sliderRepeat.ts */
+export class SliderRepeat {
+  private counter = new RepeatCounter();
+  reset(): void {
+    this.counter.reset();
+  }
+  /** 押しっぱなしの 間 毎ステップ 呼ぶ。つまみの 行に いないときは 何もしない */
+  tick(root: ParentNode, dir: 'left' | 'right', dt: number): void {
+    const active = document.activeElement as HTMLElement | null;
+    const row = active?.closest('[data-slider-row]') as HTMLElement | null;
+    const input = row && root.contains(row) ? row.querySelector<HTMLInputElement>('input[type="range"]') : null;
+    if (!input) {
+      this.reset();
+      return;
+    }
+    for (let n = this.counter.step(dt); n > 0; n--) stepRange(input, dir);
+  }
 }
 
 export function clickFocused(root: ParentNode): void {

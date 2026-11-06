@@ -254,6 +254,8 @@ export class CraftPanel {
     root.dataset.cat = itemCategory(r.output.item);
     root.dataset.rarity = String(rar);
     root.classList.add('cp-tile');
+    root.dataset.menuItem = ''; // コントローラーの 十字で 動ける（もちものの マスと おなじ）
+    root.tabIndex = 0;
     root.dataset.id = r.id;
     root.dataset.station = r.station;
     root.dataset.works = String(r.works);
