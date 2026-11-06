@@ -4,7 +4,7 @@ import { CAVE_CONFIG as C, type CaveKind } from './mineCaveConfig';
 import type { LocalShape } from './mineCaveShape';
 import { keyOf } from './mineShaftBuild';
 import type { Geo } from './mineShaftSite';
-import { Combined, FOUR, Grid, SIX } from './mineCaveGrid';
+import { Combined, FOUR, Grid, SIX, type Overlay } from './mineCaveGrid';
 import { openingFronts, placeHiroiOres } from './mineHiroiRoom';
 import { hash01, randInt, subSeed, type Rng } from './random';
 
@@ -81,6 +81,8 @@ export interface BuildArgs {
   oy: number;
   oz: number;
   rng: Rng;
+  /** 坑道の へやだけ: 部屋の 外の 坑道 */
+  over?: Overlay;
 }
 
 /** 部屋づくりの 前半（空気・かべ・穴の ふさぎ まで。かざり・数える・置く物は まだ）。場所を えらぶ ときは これで 穴の 数だけ 見る */
@@ -105,7 +107,7 @@ export function stageRoom(args: BuildArgs): RoomStage {
   const { G, shape, ox, oy, oz } = args;
   const { sx, sy, sz, floorK, ceil, water } = shape;
   const g = new Grid(ox - 1, oy - 3, oz - 1, sx + 2, sy + 4, sz + 2);
-  const W = new Combined(g, G);
+  const W = new Combined(g, G, args.over);
   // 空気・水
   for (let z = 0; z < sz; z++) {
     for (let x = 0; x < sx; x++) {

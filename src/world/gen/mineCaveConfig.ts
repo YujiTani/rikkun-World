@@ -31,10 +31,13 @@ export const CAVE_CONFIG = {
   } satisfies Record<MineLayerId, Partial<Record<CaveKind, number>>>,
   /** 坑道の 横穴 1 本ごとの つなぐ 表（§4.7.5）。chance ＝ 当たる わりあい、kinds ＝ 当たりの 中の 比 */
   link: {
-    asai: { chance: 1 / 4, kinds: { hiroi: 4 / 7, chiteiko: 3 / 7 } },
-    nakahodo: { chance: 1 / 4, kinds: { hiroi: 1 / 3, shonyudo: 1 / 3, hotaru: 1 / 3 } },
-    fukai: { chance: 1 / 20, kinds: { suisho: 1 } },
-  } satisfies Record<MineLayerId, { chance: number; kinds: Partial<Record<CaveKind, number>> }>,
+    // chance ＝ 表の わりあい〔横穴 1 本が 部屋に つながる わりあい〕。draw ＝ くじを 引く わりあい。
+    // fit ＝ 種類ごとの 引きやすさ〔大きい 部屋ほど 入らない 場所が 多い ので、入らなかった 分を 見こして 種類の 引く 重みに かける〕
+    // 部屋が 層・地面に 入らない 場所〔地面が ひくい あさい 層など〕では つながらない ので、つながらなかった 分を 見こして chance より 多めに 引く
+    asai: { chance: 1 / 4, draw: 0.38, kinds: { hiroi: 4 / 7, chiteiko: 3 / 7 }, fit: { hiroi: 1.6 } },
+    nakahodo: { chance: 1 / 4, draw: 0.3, kinds: { hiroi: 1 / 3, shonyudo: 1 / 3, hotaru: 1 / 3 }, fit: { hiroi: 1.6, shonyudo: 1.3 } },
+    fukai: { chance: 1 / 20, draw: 1 / 14, kinds: { suisho: 1 }, fit: {} },
+  } satisfies Record<MineLayerId, { chance: number; draw: number; kinds: Partial<Record<CaveKind, number>>; fit: Partial<Record<CaveKind, number>> }>,
   /** 種類ごとの 層と 大きさ（§4.7.2） */
   kinds: {
     hiroi: { layers: ['asai', 'nakahodo'], x: [24, 36], z: [24, 36], y: [12, 18] },

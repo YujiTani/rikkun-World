@@ -6,7 +6,7 @@ import { makeShape } from './mineCaveShape';
 import { layerSpan } from './mineLayers';
 import type { MineLayerId } from './mineConfig';
 import type { Geo } from './mineShaftSite';
-import { colId } from './mineHiroiRoom';
+import { stageHiroi } from './mineHiroiStage';
 import { tryHiroiPlan } from './mineHiroiPlan';
 import { exitOps, plainLayout } from './mineHiroiScene';
 import { hiroiShape, turnPlan, worldPlan, type HiroiLayout, type HiroiWorldPlan, type Turn } from './mineHiroiShape';
@@ -26,6 +26,8 @@ export interface CaveHost {
   isOldHeya(k: number): boolean;
   /** 箱（両はし ふくむ）の 近くに 坑道の 道・へやが あるか */
   nearShaft(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean;
+  /** はじまりの 坑道の 横穴の 先の ほたるの ほらあな〔その 区画・層の 抽選を ほたるに して、この 部屋を 置く。なければ null〕 */
+  fixedRoom(rx: number, rz: number, layer: MineLayerId): PlacedCave | null;
 }
 
 export interface PlacedCave {
@@ -75,23 +77,6 @@ interface Spot {
   stage: RoomStage;
 }
 
-/** 出口の 前 4 マスに かかる 床の こぶ（局所の 番号）。根もとの まるが かかる 柱が あれば null（その 場所は やめる） */
-function frontHits(l: HiroiLayout, fronts: Set<number>, ox: number, oz: number): { x: number; z: number }[] | null {
-  if (fronts.size === 0) return [];
-  for (const p of l.pillars) {
-    const r = Math.ceil(p.widths[0]! / 2);
-    for (let z = p.z - r; z <= p.z + r; z++) for (let x = p.x - r; x <= p.x + r; x++) if (Math.hypot(x - p.x, z - p.z) < p.widths[0]! / 2 && fronts.has(colId(ox + x, oz + z))) return null;
-  }
-  return l.bumps.filter((b) => fronts.has(colId(ox + b.x, oz + b.z)));
-}
-
-/** こぶ（床）を 取りのぞいた 計画 */
-function dropBumps(l: HiroiLayout, drop: { x: number; z: number }[]): HiroiLayout {
-  const lo = l.lo.slice();
-  for (const b of drop) lo[b.z * l.size.x + b.x] = 0;
-  return { ...l, lo, bumps: l.bumps.filter((b) => !drop.includes(b)) };
-}
-
 export class CaveWorld {
   private readonly regions = new Map<number, RegionPlan>();
 
@@ -134,9 +119,10 @@ export class CaveWorld {
     p = { rolls: [], rooms: [], tries: [] };
     const placed: PlacedCave[] = [];
     CAVE_LAYERS.forEach((layer, li) => {
-      const kind = this.rollKind(rx, rz, layer);
+      const fixed = this.host.fixedRoom(rx, rz, layer);
+      const kind = fixed ? fixed.kind : this.rollKind(rx, rz, layer);
       p!.rolls.push(kind);
-      const room = kind ? this.place(rx, rz, layer, li, kind, placed, p!) : null;
+      const room = fixed ?? (kind ? this.place(rx, rz, layer, li, kind, placed, p!) : null);
       if (room) placed.push(room);
       p!.rooms.push(room);
       if (p!.tries.length < p!.rooms.length) p!.tries.push(null);
@@ -174,17 +160,7 @@ export class CaveWorld {
   private hiroiAt(rx: number, rz: number, layer: MineLayerId, id: string, placed: PlacedCave[], rng: Rng, layout0: HiroiLayout, work: HiroiWork): PlacedCave | null {
     const { G, seed } = this.host;
     const { x: sx, z: sz, h: sy } = layout0.size;
-    const build = (x0: number, y0: number, z0: number): { room: RoomStage; layout: HiroiLayout } | null => {
-      let layout = layout0;
-      for (let pass = 0; pass < 2; pass++) {
-        const room = stageRoom({ G, seed, kind: 'hiroi', shape: hiroiShape(layout), ox: x0, oy: y0, oz: z0, rng: createRng(hashInts(subSeed(seed, 935), rx, rz, pass)) });
-        const hit = frontHits(layout, room.fronts, x0, z0);
-        if (hit === null) return null;
-        if (hit.length === 0) return { room, layout };
-        layout = dropBumps(layout, hit);
-      }
-      return null;
-    };
+    const build = (x0: number, y0: number, z0: number): { room: RoomStage; layout: HiroiLayout } | null => stageHiroi(G, seed, [rx, rz], layout0, x0, y0, z0);
     const layouts = new Map<RoomStage, HiroiLayout>();
     const at = this.spot(rx, rz, layer, sx, sy, sz, rng, placed, (x0, y0, z0) => {
       const r = build(x0, y0, z0);

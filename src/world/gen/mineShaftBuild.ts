@@ -42,6 +42,8 @@ export class ShaftBuilder {
   readonly put = new Map<number, number>();
   readonly path: PathCell[] = [];
   readonly pathKeys = new Set<number>();
+  /** 坑道の へや〔1D〕の 箱。ほかの 横穴は ここに かからない */
+  readonly reserved: { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number }[] = [];
 
   /** 道の 足の マスを 足す（空気・かべ・床・天井は まとめて あとで `commitRing`） */
   addCell(p: Pt3, part: PathPart): void {

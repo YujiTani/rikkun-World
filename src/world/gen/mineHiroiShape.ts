@@ -25,7 +25,7 @@ export interface HiroiLayout {
 }
 
 /** (x, z) の マスを turn 回 時計まわりに まわした マス（W×D の 部屋 → D×W） */
-function cellOf(t: Turn, W: number, D: number, x: number, z: number): [number, number] {
+export function turnCell(t: Turn, W: number, D: number, x: number, z: number): [number, number] {
   switch (t) {
     case 0:
       return [x, z];
@@ -58,7 +58,7 @@ export function turnPlan(plan: HiroiPlan, t: Turn): HiroiLayout {
   const odd = t % 2 === 1;
   const nx = odd ? D : W;
   const nz = odd ? W : D;
-  const cell = (x: number, z: number): [number, number] => cellOf(t, W, D, x, z);
+  const cell = (x: number, z: number): [number, number] => turnCell(t, W, D, x, z);
   const lo = new Int8Array(nx * nz);
   const hi = new Int8Array(nx * nz);
   const full = new Int8Array(nx * nz);

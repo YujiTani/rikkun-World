@@ -3,8 +3,8 @@
   "idCase": 85,
   "switchExhaustive": 20,
   "cycles": 6,
-  "unusedExports": 419,
-  "unusedTypes": 161,
+  "unusedExports": 418,
+  "unusedTypes": 160,
   "eslintDisable": 1,
   "filesOver800": 0,
   "protoImports": 0

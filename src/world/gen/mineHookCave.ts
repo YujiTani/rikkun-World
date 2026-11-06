@@ -41,9 +41,9 @@ function toCave(c: PlacedCave): Cave {
 
 export function createCaveHook(world: () => ShaftWorld, spawn: () => { x: number; z: number }) {
   const caves = (): ShaftWorld['caves'] => world().caves;
-  const find = (id: string): PlacedCave | null => caves().byId(id);
+  const find = (id: string): PlacedCave | null => world().caveById(id);
   return {
-    caves: (x0: number, z0: number, x1: number, z1: number): Cave[] => caves().caves(x0, z0, x1, z1).map(toCave),
+    caves: (x0: number, z0: number, x1: number, z1: number): Cave[] => world().allCaves(x0, z0, x1, z1).map(toCave),
     findCave(kind: CaveKind, from?: { x: number; z: number }): Cave | null {
       const p = from ?? spawn();
       const c = caves().find(kind, p.x, p.z, FIND_MAX);
@@ -58,7 +58,7 @@ export function createCaveHook(world: () => ShaftWorld, spawn: () => { x: number
     }),
     hiroiTable,
     hiroiPlan: (id: string) => find(id)?.hiroi ?? null,
-    hiroiTries: (x0: number, z0: number, x1: number, z1: number) => caves().hiroiTries(x0, z0, x1, z1),
+    hiroiTries: (x0: number, z0: number, x1: number, z1: number) => world().hiroiTries(x0, z0, x1, z1),
     /** 部屋の 乱数 seed で 計画だけ 作る（向きは そのまま・origin は 0） */
     hiroiTry(seed: number) {
       const t = tryHiroiPlan(seed);
@@ -76,6 +76,6 @@ export function createCaveHook(world: () => ShaftWorld, spawn: () => { x: number
       return { ...c.room.stats, visible: { ...c.room.stats.visible } };
     },
     /** その マスが 部屋の 中なら 種類 */
-    caveKindAt: (x: number, y: number, z: number): CaveKind | null => caves().kindAt(Math.floor(x), Math.floor(y), Math.floor(z)),
+    caveKindAt: (x: number, y: number, z: number): CaveKind | null => world().caveKindAt(Math.floor(x), Math.floor(y), Math.floor(z)),
   };
 }

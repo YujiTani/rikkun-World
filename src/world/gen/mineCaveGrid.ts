@@ -1,5 +1,16 @@
 import { SEA_Y } from '../../contracts';
+import { keyOf } from './mineShaftBuild';
 import type { Geo } from './mineShaftSite';
+
+/** 坑道の へや〔部屋の 外に 坑道の 道が ある〕: 坑道の 空気・かべ・おく 物を「自然の ほらあな」として 部屋に 見せる（keyOf の 番号） */
+export interface Overlay {
+  /** 坑道の 空気〔体の 通る マス〕 */
+  air(k: number): boolean;
+  /** 坑道の かべ・おく 物〔たいまつを のぞく〕 */
+  solid(k: number): boolean;
+  /** 坑道が 使う マス〔空気・かべ・おく 物〕。部屋の 空気は ここに かかれない */
+  taken(k: number): boolean;
+}
 
 /** 地図の 入れもの。a ＝ 0 岩・1 空気・2 水。b ＝ 置く ブロック（0 ＝ 自然のまま）。s ＝ 1 部屋の となり・2 床の 下の 追加 */
 export class Grid {
@@ -44,6 +55,7 @@ export class Combined {
   constructor(
     private readonly g: Grid,
     private readonly G: Geo,
+    readonly over?: Overlay,
   ) {
     this.nat = new Int8Array(g.gx * g.gy * g.gz);
     this.heights = new Int32Array(g.gx * g.gz).fill(NONE);
@@ -68,8 +80,16 @@ export class Combined {
     if (this.g.inside(x, y, z)) {
       const i = this.g.idx(x, y, z);
       let v = this.nat[i]!;
-      if (v === 0) this.nat[i] = v = y <= this.h(x, z) && this.G.cave.airAt(x, y, z) ? 1 : 2;
+      if (v === 0) this.nat[i] = v = this.raw(x, y, z) ? 1 : 2;
       return v === 1;
+    }
+    return this.raw(x, y, z);
+  }
+  private raw(x: number, y: number, z: number): boolean {
+    if (this.over) {
+      const k = keyOf(x, y, z);
+      if (this.over.air(k)) return true;
+      if (this.over.solid(k)) return false;
     }
     return y <= this.h(x, z) && this.G.cave.airAt(x, y, z);
   }
