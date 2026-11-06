@@ -16,6 +16,8 @@ export interface DuoPadRouterOptions {
   look1: { push(dx: number, dy: number): void };
   look2: { push(dx: number, dy: number): void };
   storage: Storage | null;
+  /** 開発用（`?duo=dev&pad=2p`）: 1 本目の パッドを 2P に する。1P は パッドを 持たず キーボード・マウスだけ */
+  firstPadIs2P?: boolean;
 }
 
 export interface DuoPadPoll {
@@ -35,6 +37,7 @@ export class DuoPadRouter {
   /** テストの 口で 差しかえる（GamepadReader.getPads と 同じ） */
   getPads: () => Pads = () => (typeof navigator !== 'undefined' && navigator.getGamepads ? [...navigator.getGamepads()] : []);
 
+  private readonly firstPadIs2P: boolean;
   private p1 = -1;
   private p2 = -1;
   private joined = false;
@@ -49,6 +52,7 @@ export class DuoPadRouter {
   private cache: Pads | null = null;
 
   constructor(opts: DuoPadRouterOptions) {
+    this.firstPadIs2P = opts.firstPadIs2P ?? false;
     this.reader1 = new GamepadReader(opts.p1, opts.look1, opts.storage);
     this.reader2 = new GamepadReader(opts.p2, opts.look2, opts.storage);
     this.reader1.getPads = () => this.windowOf(this.view1, this.p1, true);
@@ -69,6 +73,7 @@ export class DuoPadRouter {
 
   /** 1P の パッドを 決める（最初に 使った 1 本。参加前に ぬけたら 次の 1 本） */
   private assign(pads: Pads): void {
+    if (this.firstPadIs2P) return; // 1P は パッドなし（p1 は -1 のまま。候補は 1 本目の パッド）
     if (this.p1 >= 0 && connected(pads[this.p1])) return;
     if (this.p1 >= 0 && this.joined) return; // 参加中は 2P を 1P に しない（段階 1）。つなぎ直しを まつ
     this.p1 = -1;
