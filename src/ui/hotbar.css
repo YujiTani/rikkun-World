@@ -127,6 +127,7 @@
 }
 
 .slot-key {
+  font-variant-numeric: tabular-nums;
   position: absolute;
   left: var(--rk-sp-1);
   top: 0;

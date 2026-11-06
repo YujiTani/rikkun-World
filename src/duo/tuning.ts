@@ -38,8 +38,8 @@ export const DUO_TUNING = {
  * ルーペ・メーターの 段の 色は 白 → 黄 → オレンジ（赤は ダメージと まざるので 使わない）。
  */
 export const DUO_COLORS = {
-  p1: '#3a8dff',
-  p2: '#ff5fa2',
+  p1: '#4fc3f7', // tokens.css の --rk-info
+  p2: '#3ddc84', // tokens.css の --rk-ok
   /** 色の 段ごとの 色（0 = ふつう・1 = 1 段目・2 = 2 段目） */
   tier: ['#ffffff', '#ffd23f', '#ff9a1f'] as const,
 } as const;

@@ -52,10 +52,10 @@ html[data-duo] #hotbar-p2::after {
   border-radius: var(--rk-r-pill);
 }
 html[data-duo] #hotbar::after {
-  background: var(--duo-p1, #3a8dff);
+  background: var(--duo-p1, #4fc3f7);
 }
 html[data-duo] #hotbar-p2::after {
-  background: var(--duo-p2, #ff5fa2);
+  background: var(--duo-p2, #3ddc84);
 }
 
 /* 距離メーター: 上の 中央。棒は 距離に 比例して 左から のびる */
@@ -65,7 +65,7 @@ html[data-duo] #hotbar-p2::after {
   left: 50%;
   transform: translateX(-50%);
   box-sizing: border-box;
-  padding: calc(var(--rk-fs-small) * 1.3) var(--rk-sp-3) var(--rk-sp-2);
+  padding: var(--rk-sp-5) var(--rk-sp-3) var(--rk-sp-2);
   background: var(--rk-hud-bg);
   border-radius: var(--rk-r-m);
   text-shadow: var(--rk-text-outline);
@@ -103,7 +103,7 @@ html[data-duo] #hotbar-p2::after {
   width: 3px;
   margin-left: -1.5px;
   background: var(--rk-text);
-  border-radius: 2px;
+  border-radius: var(--rk-r-s);
 }
 .duo-pin {
   position: absolute;
@@ -116,13 +116,12 @@ html[data-duo] #hotbar-p2::after {
 }
 .duo-pin-1 {
   left: 0;
-  transform: translateX(-50%);
-  color: var(--duo-p1, #3a8dff);
+  transform: translateX(-100%); /* 棒の はじの 左がわ */
+  color: var(--duo-p1, #4fc3f7);
 }
 .duo-pin-2 {
   left: calc(var(--duo-meter, 0) * 100%);
-  transform: translateX(-50%);
-  color: var(--duo-p2, #ff5fa2);
+  color: var(--duo-p2, #3ddc84); /* 棒の さきの 右がわ（P1 と かさならない） */
 }
 .duo-more {
   position: absolute;
@@ -146,7 +145,7 @@ html[data-duo] #hotbar-p2::after {
   padding: var(--rk-sp-2) var(--rk-sp-4);
   background: var(--rk-hud-bg);
   border-radius: var(--rk-r-m);
-  border: var(--rk-bw) solid var(--duo-p2, #ff5fa2);
+  border: var(--rk-bw) solid var(--duo-p2, #3ddc84);
   color: var(--rk-text);
   font-size: var(--rk-fs-head);
   font-weight: 800;
@@ -175,7 +174,7 @@ html[data-duo] #hotbar-p2::after {
   gap: var(--rk-sp-3);
   overflow: hidden;
   background: var(--rk-panel-bg);
-  border: var(--rk-bw) solid var(--duo-p2, #ff5fa2);
+  border: var(--rk-bw) solid var(--duo-p2, #3ddc84);
   border-radius: var(--rk-r-l);
   color: var(--rk-text);
   text-shadow: var(--rk-text-outline);
@@ -216,9 +215,14 @@ html[data-duo] #hotbar-p2::after {
   position: absolute;
   inset: 0;
   width: calc(var(--duo-quit, 0) * 100%);
-  background: var(--duo-p2, #ff5fa2);
+  background: var(--duo-p2, #3ddc84);
   opacity: 0.55;
 }
 .duo-quit-text {
   position: relative;
+}
+
+/* ハートの すき間は 決まりの 4px（ふだんの 2px は 1 人のときの まま） */
+html[data-duo] :is(#hearts, #hearts-p2) {
+  gap: var(--rk-sp-1);
 }
