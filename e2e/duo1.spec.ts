@@ -364,3 +364,52 @@ test('AC5: 2P の パッドを ぬくと padLost と「つないでね」、3600
   await step(page, 1);
   expect((await duoState(page)).joined).toBe(false);
 });
+
+test('AC84（#424 の 直し）: 2 人の とき 1P が もちもの画面を 開くと 見える。物を えらぶと 見た目が かわり、とじると 見えない', async ({ page }) => {
+  await open(page);
+  await standOnGround(page, 100.5, 100.5, { yaw: 90 });
+  await installPads(page);
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.lock.simulate(true);
+    h.step(2);
+    h.inventory.add('iron_ingot', 5);
+  });
+  expect(await page.evaluate(() => (window as any).__rikkun.duo.join())).toBe(true);
+  await step(page, 5);
+  const screen = page.locator('#inventory-screen');
+  const press = () =>
+    page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.input.press('toggleInventory');
+      h.input.release('toggleInventory');
+      h.step(3);
+    });
+  await expect(screen).toBeHidden();
+
+  // 1P が 開く: 世界は 止まり（ちょっと まってね）、1P の 画面は ちゃんと 見える
+  await press();
+  await expect(page.getByTestId('duo-wait')).toContainText('まってね');
+  await expect(screen).toBeVisible();
+  expect(await screen.evaluate((el) => (el as HTMLElement).offsetParent !== null)).toBe(true);
+
+  // 物を えらぶ（もちあげる）と 描きなおされて、手に もった 物の 絵が 出る
+  const cursor = screen.locator('.inv-cursor');
+  await expect(cursor).toBeHidden();
+  const slot = await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    return h.inventory.get().slots.findIndex((s: any) => s && s.item === 'iron_ingot');
+  });
+  expect(slot).toBeGreaterThanOrEqual(0);
+  await screen.locator(`.inv-slot[data-index="${slot}"]`).click();
+  await step(page, 2);
+  await expect(cursor, '物を えらぶと 見た目が かわる').toBeVisible();
+
+  // もどして とじる（世界が 止まっている あいだも とじられる）
+  await screen.locator(`.inv-slot[data-index="${slot}"]`).click();
+  await step(page, 2);
+  await expect(cursor).toBeHidden();
+  await press();
+  await expect(screen).toBeHidden();
+  await expect(page.getByTestId('duo-wait')).toBeHidden();
+});

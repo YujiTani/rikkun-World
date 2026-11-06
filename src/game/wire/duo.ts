@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { DuoBody } from '../../duo/body';
 import { hearFrom } from '../../duo/hearing';
 import { distanceMeter } from '../../duo/meter';
-import { DuoJoinHint } from '../../duo/joinHint';
+import { DuoJoinHint, type DuoJoinHintInput } from '../../duo/joinHint';
 import { duoWaitNotice } from '../../duo/rules';
 import { DuoSession } from '../../duo/session';
 import { createSplitSound } from '../../duo/splitSound';
@@ -55,11 +55,22 @@ export function wireDuo(deps: WiredLoop) {
    * 「＋で さんか」(AC46・AC64)と 2P の 側の「ちょっと まってね」(AC84)の 出し入れ。active = 世界が 動いている。
    * 世界が 止まっている あいだは updaters が 動かない ので、modal の tick (shared.duoModalTick) と onIdle からも 呼ぶ
    */
+  const hintIn: DuoJoinHintInput = { candidate: false, joined: false, active: false, anyButton: false };
+  const waitIn = { joined: false, inventoryOpen: false, modal: false };
   function noticeStep(active: boolean): void {
     const joined = session.joined;
-    joinHint.step({ candidate: router.joinCandidate() !== null, joined, active, anyButton: router.joinPadPressed() });
+    // 候補の 番号・「何か 押している」は gamepad の poll が 出した 物を 読む（ここで パッドの 一覧を 作らない）
+    const poll = router.lastPoll();
+    hintIn.candidate = poll.candidate >= 0;
+    hintIn.joined = joined;
+    hintIn.active = active;
+    hintIn.anyButton = poll.candidatePressed;
+    joinHint.step(hintIn);
     notices.setJoinHint(joinHint.visible());
-    notices.setWait(duoWaitNotice({ joined, inventoryOpen: shared.screen.mode() === 'inventory', modal: deps.book.active() || shared.houseFrozen() }));
+    waitIn.joined = joined;
+    waitIn.inventoryOpen = shared.screen.mode() === 'inventory';
+    waitIn.modal = deps.book.active() || shared.houseFrozen();
+    notices.setWait(duoWaitNotice(waitIn));
   }
   shared.duoModalTick = () => noticeStep(false);
   game.onIdle(() => noticeStep(false));

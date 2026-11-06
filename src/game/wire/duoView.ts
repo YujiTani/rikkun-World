@@ -55,7 +55,6 @@ export class DuoViews {
   /** 矢印の 置き場に 使う 落ちついた 分割の 四角（切りかえの とちゅうの 四角は 使わない） */
   private readonly settledScratch = newViewRectsScratch();
   private rc: ViewRects = this.scratch.out;
-  private split: ViewRects = this.settledScratch.out;
   /** 描く ときの 入れもの(毎コマ 新しく 作らない) */
   private readonly draw: DuoDrawState = { rc: this.scratch.out, fogFar: null };
   private readonly qOut = { x: 0, y: 0 };
@@ -120,6 +119,8 @@ export class DuoViews {
   }
 
   private readonly vs = { w: 0, h: 0 };
+  /** 状態機械へ 渡す 入れもの（毎ステップ 新しく 作らない） */
+  private readonly machineIn = { joined: false };
 
   /** 2P の 向きと 歩く 向き(P2Camera)。PlayerController.update の 前に 呼ぶ */
   camStep(screenYawDeg: number, lookDeltaDeg: number): P2CameraOutput {
@@ -136,8 +137,8 @@ export class DuoViews {
    * （やめた あとも 軽くする 工夫は 120 ステップ のこる。作りなおさない）。
    */
   update(inp: DuoViewsInput | null): void {
-    const joined = inp !== null;
-    const r = this.machine.step({ joined });
+    this.machineIn.joined = inp !== null;
+    const r = this.machine.step(this.machineIn);
     if (r.switched) this.from = this.prevView;
     this.prevView = r.view;
     this.setLight(this.gate.step(r.view));
@@ -191,11 +192,11 @@ export class DuoViews {
 
   /** 1P の 半分は 2P を、2P の 半分は 1P を 自分の カメラで 映して 矢印を すすめる。四角は 落ちついた 分割（切りかえの とちゅうでも かえない） */
   private stepArrows(inp: DuoViewsInput, W: number, H: number): void {
-    const split = (this.split = viewRects('split', 'split', 1, W, H, this.settledScratch));
+    const split = viewRects('split', 'split', 1, W, H, this.settledScratch);
     const ai = this.arrowIn;
     ai.distance = inp.distance;
     const body = DUO_TUNING.arrowBodyCenterTiles;
-    for (const who of [1, 2] as const) {
+    for (let who = 1; who <= 2; who++) {
       const cam: THREE.PerspectiveCamera = who === 1 ? this.d.game.camera : this.vr.camera2;
       const from = who === 1 ? inp.p2 : inp.p1;
       this.inv.copy(cam.matrixWorld).invert();
@@ -287,7 +288,9 @@ export class DuoViews {
   /** 2P が いる あいだの 区画（`duo.viewports()`。CSS px）: 参加した ステップから いつも 落ちついた 左右（見せ方の とちゅうの 四角ではなく） */
   viewports(p1Yaw: number): DuoViewport[] {
     const cam = this.d.game.camera.position;
-    const sp = this.split;
+    // 参加した 直後は まだ stepArrows が 回っていない: ここで 落ちついた 左右を その場で 出す
+    const vs = this.d.game.viewSize(this.vs);
+    const sp = viewRects('split', 'split', 1, vs.w, vs.h, this.settledScratch);
     return [
       { who: 1, ...sp.main, camera: { x: cam.x, y: cam.y, z: cam.z }, yawDeg: p1Yaw },
       { who: 2, ...sp.second!, camera: { ...this.cam2Cam }, yawDeg: this.cam2Yaw },

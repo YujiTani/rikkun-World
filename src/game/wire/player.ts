@@ -22,6 +22,7 @@ import { isBodyPlaceable } from '../../save';
 import { duoWorldFrozen } from '../../duo/rules';
 import { bindKeyboardAndMouse } from '../../input/actions';
 import { wireGamepad } from './gamepad';
+import { createGameModal } from './modalTick';
 import { LockController, WheelAccumulator, MouseLook, bindPointerLock } from '../../input';
 import { PlayerController } from '../../player/PlayerController';
 import { PlayOverlay } from '../../ui/playOverlay';
@@ -66,19 +67,18 @@ export function wireInput(deps: WiredRender) {
       return false; // screen を 作る 前
     }
   };
-  game.setModal({
-    active: () => book.active() || shared.houseFrozen() || duoFrozen(),
-    tick: () => {
-      if (book.active()) book.tick();
-      else if (shared.houseFrozen()) shared.houseModal.tick();
-      else gamepadApi?.modalStep(); // 1P の パッドで もちもの画面を とじられる ように（updaters は 動かない）
-      shared.duoModalTick();
-    },
-    render: () => {
-      if (book.active()) book.render();
-      else if (shared.houseFrozen()) shared.houseModal.render();
-    },
-  });
+  game.setModal(createGameModal({
+    bookActive: () => book.active(),
+    bookTick: () => book.tick(),
+    bookRender: () => book.render(),
+    houseFrozen: () => shared.houseFrozen(),
+    houseTick: () => shared.houseModal.tick(),
+    houseRender: () => shared.houseModal.render(),
+    duoFrozen,
+    padStep: () => gamepadApi?.modalStep(),
+    inventoryUiTick: () => shared.inventoryUiTick(),
+    duoModalTick: () => shared.duoModalTick(),
+  }));
   game.input.onPress((action) => book.onAction(action));
   const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => book.open());
   startPlan.close(); // スタートメニューを 消す（今の「じゅんびちゅう」→「あそぼう」の 案内画面へ）

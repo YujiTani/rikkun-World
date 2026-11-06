@@ -81,12 +81,8 @@ export function wireGamepad(opts: {
   };
   // 案内中（realtime オフ）でもパッドを読んで padActive にできるように idle でも回す
   opts.game.onUpdate(() => step(true, 1 / 60));
-  // 世界を 止める 画面（modal）の 1 コマで 読んだ ときは、同じ コマの idle では 読まない（二重に 数えない）
-  let polledInModal = false;
-  opts.game.onIdle((dt) => {
-    if (polledInModal) polledInModal = false;
-    else step(false, dt);
-  });
+  // 実時間の コマは modal の あいだも idle が 毎コマ 1 回 読む。modal.tick は 0〜N 回 回る ので、そこでは 読まない
+  opts.game.onIdle((dt) => step(false, dt));
 
   return {
     reader,
@@ -99,11 +95,10 @@ export function wireGamepad(opts: {
     },
     look2: padLook2,
     /**
-     * AC84: 2 人で 1P の 全面の もちもの画面が 世界を 止めている あいだ、`game.setModal` の tick から 呼ぶ。updaters が 動かないので、
-     * 1P の パッドを ここで 読む（B などで とじられる）。2P は 読まない（世界が 止まっている）
+     * AC84: __rikkun.step() の 道（idle が 回らない）で 2 人の もちもの画面が 世界を 止めている あいだ、`game.setModal` の tick から 呼ぶ。
+     * 1P の パッドを ここで 読む（B などで とじられる）。2P は 読まない（世界が 止まっている）。実時間の コマでは 呼ばない（idle が 読む）
      */
     modalStep(): void {
-      polledInModal = true;
       step(false, 1 / 60);
     },
     /** E2E: 偽パッドを差し込む */
