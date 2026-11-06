@@ -60,8 +60,8 @@ export function createCaveHook(world: () => ShaftWorld, spawn: () => { x: number
     hiroiPlan: (id: string) => find(id)?.hiroi ?? null,
     hiroiTries: (x0: number, z0: number, x1: number, z1: number) => world().hiroiTries(x0, z0, x1, z1),
     /** 部屋の 乱数 seed で 計画だけ 作る（向きは そのまま・origin は 0） */
-    hiroiTry(seed: number) {
-      const t = tryHiroiPlan(seed);
+    hiroiTry(seed: number, layer: 'asai' | 'nakahodo' = 'nakahodo') {
+      const t = tryHiroiPlan(seed, layer);
       const origin = { x: 0, y: 0, z: 0 };
       return { size: { x: t.size.x, z: t.size.z }, small: t.small, work: { ...t.work }, plan: t.plan ? worldPlan(turnPlan(t.plan, 0), origin, t.work) : null };
     },

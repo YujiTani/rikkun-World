@@ -7,6 +7,7 @@ import { makeShape, type LocalShape } from './mineCaveShape';
 import type { HiroiTryRow, PlacedCave } from './mineCaves';
 import type { MineLayerId } from './mineConfig';
 import { tryHiroiPlan } from './mineHiroiPlan';
+import type { HiroiLayer } from './mineHiroiTable';
 import { hiroiShape, turnCell, turnPlan, worldPlan, type HiroiLayout, type Turn } from './mineHiroiShape';
 import { stageHiroi } from './mineHiroiStage';
 import { layerSpan } from './mineLayers';
@@ -202,7 +203,7 @@ export function heyaSource(env: HeyaEnv): HeyaSource {
   };
   const doorsRaw = (d: readonly [number, number]): Door[] => {
     if (kind === 'hiroi') {
-      hiroi ??= tryHiroiPlan(hashInts(subSeed(seed, 933), salt, 0, 1));
+      hiroi ??= tryHiroiPlan(hashInts(subSeed(seed, 933), salt, 0, 1), env.layer as HiroiLayer);
       row ??= { rx: 0, rz: 0, layer: env.layer, shaft: env.shaft, cave: null, placed: hiroi.plan !== null, small: hiroi.small, work: hiroi.work };
       if (!hiroi.plan) return [];
       const layout = turnPlan(hiroi.plan, turnFor(d));

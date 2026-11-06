@@ -7,6 +7,7 @@ import { layerSpan } from './mineLayers';
 import type { MineLayerId } from './mineConfig';
 import type { Geo } from './mineShaftSite';
 import { stageHiroiSteps } from './mineHiroiStage';
+import type { HiroiLayer } from './mineHiroiTable';
 import { tryHiroiPlan } from './mineHiroiPlan';
 import { exitOps, plainLayout } from './mineHiroiScene';
 import { hiroiShape, turnPlan, worldPlan, type HiroiLayout, type HiroiWorldPlan, type Turn } from './mineHiroiShape';
@@ -163,7 +164,7 @@ export class CaveWorld {
     const { seed } = this.host;
     const planSeed = hashInts(subSeed(seed, 933), rx, rz, li);
     yield;
-    const t = tryHiroiPlan(planSeed);
+    const t = tryHiroiPlan(planSeed, layer as HiroiLayer);
     yield;
     const row: HiroiTryRow = { rx, rz, layer, shaft: null, cave: null, placed: t.plan !== null, small: t.small, work: t.work };
     region.tries[li] = row;
@@ -274,7 +275,7 @@ export class CaveWorld {
 
   /** 部屋の 乱数 seed の ひろい ほらあなを あさい 層に 1 つ ほる 場面。出口は 南の かべ・立つ 所は 出口から 4 マス（北向き）。plain は 柱・こぶ・鉱石 なし */
   scene(seed: number, plain: boolean): { caveId: string; size: { x: number; z: number }; stand: { x: number; y: number; z: number; facing: 'n' } } {
-    const t = tryHiroiPlan(seed);
+    const t = tryHiroiPlan(seed, 'nakahodo');
     if (!t.plan) throw new Error(`部屋の 乱数 ${seed} では 計画が 作れない`);
     const layout = turnPlan(t.plan, 0);
     this.regions.clear();
@@ -282,7 +283,7 @@ export class CaveWorld {
       const rx = 24 + (n % 8) * 2;
       const rz = 24 + Math.floor(n / 8) * 2;
       const rng = createRng(hashInts(subSeed(this.host.seed, 936), rx, rz, seed));
-      const cave = drain(this.hiroiAt(rx, rz, 'asai', `c${rx}_${rz}_asai`, [], rng, layout, t.work));
+      const cave = drain(this.hiroiAt(rx, rz, 'nakahodo', `c${rx}_${rz}_nakahodo`, [], rng, layout, t.work));
       if (!cave) continue;
       const { x0, y0, z0 } = cave.box;
       const room = plain ? buildRoom({ G: this.host.G, seed: this.host.seed, kind: 'hiroi', shape: hiroiShape(plainLayout(layout), true), ox: x0, oy: y0, oz: z0, rng: createRng(1) }) : cave.room;

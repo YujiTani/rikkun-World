@@ -37,7 +37,8 @@ export const CAVE_CONFIG = {
   } satisfies Record<MineLayerId, { chance: number; kinds: Partial<Record<CaveKind, number>> }>,
   /** 種類ごとの 層と 大きさ（§4.7.2） */
   kinds: {
-    hiroi: { layers: ['asai', 'nakahodo'], x: [24, 36], z: [24, 36], y: [12, 18] },
+    // y は 2 つの 層を あわせた はんい。層ごとの 高さは hiroiTable().layers〔1 か所〕
+    hiroi: { layers: ['asai', 'nakahodo'], x: [24, 36], z: [24, 36], y: [10, 18] },
     shonyudo: { layers: ['nakahodo'], x: [16, 24], z: [16, 24], y: [7, 10] },
     chiteiko: { layers: ['asai'], x: [20, 28], z: [20, 28], y: [6, 9] },
     hotaru: { layers: ['nakahodo'], x: [14, 20], z: [14, 20], y: [5, 7] },

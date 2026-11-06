@@ -20,6 +20,9 @@ export interface HiroiWork {
   tips: number;
 }
 
+/** ひろい ほらあなの 層 */
+export type HiroiLayer = 'asai' | 'nakahodo';
+
 /** 見こみの はんい [下, 上]（0〜1） */
 type Range = [number, number];
 
@@ -40,6 +43,8 @@ export interface HiroiTable {
   floorPerPillar: number;
   /** 柱の 本数（本）の はんい */
   pillars: [number, number];
+  /** 層ごとの 高さ（マス。部屋の 大きさの 高さ）と、柱の 中心の 列の 天井の 高さ（床から。段）の 下限〔yuzu 2026-11-06: あさい 層は 地面が ちかく 低く する〕 */
+  layers: Record<HiroiLayer, { height: [number, number]; minCeil: number }>;
   /** ためす 回数の 上の 限り。どれかに とどいたら その 部屋は 置けない */
   work: HiroiWork;
   /** すそ 1 段の わりあい（置けた 部屋の 中）と 置けない わりあい（ためした 部屋の 中）の 見こみ。small ＝ 小さい 部屋（まるめた 本数が pillars の 下の 限り 以下） */
@@ -55,8 +60,6 @@ export interface HiroiTable {
     crown: number[];
     /** すその 段の 数（段）の 上限。落ちても ハートが へらない 高さ（safeFallHeight）より 小さい */
     skirtMax: number;
-    /** 柱の 中心の 列の 天井の 高さ（床から。段）の 下限 */
-    minCeil: number;
     /** 1 つの 本数・すそで 柱の ならべを ためす 回数（回） */
     tries: number;
     /** 小さい 部屋の 本数の 下の 限り（本） */
@@ -72,11 +75,10 @@ export interface HiroiTable {
   };
 }
 
-/** 部屋の 大きさ（横 × 横 × 高さ。マス）の はんい。§4.7.2 の 表 */
+/** 部屋の 大きさ（横 × 横。マス）の はんい。§4.7.2 の 表。高さは 層ごと〔`hiroiTable().layers`〕 */
 export const HIROI_SIZE = {
   x: CAVE_CONFIG.kinds.hiroi.x,
   z: CAVE_CONFIG.kinds.hiroi.z,
-  h: CAVE_CONFIG.kinds.hiroi.y,
 } as const;
 
 /** 試作が 使う そのほかの 数（表に ない 物。単位は 書いた とおり） */
@@ -120,6 +122,7 @@ const TABLE: HiroiTable = {
   bumpShare: [0.02, 0.2],
   floorPerPillar: 110,
   pillars: [4, 7],
+  layers: { asai: { height: [10, 14], minCeil: 8 }, nakahodo: { height: [12, 18], minCeil: 10 } },
   work: { pillarCells: 4096, pillarPacks: 600, knobTries: 1500, layouts: 8, tips: 256 },
   aim: {
     // 仮（designer が きめる まで）: 小さい 部屋の すそ 1 段 45%・ほか 10%・置けない 全体 5%
@@ -133,7 +136,6 @@ const TABLE: HiroiTable = {
     mid: 3,
     crown: [5, 7],
     skirtMax: 2,
-    minCeil: 10,
     tries: 40,
     smallMin: 3,
   },

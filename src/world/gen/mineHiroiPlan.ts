@@ -1,6 +1,6 @@
 import { createRng, randInt, shuffle, type Rng } from './random';
 import { hiroiRanges, inDisc, knobDropAt, smoothTips, type HiroiKnob, type HiroiPillar } from './mineHiroiRanges';
-import { HIROI_SHAPE, HIROI_SIZE, hiroiTable, type HiroiWork } from './mineHiroiTable';
+import { HIROI_SHAPE, HIROI_SIZE, hiroiTable, type HiroiLayer, type HiroiWork } from './mineHiroiTable';
 
 /**
  * 炭鉱 1D ひろい ほらあな B「いしの 木」の 計画（docs/design/MINE-1.md §4.7.2 の B の きまり・§6.1 `hiroiPlan`）。
@@ -122,7 +122,7 @@ function pillarWidths(ceil: number, skirt: readonly number[]): number[] {
   return w;
 }
 
-type Head = Pick<HiroiPlan, 'size' | 'ceil' | 'exit'>;
+type Head = Pick<HiroiPlan, 'size' | 'ceil' | 'exit'> & { minCeil: number };
 interface Spot {
   x: number;
   z: number;
@@ -153,7 +153,7 @@ function pillarSpots(plan: Head, deep: HiroiKnob, w0: number): { spots: Spot[]; 
   let cells = 0;
   for (let pz = 3; pz < sz - 3; pz++) {
     for (let px = 3; px < sx - 3; px++) {
-      if (plan.ceil[pz * sx + px]! < hiroiTable().pillar.minCeil) continue;
+      if (plan.ceil[pz * sx + px]! < plan.minCeil) continue;
       cells++;
       if (Math.hypot(deep.x - 0.5 - px, deep.z - 0.5 - pz) < deep.r + HIROI_SHAPE.crownHalf) continue; // かんむりが 深い こぶに かからない
       const disc = discKeys(px, pz, w0, sx, sz);
@@ -327,9 +327,9 @@ export interface HiroiTry {
 }
 
 /** 計画を 作って、ためした 回数も 返す。置けない とき plan は null（抽選の 部屋は 抽選なし・坑道の へやは はずれ。§4.7.1・§4.7.5） */
-export function tryHiroiPlan(seed: number, size?: { x: number; z: number; h: number }): HiroiTry {
+export function tryHiroiPlan(seed: number, layer: HiroiLayer, size?: { x: number; z: number; h: number }): HiroiTry {
   const rng = createRng((seed ^ 0x1d0b5e) >>> 0);
-  const sz3 = size ?? { x: randInt(rng, ...HIROI_SIZE.x), z: randInt(rng, ...HIROI_SIZE.z), h: randInt(rng, ...HIROI_SIZE.h) };
+  const sz3 = size ?? { x: randInt(rng, ...HIROI_SIZE.x), z: randInt(rng, ...HIROI_SIZE.z), h: randInt(rng, ...hiroiTable().layers[layer].height) };
   const eggs = makeEggs(rng, sz3.x, sz3.z);
   const ceil = makeCeil(eggs, sz3.x, sz3.z, sz3.h);
   const T = hiroiTable();
@@ -343,7 +343,7 @@ export function tryHiroiPlan(seed: number, size?: { x: number; z: number; h: num
   const fail = (why: NonNullable<HiroiTry['why']>): HiroiTry => ({ size: sz3, plan: null, small, work: b.work, why });
   const exit = makeExit(ceil, sz3.x, sz3.z);
   if (!exit) return fail('exit');
-  const head = { size: sz3, eggs, ceil, exit };
+  const head = { size: sz3, eggs, ceil, exit, minCeil: hiroiTable().layers[layer].minCeil };
   const deep = placeDeepKnob(head, b, rng);
   if (!deep) return fail('deep');
   const cache = new Map<number, { spots: Spot[]; cells: number }>();
