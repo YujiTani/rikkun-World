@@ -46,6 +46,18 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
   /** シャイニングの ドーム: 始めてから まだ 当たって いない（最初の 当たりだけ 大） */
   let domeFirstHit = true;
   let nijiLockSel = -1;
+  /**
+   * もちもの画面まわりの 1 コマ（開く・とじる・描きなおし）。ふだんは 下の 毎ステップから、2 人で 1P の 全面の もちもの画面が
+   * 世界を 止めている あいだは updaters が 動かない ので modal の tick（wire/player.ts）から 呼ぶ。同じ コマに 二重には 呼ばない
+   */
+  const inventoryUiTick = (): void => {
+    inventoryScreen.update();
+    storageScreen.update();
+    achievementsPage.update();
+    logPage.update(screen.inventoryOpen() && inventoryScreen.tab() === 'log');
+    if (screen.inventoryOpen()) inventoryTabs.update();
+  };
+  shared.inventoryUiTick = inventoryUiTick;
   return (dt: number): void => {
     streamFrame();
     audioStep();
@@ -426,11 +438,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     }
     // #264: シャイニングの 休み 10 秒の のこりを 虹の マスに 出す
     hotbar.update(dig.toolHint()?.slot ?? null, cooldownCells(inventory.slots(), shiningCooldownOf, legend.state().cooldownLeft));
-    inventoryScreen.update();
-    storageScreen.update();
-    achievementsPage.update();
-    logPage.update(screen.inventoryOpen() && inventoryScreen.tab() === 'log');
-    if (screen.inventoryOpen()) inventoryTabs.update();
+    inventoryUiTick();
     updateAchievements();
     celebrate.step();
     notice.update(dt);

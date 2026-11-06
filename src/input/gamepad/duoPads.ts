@@ -25,6 +25,10 @@ export interface DuoPadRouterOptions {
 export interface DuoPadPoll {
   /** 2P の パッドの ＋ が 押された（まだ 参加していないとき だけ true。参加するかは 呼んだ 側が 決める） */
   joinRequested: boolean;
+  /** 2P の 候補の パッドの 番号（-1 = いない）。poll の たびに 書きかわる（毎ステップ 配列を 作らず ここを 読む） */
+  candidate: number;
+  /** 候補の パッドの どれかの ボタンを 押している（候補が いなければ false） */
+  candidatePressed: boolean;
 }
 
 type Pads = (Gamepad | null)[];
@@ -57,9 +61,11 @@ export class DuoPadRouter {
   private joined = false;
   private lost = false;
   private startWas = false;
+  /** 前の poll が 世界の 止まっている とき（active = false）だった */
+  private frozen = false;
   /** 「つかう コントローラー」で ＋ を 待っている あいだの えらんだ 番号（NONE = 待っていない） */
   private picking = NONE;
-  private readonly out: DuoPadPoll = { joinRequested: false };
+  private readonly out: DuoPadPoll = { joinRequested: false, candidate: NONE, candidatePressed: false };
   private readonly eff: PadChoice = { p1: null, p2: null };
   private readonly view1: Pads = [];
   private readonly view2: Pads = [];
@@ -195,6 +201,11 @@ export class DuoPadRouter {
     return true;
   }
 
+  /** 直前の poll の 結果（まだ 呼んでいなければ 候補なし）。使いまわしの 入れもの。新しく 読み直さない */
+  lastPoll(): DuoPadPoll {
+    return this.out;
+  }
+
   /** 固定ステップごとに 呼ぶ */
   poll(nowMs: number, active = true): DuoPadPoll {
     const pads = this.getPads();
@@ -214,15 +225,24 @@ export class DuoPadRouter {
     this.assign(pads);
     this.reader1.poll(nowMs);
     this.out.joinRequested = false;
-    if (!active) return this.out;
+    const c = this.candidate(pads);
+    this.out.candidate = c;
+    this.out.candidatePressed = c >= 0 && this.anyButton(pads[c]!);
+    if (!active) {
+      this.frozen = true;
+      return this.out;
+    }
+    const thawed = this.frozen;
+    this.frozen = false;
     if (!this.joined) {
-      const c = this.candidate(pads);
       const start = c >= 0 && this.startPressed(pads[c]!);
       this.out.joinRequested = start && !this.startWas && !picking;
       this.startWas = start;
       return this.out;
     }
     this.assign2(pads);
+    // 止まっている あいだ 2P は 読まなかった: とけた 最初の ステップで 押しっぱなしの ボタンが「今 押した」に ならない ように
+    if (thawed) this.reader2.holdButtonsUntilReleased();
     if (this.p2 >= 0) {
       const pad = pads[this.p2];
       if (!connected(pad)) {

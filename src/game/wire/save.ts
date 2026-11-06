@@ -24,11 +24,9 @@ import { MICRO_RADII } from '../../world/render/voxel/tier';
 import { groundBelow } from '../../fx/blobShadow';
 import { isSolidIndex } from '../../world/blocks/blockTypes';
 import { createTetherLine } from '../../world/render/tetherLine';
-import { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
-import { saveShadowPref } from '../../world/render/shadow/shadowPref';
 import { runTitleReturn } from '../../ui/menu/titleReturn';
 import { runImport } from '../../save/importFlow';
-import { createShadowSetting } from '../../ui/shadowSetting';
+import { wireShadow } from './shadow';
 import { START_PITCH_DEG } from '../../player/config';
 import { computeFarmPlacement, applyFarmPlacement } from '../../world/gen/farmPlacement';
 import { createFarmVisual } from '../../world/render/farmVisual';
@@ -479,16 +477,14 @@ export function wireLoop(deps: WiredFrame) {
   const hudHook = { toolHint: () => { const h = dig.toolHint(); return h ? { slot: h.slot, ticksLeft: h.ticksLeft } : null; }, actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount(), hpBar: (id: number) => shared.yokaiManager?.hpBarInfo(id) ?? null, announce: () => shared.yokaiManager?.announce() ?? null, nameplate: (id: number) => shared.yokaiManager?.nameplateInfo(id) ?? null, staggerIcon: (id: number) => shared.yokaiManager?.staggerIconInfo(id) ?? null };
   const lockHook = createLockHook(lock);
   const combatHook = createCombatHook(combat);
-  const shadowStore = store;
   const shadowStart = weighted.shadow;
   startBoot.setInfo({ strength: strengthLevel, microR: weighted.microR, ring: weighted.ring, shadowBuilt: shadowStart.build });
-  const shadowHost = document.createElement('div');
-  shadowHost.className = 'ss-root';
-  playOverlay.el.appendChild(shadowHost);
-  const shadowSettingUi = createShadowSetting(shadowHost);
-  if (shadowStart.build) {
-    ShadowSystem.activate();
-    const sys = new ShadowSystem({
+  const { system, setShadow } = wireShadow({
+    game,
+    start: shadowStart,
+    store,
+    parent: playOverlay.el,
+    deps: () => ({
       renderer: game.renderer,
       worldRenderer: renderer,
       timeSettings,
@@ -497,22 +493,10 @@ export function wireLoop(deps: WiredFrame) {
       player: () => controller.state.position,
       facing: () => controller.state.facingDeg,
       world,
-    });
-    sys.enabled = shadowStart.on;
-    const sprite = rig.doll.group.getObjectByName('charSprite');
-    if (sprite) sys.attachSprite(sprite as import('three').Mesh);
-    game.onBeforeRender(() => sys.preRender());
-    shared.shadowSystem = sys;
-    window.addEventListener('pagehide', () => sys.dispose());
-  }
-  const setShadow = (on: boolean): void => {
-    if (!shared.shadowSystem) return;
-    shared.shadowSystem.enabled = on;
-    saveShadowPref(shadowStore, on);
-    shadowSettingUi.refresh(on);
-    game.step(0); // 次のコマで画面を合わせる
-  };
-  shadowSettingUi.bind(shared.shadowSystem !== null, shadowStart.on, setShadow);
+    }),
+    sprite: () => rig.doll.group.getObjectByName('charSprite'),
+  });
+  shared.shadowSystem = system;
   return {
     cameraHook, toolHook, craftHook, logHook, craftUiHook, storageHook, achievementsHook, facingTmp,
     hudHook, lockHook, combatHook, setShadow,
