@@ -251,10 +251,11 @@ describe('AC16: 3 本目の パッド', () => {
     expect(router.ignoredPadIndexes()).toEqual([2]);
   });
 
-  it('文字を 返す 口を 持たない（poll の 結果は joinRequested だけ）', () => {
+  it('文字を 返す 口を 持たない（poll の 結果は 真偽と 番号だけ）', () => {
     const { set, poll } = make();
     set(fakePad(0), fakePad(1), fakePad(2, { buttons: [START] }));
-    expect(Object.keys(poll())).toEqual(['joinRequested']);
+    expect(Object.keys(poll())).toEqual(['joinRequested', 'candidate', 'candidatePressed']);
+    expect(Object.values(poll()).every((v) => typeof v !== 'string')).toBe(true);
   });
 });
 

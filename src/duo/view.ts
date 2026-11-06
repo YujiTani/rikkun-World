@@ -35,11 +35,14 @@ export class DuoViewMachine {
   private transLeft = 0;
   private transTotal = 1;
   private readonly reduced: boolean;
+  /** step の 返す 入れもの（毎ステップ 新しく 作らない。次の step まで 有効） */
+  private readonly result: DuoViewResult = { view: 'one', switched: false };
 
   constructor(opts: DuoViewOptions = {}) {
     this.reduced = opts.reducedMotion === true;
   }
 
+  /** 返す 物は 使いまわす: 次の step を 呼ぶ 前に 読む */
   step(input: DuoViewInput): DuoViewResult {
     if (this.transLeft > 0) this.transLeft--;
     const to: DuoView = input.joined ? 'split' : 'one';
@@ -49,7 +52,9 @@ export class DuoViewMachine {
       this.transTotal = this.reduced ? DUO_TUNING.transitionSteps.reduced : DUO_TUNING.transitionSteps.split;
       this.transLeft = this.transTotal;
     }
-    return { view: this._view, switched };
+    this.result.view = this._view;
+    this.result.switched = switched;
+    return this.result;
   }
 
   get view(): DuoView {
