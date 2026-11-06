@@ -215,10 +215,11 @@ describe('AC54: 1P の パッドなし（前の pad=2p）', () => {
   });
 
   it('1P が パッドなしの とき、2P の パッド以外は むし（3 本目と 同じ）', () => {
-    const { router, set, poll } = make();
+    const { router, set, poll, p1 } = make();
     set(fakePad(0), fakePad(1, { buttons: [START] }));
     router.setChoice({ p1: null, p2: 0 });
     expect(poll().joinRequested).toBe(false);
+    expect(held(p1)).toEqual([]);
     expect(router.ignoredPadIndexes()).toEqual([1]);
   });
 });
@@ -299,13 +300,15 @@ describe('AC57: 2P が 参加中に 決める（2P は やめない）', () => {
     const { router, set, poll, p2 } = joined();
     expect(p2.isHeld('primary')).toBe(true);
     expect(router.setChoice({ p1: 0, p2: 2 })).toBe(true);
-    set(fakePad(0), fakePad(1, { buttons: [ZR], axes: STICK_UP }), fakePad(2));
+    // 最初の poll から 新しい 物（番号 2）は ZR を 押したまま。古い 物（番号 1）は 押したまま
+    set(fakePad(0), fakePad(1, { buttons: [ZR], axes: STICK_UP }), fakePad(2, { buttons: [ZR] }));
     poll();
-    expect(held(p2), '古い 物の 入力は 全部 はなれる').toEqual([]);
+    expect(p2.isHeld('primary'), '古い 入力は はなれ、新しい 物の ボタンは はなすまで 受けない').toBe(false);
     expect(router.padIndex(2)).toBe(2);
-    set(fakePad(0), fakePad(1), fakePad(2, { buttons: [ZR] })); // 決めた ＋ を ふくむ 押しっぱなし
+    set(fakePad(0), fakePad(1), fakePad(2, { buttons: [ZR], axes: STICK_UP }));
     poll();
-    expect(p2.isHeld('primary')).toBe(false);
+    expect(p2.isHeld('primary'), 'ボタンは まだ はなしていない').toBe(false);
+    expect(p2.isHeld('moveForward'), 'スティックは すぐ 効く').toBe(true);
     set(fakePad(0), fakePad(1), fakePad(2));
     poll();
     set(fakePad(0), fakePad(1), fakePad(2, { buttons: [ZR] }));
@@ -335,6 +338,10 @@ describe('AC57: 2P が 参加中に 決める（2P は やめない）', () => {
     expect(p1.isHeld('primary'), '古い パッドの 入力は はなれ、新しい 物は ボタンを はなすまで 受けない').toBe(false);
     expect(p1.isHeld('moveRight'), 'キーは そのまま').toBe(true);
     expect(router.padIndex(1)).toBe(2);
+    set(fakePad(0), fakePad(1), fakePad(2, { buttons: [ZR], axes: STICK_UP }));
+    poll();
+    expect(p1.isHeld('primary')).toBe(false);
+    expect(p1.isHeld('moveForward'), 'スティックは すぐ 効く').toBe(true);
     set(fakePad(0), fakePad(1), fakePad(2));
     poll();
     set(fakePad(0), fakePad(1), fakePad(2, { buttons: [ZR] }));

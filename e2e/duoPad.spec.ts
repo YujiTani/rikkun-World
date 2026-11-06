@@ -92,7 +92,7 @@ test('AC50・AC52・AC56・AC59・AC60: 「つかう コントローラー」タ
 
   // AC56: パッド 0 本 → えらぶ ボタンは なく、use-none。つなぐと 出る
   await expect(page.getByTestId('use-none')).toContainText('コントローラーを つないでね');
-  await expect(page.locator('[data-testid^="use-p"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid^="use-p1-c"], [data-testid^="use-p2-c"]')).toHaveCount(0);
   await installFakePads(page, 2);
   await step(page, 2);
   for (const id of ['use-p1-c1', 'use-p1-c2', 'use-p2-c1', 'use-p2-c2']) await expect(page.getByTestId(id)).toBeVisible();
@@ -125,6 +125,22 @@ test('AC50・AC52・AC56・AC59・AC60: 「つかう コントローラー」タ
   await expect(page.getByTestId('use-p1-c2')).not.toHaveAttribute('data-lit', 'true');
   await setFakePad(page, 1, {});
   await step(page, 3);
+
+  // §2.7: 待ちを やめる のが 先（Esc・1P の パッドの もどる）。せってい画面は 前の 段に もどらない
+  await page.getByTestId('use-p2-c1').click();
+  await expect(page.locator('[data-waiting="true"]')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-waiting="true"]')).toHaveCount(0);
+  await expect(page.getByTestId('ctrl-panel-use')).toBeVisible();
+  await page.getByTestId('use-p2-c1').click();
+  await expect(page.locator('[data-waiting="true"]')).toHaveCount(1);
+  await setFakePad(page, 0, { buttons: [1] }); // 1P の パッドの もどる(みぎの面)
+  await step(page, 3);
+  await setFakePad(page, 0, {});
+  await step(page, 3);
+  await expect(page.locator('[data-waiting="true"]')).toHaveCount(0);
+  await expect(page.getByTestId('ctrl-panel-use')).toBeVisible();
+  expect(await padChoice(page), '何も かわらない').toBeNull();
 
   // AC50: 2P の 行の コントローラー 1 を おす → 待ち
   await page.getByTestId('use-p2-c1').click();

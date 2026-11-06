@@ -192,6 +192,18 @@ describe('AC51: 待ちを やめる（何も かわらない）', () => {
   });
 });
 
+describe('§2.7: 1P の パッドでない 物の もどる', () => {
+  it('2P の パッド(番号 1)の もどる(ボタン 1)では 待ちを やめない(光るだけ)', () => {
+    const m = make();
+    m.picker.start(2, 0);
+    m.steps(1);
+    m.set(fakePad(0), fakePad(1, { buttons: [BACK] }));
+    m.steps(2);
+    expect(m.picker.pending()).toEqual({ who: 2, index: 0 });
+    expect(m.picker.isLit(1)).toBe(true);
+  });
+});
+
 describe('AC56: パッド 0 本', () => {
   it('えらぶ ボタンは なく、isNone が true。つなぐと 次の ステップから ボタンが 出る', () => {
     const m = make();

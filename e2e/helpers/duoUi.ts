@@ -437,10 +437,11 @@ export async function openUsePadTab(page: Page, query = '?nosave=1&duo=dev'): Pr
 /**
  * UI 検査の 画面: つかう コントローラー タブに 偽パッドを n 本 入れる。pending なら 2P の 行の コントローラー 1 を おして 待ちにする。
  */
-export async function openDuoUsePad(page: Page, opts: { pads: number; pending?: boolean }): Promise<void> {
+export async function openDuoUsePad(page: Page, opts: { pads: number; pending?: boolean; choice?: { p1: number | null; p2: number | null } }): Promise<void> {
   await openUsePadTab(page);
   if (opts.pads > 0) {
     await installFakePads(page, opts.pads);
+    if (opts.choice) await page.evaluate((c) => (window as any).__rikkun.duo.setPadChoice(c), opts.choice);
     await page.evaluate(() => (window as any).__rikkun.step(2));
   }
   if (opts.pending && opts.pads > 0) {
@@ -454,7 +455,7 @@ export async function openDuoUsePad(page: Page, opts: { pads: number; pending?: 
  * 3 本から あとは 2 段に おりかえす(1 段に 3 つまで)・「コントローラーなし」の 札は 1 行・待ちに なっても 下(use-note)が ずれない・
  * 0 本の ときは えらぶ ボタンが なく use-none が ある。
  */
-export async function duoUsePadIssues(page: Page, opts: { pads: number; pending?: boolean }): Promise<DuoUiIssue[]> {
+export async function duoUsePadIssues(page: Page, opts: { pads: number; pending?: boolean; choice?: { p1: number | null; p2: number | null } }): Promise<DuoUiIssue[]> {
   const out: DuoUiIssue[] = [];
   const add = (kind: string, target: string, detail: string) => out.push({ kind, target, detail });
   const measure = () =>
@@ -464,14 +465,30 @@ export async function duoUsePadIssues(page: Page, opts: { pads: number; pending?
       const panel = r('ctrl-panel-use');
       return { noteTop: note?.top ?? null, noteH: note?.height ?? null, panelH: panel?.height ?? null };
     });
-  // 待ちの 前(ほかの タブを おして 待ちを やめる)と 待ちの あいだを くらべる。大きさは 今の まま
-  let before: Awaited<ReturnType<typeof measure>> | null = null;
-  if (opts.pending && opts.pads > 0) {
-    await page.getByTestId('ctrl-tab-use').click();
-    await page.evaluate(() => (window as any).__rikkun.step(2));
-    before = await measure();
-    await page.getByTestId('use-p2-c1').click();
-    await page.evaluate(() => (window as any).__rikkun.step(2));
+  // 待ちの 前(ほかの タブを おして 待ちを やめた 状態)を 基準に、待ちの あいだ・ボタンで 光らせた あとの 3 つを くらべる。大きさは 今の まま
+  const prevStates: Array<{ name: string; m: Awaited<ReturnType<typeof measure>> }> = [];
+  if (opts.pads > 0) {
+    const stepN = () => page.evaluate(() => (window as any).__rikkun.step(2));
+    if (opts.pending) {
+      await page.getByTestId('ctrl-tab-use').click();
+      await stepN();
+    }
+    const base = await measure();
+    if (opts.pending) {
+      await page.getByTestId('use-p2-c1').click();
+      await stepN();
+      prevStates.push({ name: '待ち', m: await measure() });
+    }
+    await setFakePad(page, 0, { buttons: [10] });
+    await stepN();
+    prevStates.push({ name: '光る', m: await measure() });
+    await setFakePad(page, 0, {});
+    await stepN();
+    for (const p of prevStates) {
+      if (base.noteTop !== null && p.m.noteTop !== null && Math.abs(base.noteTop - p.m.noteTop) > 0.5) add('shift', 'use-note', `${p.name}で 下の 1 行が ずれた(${base.noteTop} → ${p.m.noteTop})`);
+      if (base.noteH !== null && p.m.noteH !== null && Math.abs(base.noteH - p.m.noteH) > 0.5) add('shift', 'use-note', `${p.name}で 下の 1 行の 高さが かわった`);
+      if (base.panelH !== null && p.m.panelH !== null && Math.abs(base.panelH - p.m.panelH) > 0.5) add('shift', 'ctrl-panel-use', `${p.name}で パネルの 高さが かわった`);
+    }
   }
   const info = await page.evaluate(() => {
     const q = (id: string) => document.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
@@ -489,7 +506,7 @@ export async function duoUsePadIssues(page: Page, opts: { pads: number; pending?
     }
     const tags = [...document.querySelectorAll<HTMLElement>('#ctrl-panel-use *, [data-testid="ctrl-panel-use"] *')]
       .filter((el) => el.children.length === 0 && (el.textContent ?? '').includes('コントローラーなし'))
-      .map((el) => ({ h: el.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.3 }));
+      .map((el) => ({ text: el.textContent ?? '', clipped: el.scrollWidth > el.clientWidth + 1, h: el.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.3 }));
     const note = q('use-note')?.getBoundingClientRect();
     return {
       panelVisible: vis(panel),
@@ -525,8 +542,8 @@ export async function duoUsePadIssues(page: Page, opts: { pads: number; pending?
         if (line) line.push(b);
         else lines.push([b]);
       }
-      if (lines.some((l) => l.length > 3)) add('wrap', `use-${who}`, '3 本から あとは 2 段に おりかえすはず(1 段に 4 つ いる)');
-      if (opts.pads >= 4 && lines.length < 2) add('wrap', `use-${who}`, '4 本は 2 段に おりかえすはず');
+      if (lines.some((l) => l.length > 2)) add('wrap', `use-${who}`, '3 本から あとは 2 段に おりかえす(1 段に 2 つまで)のに、1 段に 3 つ いる');
+      if (opts.pads >= 3 && lines.length < 2) add('wrap', `use-${who}`, '4 本は 2 段に おりかえすはず');
       for (const l of lines) {
         const s = [...l].sort((a, b) => a.l - b.l);
         for (let i = 1; i < s.length; i++) {
@@ -540,12 +557,11 @@ export async function duoUsePadIssues(page: Page, opts: { pads: number; pending?
       }
     }
   }
-  for (const t of info.tags) if (t.h > t.lh * 1.6) add('wrap', 'use-tag', '「コントローラーなし(キーボードだけ)」の 札が 2 行に なっている');
-  const prev = before;
-  if (prev && info.note) {
-    if (prev.noteTop !== null && Math.abs(prev.noteTop - info.note.top) > 0.5) add('shift', 'use-note', `待ちに なって 下の 1 行が ずれた(${prev.noteTop} → ${info.note.top})`);
-    if (prev.noteH !== null && Math.abs(prev.noteH - info.note.h) > 0.5) add('shift', 'use-note', `下の 1 行の 高さが かわった(${prev.noteH} → ${info.note.h})`);
-    if (prev.panelH !== null && info.panelH !== null && Math.abs(prev.panelH - info.panelH) > 0.5) add('shift', 'ctrl-panel-use', '待ちに なって パネルの 高さが かわった');
+  if (opts.choice && opts.choice.p1 === null) {
+    if (info.tags.length === 0) add('missing', 'use-tag', '1P が パッドなしの とき「コントローラーなし(キーボードだけ)」の 札が ない');
+    else if (!info.tags.some((t) => t.text.includes('キーボードだけ'))) add('text', 'use-tag', '1P の 札に「キーボードだけ」が ない');
   }
+  for (const t of info.tags) if (t.clipped) add('clip', 'use-tag', '「コントローラーなし(キーボードだけ)」の 札が 切れている');
+  for (const t of info.tags) if (t.h > t.lh * 1.6) add('wrap', 'use-tag', '「コントローラーなし(キーボードだけ)」の 札が 2 行に なっている');
   return out;
 }

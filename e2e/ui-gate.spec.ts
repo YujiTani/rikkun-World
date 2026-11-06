@@ -587,6 +587,18 @@ SCREENS.push(
     extra: (page: Page) => duoUsePadIssues(page, { pads: 2, pending: true }),
   },
   {
+    id: 'duo-use-pad-nopad1-1',
+    roots: USE_PAD_ROOTS,
+    open: (page: Page) => openDuoUsePad(page, { pads: 1, choice: { p1: null, p2: 0 } }),
+    extra: (page: Page) => duoUsePadIssues(page, { pads: 1, choice: { p1: null, p2: 0 } }),
+  },
+  {
+    id: 'duo-use-pad-nopad1-2',
+    roots: USE_PAD_ROOTS,
+    open: (page: Page) => openDuoUsePad(page, { pads: 2, pending: true, choice: { p1: null, p2: 1 } }),
+    extra: (page: Page) => duoUsePadIssues(page, { pads: 2, pending: true, choice: { p1: null, p2: 1 } }),
+  },
+  {
     id: 'duo-use-pad-4',
     roots: USE_PAD_ROOTS,
     open: (page: Page) => openDuoUsePad(page, { pads: 4 }),
