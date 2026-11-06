@@ -97,6 +97,15 @@ describe('AC1: パッドの 割り当て', () => {
     expect(held(p2)).toEqual([]); // 参加するまで 2P には 何も 入らない
   });
 
+  it('キーボードの ＋ 相当（Enter・Escape・E）や キー入力では 参加しない（キーは slot 0 に 直に 入る）', () => {
+    const { set, poll, p1 } = make();
+    set(fakePad(0), fakePad(1));
+    poll();
+    p1.press('toggleInventory');
+    p1.press('confirm');
+    expect(poll().joinRequested).toBe(false);
+  });
+
   it('参加前は 2 本目の ＋ 以外の ボタン・スティックは 1P にも 2P にも 入らない', () => {
     const { set, poll, p1, p2 } = make();
     set(fakePad(0), fakePad(1));

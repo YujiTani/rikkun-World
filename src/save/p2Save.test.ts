@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlayerState } from '../contracts';
+import { P2State } from '../duo/p2State';
 import { InventoryImpl } from '../inventory/Inventory';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { MemoryBackend, SAVE_ID } from './backend';
@@ -77,6 +78,17 @@ describe('AC10: 2P の セーブ', () => {
     const keys = Object.keys(meta.p2 as object).sort();
     expect(keys).toEqual(['inventory', 'level']);
     for (const k of ['x', 'y', 'z', 'position', 'yaw', 'pitch', 'hearts']) expect(meta.p2).not.toHaveProperty(k);
+  });
+
+  it('本物の P2State を 渡すと meta.p2 は { inventory, level } だけ（場所・向きなし）', async () => {
+    const st = new P2State();
+    st.inventory.add('dirt', 5);
+    st.level = { level: 4, xp: 33 };
+    const db = new MemoryBackend();
+    await build(db, { serialize: () => st.serialize(), deserialize: (d) => st.deserialize(d) }, null).now();
+    const p2 = (db.metas.get(SAVE_ID) as Record<string, unknown>).p2 as Record<string, unknown>;
+    expect(Object.keys(p2).sort()).toEqual(['inventory', 'level']);
+    expect(p2.level).toEqual({ level: 4, xp: 33 });
   });
 
   it('読み直すと 2P の 持ち物とレベルが 戻る（deserialize に meta.p2 が 渡る）', async () => {

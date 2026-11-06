@@ -33,15 +33,20 @@ export interface DuoVec3 {
  * `window.__rikkun.duo`（§12.0）。
  * 〔tester が 足した 口〕`pos(who)` = 1P・2P の 足もとの 位置。E2E で「だれが 動いたか」を 聞くのに 要る。
  * 〔tester が 足した 口〕`leave()` = 2P を「やめる」と 同じに いなくする（理由 'quit'。持ち物は 保存される）。AC14 の「参加して やめたあと」で 使う。
- * どちらも 仕様 §12.0 の 表に 足してほしい（designer へ）。
+ * `timeScale()` も tester が 足した 口(AC11)。どれも 仕様 §12.0 の 表に 足してほしい（designer へ）。
+ * 〔約束〕`__rikkun.duo` は ふつうの URL でも いつも ある(`?.` は 要らない)。`join()` と `place()` だけ `?duo=dev` の ときしか 効かない。
+ * 〔約束〕2P の「コントローラーを つないでね」は data-testid="duo-pad-lost"(padLost の あいだ だけ 見える)。
  * `join()` と `place()` は `?duo=dev` の ときだけ 使える（作業 3 まで。§8）。
  */
 export interface DuoHook {
   join(): boolean;
   place(who: 1 | 2, pos: DuoVec3): void;
   state(): DuoState;
-  pos(who: 1 | 2): DuoVec3;
+  /** 2P が いないとき who=2 は null(仕様 §12.0) */
+  pos(who: 1 | 2): DuoVec3 | null;
   leave(): void;
+  /** Game に 渡している 時間の 倍率(AC11。2 人のとき もちもの画面でも 1) */
+  timeScale(): number;
 }
 
 /** 2P の セーブ（`meta.p2`。§6）。場所・向き・ハートは 入れない */

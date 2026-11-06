@@ -136,12 +136,14 @@ describe('AC8: 2 人のとき カメラの 距離は 2 人の 値（0.5 秒以�
 describe('AC7: やめたあと ＋ で また 参加すると 同じ もちもので 始まる', () => {
   it('やめる前の 持ち物・レベルで 戻る', () => {
     const { session, p2, run } = make();
+    const before = p2.inventory;
     session.join();
     p2.inventory.add('dirt', 7);
     p2.level = { level: 3, xp: 12 };
     run(120, { padPresent: true, quitHeld: true });
     expect(session.joined).toBe(false);
     expect(session.join()).toBe(true);
+    expect(p2.inventory, '差しかえない（参照が 同じ）').toBe(before);
     expect(p2.inventory.count('dirt')).toBe(7);
     expect(p2.level).toEqual({ level: 3, xp: 12 });
   });

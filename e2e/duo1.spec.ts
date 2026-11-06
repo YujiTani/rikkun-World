@@ -63,13 +63,14 @@ async function setPad(page: Page, index: number, o: { buttons?: number[]; axes?:
 
 const step = (page: Page, n: number) => page.evaluate((n) => (window as any).__rikkun.step(n), n);
 const duoState = (page: Page) => page.evaluate(() => (window as any).__rikkun.duo.state() as DuoState);
-const pos = (page: Page, who: 1 | 2) => page.evaluate((who) => (window as any).__rikkun.duo.pos(who) as DuoVec3, who);
+const pos = (page: Page, who: 1 | 2) => page.evaluate((who) => (window as any).__rikkun.duo.pos(who) as DuoVec3 | null, who);
 
 test('AC2: 2 本目の ＋ を 押した 次の ステップに 2P が 1P の 右 2 マスに いる（?duo=dev）', async ({ page }) => {
   await open(page);
   await standOnGround(page, 100.5, 100.5, { yaw: 90 });
   await installPads(page);
   expect((await duoState(page)).joined).toBe(false);
+  expect(await pos(page, 2), '2P が いない とき は null').toBeNull();
 
   // 1 本目（1P）の ＋ では 参加しない
   await setPad(page, 0, { buttons: [START] });
@@ -77,6 +78,13 @@ test('AC2: 2 本目の ＋ を 押した 次の ステップに 2P が 1P の �
   await setPad(page, 0, {});
   await step(page, 2);
   expect((await duoState(page)).joined, '1P の ＋ では 参加しない').toBe(false);
+  // 1P の ＋ は もちもの画面を 開く → 閉じてから 2 本目の ＋
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.input.press('closeMenu');
+    h.input.release('closeMenu');
+    h.step(3);
+  });
 
   // 2 本目の ＋ → 次の ステップに 2P が いる
   await setPad(page, 1, { buttons: [START] });
@@ -86,8 +94,8 @@ test('AC2: 2 本目の ＋ を 押した 次の ステップに 2P が 1P の �
   expect(s.padLost).toBe(false);
   const view: DuoView = s.view;
   expect(view, '作業 1 は 1 画面だけ').toBe('one');
-  const p1 = await pos(page, 1);
-  const p2 = await pos(page, 2);
+  const p1 = (await pos(page, 1))!;
+  const p2 = (await pos(page, 2))!;
   const yaw: number = await page.evaluate(() => (window as any).__rikkun.player.get().yawDeg);
   const rad = (yaw * Math.PI) / 180;
   const right = { x: Math.cos(rad), z: Math.sin(rad) }; // 向きの 右（PlayerController と 同じ 決まり）
@@ -105,7 +113,7 @@ test('AC2: ふつうの URL（?duo=dev なし）では 2 本目の ＋ を 押�
   await installPads(page);
   await setPad(page, 1, { buttons: [START] });
   await step(page, 5);
-  const joined = await page.evaluate(() => (window as any).__rikkun.duo?.state().joined ?? false);
+  const joined = await page.evaluate(() => (window as any).__rikkun.duo.state().joined);
   expect(joined).toBe(false);
 });
 
@@ -116,12 +124,12 @@ test('AC3: 2P の パッドで 2P だけが 動き、1P の キー入力で 2P �
   await page.evaluate(() => (window as any).__rikkun.duo.join());
   await step(page, 5);
 
-  const a1 = await pos(page, 1);
-  const a2 = await pos(page, 2);
+  const a1 = (await pos(page, 1))!;
+  const a2 = (await pos(page, 2))!;
   await setPad(page, 1, { axes: [0, -1, 0, 0] }); // 2P の 左スティック 上
   await step(page, 30);
-  const b1 = await pos(page, 1);
-  const b2 = await pos(page, 2);
+  const b1 = (await pos(page, 1))!;
+  const b2 = (await pos(page, 2))!;
   expect(Math.hypot(b1.x - a1.x, b1.z - a1.z), '1P は 動かない').toBeLessThan(0.05);
   const moved = Math.hypot(b2.x - a2.x, b2.z - a2.z);
   expect(moved, '2P は 動く').toBeGreaterThan(0.5);
@@ -133,13 +141,13 @@ test('AC3: 2P の パッドで 2P だけが 動き、1P の キー入力で 2P �
   // 2P を 止めて、1P を キー入力 で 歩かせる → 2P は 動かない
   await setPad(page, 1, {});
   await step(page, 15);
-  const c1 = await pos(page, 1);
-  const c2 = await pos(page, 2);
+  const c1 = (await pos(page, 1))!;
+  const c2 = (await pos(page, 2))!;
   await page.evaluate(() => (window as any).__rikkun.input.press('moveBack'));
   await step(page, 30);
   await page.evaluate(() => (window as any).__rikkun.input.release('moveBack'));
-  const d1 = await pos(page, 1);
-  const d2 = await pos(page, 2);
+  const d1 = (await pos(page, 1))!;
+  const d2 = (await pos(page, 2))!;
   expect(Math.hypot(d1.x - c1.x, d1.z - c1.z), '1P は キーで 動く').toBeGreaterThan(0.5);
   expect(Math.hypot(d2.x - c2.x, d2.z - c2.z), '2P は 動かない').toBeLessThan(0.05);
 });
@@ -162,4 +170,53 @@ test('AC14: 1 人の 描画は SOLO_BASELINE の 1.2 倍以下。2P が 参加�
   test.info().annotations.push({ type: 'after-leave', description: JSON.stringify(after) });
   expect(after.drawCalls).toBeLessThanOrEqual(Math.ceil(before.drawCalls * 1.02));
   expect(after.triangles).toBeLessThanOrEqual(Math.ceil(before.triangles * 1.02));
+});
+
+test('AC11・AC15: 2 人のとき もちもの画面を 開いても 時間の 倍率は 1。2P の ボタンで 本・建築士さん・とりごや・たんすは 開かない', async ({ page }) => {
+  await open(page);
+  await standOnGround(page, 100.5, 100.5, { yaw: 90 });
+  await installPads(page);
+  expect(await page.evaluate(() => (window as any).__rikkun.duo.join())).toBe(true);
+  await step(page, 5);
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.input.press('toggleInventory');
+    h.input.release('toggleInventory');
+    h.step(3);
+  });
+  expect(await page.evaluate(() => (window as any).__rikkun.duo.timeScale()), '2 人: ゆっくりに しない').toBe(1);
+
+  // 2P の パッドで 画面を 開く ボタンを ひと通り 押す（select・十字・L3・R3・面ボタン）
+  for (const b of [8, 12, 13, 14, 15, 10, 11, 0, 1, 3]) {
+    await setPad(page, 1, { buttons: [b] });
+    await step(page, 3);
+    await setPad(page, 1, {});
+    await step(page, 2);
+  }
+  const opened = await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    const vis = (q: string) => [...document.querySelectorAll<HTMLElement>(q)].some((e) => e.offsetParent !== null);
+    return { book: h.lock.get().bookAnim !== 'none' || vis('[data-book]'), house: vis('[data-testid="house-menu"]'), coop: vis('[data-testid="coop-menu"]') };
+  });
+  expect(opened, '1P の 画面を 開かない').toEqual({ book: false, house: false, coop: false });
+});
+
+test('AC5: 2P の パッドを ぬくと padLost と「つないでね」、3600 ステップで 2P が いなくなる', async ({ page }) => {
+  await open(page);
+  await standOnGround(page, 100.5, 100.5, { yaw: 90 });
+  await installPads(page);
+  await page.evaluate(() => (window as any).__rikkun.duo.join());
+  await step(page, 5);
+  expect((await duoState(page)).padLost).toBe(false);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.__rikkun.gamepad.injectPads([w.__pads[0], null]);
+    w.__rikkun.step(1);
+  });
+  expect((await duoState(page)).padLost).toBe(true);
+  await expect(page.getByTestId('duo-pad-lost')).toBeVisible();
+  await step(page, 3598);
+  expect((await duoState(page)).joined, '3599 ステップは いるまま').toBe(true);
+  await step(page, 1);
+  expect((await duoState(page)).joined).toBe(false);
 });

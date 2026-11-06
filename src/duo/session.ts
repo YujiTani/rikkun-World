@@ -6,7 +6,7 @@ export interface DuoSessionDeps {
   p2: P2State;
   /** やめる前に 呼ぶ（2P の 持ち物を セーブへ。AC7・AC17）。joined が まだ true の あいだに 呼ぶ */
   saveP2(p2: P2Save): void;
-  /** 参加の とき 呼ぶ。前に 参加した ことが あれば その セーブ、なければ null（からっぽで 始める。AC7） */
+  /** 参加の とき 呼ぶ。p2.inventory は 差しかえず 中身だけ 入れかえる（約束。参照が 変わらない）。前に 参加した ことが あれば その セーブ、なければ null（からっぽで 始める。AC7） */
   loadP2(): P2Save | null;
   /** 2P が いなく なった あと（joined が false に なってから）呼ぶ */
   onLeft?(reason: DuoLeaveReason): void;
@@ -14,7 +14,7 @@ export interface DuoSessionDeps {
 
 /** 毎ステップ 渡す 入力（固定ステップ 1/60 秒） */
 export interface DuoStepInput {
-  /** 2P の パッドが つながって いる */
+  /** 2P の パッドが つながって いる。呼ぶ 側は `!router.padLost()` を 渡す（DuoPadRouter） */
   padPresent: boolean;
   /** 2P の もちもの画面の「やめる」を 押している */
   quitHeld: boolean;
