@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { aimAtBlock, installAimHelpers } from './helpers/aim';
+import { ITEM_TYPES } from '../src/inventory/items';
+import { withRuby } from '../src/ui/text';
 import { drainRebuilds, openStream, settleWorld } from './helpers/stream';
 
 /**
@@ -387,17 +389,29 @@ test.describe('MINE-1C 通し', () => {
     });
   }
 
-  test('C13b〔レビュー B 重大 2・4〕: 宝箱の 中身が「ひろった」ログに 出る・あいた 宝箱を 右クリックすると ログ「からっぽ だよ」', async ({ page }) => {
+  test('C13b〔レビュー B 重大 2・4〕: 宝箱の 中身が 1 行の ログ「たからばこ から … を てにいれた！」に 出る・あいた 宝箱を 右クリックすると ログ「からっぽ だよ」', async ({ page }) => {
     const { main, rest, preview } = await standByChest(page);
     await rightClick(page, rest);
     await page.evaluate(() => (window as any).__rikkun.step(40)); // ふたの 動き〔0.46 秒〕が おわるまで
-    const log = await page.evaluate(() => ((window as any).__rikkun.log.history() as { kind: string; item: string | null; text: string }[]).map((e) => ({ k: e.kind, item: e.item, t: e.text })));
-    const picked = new Set(log.filter((e) => e.k === 'pickup').map((e) => e.item));
+    const log = await page.evaluate(() => ((window as any).__rikkun.log.history() as { kind: string; text: string }[]).map((e) => ({ k: e.kind, t: e.text })));
+    // yuzu の 決定〔docs/decisions/2026-10-29-mine.md の 12〕: 中身は 1 こずつの「ひろった」ログではなく、1 行
+    // 「たからばこ から ◯◯ と ◯◯ と ◯◯ など を てにいれた！」〔めずらしい 順の 先頭 3 つ。3 つ 以下なら「など」なし〕を 1 回
+    const lines = log.map((e) => e.t).filter((t) => t.startsWith('たからばこ から '));
+    expect(lines, '宝箱を 1 回 あけて「たからばこ から …」の 行が 1 回').toHaveLength(1);
+    const m = /^たからばこ から (.+?)( など)? を てにいれた！$/.exec(lines[0]!);
+    expect(m, `行の 形: ${lines[0]}`).not.toBeNull();
+    const shown = m![1]!.split(' と ');
     const items = [...new Set(preview.items.map((i) => i.item))];
-    const missing = items.filter((i) => !picked.has(i));
-    // ハイパーレア いじょうの いちばん めずらしい 1 つは テロップで しらせる〔ログに 出なくて よい〕。ほかは 今の「ひろった」ログと 同じ 道
-    expect(missing.length, `ひろった ログに 出ない 中身: ${missing.join(', ')}〔中身 ${items.join(', ')}〕`).toBeLessThanOrEqual(1);
-    expect(picked.size, 'ひろった ログが 出る').toBeGreaterThan(0);
+    expect(shown.length, '名前は 先頭 3 つ まで').toBe(Math.min(3, items.length));
+    expect(Boolean(m![2]), '「など」は 4 つ 以上の ときだけ').toBe(items.length > 3);
+    // めずらしさの 順は 窓口から 読む: 出た 3 つの めずらしさは、出なかった どの 物よりも 下では ない
+    const index = await page.evaluate((items) => Object.fromEntries(items.map((i) => [i, (window as any).__rikkun.rarity.of(i).index as number])), items);
+    const names = Object.fromEntries(items.map((i) => [i, withRuby(ITEM_TYPES.find((t) => t.id === i)!.name).replace(/<[^>]*>/g, '')]));
+    const shownIds = shown.map((n) => items.find((i) => names[i] === n));
+    expect(shownIds.every((i) => i !== undefined), `名前が 中身の 名前: ${shown.join(' / ')}〔中身 ${items.join(', ')}〕`).toBe(true);
+    const lowestShown = Math.min(...shownIds.map((i) => index[i!]!));
+    for (const i of items.filter((i) => !shownIds.includes(i))) expect(index[i]!, `${i} は 出た 3 つより めずらしくない`).toBeLessThanOrEqual(lowestShown);
+    expect(log.filter((e) => e.k === 'pickup').length, '1 こずつの「ひろった」ログは 出さない').toBe(0);
     // 2 回目: あいた 宝箱を 右クリック → ログ「からっぽ だよ」〔2 マス どちらでも 出る〕
     for (const [name, at] of [['本体', main], ['のこりの マス', rest]] as const) {
       await page.evaluate(() => (window as any).__rikkun.log.clear());
