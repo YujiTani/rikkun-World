@@ -55,6 +55,26 @@ describe('箱人形（三人称）', () => {
   });
 });
 
+describe('MINE-1E ぶるっ（かびた パン）', () => {
+  const scaleY = (rig: CameraRig): number => rig.doll.group.scale.y;
+  it('三人称で つぶれ、「うごきを へらす」では 動かない', () => {
+    const t = setup();
+    t.rig.doll.shiver(true);
+    for (let i = 0; i < 8; i++) t.rig.update(1 / 60);
+    expect(scaleY(t.rig)).toBe(1);
+    t.rig.doll.shiver();
+    for (let i = 0; i < 8; i++) t.rig.update(1 / 60);
+    expect(scaleY(t.rig)).toBeLessThan(1);
+  });
+  it('一人称の 手には かけない', () => {
+    const t = setup();
+    t.rig.doll.setMode('first');
+    t.rig.doll.shiver();
+    for (let i = 0; i < 8; i++) t.rig.doll.update(1 / 60, t.state.position, 0, 0, false);
+    expect(scaleY(t.rig)).toBe(1);
+  });
+});
+
 describe('WEAPON-2 刀と弓の人形', () => {
   it('刀を持つと両うでが中段の形になる', async () => {
     const doll = new BlockDoll();

@@ -437,7 +437,8 @@ export class BlockDoll {
     return this.animator.startArm(anim);
   }
   /** かびた パンを たべた: ぶるっ（A と B を こうごに。dollShiver.ts） */
-  shiver(): void {
+  shiver(reducedMotion = false): void {
+    if (reducedMotion) return; // 「うごきを へらす」: 動かさない（ログと 音だけ）
     this.shiverAnim.start();
   }
   /** ダメージのよろめき */
@@ -557,7 +558,9 @@ export class BlockDoll {
     if (walking) this.shiverAnim.cancel();
     else this.shiverAnim.advance(dt);
     const sh = this.shiverAnim.pose();
-    this.group.scale.set(sh.sx, sh.sy, sh.sx);
+    // 一人称は 手だけ 見える ので つぶさない（画面が ゆれて 見える）
+    if (third) this.group.scale.set(sh.sx, sh.sy, sh.sx);
+    else this.group.scale.set(1, 1, 1);
     this.upper.rotation.z = third ? sh.rollDeg * DEG : 0;
 
     // うで
