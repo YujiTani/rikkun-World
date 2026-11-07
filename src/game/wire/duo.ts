@@ -7,6 +7,7 @@ import { distanceMeter } from '../../duo/meter';
 import { closeInvHand } from '../../duo/invClose';
 import { invCloseReason, invLayoutFor, invPadCommand, invQuitHeld, type InvLayout } from '../../duo/invRules';
 import { DuoJoinHint, type DuoJoinHintInput } from '../../duo/joinHint';
+import { pressEquip } from '../../duo/p2Equip';
 import { duoWaitNotice } from '../../duo/rules';
 import { DuoSession } from '../../duo/session';
 import { createSplitSound } from '../../duo/splitSound';
@@ -235,7 +236,10 @@ export function wireDuo(deps: WiredLoop) {
       if (!p2Actions.wasPressed(a)) continue;
       const cmd = invPadCommand(a);
       if (cmd === 'close') inv2?.setOpen(false);
-      else if (cmd === 'press') screen.padPress();
+      // そうびの マスで 決める → 2P の そうび（p2.armor）へ。ほかは ふつうの 決める（COOP-1 4b）
+      else if (cmd === 'press') {
+        if (!pressEquip(screen.focusKey(), p2.armor)) screen.padPress();
+      }
       else if (cmd !== null) screen.padMove(cmd);
     }
   }

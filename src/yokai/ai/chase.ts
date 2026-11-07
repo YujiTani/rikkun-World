@@ -1,4 +1,4 @@
-import type { PlayerCombat, VoxelWorld } from '../../contracts';
+import type { ItemId, PlayerCombat, VoxelWorld } from '../../contracts';
 import { NINJA_GEAR } from '../../craft/config';
 import type { Rng } from '../../world/gen/random';
 import type { Rokurokubi } from '../models/rokurokubi';
@@ -23,8 +23,8 @@ interface ChaseDeps {
   combat: Pick<PlayerCombat, 'dead'>;
   config: Pick<YokaiConfig, 'yokaiWander'>;
   events: Pick<YokaiEvents, 'emit' | 'tick'>;
-  /** armor を 呼ぶときに 読む */
-  opts: Pick<YokaiManagerOptions, 'armor'>;
+  /** armor（1P の そうび）・partner（2P の そうび）を 呼ぶときに 読む */
+  opts: Pick<YokaiManagerOptions, 'armor' | 'partner'>;
   rng: Rng;
   mover: Pick<YokaiMover, 'walk'>;
   fall: Pick<YokaiFall, 'speedOf'>;
@@ -102,8 +102,15 @@ export class YokaiChaser {
   /** プレイヤーに 気づくか（高さの差・距離。忍び装束なら 距離が 半分） */
   private notices(sense: KindSense, targetable: boolean, dy: number, dist: number): boolean {
     if (!targetable || Math.abs(dy) > SENSE.sightDy || dist > sense.sight) return false;
-    if (sense.shinobi && dist > sense.sight * SENSE.shinobiSightMul && this.d.opts.armor?.equipped('body') === NINJA_GEAR.body) return false;
+    if (sense.shinobi && dist > sense.sight * SENSE.shinobiSightMul && this.targetBody() === NINJA_GEAR.body) return false;
     return true;
+  }
+
+  /** いま ねらっている 人（f.who）の からだの そうび。2P は 2P の そうび（窓口が なければ はだか。1P の 物に 代えない） */
+  private targetBody(): ItemId | null {
+    const { opts, f } = this.d;
+    const armor = f.who === 2 ? opts.partner?.()?.armor : opts.armor;
+    return armor?.equipped('body') ?? null;
   }
 
   private toRest(e: Ent): void {

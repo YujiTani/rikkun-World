@@ -7,12 +7,13 @@ import { PlayerCombatImpl } from '../../combat';
 import { createCombatConfig } from '../../combat/config';
 import type { DigSystemImpl } from '../../dig/DigSystem';
 import type { DigFx } from '../../fx/DigFx';
-import { legendPowerOf } from '../../legend/defs';
 import type { ActionState } from '../../input/actions';
 import type { PlayerController } from '../../player/PlayerController';
 import { ToolSystemImpl } from '../../tools';
 import { createBladeSystem } from '../../tools/blade/BladeSystem';
+import { createWeaponDamage } from '../../tools/blade/weaponDamage';
 import type { YokaiPartner } from '../../yokai/ai/target';
+import { queueKodachiSlash } from '../../fx/kodachiSlash';
 import { createRng } from '../../world/gen/random';
 import type { DuoHud } from '../../ui/duoHud';
 import type { LockStatus, Inventory, Vec3 } from '../../contracts';
@@ -21,11 +22,14 @@ import type { BladeSystem } from '../../contracts';
 import { bindWho } from '../../duo/credit';
 import { createP2Dig } from '../../duo/p2Dig';
 import { createP2DigFx } from '../../duo/p2DigFx';
+import { createP2Kodachi, type P2Kodachi } from '../../duo/p2Kodachi';
+import { createP2Partner } from '../../duo/p2Partner';
+import { createP2Wear } from '../../duo/p2Wear';
 import { createP2Sounds, type P2Sounds } from '../../duo/p2Sounds';
 import { P2Life } from '../../duo/p2Life';
 import { sampleStacks } from '../../duo/sample';
 import { ALL_RECIPES } from '../../craft/recipes';
-import { ITEM_TYPES } from '../../inventory/items';
+import { ITEM_TYPES, itemType } from '../../inventory/items';
 import { pickableMate } from '../../duo/rules';
 import { DUO_TUNING } from '../../duo/tuning';
 import type { DuoPlayHook, DuoVec3 } from '../../duo/types';
@@ -66,12 +70,28 @@ interface Live {
   ground: () => string;
   mate: { readonly position: Vec3; readonly inventory: Inventory };
   yokai: YokaiPartner;
+  /** 2P の 道具・そうびの へった／こわれた の 音・お知らせ・かけら（COOP-1 4b） */
+  wear: { step(): void };
+  /** 忍びの 手甲の 小太刀の 追い打ち（2P の そうびを 見る。1P の 追い打ちとは 別） */
+  kodachi: P2Kodachi;
+}
+
+/** 2P の 手もと（足もと + 1。毎回 同じ 入れものに 書く。1P の WeaponFx.handPos と 同じ 高さ） */
+const handScratch: Vec3 = { x: 0, y: 0, z: 0 };
+function handAt(p: Vec3): Vec3 {
+  handScratch.x = p.x;
+  handScratch.y = p.y + 1;
+  handScratch.z = p.z;
+  return handScratch;
 }
 
 export function wireDuoPlay(c: DuoPlayCtx) {
   const { deps, ui } = c;
-  const { shared, game, world, controller, w2, seed, toolConfig, digCfg, drops, fxSound, craft, storage, dig: dig1, combat: combat1 } = deps;
+  const { shared, game, world, controller, w2, seed, toolConfig, digCfg, drops, fxSound, craft, storage, dig: dig1, combat: combat1, weaponFx, kodachiFx } = deps;
   const p2 = shared.p2;
+  // 2P の そうびの たいきゅうの 設定と 時計を 本物に（1P の armor と 同じ。COOP-1 4b）
+  shared.p2Wear.settings = () => w2;
+  shared.p2Wear.tick = () => game.tick;
   const dev = c.dev;
   let live: Live | null = null;
 
@@ -90,7 +110,8 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       world,
       yokai: yokai2,
       settings: w2,
-      weaponDamage: (item) => legendPowerOf(w2, item, p2.inventory.held()?.power ?? null) ?? toolConfig.weaponDamage[item] ?? 1,
+      // 刀の 強さは 1P と 同じ 部品（侍の 手甲は 2P の そうび）
+      weaponDamage: createWeaponDamage({ settings: w2, base: toolConfig.weaponDamage, held: () => p2.inventory.held(), armor: p2.armor }),
       onHit: () => {
         p2.inventory.wearHeld(w2.toolWear.blade.hit);
       },
@@ -104,6 +125,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       world,
       player: { get: () => ctl.state, set: (v) => ctl.set(v) },
       inventory: p2.inventory,
+      armor: p2.armor, // 2P の そうび（ふせぐ・こわれる・羽織・袋。1P と 同じ 部品）
       yokai: yokai2,
       spawn: () => ({ ...c.joinSpot(), yawDeg: controller.state.yawDeg, pitchDeg: 0 }),
       drops,
@@ -155,20 +177,35 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       },
       inventory: p2.inventory,
     };
-    const yokai: YokaiPartner = {
-      get position() {
-        return ctl.state.position;
+    // 妖怪から 見た 2P（ダメージの 種類〔火の玉 'ball'〕と 2P の そうびも 伝える）
+    const yokai: YokaiPartner = createP2Partner({
+      position: () => ctl.state.position,
+      targetable: () => c.joined() && !life.down && c.padPresent(),
+      life,
+      armor: p2.armor,
+    });
+    const wear = createP2Wear({
+      inventory: p2.inventory,
+      armor: p2.armor,
+      sound: fxSound,
+      notice: ui.wearNotice,
+      nameOf: (item) => itemType(item)?.name ?? item,
+      handPos: () => handAt(ctl.state.position),
+      burst: (at, item) => weaponFx.breakShards(at, item),
+    });
+    const kodachi = createP2Kodachi({
+      armor: p2.armor,
+      yokai: shared.yokaiManager!,
+      playerPos: () => ctl.state.position,
+      sound: fxSound,
+      tick: () => game.tick,
+      onFire: (info) => {
+        if (info.yokaiId !== null) queueKodachiSlash(kodachiFx, game.camera, shared.yokaiManager!, ctl.state.position, info.yokaiId);
       },
-      get targetable() {
-        return c.joined() && !life.down && c.padPresent();
-      },
-      // 火の玉などの ダメージの 種類(kind)は 妖怪の 種類として わたす
-      // TODO(COOP-1 段階 2・2P の そうび): DamageKind の ball が ここに 伝わらない。そうびを 持たせる ときに 直す
-      hurt: (amount, kind, from) => life.damage(amount, { type: 'yokai', kind, from }).applied > 0,
-    };
+    });
     const walkBody: GetaPlayer = { running: false, onGround: false, inWater: false, velocity: ctl.state.velocity };
     const ground = () => world.getBlock(Math.floor(ctl.state.position.x), Math.floor(ctl.state.position.y - 0.05), Math.floor(ctl.state.position.z));
-    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound), walkBody, ground, mate, yokai };
+    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi };
   }
 
   /** 2P の 足音。1P の step.ts と 同じ 決まり: 遊び画面が 開いて いない・やられて いない・ひるんで いない ときだけ 歩く */
@@ -187,14 +224,22 @@ export function wireDuoPlay(c: DuoPlayCtx) {
   function step(dt: number): void {
     const l = live;
     if (!l) return;
+    // 小太刀の 追い打ちは 先に 1 ステップ すすめ、このステップの 当たりは あとで 入れる（当てた ステップを 0 に する ため。1P と 同じ 順）
+    l.kodachi.step();
     l.dig.update();
     l.life.step();
     // 2P の 音（1P と 同じ 音・同じ 大きさ。距離で 小さく しない。COOP-1 3c）。出来事は 毎ステップ 取り出す（たまり続けない ように）
-    l.sounds.combat(l.combat.drainEvents());
+    const combatEvents = l.combat.drainEvents();
+    l.sounds.combat(combatEvents);
+    l.kodachi.combat(combatEvents);
     l.combat.takeHookEvents();
     l.sounds.swings(l.tools.drainSwings(), p2.inventory.held()?.item ?? null);
     l.sounds.arrows(l.tools.drainArrowEvents());
-    l.sounds.blade(l.blade.drainEvents());
+    const bladeEvents = l.blade.drainEvents();
+    l.sounds.blade(bladeEvents);
+    l.kodachi.blade(bladeEvents);
+    l.kodachi.drainEvents(); // 追い打ちの 出来事は たまり続けない ように 毎ステップ 取り出す（2P の 分は テストの 窓口に 出さない）
+    l.wear.step(); // 2P の 道具・そうびの へった／こわれた（音・お知らせ・かけら）。出来事は 毎ステップ 空に する
     stepFoot(l);
     l.tools.takeHookEvents();
     // 2P の レベルアップは 2P の 半分にだけ 出す（1P の 演出・ログ・実績は 1P の level が 受け持つ。実績は creatures の feedDefeat で 共有）
@@ -206,6 +251,8 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     p2.levels.takeHookEvents();
     l.fx.update(dt);
     ui.updateLife(dt, l.combat.hp(), l.combat.invincibleTicks() > 0, l.life.down);
+    ui.updateArmor(p2.armor.snapshot().hudIcons); // ハートの 右の 防具の 絵（1P の step.ts と 同じ）
+    ui.stepWear();
     ui.updateLevel(dt, p2.levels.get(), up);
   }
 
@@ -247,6 +294,12 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       inv.select(0);
     },
     count: (who, item) => invOf(who)?.count(item) ?? 0,
+    armor: (who) => (who === 1 ? deps.armor.snapshot() : live ? p2.armor.snapshot() : null),
+    equip(who, head, body, arms = null, legs = null) {
+      if (!dev) return;
+      if (who === 1) deps.armor.set(head, body, arms, legs);
+      else if (live) p2.armor.set(head, body, arms, legs);
+    },
     hearts(who) {
       if (who === 1) return { hp: combat1.hp(), maxHp: combat1.maxHp(), down: combat1.dead() };
       return live ? { hp: live.life.hp, maxHp: live.life.maxHp, down: live.life.down } : { hp: 0, maxHp: 0, down: false };

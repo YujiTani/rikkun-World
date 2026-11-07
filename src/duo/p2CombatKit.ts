@@ -38,7 +38,7 @@ class FlatWorld {
   }
 }
 
-export const P1_SPOT: Vec3 = { x: 30.5, y: 8, z: 30.5 };
+const P1_SPOT: Vec3 = { x: 30.5, y: 8, z: 30.5 };
 
 export interface P2CombatKitOptions {
   /** 袋に 入れるか きめる 乱数（0 = かならず おとす・1 = なにも おとさない）。既定 1（おとさない） */

@@ -3,7 +3,7 @@
  * 2P の ホットバー・ハート・もちもの、距離メーター、相手の 向きの 矢印（1.8）、パッドぬけの 文。参加するまで DOM を 作らない（1 人のときは 今までと 同じ）。
  * data-testid は e2e/helpers/duoUi.ts の 約束どおり。
  */
-import type { Inventory } from '../contracts';
+import type { Inventory, ItemId } from '../contracts';
 import type { LevelState } from '../level/LevelSystem';
 import { DUO_COLORS, DUO_TUNING } from '../duo/tuning';
 import type { DuoView } from '../duo/types';
@@ -11,6 +11,7 @@ import { Hearts } from './hearts';
 import { Hotbar } from './hotbar';
 import { HEART_CONFIG } from './heartsModel';
 import { LevelHud } from './levelHud';
+import { WearNotice } from './wearNotice';
 import './duoHud.css';
 
 export interface DuoHudDeps {
@@ -73,6 +74,8 @@ interface Built {
   hotbar2: Hotbar;
   hearts2: Hearts;
   level2: LevelHud;
+  /** 2P の 半分の たいきゅうの お知らせ（#wear-hint-p2・#wear-log-p2） */
+  wear2: WearNotice;
   arrows: [ArrowEls, ArrowEls];
   line: HTMLDivElement;
   question: HTMLDivElement;
@@ -174,13 +177,15 @@ export class DuoHud {
     const level2 = new LevelHud(root, { cluster: hearts2.el.parentElement as HTMLElement, idSuffix: '-p2' });
     level2.barEl.setAttribute('data-testid', 'duo-levelbar-p2');
 
+    const wear2 = new WearNotice(hud, '-p2');
+
     // 2P の もちもの・クラフト画面は InventoryScreen（src/game/wire/duoInventory.ts。COOP-1 4a）
     hud.append(meter, padLost, arrows[0].root, arrows[1].root, line, question);
 
     // 色は tokens.css の 変数（案 B）。DUO_COLORS は 同じ 値の 写し（palette.test.ts が 見はる）。css は --rk-* を 直接 使う
     document.documentElement.style.setProperty('--duo-p1', DUO_COLORS.p1);
     document.documentElement.style.setProperty('--duo-p2', DUO_COLORS.p2);
-    return { meter, bar, more, padLost, root, hotbar2, hearts2, level2, arrows, line, question };
+    return { meter, bar, more, padLost, root, hotbar2, hearts2, level2, wear2, arrows, line, question };
   }
 
   /** 矢印 1 つ。who = 矢印が 出る 画面の 持ち主（1 = 1P の 半分。2P を さすので バッジは「P2」）。色は css が 相手の 色に する */
@@ -233,8 +238,25 @@ export class DuoHud {
         for (const a of b.arrows) a.root.hidden = true;
         b.line.hidden = true;
         b.question.hidden = true;
+        b.wear2.clear();
       }
     }
+  }
+
+  /** 2P の 半分に 出す たいきゅうの お知らせの 窓口（`low`・`broken`。参加して いない ときは 何も しない） */
+  readonly wearNotice: Pick<WearNotice, 'low' | 'broken'> = {
+    low: (item, name) => this.b?.wear2.low(item, name),
+    broken: (item, name) => this.b?.wear2.broken(item, name),
+  };
+
+  /** 2P の お知らせの 時間を 1 ステップ すすめる（毎ステップ） */
+  stepWear(): void {
+    if (this.on) this.b?.wear2.step();
+  }
+
+  /** 2P の ハートの 右の 防具の 絵（毎ステップ。同じ 並びなら 何も 書かない。1P の step.ts と 同じ） */
+  updateArmor(icons: readonly ItemId[]): void {
+    if (this.on) this.b?.hearts2.setArmor(icons);
   }
 
   /** 2P の ハート（毎ステップ）と、倒れているあいだだけ「たおれちゃった」（COOP-1 3a。出ていないときは 画面に 置かない） */
@@ -387,6 +409,7 @@ export class DuoHud {
     this.setJoined(false);
     b.hotbar2.dispose();
     b.hearts2.dispose();
+    b.wear2.dispose();
     b.root.remove();
     b.meter.remove();
     b.padLost.remove();

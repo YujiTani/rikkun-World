@@ -1,27 +1,16 @@
 // COOP-1 4a（docs/design/COOP-1.md §3.3）: 2P の もちもの・クラフト画面。
 // 1P の `InventoryScreen`（wire/ui.ts）と 同じ 部品を もう 1 つ、2P の もちもの・2P 用の「つくる」（`duo/p2Craft.ts`）で 作る。
-// id なし・マウスを うけない・いつも 半分。2P の そうびの マスは 4b まで 見た目だけ（EquipPanel の 場所だけ とる）。
-import type { ArmorSlot, ArmorSystem, ItemId, ItemStack, ScreenState, Vec3 } from '../../contracts';
+// id なし・マウスを うけない・いつも 半分。2P の そうびの マスは 2P の そうび p2.armor に つながる（4b。着る のは パッドで そうびの マスに おく）。
+import type { ItemId, ItemStack, ScreenState, Vec3 } from '../../contracts';
 import { closeInvHand } from '../../duo/invClose';
 import { createP2Craft, type P2Craft } from '../../duo/p2Craft';
+import { p2ArmorUi } from '../../duo/p2Equip';
 import { itemRarity } from '../../drops/rarity';
 import { playCraft } from '../../fx/craftSounds';
 import { itemType } from '../../inventory/items';
 import { handleCraftEvents } from '../../ui/craftUi';
-import type { ArmorUi } from '../../ui/equipPanel';
 import { InventoryScreen } from '../../ui/inventoryScreen';
 import type { WiredLoop } from './save';
-
-/** 2P の そうび（4a では まだ 着られない。4b で 1P と 同じ 決まりに。マスは 見た目だけ 出す） */
-const NO_ARMOR: ArmorUi = {
-  equipped: (_slot: ArmorSlot) => null,
-  tryEquip: () => false,
-  cut: () => 0,
-  equippedStack: () => null,
-  durability: () => null,
-  drainWearEvents: () => [],
-  peekWearEvents: () => [],
-} satisfies ArmorSystem;
 
 export interface DuoInventory {
   screen: InventoryScreen;
@@ -60,7 +49,7 @@ export function createDuoInventory(deps: WiredLoop, position: () => Vec3, onClos
     onClose,
     {
       craft,
-      armor: NO_ARMOR,
+      armor: p2ArmorUi(shared.p2), // 2P の そうび（COOP-1 4b。1P の そうびではない）
       nameOf,
       rarityOf: itemRarity,
       placeable: (item) => itemType(item)?.placeBlock != null,

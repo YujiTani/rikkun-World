@@ -37,7 +37,7 @@ export class Hearts {
   private readonly imgs: HTMLImageElement[] = [];
   private readonly bits: HTMLSpanElement[][] = [];
   private shown: Array<HeartState | null> = [];
-  /** ハートの左の防具の絵（M4 §3）。DOM: `.hearts-armor` の中に `img[data-item]` */
+  /** ハートの右の防具の絵（M4 §3）。DOM: `.hearts-armor` の中に `img[data-item]` */
   readonly armorEl: HTMLDivElement;
   private armorKey = '';
 

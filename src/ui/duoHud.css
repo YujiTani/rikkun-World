@@ -72,6 +72,17 @@ html[data-duo] #hud-self-p2 {
   left: calc(75% - var(--hb-w) * var(--duo-scale) / 2);
 }
 
+/* たいきゅうの お知らせ（COOP-1 4b）: 1P は 左半分、2P は 右半分の まん中・はし（まん中の 線に またがらない） */
+html[data-duo] #wear-hint {
+  left: 25%;
+}
+html[data-duo] #wear-hint-p2 {
+  left: 75%;
+}
+html[data-duo] #wear-log-p2 {
+  left: calc(50% + var(--rk-sp-5));
+}
+
 /* レベルアップの 演出は 起きた 人の 半分の まん中に 出す（まん中の 線に またがらない）。2P の 棒と 演出は 2P の 色（--duo-p2） */
 html[data-duo] #levelup {
   left: 25%;
