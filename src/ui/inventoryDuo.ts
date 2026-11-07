@@ -1,4 +1,4 @@
-import type { DuoInvPage } from '../duo/invRules';
+import { duoQuitShown, type DuoInvPage } from '../duo/invRules';
 import { createTab, setTabState } from './theme';
 import './inventoryDuo.css';
 
@@ -13,6 +13,8 @@ export interface DuoChromeHost {
   frame: HTMLElement;
   page(): DuoInvPage;
   setPage(page: DuoInvPage): void;
+  /** その ページの タブを 出して よいか（やく = かまどを 開いている・たんす = たんすを 開いている。もちもの・つくる は いつも） */
+  available(page: DuoInvPage): boolean;
 }
 
 export interface DuoChrome {
@@ -25,13 +27,15 @@ export interface DuoChrome {
   dispose(): void;
 }
 
-/** 4a で 出す タブ。「やく」「たんす」は 4c で 足す */
+/** 上の タブ（3 つ目は かまどか たんすを 開いている ときだけ 出る。4c） */
 const TABS: ReadonlyArray<{ page: DuoInvPage; label: string }> = [
   { page: 'items', label: 'もちもの' },
   { page: 'craft', label: 'つくる' },
+  { page: 'furnace', label: 'やく' },
+  { page: 'tansu', label: 'たんす' },
 ];
 
-/** 2 人用に 出せる ページか（4a は もちもの・つくる だけ） */
+/** 2 人用に 出せる ページか（4c から 4 つぜんぶ） */
 export const duoPageShown = (page: DuoInvPage): boolean => TABS.some((t) => t.page === page);
 
 export function mountDuoChrome(host: DuoChromeHost, who: 1 | 2, onClose: () => void): DuoChrome {
@@ -50,7 +54,6 @@ export function mountDuoChrome(host: DuoChromeHost, who: 1 | 2, onClose: () => v
     b.setAttribute('data-testid', `duo-inv-tab-${t.page}`);
     b.addEventListener('click', (e) => e.stopPropagation());
     buttons.set(t.page, b);
-    tabs.append(b);
   }
   const close = document.createElement('button');
   close.type = 'button';
@@ -82,7 +85,16 @@ export function mountDuoChrome(host: DuoChromeHost, who: 1 | 2, onClose: () => v
 
   let gauge = -1;
   const update = (): void => {
-    for (const [page, b] of buttons) setTabState(b, { selected: page === host.page(), dot: false });
+    // 出せない タブは 要素ごと ない（4c: 「やく」と「たんす」は 同時に 並ばない。hidden では 数に 入ってしまう）
+    const shown: HTMLButtonElement[] = [];
+    for (const [page, b] of buttons) {
+      if (!host.available(page)) continue;
+      setTabState(b, { selected: page === host.page(), dot: false });
+      shown.push(b);
+    }
+    tabs.replaceChildren(...shown);
+    // 2P の「やめる」は「もちもの」の ページ だけ（つくる・やく・たんす には 出さない。§3.3）
+    if (quit) quit.style.display = duoQuitShown(host.page()) ? '' : 'none';
   };
   update();
   return {
@@ -107,7 +119,8 @@ export function focusName(el: HTMLElement | null): string | null {
   if (el.classList.contains('equip-slot')) return `equip:${d.slot ?? ''}`;
   if (el.classList.contains('inv-slot') && d.index !== undefined) return `slot:${d.index}`;
   if (el.classList.contains('cp-tile') && d.id !== undefined) return `tile:${d.id}`;
-  if (d.tansu !== undefined) return `tansu:${d.tansu}`;
+  if (d.tansu !== undefined && el.closest('.tansu-grid')) return `tansu:${d.tansu}`;
+  if (d.tansuAct !== undefined) return `tansu-act:${d.tansuAct}`;
   const tid = el.getAttribute('data-testid') ?? '';
   if (tid.startsWith('duo-inv-tab-')) return `tab:${tid.slice('duo-inv-tab-'.length)}`;
   if (tid === 'duo-quit') return 'quit';

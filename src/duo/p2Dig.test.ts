@@ -14,10 +14,11 @@ import { createP2Dig } from './p2Dig';
 import { P2State } from './p2State';
 
 /**
- * COOP-1 作業 3a（#416）の 先行テスト（赤）。AC35（2P が ほる・おく）・AC36（同じ ブロックを 2 人で ほる）・AC38（仲間の 体の ある 所に 置けない）・AC15（2P の ZL は かまど／たんすで 何も 開かず、置かない）。
+ * COOP-1 作業 3a（#416）の 先行テスト（赤）。AC35（2P が ほる・おく）・AC36（同じ ブロックを 2 人で ほる）・AC38（仲間の 体の ある 所に 置けない）・AC15（2P の ZL は かまど／たんすで ブロックを 置かない）。
+ * COOP-1 4c（#428 の つぎ）の テスト準備で、AC15 の「画面は 開かない」を AC95 の 形（かまど: ZL で「やく」、たんす: Y か ZL で「たんす」が 開く）に 直した。ブロックを 置かない 所は そのまま。
  *
  * ---- 実装への 約束（developer が 作る 名前・形）----
- *   src/duo/p2Dig.ts  `createP2Dig(d: P2DigDeps): DigSystemImpl`  （AC15 の Y: 返った 物の `tryOpenAimedStorage()` は いつも false・storage.open は 呼ばない）
+ *   src/duo/p2Dig.ts  `createP2Dig(d: P2DigDeps): DigSystemImpl`  （Y〔`tryOpenAimedStorage()`〕の 4c の 形は 下の【4c】）
  *     2P 用の ほる・おく係。1P と 同じ `DigSystemImpl` を もう 1 つ 作って 返す（2P の ActionState・2P の 持ち物 `p2.inventory`・2P の 位置を 渡す）。
  *     P2DigDeps = { world: VoxelWorld; p2: P2State; actions: ActionState; position: () => PlayerState; lock: LockStatus;
  *                   eyeHeight: () => number; partner: () => Vec3 | null; gate?: PunchGate | null; m4?: DigM4Deps; config?: DigConfig; rng?: Rng }
@@ -27,8 +28,15 @@ import { P2State } from './p2State';
  *     - 刀・弓の 2P 分: m4.blade・m4.tools を 2P の 持ち物で 作って 渡す（テストは パンチ 1 本。刀は 同じ 道なので 実装の 確認で 見る）
  *     - 2P の ZR（primary）＝ほる・ZL（secondary）＝おく。持ち物は p2.inventory だけを 使う（1P の 持ち物は 見ない）。
  *     - m4.partner = partner を そのまま 渡す。
- *     - 2P は 画面を 開かない（AC15）: m4 に craft.openFurnace・storage.open が 来ても 呼ばない。
+ *     - 2P の 開く 口は m4 の 物を 使わない（m4.craft.openFurnace・m4.storage.open は 1P 用。2P からは 呼ばない）。
  *       かまど（craft.isFurnace が true）・たんす（block id が 'tansu'）を ねらった ZL は 1P と 同じに「何も 置かない」。
+ *   【4c】P2DigDeps に 足す（AC95。見本: wip-4c-proto 7b5ce32 の p2Dig.ts）:
+ *     onOpenFurnace?: (x: number, y: number, z: number) => void   … 2P が かまどを ねらって ZL。2P の 画面の「やく」の ページを 開く 合図（1 回）
+ *     onOpenTansu?: (x: number, y: number, z: number) => void     … 2P が たんすを ねらって ZL か Y（tryOpenAimedStorage）。「たんす」の ページを 開く 合図（1 回）
+ *     - 返った DigSystemImpl の `tryOpenAimedStorage()`: たんすを ねらっていて onOpenTansu が あれば onOpenTansu を 呼んで true。かまど・何も ねらって いない・onOpenTansu が ない ときは false（かまどを ねらった Y は「もちもの」の ページ）。
+ *     - onOpenFurnace・onOpenTansu を 渡さない 2P は 3a の とおり 何も 開かない（口が ない）。
+ *     - かまどを こわした とき 呼ぶ `m4.craft.furnaceBroken` は **2P の つくる**（配線が 渡す: src/game/wire/duoPlay.ts:165 の `m4.craft` の 1P の craft を 2P の craft〔`createDuoInventory` の p2Craft.craft〕に 替える。中身は こわした 人へ。furnaceWorld.test.ts）。
+ *       openFurnace は 2P では `onOpenFurnace` に つなぐので m4.craft.openFurnace は 空のまま。
  *   src/dig/digPorts.ts  `DigM4Deps.partner?: () => Vec3 | null`  … 仲間（もう 1 人）の 足もとの 位置。なければ 仲間は いない。
  *     置く とき 自分の 体に 加えて 仲間の 体（`overlapsBody(partner, x, y, z)` と 同じ 決まり）とも 重なる マスには 置けない（AC38）。
  *   src/dig/DigSystem.ts  ほっている 途中の ブロックが（だれが こわしても）なくなったら、次の ステップで ひびは 0 に 戻る（`state().progress`＝0・`block`＝null）。
@@ -255,15 +263,18 @@ describe('AC38: 仲間の 体の ある 所には ブロックを 置けない',
   });
 });
 
-describe('AC15（ブロックを 置かない ほう）: 2P が かまど・たんすを ねらって ZL を 押しても 画面は 開かず、ブロックも 置かれない', () => {
-  function setup2(blockId: BlockId) {
+describe('AC95（AC15 の 4c の 形）: 2P が かまどを ねらって ZL・たんすを ねらって Y か ZL で 2P の 画面が 開く。ブロックは 置かない', () => {
+  type Pos = [number, number, number];
+  function setup2(blockId: BlockId, o: { withOpeners?: boolean } = {}) {
+    const withOpeners = o.withOpeners ?? true;
     const world = new FakeWorld();
     world.setBlock(5, 10, 6, blockId);
     const a2 = new ActionState();
     const p2 = new P2State();
     p2.inventory.setSlot(0, { item: 'dirt', count: 5 });
     const s2 = stateAt(3.5, 6.5);
-    const calls = { openFurnace: 0, openTansu: 0 };
+    const calls = { m4Furnace: 0, m4Tansu: 0 };
+    const opened = { furnace: [] as Pos[], tansu: [] as Pos[] };
     const dig = createP2Dig({
       world,
       p2,
@@ -272,9 +283,15 @@ describe('AC15（ブロックを 置かない ほう）: 2P が かまど・た�
       lock,
       eyeHeight: () => EYE,
       partner: () => null,
+      ...(withOpeners
+        ? {
+            onOpenFurnace: (x: number, y: number, z: number) => void opened.furnace.push([x, y, z]),
+            onOpenTansu: (x: number, y: number, z: number) => void opened.tansu.push([x, y, z]),
+          }
+        : {}),
       m4: {
-        craft: { isFurnace: (x: number, y: number, z: number) => world.getBlock(x, y, z) === 'furnace', openFurnace: () => void calls.openFurnace++, furnaceBroken: () => {}, fixedDrop: () => null },
-        storage: { isTansu: (x: number, y: number, z: number) => world.getBlock(x, y, z) === 'tansu', open: () => (calls.openTansu++, true), placed: () => {}, broken: () => 0 },
+        craft: { isFurnace: (x: number, y: number, z: number) => world.getBlock(x, y, z) === 'furnace', openFurnace: () => void calls.m4Furnace++, furnaceBroken: () => {}, fixedDrop: () => null },
+        storage: { isTansu: (x: number, y: number, z: number) => world.getBlock(x, y, z) === 'tansu', open: () => (calls.m4Tansu++, true), placed: () => {}, broken: () => 0 },
       },
     });
     const press = () => {
@@ -289,19 +306,69 @@ describe('AC15（ブロックを 置かない ほう）: 2P が かまど・た�
       dig.update();
       a2.endFrame();
     };
-    return { world, p2, calls, press, dig };
+    const aim = () => {
+      dig.update();
+      a2.endFrame();
+    };
+    return { world, p2, calls, opened, press, aim, dig };
   }
-  it.each(['furnace', 'tansu'] as const)('%s: 開く 口は 呼ばれず、ブロックも 増えず、持ち物も へらない（Y = tryOpenAimedStorage も false）', (id) => {
-    const r = setup2(id);
-    r.press();
-    expect(r.dig.tryOpenAimedStorage()).toBe(false);
-    expect(r.dig.target()?.block).toEqual({ x: 5, y: 10, z: 6 });
-    expect(r.calls).toEqual({ openFurnace: 0, openTansu: 0 });
+  const noBlockPlaced = (r: ReturnType<typeof setup2>) => {
     expect(r.world.getBlock(4, 10, 6)).toBe('air');
     expect(r.world.getBlock(5, 11, 6)).toBe('air');
     expect(r.p2.inventory.count('dirt')).toBe(5);
+  };
+
+  it('かまど: ZL で onOpenFurnace が (5,10,6) で 1 回。ブロックは 置かない。たんすの 口は 呼ばない', () => {
+    const r = setup2('furnace');
+    r.press();
+    expect(r.dig.target()?.block).toEqual({ x: 5, y: 10, z: 6 });
+    expect(r.opened.furnace).toEqual([[5, 10, 6]]);
+    expect(r.opened.tansu).toEqual([]);
+    noBlockPlaced(r);
   });
-  it('たんすは ports を 渡さなくても 置かない（block id で 見る）', () => {
+  it('たんす: ZL で onOpenTansu が (5,10,6) で 1 回。ブロックは 置かない。かまどの 口は 呼ばない', () => {
+    const r = setup2('tansu');
+    r.press();
+    expect(r.opened.tansu).toEqual([[5, 10, 6]]);
+    expect(r.opened.furnace).toEqual([]);
+    noBlockPlaced(r);
+  });
+  it('たんす: Y（toggleInventory = tryOpenAimedStorage）でも 開く。true を 返し onOpenTansu が 1 回。ブロックは 置かない', () => {
+    const r = setup2('tansu');
+    r.aim();
+    expect(r.dig.tryOpenAimedStorage()).toBe(true);
+    expect(r.opened.tansu).toEqual([[5, 10, 6]]);
+    expect(r.opened.furnace).toEqual([]);
+    noBlockPlaced(r);
+  });
+  it('かまどを ねらった Y は「やく」を 開かない（false・口は 呼ばない。「もちもの」の ページは 配線が 開く）', () => {
+    const r = setup2('furnace');
+    r.aim();
+    expect(r.dig.tryOpenAimedStorage()).toBe(false);
+    expect(r.opened).toEqual({ furnace: [], tansu: [] });
+  });
+  it('何も ねらって いない Y は false（口は 呼ばない）', () => {
+    const r = setup2('dirt');
+    r.aim();
+    expect(r.dig.tryOpenAimedStorage()).toBe(false);
+    expect(r.opened).toEqual({ furnace: [], tansu: [] });
+  });
+  it.each(['furnace', 'tansu'] as const)('%s: 1P 用の m4 の 開く 口（craft.openFurnace・storage.open）は 2P から 呼ばない', (id) => {
+    const r = setup2(id);
+    r.aim();
+    r.dig.tryOpenAimedStorage();
+    r.press();
+    expect(r.calls).toEqual({ m4Furnace: 0, m4Tansu: 0 });
+  });
+  it.each(['furnace', 'tansu'] as const)('%s: onOpenFurnace・onOpenTansu を 渡さない 2P は 何も 開かず、ブロックも 置かない（3a の まま。Y も false）', (id) => {
+    const r = setup2(id, { withOpeners: false });
+    r.press();
+    expect(r.dig.tryOpenAimedStorage()).toBe(false);
+    expect(r.calls).toEqual({ m4Furnace: 0, m4Tansu: 0 });
+    expect(r.dig.target()?.block).toEqual({ x: 5, y: 10, z: 6 });
+    noBlockPlaced(r);
+  });
+  it('たんすは ports(m4.storage) を 渡さなくても 置かない（block id で 見る）', () => {
     const world = new FakeWorld();
     world.setBlock(5, 10, 6, 'tansu');
     const a2 = new ActionState();

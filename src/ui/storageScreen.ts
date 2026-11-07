@@ -1,5 +1,6 @@
 import { itemRarity, rarityIndex } from '../drops/rarity';
-import type { StorageSystem } from '../storage/StorageSystem';
+import type { TansuApi } from '../storage/TansuView';
+import { tansuBandIds, type InvLayout } from '../duo/invRules';
 import { tansuPixels } from '../storage/tansuArt';
 import { paintWear } from './wearGauge';
 import { paintPower } from './powerBadge';
@@ -14,6 +15,10 @@ export interface StorageHost {
   setSide(side: 'craft' | 'storage'): void;
   setMarker?(m: { active(): boolean; toggle(i: number): void; has(i: number): boolean } | null): void;
   refresh?(): void;
+  /** 2P の 画面: ボタンに id を 付けない（1P の 画面と 重なるので） */
+  noIds?: boolean;
+  /** 画面の 形（2 人用は「えらんだ もの を しまう」を 出さない。1P も 2P も 同じ 3 つ。なければ 全面） */
+  layout?(): InvLayout;
 }
 
 const hexRgba = (c: string): [number, number, number, number] => {
@@ -32,10 +37,11 @@ export class StorageScreen {
   private shown = false;
   private markedBtn!: HTMLButtonElement;
   private markKey = '';
+  private focusable = false;
 
   constructor(
     private readonly host: StorageHost,
-    private readonly storage: StorageSystem,
+    private readonly storage: TansuApi,
     slots = 54,
   ) {
     this.el = document.createElement('div');
@@ -61,7 +67,9 @@ export class StorageScreen {
     bar.className = 'tansu-actions';
     const btn = (text: string, id: string, fn: () => void) => {
       const b = createButton({ text, kind: 'normal', onClick: () => { fn(); this.host.refresh?.(); } });
-      b.id = id;
+      // id は 1P の 画面の 物だけ（2 人用で 2 つ 作っても 重ならない ように）。十字の 名前は data-tansu-act
+      if (!host.noIds) b.id = id;
+      b.dataset.tansuAct = id.replace('tansu-', '');
       b.classList.add('tansu-act');
       return b;
     };
@@ -95,9 +103,27 @@ export class StorageScreen {
     }
     this.el.append(band, head, grid);
     host.storageSlot.append(this.el);
+    this.syncFocusable();
+  }
+
+  /** 十字・Tab で マスに 入れるのは 2 人用（layout duo）だけ。1 人の 全面は 帯の ボタンだけ（仕様 §3.3） */
+  private syncFocusable(): void {
+    const on = (this.host.layout?.() ?? 'full') === 'duo';
+    if (on === this.focusable) return;
+    this.focusable = on;
+    for (const c of this.cells) {
+      if (on) {
+        c.root.dataset.menuItem = '';
+        c.root.tabIndex = 0;
+      } else {
+        delete c.root.dataset.menuItem;
+        c.root.removeAttribute('tabindex');
+      }
+    }
   }
 
   update(): void {
+    this.syncFocusable();
     const open = this.storage.ui().open;
     if (open !== this.shown) {
       this.shown = open;
@@ -109,7 +135,8 @@ export class StorageScreen {
       this.markKey = mkKey;
       this.host.refresh?.();
     }
-    this.markedBtn.hidden = mk.length === 0;
+    // 2 人用は しるし用の ボタンを 出さない（マウスの Ctrl クリックは 全面だけ）
+    this.markedBtn.hidden = mk.length === 0 || !tansuBandIds(this.host.layout?.() ?? 'full').includes('tansu-store-marked');
     const slots = this.storage.openSlots();
     if (!open || !slots) return;
     for (let i = 0; i < this.cells.length; i++) {

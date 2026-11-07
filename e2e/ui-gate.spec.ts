@@ -16,7 +16,7 @@ import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid
 import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house';
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
-import { duoInvIssues, openDuoInv } from './helpers/duoInv';
+import { duoInvIssues, duoInvStationIssues, openDuoInv } from './helpers/duoInv';
 import { duoArrowPanelIssues, duoBandIssues, duoHudIssues, duoPadLostIssues, duoUsePadIssues, duoViewIssues, openDuoArrowPanel, openDuoBand, openDuoHud, openDuoUsePad, openDuoPadLost, openDuoSplit } from './helpers/duoUi';
 import { PICK_ROOTS, SITE_NEED_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen, siteNeedIssues } from './helpers/houseSite';
 
@@ -572,7 +572,12 @@ SCREENS.push(
 /**
  * COOP-1 4a（AC81・AC87）: 2 人とも 2 人用の もちもの・クラフト画面を 開いた 画面（もちもの／つくる）。3 つの 大きさ（1024×700・1280×800・1440×900）で、
  * いちばん 多い とき（見本の もちもの `duo.sample`・メーターが 出ている）でも その人の 半分の 中（§9.8）に 入り、はみ出さない・重ならない・ちぢめない。
- * 検査は e2e/helpers/duoInv.ts の duoInvIssues。やく・たんす は 4c で 足す。
+ * 検査は e2e/helpers/duoInv.ts の duoInvIssues。やく・たんす は 4c で 足した（下の 'duo-inv-furnace'・'duo-inv-tansu'）。
+ *
+ * COOP-1 4c（AC80・AC81）: 2 人とも かまど（やく）／たんすを 開いた 画面。3 つの 大きさで、1P・2P の 半分の 中に 入り、はみ出さない・重ならない・ちぢめない。
+ * たんす: 帯の ボタン 3 つは 1 行・高さ 56 以上、9 列 × 3 段が まるごと 見えて スクロールは `.tansu-grid` だけ（54 マス いっぱいの いちばん 多い とき）、
+ * 名前・絵・金具の 帯は 出ない。やく: かまどの 絵は 出ない、◀▶ は 1024 で 47.5 以上・1280/1440 で 55.5 以上。3 つ目の タブは 開いている 1 つだけ。
+ * 検査は e2e/helpers/duoInv.ts の duoInvStationIssues。
  */
 const DUO_INV_ROOTS = [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-inv-p1"]', '[data-testid="duo-inv-p2"]'];
 SCREENS.push(
@@ -587,6 +592,18 @@ SCREENS.push(
     roots: DUO_INV_ROOTS,
     open: (page: Page) => openDuoInv(page, 'craft'),
     extra: (page: Page) => duoInvIssues(page, 'craft'),
+  },
+  {
+    id: 'duo-inv-furnace',
+    roots: DUO_INV_ROOTS,
+    open: (page: Page) => openDuoInv(page, 'furnace'),
+    extra: (page: Page) => duoInvStationIssues(page, 'furnace'),
+  },
+  {
+    id: 'duo-inv-tansu',
+    roots: DUO_INV_ROOTS,
+    open: (page: Page) => openDuoInv(page, 'tansu'),
+    extra: (page: Page) => duoInvStationIssues(page, 'tansu'),
   },
 );
 

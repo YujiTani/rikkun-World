@@ -54,8 +54,8 @@
   border-radius: var(--rk-r-m);
   transform: none !important;
 }
-/* 1 人の ときの 上の 帯・見出し・とじる は 2 人用では 使わない（かわりに inv-duo-bar）。「つくる／やく」の 小さい タブ・たんすは 4c まで 出さない */
-.inv-root[data-layout='duo'] :is(.craft-tabs, .inv-storage) {
+/* 1 人の ときの 上の 帯・見出し・とじる は 2 人用では 使わない（かわりに inv-duo-bar）。「つくる／やく」の 小さい タブは 上の タブに まとめる */
+.inv-root[data-layout='duo'] .craft-tabs {
   display: none !important;
 }
 .inv-root[data-layout='duo'] .inv-head > :is(.inv-tabs, .inv-title, .inv-close) {
@@ -132,13 +132,18 @@
 .inv-root[data-layout='duo'] .inv-grid {
   order: 3;
 }
+.inv-root[data-layout='duo'] .inv-storage {
+  order: 2;
+}
 .inv-root[data-layout='duo'] .inv-hints,
 .inv-root[data-layout='duo'] .inv-duo-quit {
   order: 9;
   margin-top: auto;
 }
-.inv-root[data-layout='duo'][data-page='items'] .inv-side,
-.inv-root[data-layout='duo'][data-page='craft'] :is(.equip-panel, .inv-bag, .inv-gap, .inv-hints, .inv-duo-quit) {
+/* ページごとに 出す 物: もちもの = そうび・もちもの・ホットバー / つくる・やく = レシピ（やく は かまど）・せつめい・ホットバー / たんす = ボタン・たんす・もちもの・ホットバー */
+.inv-root[data-layout='duo'][data-page='items'] :is(.inv-side, .inv-storage),
+.inv-root[data-layout='duo'][data-page='tansu'] :is(.inv-side, .equip-panel, .inv-hints, .inv-duo-quit),
+.inv-root[data-layout='duo']:is([data-page='craft'], [data-page='furnace']) :is(.inv-storage, .equip-panel, .inv-bag, .inv-gap, .inv-hints, .inv-duo-quit) {
   display: none;
 }
 /* 操作の ひとこと（キー・マウスの 説明）は 1P だけ。2P は パッドだけ なので「やめる」 */
@@ -195,4 +200,66 @@
 }
 #hud:has(> #inventory-screen[data-layout='duo']:not([hidden])) :is(#hotbar, #hud-self, #levelbar, #levelup) {
   visibility: hidden;
+}
+
+/*
+ * たんすの ページ（4c 試作。§9.8 案 A）: たんす 9 列 × 3 段 だけ 見せて、のこりの 段は たんすの 中だけ で たてに スクロール。
+ * たんすの 名前・絵・金具の 帯は 出さない（上の タブ「たんす」で 分かる）。ボタンは たんすの すぐ 上の 1 行（高さ 56 以上）。
+ */
+.inv-root[data-layout='duo'] .tansu-panel {
+  padding: 0;
+  gap: var(--rk-sp-2);
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  align-items: center;
+}
+.inv-root[data-layout='duo'] :is(.tansu-band, .tansu-icon, .tansu-title) {
+  display: none;
+}
+.inv-root[data-layout='duo'] .tansu-head {
+  flex-wrap: nowrap;
+  justify-content: center;
+}
+.inv-root[data-layout='duo'] .tansu-actions {
+  flex-wrap: nowrap;
+  gap: var(--rk-sp-1);
+  margin-left: 0;
+}
+.inv-root[data-layout='duo'] .tansu-act {
+  min-height: max(56px, var(--rk-h-btn));
+  padding-inline: var(--rk-sp-2);
+  font-size: var(--rk-fs-small);
+  white-space: nowrap;
+}
+.inv-root[data-layout='duo'] .tansu-grid {
+  box-sizing: content-box;
+  /* 3 段 ぶんの 高さ（マス 3 ＋ すきま 2）。のこりは 中で スクロール。右は スクロールバー（thin）の ぶん */
+  height: calc(3 * var(--rk-slot-tansu) + 2 * var(--rk-sp-1));
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding-right: calc(var(--rk-sp-1) + 12px);
+  align-content: start;
+}
+/* マスは わくの 太さ（もの の 色・えらびで 2〜4px）も 中に 入れる: そうしないと 1 段が 6〜8px 高くなって 3 段が 入らず、列にも はみ出す */
+.inv-root[data-layout='duo'] .tansu-grid .rk-slot {
+  box-sizing: border-box;
+}
+
+/* 「やく」の ページ: かまどの 絵は 出さない（つくる と 同じ はばに 入れる ため。上の タブ「やく」で 分かる）。ねんりょうの 3 マスは ひだりづめ */
+.inv-root[data-layout='duo'] .bake-furnace {
+  display: none;
+}
+.inv-root[data-layout='duo'] .bake-top {
+  justify-content: flex-start;
+}
+/* せつめいの 名前（「てつの かたまり」など 7 文字）は 半分の はばで 2 行に 折れ、高さが のびて 下の「できる かず」が 切れる。見出しの 大きさに して 1 行に 入れる */
+.inv-root[data-layout='duo'] .cp-detail .cp-name {
+  font-size: var(--rk-fs-head);
+}
+/* せつめいの ねんりょうの 行は 1 行に（1024 で 3 けたの かずが あっても 「できる かず」が 切れない ように） */
+.inv-root[data-layout='duo'] .cp-detail .cp-fuelrow {
+  flex-wrap: nowrap;
+  gap: var(--rk-sp-1);
 }

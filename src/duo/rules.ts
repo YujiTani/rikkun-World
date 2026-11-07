@@ -6,7 +6,7 @@ export function duoTimeScale(base: number, joined: boolean): number {
   return joined ? 1 : base;
 }
 
-/** 2P が ボタンで 開こうと する 画面（§8・AC15）。段階 1 で 開けるのは 'inventory'（2P 自分の もちもの）だけ */
+/** 2P が ボタンで 開こうと する 画面（§8・AC15・AC95）。開けるのは 'inventory'（2P 自分の もちもの）と、4c から 'storage'（たんす）・'furnace'（かまど）。本・建築士さん・とりごやは 段階 3 まで 開かない */
 export type P2OpenKind = 'inventory' | 'book' | 'builder' | 'henhouse' | 'storage' | 'furnace';
 
 /** 画面ごとに 2P が 開けるか（足し忘れは 型で 落とす） */
@@ -15,8 +15,8 @@ const P2_MAY_OPEN = {
   book: false,
   builder: false,
   henhouse: false,
-  storage: false,
-  furnace: false,
+  storage: true, // 4c: たんすを ねらって Y か ZL
+  furnace: true, // 4c: かまどを ねらって ZL
 } as const satisfies Record<P2OpenKind, boolean>;
 
 export const P2_OPEN_KINDS = Object.keys(P2_MAY_OPEN) as readonly P2OpenKind[];

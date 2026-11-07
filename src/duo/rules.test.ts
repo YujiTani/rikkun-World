@@ -8,8 +8,9 @@ import { P2_OPEN_KINDS, duoTimeScale, duoWaitNotice, p2MayOpen } from './rules';
  *   duoTimeScale(base, joined): base = 今の `screen.timeScale()`。2 人のとき（joined）は 1。1 人のときは base のまま。
  *     4a: 1P の もちもの画面が 開いていても（base が 0.25 でも 0 でも）2 人の ときは 1（世界は 止めない。AC11・AC75）。
  *     配線: Game.setTimeScale（src/game/Game.ts）に 渡す 関数の 中で 使う。
- *   p2MayOpen(kind): 4c まで 2P が 開ける 画面は 'inventory'（2P 自分の もちもの。4a から 2 人用の 半分の 画面）だけ。
- *     配線: 2P の ActionState の 押下から 本・建築士さん・とりごや・たんす・かまどを 開く 道は 作らない（この 表で 見張る。4c で AC95 に かわる）。
+ *   p2MayOpen(kind): 2P が 開ける 画面は 'inventory'（2P 自分の もちもの。4a から 2 人用の 半分の 画面）と、4c から 'storage'（たんす。Y か ZL）・'furnace'（かまど。ZL）。
+ *     本・建築士さん・とりごやは 段階 3 まで 開かない（AC95）。4c で 直した（4a・3a の「たんす・かまども false」を AC95 の 形に。期待を ゆるめたのでなく 仕様の かわりに 合わせた）。
+ *     配線: 2P の ActionState の 押下から 本・建築士さん・とりごやを 開く 道は 作らない（この 表で 見張る）。たんす・かまどを 開く 道は src/duo/p2Dig.ts の onOpenTansu・onOpenFurnace（p2Dig.test.ts）。
  *   duoWaitNotice({ joined, modal }): 4a で `inventoryOpen` を やめた。本・建築士さん（modal）が 世界を 止めている あいだ だけ true。
  *   duoWorldFrozen: 4a で なくす（1P の 全面の もちもの画面は 世界を 止めない。AC84 は AC75 に かわった）。
  *
@@ -33,12 +34,12 @@ describe('AC11・AC75: 2 人のとき もちもの画面は 世界を 止めな�
   });
 });
 
-describe('AC15: 段階 1 の 2P は 本・建築士さん・とりごや・たんすを 開けない', () => {
-  it.each(['book', 'builder', 'henhouse', 'storage', 'furnace'] as const)('%s は 開かない', (kind) => {
+describe('AC15 の 4c の 形・AC95: 2P が 開ける 画面（たんす・かまどは 4c から。本・建築士さん・とりごやは 段階 3 まで 開かない）', () => {
+  it.each(['book', 'builder', 'henhouse'] as const)('%s は 開かない', (kind) => {
     expect(p2MayOpen(kind)).toBe(false);
   });
-  it('2P 自分の もちものは 開ける', () => {
-    expect(p2MayOpen('inventory')).toBe(true);
+  it.each(['inventory', 'storage', 'furnace'] as const)('%s は 開ける', (kind) => {
+    expect(p2MayOpen(kind)).toBe(true);
   });
   it('表は 6 つの 画面（かまどを 足した）を ぜんぶ 持つ（足し忘れを 落とす）', () => {
     expect([...P2_OPEN_KINDS].sort()).toEqual(['book', 'builder', 'furnace', 'henhouse', 'inventory', 'storage']);

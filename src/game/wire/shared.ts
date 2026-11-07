@@ -53,6 +53,8 @@ interface Shared {
   duoMate: () => { position: Vec3; inventory: Inventory } | null;
   /** COOP-1 3a: 落とし物を ひろえる 仲間（倒れている あいだは null。DropField だけが 読む。wireDuo が 差しかえる） */
   duoDropMate: () => { position: Vec3; inventory: Inventory } | null;
+  /** COOP-1 4c: かまどで やけた 物が 2P の もちものに 入った（2P の つくる の「ひろった」の 出来事。createDuoInventory が 差しかえる） */
+  p2Delivered: (item: ItemId, count: number, tick: number) => void;
   /** COOP-1 4b: セーブを 読みこんだ とき 2P の 小太刀の 待ちを すてる（wireDuoPlay が 差しかえる） */
   p2LoadReset: () => void;
   /** COOP-1 3a: 妖怪が ねらう 仲間（参加していなければ null。wireDuo が 差しかえる） */
@@ -134,6 +136,7 @@ export function createShared(): Shared {
     duoMate: () => null,
     duoDropMate: () => null,
     duoYokai: () => null,
+    p2Delivered: () => {},
     p2LoadReset: () => {},
     p2LevelUp: () => {},
     p2Hp: () => 0,

@@ -31,7 +31,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     shared, game, water, streamFrame, audioStep, craft2Settings, time, dig, sprite, armor, parry, blade, tools,
     legend, controller, w2, inventory, rig, combat, timeSettings, worldReady, yokaiM, animals, waveSys,
     coopMenu, itadakimasu, deliverAnimalEvents, animalFx, animalViews, pendingDust, animalHint, arrowRelay,
-    screen, kodachi, geta, craft, storage, dropController, farm, renderer, m7, trackOldFarmSeeds,
+    screen, kodachi, geta, craft, furnaceWorld, storage, dropController, farm, renderer, m7, trackOldFarmSeeds,
     madeTracker, fxSound, pickupLog, log, celebrate, achievements, waterFx, farmFx, eyePos, sparkle,
     sparkleView, sprayFx, sprinklers, dropper, notice, impactBus, titleOfYokai, kodachiHookBuf,
     arrowVisuals, stuckVisuals, wearNotice, weaponFx, thunderFx, windWaveFx, reducedMotionMq, spiralFx,
@@ -196,6 +196,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     }
     combat.update();
     craft.update();
+    furnaceWorld.update(); // 世界の かまど（1P・2P で 1 つ）は 毎ステップ ちょうど 1 回。craft.update の すぐ あと（COOP-1 4c）
     storage.update();
     dropController.update();
     // 農業: あそんでいるあいだは 毎ステップ、もちもの画面は 4 ステップに 1 回、止まっているあいだは進めない

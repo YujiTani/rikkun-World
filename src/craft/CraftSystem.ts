@@ -6,33 +6,14 @@ import { itemType } from '../inventory/items';
 import { PickupLog } from '../inventory/pickupLog';
 import { ALL_RECIPES, BAKE_RECIPES, CRAFT_RECIPES } from './recipes';
 import { createCraftConfig, type CraftConfig } from './config';
+import { FurnaceWorld, type FurnaceFxEntryLike, type FurnaceView, type FurnaceWho } from './FurnaceWorld';
+
+export type { FurnaceFxEntryLike, FurnaceView } from './FurnaceWorld';
 
 const MAX_QUEUE = 256;
 
 export type MakeReason = null | 'missing' | 'full' | 'unknown' | 'noFuel' | 'queueFull' | 'haveOne';
 export type BakeReason = null | 'missing' | 'noFuel' | 'queueFull' | 'closed' | 'notFurnace' | 'unknown';
-
-/** かまど の じゅんばん 1 こ（ねんりょうは押した時点で使ってある） */
-export interface BakeEntry {
-  recipe: string;
-  fuel: ItemId;
-}
-
-export interface FurnaceState {
-  /** 先頭が いま焼いているもの */
-  queue: BakeEntry[];
-  /** 先頭を何ステップ焼いたか */
-  progress: number;
-  /** 焼けたのに持ち物に入らず待っているもの */
-  done: ItemStack[];
-}
-
-export interface FurnaceView {
-  burning: boolean;
-  current: { id: string; progress: number } | null;
-  queue: string[];
-  done: ItemStack[];
-}
 
 export interface CraftDeps {
   world: Pick<VoxelWorld, 'getBlock'>;
@@ -48,6 +29,13 @@ export interface CraftDeps {
   player?: () => Vec3;
   /** CRAFT-2: 使える たんす の きょり（設定 `craftTansuRange`。かすみ `fogFar` とは つながない。なければ はじめの値 40） */
   tansuRange?: () => number;
+  /**
+   * COOP-1 4c: 世界の かまど（1P・2P の つくる で 1 つ）。渡すと その かまどに 入れる／見る（すすめるのは `FurnaceWorld.update()` だけ）。
+   * 渡さない ときは 自分だけの かまどを 内に 持つ（1 人の 遊びは 今の まま。`update()` で すすむ）
+   */
+  furnaces?: FurnaceWorld;
+  /** COOP-1 4c: この つくる の 持ち主（かまどに 入れる「入れた 人」。既定 1） */
+  who?: FurnaceWho;
 }
 
 /** 範囲の中の たんす 1 こ（数は 見るたびに 1 回だけ数えて覚える） */
@@ -104,26 +92,19 @@ function simulateRemove(slots: Slot[], item: ItemId, count: number): void {
   }
 }
 
-const keyOf = (x: number, y: number, z: number) => `${x},${y},${z}`;
-
-/** つくる・やく（M4 §2.2・§2.3）。かまど の じゅんばん・ねんりょう・焼く時間・入らないとき・こわしたとき・保存 */
-/** かまど の火・けむり用の 1 こ分（`FurnaceFxEntry` と同じ形） */
-export interface FurnaceFxEntryLike {
-  x: number;
-  y: number;
-  z: number;
-  burning: boolean;
-  waiting: string | null;
-}
-
 const NO_CRAFT_EVENTS: CraftEvent[] = [];
 
+/** つくる・やく（M4 §2.2・§2.3）。材料の 数え方・つくる・やく の 入れ方（かまどの 中身は FurnaceWorld） */
 export class CraftSystemImpl implements CraftSystem {
   readonly config: CraftConfig;
   private readonly log: PickupLog;
   private tickCount = 0;
   private opened: Vec3 | null = null;
-  private furnaces = new Map<string, { pos: Vec3; state: FurnaceState }>();
+  /** 世界の かまど（渡された 物。なければ 自分だけの 物） */
+  private readonly fw: FurnaceWorld;
+  /** 自分だけの かまどなら true（`update()` で すすめる） */
+  private readonly ownsFurnaces: boolean;
+  private readonly who: FurnaceWho;
 
   // ---- CRAFT-2: 範囲の中の たんす（しぼるのは 位置・たんす の中身・きょり が 変わった後の 次に数えるときだけ）
   private range: RangeTansu[] = [];
@@ -142,6 +123,22 @@ export class CraftSystemImpl implements CraftSystem {
   constructor(private readonly d: CraftDeps) {
     this.config = d.config ?? createCraftConfig();
     this.log = new PickupLog({ ticks: this.config.pickupLogTicks, max: this.config.pickupLogMax });
+    this.who = d.who ?? 1;
+    this.ownsFurnaces = !d.furnaces;
+    this.fw =
+      d.furnaces ??
+      new FurnaceWorld({
+        world: d.world,
+        inventoryOf: () => d.inventory,
+        joined: () => true,
+        fixedRecipient: this.who, // 自分だけの かまど: やけた 物・出来事は いつも この つくる の 持ち主へ（by が 2 の 保存を 1 人で 読んでも）
+        onDelivered: (_who, item, count, tick) => this.notifyPickup(item, count, tick),
+        config: this.config,
+        requestSave: d.requestSave,
+        tick: () => this.tickCount,
+      });
+    // やけた 物を 受け取る 人の つくる に、bakeStart・bakeDone の 出来事が 出る
+    this.fw.listen(this.who, (e) => this.emit(e, 'furnace'));
     d.inventory.onChange?.(() => {
       this.invVer++;
     });
@@ -435,10 +432,10 @@ export class CraftSystemImpl implements CraftSystem {
   }
 
   /** すでに持ち物に入れた分を「拾った」として知らせる（ほった・落ちたものを拾った） */
-  notifyPickup(item: ItemId, count: number): void {
+  notifyPickup(item: ItemId, count: number, tick: number = this.tickCount): void {
     if (!(count > 0)) return;
     this.log.push(item, count);
-    this.emit({ type: 'pickup', tick: this.tickCount, item, count }, null);
+    this.emit({ type: 'pickup', tick, item, count }, null);
   }
 
   /** 今出ているログ（上＝古い） */
@@ -476,15 +473,9 @@ export class CraftSystemImpl implements CraftSystem {
     if (p.missing.length > 0) return { ok: false, reason: 'missing', used: null };
     const fuel = p.fuel;
     if (fuel === null) return { ok: false, reason: 'noFuel', used: null };
-    const f = this.stateAt(x, y, z);
-    if (f.queue.length >= this.config.bakeQueueMax) return { ok: false, reason: 'queueFull', used: null };
+    if (this.fw.queueLength(x, y, z) >= this.config.bakeQueueMax) return { ok: false, reason: 'queueFull', used: null };
     const used = this.apply(p);
-    f.queue.push({ recipe: r.id, fuel });
-    if (f.queue.length === 1) {
-      f.progress = 0;
-      this.emit({ type: 'bakeStart', tick: this.tickCount, recipe: r.id, fuel, position: { x, y, z } }, 'furnace');
-    }
-    this.d.requestSave?.();
+    this.fw.push(x, y, z, { recipe: r.id, fuel, by: this.who }); // 保存の 合図も FurnaceWorld が 出す
     return { ok: true, reason: null, used };
   }
 
@@ -496,15 +487,7 @@ export class CraftSystemImpl implements CraftSystem {
 
   /** かまど の中の様子。かまど でなければ null */
   furnaceAt(x: number, y: number, z: number): FurnaceView | null {
-    if (!this.isFurnace(x, y, z)) return null;
-    const f = this.furnaces.get(keyOf(x, y, z))?.state;
-    if (!f) return { burning: false, current: null, queue: [], done: [] };
-    return {
-      burning: f.queue.length > 0,
-      current: f.queue.length > 0 ? { id: f.queue[0].recipe, progress: Math.min(1, f.progress / this.config.bakeTicks) } : null,
-      queue: f.queue.map((q) => q.recipe),
-      done: f.done.map((s) => ({ ...s })),
-    };
+    return this.fw.view(x, y, z);
   }
 
   /**
@@ -535,49 +518,33 @@ export class CraftSystemImpl implements CraftSystem {
     return any;
   }
 
-  private readonly fxEntries: FurnaceFxEntryLike[] = [];
-
-  /** 毎ステップ呼べる: かまど の火・けむり用の一覧（同じ入れ物を使いまわす。変わるのは かまど の数が変わったときだけ作る） */
+  /** 毎ステップ呼べる: かまど の火・けむり用の一覧（同じ入れ物を使いまわす） */
   furnaceFxEntries(): readonly FurnaceFxEntryLike[] {
-    const out = this.fxEntries;
-    let n = 0;
-    this.furnaces.forEach((e) => {
-      const o = (out[n] ??= { x: 0, y: 0, z: 0, burning: false, waiting: null });
-      o.x = e.pos.x;
-      o.y = e.pos.y;
-      o.z = e.pos.z;
-      o.burning = e.state.queue.length > 0;
-      o.waiting = e.state.done[0]?.item ?? null;
-      n++;
-    });
-    out.length = n;
-    return out;
+    return this.fw.fxEntries();
   }
 
   /** 画面用: 焼いている かまど の位置の一覧 */
   furnacePositions(): Vec3[] {
-    return [...this.furnaces.values()].map((e) => ({ ...e.pos }));
+    return this.fw.positions();
   }
 
-  /** かまど をこわした: じゅんばん の材料・ねんりょう・待っている焼けたものを持ち物へ。入らない分は ぶくろ */
+  /** かまど をこわした: じゅんばん の材料・ねんりょう・待っている焼けたものを、こわした 人（この つくる の もちもの）へ。入らない分は ぶくろ */
   furnaceBroken(x: number, y: number, z: number): void {
-    const k = keyOf(x, y, z);
-    const e = this.furnaces.get(k);
     if (this.opened && this.opened.x === x && this.opened.y === y && this.opened.z === z) this.opened = null;
-    if (!e) return;
-    this.furnaces.delete(k);
+    const state = this.fw.remove(x, y, z);
+    if (!state) return;
     const back: ItemStack[] = [];
     const addBack = (item: ItemId, count: number) => {
       const same = back.find((b) => b.item === item);
       if (same) same.count += count;
       else back.push({ item, count });
     };
-    for (const q of e.state.queue) {
+    for (const q of state.queue) {
       const r = this.recipe(q.recipe);
       if (r) for (const inp of r.inputs) addBack(inp.item, inp.count);
       addBack(q.fuel, 1);
     }
-    for (const s of e.state.done) addBack(s.item, s.count);
+    for (const s of state.done) addBack(s.item, s.count);
     const rest: ItemStack[] = [];
     for (const b of back) {
       const left = this.d.inventory.add(b.item, b.count);
@@ -603,66 +570,12 @@ export class CraftSystemImpl implements CraftSystem {
 
   // ---------------------------------------------------------- 毎ステップ
 
-  /** 1 ステップ進める（持ち物の更新のあとで呼ぶ） */
+  /** 1 ステップ進める（持ち物の更新のあとで呼ぶ）。世界の かまどを 渡された ときは かまどは すすめない（`FurnaceWorld.update()` が すすめる） */
   update(): void {
     this.log.update();
-    for (const e of this.furnaces.values()) {
-      const f = e.state;
-      this.flushDone(f);
-      if (f.queue.length > 0) {
-        f.progress++;
-        if (f.progress >= this.config.bakeTicks) this.finishHead(e.pos, f);
-      }
-    }
+    if (this.ownsFurnaces) this.fw.update();
     if (this.opened && !this.isFurnace(this.opened.x, this.opened.y, this.opened.z)) this.opened = null;
     this.tickCount++;
-  }
-
-  private finishHead(pos: Vec3, f: FurnaceState): void {
-    const head = f.queue.shift()!;
-    f.progress = 0;
-    const r = this.recipe(head.recipe);
-    if (r) {
-      const left = this.d.inventory.add(r.output.item, r.output.count);
-      this.notifyPickup(r.output.item, r.output.count - left);
-      if (left > 0) this.pushDone(f, r.output.item, left);
-      this.emit(
-        { type: 'bakeDone', tick: this.tickCount, recipe: r.id, item: r.output.item, count: r.output.count, position: { ...pos } },
-        'furnace',
-      );
-    }
-    const next = f.queue[0];
-    if (next) {
-      this.emit({ type: 'bakeStart', tick: this.tickCount, recipe: next.recipe, fuel: next.fuel, position: { ...pos } }, 'furnace');
-    }
-    this.d.requestSave?.();
-  }
-
-  private pushDone(f: FurnaceState, item: ItemId, count: number): void {
-    const same = f.done.find((s) => s.item === item);
-    if (same) same.count += count;
-    else f.done.push({ item, count });
-  }
-
-  private flushDone(f: FurnaceState): void {
-    if (f.done.length === 0) return;
-    for (const s of f.done) {
-      const left = this.d.inventory.add(s.item, s.count);
-      this.notifyPickup(s.item, s.count - left);
-      s.count = left;
-    }
-    f.done = f.done.filter((s) => s.count > 0);
-    this.d.requestSave?.();
-  }
-
-  private stateAt(x: number, y: number, z: number): FurnaceState {
-    const k = keyOf(x, y, z);
-    let e = this.furnaces.get(k);
-    if (!e) {
-      e = { pos: { x, y, z }, state: { queue: [], progress: 0, done: [] } };
-      this.furnaces.set(k, e);
-    }
-    return e.state;
   }
 
   // ---------------------------------------------------------- 出来事
@@ -703,52 +616,12 @@ export class CraftSystemImpl implements CraftSystem {
   // ---------------------------------------------------------- 保存
 
   serializeFurnaces(): unknown {
-    return [...this.furnaces.values()]
-      .filter((e) => e.state.queue.length > 0 || e.state.done.length > 0)
-      .map((e) => ({
-        x: e.pos.x,
-        y: e.pos.y,
-        z: e.pos.z,
-        queue: e.state.queue.map((q) => ({ recipe: q.recipe, fuel: q.fuel })),
-        progress: e.state.progress,
-        done: e.state.done.map((s) => ({ item: s.item, count: s.count })),
-      }));
+    return this.fw.serialize();
   }
 
   /** 読みこみ用。おかしい分は捨てる */
   deserializeFurnaces(data: unknown): void {
-    this.furnaces.clear();
+    this.fw.deserialize(data);
     this.opened = null;
-    if (!Array.isArray(data)) return;
-    for (const raw of data) {
-      const r = raw as Record<string, unknown> | null;
-      if (!r) continue;
-      const x = Number(r.x);
-      const y = Number(r.y);
-      const z = Number(r.z);
-      if (![x, y, z].every(Number.isInteger)) continue;
-      const queue: BakeEntry[] = [];
-      if (Array.isArray(r.queue)) {
-        for (const q of r.queue.slice(0, this.config.bakeQueueMax)) {
-          const qq = q as { recipe?: unknown; fuel?: unknown };
-          if (typeof qq?.recipe !== 'string' || typeof qq.fuel !== 'string') continue;
-          if (!BAKE_RECIPES.some((b) => b.id === qq.recipe) || !itemType(qq.fuel)) continue;
-          queue.push({ recipe: qq.recipe, fuel: qq.fuel as ItemId });
-        }
-      }
-      const done: ItemStack[] = [];
-      if (Array.isArray(r.done)) {
-        for (const s of r.done) {
-          const ss = s as { item?: unknown; count?: unknown };
-          const t = typeof ss?.item === 'string' ? itemType(ss.item) : undefined;
-          if (!t || typeof ss.count !== 'number' || !Number.isInteger(ss.count) || ss.count < 1) continue;
-          done.push({ item: t.id, count: ss.count });
-        }
-      }
-      const p = Number(r.progress);
-      const progress = Number.isFinite(p) && p >= 0 ? Math.min(Math.floor(p), this.config.bakeTicks - 1) : 0;
-      if (queue.length === 0 && done.length === 0) continue;
-      this.furnaces.set(keyOf(x, y, z), { pos: { x, y, z }, state: { queue, progress, done } });
-    }
   }
 }

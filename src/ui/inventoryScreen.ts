@@ -6,11 +6,13 @@ import { createSlotEl, paintSlot, type SlotEls } from './hotbar';
 import { HeldCursor } from './inventoryCursor';
 import { Tooltip, type HoverTarget } from './tooltip';
 import { buildHintChips } from './inventoryHints';
-import { duoPageOf, duoInvSnapshot, type DuoInvPage, type FullPage, type InvLayout } from '../duo/invRules';
+import { duoFirstFocus, duoPageAvailable, duoPageOf, duoPageTraits, duoInvSnapshot, type DuoInvPage, type FullPage, type InvLayout } from '../duo/invRules';
+import { BAKE_RECIPES } from '../craft/recipes';
 import { InvFocus } from '../duo/invFocus';
 import { duoPageShown, fitDuo, focusName, mountDuoChrome, setDuoAttrs, type DuoChrome } from './inventoryDuo';
 import { listenWindowFit } from './inventoryWindow';
 import { PadNav } from './menu/padNav';
+import { menuItems } from './menu/focusNav';
 import type { FocusDir } from './menu/focusNav';
 import { wearSignature } from './wearGauge';
 import './inventoryScreen.css';
@@ -31,6 +33,8 @@ export interface InventoryM4 {
   meatHeal?: () => number;
   /** CRAFT-2: たんす の素材（つくる・やく の数え方） */
   materials?: PanelMaterials;
+  /** COOP-1 4c: 1P の 画面を パッドで 開いた か（2 人用の たんす・やく を 開いた ときの はじめの えらびに 使う。キー・マウスなら false）。2P は いつも パッド */
+  padOpened?: () => boolean;
 }
 
 /** 画面の 形（COOP-1 4a。'duo' = 2 人の あいだの 半分の 形。§3.3）。ふだんは 全面 */
@@ -112,6 +116,8 @@ export class InventoryScreen {
   private readonly cells: SlotEls[] = [];
   private readonly held: HeldCursor;
   private dirty = true;
+  /** 2 人用: かまどが 開いていたか（かわった ステップで ページを きりかえる） */
+  private furnaceSeen = false;
   private wearSig = 0;
   private open = false;
   readonly craftPanel: CraftPanel | null = null;
@@ -172,7 +178,7 @@ export class InventoryScreen {
         c.root.addEventListener('click', (e) => {
           e.stopPropagation();
           // Ctrl（Mac は ⌘）クリック: たんす に しまう ものを えらぶ（✓）
-          if ((e.ctrlKey || e.metaKey) && this.marker?.active()) {
+          if ((e.ctrlKey || e.metaKey) && this.layoutNow !== 'duo' && this.marker?.active()) {
             this.marker.toggle(i);
             this.dirty = true;
             return;
@@ -339,8 +345,20 @@ export class InventoryScreen {
   setSide(side: InventorySide): void {
     this.sideNow = side;
     this.paintHints();
-    this.craftSlot.style.display = side === 'craft' ? '' : 'none';
-    this.storageSlot.hidden = side !== 'storage';
+    this.applySide();
+    // 2 人用: たんすを 開いたら「たんす」の ページへ、とじたら「もちもの」へ
+    if (this.layoutNow === 'duo') {
+      if (side === 'storage') this.setPage('tansu');
+      else if (duoPageTraits(this.pageNow).storage) this.setPage('items');
+      else this.duoChrome?.update();
+    }
+  }
+
+  /** 右の 場所の 出し入れ。2 人用は ページ（data-page）で CSS が 切るので、ここでは どちらも 出しておく */
+  private applySide(): void {
+    const full = this.layoutNow !== 'duo';
+    this.craftSlot.style.display = full && this.sideNow !== 'craft' ? 'none' : '';
+    this.storageSlot.hidden = full && this.sideNow !== 'storage';
   }
 
   side(): InventorySide {
@@ -405,7 +423,24 @@ export class InventoryScreen {
 
   /** 全面の ページ（タブ「もちもの／じっせき／できごと」と 右の「つくる／たんす」） */
   private fullPage(): FullPage {
-    return this.tabNow !== 'items' ? this.tabNow : this.sideNow === 'storage' ? 'storage' : 'items';
+    if (this.tabNow !== 'items') return this.tabNow;
+    if (this.sideNow === 'storage') return 'storage';
+    return this.m4?.craft.openedFurnace() ? 'furnace' : 'items';
+  }
+
+  /** 2P の 画面は たんすの ボタンに id を 付けない（1P の 画面と 重ならない ように。StorageHost） */
+  get noIds(): boolean {
+    return this.who === 2;
+  }
+
+  /** 2 人用: この ページの タブを 出して よいか（やく = かまどを 開いている・たんす = たんすを 開いている） */
+  available(page: DuoInvPage): boolean {
+    return duoPageAvailable(page, { furnace: this.m4?.craft.openedFurnace() != null, storage: this.sideNow === 'storage' });
+  }
+
+  /** 開いた ときの 2 人用の ページ: かまど・たんすを 開いていれば その ページ、なければ ふだんの「もちもの」 */
+  private openPage(): DuoInvPage {
+    return this.available('tansu') ? 'tansu' : this.available('furnace') ? 'furnace' : 'items';
   }
 
   /** 画面の 形を かえる。開いたまま かえても 手に もった 物は そのまま。2 人用に する ときは 全面の ページを 2 人用の ページに うつす（AC79） */
@@ -417,10 +452,12 @@ export class InventoryScreen {
       this.layoutNow = layout;
       setDuoAttrs(this.el, this.frame, this.who, true);
       this.duoChrome ??= mountDuoChrome(this, this.who, this.onClose);
+      this.applySide();
       this.setPage(duoPageShown(page) ? page : 'items');
     } else {
       this.layoutNow = layout;
       setDuoAttrs(this.el, this.frame, this.who, false);
+      this.applySide();
     }
     this.fitSize = '';
     this.dirty = true;
@@ -428,7 +465,7 @@ export class InventoryScreen {
     if (this.open) this.fit();
   }
 
-  /** 2 人用の ページ（もちもの／つくる。やく・たんす は 4c） */
+  /** 2 人用の ページ（もちもの／つくる／やく／たんす） */
   page(): DuoInvPage {
     return this.pageNow;
   }
@@ -438,10 +475,18 @@ export class InventoryScreen {
     this.pageNow = page;
     this.el.dataset.page = page;
     this.duoChrome?.update();
-    // かくれていた「つくる」を 見せたら、せつめいの 分け方を 実際の 大きさで 測りなおす
-    if (page === 'craft') this.craftPanel?.relayout();
+    this.syncCraftTab();
+    // かくれていた「つくる」「やく」を 見せたら、せつめいの 分け方を 実際の 大きさで 測りなおす
+    if (duoPageTraits(page).craftTab) this.craftPanel?.relayout();
     this.dirty = true;
     this.nav?.sync();
+  }
+
+  /** 2 人用: 「つくる」の ページは つくる、「やく」の ページは やく を 見せる（1 人の ときの 小さい タブを 使わず 上の タブで きりかえる） */
+  private syncCraftTab(): void {
+    if (this.layoutNow !== 'duo' || !this.craftPanel) return;
+    const tab = duoPageTraits(this.pageNow).craftTab;
+    if (tab) this.craftPanel.setTab(tab);
   }
 
   /** 「やめる」ゲージ 0〜1（2P の 画面） */
@@ -485,8 +530,10 @@ export class InventoryScreen {
         // 見せる前に 中身を作ってから 縮める（開いた 1 コマ目から正しい大きさ）
         this.render();
         this.craftPanel?.update();
+        if (this.layoutNow === 'duo') this.setPage(this.openPage());
         this.fit();
-        this.nav?.reset();
+        this.nav?.reset(this.firstFocusName());
+        this.focusFirstByPad();
         if (this.tabNow === 'items') {
           const w = this.bodyEl.offsetWidth;
           const h = this.bodyEl.offsetHeight;
@@ -498,6 +545,7 @@ export class InventoryScreen {
         this.nav?.clear();
       }
     }
+    if (open && this.layoutNow === 'duo') this.syncDuoPages();
     if (open && this.layoutNow === 'duo' && `${window.innerWidth}x${window.innerHeight}` !== this.fitWin) this.fit(); // 窓の 大きさ（2P の 画面は 聞き耳を もたない）
     if (open && `${this.frame.offsetWidth}x${this.frame.offsetHeight}` !== this.fitSize) this.fit(); // せつめい などで 大きさが変わったら ちぢめなおす
     if (open) {
@@ -517,6 +565,32 @@ export class InventoryScreen {
       this.tooltip?.update();
       if (this.nav && this.held.shown) this.held.place(); // 2P: えらびが かわった ときだけ 場所を 測りなおす（CursorAnchor）
     }
+  }
+
+  /** 開いた ときの はじめの えらび（2 人用の「たんす」→ 0 番の マス・「やく」→ はじめの やく レシピ。ほかは null＝いちばん はじめの 物） */
+  private firstFocusName(): string | null {
+    if (this.layoutNow !== 'duo') return null;
+    return duoFirstFocus(this.pageNow, BAKE_RECIPES.map((r) => r.id));
+  }
+
+  /** 1P の 2 人用の 画面を パッドで 開いた とき: 2P と 同じ 物から 始める（キー・マウスで 開いた ときは 今の まま） */
+  private focusFirstByPad(): void {
+    if (this.who !== 1 || this.layoutNow !== 'duo' || !this.m4?.padOpened?.()) return;
+    const name = this.firstFocusName();
+    if (name === null) return;
+    menuItems(this.el).find((el) => focusName(el) === name)?.focus();
+  }
+
+  /** 2 人用: かまどを 開いた・とじた ときに 「やく」の ページへ 行く／もどる。タブの 出し入れも ここで */
+  private syncDuoPages(): void {
+    const furnace = this.available('furnace');
+    if (furnace !== this.furnaceSeen) {
+      this.furnaceSeen = furnace;
+      if (furnace) this.setPage('furnace');
+      else if (duoPageTraits(this.pageNow).furnace) this.setPage('items');
+      else this.duoChrome?.update();
+    }
+    this.syncCraftTab();
   }
 
   /** ツールチップ用: 合わせた場所にあるアイテム */

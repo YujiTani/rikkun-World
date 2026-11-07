@@ -6,6 +6,7 @@ import { hearFrom } from '../../duo/hearing';
 import { distanceMeter } from '../../duo/meter';
 import { closeInvHand } from '../../duo/invClose';
 import { invCloseReason, invLayoutFor, invPadCommand, invQuitHeld, type InvLayout } from '../../duo/invRules';
+import { PanelOrder, panelOpDeferred } from '../../duo/panelOrder';
 import { DuoJoinHint, type DuoJoinHintInput } from '../../duo/joinHint';
 import { pressEquip } from '../../duo/p2Equip';
 import { duoWaitNotice } from '../../duo/rules';
@@ -133,7 +134,7 @@ export function wireDuo(deps: WiredLoop) {
       ui.setJoined(false);
       shared.duoCamDistance = session.cameraDistance() === DUO_TUNING.cameraSolo ? null : session.cameraDistance();
       // 2P の パネルは 消える。1P の パネルは そのまま（開いている あいだは 半分の まま。AC79）
-      inv2?.screen.update();
+      inv2?.update();
       syncLayout1();
     },
     // 手に もっている 物は 2P の もちものへ もどしてから 保存（いっぱいなら 足もとへ。§3.3「とじる とき」）
@@ -173,11 +174,17 @@ export function wireDuo(deps: WiredLoop) {
     actions: p2Actions,
     lock: lock2,
     ctl2: () => controller2(),
+    lookBy: (deg) => {
+      pendingLook += deg;
+    },
     joined: () => session.joined,
     padPresent: () => !router.padLost(),
     camera2: () => views.camera2(),
     joinSpot,
     dev,
+    openFurnace: (x, y, z) => inv2?.openFurnace(x, y, z),
+    openTansu: (x, y, z) => inv2?.openTansu(x, y, z),
+    craft2: () => inv2!.p2Craft.craft,
   });
 
   function controller2(): PlayerController {
@@ -205,6 +212,10 @@ export function wireDuo(deps: WiredLoop) {
     join();
   };
   gamepadApi.duo.menuOpen2 = () => session.joined && panelOpen();
+  // たんす・かまどの 中身に かける 操作は ぜんぶ ここへ あずけ、1 ステップに 1 回 1P → 2P の 順に やる（同じ ステップは 1P が 先。COOP-1 4c）。
+  // 1 人の ときは あずけず すぐ 実行（今の まま）。1P の マウスは ステップの あいだに 来る ので すぐ 実行で よい
+  const order = new PanelOrder();
+  gamepadApi.duo.submit1 = (op, active, rootId) => (panelOpDeferred(session.joined, active, rootId) ? order.submit(1, op) : op());
 
   // ---- 1P の もちもの画面: 2 人の あいだは 左半分の 2 人用（data-layout="duo"）。1P の パッド・キー・マウスは 今の まま（DOM の フォーカス）
   const inv1 = deps.inventoryScreen;
@@ -218,7 +229,6 @@ export function wireDuo(deps: WiredLoop) {
     if (next === inv1.layout()) return;
     if (next === 'duo') {
       if (inv1.tab() !== 'items') deps.toItemsTab(); // じっせき・できごと は 2 人用に ない
-      if (deps.storage.ui().open) deps.storage.close(); // たんすの ページは 4c まで ない（開いていたら とじる）
     }
     inv1.setLayout(next);
   }
@@ -231,17 +241,19 @@ export function wireDuo(deps: WiredLoop) {
     session.leave(reason);
   }
 
-  /** 2P の もちもの画面を パッドで うごかす（十字は 2P の えらびを うごかす。1P の フォーカスには さわらない。AC88） */
+  /** 2P の もちもの画面を パッドで うごかす（十字は 2P の えらびを うごかす。1P の フォーカスには さわらない。AC88）。操作は PanelOrder へ あずける */
   function padInv2(screen: DuoInventory['screen']): void {
     for (const a of INV_PAD_ACTIONS) {
       if (!p2Actions.wasPressed(a)) continue;
       const cmd = invPadCommand(a);
-      if (cmd === 'close') inv2?.setOpen(false);
-      // そうびの マスで 決める → 2P の そうび（p2.armor）へ。ほかは ふつうの 決める（COOP-1 4b）
-      else if (cmd === 'press') {
-        if (!pressEquip(screen.focusKey(), p2.armor)) screen.padPress();
-      }
-      else if (cmd !== null) screen.padMove(cmd);
+      if (cmd === null) continue;
+      order.submit(2, () => {
+        if (cmd === 'close') inv2?.setOpen(false);
+        // そうびの マスで 決める → 2P の そうび（p2.armor）へ。ほかは ふつうの 決める（COOP-1 4b）
+        else if (cmd === 'press') {
+          if (!pressEquip(screen.focusKey(), p2.armor)) screen.padPress();
+        } else screen.padMove(cmd);
+      });
     }
   }
 
@@ -251,15 +263,17 @@ export function wireDuo(deps: WiredLoop) {
     if (session.joined && inv2) {
       const down2 = play.down();
       // 2P の もちもの画面（Y で ひらく / B で とじる）。開いている Y は 何も しない（とじるのは B だけ）。
-      // 本・建築士さん・とりごや・たんすは 開かない（AC15）
-      if (!inv2.isOpen() && !down2 && p2Actions.wasPressed('toggleInventory')) inv2.setOpen(true);
-      else if (inv2.isOpen()) {
+      // たんすを ねらって Y は「たんす」の ページ（4c）。本・建築士さん・とりごやは 開かない（AC15）
+      if (!inv2.isOpen() && !down2 && p2Actions.wasPressed('toggleInventory')) {
+        if (!play.tryOpenTansu()) inv2.setOpen(true);
+      } else if (inv2.isOpen()) {
         // 倒れた・パッドが ぬけた ステップに とじる（AC89）。やめた ときは session.leave の beforeLeave が とじる
         close2In.down = down2;
         close2In.padLost = session.padLost();
         if (invCloseReason(2, close2In) !== null) inv2.setOpen(false);
         else padInv2(inv2.screen);
       }
+      order.flush(); // 預かった パネルの 操作を 1P → 2P の 順に（FurnaceWorld・たんすの update の 前。1 ステップに 1 回）
       if (!inv2.isOpen() && !down2) {
         const inv = p2.inventory;
         if (p2Actions.wasPressed('hotbarNext')) inv.selectNext(1);
@@ -267,7 +281,7 @@ export function wireDuo(deps: WiredLoop) {
         for (let i = 0; i < HOTBAR_KEYS.length; i++) if (p2Actions.wasPressed(HOTBAR_KEYS[i]!)) inv.select(i);
       }
       inv2.step();
-    }
+    } else order.flush(); // 2P が いなく なった ステップに のこった 1P の 操作
     // 1P が 倒れた ステップの 1P の パネルの とじは combat.die の closeInventory（→ screen.onClose）が する（AC89）
     stepIn.padPresent = !router.padLost();
     if (session.joined) {
@@ -313,7 +327,7 @@ export function wireDuo(deps: WiredLoop) {
     syncLayout1(); // 1P の 画面の 形（2P が いなくなっても 開いている あいだは 半分の まま。とじた つぎから 全面）
     if (inv2) {
       inv2.screen.setQuitGauge(panelOpen() ? session.quitGauge() : 0);
-      inv2.screen.update();
+      inv2.update();
     }
     p2Actions.endFrame();
   }
