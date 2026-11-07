@@ -109,7 +109,7 @@ describe('登録表（生き物 8 個）', () => {
     expect(LIVE_SETTING_DEFAULTS.animalEggHeal).toBe(2);
     expect(LIVE_SETTING_DEFAULTS.meatHeal).toBe(10);
     expect(() => registryHeal('momo_nama')).toThrow();
-    const withFood = Object.entries(ITEM_DEFS).filter(([, d]) => d?.food).map(([id]) => id);
+    const withFood = Object.entries(ITEM_DEFS).filter(([id, d]) => d?.food && id !== 'kabita_pan').map(([id]) => id); // かびた パン〔MINE-1E〕は 別の シリーズ（src/content/items/mine.ts）
     expect(withFood).toEqual(['egg', 'momo_yaki']);
   });
 

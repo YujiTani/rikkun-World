@@ -130,6 +130,15 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   ...CHEST_BLOCK_IDS.map((id): BlockType => ({ id, name: chestBlockName(chestBlockInfo(id)!.tier, chestBlockInfo(id)!.open), solid: true, breakable: false })),
   // MINE-1D（#351。番号は 後ろに 足す。203）: つらら。固くない（体が 通る）・光を 通す・十字の 板で 描く（絵は tsuraraTexture.ts）
   { id: 'tsurara', name: 'つらら', solid: false, breakable: true },
+  // MINE-1E（番号は 後ろに 足す。204〜211）: 坑道の 冒険。ひびの いし・くずれた いし・こわれた わくは 固い。レール・はしご・たきびの あとは 固くない（体が 通る）
+  { id: 'hibi_ishi', name: 'ひびの いし', solid: true, breakable: true },
+  { id: 'kuzure_ishi', name: 'くずれた いし', solid: true, breakable: true },
+  { id: 'furui_rail_x', name: 'ふるい レール', solid: false, breakable: true },
+  { id: 'furui_rail_z', name: 'ふるい レール', solid: false, breakable: true },
+  { id: 'kowareta_waku', name: 'こわれた わく', solid: true, breakable: true },
+  { id: 'taoreta_hashigo_x', name: 'たおれた はしご', solid: false, breakable: true },
+  { id: 'taoreta_hashigo_z', name: 'たおれた はしご', solid: false, breakable: true },
+  { id: 'takibi_ato', name: 'たきびの あと', solid: false, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(

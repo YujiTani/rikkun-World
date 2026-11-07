@@ -14,6 +14,7 @@ import { createRng, hash01, hashInts } from './random';
 const EXCLUDED = [
   { item: 'yokai_orb', reason: 'いまは 手に 入らない（ようかいだま）' },
   { item: 'omamori_torn', reason: 'しるし ＝ 記念の 品（やぶれた おまもり）' },
+  { item: 'kabita_pan', reason: 'じょうだんの 物。宝箱から 出ると がっかり する（キャンプあとの たんす だけ）' },
   { item: 'sekkeizu', reason: '1 まいずつ 中身〔plan の 番号〕を もつ 物。宝箱から 出ると 読めない せっけいずに なる' },
 ] as const satisfies readonly { item: ItemId; reason: string }[];
 

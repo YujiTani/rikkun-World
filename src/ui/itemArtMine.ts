@@ -60,10 +60,33 @@ const ISHIBAI = {
   ],
 } as const;
 
-/** 絵の 表（1 つの id に 1 つ。足し忘れは 型エラー） */
-const ART = { chalk: CHALK, ishibai: ISHIBAI } as const satisfies Record<MineItemId, { pal: object; rows: readonly string[] }>;
+/** かびた パン（MINE-1E。見本 B「食パン」: 山がたの 食パン。白い 切り口に みどりの かびの ぽつぽつ。きたなすぎない） */
+const KABITA_PAN = {
+  pal: { K: '#3A3442', L: '#E3AE6E', C: '#C98A4B', D: '#9C6532', W: '#F5EBD2', S: '#DCCFAE', G: '#6FA84A', g: '#3E7A3A' },
+  rows: [
+    '................',
+    '...KKKKKKKKKK...',
+    '..KLLCCCCCCCCK..',
+    '.KLCCCCCCCCCCDK.',
+    '.KCCWWWWWWWWCDK.',
+    '.KCWWWWWgWWWWCK.',
+    '..KCWWGGWWWWCK..',
+    '..KCWWWWWGGWDK..',
+    '..KCWGGWWWWWDK..',
+    '..KCWGgWWWWSDK..',
+    '..KCWWWWWgGWDK..',
+    '..KCSWWGWWWSDK..',
+    '..KCCSSSSSSDDK..',
+    '..KDDDDDDDDDDK..',
+    '...KKKKKKKKKK...',
+    '................',
+  ],
+} as const;
 
-/** チョーク・いしばいか（絵を ここで 引く 物） */
+/** 絵の 表（1 つの id に 1 つ。足し忘れは 型エラー） */
+const ART = { chalk: CHALK, ishibai: ISHIBAI, kabita_pan: KABITA_PAN } as const satisfies Record<MineItemId, { pal: object; rows: readonly string[] }>;
+
+/** チョーク・いしばい・かびた パンか（絵を ここで 引く 物） */
 export const isMineItem = (item: string): item is MineItemArtId => Object.hasOwn(ART, item);
 
 /** チョーク・いしばい の 16×16（y = 0 が上） */

@@ -25,4 +25,14 @@ export const MINE_ITEMS = {
     info: { use: 'はたけ の やさい に まくと すぐ みのる。しっくい の ざいりょう', how: 'てに もって、はたけ の やさい に みぎクリック', buttons: ['1-9', 'right'] },
     recipe: { count: 2, inputs: [['sekkaiseki', 1]], station: 'furnace' }, // かまど（ねんりょう 1・60 ステップ）。せっかいせき 1 → いしばい 2
   },
+  kabita_pan: {
+    name: 'かびた パン',
+    zukan: 'むかしの ぼうけんしゃが のこした パン。みどりの かびが はえて いる。たべると…？',
+    maxStack: 64,
+    rarity: 'common', // ノーマル（キャンプあとの たんす だけ。宝箱の くじには 入らない）
+    category: 'food',
+    info: { use: 'たべると すこし だけ げんき に なる。でも かびて いる', how: 'もって みぎクリック', buttons: ['1-9', 'right'] },
+    source: 'むかし の ぼうけんしゃ の たんす に のこって いる',
+    food: { heal: 2 }, // たべた ときに もどる 体力（2 = ハート 1 こ。仕様 §4.9）
+  },
 } satisfies Record<MineItemId, ItemDef>;
