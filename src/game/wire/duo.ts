@@ -5,7 +5,7 @@ import { DuoBody } from '../../duo/body';
 import { hearFrom } from '../../duo/hearing';
 import { distanceMeter } from '../../duo/meter';
 import { closeInvHand } from '../../duo/invClose';
-import { invCloseReason, invLayoutFor, invPadCommand, invQuitHeld } from '../../duo/invRules';
+import { invCloseReason, invLayoutFor, invPadCommand, invQuitHeld, type InvLayout } from '../../duo/invRules';
 import { DuoJoinHint, type DuoJoinHintInput } from '../../duo/joinHint';
 import { duoWaitNotice } from '../../duo/rules';
 import { DuoSession } from '../../duo/session';
@@ -66,6 +66,10 @@ export function wireDuo(deps: WiredLoop) {
    */
   const hintIn: DuoJoinHintInput = { candidate: false, joined: false, active: false, anyButton: false };
   const waitIn = { joined: false, modal: false };
+  // 毎ステップ 使いまわす 入力（新しい {…} を 作らない）
+  const close2In = { down: false, padLost: false, left: false };
+  const quitIn = { open: false, focus: null as string | null, confirmHeld: false };
+  const stepIn = { padPresent: true, quitHeld: false };
   function noticeStep(active: boolean): void {
     const joined = session.joined;
     // 候補の 番号・「何か 押している」は gamepad の poll が 出した 物を 読む（ここで パッドの 一覧を 作らない）
@@ -202,8 +206,13 @@ export function wireDuo(deps: WiredLoop) {
 
   // ---- 1P の もちもの画面: 2 人の あいだは 左半分の 2 人用（data-layout="duo"）。1P の パッド・キー・マウスは 今の まま（DOM の フォーカス）
   const inv1 = deps.inventoryScreen;
+  const layoutIn = { joined: false, open: false, current: 'full' as InvLayout };
   function syncLayout1(): void {
-    const next = invLayoutFor({ joined: session.joined, open: shared.screen.inventoryOpen(), current: inv1.layout() });
+    if (!session.joined && inv1.layout() === 'full') return; // 1 人の ときは 何も しない
+    layoutIn.joined = session.joined;
+    layoutIn.open = shared.screen.inventoryOpen();
+    layoutIn.current = inv1.layout();
+    const next = invLayoutFor(layoutIn);
     if (next === inv1.layout()) return;
     if (next === 'duo') {
       if (inv1.tab() !== 'items') deps.toItemsTab(); // じっせき・できごと は 2 人用に ない
@@ -241,7 +250,9 @@ export function wireDuo(deps: WiredLoop) {
       if (!inv2.isOpen() && !down2 && p2Actions.wasPressed('toggleInventory')) inv2.setOpen(true);
       else if (inv2.isOpen()) {
         // 倒れた・パッドが ぬけた ステップに とじる（AC89）。やめた ときは session.leave の beforeLeave が とじる
-        if (invCloseReason(2, { down: down2, padLost: session.padLost(), left: false }) !== null) inv2.setOpen(false);
+        close2In.down = down2;
+        close2In.padLost = session.padLost();
+        if (invCloseReason(2, close2In) !== null) inv2.setOpen(false);
         else padInv2(inv2.screen);
       }
       if (!inv2.isOpen() && !down2) {
@@ -252,12 +263,15 @@ export function wireDuo(deps: WiredLoop) {
       }
       inv2.step();
     }
-    // 1P が 倒れた ステップは 1P の パネルも とじる（combat.die の closeInventory と 同じ。AC89）
-    if (invCloseReason(1, { down: deps.combat.dead(), padLost: false, left: false }) !== null && shared.screen.inventoryOpen()) shared.screen.toggle();
-    session.step({
-      padPresent: !router.padLost(),
-      quitHeld: invQuitHeld({ open: panelOpen(), focus: inv2?.screen.focusKey() ?? null, confirmHeld: p2Actions.isHeld('confirm') }),
-    });
+    // 1P が 倒れた ステップの 1P の パネルの とじは combat.die の closeInventory（→ screen.onClose）が する（AC89）
+    stepIn.padPresent = !router.padLost();
+    if (session.joined) {
+      quitIn.open = panelOpen();
+      quitIn.focus = inv2?.screen.focusKey() ?? null;
+      quitIn.confirmHeld = p2Actions.isHeld('confirm');
+      stepIn.quitHeld = invQuitHeld(quitIn);
+    } else stepIn.quitHeld = false;
+    session.step(stepIn);
     const camNow = session.cameraDistance();
     shared.duoCamDistance = camNow === DUO_TUNING.cameraSolo ? null : camNow;
     if (session.joined && ctl2) {

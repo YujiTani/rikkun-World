@@ -3,12 +3,13 @@ import type { CraftUiSettings, ToolNumbers } from '../fx/craftConfig';
 import { CraftPanel, type FurnaceView, type PanelMaterials } from './craftPanel';
 import { EquipPanel, type ArmorUi } from './equipPanel';
 import { createSlotEl, paintSlot, type SlotEls } from './hotbar';
-import { itemIconUrl } from './itemIcon';
+import { HeldCursor } from './inventoryCursor';
 import { Tooltip, type HoverTarget } from './tooltip';
 import { buildHintChips } from './inventoryHints';
 import { duoPageOf, duoInvSnapshot, type DuoInvPage, type FullPage, type InvLayout } from '../duo/invRules';
 import { InvFocus } from '../duo/invFocus';
-import { duoPageShown, focusName, mountDuoChrome, type DuoChrome } from './inventoryDuo';
+import { duoPageShown, fitDuo, focusName, mountDuoChrome, setDuoAttrs, type DuoChrome } from './inventoryDuo';
+import { listenWindowFit } from './inventoryWindow';
 import { PadNav } from './menu/padNav';
 import type { FocusDir } from './menu/focusNav';
 import { wearSignature } from './wearGauge';
@@ -84,7 +85,7 @@ export class InventoryScreen {
   /** 2P の 画面だけ: パネルごとの 十字の えらび（§3.3「2P の えらび」。DOM の フォーカスを 使わない） */
   readonly nav: PadNav | null = null;
   private readonly bodyEl: HTMLDivElement;
-  private readonly onResize: () => void;
+  private stopWindow: (() => void) | null = null;
   private layoutNow: InventoryLayout = 'full';
   private pageNow: DuoInvPage = 'items';
   private duoChrome: DuoChrome | null = null;
@@ -105,20 +106,14 @@ export class InventoryScreen {
   }
   private fitSize = '';
   private fitWin = '';
-  private pollId = 0;
-  private frameObserver: ResizeObserver | null = null;
   private pageSize: { w: number; h: number } | null = null;
   private outside: InventoryOutsideHandlers | null = null;
   private readonly onPointer: (e: MouseEvent) => void;
   private readonly cells: SlotEls[] = [];
-  private readonly cursorEl: HTMLDivElement;
-  private readonly cursorIcon: HTMLImageElement;
-  private readonly cursorCount: HTMLSpanElement;
+  private readonly held: HeldCursor;
   private dirty = true;
   private wearSig = 0;
   private open = false;
-  private mouseX = 0;
-  private mouseY = 0;
   readonly craftPanel: CraftPanel | null = null;
   readonly equip: EquipPanel | null = null;
   readonly tooltip: Tooltip | null = null;
@@ -261,15 +256,12 @@ export class InventoryScreen {
     this.paintHints();
     this.el.append(this.frame);
 
-    this.cursorEl = document.createElement('div');
-    this.cursorEl.className = 'inv-cursor';
-    this.cursorEl.hidden = true;
-    this.cursorIcon = document.createElement('img');
-    this.cursorIcon.alt = '';
-    this.cursorCount = document.createElement('span');
-    this.cursorCount.className = 'slot-count';
-    this.cursorEl.append(this.cursorIcon, this.cursorCount);
-    this.el.append(this.cursorEl);
+    this.held = new HeldCursor({
+      frame: this.frame,
+      duo: () => this.layoutNow === 'duo',
+      anchorEl: (x, y) => this.cursorAnchor(x, y),
+    });
+    this.el.append(this.held.el);
 
     parent.append(this.el);
     this.off = inv.onChange(() => (this.dirty = true));
@@ -279,59 +271,40 @@ export class InventoryScreen {
       this.el.inert = true; // キーでは さわれない（Tab で フォーカスが 来ない）。十字は PadNav が 動かす
       this.onMove = () => undefined;
       this.onPointer = () => undefined;
-      this.onResize = () => undefined;
       this.setLayout('duo');
       return;
     }
     this.onMove = (e) => {
-      this.mouseX = e.clientX;
-      this.mouseY = e.clientY;
-      this.placeCursor();
+      this.held.mouseX = e.clientX;
+      this.held.mouseY = e.clientY;
+      this.held.place();
     };
     window.addEventListener('mousemove', this.onMove);
+    // 1P: キー・パッドで フォーカスが かわったら、手に もっている 物の 場所を 合わせる（毎コマは 測らない）
+    this.el.addEventListener('focusin', () => {
+      if (this.layoutNow === 'duo' && this.held.shown) this.held.place();
+    });
     this.onPointer = (e) => {
       if (!this.open || !this.outside) return;
       const h = e.type === 'mousedown' ? this.outside.down : e.type === 'mouseup' ? this.outside.up : this.outside.move;
       h?.(e, this.isInsidePanels(e.clientX, e.clientY));
     };
     for (const t of ['mousedown', 'mousemove', 'mouseup'] as const) window.addEventListener(t, this.onPointer);
-    this.onResize = () => {
-      this.fit();
-      // 窓の大きさが 反映される のが 遅れる ことが あるので、すぐ後にも もう一度 合わせる
-      requestAnimationFrame(() => {
-        if (this.open) this.fit();
-      });
-      window.setTimeout(() => {
-        if (this.open) this.fit();
-      }, 40);
-    };
-    window.addEventListener('resize', this.onResize);
-    // resize の 知らせが 遅れても、ひらいている あいだは 窓の 大きさを 毎コマ みて すぐ 合わせる（数の くらべだけ）
-    const poll = () => {
-      this.pollId = requestAnimationFrame(poll);
-      if (this.open && `${window.innerWidth}x${window.innerHeight}` !== this.fitWin) this.fit();
-    };
-    this.pollId = requestAnimationFrame(poll);
-    // 窓の大きさで 文字・マスの大きさが 後から かわっても、枠の大きさが かわったら すぐ ちぢめなおす
-    if (typeof ResizeObserver !== 'undefined') {
-      this.frameObserver = new ResizeObserver(() => {
-        if (this.open && `${this.frame.offsetWidth}x${this.frame.offsetHeight}` !== this.fitSize) this.fit();
-      });
-      this.frameObserver.observe(this.frame);
-    }
+    this.stopWindow = listenWindowFit({
+      frame: this.frame,
+      isOpen: () => this.open,
+      fit: () => this.fit(),
+      fitWin: () => this.fitWin,
+      fitSize: () => this.fitSize,
+    });
   }
 
   /** 小さい画面では パネルぜんたいを 同じ比で ちぢめる（はしから 24px あける。大きい画面は CSS の clamp で大きくなる） */
   private fit(): void {
     const f = this.frame;
     if (this.layoutNow === 'duo') {
-      // 2 人用は ちぢめない（マス・ボタン・字は 1 人の ときと 同じ。§3.3）
-      f.style.transform = '';
-      f.style.removeProperty('--rk-fit');
-      // 上は 高さの 12%（メーター・お知らせ）。右上の 時計と かさなる ときは 時計の 下 ＋8px まで 下げる（1P・2P そろえる。§9.8）
-      const clock = document.getElementById('clock');
-      const cb = clock && !clock.hidden ? clock.getBoundingClientRect().bottom : 0;
-      this.el.style.top = `${Math.round(Math.max(window.innerHeight * 0.12, cb > 0 ? cb + 8 : 0))}px`;
+      fitDuo(this.el, f);
+      this.held.invalidate();
       this.fitSize = `${f.offsetWidth}x${f.offsetHeight}`;
       this.fitWin = `${window.innerWidth}x${window.innerHeight}`;
       return;
@@ -442,16 +415,12 @@ export class InventoryScreen {
       const page = duoPageOf(this.fullPage());
       if (this.tabNow !== 'items') this.setTab('items'); // じっせき・できごと は 2 人用に ない
       this.layoutNow = layout;
-      this.el.dataset.layout = 'duo';
-      this.el.setAttribute('data-testid', `duo-inv-p${this.who}`);
+      setDuoAttrs(this.el, this.frame, this.who, true);
       this.duoChrome ??= mountDuoChrome(this, this.who, this.onClose);
       this.setPage(duoPageShown(page) ? page : 'items');
     } else {
       this.layoutNow = layout;
-      delete this.el.dataset.layout;
-      this.el.style.top = '';
-      this.el.removeAttribute('data-testid');
-      this.frame.style.transform = '';
+      setDuoAttrs(this.el, this.frame, this.who, false);
     }
     this.fitSize = '';
     this.dirty = true;
@@ -546,7 +515,7 @@ export class InventoryScreen {
     if (open) {
       this.equip?.update();
       this.tooltip?.update();
-      if (this.layoutNow === 'duo' && !this.cursorEl.hidden) this.placeCursor();
+      if (this.nav && this.held.shown) this.held.place(); // 2P: えらびが かわった ときだけ 場所を 測りなおす（CursorAnchor）
     }
   }
 
@@ -577,6 +546,7 @@ export class InventoryScreen {
 
   private render(): void {
     this.dirty = false;
+    this.held.invalidate();
     const slots = this.inv.slots();
     const sel = this.inv.selected();
     for (let i = 0; i < this.cells.length; i++) {
@@ -584,33 +554,13 @@ export class InventoryScreen {
       this.cells[i].root.dataset.selected = String(i === sel);
       this.cells[i].root.dataset.marked = String(!!this.marker?.active() && this.marker.has(i));
     }
-    const cur = this.inv.cursor();
-    this.cursorEl.hidden = !cur;
-    if (cur) {
-      this.cursorIcon.src = itemIconUrl(cur.item);
-      this.cursorCount.textContent = cur.count >= 2 ? String(cur.count) : '';
-      this.placeCursor();
-    }
-  }
-
-  private placeCursor(): void {
-    let x = this.mouseX - 24;
-    let y = this.mouseY - 24;
-    const anchor = this.layoutNow === 'duo' ? this.cursorAnchor() : null;
-    if (anchor) {
-      // 手に もっている 物は えらんでいる マスの 右上に 出す。パネルの そとへ はみ出さない（§3.3）
-      const r = anchor.getBoundingClientRect();
-      const f = this.frame.getBoundingClientRect();
-      x = Math.min(Math.max(r.right - 24, f.left), f.right - 48);
-      y = Math.min(Math.max(r.top - 24, f.top), f.bottom - 48);
-    }
-    this.cursorEl.style.transform = `translate(${x}px, ${y}px)`;
+    this.held.show(this.inv.cursor());
   }
 
   /** 手に もっている 物を 出す 目じるし: 2P は いつも えらんでいる マス。1P は マウスが パネルの そとに ある ときだけ フォーカス */
-  private cursorAnchor(): HTMLElement | null {
+  private cursorAnchor(mouseX: number, mouseY: number): HTMLElement | null {
     if (this.nav) return this.nav.currentEl();
-    if (this.isInsidePanels(this.mouseX, this.mouseY)) return null;
+    if (this.isInsidePanels(mouseX, mouseY)) return null;
     const a = document.activeElement;
     return a instanceof HTMLElement && this.el.contains(a) ? a : null;
   }
@@ -620,9 +570,7 @@ export class InventoryScreen {
     this.craftPanel?.dispose();
     this.tooltip?.dispose();
     window.removeEventListener('mousemove', this.onMove);
-    window.removeEventListener('resize', this.onResize);
-    this.frameObserver?.disconnect();
-    cancelAnimationFrame(this.pollId);
+    this.stopWindow?.();
     for (const t of ['mousedown', 'mousemove', 'mouseup'] as const) window.removeEventListener(t, this.onPointer);
     this.el.remove();
   }

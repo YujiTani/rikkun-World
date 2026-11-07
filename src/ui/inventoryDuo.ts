@@ -119,3 +119,62 @@ export function focusName(el: HTMLElement | null): string | null {
   }
   return null;
 }
+
+/** 2 人用の 形に する / もどす（画面の 目印: data-layout・data-testid。1P の 全面に もどす ときは 位置も 消す） */
+export function setDuoAttrs(el: HTMLElement, frame: HTMLElement, who: 1 | 2, on: boolean): void {
+  if (on) {
+    el.dataset.layout = 'duo';
+    el.setAttribute('data-testid', `duo-inv-p${who}`);
+    return;
+  }
+  delete el.dataset.layout;
+  el.style.top = '';
+  el.removeAttribute('data-testid');
+  frame.style.transform = '';
+}
+
+/**
+ * 2 人用は ちぢめない（マス・ボタン・字は 1 人の ときと 同じ。§3.3）。上は 高さの 12%（メーター・お知らせ）。
+ * 右上の 時計と かさなる ときは 時計の 下 ＋8px まで 下げる（1P・2P そろえる。§9.8）
+ */
+export function fitDuo(el: HTMLElement, frame: HTMLElement): void {
+  frame.style.transform = '';
+  frame.style.removeProperty('--rk-fit');
+  const clock = document.getElementById('clock');
+  const cb = clock && !clock.hidden ? clock.getBoundingClientRect().bottom : 0;
+  el.style.top = `${Math.round(Math.max(window.innerHeight * 0.12, cb > 0 ? cb + 8 : 0))}px`;
+}
+
+/**
+ * 手に もっている 物を 出す 場所（§3.3）: えらんでいる マスの 右上。パネルの そとへ はみ出さない。
+ * 場所の 計算（getBoundingClientRect）は えらびが かわった とき・描きなおした とき・大きさが かわった ときだけ（毎コマ 読まない）
+ */
+export class CursorAnchor {
+  /** `place` の 結果（使いまわす） */
+  x = 0;
+  y = 0;
+  private el: HTMLElement | null = null;
+  private stale = true;
+
+  /** 描きなおした・大きさが かわった */
+  invalidate(): void {
+    this.stale = true;
+  }
+
+  /** 目じるしの 要素。無ければ false（マウスの 場所に 出す） */
+  place(anchor: HTMLElement | null, frame: HTMLElement): boolean {
+    if (!anchor) {
+      this.el = null;
+      return false;
+    }
+    if (anchor !== this.el || this.stale) {
+      this.el = anchor;
+      this.stale = false;
+      const r = anchor.getBoundingClientRect();
+      const f = frame.getBoundingClientRect();
+      this.x = Math.min(Math.max(r.right - 24, f.left), f.right - 48);
+      this.y = Math.min(Math.max(r.top - 24, f.top), f.bottom - 48);
+    }
+    return true;
+  }
+}
