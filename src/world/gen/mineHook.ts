@@ -152,6 +152,8 @@ export function createMineHook(o: {
   player?: () => { x: number; y: number; z: number };
   /** 妖怪を 出す 高さの はば（足 ±これ）。なければ 設定の 初期値（YokaiConfig.yokaiSpawnHeight） */
   spawnHeight?: () => number;
+  /** MINE-1E（E11）: たんすの 記録が あるか（`StorageSystem.has`）。キャンプの 中身の 予告（`campPreview`）を 出すか 決める */
+  tansuHas?: (x: number, y: number, z: number) => boolean;
 }): MineHook {
   const { seed } = o;
   const T = terrainFor(seed);

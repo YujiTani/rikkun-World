@@ -1,7 +1,11 @@
+import { MINE_ITEM } from '../content/items/ids';
 import { yokaiAchievementNames } from '../content/yokai/registry';
 import type { CaveKind } from '../world/gen/mineCaveConfig';
 import { COUNTRY_TABLE } from '../world/gen/countryTable';
 import { CROP_KINDS, type AchievementCategory, type AchievementDef, type CropKind, type MedalTier, type StatKey } from '../contracts';
+
+/** MINE-1E: 足が はじめて 入った 坑道の 場所（かくしべや・むかしの えだ道・迷路の いちばん おく の 行きどまり〔へやが あれば へや〕・キャンプあと） */
+export type MineAreaKind = 'kakushi' | 'mukashi' | 'meiro' | 'camp';
 
 /**
  * 実績の表 180 こ（M6 §4.2）。表の順に並べる。名前はひらがな・カタカナ。漢字を書くなら ［漢字｜よみ］（WEAPON-7 §2.7。画面に出すときは `withRuby()`）。
@@ -376,6 +380,23 @@ function build(): AchievementDef[] {
     const { name, small } = CAVE_ACH[kind];
     add({ series: `mine.cave.${kind}`, category: 'adventure', stat: `cave:${kind}`, tiers: [t(1, small)], name: () => `はじめて ${name} を みつけた！` });
   }
+
+  // MINE-1E §4.12: 坑道の 冒険。足が はじめて 場所に 入った（かくしべやは 中、ほかは 小）
+  const AREA_ACH = {
+    kakushi: { name: 'かくしべや', small: false },
+    mukashi: { name: 'むかし の こうどう', small: true },
+    meiro: { name: 'めいろ の いちばん おく', small: true },
+    camp: { name: 'ぼうけんしゃ の キャンプ', small: true },
+  } satisfies Record<MineAreaKind, { name: string; small: boolean }>; // 場所を 足したら ここも 足す
+  const AREA_VERB = { kakushi: 'みつけた', mukashi: 'みつけた', meiro: 'ついた', camp: 'みつけた' } satisfies Record<MineAreaKind, string>;
+  for (const kind of Object.keys(AREA_ACH) as MineAreaKind[]) {
+    const { name, small } = AREA_ACH[kind];
+    // 「めいろ の いちばん おく に ついた！」だけ 「に」が つく（ほかは「を みつけた！」）
+    add({ series: `mine.area.${kind}`, category: 'adventure', stat: `area:${kind}`, tiers: [t(1, small)], name: () => (kind === 'meiro' ? `はじめて ${name} に ${AREA_VERB[kind]}！` : `はじめて ${name} を ${AREA_VERB[kind]}！`) });
+  }
+
+  // MINE-1E §4.12: かびた パンを たべた（小さな 実績。じょうだんの 一品）
+  add({ series: 'mine.kabitaPan', category: 'adventure', stat: `eat:${MINE_ITEM.kabita_pan}`, tiers: [t(1, true)], name: () => 'はじめて かびた パン を たべた！' });
 
   // #293: がしゃどくろ（ボス）を たおした。ふだんの ようかい（defeat.all）には 数えず、これ 1 つだけ（大きい 実績・金メダル）
   add({ series: 'defeat.gashadokuro', category: 'fight', stat: 'defeat:gashadokuro', tiers: [t(1)], name: () => 'がしゃどくろ を たおした！' });

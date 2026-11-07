@@ -5,6 +5,7 @@ import { CHEST_BLOCK_IDS, chestBlockInfo, chestBlockName } from './chestBlock';
 import { FURNITURE } from '../../house/editor/furniture';
 import { FLAT_FURN_KINDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from './houseBlocks';
 import { isLiquidIndex } from './liquids';
+import { isFloorDeco } from './mineBoken';
 import { MAGMA_IDS, MAGMA_M0, MAGMA_RESERVED_IDS } from './magma';
 import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL_INDEX, WATER_PARTIAL_IDS, WATER_W0 } from './water';
 
@@ -232,9 +233,15 @@ export function isTsuraraIndex(index: number): boolean {
   return TSURARA[index] === true;
 }
 
-/** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板・しるしはちがう */
+/** 床の 飾り（MINE-1E。ふるい レール・たおれた はしご・たきびの あと）か。ひくい 小ブロックの 形で 描く。固くない・光を通す・まわりの面を隠さない・遠くでは 描かない */
+const FLOOR_DECO = BLOCK_TYPES.map((t) => isFloorDeco(t.id));
+export function isFloorDecoIndex(index: number): boolean {
+  return FLOOR_DECO[index] === true;
+}
+
+/** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板・しるし・床の 飾りはちがう */
 export function isOpaqueIndex(index: number): boolean {
-  return index !== AIR && !isLiquidIndex(index) && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index);
+  return index !== AIR && !isLiquidIndex(index) && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index) && !isFloorDecoIndex(index);
 }
 
 /** 固いブロックか（番号で） */

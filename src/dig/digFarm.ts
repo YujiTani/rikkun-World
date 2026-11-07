@@ -14,6 +14,9 @@ import { computeWaterRay, createWaterRay } from './rightClick';
 /** BUCKET-2: マグマを 液体の 線に 通す ときの 見せかけ（量 8 の 水） */
 const WATER_FULL = waterId(8);
 
+/** 登録表の `food.heal` で もどる たべもの（かびた パン〔MINE-1E〕。やさい・たまご・やいた もも にくは 設定の 数） */
+const REGISTRY_FOOD: ReadonlySet<string> = new Set<string>([MINE_ITEM.kabita_pan]);
+
 /** じょうろか（登録表の `can` 部品を持つ物 = じょうろ・ながい じょうろ） */
 const isCan = (item: string): boolean => itemDef(item)?.can !== undefined;
 
@@ -183,7 +186,7 @@ export class DigFarm {
       farm.noteHint('full', at);
       return;
     }
-    const got = v.heal(farm.eatHeal(item) || (item === 'egg' ? (c.m4.eggHeal?.() ?? LIVE_SETTING_DEFAULTS.animalEggHeal) : item === 'momo_yaki' ? (c.m4.meatHeal?.() ?? LIVE_SETTING_DEFAULTS.meatHeal) : 0));
+    const got = v.heal(farm.eatHeal(item) || (item === 'egg' ? (c.m4.eggHeal?.() ?? LIVE_SETTING_DEFAULTS.animalEggHeal) : item === 'momo_yaki' ? (c.m4.meatHeal?.() ?? LIVE_SETTING_DEFAULTS.meatHeal) : REGISTRY_FOOD.has(item) ? (itemDef(item)?.food?.heal ?? 0) : 0));
     c.inventory.consumeHeld();
     c.m4.tools?.pushSwing('place');
     farm.noteEat(item, got, at);
@@ -346,9 +349,9 @@ export class DigFarm {
     return id === 'grass' || id === 'dirt';
   }
 
-  /** 食べられる物か（やさい・たまご・やいた もも にく）。つながりが そろっているときだけ */
+  /** 食べられる物か（やさい・たまご・やいた もも にく・かびた パン）。つながりが そろっているときだけ */
   isVeg(item: ItemId): boolean {
     const m4 = this.d.m4;
-    return !!m4.farm && !!m4.vitals && (vegKindOfItem(item) !== null || item === 'egg' || item === 'momo_yaki');
+    return !!m4.farm && !!m4.vitals && (vegKindOfItem(item) !== null || item === 'egg' || item === 'momo_yaki' || REGISTRY_FOOD.has(item));
   }
 }

@@ -1,5 +1,10 @@
-import type { AnimalEvent, FarmEvent } from '../contracts';
+import type { AnimalEvent, CraftEvent, DigEvent, FarmEvent, StorageEvent } from '../contracts';
 import { CROP_KINDS } from '../contracts';
+import { MINE_ITEM } from '../content/items/ids';
+import { baseRecipeId } from '../craft/recipes';
+import { isChalkMarkId } from '../world/blocks/chalkMark';
+import type { CaveKind } from '../world/gen/mineCaveConfig';
+import { ARMOR_RECIPES, CRAFT_RECIPE_NAMES, KIN_RECIPES, PICKAXE_RECIPES, WEAPON_RECIPES, type MineAreaKind } from './defs';
 
 /** 出来事から記録をふやすために AchievementSystem が見せる口（記録の数え方だけ） */
 export interface StatSink {
@@ -42,7 +47,7 @@ export function applyFarmEvents(s: StatSink, events: readonly FarmEvent[]): void
       case 'eat':
         s.bump(`eat:${e.item}`, 1);
         // LIVE-1 §4.5: `eat:*` は やさい だけ（たまご では ふやさない）。LIVE-3: やいた もも にく も ふやさない
-        if (e.item !== 'egg' && e.item !== 'momo_yaki') s.bump('eat:*', 1);
+        if (e.item !== 'egg' && e.item !== 'momo_yaki' && e.item !== MINE_ITEM.kabita_pan) s.bump('eat:*', 1); // MINE-1E: かびた パンも やさいでは ない
         break;
       case 'seedFound':
         s.bump(`seedFrom:${e.from}`, 1);
@@ -133,6 +138,97 @@ export function applyAnimalEvents(s: StatSink, events: readonly AnimalEvent[]): 
     if (e.type === 'egg' && e.gold) {
       s.bump('goldenEgg:chicken', 1);
       s.bump('goldenEgg:*', 1);
+    }
+  }
+}
+
+/** 掘る・置くの 出来事（チョークの しるしは 数えない） */
+export function applyDigEvents(s: StatSink, events: readonly DigEvent[]): void {
+  for (const e of events) {
+    if (isChalkMarkId(e.id)) continue; // MINE-1B: チョークの しるしは ブロックを おいた・こわした 数に 入れない
+    if (e.type === 'break') {
+      s.bump(`break:${e.id}`, 1);
+      s.bump('break:*', 1);
+    } else if (e.type === 'place') {
+      s.bump(`place:${e.id}`, 1);
+      s.bump('place:*', 1);
+      // LIVE-2: 小屋 を 置く と DigSystem が さく の ブロック で 出す。ブロック 1 こ ではなく toriya を 1 回 置いた 数
+      if (e.id === 'toriya_fence') s.bump('place:toriya', 1);
+    }
+  }
+}
+
+/** 作る・やく・ひろう の 出来事 */
+export function applyCraftEvents(s: StatSink, events: readonly CraftEvent[]): void {
+  for (const e of events) {
+    if (e.type === 'craft') {
+      s.bump(`craft:${baseRecipeId(e.recipe)}`, 1);
+      s.bump('craft:*', 1);
+      if (e.recipe === 'ya') s.bump('craftItems:ya', e.count);
+      derivedCraft(s);
+    } else if (e.type === 'bakeDone') {
+      s.bump(`bake:${e.recipe}`, 1);
+      s.bump('bake:*', 1);
+    } else if (e.type === 'pickup') {
+      s.bump(`obtain:${e.item}`, e.count);
+      s.bump('pickup:*', e.count);
+    }
+  }
+}
+
+/** 作った 種類から 決まる 記録（つるはし・武器・防具・金・ぜんぶ） */
+function derivedCraft(s: StatSink): void {
+  const count = (ids: readonly string[]): number => ids.filter((r) => s.stat(`craft:${r}`) > 0).length;
+  s.setMax('craft:pickaxes', count(PICKAXE_RECIPES));
+  s.setMax('craft:weapons', count(WEAPON_RECIPES));
+  s.setMax('craft:armors', count(ARMOR_RECIPES));
+  s.setMax('craft:kinKinds', count(KIN_RECIPES));
+  s.setMax('craft:everything', count(CRAFT_RECIPE_NAMES.map(([id]) => id)));
+}
+
+/** たんすの 出来事 */
+export function applyStorageEvents(s: StatSink, events: readonly StorageEvent[]): void {
+  for (const e of events) {
+    if (e.type === 'drop') s.bump('drop:*', e.count);
+    else if (e.type === 'store') s.bump('store:*', e.count);
+    else s.bump('storeFull', 1);
+  }
+}
+
+/** WEAPON-2: たいきゅうの 出来事（こわれた: マス番号 = 道具、部位 = 防具） */
+export function applyWearEvents(s: StatSink, events: ReadonlyArray<{ type: 'wearLow' | 'toolBreak'; slot: number | string }>): void {
+  for (const e of events) {
+    if (e.type !== 'toolBreak') continue;
+    s.bump(typeof e.slot === 'number' ? 'toolBroken' : 'armorBroken', 1);
+  }
+}
+
+/** 坑道の 出来事（実績へ）。bottom = いちばん 下の へや、chestOpen = 宝箱、cave = ほらあなの 部屋、area = 坑道の 場所 */
+export type MineAchEvent =
+  | { type: 'bottom' | 'chestOpen'; tick: number; tier?: number }
+  | { type: 'cave'; tick: number; kind: CaveKind }
+  | { type: 'area'; tick: number; kind: MineAreaKind };
+
+/** 坑道の 出来事を 記録にする（どれも 1 回で 足りる = 最大 1） */
+export function applyMineEvents(s: StatSink, events: readonly MineAchEvent[]): void {
+  for (const e of events) {
+    switch (e.type) {
+      case 'cave':
+        s.setMax(`cave:${e.kind}`, 1);
+        break;
+      case 'area':
+        s.setMax(`area:${e.kind}`, 1);
+        break;
+      case 'bottom':
+        s.setMax('mineBottom', 1);
+        break;
+      case 'chestOpen':
+        s.setMax('mineChest', 1);
+        break;
+      default: {
+        const never: never = e;
+        return never;
+      }
     }
   }
 }

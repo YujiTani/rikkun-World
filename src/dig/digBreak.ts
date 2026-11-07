@@ -1,5 +1,6 @@
 import type { ItemId, TargetInfo, VoxelWorld } from '../contracts';
 import { isFloraBlock } from '../world/blocks/flora';
+import { isFloorDeco } from '../world/blocks/mineBoken';
 import { CHALK_FACES, CHALK_NORMAL, chalkInfo, isChalkMarkId } from '../world/blocks/chalkMark';
 import { chestBlockInfo, chestFrontAt, chestPartner } from '../world/blocks/chestBlock';
 import { futonPartner } from '../world/blocks/futon';
@@ -39,6 +40,11 @@ export function liftFlora(c: DigCore, x: number, y: number, z: number): void {
   if (id === 'nobana') giveStacks(c, [{ item: 'nobana', count: 1 }], x, y, z);
 }
 
+/** MINE-1E: (x, y, z) に 床の 飾り（ふるい レール・たおれた はしご・たきびの あと）が あれば 消す（下の ブロックを こわした とき。何も 出ない） */
+export function liftFloorDeco(c: DigCore, x: number, y: number, z: number): void {
+  if (isFloorDeco(c.world.getBlock(x, y, z))) c.world.setBlock(x, y, z, 'air');
+}
+
 /** ブロックを こわす（ひびが MAX のあと）。世界の書きかえ・ドロップ・出来事・道具のたいきゅうまでを 受け持つ */
 export class BlockBreaker {
   constructor(
@@ -72,6 +78,7 @@ export class BlockBreaker {
     this.clearChalkMarks(x, y, z);
     this.dropUnsupportedTorches(x, y, z);
     liftFlora(c, x, y + 1, z); // FLORA-75: 下の ブロックを こわすと 上の くさ・のばな も 消える
+    liftFloorDeco(c, x, y + 1, z); // MINE-1E: 上の レール・はしご・たきびの あとも 消える（何も 出ない）
     this.dropHangingTsurara(x, y, z); // MINE-1D: 上の ブロックを こわすと 下に さがる つららも こわれる
     const farmDrop = FARM_BREAK_DROP[t.id] ?? (houseDrop ? { item: houseDrop, count: 1 } : null);
     const fixed = farmDrop ? farmDrop.count : DUG_ALWAYS_ONE.has(dropId) ? 1 : (craft?.fixedDrop(dropId) ?? null);

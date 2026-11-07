@@ -1,4 +1,4 @@
-import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isPropIndex, isTorchIndex } from '../blocks/blockTypes';
+import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isFloorDecoIndex, isPropIndex, isTorchIndex } from '../blocks/blockTypes';
 import { BLOCK_TILES } from '../blocks/textures';
 import type { WorldLight } from '../light/WorldLight';
 import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
@@ -94,7 +94,7 @@ function scanColumn(world: ArrayVoxelWorld, x: number, z: number): Col {
   let wy = -1;
   for (let y = Math.max(world.topY(x, z), -1); y >= 0; y--) {
     const b = world.getIndex(x, y, z);
-    if (b === AIR || isTorchIndex(b) || isCrossIndex(b) || isPropIndex(b)) continue;
+    if (b === AIR || isTorchIndex(b) || isCrossIndex(b) || isPropIndex(b) || isFloorDecoIndex(b)) continue;
     if (isWaterIndex(b)) {
       if (wy < 0) wy = y;
       continue;
