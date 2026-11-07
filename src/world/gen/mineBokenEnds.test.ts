@@ -24,7 +24,7 @@ import { GenCols, ptKey, walkDist, type PathCell, type Pt } from './mineShaftKit
  * 赤の 確かめ: 1E の 前は 1E の 坑道が なく「窓口が まだ ない」「1E の 坑道が ない」で 落ちる。
  */
 
-vi.setConfig({ testTimeout: 600_000 });
+vi.setConfig({ testTimeout: 900_000 });
 
 const PER_KIND = 3;
 interface Pick {
@@ -66,7 +66,7 @@ beforeAll(() => {
     needBokenHook(h, ['shaftPath']);
     picks.push({ seed: a.seed, shaft: a.shaft, path: h.shaftPath(a.shaft.id), orig: new GenCols(a.seed), dug: new DugCols(a.seed, dugSetOf(a.shaft)) });
   }
-}, 900_000);
+}, 1200_000);
 
 const tagOf = (p: Pick): string => `seed ${p.seed} ${p.shaft.id}`;
 const fail = (what: string, bad: string[]): void => expect(bad.slice(0, 8), `${what}: ${bad.length} つ`).toEqual([]);

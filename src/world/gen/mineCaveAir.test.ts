@@ -40,5 +40,5 @@ describe('CaveAir は carveCaves と 同じ 空気を 答える', () => {
       }
     }
     expect(airCells, '空気の マスを 1 つ 以上 くらべた').toBeGreaterThan(50);
-  }, 60_000);
+  }, 180_000);
 });

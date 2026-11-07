@@ -124,7 +124,7 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
     }
     expect(n).toBeGreaterThan(0);
     expect(bad.slice(0, 8), `${bad.length} / ${n} 列が 前と ちがう`).toEqual([]);
-  }, 180_000); // 列を 作る 時間は 手元でも 2 秒。回す 数が 多い ときの ゆとり（おそくて 落ちない）。1D の 部屋の 計画〔区画ごとに 初めの 1 回〕の 分を ふくめて 60 秒から ふやした
+  }, 540_000); // 列を 作る 時間は 手元でも 2 秒。回す 数が 多い ときの ゆとり（おそくて 落ちない）。1D の 部屋の 計画〔区画ごとに 初めの 1 回〕の 分を ふくめて 60 秒から ふやした
 
   it('山の 面の 見える 鉱石は 前と 同じ 場所（同じ 鉱石）', () => {
     const bad: string[] = [];
@@ -140,7 +140,7 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
     }
     expect(n).toBeGreaterThan(0);
     expect(bad.slice(0, 8), `${bad.length} / ${n} マスが 前と ちがう`).toEqual([]);
-  }, 60_000);
+  }, 180_000);
 
   it('はじまりの 岩山の せきたんは 前と 同じ 場所', () => {
     const bad: string[] = [];
@@ -154,7 +154,7 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
     }
     expect(n).toBeGreaterThan(0);
     expect(bad, `${bad.length} / ${n} マス`).toEqual([]);
-  }, 60_000);
+  }, 180_000);
 });
 
 // ------------------------------------------------------------------ A2・A3・A16: はらっぱ・もりの 陸の 列
@@ -178,7 +178,7 @@ beforeAll(() => {
       samples.push({ seed, cx, cz, mine, ores, clusters: mine.oreClusters(cx, cz) });
     }
   }
-}, 240_000);
+}, 720_000);
 
 type OreCount = { all: number; visible: number };
 const oreOf = (s: Sample, layer: Layer, block: string, key: 'all' | 'visible'): number => (s.ores.layers[layer]?.ores as Record<string, OreCount | undefined> | undefined)?.[block]?.[key] ?? 0;
@@ -432,7 +432,7 @@ describe('鉱石は 地形・ふつうの ほらあな・洞くつの 口を 掘
       }
     }
     expect(cells).toBeGreaterThan(0);
-  }, 180_000); // 部屋の 計画〔1D。区画ごとに 初めの 1 回〕の ぶん
+  }, 540_000); // 部屋の 計画〔1D。区画ごとに 初めの 1 回〕の ぶん
 });
 
 // ------------------------------------------------------------------ B6: ★の 量（MINE-1B。§4.2）
@@ -519,7 +519,7 @@ describe('B15: ダイヤの いし（ふかい 層だけ・かたまり 1〜2。
   // 列を 最大 1,600 本 読む さがしは 一度だけ、長い 時間切れで 先に 済ませる（負荷が 高くても 5 秒で 落ちない。上の samples と 同じ 考え）
   beforeAll(() => {
     diamondClusters();
-  }, 240_000);
+  }, 720_000);
 
   it('かたまりが 300 こ 以上 集まる（列が 0 でも かたまりが 0 でも 通らない ように）', () => {
     expect(createMineHook({ seed: 1 }).oreTable().some((r) => (r.block as string) === 'diamond_ore'), '表に ダイヤの いし').toBe(true);

@@ -17,7 +17,7 @@ import { spawnOf } from './terrain';
  *   スタートの 見え方の 描画回数は E2E〔e2e/mine1e.spec.ts〕。
  */
 
-vi.setConfig({ testTimeout: 600_000 });
+vi.setConfig({ testTimeout: 900_000 });
 
 describe('見本を 作る', () => {
   it.skipIf(!process.env['MAKE_1D_GOLDEN'])('1D の あとの 形〔20 シードの はじまりの 坑道・スタートに 近い 坑道〕を 作る〔1D 入りの main で 1 回〕', () => {

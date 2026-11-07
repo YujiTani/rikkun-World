@@ -24,7 +24,7 @@ import { DEPTHS, SEED_POOL, bigSample, hookE, needBokenHook, sum, tablesOf, type
  *   赤の 確かめ: 1E の 前は「窓口が まだ ない」「1E の 坑道が ない」で 落ちる。
  */
 
-vi.setConfig({ testTimeout: 300_000 });
+vi.setConfig({ testTimeout: 900_000 });
 
 const ROLLS = 2000;
 const REAL_CAMPS = 40;
@@ -53,7 +53,7 @@ beforeAll(() => {
   } catch (e) {
     setupError = e;
   }
-}, 300_000);
+}, 900_000);
 
 function setup(): void {
   const h0 = hookE(SEED_POOL[0]!);

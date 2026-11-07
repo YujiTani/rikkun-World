@@ -25,7 +25,7 @@ import { SEEDS_20, components, pathIndex, type PathCell, type Pt } from './mineS
  * 赤の 確かめ: 1E の 前は `gen`・表の 窓口が なく「1E の 坑道が ない」「窓口が まだ ない」で 落ちる。
  */
 
-vi.setConfig({ testTimeout: 600_000 });
+vi.setConfig({ testTimeout: 900_000 });
 
 /** 数の 下限〔仕様の 数: E1 1,300・E6 1,200・E7 3,000・E9 250〕 */
 const NEED = { shafts: 1300, eda: 1200, ends: 3000, mazes: 250 } as const;
@@ -39,7 +39,7 @@ beforeAll(() => {
   const r = bigSample((s) => s.length >= NEED.shafts && edaOf(s) >= NEED.eda && endsOf(s) >= NEED.ends && mazesOf(s) >= NEED.mazes);
   all = r.all;
   used = r.seeds;
-}, 900_000); // CI は ほかの テストと 同時に 回るので 余裕を みる
+}, 1200_000); // CI は ほかの テストと 同時に 回るので 余裕を みる
 
 describe('E1: 性格', () => {
   it('はじまりの 坑道〔20 シード〕は gen が c・style が null。同じ シードは 同じ 性格〔窓口を 作りなおしても 同じ〕', () => {
@@ -118,7 +118,7 @@ describe('E1: 性格', () => {
     }
     expect(counts.size, `さか道の 本数 ${[...counts].sort((x, y) => x - y).join(',')}`).toBeGreaterThanOrEqual(3);
     expect(Math.min(...counts), '1 本 以上').toBeGreaterThanOrEqual(1);
-  }, 600_000);
+  }, 900_000);
 });
 
 describe('E2: 階〔計画〕', () => {

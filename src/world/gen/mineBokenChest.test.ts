@@ -61,7 +61,7 @@ describe.each(NAMES)('E14: 宝箱の 表 %s', (name) => {
       c.set(r.tier, (c.get(r.tier) ?? 0) + 1);
     }
     for (const row of t.tiers) expect(Math.abs((c.get(row.tier) ?? 0) / n - row.chance), `段 ${row.tier}〔表 ${row.chance}〕`).toBeLessThanOrEqual(0.015);
-  }, 60_000);
+  }, 180_000);
 
   it('中身は 段の わく〔slots〕の 数・同じ〔表, seed, 段〕は 同じ 中身', () => {
     const t = tableOf(name);

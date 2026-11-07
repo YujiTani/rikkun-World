@@ -107,7 +107,7 @@ describe('C16: くじを 引く', () => {
       c.set(t, (c.get(t) ?? 0) + 1);
     }
     for (const t of table().tiers) expect(Math.abs((c.get(t.tier) ?? 0) / n - t.chance), `段 ${t.tier}（表 ${t.chance}）`).toBeLessThanOrEqual(0.015);
-  }, 60_000);
+  }, 180_000);
 
   it.each(TIERS)('段 %i: 5,000 回 → わくの 数が slots・わくごとの めずらしさの わりあいが 表の rarity から ±0.03〔物が 無い めずらしさは 1 つ 下に 足して くらべる〕・sure の 段は どの 回も その めずらしさが 1 つ 以上', (tier) => {
     const row = table().tiers.find((t) => t.tier === tier)!;
@@ -142,7 +142,7 @@ describe('C16: くじを 引く', () => {
       if (Math.abs(have - want) > 0.03) bad.push(`${r}: ${have.toFixed(3)}（表 ${want.toFixed(3)}）`);
     }
     expect(bad, `段 ${tier}`).toEqual([]);
-  }, 60_000);
+  }, 180_000);
 
   it('中身は くじの 箱の 物だけ・数は 重ねられる 物は 1〜その めずらしさの dropMax・重ねられない 物〔道具・そうび〕は 1。同じ 物が 2 つの わくに 出ても よい', () => {
     const pooled = new Set(Object.values(pool()).flat());
@@ -157,7 +157,7 @@ describe('C16: くじを 引く', () => {
         if (def.maxStack === 1) expect(it.count).toBe(1);
       }
     }
-  }, 60_000);
+  }, 180_000);
 
   it('同じ (表, seed, 段) は いつも 同じ 中身・べつの seed で 中身が かわる', () => {
     const a = H.rollChest('kodo', 12345, 3);

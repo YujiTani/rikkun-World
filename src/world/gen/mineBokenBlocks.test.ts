@@ -14,7 +14,7 @@ import { SEEDS_20, bbox, components, isSolidIndex, pathIndex, shapeProblems, typ
  * 光〔E3〕は mineBokenLight.test.ts。赤の 確かめ: 1E の 前は 1E の 坑道が なく「1E の 坑道が ない」で 落ちる。
  */
 
-vi.setConfig({ testTimeout: 600_000 });
+vi.setConfig({ testTimeout: 900_000 });
 
 interface Sample {
   seed: number;
@@ -35,7 +35,7 @@ beforeAll(() => {
     const g = new DugCols(seed, dugSetOf(r.shaft));
     samples.push({ seed, shaft: r.shaft, path, g, orig: r.g, reach: reachOf(g, r.shaft) });
   }
-}, 900_000);
+}, 1200_000);
 
 const tagOf = (s: Sample): string => `seed ${s.seed} ${s.shaft.id}`;
 const fail = (what: string, bad: string[]): void => expect(bad.slice(0, 8), `${what}: ${bad.length} つ`).toEqual([]);

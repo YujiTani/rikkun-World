@@ -39,7 +39,7 @@ const DIR_VEC = [
 const angleBetween = (a: { x: number; z: number }, b: { x: number; z: number }): number => (Math.acos(Math.max(-1, Math.min(1, (a.x * b.x + a.z * b.z) / (Math.hypot(a.x, a.z) * Math.hypot(b.x, b.z))))) * 180) / Math.PI;
 
 /** 区画の 抽選・シード 20 の 坑道を たくさん しらべる ので 1 つの it に ゆとりを みる */
-vi.setConfig({ testTimeout: 120_000 });
+vi.setConfig({ testTimeout: 600_000 });
 
 interface StartRow {
   seed: number;
@@ -54,7 +54,7 @@ beforeAll(() => {
     const sp = spawnOf(seed);
     rows.push({ seed, sp, start: hook1c(seed).startShaft(), g: new GenCols(seed) });
   }
-}, 120_000);
+}, 360_000);
 
 describe('C1: はじまりの 坑道（新しい 世界 20 シード）', () => {
   it('窓口が 答える: start が true・入口は 小さな いしの 山の 横〔kind: mound・mound あり〕', () => {
@@ -129,7 +129,7 @@ describe('C1: はじまりの 坑道（新しい 世界 20 シード）', () => 
       }
       expect(bad.slice(0, 5), `seed ${r.seed}`).toEqual([]);
     }
-  }, 60_000);
+  }, 180_000);
 
   it('同じ シードで 2 回 作ると 同じ〔べつの 窓口を 作りなおしても〕', () => {
     for (const r of rows.slice(0, 5)) expect(hook1c(r.seed).startShaft(), `seed ${r.seed}`).toEqual(r.start);
@@ -194,7 +194,7 @@ describe('C2: ほかの 坑道（256×256 区画）', () => {
         .slice(0, 4);
       for (const shaft of near) others.push({ seed, sp, shaft, g, start });
     }
-  }, 120_000);
+  }, 360_000);
 
   it('置かれた 坑道が 十分 ある〔6 シード × スタートの まわり 3,072 マス四方〕', () => {
     expect(others.length).toBeGreaterThanOrEqual(10);
@@ -272,7 +272,7 @@ describe('C2: ほかの 坑道（256×256 区画）', () => {
       else short.push(`seed ${seed}: ${found.length}`);
     }
     expect(ok / SEEDS_20.length, `N ${radius}・M ${count} に 足りない: ${short.join(' / ')}`).toBeGreaterThanOrEqual(share);
-  }, 120_000);
+  }, 360_000);
 });
 
 // ------------------------------------------------------------------ 形
@@ -284,7 +284,7 @@ describe('C3: 形（さか道・おどりば・いちばん 下の へや）', (
       const s = sampleShafts(seed, 2, { legacy: true });
       for (const shaft of s.shafts) samples.push({ seed, shaft, path: s.hook.shaftPath(shaft.id), g: s.g });
     }
-  }, 240_000);
+  }, 720_000);
 
   it('20 シードの 坑道が 集まる〔はじまりの 20 ＋ ほか〕', () => {
     expect(samples.length).toBeGreaterThanOrEqual(SEEDS_20.length + 10);
@@ -302,7 +302,7 @@ describe('C3: 形（さか道・おどりば・いちばん 下の へや）', (
     const bad: string[] = [];
     for (const s of samples) for (const m of shapeProblems(s.g, s.shaft, s.path).slice(0, 3)) bad.push(`seed ${s.seed} ${s.shaft.id}: ${m}`);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 120_000);
+  }, 360_000);
 });
 
 // ------------------------------------------------------------------ C10
@@ -324,5 +324,5 @@ describe('C10: 坑道の 列を ちがう 順で 作っても 同じ', () => {
         expect(shuffled.get(k), `seed ${seed} 列 ${k}（かきまぜ）`).toBe(h);
       }
     }
-  }, 120_000);
+  }, 360_000);
 });

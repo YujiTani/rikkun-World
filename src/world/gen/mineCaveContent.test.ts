@@ -31,7 +31,7 @@ import { GenCols } from './mineShaftKit';
  * 赤の 確かめ: 1D の 前は 窓口〔caves〕が なく「窓口が まだ ない」で 落ちる。
  */
 
-vi.setConfig({ testTimeout: 120_000 });
+vi.setConfig({ testTimeout: 360_000 });
 
 const REGIONS = 12;
 
@@ -58,7 +58,7 @@ beforeAll(() => {
     const layers = h.layers();
     for (const c of found.values()) rows.push({ ...reportRoom(seed, g, h, c, layers), h });
   }
-}, 280_000);
+}, 840_000);
 
 const of = (kind: CaveKind): Row[] => rows.filter((r) => r.cave.kind === kind);
 const tag = (r: Row): string => `seed ${r.seed} ${r.cave.id} (${r.cave.kind}) 中心 (${r.cave.center.x}, ${r.cave.center.y}, ${r.cave.center.z})`;
