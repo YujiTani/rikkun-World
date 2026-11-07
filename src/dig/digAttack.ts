@@ -37,6 +37,8 @@ export class DigAttack {
   private readonly pvOrigin = { x: 0, y: 0, z: 0 };
   /** aimedYokaiId 用（毎フレーム呼ばれても new しない） */
   private readonly yokaiOriginScratch = { x: 0, y: 0, z: 0 };
+  /** さいごに 決めた 向きで 足した 仮の 妖怪（がしゃどくろの 箱・燃えかす）。なければ null */
+  private ghost: YokaiInfo | null = null;
 
   constructor(private readonly d: DigAttackDeps) {}
 
@@ -64,6 +66,9 @@ export class DigAttack {
 
   targetCenter(list: YokaiInfo[], id: number): Vec3 | null {
     for (const y of list) if (y.id === id) return { ...centerOfYokai(y, this.targetScratch) };
+    // 仮の 妖怪（がしゃどくろの 体の 箱・燃えかす）は 一覧に 無い。決まりで えらんだ ときは その 当たった 点へ（突きが 下の 手にも かたむく。COOP-1 4d-3）
+    const g = this.ghost;
+    if (g && g.id === id) return { ...centerOfYokai(g, this.targetScratch) };
     return null;
   }
 
@@ -107,6 +112,7 @@ export class DigAttack {
     const yokaiBeforeBlock = before !== null && before.distance < tgt!.distance;
     // 仮の id（がしゃどくろの 体の 箱・燃えかす）は 一覧に 無いので、当たった 点に 立つ 仮の 妖怪を 足して 規則 2 に 入れる
     let yokaiList = list;
+    this.ghost = null;
     if (aimYokai !== null && aimYokai >= GHOST_ID_MIN && !list.some((q) => q.id === aimYokai)) {
       const hit = c.m4.yokai().raycast(o, d, tgt?.distance ?? 12);
       if (hit && hit.id === aimYokai) {
@@ -116,6 +122,7 @@ export class DigAttack {
         };
         ghost.position.y -= boxOf(ghost).h / 2;
         yokaiList = [...list, ghost];
+        this.ghost = ghost;
       }
     }
     // WEAPON-6: 次に 始まる わざ・何段目か（きらめく カタナだけ。ほかは かまえの わざ）
