@@ -53,8 +53,8 @@ export const SHAPE_TABLE = {
   hibi: { width: 1, height: 2, depth: [2, 4] as Span, cells: [4, 8] as Span, torchBefore: [2, 3] as Span, torches: 1 },
   /** 行きどまりの へや・かくしべや */
   room: { floor: 5, height: 4 },
-  /** 迷路: ますの 道・かべ・高さ・分かれ目／道の 輪の 下限・行きどまり・入口まで 歩く 数の 上限・たいまつの 上限 */
-  maze: { cell: 3, wall: 1, height: 4, forks: 3, loops: 1, deadEnds: [2, 4] as Span, walkMax: 60, torchMax: 16 },
+  /** 迷路: ますの 道・かべ・高さ・分かれ目／道の 輪の 下限・行きどまり・入口まで 歩く 数の 上限・たいまつの 上限・へやの ある 行きどまりが 入らない とき 迷路ごと やりなおす 回数 */
+  maze: { cell: 3, wall: 1, height: 4, forks: 3, loops: 1, deadEnds: [2, 4] as Span, walkMax: 60, torchMax: 16, strictTries: 12 },
   camp: { floor: 5, height: 4, mouth: 3 },
   limit: {
     torchesPerShaft: 320,

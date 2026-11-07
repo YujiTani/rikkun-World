@@ -144,6 +144,7 @@ export function placeMaze(
   const lev = STYLE_TABLE.level.find((l) => l.id === c.style.level)!;
   const g = lev.mazeGrid!;
   const spots = roadSpots(fl).sort(() => rng() - 0.5);
+  let strictLeft = M.strictTries;
   for (const sp of spots.slice(0, 2 * TUNE.roadTries)) {
     const o = fl.main[sp.i]!;
     if (
@@ -300,12 +301,22 @@ export function placeMaze(
       if (!fit.check(base)) continue;
       const farEnd = mk(far, kinds.get(far)!);
       if (!fit.check(farEnd.piece)) continue;
+      // へやの ある 行きどまりが 入らない ときは、はじめの 何回かは 迷路ごと やりなおす〔「あたり」に かたよらない ため〕
+      const made = new Map<number, ReturnType<typeof mk>>();
+      let roomsFit = true;
+      for (const l of graph.leaves) {
+        if (l === far) continue;
+        const e = mk(l, kinds.get(l)!);
+        made.set(l, e);
+        if (!fit.check(e.piece)) roomsFit = false;
+      }
+      if (!roomsFit && strictLeft-- > 0) continue;
       fit.add(base);
       fit.add(farEnd.piece);
       endPieces.set(far, farEnd);
       for (const l of graph.leaves) {
         if (l === far) continue;
-        let e = mk(l, kinds.get(l)!);
+        let e = made.get(l)!;
         if (!fit.add(e.piece)) {
           e = mk(l, "atari");
           fit.add(e.piece);
