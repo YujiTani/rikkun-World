@@ -82,4 +82,15 @@ describe('ShiverAnim', () => {
     expect(a.active()).toBe(false);
     expect(a.pose()).toEqual({ sx: 1, sy: 1, rollDeg: 0 });
   });
+
+  it('pose() は 毎回 同じ 入れ物を 返す（毎フレーム 新しい 物を 作らない）', () => {
+    const a = new ShiverAnim();
+    const first = a.pose();
+    a.start();
+    a.advance(8 / 60);
+    expect(a.pose()).toBe(first);
+    expect(first.sy).toBeLessThan(1);
+    const mine = { sx: 0, sy: 0, rollDeg: 0 };
+    expect(shiverFrame('A', 3, mine)).toBe(mine);
+  });
 });

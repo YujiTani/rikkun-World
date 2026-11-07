@@ -4,7 +4,7 @@
  *   A: 0〜6 つぶす（2 コマ目で 半分）/ 6〜18 左右 ±3 度 × 3 回 / 18〜24 もどる
  *   B: 0〜8 つぶす（頭を 下げる 代わり）/ 8〜20 左右 ±3 度 × 2 回 ゆっくり / 20〜26 もどる
  * つぶしは たて −5%・よこ +3%（体積を たもつ。MOTION 12）。はじめは じわっと せず、2 コマ目で つぶしの 半分（MOTION 3）。
- * 歩きだしたら やめて よい（`cancel`）。「うごきを へらす」ときは 呼ばない（ログと 音だけ）。
+ * 歩きだしたら やめて よい（`cancel`）。「うごきを へらす」ときは `BlockDoll.shiver(true)` で 動かさない（ログと 音だけ）。一人称では かけない（手が つぶれて 見えるため）。
  */
 
 /** 動きの 数（コマ・倍率・度） */
@@ -32,8 +32,8 @@ export interface ShiverPose {
   rollDeg: number;
 }
 
-/** コマ f（小数も 可）の 形。つぶし s は 0 → 1 → 0 */
-export function shiverFrame(v: ShiverVariant, f: number): ShiverPose {
+/** コマ f（小数も 可）の 形。つぶし s は 0 → 1 → 0。`out` を わたすと それを 書きかえて 返す（毎フレーム 新しい 物を 作らない） */
+export function shiverFrame(v: ShiverVariant, f: number, out: ShiverPose = { sx: 1, sy: 1, rollDeg: 0 }): ShiverPose {
   const d = SHIVER[v];
   let s: number;
   let roll = 0;
@@ -47,7 +47,10 @@ export function shiverFrame(v: ShiverVariant, f: number): ShiverPose {
   } else if (f < d.squash + d.shake + d.back) {
     s = 1 - (f - d.squash - d.shake) / d.back;
   } else s = 0;
-  return { sx: 1 + (SHIVER.squashX - 1) * s, sy: 1 + (SHIVER.squashY - 1) * s, rollDeg: roll };
+  out.sx = 1 + (SHIVER.squashX - 1) * s;
+  out.sy = 1 + (SHIVER.squashY - 1) * s;
+  out.rollDeg = roll;
+  return out;
 }
 
 /** ぶるっの 進み方（時間で 数える）。start のたびに A と B を こうごに */
@@ -85,10 +88,12 @@ export class ShiverAnim {
 
   /** 今の 形（毎回 同じ 入れ物を 書きかえて 返す） */
   pose(): ShiverPose {
-    const p = this.frame < 0 ? { sx: 1, sy: 1, rollDeg: 0 } : shiverFrame(this.v, this.frame);
-    this.out.sx = p.sx;
-    this.out.sy = p.sy;
-    this.out.rollDeg = p.rollDeg;
-    return this.out;
+    if (this.frame < 0) {
+      this.out.sx = 1;
+      this.out.sy = 1;
+      this.out.rollDeg = 0;
+      return this.out;
+    }
+    return shiverFrame(this.v, this.frame, this.out);
   }
 }
