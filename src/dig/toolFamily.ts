@@ -54,6 +54,14 @@ const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
   diamond_ore: 'stone',
   tsurara: 'stone', // MINE-1D: つらら（なかま いし）
   kodo_waku: 'log', // MINE-1C: 坑道の わくは き の なかま（おの）
+  hibi_ishi: 'stone', // MINE-1E: ひび・くずれは いし の なかま
+  kuzure_ishi: 'stone',
+  kowareta_waku: 'log', // MINE-1E: こわれた わく・レール・はしごは き の なかま、たきびの あとは すみ（いし）
+  furui_rail_x: 'log',
+  furui_rail_z: 'log',
+  taoreta_hashigo_x: 'log',
+  taoreta_hashigo_z: 'log',
+  takibi_ato: 'stone',
   // つち（あう道具: くわ）
   grass: 'dirt',
   dirt: 'dirt',

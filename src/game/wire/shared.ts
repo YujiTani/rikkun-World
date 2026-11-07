@@ -6,7 +6,7 @@ import { PlayerCombatImpl } from '../../combat';
 import { StaggerIcons } from '../../fx/parryFx';
 import { SamuraiBook } from '../../craft/SamuraiBook';
 import { LogSystem } from '../../ui/log';
-import { W2_SETTING_DEFAULTS, type ItemId, type YokaiKind, type CombatEvent, type DigEvent, type SwingAnim, type Inventory, type Vec3, type W2Settings } from '../../contracts';
+import { W2_SETTING_DEFAULTS, type ItemId, type ItemStack, type YokaiKind, type CombatEvent, type DigEvent, type SwingAnim, type Inventory, type Vec3, type W2Settings } from '../../contracts';
 import type { YokaiPartner } from '../../yokai/ai/target';
 import { AchievementSystem } from '../../achievements';
 import { CelebrateUi } from '../../ui/celebrate';
@@ -86,6 +86,8 @@ interface Shared {
   /** COOP-1 作業 3d: modal（本・建築士さん）が active の あいだ 1 コマごとに 呼ぶ（2P の「ちょっと まってね」・「＋で さんか」の 出し入れ。wireDuo が 差しかえる） */
   duoModalTick: () => void;
   requestSave: () => void;
+  /** MINE-1E: キャンプの たんすを はじめて あける ときの 中身〔wireMine が つなぐ。つなぐ 前は null〕。`StorageSystem` の firstFill が 読む */
+  campFill: (x: number, y: number, z: number) => ItemStack[] | null;
   skipSignalLog: boolean;
   onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
   yokaiManager: YokaiManager | null;
@@ -156,6 +158,7 @@ export function createShared(): Shared {
     houseModal: { tick: () => undefined, render: () => undefined },
     duoModalTick: () => {},
     requestSave: () => {},
+    campFill: () => null,
     skipSignalLog: false,
     onDropPicked: () => {},
     yokaiManager: null,

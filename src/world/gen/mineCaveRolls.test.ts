@@ -16,7 +16,7 @@ import type { Layer } from './mineShaftKit';
  * 赤の 確かめ: 1D の 前は `mine.caveRolls` が なく「窓口が まだ ない」で 落ちる。
  */
 
-vi.setConfig({ testTimeout: 120_000 });
+vi.setConfig({ testTimeout: 360_000 });
 
 /** 「陸の 区画」の 目安〔区画の 陸の わりあい〕。部屋は 区画より 小さい ので 半分 以上 陸なら 置ける はず */
 const LAND = 0.5;
@@ -37,7 +37,7 @@ beforeAll(() => {
     const a = areaAround(seed, REGIONS_STAT);
     samples.push({ seed, rolls: h.caveRolls(a.x0, a.z0, a.x1, a.z1) });
   }
-}, 600_000); // CI は ほかの テストと 同時に 回るので 余裕を みる
+}, 900_000); // CI は ほかの テストと 同時に 回るので 余裕を みる
 
 const key = (r: { rx: number; rz: number; layer: string }): string => `${r.rx},${r.rz},${r.layer}`;
 

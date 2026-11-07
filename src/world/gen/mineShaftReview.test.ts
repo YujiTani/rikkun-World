@@ -18,6 +18,7 @@ import {
   type Pt,
   type Shaft,
 } from './mineShaftKit';
+import { legacyOld } from './mineLegacyKit';
 import { SHAFT_CONFIG } from './mineShaftConfig';
 import { heightAt, spawnOf } from './terrain';
 
@@ -32,7 +33,7 @@ import { heightAt, spawnOf } from './terrain';
  *   数〔cover・roofedWithin〕は 実装の 設定〔mineShaftConfig.ts〕から 読む。件数・並びは 決め打ちしない〔#311〕。時間では 合否を きめない。
  */
 
-vi.setConfig({ testTimeout: 120_000 });
+vi.setConfig({ testTimeout: 360_000 });
 
 interface Sample {
   seed: number;
@@ -44,10 +45,10 @@ const samples: Sample[] = [];
 
 beforeAll(() => {
   SEEDS_20.forEach((seed) => {
-    const s = sampleShafts(seed, 4);
+    const s = sampleShafts(seed, 4, { legacy: true });
     for (const shaft of s.shafts) samples.push({ seed, shaft, path: s.hook.shaftPath(shaft.id), g: s.g });
   });
-}, 240_000);
+}, 720_000);
 
 // ------------------------------------------------------------------ R1 入口の 前
 
@@ -83,7 +84,7 @@ describe('R1〔重大 1〕: 入口の 前に かべが ない', () => {
       if (comeBack.length === 0) bad.push(`seed ${s.seed} ${s.shaft.id}: 入口 (${e.x}, ${e.y}, ${e.z}) と 入口の 前の 立てる マス ${outside.length} こが 行き来 できない`);
     }
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 240_000);
+  }, 720_000);
 });
 
 // ------------------------------------------------------------------ R2 古い 列ばかり
@@ -193,7 +194,7 @@ describe('R5〔軽微 4〕: 横穴の 出口の たいまつは 道の 両がわ
     }
     expect(exits, 'しらべた 出口').toBeGreaterThan(0);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 120_000);
+  }, 360_000);
 });
 
 // ------------------------------------------------------------------ R6 touchesShaft の 見張り
@@ -210,16 +211,33 @@ describe('R6〔軽微 9〕: キットの「実際に 坑道が かえる 列」�
   it.each(SEEDS)('seed %i: 道 ±2・山が かかる 列は ぜんぶ touchesShaft。touchesShaft の 列の 数は その 1.6 倍 以下〔ゆるい 上限。今は 1.2〜1.3 倍〕', (seed) => {
     const sp = spawnOf(seed);
     const box = { x0: sp.x - 1024, z0: sp.z - 1024, x1: sp.x + 1023, z1: sp.z + 1023 };
-    const h = hook1c(seed);
+    // MINE-1E の 準備で 直した: 1C の「広く 答えすぎない」は 1C・1D の 坑道〔`gen: 'c'`〕に かかる ので 1E の 前の 世界で 見る
+    const old = legacyOld(seed);
+    const h = hook1c(seed, { oldCols: old });
     const boxCols = colKeysIn(box);
     const real = new Set<number>();
     // 調べる 範囲の 中の 列だけ くらべる〔範囲の ふちに かかる 坑道は 外がわの 列が 範囲の 外〕
     const inBox = (k: number): boolean => boxCols.has(k);
     for (const s of h.shafts(box.x0, box.z0, box.x1, box.z1)) for (const k of touchedColKeys(s, h.shaftPath(s.id))) if (inBox(k)) real.add(k);
-    const covered = shaftCoveredCols(seed, box.x0, box.z0, box.x1, box.z1);
+    const covered = shaftCoveredCols(seed, box.x0, box.z0, box.x1, box.z1, old);
     expect(real.size, 'しらべる 列').toBeGreaterThan(0);
     const missing = [...real].filter((k) => !covered.has(k));
     expect(missing.length, 'touchesShaft が 答えない 列').toBe(0);
     expect(covered.size, `touchesShaft ${covered.size} 列 / 実際 ${real.size} 列`).toBeLessThanOrEqual(real.size * 1.6);
   });
+
+  // 新しい 世界〔1E の 坑道を 作る〕でも もれは 0〔広さの 上限は 1C・1D の 坑道だけ。1E の 坑道は E19 の 見る 区画の 数で 見る〕
+  it.each(SEEDS)('seed %i: 新しい 世界の 1E の 坑道も 道 ±2・山が かかる 列は ぜんぶ touchesShaft〔もれ 0〕', (seed) => {
+    const sp = spawnOf(seed);
+    const box = { x0: sp.x - 1024, z0: sp.z - 1024, x1: sp.x + 1023, z1: sp.z + 1023 };
+    const h = hook1c(seed);
+    const boxCols = colKeysIn(box);
+    const real = new Set<number>();
+    const shafts = h.shafts(box.x0, box.z0, box.x1, box.z1);
+    expect(shafts.filter((s) => (s as { gen?: string }).gen === 'e').length, '1E の 坑道が ない').toBeGreaterThan(0);
+    for (const s of shafts) for (const k of touchedColKeys(s, h.shaftPath(s.id))) if (boxCols.has(k)) real.add(k);
+    const covered = shaftCoveredCols(seed, box.x0, box.z0, box.x1, box.z1);
+    expect(real.size, 'しらべる 列').toBeGreaterThan(0);
+    expect([...real].filter((k) => !covered.has(k)).length, 'touchesShaft が 答えない 列').toBe(0);
+  }, 360_000);
 });

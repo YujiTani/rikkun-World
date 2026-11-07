@@ -47,6 +47,15 @@ export const BLOCK_ONLY_IDS = [
   ...CHEST_BLOCK_IDS,
   // MINE-1D（#351）: つらら（持てない。ほると せっかいせき `sekkaiseki` いつも 1 こ）
   'tsurara',
+  // MINE-1E: 坑道の 冒険の 8 こ（持てない。ほると いし／き／せきたん いつも 1 こ。`FARM_BREAK_DROP`）
+  'hibi_ishi',
+  'kuzure_ishi',
+  'furui_rail_x',
+  'furui_rail_z',
+  'kowareta_waku',
+  'taoreta_hashigo_x',
+  'taoreta_hashigo_z',
+  'takibi_ato',
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 

@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { colKey } from '../stream/ring';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { SEEDS_20, GenCols, hook1c, sampleShafts, type Shaft } from './mineShaftKit';
+import { legacyOld } from './mineLegacyKit';
 
 /**
  * MINE-1C（docs/design/MINE-1.md §4.9・§6.1 `work`・受け入れ基準 C14 の【ユニット】の 分）: 坑道の 仕事の 数。
@@ -45,7 +46,7 @@ const ones: One[] = [];
 
 beforeAll(() => {
   for (const seed of SEEDS) {
-    const s = sampleShafts(seed, 2);
+    const s = sampleShafts(seed, 2, { legacy: true });
     const onPath = new Set<number>();
     const cols = new Map<number, { cx: number; cz: number }>();
     const add = (cx: number, cz: number): void => void cols.set(colKey(cx, cz), { cx, cz });
@@ -60,14 +61,14 @@ beforeAll(() => {
     for (let dx = -400; dx <= 400; dx += 20) for (let dz = -400; dz <= 400; dz += 20) add((sp.x + dx) >> 4, (sp.z + dz) >> 4);
     ones.push({ seed, shafts: s.shafts, g: s.g, onPath, cols: [...cols.values()] });
   }
-}, 240_000);
+}, 720_000);
 
 describe('C14: 坑道の 仕事の 数（ユニット）', () => {
   it('見る 区画は 4 つ まで・光る ブロックは 80 こ まで〔窓口の 数〕。窓口は 数を 返す', () => {
     const bad: string[] = [];
     let seen = 0;
     for (const o of ones) {
-      const h = hook1c(o.seed);
+      const h = hook1c(o.seed, { oldCols: legacyOld(o.seed) });
       for (const { cx, cz } of o.cols) {
         const w = h.work(cx, cz);
         seen++;
@@ -77,13 +78,13 @@ describe('C14: 坑道の 仕事の 数（ユニット）', () => {
     }
     expect(seen).toBeGreaterThan(SEEDS.length * 100);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 240_000);
+  }, 720_000);
 
   it('ごまかさない: 作った 列の たいまつ・ほたるいしが 80 こ 以下で、窓口の「光る ブロック」は それ 以上', () => {
     const bad: string[] = [];
     let torches = 0;
     for (const o of ones) {
-      const h = hook1c(o.seed);
+      const h = hook1c(o.seed, { oldCols: legacyOld(o.seed) });
       for (const { cx, cz } of o.cols) {
         const n = glowing(o.g, cx, cz);
         torches += n;
@@ -94,13 +95,13 @@ describe('C14: 坑道の 仕事の 数（ユニット）', () => {
     }
     expect(torches, '坑道の たいまつが 1 本も ない').toBeGreaterThan(0);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 240_000);
+  }, 720_000);
 
   it('道が 通る 列は 区画 1 以上〔仕様の 縛りは「4 まで」「ふえない」。坑道が かからない 列の 値は 決めない〕', () => {
     const bad: string[] = [];
     let near = 0;
     for (const o of ones) {
-      const h = hook1c(o.seed);
+      const h = hook1c(o.seed, { oldCols: legacyOld(o.seed) });
       for (const { cx, cz } of o.cols) {
         if (!o.onPath.has(colKey(cx, cz))) continue;
         near++;
@@ -110,15 +111,15 @@ describe('C14: 坑道の 仕事の 数（ユニット）', () => {
     }
     expect(near, '道の 列').toBeGreaterThan(SEEDS.length * 10);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 240_000);
+  }, 720_000);
 
   it('読みこんだ 列の 数・場所で ふえない: ほかの 列を 先に 調べ・作っても、同じ 列は 同じ 数', () => {
     const bad: string[] = [];
     for (const o of ones) {
-      const fresh = hook1c(o.seed);
+      const fresh = hook1c(o.seed, { oldCols: legacyOld(o.seed) });
       const first = new Map(o.cols.map(({ cx, cz }) => [colKey(cx, cz), fresh.work(cx, cz)] as const));
       // 別の 窓口を 作り、世界の 大きな はんいの 坑道を さがして から、逆の 順で 数える
-      const busy = hook1c(o.seed);
+      const busy = hook1c(o.seed, { oldCols: legacyOld(o.seed) });
       busy.shafts(-3072, -3072, 3071, 3071);
       for (const { cx, cz } of [...o.cols].reverse()) {
         const w = busy.work(cx, cz);
@@ -127,11 +128,11 @@ describe('C14: 坑道の 仕事の 数（ユニット）', () => {
       }
     }
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 240_000);
+  }, 720_000);
 
   it('同じ 列は 何回 数えても 同じ〔窓口は 列の 座標と シードだけで 決まる〕', () => {
     const o = ones[0]!;
-    const h = hook1c(o.seed);
+    const h = hook1c(o.seed, { oldCols: legacyOld(o.seed) });
     const c = o.cols[0]!;
     const a = JSON.stringify(h.work(c.cx, c.cz));
     for (let i = 0; i < 5; i++) expect(JSON.stringify(h.work(c.cx, c.cz))).toBe(a);

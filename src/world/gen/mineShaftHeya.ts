@@ -2,14 +2,14 @@ import { SEA_Y } from '../../contracts';
 import { colKey } from '../stream/ring';
 import { CAVE_CONFIG as C, type CaveKind } from './mineCaveConfig';
 import type { Overlay } from './mineCaveGrid';
-import { finishRoom, stageRoom, type RoomBox, type RoomStage } from './mineCaveRoom';
+import { finishRoomSteps, stageRoomSteps, type RoomBox, type RoomStage } from './mineCaveRoom';
 import { makeShape, type LocalShape } from './mineCaveShape';
 import type { HiroiTryRow, PlacedCave } from './mineCaves';
 import type { MineLayerId } from './mineConfig';
 import { tryHiroiPlan } from './mineHiroiPlan';
 import type { HiroiLayer } from './mineHiroiTable';
 import { hiroiShape, turnCell, turnPlan, worldPlan, type HiroiLayout, type Turn } from './mineHiroiShape';
-import { stageHiroi } from './mineHiroiStage';
+import { stageHiroiSteps } from './mineHiroiStage';
 import { layerSpan } from './mineLayers';
 import { keyOf } from './mineShaftBuild';
 import { SHAFT_CONFIG as SS } from './mineShaftConfig';
@@ -58,12 +58,12 @@ export interface HeyaPrep {
   box: RoomBox;
   /** 道の 点〔(x, z) の まわり 2 マス〕に 部屋の 空気が かかるか〔ブロックの 計算の 前の 早い しらべ〕 */
   hits(points: readonly { x: number; y: number; z: number }[]): boolean;
-  /** 坑道の 空気・かべを 見せて 部屋を 作る。ぶつかったり 出口が ふさがれたら null */
-  stage(over: Overlay, door: { x: number; y: number; z: number }): HeyaBuilt | null;
+  /** 坑道の 空気・かべを 見せて 部屋を 作る。ぶつかったり 出口が ふさがれたら null。短い 仕事ごとに yield する〔先読みが 時間で 止まれる ように。結果は いっきに 作った ときと 同じ〕 */
+  stageSteps(over: Overlay, door: { x: number; y: number; z: number }): Generator<void, HeyaBuilt | null>;
 }
 
 export interface HeyaSource {
-  prepare(e: { x: number; y: number; z: number }, d: readonly [number, number]): HeyaPrep | null;
+  prepare(e: { x: number; y: number; z: number }, d: readonly [number, number]): Generator<void, HeyaPrep | null>;
   /** ひろい ほらあなの ためした 記録〔ほかの 種類は null〕 */
   row(): HiroiTryRow | null;
   /** (x, z) の まわり 2 マスに 古い 列が かかるか */
@@ -223,10 +223,13 @@ export function heyaSource(env: HeyaEnv): HeyaSource {
       for (const dz of [-2, 0, 2]) for (const dx of [-2, 0, 2]) if (env.isOld(colKey((x + dx) >> 4, (z + dz) >> 4))) return true;
       return false;
     },
-    prepare(e, d) {
+    *prepare(e, d) {
+      yield; // 出口の 候補〔部屋の 形・ひろい ほらあなの 計画〕を 作る 前と 後に ひと休み
       const list = doorsFor(d);
+      yield;
       let tried = 0;
       for (const dr of list.slice(0, DOOR_LIST)) {
+        yield; // 出口の 候補ごとに〔箱が 入るかの しらべは 地形を たくさん ひく〕
         const s = dr.shape;
         const ox = e.x - dr.ix;
         const oz = e.z - dr.iz;
@@ -251,19 +254,19 @@ export function heyaSource(env: HeyaEnv): HeyaSource {
             }
             return false;
           },
-          stage(over, door) {
+          *stageSteps(over, door) {
             let st: RoomStage;
             let layout = dr.layout;
             if (kind === 'hiroi') {
-              const r = stageHiroi(G, seed, [salt, 7], dr.layout!, ox, oy, oz, over);
+              const r = yield* stageHiroiSteps(G, seed, [salt, 7], dr.layout!, ox, oy, oz, over);
               if (!r) return null;
               st = r.room;
               layout = r.layout;
             } else {
-              st = stageRoom({ G, seed, kind, shape: s, ox, oy, oz, rng: createRng(hashInts(subSeed(seed, 956), salt, dr.ix, dr.iz)), over });
+              st = yield* stageRoomSteps({ G, seed, kind, shape: s, ox, oy, oz, rng: createRng(hashInts(subSeed(seed, 956), salt, dr.ix, dr.iz)), over });
             }
             if (!connected(st, over, e, door)) return null;
-            const room = finishRoom(st);
+            const room = yield* finishRoomSteps(st);
             room.stats.torches = 2; // 出口の 両がわの たいまつは 坑道の さいごの 列に ある
             if (row) {
               row.cave = env.id(box);
@@ -320,14 +323,15 @@ export interface HeyaTail {
   face: { x: number; y: number; z: number };
 }
 
-export function heyaTail(src: HeyaSource, y: number, lastC: { x: number; z: number; leg: number }, ldx: number, ldz: number, center: readonly { x: number; z: number; leg: number }[]): HeyaTail | null {
+/** 階段の 段数を 0 から ふやして 部屋が 入る 所を さがす。段数を 1 つ ためす ごとに yield する〔先読みが 時間で 止まれる ように。結果は いっきに やった ときと 同じ〕 */
+export function* heyaTailSteps(src: HeyaSource, y: number, lastC: { x: number; z: number; leg: number }, ldx: number, ldz: number, center: readonly { x: number; z: number; leg: number }[]): Generator<void, HeyaTail | null> {
   let prep: HeyaPrep | null = null;
   let m = 0;
   let sgn: 1 | -1 = 1;
   for (let n = 0; n <= 2 * SS.side.heyaStairsMax && !prep; n++) {
     m = Math.ceil(n / 2);
     sgn = n % 2 === 1 ? 1 : -1;
-    prep = src.prepare({ x: lastC.x + ldx * (2 * m + 1), y: y + sgn * m, z: lastC.z + ldz * (2 * m + 1) }, [ldx, ldz]);
+    prep = yield* src.prepare({ x: lastC.x + ldx * (2 * m + 1), y: y + sgn * m, z: lastC.z + ldz * (2 * m + 1) }, [ldx, ldz]);
   }
   if (!prep) return null;
   const cells: HeyaTail['cells'] = [];

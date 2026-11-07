@@ -19,6 +19,7 @@ import {
   HELD_BLOCK_SIZE,
 } from './config';
 import { DollAnimator, newBodyPose, type ArmAnim, type BodyAnim } from './dollAnim';
+import { ShiverAnim } from './dollShiver';
 import { buildKabuto, buildKote, buildSuneate, buildYoroiBody, buildYoroiShoulder } from './dollArmor';
 import { buildHeldModel, createBendableBow, hasHeldModel, isLeftHanded, BOW_PALETTES, type BendableBow } from './heldTools';
 import {
@@ -76,6 +77,8 @@ export class BlockDoll {
   private readonly upper = new THREE.Group();
   private readonly head = new THREE.Group();
   private readonly animator = new DollAnimator();
+  /** MINE-1E: かびた パンを たべて ぶるっ（まるごと つぶして、こしを 中心に ±3 度） */
+  private readonly shiverAnim = new ShiverAnim();
   private readonly bodyPoseTmp = newBodyPose();
   private readonly heldModels = new Map<string, THREE.Group>();
   private heldModel: THREE.Group | null = null;
@@ -433,6 +436,11 @@ export class BlockDoll {
   play(anim: Exclude<ArmAnim, 'none'>): boolean {
     return this.animator.startArm(anim);
   }
+  /** かびた パンを たべた: ぶるっ（A と B を こうごに。dollShiver.ts） */
+  shiver(reducedMotion = false): void {
+    if (reducedMotion) return; // 「うごきを へらす」: 動かさない（ログと 音だけ）
+    this.shiverAnim.start();
+  }
   /** ダメージのよろめき */
   hurt(): void {
     this.animator.startHurt();
@@ -546,6 +554,14 @@ export class BlockDoll {
     this.upper.position.y = lh + (third ? bob + body.upperY + arm.hop : 0);
     this.upper.rotation.x = third ? body.tilt * DEG : 0;
     this.upper.rotation.y = third ? arm.twist * DEG : 0;
+    // ぶるっ（MINE-1E）: 歩きだしたら やめる。まるごと つぶし（足もとが 中心）、こし〔upper〕を 中心に ひねる
+    if (walking) this.shiverAnim.cancel();
+    else this.shiverAnim.advance(dt);
+    const sh = this.shiverAnim.pose();
+    // 一人称は 手だけ 見える ので つぶさない（画面が ゆれて 見える）
+    if (third) this.group.scale.set(sh.sx, sh.sy, sh.sx);
+    else this.group.scale.set(1, 1, 1);
+    this.upper.rotation.z = third ? sh.rollDeg * DEG : 0;
 
     // うで
     const idleArms = this.animator.armAnim === 'none' ? body.armLift : 0;

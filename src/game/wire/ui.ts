@@ -469,7 +469,15 @@ export function wireAchievements(deps: WiredWeaponFx) {
     }
     return sparkleList;
   }
-  const farmFx = new FarmFx({ sound: fxSound, particles: fx.particles, hint: farmHint, achievements, sparkle });
+  const farmFx = new FarmFx({
+    sound: fxSound,
+    particles: fx.particles,
+    hint: farmHint,
+    achievements,
+    sparkle,
+    say: (text) => deps.log.chestSay(text), // MINE-1E: かびた パンの「うぇ〜 かびてる…」
+    shiver: () => deps.rig.doll.shiver(deps.reducedMotionMq?.matches ?? false), // 同じく ぶるっ〔うごきを へらす ときは 動かさない〕
+  });
   shared.onFullSignal = () => achievements.feedFull();
   const pageModel = new AchievementsPageModel(achievements);
   const achievementsPage = new AchievementsPage(achievements, pageModel, inventoryScreen);

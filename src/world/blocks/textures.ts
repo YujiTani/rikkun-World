@@ -10,6 +10,7 @@ import { KOTATSU_ART_ROWS, kotatsuTileOrder, paintKotatsuArt, type KotatsuTileNa
 import { LIVE_TILE_NAMES, paintLiveTile, type LiveTileName } from './liveTextures';
 import { MINE_TILE_NAMES, isMineTile, paintMineTile, type MineTileName } from './mineTextures';
 import { KODO_TILE_NAMES, isKodoTile, paintKodoTile, type KodoTileName } from './mineTexturesWaku';
+import { BOKEN_TILE_NAMES, isBokenTile, paintBokenTile, type BokenTileName } from './mineBokenTextures';
 import { ROPE_TILE_NAMES, isRopeTile, paintRopeTile, type RopeTileName } from './ropeTextures';
 import { BOIL_NAMES, WATERFALL_BLOCK_TILES, WATERFALL_TILE_NAMES, isWaterfallTile, paintWaterfallTile, type WaterfallTileName } from './waterfallTextures';
 import { HOUSE_ATLAS_TILE_NAMES, HOUSE_BLOCK_TILES, isHouseTile, paintHouseTile, type HouseAtlasTile } from './houseTextures';
@@ -47,6 +48,7 @@ export type TileName =
   | GadgetTileName
   | MineTileName
   | KodoTileName
+  | BokenTileName
   | HouseAtlasTile
   | RopeTileName
   | WaterfallTileName;
@@ -108,6 +110,8 @@ export const TILE_NAMES: readonly TileName[] = [
   ...ROPE_TILE_NAMES,
   // WATERFALL-1: わきどころ・たきつぼ・こくようせき・マグマ。さいごに 足す
   ...WATERFALL_TILE_NAMES,
+  // MINE-1E: 坑道の 冒険（ひびの いし・くずれた いし・こわれた わく・レール・はしご・たきびの あと）の 絵 11 まい。さいごに 足す
+  ...BOKEN_TILE_NAMES,
 ];
 // WATERFALL-1 版 2: 煮えたぎる マグマの 4 コマは アトラスの 1 だんの 左から（shader が 1 コマ = 1/ATLAS_COLS だけ 横に ずらす）
 if (TILE_NAMES.indexOf(BOIL_NAMES[0]) % ATLAS_COLS !== 0 || BOIL_NAMES.length !== ATLAS_COLS) throw new Error('magma boil frames must fill one atlas row');
@@ -351,6 +355,7 @@ function paintTile(name: TileName): Tile {
   if (isGadgetTile(name)) return paintGadgetTile(name).slice(); // ITEM-FX-1: 置き物の 絵
   if (isMineTile(name)) return paintMineTile(name).slice(); // MINE-1B: 鉱物・ねんど・チョークの しるし
   if (isKodoTile(name)) return paintKodoTile(name).slice(); // MINE-1C: わく・宝箱
+  if (isBokenTile(name)) return paintBokenTile(name).slice(); // MINE-1E: 坑道の 冒険
   if (isRopeTile(name)) return paintRopeTile(name).slice(); // ROPE-1
   if (isWaterfallTile(name)) return paintWaterfallTile(name).slice(); // WATERFALL-1
   if (isHouseTile(name)) return paintHouseTile(name).map((c): Rgba => [(c >> 16) & 255, (c >> 8) & 255, c & 255, 255]); // HOUSE-1C: 家の ブロック・家具
@@ -565,6 +570,15 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   // MINE-1C（#350）: 坑道の わく（横・上下）。宝箱は 平らな 箱の 絵（近くは 小ブロックの 形〔render/looks/chestLooks.ts〕）
   kodo_waku: ['kodo_waku_top', 'kodo_waku_side', 'kodo_waku_top'],
   tsurara: ['tsurara', 'tsurara', 'tsurara'], // MINE-1D: 十字の 板の 絵（天井から さがる 3 本）
+  // MINE-1E: 坑道の 冒険。床の 飾りの 絵は 小ブロックの 形から 作る（mineBokenTextures.ts）。[上, 下, 横]
+  hibi_ishi: ['boken_hibi', 'boken_hibi', 'boken_hibi'],
+  kuzure_ishi: ['boken_kuzure', 'boken_kuzure', 'boken_kuzure'],
+  furui_rail_x: ['boken_rail_top_x', 'boken_rail_side', 'boken_rail_side'],
+  furui_rail_z: ['boken_rail_top_z', 'boken_rail_side', 'boken_rail_side'],
+  kowareta_waku: ['kodo_waku_top', 'boken_waku_side', 'boken_waku_side'],
+  taoreta_hashigo_x: ['boken_hashigo_top_x', 'boken_hashigo_side', 'boken_hashigo_side'],
+  taoreta_hashigo_z: ['boken_hashigo_top_z', 'boken_hashigo_side', 'boken_hashigo_side'],
+  takibi_ato: ['boken_takibi_top', 'boken_takibi_side', 'boken_takibi_side'],
   ...CHEST_BLOCK_TILES,
   // チョークの しるし 12 こ: 立方体では ない（面に はる 板。render/chalkMesh.ts）。ここは かけらの 色・アイテムの 絵などの ため
   ...CHALK_BLOCK_TILES,

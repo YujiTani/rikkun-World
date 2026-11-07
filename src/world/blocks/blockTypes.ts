@@ -5,6 +5,7 @@ import { CHEST_BLOCK_IDS, chestBlockInfo, chestBlockName } from './chestBlock';
 import { FURNITURE } from '../../house/editor/furniture';
 import { FLAT_FURN_KINDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from './houseBlocks';
 import { isLiquidIndex } from './liquids';
+import { isFloorDeco } from './mineBoken';
 import { MAGMA_IDS, MAGMA_M0, MAGMA_RESERVED_IDS } from './magma';
 import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL_INDEX, WATER_PARTIAL_IDS, WATER_W0 } from './water';
 
@@ -130,6 +131,15 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   ...CHEST_BLOCK_IDS.map((id): BlockType => ({ id, name: chestBlockName(chestBlockInfo(id)!.tier, chestBlockInfo(id)!.open), solid: true, breakable: false })),
   // MINE-1D（#351。番号は 後ろに 足す。203）: つらら。固くない（体が 通る）・光を 通す・十字の 板で 描く（絵は tsuraraTexture.ts）
   { id: 'tsurara', name: 'つらら', solid: false, breakable: true },
+  // MINE-1E（番号は 後ろに 足す。204〜211）: 坑道の 冒険。ひびの いし・くずれた いし・こわれた わくは 固い。レール・はしご・たきびの あとは 固くない（体が 通る）
+  { id: 'hibi_ishi', name: 'ひびの いし', solid: true, breakable: true },
+  { id: 'kuzure_ishi', name: 'くずれた いし', solid: true, breakable: true },
+  { id: 'furui_rail_x', name: 'ふるい レール', solid: false, breakable: true },
+  { id: 'furui_rail_z', name: 'ふるい レール', solid: false, breakable: true },
+  { id: 'kowareta_waku', name: 'こわれた わく', solid: true, breakable: true },
+  { id: 'taoreta_hashigo_x', name: 'たおれた はしご', solid: false, breakable: true },
+  { id: 'taoreta_hashigo_z', name: 'たおれた はしご', solid: false, breakable: true },
+  { id: 'takibi_ato', name: 'たきびの あと', solid: false, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -223,9 +233,15 @@ export function isTsuraraIndex(index: number): boolean {
   return TSURARA[index] === true;
 }
 
-/** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板・しるしはちがう */
+/** 床の 飾り（MINE-1E。ふるい レール・たおれた はしご・たきびの あと）か。ひくい 小ブロックの 形で 描く。固くない・光を通す・まわりの面を隠さない・遠くでは 描かない */
+const FLOOR_DECO = BLOCK_TYPES.map((t) => isFloorDeco(t.id));
+export function isFloorDecoIndex(index: number): boolean {
+  return FLOOR_DECO[index] === true;
+}
+
+/** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板・しるし・床の 飾りはちがう */
 export function isOpaqueIndex(index: number): boolean {
-  return index !== AIR && !isLiquidIndex(index) && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index);
+  return index !== AIR && !isLiquidIndex(index) && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index) && !isFloorDecoIndex(index);
 }
 
 /** 固いブロックか（番号で） */

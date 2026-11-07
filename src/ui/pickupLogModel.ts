@@ -1,5 +1,11 @@
 import type { ItemId } from '../contracts';
+import { MINE_ITEM } from '../content/items/ids';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings } from '../fx/craftConfig';
+
+/** たべた ときに 左の ログに 出す 一言（かびた パン〔MINE-1E〕。ほかの たべものは null = いつもの ログのまま） */
+export function eatLogLine(item: ItemId): string | null {
+  return item === MINE_ITEM.kabita_pan ? 'うぇ〜 かびてる…' : null;
+}
 
 /** ひろった／たんす から つかった／宝箱の 中身（CRAFT-2 §2.5。3 しゅるいで 5 行を 分け合う） */
 export type LiveKind = 'pickup' | 'fromTansu' | 'chest';

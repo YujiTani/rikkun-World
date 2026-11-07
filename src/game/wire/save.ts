@@ -34,6 +34,7 @@ import { createFarmVisual } from '../../world/render/farmVisual';
 import type { WiredAchievements } from './ui';
 import { isWaterIndex } from '../../world/blocks/water';
 import { SHAFT_CONFIG } from '../../world/gen/mineShaftConfig';
+import { areaIn } from '../../world/gen/mineHookBoken';
 import { sharedLevel } from '../../duo/credit';
 import { readP2Save } from '../../duo/p2State';
 import { duoTimeScale } from '../../duo/rules';
@@ -349,6 +350,7 @@ export function wireFrame(deps: WiredSave) {
   let peakKey = NaN;
   const warmAt: { x: number; z: number }[] = [{ x: 0, z: 0 }]; // 坑道の 先読みの 中心〔毎ステップ 配列を 作らない〕
   let wasCave: CaveKind | null = null;
+  let wasArea: ReturnType<typeof areaIn> = null;
   let wasInBottom = false;
   let yokaiSample: StepContext['yokai'] = [];
   const regions = island.regions();
@@ -397,6 +399,10 @@ export function wireFrame(deps: WiredSave) {
       const kind = ctx.dead ? null : shafts.caveKindAt(Math.floor(st.position.x), Math.floor(st.position.y + 0.1), Math.floor(st.position.z));
       if (kind !== null && kind !== wasCave) achievements.feedMine([{ type: 'cave', tick: game.tick, kind }]);
       wasCave = kind;
+      // MINE-1E §4.12: 足が はじめて かくしべや・むかしの えだ道・迷路の いちばん おく・キャンプあとに 入った〔場所が かわった コマだけ 送る。実績は 場所ごとに 1 回〕
+      const area = ctx.dead ? null : areaIn(shafts, st.position.x, st.position.y + 0.1, st.position.z);
+      if (area !== null && area !== wasArea) achievements.feedMine([{ type: 'area', tick: game.tick, kind: area }]);
+      wasArea = area;
     }
     celebrate.setPending(achievements.pendingCount());
   }

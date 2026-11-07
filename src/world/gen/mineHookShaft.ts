@@ -1,7 +1,7 @@
 import type { BlockId, ItemId, Rarity, VoxelWorld } from '../../contracts';
 import { itemDef } from '../../content/items/registry';
 import { RARITY_ORDER } from '../../drops/rarityTable';
-import { HEYA_GEN, KODO_GEN, SAVE_GEN } from '../../save/gens';
+import { BOKEN_GEN, HEYA_GEN, KODO_GEN, SAVE_GEN } from '../../save/gens';
 import { EMISSION } from '../light/opacity';
 import { chestBlockId, chestBlockInfo, chestFrontAt, chestPartner, type ChestCompass } from '../blocks/chestBlock';
 import { terrainFor } from './terrain';
@@ -9,7 +9,9 @@ import { colKey } from '../stream/ring';
 import { buildBlocks } from './chunk';
 import { chestExcluded, chestPool, rollChest } from './mineChest';
 import { chestSeed, chestTableOf } from './mineChestTable';
-import { shaftWorldFor, type OldCols } from './mineShafts';
+import type { OldCols } from './mineShaftOps';
+import { shaftWorldFor } from './mineShafts';
+import { createBokenHook } from './mineHookBoken';
 import { createCaveHook } from './mineHookCave';
 import type { ChestRoll, ChestTable, PathCell, Pt, Shaft, ShaftRoll, Tier } from './mineShaftTypes';
 
@@ -52,7 +54,11 @@ export interface ShaftHookOptions {
   metaGen?: () => number | null;
   /** 坑道の 版（つなぎ込みが SaveManager.KODO_GEN を わたす。なければ gens.ts の 値） */
   kodoGen?: number;
+  /** 1E の 版〔つなぎ込みが SaveManager.BOKEN_GEN を わたす。なければ gens.ts の 値〕 */
+  bokenGen?: number;
   chest?: ChestPorts;
+  /** 1E: その マスの たんすの 記録が すでに あるか〔キャンプの たんすの 予告を 消す〕 */
+  tansuHas?: (x: number, y: number, z: number) => boolean;
 }
 
 const SUPER = RARITY_ORDER.indexOf('superRare');
@@ -79,20 +85,25 @@ export function createShaftHook(o: ShaftHookOptions) {
     const mainXZ = info.rest ? other : { x: bx, z: bz };
     const restXZ = info.rest ? { x: bx, z: bz } : other;
     const main = { x: mainXZ.x, y: by, z: mainXZ.z };
-    return { table: 'kodo', tier: info.tier, opened: info.open, main, cells: [main, { x: restXZ.x, y: by, z: restXZ.z }], front };
+    const table = plannedChest(main.x, main.y, main.z)?.table ?? 'kodo';
+    return { table, tier: info.tier, opened: info.open, main, cells: [main, { x: restXZ.x, y: by, z: restXZ.z }], front };
   }
 
-  /** 計画から 宝箱を さがす（世界を 読まない。あける 前と あとで 同じ） */
-  function plannedChest(x: number, y: number, z: number): { tier: Tier; main: Pt } | null {
+  /** 計画から 宝箱を さがす（世界を 読まない。あける 前と あとで 同じ）。表の 名前も 返す */
+  function plannedChest(x: number, y: number, z: number): { table: string; tier: Tier; main: Pt } | null {
     for (const s of world().shafts(x, z, x, z)) {
       const c = s.chest;
-      if (c && c.cells.some((p) => p.x === x && p.y === y && p.z === z)) return { tier: c.tier, main: { x: c.x, y: c.y, z: c.z } };
+      if (c && c.cells.some((p) => p.x === x && p.y === y && p.z === z)) return { table: 'kodo', tier: c.tier, main: { x: c.x, y: c.y, z: c.z } };
+      for (const e of [...s.branches.map((b) => b.end), ...(s.maze?.deadEnds ?? [])]) {
+        const q = e.chest;
+        if (q && q.cells.some((p) => p.x === x && p.y === y && p.z === z)) return { table: e.kind === 'hibi_oo' ? 'kodo_kakushi' : 'kodo_eda', tier: q.tier, main: { x: q.x, y: q.y, z: q.z } };
+      }
     }
     return null;
   }
 
-  function previewOf(tier: Tier, main: Pt): ChestRoll {
-    return rollChest('kodo', chestSeed(seed, main.x, main.y, main.z), tier);
+  function previewOf(table: string, tier: Tier, main: Pt): ChestRoll {
+    return rollChest(table, chestSeed(seed, main.x, main.y, main.z), tier);
   }
 
   function chestPreview(x: number, y: number, z: number): ChestRoll | null {
@@ -100,9 +111,9 @@ export function createShaftHook(o: ShaftHookOptions) {
     const by = Math.floor(y);
     const bz = Math.floor(z);
     const at = chestAt(bx, by, bz);
-    if (at) return previewOf(at.tier, at.main);
+    if (at) return previewOf(at.table, at.tier, at.main);
     const p = plannedChest(bx, by, bz);
-    return p ? previewOf(p.tier, p.main) : null;
+    return p ? previewOf(p.table, p.tier, p.main) : null;
   }
 
   function open(x: number, y: number, z: number): void {
@@ -112,7 +123,7 @@ export function createShaftHook(o: ShaftHookOptions) {
       o.chest.say('からっぽ だよ');
       return;
     }
-    const roll = previewOf(at.tier, at.main);
+    const roll = previewOf(at.table, at.tier, at.main);
     // 先に ブロックを あいた 形に する〔出口が 世界を さわっても 2 回 あかない〕
     if (o.world!.setBlock) {
       at.cells.forEach((c, i) => o.world!.setBlock!(c.x, c.y, c.z, chestBlockId(at.tier, true, i === 1) as BlockId));
@@ -142,9 +153,10 @@ export function createShaftHook(o: ShaftHookOptions) {
     open,
     caveAt: (x: number, y: number, z: number): string | null => (world().inside(Math.floor(x), Math.floor(y), Math.floor(z)) ? 'kodo' : cave.caveKindAt(x, y, z)),
     ...cave,
-    saveGens: () => ({ current: SAVE_GEN, meta: o.metaGen?.() ?? SAVE_GEN, kodo: (o.kodoGen ?? KODO_GEN) as number | null, heya: HEYA_GEN as number | null }),
-    oldCols: (kind: 'kodo' | 'heya'): number => o.oldCols?.[kind]?.size ?? 0,
-    isOld: (kind: 'kodo' | 'heya', cx: number, cz: number): boolean => o.oldCols?.[kind]?.has(colKey(cx, cz)) === true,
+    ...createBokenHook({ seed, world, tansuHas: o.tansuHas }),
+    saveGens: () => ({ current: SAVE_GEN, meta: o.metaGen?.() ?? SAVE_GEN, kodo: (o.kodoGen ?? KODO_GEN) as number | null, heya: HEYA_GEN as number | null, boken: (o.bokenGen ?? BOKEN_GEN) as number | null }),
+    oldCols: (kind: 'kodo' | 'heya' | 'boken'): number => o.oldCols?.[kind]?.size ?? 0,
+    isOld: (kind: 'kodo' | 'heya' | 'boken', cx: number, cz: number): boolean => o.oldCols?.[kind]?.has(colKey(cx, cz)) === true,
     work(cx: number, cz: number): { shaftRegions: number; caveRegions: number; emitters: number } {
       const b = buildBlocks(seed, cx, cz, undefined, o.oldCols).blocks;
       let emitters = 0;

@@ -172,6 +172,14 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     magma_takitsubo: 0.5, // WAKIDOKORO: たきつぼと 同じ
     kodo_waku: 5, // MINE-1C: 坑道の わく（すでで 5 秒。ほると き 1。仕様 §4.4）
     tsurara: 0.5, // MINE-1D: つらら（すでで 0.5 秒。ほると せっかいせき 1。仕様 §4.4）
+    hibi_ishi: 1.5, // MINE-1E: ひびの いし（すでで 1.5 秒 = 90 ステップ。ほると いし 1。仕様 §4.9・E8）
+    kuzure_ishi: 1, // MINE-1E: くずれた いし（すでで 1 秒。ほると いし 1）
+    furui_rail_x: 0.5, // MINE-1E: ふるい レール（すでで 0.5 秒。ほると き 1）
+    furui_rail_z: 0.5,
+    kowareta_waku: 5, // MINE-1E: こわれた わく（すでで 5 秒。ほると き 1。1C の わくと 同じ）
+    taoreta_hashigo_x: 0.5, // MINE-1E: たおれた はしご（すでで 0.5 秒。ほると き 1）
+    taoreta_hashigo_z: 0.5,
+    takibi_ato: 0.5, // MINE-1E: たきびの あと（すでで 0.5 秒。ほると せきたん 1）
     ...forChest<number | null>(null), // 宝箱は ほっても こわれない（start_torch と 同じ）
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
@@ -264,6 +272,14 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     magma_takitsubo: 0,
     kodo_waku: 0, // 素手から
     tsurara: 0, // MINE-1D: 素手から
+    hibi_ishi: 0, // MINE-1E: 8 こ とも 素手から
+    kuzure_ishi: 0,
+    furui_rail_x: 0,
+    furui_rail_z: 0,
+    kowareta_waku: 0,
+    taoreta_hashigo_x: 0,
+    taoreta_hashigo_z: 0,
+    takibi_ato: 0,
     ...forChest(0),
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
@@ -370,6 +386,14 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     magma_takitsubo: 'uncommon',
     kodo_waku: 'common',
     tsurara: 'common', // MINE-1D
+    hibi_ishi: 'common', // MINE-1E: 8 こ とも ノーマル
+    kuzure_ishi: 'common',
+    furui_rail_x: 'common',
+    furui_rail_z: 'common',
+    kowareta_waku: 'common',
+    taoreta_hashigo_x: 'common',
+    taoreta_hashigo_z: 'common',
+    takibi_ato: 'common',
     ...forChest<Rarity>('common'),
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
@@ -418,6 +442,15 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   kodo_waku: { item: 'log', count: 1 },
   // MINE-1D: つららは ほると せっかいせき いつも 1 こ（持てない ブロック）
   tsurara: { item: 'sekkaiseki', count: 1 },
+  // MINE-1E: 坑道の 冒険の 8 こ（持てない ブロック。いつも 1 こ。仕様 §4.9）
+  hibi_ishi: { item: 'stone', count: 1 },
+  kuzure_ishi: { item: 'stone', count: 1 },
+  furui_rail_x: { item: 'log', count: 1 },
+  furui_rail_z: { item: 'log', count: 1 },
+  kowareta_waku: { item: 'log', count: 1 },
+  taoreta_hashigo_x: { item: 'log', count: 1 },
+  taoreta_hashigo_z: { item: 'log', count: 1 },
+  takibi_ato: { item: 'coal_ore', count: 1 },
 };
 
 /**

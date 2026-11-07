@@ -193,6 +193,11 @@
     "mine.cave.chiteiko.1",
     "mine.cave.hotaru.1",
     "mine.cave.suisho.1",
+    "mine.area.kakushi.1",
+    "mine.area.mukashi.1",
+    "mine.area.meiro.1",
+    "mine.area.camp.1",
+    "mine.kabitaPan.1",
     "defeat.gashadokuro.1",
     "level.2",
     "level.3",
@@ -453,7 +458,8 @@
       "eggplant",
       "egg",
       "momo_nama",
-      "momo_yaki"
+      "momo_yaki",
+      "kabita_pan"
     ],
     "home": [
       "furnace",
@@ -888,6 +894,7 @@
     "shikkui",
     "chalk",
     "ishibai",
+    "kabita_pan",
     "table",
     "chair",
     "andon",

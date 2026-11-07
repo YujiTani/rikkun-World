@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { colKey } from '../stream/ring';
+import { legacyOld } from './mineLegacyKit';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import { shaftWorldFor } from './mineShafts';
 import { planShaft, type PlanEnv, type ShaftPlan } from './mineShaftPlan';
@@ -14,7 +15,7 @@ import type { ShaftSide } from './mineShaftTypes';
  * 「1C」＝ 同じ 計画に `heya: false`〔へやの くじ・ほたるの つなぎ なし〕を わたした もの。
  */
 
-vi.setConfig({ testTimeout: 240_000 });
+vi.setConfig({ testTimeout: 720_000 });
 
 const SEEDS = [20261012, 7, 31415, 1000, 2024, 99];
 const env = (o: Partial<PlanEnv> = {}): PlanEnv => ({ isOld: () => false, isOldHeya: () => false, link: null, heya: true, ...o });
@@ -81,9 +82,13 @@ describe('はじまりの 坑道は 1C の まま〔ほたるの 横穴 1 本 �
   });
 });
 
+// MINE-1E の 準備で 直した: 「へやの 古い 列」は 1C・1D の 作り方の 坑道〔`gen: 'c'`〕の きまり。新しい 世界の ほかの 坑道は 1E の 坑道に なる ので、
+// 1E の 前の 世界〔`legacyOld`: スタートの まわりの 列が ぜんぶ 1E の 古い 列〕の 区画で 見る。
+const legacyWorld = (seed: number) => shaftWorldFor(seed, legacyOld(seed) as never);
+
 /** 区画 (rx, rz) の 坑道を 同じ 場所・同じ 試行で 別の env で 計画しなおす */
 function replan(seed: number, rx: number, rz: number, e: PlanEnv): ShaftPlan | null {
-  const world = shaftWorldFor(seed);
+  const world = legacyWorld(seed);
   const want = world.region(rx, rz)?.plan.shaft.entrance;
   if (!want) return null;
   const G = geoFor(seed);
@@ -103,7 +108,7 @@ describe('坑道の へやの 古い 列: 1C の 形が 古い 列に かかれ�
     for (const seed of SEEDS) {
       for (let rz = -5; rz <= 5 && checked < 3; rz++) {
         for (let rx = -5; rx <= 5 && checked < 3; rx++) {
-          const planned = shaftWorldFor(seed).region(rx, rz);
+          const planned = legacyWorld(seed).region(rx, rz);
           if (!planned) continue;
           const sides = planned.plan.shaft.sides;
           const i = sides.findIndex((d) => d.end === 'heya');

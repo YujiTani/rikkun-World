@@ -2,6 +2,7 @@ import type { CropKind, FarmEvent, FarmHintKind, PetResult, Vec3 } from '../cont
 import { FX_SETTINGS, type FxSettings } from './config';
 import { playFarm, type FarmSoundName } from './farmSounds';
 import type { SoundFx } from './sound';
+import { eatLogLine } from '../ui/pickupLogModel';
 
 /** やさいの つぶの色 */
 export const VEG_COLOR: Readonly<Record<CropKind, number>> = {
@@ -25,6 +26,10 @@ export interface FarmFxDeps {
   achievements?: { feedFarm(events: readonly FarmEvent[]): void };
   /** M7-2: なでた ハート・ゆれ（`FarmSparkle.onPet` が合う） */
   sparkle?: { onPet(x: number, y: number, z: number, result: PetResult): void };
+  /** MINE-1E: たべた 一言を ログに 出す（`LogSystem.chestSay` が 合う）。かびた パンの「うぇ〜 かびてる…」 */
+  say?: (text: string) => void;
+  /** MINE-1E: かびた パンを たべて 人形が ぶるっ（`BlockDoll.shiver` が 合う） */
+  shiver?: () => void;
   settings?: FxSettings;
 }
 
@@ -82,9 +87,15 @@ export class FarmFx {
       case 'notRipe':
         this.snd('notRipe');
         break;
-      case 'eat':
+      case 'eat': {
         this.snd('eat');
+        const line = eatLogLine(e.item); // かびた パン
+        if (line !== null) {
+          this.d.say?.(line);
+          this.d.shiver?.();
+        }
         break;
+      }
       case 'seedFound':
         this.snd('seedFound');
         break;

@@ -7,6 +7,7 @@ import { SECTION_VOLUME, sectionToArray } from '../sections';
 import { ArrayVoxelWorld } from '../VoxelWorld';
 import { generateChunk } from './chunk';
 import { createMineHook } from './mineHook';
+import { legacyOld } from './mineLegacyKit';
 import { colKey } from '../stream/ring';
 import { heightAt, spawnOf } from './terrain';
 
@@ -108,10 +109,11 @@ interface ChestInfo {
   cells: Pt[];
   front: Compass;
 }
-/** 古い 列の 一覧〔colKey の 集まり。仕様 §4.8。名前は 案〕 */
+/** 古い 列の 一覧〔colKey の 集まり。仕様 §4.8。名前は 案〕。`boken` は 1E〔坑道の 冒険。仕様 MINE-1E §4.13〕の 一覧。1D までの 古い 保存には ない */
 export interface OldCols {
   kodo: ReadonlySet<number>;
   heya: ReadonlySet<number>;
+  boken?: ReadonlySet<number>;
 }
 
 /** 仕様 §6.1 の 1C の 窓口。型には まだ 無いので 文字で 読む〔赤の 間も 型が 通る ように〕 */
@@ -255,7 +257,7 @@ export interface Box3 {
 }
 
 /** 打ちきりの 数。ここまで 見ても 先が あるなら 打ちきる〔森・山でも 足りる 大きさ〕 */
-const WALK_LIMIT = 400_000;
+export const WALK_LIMIT = 400_000;
 
 /**
  * from から 歩いて 行ける マス〔はんい box の 中。distance つき〕。to を わたすと、見つけた ところで 止める〔速い〕。
@@ -341,7 +343,7 @@ export function components(cells: readonly Pt[]): Pt[][] {
   return out;
 }
 
-const bbox = (cs: readonly Pt[]): { w: number; d: number; x0: number; x1: number; z0: number; z1: number } => {
+export const bbox = (cs: readonly Pt[]): { w: number; d: number; x0: number; x1: number; z0: number; z1: number } => {
   const xs = cs.map((c) => c.x);
   const zs = cs.map((c) => c.z);
   const x0 = Math.min(...xs);
@@ -351,8 +353,11 @@ const bbox = (cs: readonly Pt[]): { w: number; d: number; x0: number; x1: number
   return { w: x1 - x0 + 1, d: z1 - z0 + 1, x0, x1, z0, z1 };
 };
 
-/** C3: 道の 形〔上 4 マス・はば 3・2 マスで 1 段・おどりばは 平ら・へや〕 */
-export function shapeProblems(g: GenCols, s: Shaft, path: PathCell[]): string[] {
+/**
+ * C3: 道の 形〔上 4 マス・はば 3・2 マスで 1 段・おどりばは 平ら・へや〕。
+ * `o.roomY` ＝ いちばん 下の へやの 足 y の はんい〔1C は 41〜46。1E は ふかさごとに ちがう〕。`o.rampsOnly` ＝ さか道・おどりばだけ 見る〔1E は ひろば・本道・へやを べつに 見る〕
+ */
+export function shapeProblems(g: GenCols, s: Shaft, path: PathCell[], o: { roomY?: readonly [number, number]; rampsOnly?: boolean } = {}): string[] {
   const bad: string[] = [];
   const { byPart } = pathIndex(path);
   const chestSet = new Set((s.chest?.cells ?? []).map(ptKey));
@@ -392,9 +397,11 @@ export function shapeProblems(g: GenCols, s: Shaft, path: PathCell[]): string[] 
     if (ys.size !== 1) bad.push(`おどりばが 平らでない（y ${[...ys].join(',')}）`);
     if (!((b.w === 7 && b.d === 3) || (b.w === 3 && b.d === 7))) bad.push(`おどりばが 7×3 でない（${b.w}×${b.d}）`);
   }
+  if (o.rampsOnly) return bad;
   // いちばん 下の へや: 足 y 41〜46・9×9・高さ 5
   const r = s.room;
-  if (r.y < 41 || r.y > 46) bad.push(`へやの 足 y ${r.y}（41〜46 の はず）`);
+  const [roomLo, roomHi] = o.roomY ?? [41, 46];
+  if (r.y < roomLo || r.y > roomHi) bad.push(`へやの 足 y ${r.y}（${roomLo}〜${roomHi} の はず）`);
   if (r.x1 - r.x0 + 1 !== 9 || r.z1 - r.z0 + 1 !== 9) bad.push(`へやが 9×9 でない（${r.x1 - r.x0 + 1}×${r.z1 - r.z0 + 1}）`);
   for (let x = r.x0; x <= r.x1; x++) for (let z = r.z0; z <= r.z1; z++) for (let k = chestSet.has(ptKey({ x, y: r.y, z })) ? 1 : 0; k < 5; k++) if (!isBodyIndex(g.at(x, r.y + k, z))) bad.push(`へやの (${x}, ${r.y + k}, ${z}) が 体の 通る マスでない: ${g.id(x, r.y + k, z)}`);
   return bad;
@@ -521,7 +528,10 @@ export function lightProblems(g: GenCols, s: Shaft, path: PathCell[]): string[] 
 }
 
 /** 道に ならぶ 坑道を スタートに 近い 順に n こ〔はじまり ＋ ほか〕 */
-export function sampleShafts(seed: number, others: number, o: { oldCols?: OldCols } = {}): { seed: number; hook: MineHook1C; g: GenCols; shafts: Shaft[] } {
+export function sampleShafts(seed: number, others: number, o: { oldCols?: OldCols; legacy?: boolean } = {}): { seed: number; hook: MineHook1C; g: GenCols; shafts: Shaft[] } {
+  // legacy ＝ 1E の 前の 世界〔1C・1D の 坑道だけ。`legacyOld`〕
+  const oldCols = o.legacy ? (o.oldCols ?? legacyOld(seed)) : o.oldCols;
+  o = oldCols ? { oldCols } : {};
   const hook = hook1c(seed, o);
   const sp = spawnOf(seed);
   const start = hook.startShaft();
@@ -551,9 +561,9 @@ export function touchedColKeys(s: Shaft, path: readonly { x: number; z: number }
  * ある シードで、坑道〔はじまり ＋ 区画の ほか〕が かかる 列。実装の 窓口 `touchesShaft(cx, cz)`〔`columnOres().normal` の 元と 同じ 一覧。
  * 木を 置かない 四角の 広げも ふくむ〕から 読む〔数を テストに 書かない〕。窓口が まだ 無い ときは 空。範囲は 世界の ブロック座標。
  */
-export function shaftCoveredCols(seed: number, x0: number, z0: number, x1: number, z1: number): Set<number> {
+export function shaftCoveredCols(seed: number, x0: number, z0: number, x1: number, z1: number, oldCols?: OldCols): Set<number> {
   const out = new Set<number>();
-  const h = hook1c(seed) as unknown as { touchesShaft?: (cx: number, cz: number) => boolean };
+  const h = hook1c(seed, oldCols ? { oldCols } : {}) as unknown as { touchesShaft?: (cx: number, cz: number) => boolean };
   if (typeof h.touchesShaft !== 'function') return out;
   for (let cz = z0 >> 4; cz <= z1 >> 4; cz++) for (let cx = x0 >> 4; cx <= x1 >> 4; cx++) if (h.touchesShaft(cx, cz)) out.add(colKey(cx, cz));
   return out;

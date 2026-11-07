@@ -1,5 +1,5 @@
 import type { BlockId, ChunkColumn, Inventory, PlayerState, ScreenSettings, SpawnPoint, Vec3 } from '../contracts';
-import { HEYA_GEN, KODO_GEN, OLDEST_READABLE_GEN, SAVE_GEN } from './gens';
+import { BOKEN_GEN, HEYA_GEN, KODO_GEN, OLDEST_READABLE_GEN, SAVE_GEN } from './gens';
 import { packColumn, SAVE_ID, type PersistBackend, type StoredChunk, type StoredMeta } from './backend';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 import { encodeSections } from './chunkCodec';
@@ -7,6 +7,7 @@ import { columnForSave, pendingCellsForSave, type SaveBlockOverride } from './sa
 import { colKey } from '../world/stream/ring';
 import { bodyInWall } from '../world/wall';
 import type { StrengthLevel } from '../yokai/stats';
+import { packOldCols } from './oldCols';
 import { NO_SAVE, PENDING_KEY, PENDING_MAX_CELLS, removePendingOf, type RestoredSave } from './restore';
 
 /** localStorage と同じ形（テストでは偽物を渡す） */
@@ -164,7 +165,7 @@ export const SAVE_VERSION = 1;
  * 3 = VOX-B（無限の地形・高さ 352。前の世界（2）は読まない）、4 = MINE-1A（地下の 3 つの層と 鉱石の かたまり。docs/design/MINE-1.md §4.8）、
  * 5 = MINE-1C（坑道。古い 列には 坑道を かかない〔meta.oldCols〕）
  */
-export { SAVE_GEN, OLDEST_READABLE_GEN, KODO_GEN, HEYA_GEN };
+export { SAVE_GEN, OLDEST_READABLE_GEN, KODO_GEN, HEYA_GEN, BOKEN_GEN };
 
 /** その 版の 保存の 列を 読めるか（OLDEST_READABLE_GEN から 今の 版 SAVE_GEN まで。今の 版より 新しい 保存は 読まない） */
 export function isReadableGen(gen: number): boolean {
@@ -590,11 +591,11 @@ export class SaveManager {
   }
 
   /** meta に 書く 古い 列の 一覧・はじまりの 坑道の 場所（MINE-1C §4.8）。開いた とき 決まり、増やさず 減らさない。ない／空の ときは 書かない */
-  private shaftMeta(): { oldCols?: { kodo: number[]; heya?: number[] }; shaftStart?: { x: number; z: number } | null } {
+  private shaftMeta(): { oldCols?: { cols: number[] }; shaftStart?: { x: number; z: number } | null } {
     const o = this.restored.oldCols;
     const st = this.restored.shaftStart;
     return {
-      ...(o && (o.kodo.size > 0 || o.heya.size > 0) ? { oldCols: { kodo: [...o.kodo], ...(o.heya.size > 0 ? { heya: [...o.heya] } : {}) } } : {}),
+      ...(o && (o.kodo.size > 0 || o.heya.size > 0 || o.boken.size > 0) ? { oldCols: { cols: packOldCols(o) } } : {}),
       ...(st === undefined ? {} : { shaftStart: st === null ? null : { x: st.x, z: st.z } }), // null ＝ さがしたが 置けなかった
     };
   }

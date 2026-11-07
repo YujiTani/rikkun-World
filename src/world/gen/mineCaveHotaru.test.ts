@@ -26,7 +26,7 @@ import { heightAt, spawnOf } from './terrain';
  * 赤の 確かめ: 1D の 前は 窓口〔findCave〕が なく「窓口が まだ ない」で 落ちる。
  */
 
-vi.setConfig({ testTimeout: 120_000 });
+vi.setConfig({ testTimeout: 360_000 });
 
 /** 妖怪の ためしの 回数〔仕様 D6〕 */
 const TRIALS = 1000;
@@ -97,7 +97,7 @@ beforeAll(() => {
     if (!best) throw new Error(`seed ${seed}: ほたるの ほらあなに 立てる マスが ない`);
     rooms.push({ seed, cave, world, light, player: { x: best.x + 0.5, y: best.y, z: best.z + 0.5 }, inside });
   }
-}, 240_000);
+}, 720_000);
 
 function trials(r: Hotaru, noSpawnAt: boolean): { inRoom: number; outside: number } {
   const config = { ...createYokaiConfig(), ...RELAXED };

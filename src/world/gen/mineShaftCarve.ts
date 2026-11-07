@@ -1,6 +1,6 @@
 import { BLOCK_TYPES } from '../blocks/blockTypes';
 import { LAYER } from './columnLayout';
-import type { ColOps } from './mineShafts';
+import type { ColOps } from './mineShaftOps';
 
 /** 固い ブロックか（番号で ひく） */
 const SOLID = Uint8Array.from(BLOCK_TYPES.map((t) => (t.solid ? 1 : 0)));

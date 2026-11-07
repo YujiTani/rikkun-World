@@ -10,7 +10,7 @@ export interface Pt {
   z: number;
 }
 export type Compass = 'n' | 'e' | 's' | 'w';
-export type PathPart = 'entrance' | 'ramp' | 'landing' | 'side' | 'joint' | 'koheya' | 'room';
+export type PathPart = 'entrance' | 'ramp' | 'landing' | 'side' | 'joint' | 'koheya' | 'room' | 'hiroba' | 'main' | 'eda' | 'end' | 'hibi' | 'kakushi' | 'maze' | 'camp';
 export interface PathCell extends Pt {
   part: PathPart;
 }
@@ -32,6 +32,8 @@ export interface ShaftSide {
   heyaKind: string | null;
   /** 1D: end が 'heya'〔と はじまりの ほたる〕の とき その 部屋の id */
   cave?: string;
+  /** 1E: 横穴が 出る 階の 番号〔いちばん 下の へやからは −1〕 */
+  floor?: number;
 }
 interface ShaftChest {
   x: number;
@@ -50,6 +52,72 @@ export interface Shaft {
   chest: ShaftChest | null;
   sides: ShaftSide[];
   box: { x0: number; z0: number; x1: number; z1: number };
+  /** 1E: 坑道の 作り〔1C・1D の 坑道は 'c'〕 */
+  gen: 'c' | 'e';
+  /** 1E: 性格〔1C・1D は null〕 */
+  style: ShaftStyle | null;
+  floors: ShaftFloor[];
+  branches: ShaftBranch[];
+  maze: ShaftMaze | null;
+  camp: ShaftCamp | null;
+  /** 1E: 計画の 仕事〔ためした 回数〕 */
+  work?: { entrance: number; floors: number; sides: number; eda: number; maze: number };
+}
+interface ShaftStyle {
+  depth: ShaftLayer;
+  floors: number;
+  size: 64 | 96 | 128;
+  level: 'yasashii' | 'futsu' | 'fukuzatsu';
+  camp: boolean;
+  maze: boolean;
+}
+interface ShaftFloor {
+  y: number;
+  up: Pt;
+  down: Pt | null;
+  main: Pt[];
+  bends: number;
+}
+type DeadEndKindT = 'oo' | 'naka' | 'atari' | 'hazure' | 'hibi_naka' | 'hibi_oo';
+interface ShaftRoom {
+  x0: number;
+  y: number;
+  z0: number;
+  x1: number;
+  z1: number;
+}
+interface ShaftDeadEnd {
+  at: Pt;
+  kind: DeadEndKindT;
+  hibi: Pt[];
+  room: ShaftRoom | null;
+  chest: ShaftChest | null;
+  ores: Record<string, number>;
+}
+interface ShaftBranch {
+  side: number;
+  from: Pt;
+  to: Pt;
+  length: number;
+  bends: number;
+  old: boolean;
+  rubble: Pt[];
+  end: ShaftDeadEnd;
+}
+interface ShaftMaze {
+  box: { x0: number; z0: number; x1: number; z1: number };
+  y: number;
+  grid: 4 | 5;
+  entrance: Pt;
+  deadEnds: ShaftDeadEnd[];
+  farthest: number;
+}
+interface ShaftCamp {
+  room: ShaftRoom;
+  tansu: Pt;
+  lantern: Pt;
+  futon: Pt[];
+  takibi: Pt;
 }
 export interface ShaftRoll {
   rx: number;

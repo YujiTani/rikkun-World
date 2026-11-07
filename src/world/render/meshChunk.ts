@@ -1,4 +1,4 @@
-import { AIR, BLOCK_TYPES, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../blocks/blockTypes';
+import { AIR, BLOCK_TYPES, isCrossIndex, isFloorDecoIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../blocks/blockTypes';
 import { BLOCK_TILES, TORCH_PX, tileSubUv, tileUv, type TileName } from '../blocks/textures';
 import { FURN_FACE_TILES } from '../blocks/houseTextures';
 import type { CropStageSource } from '../../contracts';
@@ -496,6 +496,7 @@ export function meshChunk(
           );
           continue;
         }
+        if (isFloorDecoIndex(b)) continue; // 床の 飾り（MINE-1E）は ひくい 小ブロックの 形だけ。この 段では 描かない
         const uv = TILE_UV[b];
         if (!uv) continue;
         const isWater = isLiquidIndex(b); // WATERFALL-1: マグマも 水と 同じ 液体の 面

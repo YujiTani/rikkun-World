@@ -15,22 +15,31 @@ const RARITY_ROWS: Record<Tier, Partial<Record<Rarity, number>>> = {
   4: { uncommon: 0.1, rare: 0.3, superRare: 0.35, epic: 0.25 },
 };
 
+/** 段の わく・めずらしさ・かくてい は `kodo` と 同じ〔写さない。#304〕。段の わりあい `chance` だけ 表ごとに ちがう */
+const KODO_TIERS = [
+  { tier: 1, slots: 3, rarity: RARITY_ROWS[1], sure: null },
+  { tier: 2, slots: 4, rarity: RARITY_ROWS[2], sure: null },
+  { tier: 3, slots: 4, rarity: RARITY_ROWS[3], sure: null },
+  { tier: 4, slots: 5, rarity: RARITY_ROWS[4], sure: 'mythic' },
+] as const;
+/** レジェンダリーの くじ（わくごと。0.001%） */
+const LEGENDARY = 0.00001;
+
+/** 段の わりあい（段 1〜4。合計 1）から 表を 作る */
+const withChances = (placeChance: number, chances: readonly [number, number, number, number]): ChestTable => ({
+  placeChance,
+  tiers: KODO_TIERS.map((t, i) => ({ ...t, chance: chances[i]! })),
+  legendary: LEGENDARY,
+  lots: [],
+});
+
 const CHEST_TABLES = {
-  kodo: {
-    /** 坑道ごとに 宝箱を 置く わりあい（1/3） */
-    placeChance: 1 / 3,
-    tiers: [
-      /** 段の 出る わりあい（0〜1）・わくの 数（こ）・かくていの めずらしさ */
-      { tier: 1, chance: 0.6, slots: 3, rarity: RARITY_ROWS[1], sure: null },
-      { tier: 2, chance: 0.25, slots: 4, rarity: RARITY_ROWS[2], sure: null },
-      { tier: 3, chance: 0.12, slots: 4, rarity: RARITY_ROWS[3], sure: null },
-      { tier: 4, chance: 0.03, slots: 5, rarity: RARITY_ROWS[4], sure: 'mythic' },
-    ],
-    /** レジェンダリーの くじ（わくごと。0.001%） */
-    legendary: 0.00001,
-    /** ほかの くじ（NINJA-1 など。坑道の 表は 使わない） */
-    lots: [],
-  },
+  /** いちばん 下の へや〔坑道ごとに 宝箱を 置く わりあい 1/3。段は 60・25・12・3%〕 */
+  kodo: withChances(1 / 3, [0.6, 0.25, 0.12, 0.03]),
+  /** MINE-1E: えだ道・迷路の 行きどまりの 大当たり〔段 1〜4 が 70・25・5・0%。くじで 当たった ときは かならず 置く〕 */
+  kodo_eda: withChances(1, [0.7, 0.25, 0.05, 0]),
+  /** MINE-1E: ひびの 奥の かくしべやの 大当たり〔40・35・20・5%〕 */
+  kodo_kakushi: withChances(1, [0.4, 0.35, 0.2, 0.05]),
 } as const satisfies Record<string, ChestTable>;
 
 
@@ -63,6 +72,6 @@ export function pickTier(table: ChestTable, r: number): Tier {
 }
 
 /** (x, y, z) の 宝箱の 段 */
-export function chestTierAt(seed: number, x: number, y: number, z: number): Tier {
-  return pickTier(chestTableOf('kodo'), hash01(chestSeed(seed, x, y, z), 1, 2));
+export function chestTierAt(seed: number, x: number, y: number, z: number, table = 'kodo'): Tier {
+  return pickTier(chestTableOf(table), hash01(chestSeed(seed, x, y, z), 1, 2));
 }

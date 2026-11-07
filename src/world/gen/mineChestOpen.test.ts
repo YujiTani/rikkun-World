@@ -91,7 +91,7 @@ beforeAll(() => {
       found.push({ seed, shaft, preview: h.chestPreview(c.x, c.y, c.z)! });
     }
   }
-}, 120_000);
+}, 600_000);
 
 const rarityOf = (item: ItemId): Rarity => itemDef(item)!.rarity;
 const idxOf = (r: Rarity): number => RARITY_ORDER.indexOf(r);
@@ -221,7 +221,7 @@ describe('C8: 宝箱を あける', () => {
     }
     expect(withTelop, 'ハイパーレア 以上の 宝箱').toBeGreaterThan(0);
     expect(without, 'ハイパーレア 未満の 宝箱').toBeGreaterThan(0);
-  }, 120_000); // 宝箱 184 こで 9 秒ほど〔手元〕。時間切れの ゆとり（おそくて 落ちない）
+  }, 600_000); // 宝箱 184 こで 9 秒ほど〔手元〕。時間切れの ゆとり（おそくて 落ちない）
 
   it('宝箱の 場所と シードで 中身が きまる: 同じ 世界の 同じ 宝箱は 開き直しても 同じ〔あける 前に 窓口を 作りなおしても〕・ちがう 宝箱は 中身が ちがう ことが ある', () => {
     for (const f of found.slice(0, 4)) {

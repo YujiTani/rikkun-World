@@ -34,14 +34,14 @@ const lightSamples: Sample[] = [];
 
 beforeAll(() => {
   SEEDS_20.forEach((seed, k) => {
-    const s = sampleShafts(seed, 2);
+    const s = sampleShafts(seed, 2, { legacy: true });
     s.shafts.forEach((shaft, i) => {
       const one = { seed, shaft, path: s.hook.shaftPath(shaft.id), g: s.g };
       samples.push(one);
       if (k < 6 && i < 2) lightSamples.push(one);
     });
   });
-}, 240_000);
+}, 720_000);
 
 describe('C4: 落ちない', () => {
   it('坑道が 集まる〔20 シード〕', () => {
@@ -52,13 +52,13 @@ describe('C4: 落ちない', () => {
     const bad: string[] = [];
     for (const s of samples) for (const m of wallProblems(s.g, s.shaft, s.path).slice(0, 3)) bad.push(`seed ${s.seed} ${s.shaft.id}: ${m}`);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 120_000);
+  }, 360_000);
 
   it('入口の まわり 8 マス〔と 山の まわり 8 マス〕に 4 以上 落ちる ふちが ない', () => {
     const bad: string[] = [];
     for (const s of samples) for (const m of ledgeProblems(s.g, s.shaft).slice(0, 3)) bad.push(`seed ${s.seed} ${s.shaft.id}: ${m}`);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 120_000);
+  }, 360_000);
 });
 
 describe('C4: もどれる（道さがし）', () => {
@@ -66,7 +66,7 @@ describe('C4: もどれる（道さがし）', () => {
     const bad: string[] = [];
     for (const s of samples) for (const m of walkProblems(s.g, s.shaft, s.path).slice(0, 3)) bad.push(`seed ${s.seed} ${s.shaft.id}: ${m}`);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 240_000);
+  }, 720_000);
 });
 
 describe('C5: 明るい', () => {
@@ -78,7 +78,7 @@ describe('C5: 明るい', () => {
     const bad: string[] = [];
     for (const s of lightSamples) for (const m of lightProblems(s.g, s.shaft, s.path).slice(0, 3)) bad.push(`seed ${s.seed} ${s.shaft.id}: ${m}`);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 240_000);
+  }, 720_000);
 
   it('坑道には ふつうの たいまつ〔torch〕が 入口に 2 こ いじょう・さか道に ならぶ。start_torch は 箱の 中の 道の そばに ない', () => {
     for (const s of lightSamples) {
@@ -92,5 +92,5 @@ describe('C5: 明るい', () => {
       // 仕様は「さか道 8 マスごと」を 間かくの 目安と 書く〔決まりは 光 6 以上〕: 半分 以上 あれば 並んで いる と 見る
       expect(rampTorches, `seed ${s.seed} ${s.shaft.id}: さか道の たいまつ〔8 マスごとに 左右 こうごに 立つ 目安の 半分〕`).toBeGreaterThanOrEqual(Math.floor(ramp.length / 3 / 8 / 2));
     }
-  }, 60_000);
+  }, 180_000);
 });

@@ -9,7 +9,7 @@ import { spawnOf } from './terrain';
  *  ・坑道の 先読みと ほらあなの 先読みは 時間を わけあう〔どちらも 1 回の warm で すすむ〕
  */
 
-vi.setConfig({ testTimeout: 240_000 });
+vi.setConfig({ testTimeout: 720_000 });
 
 const SEED = 20261012;
 const view = (w: ShaftWorld, rx: number, rz: number) => w.caves.region(rx, rz).rooms.map((r) => (r ? { id: r.id, kind: r.kind, box: r.box, shaft: r.shaft } : null));

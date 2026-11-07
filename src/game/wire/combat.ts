@@ -283,6 +283,7 @@ export function wireFighters(deps: WiredWeapons) {
     live: m6,
     tick: () => game.tick,
     requestSave: () => shared.requestSave(),
+    firstFill: (x, y, z) => shared.campFill(x, y, z), // MINE-1E: キャンプの たんす
     onSound: (name) => playStorage(fxSound, name),
     // たんす の いっぱい は 実績（いっぱいにした）に数えない（もちものだけ）
     onFull: (which) => {

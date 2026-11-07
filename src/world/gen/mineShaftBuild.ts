@@ -31,7 +31,7 @@ const SIX: readonly (readonly [number, number, number])[] = [
 ];
 
 /** 道の 足の マス 1 つの 上に 空気に する 高さ（マス）。へやは 5 */
-export const airHeightOf = (part: PathPart): number => (part === 'room' ? 5 : 4);
+export const airHeightOf = (part: PathPart): number => (part === 'room' ? 5 : part === 'hibi' ? 2 : 4);
 
 /** `ShaftBuilder.snapshot` の 中身 */
 export interface BuilderSnap {
@@ -96,6 +96,44 @@ export class ShaftBuilder {
     for (const c of s.path) this.path.push(c);
     this.reserved.length = 0;
     for (const r of s.reserved) this.reserved.push(r);
+  }
+
+  /**
+   * 道の 足の マスを まとめて 足し、ring は 足した 分だけ 差分で 直す〔`buildRing` と 同じ 結果。全体を 作りなおさない ので 大きい 坑道でも 軽い〕。
+   * `exempt` に 入れた マスは かべに しない
+   */
+  addCellsInc(cells: readonly PathCell[], exempt: Iterable<number> = []): void {
+    const fresh: number[] = [];
+    for (const c of cells) {
+      this.path.push(c);
+      this.pathKeys.add(keyOf(c.x, c.y, c.z));
+      const h = airHeightOf(c.part);
+      for (let k = 0; k < h; k++) {
+        const key = keyOf(c.x, c.y + k, c.z);
+        if (!this.air.has(key)) {
+          this.air.add(key);
+          fresh.push(key);
+        }
+      }
+    }
+    for (const k of exempt) {
+      this.exempt.add(k);
+      this.ring.delete(k);
+    }
+    for (const k of fresh) this.ring.delete(k);
+    for (const k of fresh) {
+      const x = keyX(k);
+      const y = keyY(k);
+      const z = keyZ(k);
+      for (const [dx, dy, dz] of SIX) {
+        const n = keyOf(x + dx, y + dy, z + dz);
+        if (!this.air.has(n) && !this.exempt.has(n)) this.ring.add(n);
+      }
+    }
+    for (const c of cells) {
+      const n = keyOf(c.x, c.y - 2, c.z);
+      if (!this.air.has(n) && !this.exempt.has(n)) this.ring.add(n);
+    }
   }
 
   /** air から ring を 作りなおす */
