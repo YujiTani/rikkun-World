@@ -24,28 +24,58 @@ export function pickNext(boxes: readonly FocusBox[], current: string | null, dir
   return (pickFrom(boxes, cur, dir) ?? cur).id;
 }
 
+/** 2 つの はば（始まり l・長さ w）の 重ならない 分。重なって いれば 0 */
+function gap(l1: number, w1: number, l2: number, w2: number): number {
+  return Math.max(0, l2 - (l1 + w1), l1 - (l2 + w2));
+}
+
+/** 同じ 点数の ときは 中心が 近い 物（COOP-1 4a。0.5px までは 同点） */
+const TIE = 0.5;
+
 function pickFrom(boxes: readonly FocusBox[], cur: FocusBox, dir: FocusDir): FocusBox | null {
   const cx = cur.l + cur.w / 2;
   const cy = cur.t + cur.h / 2;
+  const horizontal = dir === 'left' || dir === 'right';
   let best: FocusBox | null = null;
   let bestScore = Infinity;
-  for (const b of boxes) {
-    if (b.id === cur.id) continue;
-    const x = b.l + b.w / 2;
-    const y = b.t + b.h / 2;
-    const dx = x - cx;
-    const dy = y - cy;
-    if (dir === 'left' && dx >= -4) continue;
-    if (dir === 'right' && dx <= 4) continue;
-    if (dir === 'up' && dy >= -4) continue;
-    if (dir === 'down' && dy <= 4) continue;
-    const primary = dir === 'left' || dir === 'right' ? Math.abs(dx) : Math.abs(dy);
-    const secondary = dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx);
-    if (secondary > primary * 1.25 && secondary > 80) continue;
-    const score = primary + secondary * 2;
-    if (score < bestScore) {
-      bestScore = score;
-      best = b;
+  let bestNear = Infinity;
+  /** 同じ 行（たてが 重なる）の 左右だけを 見る 1 回目。なければ 今までの 決まりで もう 1 回 */
+  for (let pass = horizontal ? 0 : 1; pass < 2 && !best; pass++) {
+    for (const b of boxes) {
+      if (b.id === cur.id) continue;
+      const x = b.l + b.w / 2;
+      const y = b.t + b.h / 2;
+      const dx = x - cx;
+      const dy = y - cy;
+      if (dir === 'left' && dx >= -4) continue;
+      if (dir === 'right' && dx <= 4) continue;
+      if (dir === 'up' && dy >= -4) continue;
+      if (dir === 'down' && dy <= 4) continue;
+      const primary = horizontal ? Math.abs(dx) : Math.abs(dy);
+      let secondary: number;
+      if (horizontal) {
+        const sameRow = gap(cur.t, cur.h, b.t, b.h) === 0;
+        if (pass === 0) {
+          if (!sameRow) continue;
+          secondary = 0;
+        } else {
+          // 今までの 決まり。ただし 真上・真下に 重なる 物（はばの 広い ボタンと その 上の マス）は よこの 仲間では ないので 行かない
+          if (gap(cur.l, cur.w, b.l, b.w) === 0) continue;
+          secondary = Math.abs(dy);
+          if (secondary > primary * 1.25 && secondary > 80) continue;
+        }
+      } else {
+        // 上下: 横の ずれは 2 つの はばの 重ならない 分（はばの 広い ボタンへも まっすぐ 行ける）
+        secondary = gap(cur.l, cur.w, b.l, b.w);
+        if (secondary > primary * 1.25 && secondary > 80) continue;
+      }
+      const score = primary + secondary * 2;
+      const near = horizontal ? Math.abs(dy) : Math.abs(dx);
+      if (score < bestScore - TIE || (score <= bestScore + TIE && near < bestNear)) {
+        bestScore = score;
+        bestNear = near;
+        best = b;
+      }
     }
   }
   return best;
@@ -58,11 +88,11 @@ function visible(el: HTMLElement): boolean {
   return r.width > 0 && r.height > 0;
 }
 
-function menuItems(root: ParentNode): HTMLElement[] {
+export function menuItems(root: ParentNode): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>('button, [data-menu-item]')].filter(visible);
 }
 
-function boxOf(el: HTMLElement, i: number): FocusBox {
+export function boxOf(el: HTMLElement, i: number): FocusBox {
   const r = el.getBoundingClientRect();
   const g = el.closest<HTMLElement>('[data-focus-group]');
   const box: FocusBox = { id: String(i), l: r.left, t: r.top, w: r.width, h: r.height };
