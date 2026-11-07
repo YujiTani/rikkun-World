@@ -11,7 +11,10 @@ import { playBook } from '../../fx/bookSounds';
 import { nearestEar } from '../../duo/hearing';
 import { createLiquidSounds } from '../../fx/liquidSounds';
 import { FX_SETTINGS } from '../../fx/config';
-import { ImpactBus } from '../../fx/impact';
+import { P1CamFx, P2CamFx } from '../../duo/camFx';
+import { createImpactRoute } from '../../duo/impactRoute';
+import { baseCamDistance } from '../../duo/rules';
+import { DUO_TUNING } from '../../duo/tuning';
 import { type BgmSceneInput, screenLevel } from '../../fx/bgm/scene';
 import { createSettingsPanel } from '../../ui/settings/settingsPanel';
 import { bindPauseMenu } from '../../ui/menu/bindPause';
@@ -190,15 +193,24 @@ export function wirePlayer(deps: WiredInput) {
   shared.controller = controller;
   // CHAR-1 第 5 版: 一人称（V）はなくなった。CameraRig は受け取るだけの ActionState を使う
   // #276 手ごたえ: ヒットストップと 画面の ゆれ（ゆれは FX_SETTINGS.fxShake が 0 なら なし）
-  const impactBus = new ImpactBus({
-    stop: (n) => game.hitStop(n),
-    shake: (a) => {
-      if (FX_SETTINGS.fxShake) rig.addTrauma(a);
-    },
-    tick: () => game.tick,
-  });
   const titleOfYokai = (id: number) => shared.yokaiManager?.list().find((q) => q.id === id)?.title ?? 'none';
   const rig = new CameraRig(game.camera, game.scene, world, () => controller.state, game.input);
+  // COOP-1 4d-0: 1 人の ときは 世界を 止めて 1P の カメラが ゆれる（今の まま）。2 人の ときは 世界は 止めず、その人の 半分の カメラだけ 止める・ゆらす
+  const camFx1 = new P1CamFx({ rig, camera: game.camera, baseDistance: () => baseCamDistance(shared.duoCamDistance), joined: () => shared.duoJoined() });
+  const camFx2 = new P2CamFx({ baseDistance: () => DUO_TUNING.cameraSplit });
+  shared.duoCamFx = (who) => (who === 1 ? camFx1 : camFx2);
+  const impactRoute = createImpactRoute({
+    joined: () => shared.duoJoined(),
+    worldStop: (n) => game.hitStop(n),
+    worldStopLeft: () => game.hitStopLeft(),
+    camFx: shared.duoCamFx,
+    shakeOn: () => !!FX_SETTINGS.fxShake,
+    tick: () => game.tick,
+  });
+  shared.impactFor = impactRoute.impactFor;
+  shared.impactFlush = impactRoute.flush;
+  shared.impactView = impactRoute.view;
+  const impactBus = impactRoute.impactFor(1);
   // GAMEPAD-1: V / パッド上面 → toggleView（本体は CameraRig 内 TODO no-op）
   game.input.onPress((action) => {
     if (action === 'toggleView') rig.toggleView();
@@ -240,7 +252,7 @@ export function wirePlayer(deps: WiredInput) {
   const aimMarks = new AimMarks(hud);
   crosshair.setVisible(rig.crosshairVisible());
   return {
-    spawnPlain, raiseAboveBlocks, startPoint, controller, impactBus, titleOfYokai, rig, blockDollOnly,
+    spawnPlain, raiseAboveBlocks, startPoint, controller, impactBus, camFx1, camFx2, titleOfYokai, rig, blockDollOnly,
     sprite, charCtl, blobShadow, crosshair, aimMarks,
   };
 }

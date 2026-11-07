@@ -128,8 +128,8 @@ export const legendState = (page: Page) => page.evaluate(() => (window.__rikkun!
  * 雷神剣（か item）を 持って、ひらけた 平らな 地面に 立つ（北向き・床 floorY）。実績の おしらせは 出す（mute 解除は 呼ぶ側）。
  * 戻りは floorY。
  */
-export async function legendWorld(page: Page, item: string = RAIJIN): Promise<number> {
-  await openBladeWorld(page);
+export async function legendWorld(page: Page, item: string = RAIJIN, query?: string): Promise<number> {
+  await openBladeWorld(page, { query });
   await installAimHelpers(page);
   await expectLegendHook(page); // 窓口が ない（実装の 前）なら ここで 落ちる
   const { floorY } = await stage(page);

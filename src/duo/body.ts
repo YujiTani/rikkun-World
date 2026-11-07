@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { createCharSprite, type CharKind, type CharSprite } from '../char';
 import type { Lighting } from '../sky/lighting';
+import type { ParryCell } from '../char/parryCells';
 import type { PlayerState } from '../contracts';
 import { DUO_COLORS, DUO_TUNING } from './tuning';
 
@@ -120,6 +121,21 @@ export class DuoBody {
     i.facingDeg = s.facingDeg;
     this.sprite.step(i);
     this.sprite.render();
+  }
+
+  /** COOP-1 4d-1: パリィの 絵を 見せる（null で 元に もどす。1P の CharSprite と 同じ 口。箱の 体は 何も しない） */
+  setParry(cell: ParryCell | null): void {
+    this.sprite?.setParry(cell);
+  }
+
+  /** COOP-1 4d-1: 青白い 光（0〜1。1P の CharSprite と 同じ 口） */
+  setGlow(level: number): void {
+    this.sprite?.setGlow(level);
+  }
+
+  /** COOP-1 4d-1: パリィの 絵を 先に 読む（刀を 持って Shift を 押した とき） */
+  preloadParry(): void {
+    this.sprite?.preloadParry();
   }
 
   /** 倒れている あいだは 体と ▼ を 消す（戻ると また 出る。世界には 入ったまま） */

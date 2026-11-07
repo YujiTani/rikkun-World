@@ -245,6 +245,23 @@ export class GamepadReader {
       }
     }
 
+    this.readButtons(pad, table, nowMs);
+  }
+
+  /**
+   * COOP-1 4d-1（AC101）: ボタンの 押す／はなす だけを 読む（実時間の 毎コマ）。ゆっくりの あいだ、固定ステップの あいだに 押して はなした ボタンを 取りこぼさない ため。
+   * スティック（歩き）・look には さわらない。前の 値（prev）は poll と 共有なので、何回 呼んでも 同じ 押しは 1 回。ボタンの 読み方は poll と 同じ（`readButtons`）。パッドが なければ 何も しない
+   */
+  pollButtons(nowMs: number): void {
+    const pad = this.assignedIndex === null ? null : this.getPads()[this.assignedIndex];
+    if (!pad || !pad.connected) return;
+    const kind = detectMappingKind(pad);
+    this.kind = kind;
+    this.readButtons(pad, faceTable(kind), nowMs);
+  }
+
+  /** ボタンの 押す／はなす を ActionState に 出す（poll と pollButtons の 共通。`holdButtonsUntilReleased`・`setIgnoreStart`・メニュー中の ふりわけ・暴発よけも ここで 同じ 結果に なる） */
+  private readButtons(pad: Gamepad, table: ReturnType<typeof faceTable>, nowMs: number): void {
     const prev = this.prev.get(pad.index) ?? [];
     const cur = pad.buttons.map((b) => !!b.pressed);
     if (this.holdButtons) {

@@ -3,7 +3,7 @@ import type { Vec3 } from '../../contracts';
 import type { YokaiField } from './entity';
 import type { YokaiParryPort, YokaiParryVerdict } from './managerTypes';
 
-/** パリィに 聞く。パリィの 窓口が なければ null（今のまま） */
+/** パリィに 聞く（ねらっている 人 f.who の パリィ）。パリィの 窓口が なければ null（今のまま） */
 export function askParry(
   port: YokaiParryPort | undefined,
   f: YokaiField,
@@ -12,7 +12,7 @@ export function askParry(
   from: Vec3,
   amount: number,
 ): YokaiParryVerdict | null {
-  if (!port || f.who === 2) return null; // パリィは 1P だけ（2P は 段階 2）
+  if (!port) return null;
   const dirDeg = bearingOf({ x: f.px, y: f.py, z: f.pz }, from);
-  return port.hit({ by, yokaiId, dirDeg, amount });
+  return port.hit({ by, yokaiId, dirDeg, amount }, f.who); // COOP-1 4d-1: ねらっている 人の パリィに 聞く
 }

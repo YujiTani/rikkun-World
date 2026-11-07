@@ -23,7 +23,7 @@ interface FireballDeps {
   combat: Pick<PlayerCombat, 'damage'>;
   events: Pick<YokaiEvents, 'emit' | 'tick' | 'cues'>;
   /** dome・onDomeErase・parry・onParryEvent を 使うときに 読む */
-  opts: Pick<YokaiManagerOptions, 'dome' | 'onDomeErase' | 'parry' | 'onParryEvent'>;
+  opts: Pick<YokaiManagerOptions, 'dome' | 'domes' | 'onDomeErase' | 'parry' | 'onParryEvent'>;
   settings: Pick<W2Settings, 'reflectFireball'>;
   hurt: Pick<YokaiHurt, 'hurtYokai'>;
   reeler: Pick<YokaiReeler, 'applyStagger'>;
@@ -34,6 +34,15 @@ interface FireballDeps {
  * 火の玉の係: ちょうちんが出した火の玉を 妖怪から離して管理する（ちょうちんが消えても飛びつづける）、
  * 飛ぶ・当たる・消える、パリィ・はね返し（WEAPON-5）。
  */
+type DomeBall = { x: number; y: number; z: number; r: number } | null;
+const inDome = (p: { x: number; y: number; z: number }, d: DomeBall): boolean => d !== null && Math.hypot(p.x - d.x, p.y - d.y, p.z - d.z) <= d.r;
+/** 弾が ふれている ドームの 持ち主（1 か 2）。なければ 0。`domes` が あれば それを、なければ 1 人用の `dome`（= 1P）を 見る */
+function domeOwnerAt(p: { x: number; y: number; z: number }, one: DomeBall, many: readonly DomeBall[] | null): 0 | 1 | 2 {
+  if (!many) return inDome(p, one) ? 1 : 0;
+  if (inDome(p, many[0] ?? null)) return 1;
+  return inDome(p, many[1] ?? null) ? 2 : 0;
+}
+
 export class YokaiFireballs {
   private fireballs: LiveFireball[] = [];
   private fireballSeq = 0;
@@ -72,6 +81,7 @@ export class YokaiFireballs {
     const keep: LiveFireball[] = [];
     const half = AI_CONST.fireballBox / 2;
     const dome = opts.dome?.() ?? null;
+    const domes = opts.domes?.() ?? null;
     for (const f of this.fireballs) {
       f.fb.update(dt);
       aim(field, f.who); // 出した 妖怪が ねらっていた 人の 箱で 見る
@@ -79,6 +89,7 @@ export class YokaiFireballs {
       const kind: YokaiKind = 'chochin';
       let end = false;
       let hitPlayer = false;
+      const domeWho = f.reflected /* はね返した 弾は プレイヤーの 物なので ドームでも 消さない */ ? 0 : domeOwnerAt(p, dome, domes);
       if (!f.fb.alive) {
         end = true; // 8 ブロックで消えた
       } else if (
@@ -87,10 +98,10 @@ export class YokaiFireballs {
         end = true;
       } else if (world.isSolid(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z))) {
         end = true;
-      } else if (dome && !f.reflected /* はね返した 弾は プレイヤーの 物なので ドームでも 消さない */ && Math.hypot(p.x - dome.x, p.y - dome.y, p.z - dome.z) <= dome.r) {
-        // WEAPON-9: ドームに ふれた 弾は 消える（ダメージ 0）
+      } else if (domeWho !== 0) {
+        // WEAPON-9: ドームに ふれた 弾は 消える（ダメージ 0）。COOP-1 4d-2: 2 人のうち どちらの ドームでも
         end = true;
-        opts.onDomeErase?.(f.id);
+        opts.onDomeErase?.(f.id, domeWho);
       } else {
         tmpBox2.minX = p.x - half;
         tmpBox2.maxX = p.x + half;
@@ -178,9 +189,9 @@ export class YokaiFireballs {
         if (!aabbOverlap(obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox), fbBox)) continue;
         const p = f.fb.position;
         const amount = f.damage * this.d.settings.reflectFireball.damageMul;
-        const dealt = this.d.hurt.hurtYokai(e.id, amount, { x: p.x, y: p.y, z: p.z }, undefined, 'reflect');
-        this.d.opts.onParryEvent?.({ type: 'reflectHit', yokaiId: e.id, damage: dealt });
-        if ((e.state as YokaiState) !== 'dying') this.d.reeler.applyStagger(e.id, 'reflect');
+        const dealt = this.d.hurt.hurtYokai(e.id, amount, { x: p.x, y: p.y, z: p.z }, undefined, 'reflect', f.who); // COOP-1 4d-1: はね返した 人 = ねらわれていた 人
+        this.d.opts.onParryEvent?.({ type: 'reflectHit', yokaiId: e.id, damage: dealt }, f.who);
+        if ((e.state as YokaiState) !== 'dying') this.d.reeler.applyStagger(e.id, 'reflect', f.who);
         return true;
       }
     }

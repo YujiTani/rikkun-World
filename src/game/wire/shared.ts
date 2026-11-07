@@ -23,7 +23,16 @@ import { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
 import type { HouseSystem } from '../../house/system';
 import { P2State } from '../../duo/p2State';
 import type { DuoLeaveReason, P2Save } from '../../duo/types';
+import type { P2GashaPort } from './gashaPeople';
+import type { DuoCamFx } from '../../duo/camFx';
+import type { Parry } from '../../combat/parry';
+import type { P2Parry } from '../../duo/p2Parry';
+import type { ImpactView } from '../../duo/impactRoute';
+import type { ImpactBus } from '../../fx/impact';
+import type { LegendSystem } from '../../legend/LegendSystem';
 
+/** パリィの 倍率が まだ 無い とき（wireLoop が 差しかえる まで） */
+const NO_PARRY_SCALES: readonly number[] = [1];
 // WEAPON-7: 雷の 見た目（十字の ドット絵・着地の 光・光の つぶ）
 export const IDLE_THUNDER_LOOK = { charging: false, ready: false, aimS: null };
 // 出来事は 1 か所で 1 回だけ drain して、受け手（画面・音・人形）に配る。
@@ -51,6 +60,8 @@ interface Shared {
   leaveDuo: (reason: DuoLeaveReason) => void;
   /** COOP-1 3a: 仲間（2P）の 足もとと 持ち物（参加していなければ null。落とし物・動物・1P の 置く が 読む。wireDuo が 差しかえる。返す 物は いつも 同じ 1 つ） */
   duoMate: () => { position: Vec3; inventory: Inventory } | null;
+  /** COOP-1 4d-3: 2P の がしゃどくろへの 口（参加している あいだだけ。なければ null。wireDuoPlay が 差しかえる。参加ごとに 同じ 1 つ） */
+  p2Gasha: () => P2GashaPort | null;
   /** COOP-1 3a: 落とし物を ひろえる 仲間（倒れている あいだは null。DropField だけが 読む。wireDuo が 差しかえる） */
   duoDropMate: () => { position: Vec3; inventory: Inventory } | null;
   /** COOP-1 4c: かまどで やけた 物が 2P の もちものに 入った（2P の つくる の「ひろった」の 出来事。createDuoInventory が 差しかえる） */
@@ -65,6 +76,24 @@ interface Shared {
   p2Hp: () => number;
   /** COOP-1: 2 人のときの カメラの 距離（null = 1 人。step.ts が rig に 渡す。wireDuo が 毎ステップ 書く） */
   duoCamDistance: number | null;
+  /** COOP-1 4d-0（§8）: その人の カメラの 口（止め・ゆれ・きょり）。wirePlayer が 差しかえる */
+  duoCamFx: (who: 1 | 2) => DuoCamFx;
+  /** COOP-1 4d-0（§8）: その人の 当たりの 手ごたえ（止め・ゆれ）。1 人の ときは 世界を 止める。wirePlayer が 差しかえる */
+  impactFor: (who: 1 | 2) => ImpactBus;
+  /** COOP-1 4d-0: 当たりの 手ごたえを ステップの おわりに 出す（2 つとも。ImpactBus は 空なら 何も しない）。wirePlayer が 差しかえる */
+  impactFlush: () => void;
+  /** COOP-1 4d-0: `duo.impact(who)`。wirePlayer が 差しかえる */
+  impactView: (who: 1 | 2) => ImpactView | null;
+  /** COOP-1 4d-0（§8）: その時 いる 人の パリィの 倍率（1P と、参加している 2P。同じ 入れものを 使い回す）。wireLoop が 差しかえる */
+  parryScales: () => readonly number[];
+  /** COOP-1 4d-1（§8）: その人の パリィ（1P は 今の parry。2P が いなければ who 2 は null）。wireLoop が 差しかえる */
+  parryFor: (who: 1 | 2) => Parry | null;
+  /** COOP-1 4d-2（§8）: その人の わざの しくみ（1P は 今の legend。2P が いなければ who 2 は null）。2P の 分は wireDuoPlay が 差しかえる（`pickLegend`） */
+  legendFor: (who: 1 | 2) => LegendSystem | null;
+  /** COOP-1 4d-1: 2P の パリィ（参加している あいだ だけ。いなければ null）。wireDuoPlay が 差しかえる */
+  p2Parry: () => P2Parry | null;
+  /** COOP-1 4d-1: 妖怪の 更新の 直前に 毎ステップ 呼ぶ（createStep。1P の parry.update の すぐ あと）。2P の 入力を 妖怪の 当たりより 先に 入れる。wireDuoPlay が 差しかえる */
+  preYokai: () => void;
   /** COOP-1: Game に 渡している 時間の 倍率（テストの 口 duo.timeScale() が 読む。wireLoop が 差しかえる） */
   gameTimeScale: () => number;
   // #293 試作: ふだんの BGM の フェード（gashaBgm.ts が きめる）
@@ -134,6 +163,7 @@ export function createShared(): Shared {
     p2: new P2State({ onLevelUp: () => s.p2LevelUp(), armorWear: { settings: () => s.p2Wear.settings(), tick: () => s.p2Wear.tick() } }),
     p2Wear: { settings: () => W2_SETTING_DEFAULTS, tick: () => 0 },
     duoMate: () => null,
+    p2Gasha: () => null,
     duoDropMate: () => null,
     duoYokai: () => null,
     p2Delivered: () => {},
@@ -144,6 +174,11 @@ export function createShared(): Shared {
     duoJoined: () => false,
     leaveDuo: () => {},
     duoCamDistance: null,
+    parryScales: () => NO_PARRY_SCALES,
+    parryFor: () => null,
+    legendFor: () => null,
+    p2Parry: () => null,
+    preYokai: () => {},
     gameTimeScale: () => 1,
     gashaBgmFade: {},
     girlBgmOn: false,

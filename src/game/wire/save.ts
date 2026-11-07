@@ -36,7 +36,7 @@ import { isWaterIndex } from '../../world/blocks/water';
 import { SHAFT_CONFIG } from '../../world/gen/mineShaftConfig';
 import { sharedLevel } from '../../duo/credit';
 import { readP2Save } from '../../duo/p2State';
-import { duoTimeScale } from '../../duo/rules';
+import { worldTimeScale, type WorldTimeInput } from '../../duo/worldTime';
 
 export function wireSave(deps: WiredAchievements) {
   const {
@@ -442,7 +442,25 @@ export function wireLoop(deps: WiredFrame) {
   game.setRealtimeGate(() => lock.realtimeAllowed());
   // おめでとう画面の中の時間は 実時間で進める（世界は上で止めてある）
   // COOP-1: 2 人のときは もちもの画面（案内中は 今のまま）でも ゆっくりに しない（もう 1 人が 遊んでいる）
-  const gameTimeScale = (): number => (screen.mode() === 'inventory' ? duoTimeScale(screen.timeScale(), shared.duoJoined()) : screen.timeScale()) * (screen.mode() === 'play' ? parry.state().timeScale : 1);
+  // COOP-1 4d-0: 時間の 倍率は 画面の 倍率 × パリィの 倍率（2 人の ときは 小さい 方。duo/worldTime.ts）。毎ステップ 新しい 物を 作らない
+  const parryBuf: number[] = [1];
+  shared.parryScales = () => {
+    parryBuf[0] = parry.state().timeScale;
+    // COOP-1 4d-1: 参加している 2P の 分を 足す（小さい 方を とるのは worldTimeScale。2P が やめた ステップに 消える）
+    const p2 = shared.p2Parry();
+    if (p2) parryBuf[1] = p2.state().timeScale;
+    parryBuf.length = p2 ? 2 : 1;
+    return parryBuf;
+  };
+  shared.parryFor = (who) => (who === 1 ? parry : (shared.p2Parry()?.parry ?? null));
+  const tsIn: WorldTimeInput = { mode: 'play', screenScale: 1, joined: false, parryScales: parryBuf };
+  const gameTimeScale = (): number => {
+    tsIn.mode = screen.mode();
+    tsIn.screenScale = screen.timeScale();
+    tsIn.joined = shared.duoJoined();
+    tsIn.parryScales = shared.parryScales();
+    return worldTimeScale(tsIn);
+  };
   game.setTimeScale(gameTimeScale);
   shared.gameTimeScale = gameTimeScale;
   game.onIdle((dt) => overlay.update(dt));

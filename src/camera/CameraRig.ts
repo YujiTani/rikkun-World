@@ -90,6 +90,10 @@ export class CameraRig {
   traumaNow(): number {
     return this.trauma;
   }
+  /** いまの ゆれの 角度（ラジアン。COOP-1 4d-0: 2 人の とき 止めの ステップに カメラの 向きへ ゆれだけ 足す のに 使う。返す 物は 毎回 同じ 入れもの） */
+  shakeNow(): { yaw: number; pitch: number; roll: number } {
+    return this.shakeOut;
+  }
   /** ゆれの 時間を 進めて trauma を へらす（ヒットストップ中も 呼ぶ） */
   private stepShake(dt: number): void {
     this.shakeT += dt;

@@ -74,11 +74,16 @@ export class HpBar {
   private count!: HTMLElement;
   private shaker!: HTMLElement;
   private ratio = 1;
+  /** COOP-1 4d-3: 2 人の とき 右半分に 出す 2 つ目（id なし。data-testid="gasha-hp-p2"）。1 人の ときは null */
+  private twin: HpBar | null = null;
+  private baseCss = '';
+  private last = { hp: 1, max: 1 };
 
-  constructor(private readonly style: BarStyle = (T.hit.barStyle as BarStyle)) {
+  constructor(private readonly style: BarStyle = (T.hit.barStyle as BarStyle), isTwin = false) {
     this.root = el('div');
-    this.root.id = 'gashaBigHp';
+    if (!isTwin) this.root.id = 'gashaBigHp';
     this.build();
+    this.baseCss = this.root.style.cssText;
     // メニュー・本・ポーズ画面（#hud の 中で z-index 8 以上）より 下に 出す ため #hud の 中に 置く。実績の おしらせは body 直下（#hud の 外）なので いちばん 上の まま
     (document.getElementById('hud') ?? document.body).appendChild(this.root);
   }
@@ -226,6 +231,8 @@ export class HpBar {
       this.ghost.style.width = `${Math.round(r * 1000) / 10}%`;
     }
     this.ratio = r;
+    this.last.hp = hp; this.last.max = max;
+    this.twin?.set(hp, max, damaged, instant);
     this.count.textContent = `${Math.ceil(hp)} / ${max}`;
     this.root.dataset.hp = String(hp);
     if (damaged && !instant && H.barShakePx > 0 && !(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
@@ -236,5 +243,35 @@ export class HpBar {
     }
   }
 
-  destroy(): void { this.root.remove(); }
+  /**
+   * COOP-1 4d-3（§3.6 (c)「体力ゲージ」）: 2 人の とき（on）は 左半分（この ゲージ。data-testid="gasha-hp-p1"）と 右半分（2 つ目）に 分けて 出す。
+   * 位置は 半分の まん中。はばは 半分の 80% より 小さく、上は 距離メーター（上 12%）の 下。2 つ目は 最初は かくれている（呼ぶ 側が display で 出す）。1 人に もどれば 2 つ目を 消して もとの 位置
+   */
+  halves(on: boolean): void {
+    if (on === (this.twin !== null)) return;
+    if (!on) {
+      this.twin?.destroy();
+      this.twin = null;
+      const shown = this.root.style.display;
+      this.root.style.cssText = this.baseCss;
+      this.root.style.display = shown;
+      this.root.removeAttribute('data-testid');
+      return;
+    }
+    const twin = new HpBar(this.style, true);
+    twin.root.style.display = 'none';
+    twin.set(this.last.hp, this.last.max, false, true);
+    this.twin = twin;
+    const H = T.hit;
+    const place = (r: HTMLElement, leftPct: number, id: string): void => {
+      r.style.left = `${leftPct}%`;
+      r.style.width = `min(40vw,${H.barMaxPx}px)`;
+      r.style.top = `max(${H.barTopPx}px,calc(12vh + 6px))`;
+      r.dataset.testid = id;
+    };
+    place(this.root, 25, 'gasha-hp-p1');
+    place(twin.root, 75, 'gasha-hp-p2');
+  }
+
+  destroy(): void { this.twin?.destroy(); this.twin = null; this.root.remove(); }
 }

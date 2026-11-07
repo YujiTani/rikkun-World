@@ -122,10 +122,18 @@ export class GashaGeyser {
     d.onUpdate((dt) => {
       if (this.field.sleeping()) return;
       // プレイヤーが ボスから 遠い(perf.farDist より 遠い)間は 数えなおし・物理・見た目を まいコマ やらない
-      const c = d.centre(), b = d.body().position;
-      if (c && Math.hypot(b.x - c.x, b.z - c.z) > T.perf.farDist) return;
+      const c = d.centre();
+      if (c && this.allFar(d, c)) return;
       this.field.step(dt); this.layout();
     });
+  }
+
+  /** 2 人とも（1 人なら その人が）ボスから 遠いか（COOP-1 4d-3） */
+  private allFar(d: GeyserDeps, c: { x: number; z: number }): boolean {
+    const ts = d.targets?.();
+    if (!ts) { const b = d.body().position; return Math.hypot(b.x - c.x, b.z - c.z) > T.perf.farDist; }
+    for (let i = 0; i < ts.length; i++) { const b = ts[i]!.pos; if (Math.hypot(b.x - c.x, b.z - c.z) <= T.perf.farDist) return false; }
+    return true;
   }
 
   /** 置く（肩の 下の 2 本を かえはじめる）。ワールドの 間欠泉の つちは そのまま */

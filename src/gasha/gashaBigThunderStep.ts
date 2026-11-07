@@ -11,6 +11,7 @@ import type { LandInfo } from './gashaBigEruption';
 import { BodyShock, StrikeField, touchBody } from './gashaBigThunder';
 import { ThunderFx, type BoltView, type RingView, type WarnView } from './gashaBigThunderFx';
 import { TUNE as T } from './gashaBigTuning';
+import { targetsOf, type TargetSource } from './gashaTargets';
 
 export interface ThunderEnv {
   actor(): BigActor | null;
@@ -18,7 +19,8 @@ export interface ThunderEnv {
   sfx: Pick<BigSfx, 'bolt' | 'elecOn' | 'elecOff' | 'strike'>;
   /** 落雷の 着く 高さ（噴火の 地面の 見つけ方と おなじ） */
   landAt(x: number, z: number): LandInfo;
-  deps: Pick<GashaBigDeps, 'scene' | 'camera' | 'player' | 'hurt'>;
+  /** player = ねらった 人（まわりの 落雷の ねらい）。当たり（落雷・体の 電気）は 場所で きまるので 人の 一覧（targets）の 人ごと */
+  deps: Pick<GashaBigDeps, 'scene' | 'camera' | 'player'> & TargetSource;
 }
 
 export interface ThunderStep {
@@ -39,7 +41,9 @@ export interface ThunderStep {
 
 export function createThunderStep(env: ThunderEnv): ThunderStep {
   const { deps, sfx } = env;
-  const strikes = new StrikeField(), thunderFx = new ThunderFx(deps.scene, deps.camera), bodyShock = new BodyShock();
+  const strikes = new StrikeField(), thunderFx = new ThunderFx(deps.scene, deps.camera);
+  /** 体の 電気の 間かくは 人ごと（0 = 1P・1 = 2P） */
+  const bodyShocks = [new BodyShock(), new BodyShock()];
   const tipV = new Vector3();
   let fingerBolt: { age: number; variant: number } | null = null;
   let thunderBodyHurts = 0, thunderStrikeHurts = 0, thunderHitLog: { x: number; z: number }[] = [];
@@ -64,7 +68,11 @@ export function createThunderStep(env: ThunderEnv): ThunderStep {
       for (const s of o.hits) {
         sfx.bolt();
         thunderHitLog.push({ x: s.x, z: s.z });
-        if (strikes.inStrike(s, p) && deps.hurt?.(K.around.damage, { x: s.x, y: s.y, z: s.z }) !== undefined) thunderStrikeHurts++;
+        const people = targetsOf(deps);
+        for (let i = 0; i < people.length; i++) {
+          const t = people[i]!;
+          if (strikes.inStrike(s, t.pos) && t.hurt?.(K.around.damage, { x: s.x, y: s.y, z: s.z }) !== undefined) thunderStrikeHurts++;
+        }
       }
       for (const s of strikes.list) {
         if (s.t < 0) warnViews.push({ x: s.x, y: s.y, z: s.z, warn: strikes.warn(s), radius: K.around.radius });
@@ -76,17 +84,20 @@ export function createThunderStep(env: ThunderEnv): ThunderStep {
     // 体の 電気: 走って いる 間 触れて いる 人に ダメージ
     thunderFx.setElectric(A.elec > 0.01 ? actor.boxList : [], A.elec);
     if (A.elec > 0.05) sfx.elecOn(); else sfx.elecOff();
-    const live = A.live, pl = deps.player();
-    const touching = live && touchBody((i, j, k) => actor.solid(i, j, k), { x: pl.x, y: pl.y, z: pl.z }, K.body.touchMargin);
-    const d = bodyShock.step(dt, live, touching);
-    if (d > 0) { deps.hurt?.(d, { x: actor.pos.x, y: actor.pos.y, z: actor.pos.z }); thunderBodyHurts++; }
+    const live = A.live, people = targetsOf(deps);
+    for (let i = 0; i < people.length; i++) {
+      const t = people[i]!, pl = t.pos;
+      const touching = live && touchBody((a, b, c) => actor.solid(a, b, c), { x: pl.x, y: pl.y, z: pl.z }, K.body.touchMargin);
+      const d = bodyShocks[t.who - 1]!.step(dt, live, touching);
+      if (d > 0) { t.hurt?.(d, { x: actor.pos.x, y: actor.pos.y, z: actor.pos.z }); thunderBodyHurts++; }
+    }
     thunderFx.update(dt);
   };
   return {
     step,
     onStrike: () => { const a = env.actor(); fingerBolt = { age: 0, variant: boltVariantOf(293, a?.thunderCount ?? 0) }; sfx.strike(); },
-    onLand: () => { strikes.begin((env.actor()?.thunderCount ?? 1) - 1); thunderHitLog = []; bodyShock.reset(); },
-    clear: () => { thunderFx.clear(); strikes.clear(); bodyShock.reset(); fingerBolt = null; },
+    onLand: () => { strikes.begin((env.actor()?.thunderCount ?? 1) - 1); thunderHitLog = []; for (const b of bodyShocks) b.reset(); },
+    clear: () => { thunderFx.clear(); strikes.clear(); for (const b of bodyShocks) b.reset(); fingerBolt = null; },
     fx: thunderFx, strikes,
     bodyHurts: () => thunderBodyHurts, strikeHurts: () => thunderStrikeHurts,
     hitLog: () => thunderHitLog,

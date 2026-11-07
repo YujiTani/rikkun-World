@@ -5,6 +5,7 @@ import type { Vector3 } from 'three';
 import type { GlassMask, JointName } from './gashaBigTypes';
 import type { AimClipJson, ClipJson } from './gashaBigMotion';
 import type { Side } from './gashaBigStep';
+import type { GashaTarget } from './gashaTargets';
 
 export interface ActorEnv {
   /** 地面の いちばん 上の ブロックの 高さ（立つ 面は +1） */
@@ -13,6 +14,8 @@ export interface ActorEnv {
   player(): { x: number; y: number; z: number; yawDeg: number };
   /** プレイヤーを 動かす（位置の ずれ、向き（度）の ずれ） */
   carryPlayer?(dx: number, dy: number, dz: number, dYawDeg: number): void;
+  /** COOP-1 4d-3: のせて 運ぶ 人の 一覧（毎ステップ 読む）。あれば 人ごとに 運ぶ（player・carryPlayer は 使わない）。なければ 1 人用の player・carryPlayer */
+  targets?(): readonly GashaTarget[];
   /** 前へ 進む 1 歩で 手を 地面に たたきつけた（手の ひらの まんなか。y は 地面の 高さ）。打撃・衝撃波・ゆれ は 呼ぶ 側 */
   onSlam?(x: number, y: number, z: number, side: Side): void;
   /** 攻撃 1（両手たたきつけ）で 手が 地面に 着いた（両手の まんなか。fx, fz = 体の 前の 向き）。打撃・岩・衝撃波・ゆれ・地形こわし・体の ゆれ は 呼ぶ 側 */

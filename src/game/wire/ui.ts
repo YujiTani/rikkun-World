@@ -287,7 +287,10 @@ export function wireWeaponFx(deps: WiredHud) {
     onPickup: (item, count) => hotbar.pickup(item, count),
     // #276: パンチが 当たった・妖怪を たおした
     onPunchHit: (id) => impactBus.hit(impactOf({ kind: 'punch', title: titleOfYokai(id) })),
-    onDefeat: () => impactBus.hit(impactOf({ kind: 'defeat' })),
+    // 2 人の ときは たおした 人の 物（creatures.ts の onDefeat が 出す）。1 人の ときは 今の まま
+    onDefeat: () => {
+      if (!shared.duoJoined()) impactBus.hit(impactOf({ kind: 'defeat' }));
+    },
   });
 
   const arrowRelay = new EventRelay<import('../../contracts').BowEvent>();

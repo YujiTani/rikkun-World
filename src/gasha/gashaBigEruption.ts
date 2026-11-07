@@ -264,7 +264,8 @@ export class Embers {
   list: Ember[] = [];
   /** ならびや 場所が かわる たびに ふえる（描く 側が こげ跡を 書きなおす か 決める） */
   version = 0;
-  private cool = 0;
+  /** 触れた ダメージの 間かく（人ごと: 0 = 1P・1 = 2P） */
+  private readonly cools = [0, 0];
   private serial = 0;
 
   /** 燃えかすの 場所を 外で かえた（穴の 底へ おろした など） */
@@ -295,12 +296,12 @@ export class Embers {
   }
 
   /** 触れて いる 間 dotEverySec ごとに 1 回 ダメージ。この コマで 与える ダメージ（なければ 0） */
-  step(dt: number, p: V3): number {
+  step(dt: number, p: V3, slot = 0): number {
     const K = T.eruption.ember;
-    this.cool = Math.max(0, this.cool - dt);
+    this.cools[slot] = Math.max(0, (this.cools[slot] ?? 0) - dt);
     if (!this.touching(p)) return 0;
-    if (this.cool > 0) return 0;
-    this.cool = K.dotEverySec;
+    if (this.cools[slot]! > 0) return 0;
+    this.cools[slot] = K.dotEverySec;
     return K.dotDamage;
   }
 
@@ -314,7 +315,7 @@ export class Embers {
     return gone;
   }
 
-  clear(): void { this.list.length = 0; this.cool = 0; this.version++; }
+  clear(): void { this.list.length = 0; this.cools[0] = 0; this.cools[1] = 0; this.version++; }
 }
 
 /** 隕石・火の 粉が 落ちた 点（x, y, z）の まわり burnRadius の 植物ブロックを 空気に する。近い 順に 最大 burnMax 個。消した マスを 返す */

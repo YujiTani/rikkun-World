@@ -31,6 +31,8 @@ export interface BossHandle {
   despawn(): void;
   hp(): number;
   maxHp(): number;
+  /** COOP-1 4d-3: 今 ねらっている 人（`duo.gasha.target()` の もと） */
+  targetWho?(): 1 | 2 | null;
   angry(on: boolean): void;
   walk(on: boolean): void;
   /** `pos: [x, y, z]`（体の 足もと） */
@@ -83,6 +85,10 @@ export interface ReleaseEnv {
   sound?(name: 'ready' | 'levelUp'): void;
   /** 体力ゲージ（試作の 画面の 部品）を 出す / かくす。試作の ゲージは 作った 時から 出っぱなしなので、遠い 間・いない 間は かくす */
   showBar?(on: boolean): void;
+  /** COOP-1 4d-3: 遊んでいる 人の 足もと（1P も ふくむ。2P が いなければ 1P だけ）。毎回 読み直す。なければ 今の とおり env.player() だけ。出す 場所・向きは 今の まま env.player()（1P）の まわり。消えるのは 2 人とも 遠い とき、ゲージは 近い 人の 半分に 出す */
+  players?(): readonly { who: 1 | 2; x: number; y: number; z: number }[];
+  /** COOP-1 4d-3: その人の 半分の ゲージを 出す／かくす（players が ある ときは 人ごとに 呼ぶ。なければ showBar〔1P〕） */
+  showBarFor?(who: 1 | 2, on: boolean): void;
   /** NINJA-1 §4.2: 忍者帳（手に 入れた ことの ある 忍者装備）と 今 持って いる 物（もちもの・防具の マス・手に もった 物）。くじの 材料。なければ どちらも 空 */
   ninja?(): { book: readonly ItemId[]; have: readonly ItemId[] };
   /** NINJA-1 §3.2: 忍者装備の 袋が 出た ことの 知らせ（上の 帯の テロップ用）。出どころは 'gasha' */
@@ -128,11 +134,17 @@ export interface SpawnOpts {
 }
 
 
+/** ゲージの 半分（1P・2P） */
+const PEOPLE = [1, 2] as const;
+
 export class GashaRelease {
   private st: ReleaseState = 'idle';
   private handle: BossHandle | null = null;
   private lastDay = -1;
   private checkClock = 0;
+  /** 遊んでいる 人の 数（かわった ステップに ゲージを 出しなおす。2 つ目の ゲージは 次の ステップに できるので 2 ステップ 見る） */
+  private peopleN = -1;
+  private barRecheck = 0;
   private killCount = 0;
   private cancelLoad = false;
   /** とどめの 一撃を うけた(コアを こわして 消える まで) */
@@ -160,7 +172,7 @@ export class GashaRelease {
       // 体力 1/2 で 噴火して 固まった: 少女の 登場を はじめる
       onHeld: () => { d.onHeld?.(); this.onHeld(); },
       // 体力 0 の 一撃: 少女は 座りこむ(大きな 姿は 倒れる)。実績・ごほうびは コアを こわした とき
-      onDefeated: () => { d.onDefeated?.(); this.killBlow(); },
+      onDefeated: (who) => { d.onDefeated?.(who); this.killBlow(); },
       // コアを たたいた: アイテムを ばらまく / コアを こわした: 実績 ＋ 大きな 一山 / くずれて 消えた: 片づける
       onCoreHit: (e) => { d.onCoreHit?.(e); this.coreHit(e); },
       onCoreBroken: (e) => { d.onCoreBroken?.(e); this.coreBroken(e); },
@@ -247,8 +259,26 @@ export class GashaRelease {
 
   /** ゲージは いる 間の 近くだけ。ゲージの 部品は place() の たびに 作り直される ので そのつど かけなおす */
   private applyBar(): void {
-    const near = (this.st === 'present' || this.st === 'defeated') && this.bossPos !== null && horizontalDistance(this.env.player(), this.bossPos) <= RELEASE.spawn.barShowDistance;
-    this.env.showBar?.(near);
+    const here = (this.st === 'present' || this.st === 'defeated') && this.bossPos !== null;
+    const ps = this.env.players?.();
+    if (ps && this.env.showBarFor) {
+      // 2 人用: 100 マス より 近い 人の 半分に 出す。一覧に いない 人（やめた）は かくす
+      for (const who of PEOPLE) {
+        let near = false;
+        if (here) for (const p of ps) if (p.who === who && horizontalDistance(p, this.bossPos!) <= RELEASE.spawn.barShowDistance) near = true;
+        this.env.showBarFor(who, near);
+      }
+      return;
+    }
+    this.env.showBar?.(here && horizontalDistance(this.env.player(), this.bossPos!) <= RELEASE.spawn.barShowDistance);
+  }
+
+  /** 消して よいか: 遊んでいる 人が みんな 遠い（1 人なら その人が 遠い） */
+  private allFar(): boolean {
+    const ps = this.env.players?.();
+    if (!ps || ps.length === 0) return shouldDespawn(horizontalDistance(this.env.player(), this.bossPos!));
+    for (const p of ps) if (!shouldDespawn(horizontalDistance(p, this.bossPos!))) return false;
+    return true;
   }
 
   private readPos(): void {
@@ -366,7 +396,12 @@ export class GashaRelease {
   /** 固定ステップ（1/60 秒）ごとに 呼ぶ */
   step(dt: number): void {
     this.clock += dt;
-    if (this.st === 'present' || this.st === 'defeated') updateSilhouette();
+    if (this.st === 'present' || this.st === 'defeated') {
+      updateSilhouette();
+      const n = this.env.players?.().length ?? 1;
+      if (n !== this.peopleN) { this.peopleN = n; this.barRecheck = 2; }
+      if (this.barRecheck > 0) { this.barRecheck--; this.applyBar(); }
+    }
     if (this.st === 'present') {
       if (this.handle && this.handle.hp() <= 0 && !this.finishing) this.killBlow();
       this.stepGirl();
@@ -374,7 +409,7 @@ export class GashaRelease {
       if (this.checkClock >= RELEASE.spawn.checkEverySec) {
         this.checkClock = 0;
         this.readPos();
-        if (this.bossPos && shouldDespawn(horizontalDistance(this.env.player(), this.bossPos))) this.despawn();
+        if (this.bossPos && this.allFar()) this.despawn();
         else this.applyBar();
       }
     } else if (this.st === 'defeated') {

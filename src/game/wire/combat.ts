@@ -3,6 +3,7 @@ import { BLOCK_INDEX } from '../../world/blocks/blockTypes';
 import { aimPivot } from '../../camera/pivot';
 import { PlayerCombatImpl } from '../../combat';
 import { bindWho } from '../../duo/credit';
+import { baseCamDistance, worldPassActive } from '../../duo/rules';
 import type { YokaiWorld } from '../../contracts';
 import { ArmorSystemImpl, CraftSystemImpl, FurnaceWorld } from '../../craft';
 import { ToolSystemImpl } from '../../tools';
@@ -24,10 +25,9 @@ import { NijiFx } from '../../fx/nijiFx';
 import { SlashFx } from '../../fx/slashFx';
 import { FujinOrbitFx } from '../../fx/fujinOrbitFx';
 import { RaijinStormFx } from '../../fx/raijinStormFx';
-import { RainbowFx } from '../../fx/rainbowFx';
 import { createDomeGrains } from '../../legend/domeGrains';
 import { createBuffModel } from '../../ui/buffIconsModel';
-import { ThunderFx } from '../../fx/thunderFx';
+import { createLegendFx } from './legendFx';
 import { tekkoBladeMulOf } from '../../craft/samuraiPower';
 import { GetaStepper } from '../../craft/geta';
 import { playGeta } from '../../fx/getaSounds';
@@ -113,6 +113,8 @@ export function wireWeapons(deps: WiredDrops) {
       waveSys.launchSpiral({ item: a.item, dirDeg: a.dirDeg, body: { x: p.x, y: p.y + 1.4, z: p.z } });
     },
     seed,
+    // COOP-1 4d-2: シャイニングの 引きの もどり先は ふだんの きょり（2 人 5.0・1 人 4.0）。毎回 読む
+    baseDistance: () => baseCamDistance(shared.duoCamDistance),
   });
   const nijiC = { x: 0, y: 0, z: 0 };
   const nijiCenter = (p: { x: number; y: number; z: number }) => {
@@ -145,12 +147,12 @@ export function wireWeapons(deps: WiredDrops) {
   const geta = new GetaStepper(armor, () => playGeta(fxSound));
   const parryFx = new ParryFx({ scene: game.scene, camera: game.camera, basePath: './models/fx/' });
   const sparkAt = { x: 0, y: 0, z: 0 };
-  const thunderFx = new ThunderFx({ scene: game.scene, camera: game.camera, seed });
+  const { thunderFx, rainbowFx } = createLegendFx({ scene: game.scene, camera: game.camera, seed, w2 });
   // ART-PIPE-1: 落雷の 間だけ 世界を 絵に 描く 道（深さを 読む 雷・まわりを 明るく）
   // 虹の 発光（ブルーム）も この 道で: 虹が 出て いない 間は 回さない。落雷の 間は 雷の 道を 優先
-  const rainbowFx = new RainbowFx(game.scene, game.camera, (tech) => w2.bladeTech[tech]);
   game.setWorldPass({
-    active: () => thunderFx.active() || rainbowFx.active(),
+    // COOP-1 4d-0: 2P が いる あいだは 全面の 光の 道を 通らない（いつも 左右。AC98）
+    active: () => worldPassActive({ thunder: thunderFx.active(), rainbow: rainbowFx.active(), joined: shared.duoJoined() }),
     render: (r, sc, cam) => {
       if (thunderFx.active()) thunderFx.render(r, sc, cam);
       else rainbowFx.renderWorld(r, sc, cam);

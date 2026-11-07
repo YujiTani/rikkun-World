@@ -91,7 +91,7 @@ export class YokaiContact {
       const v = askParry(this.d.opts.parry, f, 'attack', e.id, KIND_TRAITS[e.kind].longNeck ? wpos : { x: e.x, y: e.y, z: e.z }, e.attack);
       if (v?.result === 'success') {
         // 受けた: 攻撃は 取り消し（ダメージ 0・押されない・こわさない・attackHit なし）
-        this.d.reeler.applyStagger(e.id, 'parry');
+        this.d.reeler.applyStagger(e.id, 'parry', f.who);
         return;
       }
       if (v?.result === 'early') dmg = v.amount;

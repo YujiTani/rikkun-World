@@ -46,6 +46,8 @@ export interface WaveDeps {
   /** SAMURAI-1 §4.5: 刀の 強さ P に かける 倍率（明珍手甲 1.5。なければ 1）。波を 出した ステップに 1 回 読み、飛んでいる 途中で ぬいでも 出した ときの 強さの まま */
   powerMul?: (item: ItemId | null) => number;
   seed?: number;
+  /** COOP-1 4d-2: この 波システムの 持ち主（なければ 1 = 今の まま）。list() の 各行の who。当てた 波の けいけんちの 持ち主は 渡された yokai() が きめる */
+  who?: 1 | 2;
 }
 
 export interface WaveStepCtx {
@@ -64,6 +66,8 @@ export interface WaveStepCtx {
 export interface WaveView {
   id: number;
   kind: 'wave' | 'spiral';
+  /** COOP-1 4d-2: だれの 波か（2P の 波の 絵は 2P の カメラに 向ける） */
+  who: 1 | 2;
   position: Vec3;
   dir: Vec3;
   traveled: number;
@@ -112,6 +116,8 @@ export interface WaveSystem {
   launchSpiral(a: { item: ItemId; dirDeg: number; body: Vec3 }): void;
   /** とんでいる 波（見た目と 窓口用。毎回 同じ 配列を 返す）。真空波 → らせんの 順 */
   list(): readonly WaveView[];
+  /** COOP-1 4d-2: 全部の 波を 消し、らせんの 音を 止める（出来事は 出さない。2P が やめた とき） */
+  clear(): void;
 }
 
 const scr0 = { x: 0, y: 0 };
@@ -205,6 +211,7 @@ export function createWaveSystem(deps: WaveDeps): WaveSystem {
     return {
       id,
       kind,
+      who: deps.who ?? 1,
       position,
       dir,
       traveled: 0,
@@ -339,6 +346,13 @@ export function createWaveSystem(deps: WaveDeps): WaveSystem {
 
     list(): readonly WaveView[] {
       return view;
+    },
+
+    clear(): void {
+      for (const w of spirals) w.sound?.stop(0.2);
+      waves.length = 0;
+      spirals.length = 0;
+      rebuild();
     },
   };
 }

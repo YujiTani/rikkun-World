@@ -6,6 +6,7 @@ import type { BigModel, JointName } from './gashaBigTypes';
 import { TUNE as T } from './gashaBigTuning';
 import { DEG, type ActorEnv } from './gashaBigActorBase';
 import type { ActorBoxes } from './gashaBigActorBoxes';
+import { targetsOf, type GashaTarget } from './gashaTargets';
 
 const AXIS_X = new Vector3(1, 0, 0), AXIS_Y = new Vector3(0, 1, 0), AXIS_Z = new Vector3(0, 0, 1);
 const TILT_Q = new Quaternion(), TILT_Q2 = new Quaternion(), TILT_V = new Vector3(), TILT_V2 = new Vector3(), TILT_V3 = new Vector3(), QY = new Quaternion();
@@ -46,45 +47,62 @@ export function groundHeight(model: BigModel, groundY: ActorEnv['groundY'], pos:
   return best;
 }
 
-/** 上に のっている 人（動かす 前の 関節の 行列を おぼえて、動いた あと その ぶんを 人に 足す） */
+/** のっている 1 人ぶんの おぼえ（使いまわす） */
+interface Rider {
+  t: GashaTarget | null;
+  joint: JointName | null;
+  m: Matrix4;
+  x: number;
+  y: number;
+  z: number;
+}
+
+/** 上に のっている 人（動かす 前の 関節の 行列を おぼえて、動いた あと その ぶんを 人に 足す）。2 人の ときは 人ごとに 運ぶ（COOP-1 4d-3） */
 export class RideCarry {
-  private readonly oldM = new Matrix4();
   private readonly dM = new Matrix4();
   private readonly tv = new Vector3();
   private readonly tq = new Quaternion();
   private readonly ts = new Vector3();
   private readonly ts2 = new Vector3();
-  private joint: JointName | null = null;
-  private ride: { x: number; y: number; z: number } | null = null;
+  private readonly riders: Rider[] = [];
+  private count = 0;
 
-  /** 動かす 前: のっている 箱が あれば その 関節の 行列を おぼえる */
+  /** 動かす 前: のっている 箱が あれば その 関節の 行列を おぼえる（のせる 口を もつ 人だけ） */
   begin(env: ActorEnv, model: BigModel, boxes: ActorBoxes): void {
-    this.ride = null;
-    this.joint = null;
-    if (env.carryPlayer) {
-      const p = env.player();
+    this.count = 0;
+    const list = targetsOf(env);
+    for (let i = 0; i < list.length; i++) {
+      const t = list[i]!;
+      if (!t.carry) continue;
+      const p = t.pos;
       const bi = boxes.boxUnder(p.x, p.y, p.z);
-      if (bi >= 0) {
-        this.joint = boxes.jointOfBox(bi);
-        this.oldM.copy(model.joints[this.joint!].matrixWorld);
-        this.ride = p;
-      }
+      if (bi < 0) continue;
+      const r = (this.riders[this.count] ??= { t: null, joint: null, m: new Matrix4(), x: 0, y: 0, z: 0 });
+      r.t = t;
+      const joint = boxes.jointOfBox(bi)!;
+      r.joint = joint;
+      r.m.copy(model.joints[joint].matrixWorld);
+      r.x = p.x; r.y = p.y; r.z = p.z;
+      this.count++;
     }
   }
 
   /** 動かした 後: のっている 点が 関節に ついて 動いた ぶんだけ 人を 動かす */
-  end(env: ActorEnv, model: BigModel): void {
-    const ride = this.ride;
-    if (ride && this.joint && env.carryPlayer) {
-      const j = model.joints[this.joint];
+  end(_env: ActorEnv, model: BigModel): void {
+    for (let i = 0; i < this.count; i++) {
+      const r = this.riders[i]!;
+      const joint = r.joint;
+      if (!joint || !r.t?.carry) continue;
+      const j = model.joints[joint];
       // T = 新しい 行列 × 古い 行列の 逆。のっている 点が この 関節に ついて 動いた ぶん
-      this.dM.copy(this.oldM).invert().premultiply(j.matrixWorld);
-      this.tv.set(ride.x, ride.y, ride.z).applyMatrix4(this.dM);
+      this.dM.copy(r.m).invert().premultiply(j.matrixWorld);
+      this.tv.set(r.x, r.y, r.z).applyMatrix4(this.dM);
       this.dM.decompose(this.ts, this.tq, this.ts2);
       const fwd = this.ts.set(0, 0, 1).applyQuaternion(this.tq);
       const dYaw = T.ride.turnWithBody ? Math.atan2(fwd.x, fwd.z) : 0;
-      const dx = this.tv.x - ride.x, dy = this.tv.y - ride.y, dz = this.tv.z - ride.z;
-      if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > 1e-7 || Math.abs(dYaw) > 1e-9) env.carryPlayer(dx, dy, dz, -dYaw / DEG);
+      const dx = this.tv.x - r.x, dy = this.tv.y - r.y, dz = this.tv.z - r.z;
+      if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > 1e-7 || Math.abs(dYaw) > 1e-9) r.t.carry(dx, dy, dz, -dYaw / DEG);
     }
+    this.count = 0;
   }
 }

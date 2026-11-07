@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { DuoArrowTracker, arrowHeightPx, type ArrowStepInput } from '../../duo/arrow';
 import { DuoLightGate } from '../../duo/light';
 import { P2Camera, type P2CameraInput, type P2CameraOutput } from '../../duo/p2Camera';
+import type { P2CamFx, P2CamView } from '../../duo/camFx';
 import { p2CameraPose, type P2Pose } from '../../duo/p2Pose';
 import { DUO_TUNING } from '../../duo/tuning';
 import type { DuoArrow, DuoVec3, DuoView, DuoViewport } from '../../duo/types';
@@ -24,8 +25,12 @@ export interface DuoViewsDeps {
   host: StreamHost;
   isSolid: (x: number, y: number, z: number) => boolean;
   shadow: () => ShadowSystem | null;
+  /** 2P の カメラの 止め・ゆれ・きょり（COOP-1 4d-0） */
+  fx2: P2CamFx;
   /** 区画を 描く 前に 呼ぶ（キャラの 板を そのカメラへ 向ける） */
   beforePane: (cam: THREE.Camera) => void;
+  /** 各区画の 世界の 描画の すぐ あとに 呼ぶ（COOP-1 4d-2: 雷の 板を その 区画に 重ねる） */
+  afterPane: (cam: THREE.Camera) => void;
 }
 
 /** 毎ステップ 渡す 2 人の 状態 */
@@ -62,6 +67,8 @@ export class DuoViews {
   private readonly qOut = { x: 0, y: 0 };
   private active = false;
   private readonly pose: P2Pose = { x: 0, y: 0, z: 0, yawDeg: 0, pitchDeg: 0 };
+  /** 画面に つかう 2P の カメラ（止め・ゆれ 入り。毎ステップ 同じ 入れものに 書く） */
+  private readonly view2: P2CamView = { x: 0, y: 0, z: 0, yawDeg: 0, pitchDeg: 0, shakeYaw: 0, shakePitch: 0, shakeRoll: 0 };
   private cam2Yaw = 0;
   private cam2Cam: DuoVec3 = { x: 0, y: 0, z: 0 };
   private readonly v = new THREE.Vector3();
@@ -89,7 +96,7 @@ export class DuoViews {
     this.reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.machine = new DuoViewMachine({ reducedMotion: this.reduced });
     this.arrows = [new DuoArrowTracker({ who: 1, reducedMotion: this.reduced }), new DuoArrowTracker({ who: 2, reducedMotion: this.reduced })];
-    this.vr = new DuoViewRenderer(d.game.renderer, d.game.scene, d.game.camera, d.beforePane);
+    this.vr = new DuoViewRenderer(d.game.renderer, d.game.scene, d.game.camera, d.beforePane, d.afterPane);
     d.game.setViewPass({
       active: () => this.active,
       render: () => {
@@ -165,11 +172,13 @@ export class DuoViews {
     cam2.fov = cam.fov;
     cam2.near = cam.near;
     cam2.far = cam.far;
-    p2CameraPose(inp.p2, this.lastCamYaw, inp.p2PitchDeg, DUO_TUNING.cameraSplit, this.d.isSolid, this.pose);
-    cam2.position.set(this.pose.x, this.pose.y, this.pose.z);
+    // COOP-1 4d-0: きょりは 2P の カメラの 口から（よせ・引き）。止めの ステップは 止まる 直前の ポーズ、ゆれは 向きに 足す
+    p2CameraPose(inp.p2, this.lastCamYaw, inp.p2PitchDeg, this.d.fx2.distance(), this.d.isSolid, this.pose);
+    const pv = this.d.fx2.apply(this.pose, this.view2);
+    cam2.position.set(pv.x, pv.y, pv.z);
     cam2.rotation.order = 'YXZ';
-    cam2.rotation.set((this.pose.pitchDeg * Math.PI) / 180, (-this.pose.yawDeg * Math.PI) / 180, 0);
-    this.cam2Yaw = this.pose.yawDeg;
+    cam2.rotation.set((pv.pitchDeg * Math.PI) / 180 + pv.shakePitch, (-pv.yawDeg * Math.PI) / 180 + pv.shakeYaw, pv.shakeRoll);
+    this.cam2Yaw = pv.yawDeg;
     cam.updateMatrixWorld();
     cam2.updateMatrixWorld();
     this.cam2Cam.x = cam2.position.x;
@@ -285,8 +294,8 @@ export class DuoViews {
     }
   }
 
-  /** 2P の カメラ（小太刀の 斬撃の 向きを 2P の 画面で 決める ため。いつも 同じ 1 つ） */
-  camera2(): { position: DuoVec3 } {
+  /** 2P の カメラ（小太刀の 斬撃の 向き・2P の パリィの 火花の 向きを 2P の 画面で 決める ため。いつも 同じ 1 つ） */
+  camera2(): THREE.PerspectiveCamera {
     return this.vr.camera2;
   }
 
