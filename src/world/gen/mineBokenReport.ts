@@ -1,6 +1,7 @@
 import { SEA_Y } from '../../contracts';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { isFurnKind, K_TANSU } from '../blocks/houseBlocks';
+import { isWater } from '../blocks/water';
 import { SkyDarkness } from '../light/skyDarkness';
 import { WorldLight } from '../light/WorldLight';
 import { ArrayVoxelWorld } from '../VoxelWorld';
@@ -359,7 +360,7 @@ export function closedProblems(orig: GenCols, e: DeadEnd, T: Tables): string[] {
   const inside = (x: number, y: number, z: number): boolean => x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1 && y >= r.y && y < r.y + H;
   const seen = new Set<string>();
   const stack: Pt[] = [];
-  for (let x = r.x0; x <= r.x1; x++) for (let z = r.z0; z <= r.z1; z++) for (let y = r.y; y < r.y + H; y++) if (isBodyIndex(orig.at(x, y, z)) || orig.id(x, y, z) === 'water') stack.push({ x, y, z });
+  for (let x = r.x0; x <= r.x1; x++) for (let z = r.z0; z <= r.z1; z++) for (let y = r.y; y < r.y + H; y++) if (isBodyIndex(orig.at(x, y, z)) || isWater(orig.id(x, y, z))) stack.push({ x, y, z });
   const bad: string[] = [];
   for (const p of stack) seen.add(ptKey(p));
   while (stack.length > 0) {
@@ -369,7 +370,7 @@ export function closedProblems(orig: GenCols, e: DeadEnd, T: Tables): string[] {
       const k = ptKey(n);
       if (seen.has(k)) continue;
       const id = orig.id(n.x, n.y, n.z);
-      if (!(isBodyIndex(orig.at(n.x, n.y, n.z)) || id === 'water')) continue;
+      if (!(isBodyIndex(orig.at(n.x, n.y, n.z)) || isWater(id))) continue;
       if (!inside(n.x, n.y, n.z)) {
         bad.push(`へやの 空気が (${n.x}, ${n.y}, ${n.z}) ${id} で そとと つながる`);
         if (bad.length >= 3) return bad;
