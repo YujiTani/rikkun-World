@@ -35,7 +35,8 @@ import { P2State } from './p2State';
  *     onOpenTansu?: (x: number, y: number, z: number) => void     … 2P が たんすを ねらって ZL か Y（tryOpenAimedStorage）。「たんす」の ページを 開く 合図（1 回）
  *     - 返った DigSystemImpl の `tryOpenAimedStorage()`: たんすを ねらっていて onOpenTansu が あれば onOpenTansu を 呼んで true。かまど・何も ねらって いない・onOpenTansu が ない ときは false（かまどを ねらった Y は「もちもの」の ページ）。
  *     - onOpenFurnace・onOpenTansu を 渡さない 2P は 3a の とおり 何も 開かない（口が ない）。
- *     - かまどを こわした とき 呼ぶ `m4.craft.furnaceBroken` は **2P の つくる**（配線が 渡す。中身は こわした 人へ。furnaceWorld.test.ts）。
+ *     - かまどを こわした とき 呼ぶ `m4.craft.furnaceBroken` は **2P の つくる**（配線が 渡す: src/game/wire/duoPlay.ts:165 の `m4.craft` の 1P の craft を 2P の craft〔`createDuoInventory` の p2Craft.craft〕に 替える。中身は こわした 人へ。furnaceWorld.test.ts）。
+ *       openFurnace は 2P では `onOpenFurnace` に つなぐので m4.craft.openFurnace は 空のまま。
  *   src/dig/digPorts.ts  `DigM4Deps.partner?: () => Vec3 | null`  … 仲間（もう 1 人）の 足もとの 位置。なければ 仲間は いない。
  *     置く とき 自分の 体に 加えて 仲間の 体（`overlapsBody(partner, x, y, z)` と 同じ 決まり）とも 重なる マスには 置けない（AC38）。
  *   src/dig/DigSystem.ts  ほっている 途中の ブロックが（だれが こわしても）なくなったら、次の ステップで ひびは 0 に 戻る（`state().progress`＝0・`block`＝null）。

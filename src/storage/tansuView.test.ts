@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BlockId, ItemId, ItemStack, Vec3, VoxelWorld } from '../contracts';
+import { closeInvHand } from '../duo/invClose';
 import { PanelOrder } from '../duo/panelOrder';
 import { InventoryImpl } from '../inventory/Inventory';
 import { STORAGE_DEFAULTS, StorageSystem } from './StorageSystem';
@@ -30,6 +31,12 @@ import { TansuView, tansuCloseReason } from './TansuView';
  *   `StorageSystem` に 足す（試作の とおり）:
  *     slotsAt(x, y, z): TansuSlot[] | null   … そこの たんすの マス（コピーしない。たんすで なければ null）
  *     changed(x, y, z): void                 … 中身を かえた 合図（`version()` が ふえる・いっぱいの 印・保存。つくる の 数えなおしに 効く）
+ *   レビュー指摘 3（実装への 約束）:
+ *     - `slotsAt` は 記録の あるなしだけでなく **世界の ブロックが たんすか** も 見る。ブロックが 消えて いれば、`StorageSystem.update()` の 前でも null（下の テスト）。
+ *     - まとめて うつす 動かし方（click・shiftClick・storeAll・storeSame・takeAll の 中身）は StorageSystem から 1 か所に 出して（関数か 小さな クラス）
+ *       StorageSystem と TansuView の **どちらも それを 使う**。TansuView に 写さない（1P と 2P で 決まりが ずれないように）。
+ *     - 遠く なって とじる・こわれて とじる ときも、2P が 手に もっている 物は `invClose.ts` の `closeInvHand` で 2P の もちものへ もどる
+ *       （いっぱいなら 足もとへ）。配線は `onClose` で `closeInvHand(2P の inventory, dropAtFeet)` を 呼ぶ（下の テスト）。
  *   tansuCloseReason(i: { exists: boolean; dist: number; closeDist: number }): 'gone' | 'far' | null
  *     … 1P の `StorageSystem.update` と 2P の `TansuView.update` で **同じ 関数を 使う**（1P と 同じ 決まりを 1 か所に）。
  *       exists が false → 'gone'（遠くても 'gone'）。dist が closeDist より 大きい → 'far'（ちょうど 同じは とじない）。それ以外 null。
@@ -387,5 +394,57 @@ describe('§8 宿題 4・AC80: たんすから 遠く なった・こわれた �
     r.p1.z += 0.01;
     r.st.update();
     expect(r.st.ui().open).toBe(false);
+  });
+});
+
+describe('レビュー指摘 3: slotsAt は ブロックも 見る・とじる ときの 手の 物', () => {
+  it('ブロックが 消えたら、StorageSystem.update の 前でも slotsAt は null', () => {
+    const r = rig();
+    r.st.set(A.x, A.y, A.z, 0, stack('log', 1)); // 記録を 作る
+    expect(r.st.slotsAt(A.x, A.y, A.z)).not.toBeNull();
+    r.world.setBlock(A.x, A.y, A.z, 'air');
+    expect(r.st.slotsAt(A.x, A.y, A.z), '記録は まだ 残って いても null').toBeNull();
+    expect(r.st.slotsAt(0, 0, 0)).toBeNull();
+  });
+
+  function withHandReturn() {
+    const r = rig();
+    const dropped: ItemStack[] = [];
+    const view = new TansuView({
+      inventory: r.inv2,
+      tansu: r.st,
+      position: () => r.p2,
+      closeDist: () => STORAGE_DEFAULTS.tansuCloseDist,
+      onClose: () => closeInvHand(r.inv2, (s) => dropped.push(s)),
+    });
+    return { ...r, view, dropped };
+  }
+
+  it('遠く なって とじる とき、2P が 手に もっている 物は 2P の もちものへ もどる', () => {
+    const r = withHandReturn();
+    r.view.open(A.x, A.y, A.z);
+    r.st.set(A.x, A.y, A.z, 0, stack('log', 3));
+    r.view.click(0); // つかむ
+    expect(r.inv2.cursor()).toMatchObject({ item: 'log', count: 3 });
+    r.p2.z = 5.5 + 10;
+    r.view.update();
+    expect(r.view.ui().open).toBe(false);
+    expect(r.inv2.cursor()).toBeNull();
+    expect(r.inv2.count('log')).toBe(3);
+    expect(r.dropped).toEqual([]);
+  });
+
+  it('たんすが こわれて とじる とき も 手の 物は もちものへ。もちものが いっぱいなら 足もとへ', () => {
+    const r = withHandReturn();
+    r.view.open(A.x, A.y, A.z);
+    r.st.set(A.x, A.y, A.z, 0, stack('log', 3));
+    r.view.click(0);
+    r.fillWithDirt(r.inv2);
+    r.world.setBlock(A.x, A.y, A.z, 'air');
+    r.view.update();
+    expect(r.view.ui().open).toBe(false);
+    expect(r.inv2.cursor()).toBeNull();
+    expect(r.dropped.map((s) => s.item)).toEqual(['log']);
+    expect(r.dropped[0]!.count).toBe(3);
   });
 });

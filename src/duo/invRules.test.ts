@@ -60,6 +60,7 @@ import { DUO_TUNING } from './tuning';
  *   duoFirstFocus(page: DuoInvPage, bakeRecipeIds: readonly string[]): string | null
  *       開いた ときの 最初の えらび（`duo.inv(who).focus`）。'tansu' → 'tansu:0'、'furnace' → `tile:${bakeRecipeIds[0]}`（はじめの やく レシピ）。
  *       'items'・'craft' は 4a の とおり（null ＝ 画面の いちばん はじめの 物を 呼ぶ側が えらぶ）。やく レシピが 0 こ なら null。
+ *       使い方: 2P は いつも、1P は **パッドで 開いた ときも** この 関数を 使う（キー・マウスで 開いた ときは 今の まま）。1P と 2P で 同じ 物から 始まる。
  *   duoQuitShown(page: DuoInvPage): boolean   … 2P の「やめる」(`duo-quit`) を 出すページ。'items' だけ（つくる・やく・たんす には 出さない）
  *   scrollTopToShow(index: number, g: { columns: number; rowHeight: number; rowGap: number; viewHeight: number; scrollTop: number }): number
  *       たんす（9 列）・レシピの 列で、index の マスの 段が まるごと 見える ために 中の スクロール量を どうするか（新しい scrollTop）。

@@ -44,7 +44,16 @@ import { FurnaceWorld } from './FurnaceWorld';
  *   保存の 形（§6）: 今の `{ x, y, z, queue: [{ recipe, fuel }], progress, done: [{ item, count }] }` の
  *     queue の 1 こ 1 こと done の 1 こ 1 こに **省ける** `by`（2P の 物だけ `by: 2`。1P は 書かなくても 書いても よい）を 足す。
  *     読む とき: `by` が ない・2 以外（1・3・'x'・null…）は 1P。`SAVE_VERSION` は 上げない。
- *   足りない 口: なし（テストは ここまでで 足りる）。
+ *   出来事の 届け口（レビュー指摘 1）: FurnaceWorld に `listen(who: 1 | 2, sink: (e: CraftEvent) => void): () => void`（戻り値は 登録を やめる 関数）。
+ *     CraftSystemImpl は 作る とき `furnaces.listen(who, e => this.emit(e, 'furnace'))` で 自分を 登録する（`who` の 既定は 1）。
+ *     届け先は「やけた 物を 受け取る 人」: `joined()` が true なら 入れた 人、false なら（2P の 物でも）1P。bakeStart は 先頭に なった 1 こを 入れた 人〔の 受け取り先〕へ。
+ *     1 人の 遊び（furnaces を 渡さない）は 今までどおり 自分の 世界に 自分で 出す。
+ *   1 人の 遊びが かわらない 約束（レビュー指摘 2）:
+ *     - 配線は `fw.update()` を 今の `craft.update()` の **すぐ あと**に、1 人でも 毎ステップ ちょうど 1 回 呼ぶ（2P の craft.update も 呼ぶが、世界は すすめない）。
+ *     - `onDelivered(who, item, count)` は 受け取る 人の `craft.notifyPickup(item, count)` に つなぐ（1P: ひろった ログと pickup の 出来事。2P: 実績の pickup の 出来事だけ〔2P の ログは 画面に 出さない。§2.6〕）。
+ *     - furnaces を 渡し joined が false の 1 人の 遊びは、渡さない ときと `pickupLog()`・`drainEvents()` が 同じ（下の テスト。出来事の tick だけ 1 ずれて よい）。
+ *   「やく」の ページの ねんりょう・できる かず（AC93）: `nextFuel()`・`fuel()`・`bakeList()`・`total()` は 呼んだ つくる の 持ち主の もちもの（と その人の 足もとの たんす）だけで 数える（もう 1 人の もちものは 数えない。下の テスト）。
+ *   足りない 口: 上の `listen` と `update` の 呼び順 だけ（テストは これで 足りる）。
  */
 
 class W {
@@ -367,6 +376,117 @@ describe('AC93: やけた 物は 入れた 人へ', () => {
     order.flush();
     expect(res).toEqual({ p1: true, p2: false });
     expect(r.inv2.count(ORE), '2P の 材料は へらない').toBe(QMAX);
+  });
+});
+
+describe('AC93: 出来事の 届け口（listen）と 1 人の 遊びが かわらない 約束', () => {
+  it('listen: 2P の 物の 出来事は 2P の 側へ、2P が いなければ（joined false）1P の 側へ 届く', () => {
+    const r = rig();
+    const got: Record<1 | 2, string[]> = { 1: [], 2: [] };
+    r.fw.listen(1, (e) => got[1].push(e.type));
+    r.fw.listen(2, (e) => got[2].push(e.type));
+    r.stock(r.inv2, 1);
+    bake(r.craft2);
+    r.step(BAKE);
+    expect(got[2]).toContain('bakeDone');
+    expect(got[1]).not.toContain('bakeDone');
+
+    const q = rig({ joined: false });
+    const got2: Record<1 | 2, string[]> = { 1: [], 2: [] };
+    q.fw.listen(1, (e) => got2[1].push(e.type));
+    q.fw.listen(2, (e) => got2[2].push(e.type));
+    q.stock(q.inv2, 1);
+    bake(q.craft2);
+    q.step(BAKE);
+    expect(got2[1]).toContain('bakeDone');
+    expect(got2[2]).not.toContain('bakeDone');
+    // つくる 側にも 1P の 分として 届く
+    expect(q.craft1.drainEvents().some((e) => e.type === 'bakeDone')).toBe(true);
+    expect(q.craft2.drainEvents().some((e) => e.type === 'bakeDone')).toBe(false);
+  });
+
+  it('listen の 戻り値で 登録を やめると 届かない', () => {
+    const r = rig();
+    const got: string[] = [];
+    const off = r.fw.listen(1, (e) => got.push(e.type));
+    off();
+    r.stock(r.inv1, 1);
+    bake(r.craft1);
+    r.step(BAKE);
+    expect(got).toEqual([]);
+  });
+
+  it('1 人の 遊び: furnaces あり・joined false は furnaces なしと pickupLog・drainEvents が 同じ（onDelivered は 1P の craft.notifyPickup に つなぐ）', () => {
+    const solo = (() => {
+      const world = new W();
+      world.setBlock(F.x, F.y, F.z, 'furnace');
+      const inv = new InventoryImpl();
+      inv.add(ORE, 2);
+      inv.add(FUEL, 2);
+      const craft = new CraftSystemImpl({ world, inventory: inv });
+      return { world, inv, craft, step: () => craft.update() };
+    })();
+    const shared = (() => {
+      const world = new W();
+      world.setBlock(F.x, F.y, F.z, 'furnace');
+      const inv = new InventoryImpl();
+      inv.add(ORE, 2);
+      inv.add(FUEL, 2);
+      const box: { craft: CraftSystemImpl | null } = { craft: null };
+      const fw = new FurnaceWorld({ world, inventoryOf: () => inv, joined: () => false, onDelivered: (_who, item, count) => box.craft!.notifyPickup(item, count) });
+      const craft = new CraftSystemImpl({ world, inventory: inv, furnaces: fw, who: 1 });
+      box.craft = craft;
+      return { world, inv, craft, step: () => { craft.update(); fw.update(); } };
+    })();
+    const events: Array<ReturnType<CraftSystemImpl['drainEvents']>> = [[], []];
+    const noTick = (list: ReturnType<CraftSystemImpl['drainEvents']>) => list.map((e) => { const { tick: _t, ...rest } = e as unknown as Record<string, unknown>; return rest; });
+    for (const s of [solo, shared]) {
+      s.craft.bake(OUT, F.x, F.y, F.z);
+      s.craft.bake(OUT, F.x, F.y, F.z);
+    }
+    for (let i = 0; i < BAKE * 2 + 3; i++) {
+      solo.step();
+      shared.step();
+      if (i === BAKE) {
+        // とちゅうで 1 回 見る（1 こ目が 入った あと）
+        expect(shared.craft.pickupLog()).toEqual(solo.craft.pickupLog());
+        events[0]!.push(...solo.craft.drainEvents());
+        events[1]!.push(...shared.craft.drainEvents());
+      }
+    }
+    events[0]!.push(...solo.craft.drainEvents());
+    events[1]!.push(...shared.craft.drainEvents());
+    expect(shared.inv.count(OUT)).toBe(solo.inv.count(OUT));
+    expect(shared.craft.pickupLog()).toEqual(solo.craft.pickupLog());
+    expect(noTick(events[1]!)).toEqual(noTick(events[0]!));
+    expect(noTick(events[0]!).map((e) => e.type)).toEqual(expect.arrayContaining(['bakeStart', 'pickup', 'bakeDone']));
+    expect(shared.craft.takeFurnaceHookEvents().map((e) => e.type)).toEqual(solo.craft.takeFurnaceHookEvents().map((e) => e.type));
+  });
+});
+
+describe('AC93: 「やく」の ページの ねんりょう・できる かずは その人の 物だけ', () => {
+  it('2P の ねんりょう・できる かずは 2P の もちもの（と 2P の 近くの たんす）だけ。1P の もちものは 数えない（逆も）', () => {
+    const r = rig();
+    r.stock(r.inv1, 5);
+    r.inv2.add(ORE, 1);
+    expect(r.craft2.total(ORE)).toBe(1);
+    expect(r.craft2.total(FUEL)).toBe(0);
+    expect(r.craft2.nextFuel(), '2P には ねんりょうが ない').toBeNull();
+    expect(r.craft2.fuel()).toBeNull();
+    expect(r.craft2.bakeList().find((b) => b.id === OUT)).toMatchObject({ canBake: false, fuelOk: false });
+    expect(r.craft1.total(ORE)).toBe(5);
+    expect(r.craft1.nextFuel()).toBe(FUEL);
+    expect(r.craft1.bakeList().find((b) => b.id === OUT)).toMatchObject({ canBake: true, fuelOk: true });
+    // 2P に ねんりょうが 入ると 2P の 分だけ
+    r.inv2.add('log', 2);
+    expect(r.craft2.nextFuel()).toBe('log');
+    expect(r.craft2.bakeList().find((b) => b.id === OUT)).toMatchObject({ canBake: true });
+    expect(r.craft2.total('log')).toBe(2);
+    expect(r.craft1.total('log')).toBe(0);
+    // 1P が 使っても 2P の 数は かわらない
+    bake(r.craft1);
+    expect(r.craft2.total(ORE)).toBe(1);
+    expect(r.craft2.total('log')).toBe(2);
   });
 });
 
