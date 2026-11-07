@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { ID, eRich, needBokenHook, tablesOf, type BokenShaft } from './mineBokenKit';
-import { DugCols, boxProblems, dugSetOf, reachOf, safetyProblemsE, walkProblemsE, type Reach } from './mineBokenReport';
+import { DugCols, boxProblems, deadEndsOf, dugSetOf, reachOf, safetyProblemsE, walkProblemsE, type Reach } from './mineBokenReport';
 import { SEEDS_20, bbox, components, isSolidIndex, pathIndex, shapeProblems, type GenCols, type PathCell, type Pt } from './mineShaftKit';
 
 /**
@@ -89,7 +89,9 @@ describe('E2〔ブロック〕: 階', () => {
     const T = tablesOf().shape.floor;
     const bad: string[] = [];
     for (const s of samples) {
-      const path = s.path.filter((c) => (c.part as string) !== 'hibi');
+      // 行きどまりの 宝箱の マスは 固い ブロック〔体が 通らない〕。`shapeProblems` は いちばん 下の へやの 宝箱〔`shaft.chest`〕しか 知らない ので、ここで 除く
+      const chest = new Set(deadEndsOf(s.shaft).flatMap((e) => e.chest?.cells ?? []).map((c) => `${c.x},${c.y},${c.z}`));
+      const path = s.path.filter((c) => (c.part as string) !== 'hibi' && !chest.has(`${c.x},${c.y},${c.z}`));
       const depth = s.shaft.style!.depth;
       for (const m of shapeProblems(s.g, s.shaft, path, { rampsOnly: true }).slice(0, 3)) bad.push(`${tagOf(s)}: ${m}`);
       const r = s.shaft.room;
