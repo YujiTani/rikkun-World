@@ -1,15 +1,16 @@
 import { keyOf } from './mineShaftBuild';
 import { buildOps, type ColOps, type OldCols } from './mineShaftOps';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
-import { planShaft, planShaftSteps, type PlanEnv, type ShaftPlan } from './mineShaftPlan';
+import { planShaft, type PlanEnv, type ShaftPlan } from './mineShaftPlan';
 import { LINK_TRIES, type StartLink } from './mineShaftHeya';
-import { geoFor, regionHit, regionLand, regionOf, regionSites, startSiteAt, startSites, type Geo, type Site } from './mineShaftSite';
+import { geoFor, regionHit, regionLand, regionOf, startSiteAt, startSites, type Geo, type Site } from './mineShaftSite';
 import type { PathCell, Shaft, ShaftRoll } from './mineShaftTypes';
 import { CaveWorld, type CaveHost, type HiroiTryRow, type PlacedCave } from './mineCaves';
 import { CAVE_CONFIG, type CaveKind } from './mineCaveConfig';
 import type { RoomColOps } from './mineCaveRoom';
 import { colKey } from '../stream/ring';
 import { bokenRegionJob } from './mineBokenJob';
+import { V6Regions, regionJobC, touchesBoken } from './mineShaftRegionC';
 
 /**
  * 坑道の 世界（MINE-1C。docs/design/MINE-1.md §4.5・§4.8・§6.1）。シード（と 古い 列の 一覧）から、はじまりの 坑道と 区画ごとの 坑道を 決める。
@@ -34,6 +35,7 @@ export class ShaftWorld implements CaveHost {
   private caveWorld: CaveWorld | undefined;
   private startPlanned: Planned | null | undefined;
   private readonly regions = new Map<number, Planned | null>();
+  private readonly v6 = new V6Regions<Planned>((rx, rz) => this.region(rx, rz), (rx, rz) => regionHit(this.seed, rx, rz) && !this.blocked(rx, rz) && regionLand(this.G, rx, rz) >= S.minLand, () => this.G, () => this.env(null));
   constructor(
     readonly seed: number,
     readonly oldCols: OldCols | undefined,
@@ -63,11 +65,21 @@ export class ShaftWorld implements CaveHost {
     return Math.floor(r.box.x0 / CAVE_REGION) === rx && Math.floor(r.box.z0 / CAVE_REGION) === rz ? r : null;
   }
 
-  /** 箱（両はし ふくむ）の 中に 坑道の 道の マスが あるか */
+  /** 箱（両はし ふくむ）の 中に 坑道の 道の マスが あるか。1E の 一覧の 列に かかる 箱は 版 6 の 作り方〔1C・1D の 坑道だけ〕で 見る（MINE-1E §4.13） */
   nearShaft(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean {
-    for (const s of this.shafts(x0, z0, x1, z1)) {
-      const plan = this.planById(s.id);
-      if (!plan) continue;
+    const v6 = touchesBoken(this.oldCols?.boken, x0, z0, x1, z1);
+    const plans: ShaftPlan[] = [];
+    const st = this.start()?.plan;
+    if (st) plans.push(st);
+    for (let rz = regionOf(z0); rz <= regionOf(z1); rz++) {
+      for (let rx = regionOf(x0); rx <= regionOf(x1); rx++) {
+        const p = v6 ? this.v6.plan(rx, rz) : this.region(rx, rz);
+        if (p) plans.push(p.plan);
+      }
+    }
+    for (const plan of plans) {
+      const b = plan.shaft.box;
+      if (b.x0 > x1 || b.x1 < x0 || b.z0 > z1 || b.z1 < z0) continue;
       for (const c of plan.path) if (c.x >= x0 && c.x <= x1 && c.z >= z0 && c.z <= z1 && c.y >= y0 && c.y <= y1) return true;
       for (const r of plan.rooms) if (r.box.x0 <= x1 && r.box.x1 >= x0 && r.box.z0 <= z1 && r.box.z1 >= z0 && r.box.y0 <= y1 && r.box.y1 >= y0) return true;
     }
@@ -194,7 +206,7 @@ export class ShaftWorld implements CaveHost {
     // 古い 世界: 1C・1D の 坑道〔版 6 の 計画〕が 1E の 一覧の 列に かかる 区画は その まま 作る（MINE-1E §4.13）
     const boken = this.oldCols?.boken;
     if (boken && boken.size > 0) {
-      const c = yield* this.regionJobC(rx, rz);
+      const c = yield* regionJobC(this.G, this.env(null), rx, rz);
       if (c) for (const k of c.plan.cols) if (boken.has(k)) return c;
     }
     return yield* this.regionJobE(rx, rz);
@@ -205,28 +217,6 @@ export class ShaftWorld implements CaveHost {
     const boken = this.oldCols?.boken;
     const isBoken = boken && boken.size > 0 ? (k: number): boolean => boken.has(k) || this.isOld(k) || this.isOldHeya(k) : null;
     return bokenRegionJob(this.G, this.seed, rx, rz, { isBoken });
-  }
-
-  /** 1C・1D の 坑道 */
-  private *regionJobC(rx: number, rz: number): Generator<void, Planned | null> {
-    let budget = S.plan.budget;
-    for (const site of regionSites(this.G, rx, rz)) {
-      if (site === null) {
-        yield;
-        continue;
-      }
-      for (let a = 0; a < S.planTries && budget-- > 0; a++) {
-        const plan = yield* planShaftSteps(this.G, site, `r${rx}_${rz}`, false, this.env(null), a);
-        if (plan) {
-          yield;
-          return { plan, ops: buildOps(plan) };
-        }
-        yield;
-      }
-      if (budget <= 0) break;
-      yield;
-    }
-    return null;
   }
 
   private readonly jobs = new Map<number, Generator<void, Planned | null>>();

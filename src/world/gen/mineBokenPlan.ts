@@ -1,6 +1,6 @@
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { colKey } from '../stream/ring';
-import { BOKEN_TUNING as TUNE, DEAD_END_TABLE as DT, SHAPE_TABLE, STYLE_TABLE } from './mineBokenConfig';
+import { BOKEN_TUNING as TUNE, DEAD_END_TABLE as DT, STYLE_TABLE } from './mineBokenConfig';
 import { mouthSpots, planEdaOn, type Branch, type EdaCtx } from './mineBokenEda';
 import { rimCells, orePuts } from './mineBokenEnd';
 import { Fit, newWork } from './mineBokenFit';
@@ -52,7 +52,6 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
   const nF = sk.floors.length;
   // 迷路
   let maze: MazeOut | null = null;
-  let mazeFloor = -1;
   if (style.maze) {
     const elig = [...Array(nF).keys()].filter((i) => i < nF - 1 && (nF < 3 || i > 0));
     for (const f of elig.map((i) => ({ i, r: rng() })).sort((a, b) => a.r - b.r).map((e) => e.i)) {
@@ -61,7 +60,6 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
       const r = placeMaze({ fit, rng, seed, style, chestKeys, frames }, sk.floors[f]!, mouths[f]!);
       if (r) {
         maze = r.maze;
-        mazeFloor = f;
         mouths[f]!.push(r.mouth);
         break;
       }
@@ -191,7 +189,5 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
     camp: camp ? { room: camp.room, tansu: camp.tansu, lantern: camp.lantern, futon: camp.futon, takibi: camp.takibi } : null,
     work: { ...work },
   };
-  void mazeFloor;
-  void SHAPE_TABLE;
   return { shaft, path: b.path, b, noTrees, noPlants, cols, rooms: so.rooms, roomCols, tries: so.tries, ref: { sigs: [], target: -1 }, areas };
 }

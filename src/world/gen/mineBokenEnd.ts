@@ -1,6 +1,6 @@
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { CHEST_RIGHT, chestBlockId } from '../blocks/chestBlock';
-import { BOKEN_TUNING as TUNE, DEAD_END_TABLE as DT, SHAPE_TABLE, type DeadEndKind, type Depth } from './mineBokenConfig';
+import { DEAD_END_TABLE as DT, SHAPE_TABLE, type DeadEndKind, type Depth } from './mineBokenConfig';
 import type { FrameMark } from './mineBokenFloors';
 import { lat, type Pt3 } from './mineBokenRoad';
 import { chestTierAt } from './mineChestTable';
@@ -218,6 +218,5 @@ export function buildEnd(i: EndIn): DeadEndOut {
       pb.put(p.x, y, p.z, i.dx !== 0 ? BLOCK_INDEX.taoreta_hashigo_x : BLOCK_INDEX.taoreta_hashigo_z);
     }
   }
-  void TUNE;
   return out;
 }
