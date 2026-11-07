@@ -44,7 +44,13 @@ test('AC110・AC109: 2P が がしゃどくろの 近くで 刀を ふると 当
     const c = g.colliders().find((q: any) => q.name === 'handL') ?? g.colliders().find((q: any) => q.name.startsWith('hand'));
     return { c: c.center as number[], half: c.half as number[] };
   });
-  const reach = Math.max(hand.half[0]!, hand.half[2]!);
+  // 2P は 体の 外がわ（体の まん中 → 手の 向き）から 手の 箱の ふち + 0.9 マスに 立つ（刀の とどく 2.2 マスの 中。箱の 向きに よらず 手前に 立つ）
+  const boss = await page.evaluate(() => (window as any).__gashaBig.info().pos as number[]);
+  let ox = hand.c[0]! - boss[0]!, oz = hand.c[2]! - boss[2]!;
+  const od = Math.hypot(ox, oz) || 1;
+  ox /= od; oz /= od;
+  const stand = Math.abs(ox) * hand.half[0]! + Math.abs(oz) * hand.half[2]! + 0.9;
+  const spot = { x: hand.c[0]! + ox * stand, z: hand.c[2]! + oz * stand };
   const put = async (who: 1 | 2, p: V3) => {
     await page.evaluate(({ who, p }) => {
       const h = (window as any).__rikkun;
@@ -53,7 +59,7 @@ test('AC110・AC109: 2P が がしゃどくろの 近くで 刀を ふると 当
     }, { who, p });
   };
   await put(1, { x: hand.c[0]! - 120, y: 0, z: hand.c[2]! });
-  await put(2, { x: hand.c[0]! - (reach + 1.5), y: 0, z: hand.c[2]! });
+  await put(2, { x: spot.x, y: 0, z: spot.z });
   await stepN(page, 5);
 
   // ねらいは 近い 2P（がしゃどくろの 近くに 2P・遠くに 1P）
