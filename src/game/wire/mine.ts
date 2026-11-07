@@ -6,7 +6,7 @@ import { RARITY_ORDER } from '../../drops/rarity';
 import { ChestLidFx } from '../../fx/chestLidFx';
 import { CHEST_SOUNDS } from '../../fx/chestSounds';
 import { itemType } from '../../inventory/items';
-import { KODO_GEN } from '../../save/SaveManager';
+import { BOKEN_GEN, KODO_GEN } from '../../save/SaveManager';
 import { maxDurability } from '../../tools/durability';
 import { setChestLidless } from '../../world/render/looks/chestLooks';
 import { createMineHook } from '../../world/gen/mineHook';
@@ -71,6 +71,7 @@ export function wireMine(deps: WiredDuo) {
     spawnHeight: () => yokaiM.config.yokaiSpawnHeight,
     metaGen: () => save.metaGen(),
     kodoGen: KODO_GEN,
+    bokenGen: BOKEN_GEN,
     oldCols: restored.oldCols,
     tansuHas: (x, y, z) => storage.has(x, y, z), // MINE-1E: 記録が ある たんすは キャンプの 予告を 出さない
     chest: {

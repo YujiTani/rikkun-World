@@ -54,6 +54,8 @@ export interface ShaftHookOptions {
   metaGen?: () => number | null;
   /** 坑道の 版（つなぎ込みが SaveManager.KODO_GEN を わたす。なければ gens.ts の 値） */
   kodoGen?: number;
+  /** 1E の 版〔つなぎ込みが SaveManager.BOKEN_GEN を わたす。なければ gens.ts の 値〕 */
+  bokenGen?: number;
   chest?: ChestPorts;
   /** 1E: その マスの たんすの 記録が すでに あるか〔キャンプの たんすの 予告を 消す〕 */
   tansuHas?: (x: number, y: number, z: number) => boolean;
@@ -152,7 +154,7 @@ export function createShaftHook(o: ShaftHookOptions) {
     caveAt: (x: number, y: number, z: number): string | null => (world().inside(Math.floor(x), Math.floor(y), Math.floor(z)) ? 'kodo' : cave.caveKindAt(x, y, z)),
     ...cave,
     ...createBokenHook({ seed, world, tansuHas: o.tansuHas }),
-    saveGens: () => ({ current: SAVE_GEN, meta: o.metaGen?.() ?? SAVE_GEN, kodo: (o.kodoGen ?? KODO_GEN) as number | null, heya: HEYA_GEN as number | null, boken: BOKEN_GEN as number | null }),
+    saveGens: () => ({ current: SAVE_GEN, meta: o.metaGen?.() ?? SAVE_GEN, kodo: (o.kodoGen ?? KODO_GEN) as number | null, heya: HEYA_GEN as number | null, boken: (o.bokenGen ?? BOKEN_GEN) as number | null }),
     oldCols: (kind: 'kodo' | 'heya' | 'boken'): number => o.oldCols?.[kind]?.size ?? 0,
     isOld: (kind: 'kodo' | 'heya' | 'boken', cx: number, cz: number): boolean => o.oldCols?.[kind]?.has(colKey(cx, cz)) === true,
     work(cx: number, cz: number): { shaftRegions: number; caveRegions: number; emitters: number } {
