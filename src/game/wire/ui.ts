@@ -68,7 +68,7 @@ import { modalLock } from './modalLock';
 export function wireHud(deps: WiredAnimalView) {
   const {
     shared, rig, armor, game, hud, hudSignal, w2, inventory, screen, craft, uiTools, craftUi, live,
-    storage, craft2Settings, fxSound, farm, controller, dig, animals, lock, pointerLock, animalFx,
+    storage, craft2Settings, fxSound, farm, controller, dig, animals, lock, pointerLock, animalFx, gamepadApi,
   } = deps;
   rig.setSwingSource(() => {
     const r = shared.swingBuf;
@@ -145,6 +145,8 @@ export function wireHud(deps: WiredAnimalView) {
       version: () => storage.version(),
       refresh: () => craft.refreshTansu(),
     },
+    // 2 人用の 画面を パッドで 開いた か（たんす・やく の はじめの えらび。COOP-1 4c）
+    padOpened: () => gamepadApi.reader.getLastInput() === 'gamepad',
   });
   // CRAFT-2: ログ（左のログ＋できごと の履歴）。拾ったログ（PickupLog）は これの liveModel を読む
   const log: LogSystem = new LogSystem({ nameOf, settings: craft2Settings, live: craftUi });

@@ -51,8 +51,11 @@ export function wireGamepad(opts: {
   });
 
   let pumpUi: (active: boolean, dt: number) => boolean = () => false;
-  /** COOP-1: 参加の 求め（2 本目の ＋）と 2P の もちもの画面は wireDuo が つなぐ */
-  const duo = { onJoinRequested: (): void => undefined, menuOpen2: (): boolean => false };
+  /**
+   * COOP-1: 参加の 求め（2 本目の ＋）と 2P の もちもの画面は wireDuo が つなぐ。
+   * submit1 = 1P の パッドの けってい（けってい で たんす・かまどの 中身が かわる）を 預ける 口（4c。2 人の とき PanelOrder へ。1 人の ときは すぐ 実行）
+   */
+  const duo = { onJoinRequested: (): void => undefined, menuOpen2: (): boolean => false, submit1: (op: () => void): void => op() };
   const sliderRepeat = new SliderRepeat();
   const step = (active: boolean, dt: number): void => {
     reader.setMenuOpen(opts.menuOpen());
@@ -77,7 +80,7 @@ export function wireGamepad(opts: {
     else if (a.wasPressed('focusDown')) handleMenuDir(root, 'down');
     else if (a.wasPressed('focusLeft')) handleMenuDir(root, 'left');
     else if (a.wasPressed('focusRight')) handleMenuDir(root, 'right');
-    else if (a.wasPressed('confirm')) clickFocused(root);
+    else if (a.wasPressed('confirm')) duo.submit1(() => clickFocused(root));
   };
   // 案内中（realtime オフ）でもパッドを読んで padActive にできるように idle でも回す
   opts.game.onUpdate(() => step(true, 1 / 60));

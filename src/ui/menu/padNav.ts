@@ -1,5 +1,6 @@
 import { InvFocus } from '../../duo/invFocus';
 import { boxOf, menuItems, type FocusBox, type FocusDir } from './focusNav';
+import { scrollFocusIntoView } from './scrollFocus';
 
 /**
  * COOP-1 4a（§3.3「2P の えらび」。AC88）: 2P の パネルの 十字の えらび。DOM の フォーカス（`document.activeElement`）は
@@ -32,10 +33,10 @@ export class PadNav {
     return el?.isConnected ? el : null;
   }
 
-  /** 開いた とき: はじめの 物 */
-  reset(): void {
+  /** 開いた とき: はじめの 物（`first` が 見えていれば それ。たんす → 0 番の マス、やく → はじめの レシピ。4c） */
+  reset(first: string | null = null): void {
     this.collect();
-    this.focus.reset(this.boxes);
+    this.focus.reset(this.boxes, first);
     this.paint();
   }
 
@@ -101,7 +102,7 @@ export class PadNav {
     el.setAttribute('data-pad-focus', 'true');
     if (changed) {
       el.dispatchEvent(new Event('focus'));
-      el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      scrollFocusIntoView(el);
     }
   }
 }

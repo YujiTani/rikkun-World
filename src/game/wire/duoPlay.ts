@@ -18,7 +18,7 @@ import { createRng } from '../../world/gen/random';
 import type { DuoHud } from '../../ui/duoHud';
 import type { LockStatus, Inventory, Vec3 } from '../../contracts';
 import type { GetaPlayer } from '../../craft/geta';
-import type { BladeSystem } from '../../contracts';
+import type { BladeSystem, CraftSystem } from '../../contracts';
 import { bindWho } from '../../duo/credit';
 import { createP2Dig } from '../../duo/p2Dig';
 import { createP2DigFx } from '../../duo/p2DigFx';
@@ -54,6 +54,11 @@ export interface DuoPlayCtx {
   /** 2P が 出る 所（1P の 横） */
   joinSpot: () => DuoVec3;
   dev: boolean;
+  /** COOP-1 4c: 2P が かまど（ZL）・たんす（Y か ZL）を ねらって 開いた。2P の 画面の ページを 開く */
+  openFurnace: (x: number, y: number, z: number) => void;
+  openTansu: (x: number, y: number, z: number) => void;
+  /** COOP-1 4c: 2P の つくる（2P が かまどを こわした とき 中身は こわした 人 = 2P の もちものへ。参加している あいだだけ 呼ぶ） */
+  craft2: () => Pick<CraftSystem, 'furnaceBroken'>;
 }
 
 /** 参加の あいだ だけ ある 一式 */
@@ -157,6 +162,8 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       lock: c.lock,
       eyeHeight: () => ctl.settings.eyeHeight,
       partner: () => controller.state.position,
+      onOpenFurnace: c.openFurnace,
+      onOpenTansu: c.openTansu,
       gate: combat,
       config: digCfg,
       rng: createRng(20240602),
@@ -165,7 +172,8 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         blade,
         w2,
         yokai: yokai2,
-        craft: { isFurnace: (x, y, z) => craft.isFurnace(x, y, z), openFurnace: () => {}, furnaceBroken: (x, y, z) => craft.furnaceBroken(x, y, z), fixedDrop: (id) => craft.fixedDrop(id) },
+        // かまどを こわした 中身は こわした 人（2P）の もちものへ（4c）。開く 口は onOpenFurnace に つなぐので ここは 空
+        craft: { isFurnace: (x, y, z) => craft.isFurnace(x, y, z), openFurnace: () => {}, furnaceBroken: (x, y, z) => c.craft2().furnaceBroken(x, y, z), fixedDrop: (id) => craft.fixedDrop(id) },
         storage,
         scatterItem: (pos, item, count) => {
           drops.scatter(pos, [{ item, count }]);
@@ -328,6 +336,8 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     step,
     /** 倒れている あいだ true（2P の 入力を ぜんぶ はなす） */
     down: (): boolean => live?.life.down ?? false,
+    /** 2P が たんすを ねらって Y（1P の E と 同じ）。開いたら true（かまどを ねらった Y は false＝「もちもの」の ページ） */
+    tryOpenTansu: (): boolean => live?.dig.tryOpenAimedStorage() ?? false,
     onJoin(): void {
       live?.fx.dispose();
       live = build();
