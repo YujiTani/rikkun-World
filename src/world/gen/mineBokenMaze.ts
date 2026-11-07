@@ -13,7 +13,7 @@ import { roadSpots } from "./mineBokenSides";
 import type { BokenStyle } from "./mineBokenStyle";
 import type { DeadEndKind } from "./mineBokenConfig";
 import type { Pt } from "./mineShaftTypes";
-import type { Rng } from "./random";
+import { createRng, type Rng } from "./random";
 
 /** 迷路の 階（MINE-1E §4.6）: 本道の かべに ひらく ます 4×4 か 5×5 の 小さな 迷路。計算だけ〔世界には さわらない〕。 */
 
@@ -64,7 +64,7 @@ function genGraph(rng: Rng, g: number, ent: number): Graph | null {
     const j = c % g;
     return i >= 1 && (i === g - 1 || j === 0 || j === g - 1);
   };
-  for (let t = 0; t < 300; t++) {
+  for (let t = 0; t < TUNE.mazeGraphTries; t++) {
     const edges = new Set<number>();
     const seen = new Set<number>([ent]);
     const stack = [ent];
@@ -144,7 +144,11 @@ export function placeMaze(
   const lev = STYLE_TABLE.level.find((l) => l.id === c.style.level)!;
   const g = lev.mazeGrid!;
   const spots = roadSpots(fl).sort(() => rng() - 0.5);
-  let strictLeft = M.strictTries;
+  let strictLeft = TUNE.mazeStrictTries;
+  // 行きどまりの 種類は 迷路 1 つに つき べつの 乱数で 1 回だけ 引く〔形の やりなおしでは 引きなおさない。引きなおすと へやの ない 種類に かたよる〕
+  const kindRng = createRng(Math.floor(rng() * 0x7fffffff));
+  const poolKinds = Array.from({ length: M.deadEnds[1] }, () => pickEndKind(kindRng));
+  const farKind: DeadEndKind = kindRng() < DT.mazeFarthest.oo ? "oo" : "naka";
   for (const sp of spots.slice(0, 2 * TUNE.roadTries)) {
     const o = fl.main[sp.i]!;
     if (
@@ -181,13 +185,9 @@ export function placeMaze(
         (best, l) => (graph.dist[l]! > graph.dist[best]! ? l : best),
         graph.leaves[0]!,
       );
+      let pi = 0;
       for (const l of graph.leaves) {
-        const k =
-          l === far
-            ? rng() < DT.mazeFarthest.oo
-              ? "oo"
-              : "naka"
-            : pickEndKind(rng);
+        const k = l === far ? farKind : poolKinds[pi++]!;
         kinds.set(l, k);
         if (k === "hibi_naka" || k === "hibi_oo") hibiCells.add(l);
       }

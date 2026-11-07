@@ -72,8 +72,8 @@ function makeEda(c: EdaCtx, m: Pt, t: [number, number], old: boolean, kind: Dead
   const L = E.length[0] + Math.floor(rng() * (E.length[1] - E.length[0] + 1));
   const hibi = kind === 'hibi_naka' || kind === 'hibi_oo';
   // ひびの 行きどまりは 曲がり角を つきあたりから 5 マス いじょう はなす〔手前の たいまつが ちょうど 1 本に なる ように〕
-  const bends = rng() < 0.3 && (!hibi || L >= 10) ? 1 : 0;
-  const L1 = bends ? 3 + Math.floor(rng() * (L - (hibi ? 7 : 5))) : L;
+  const bends = rng() < TUNE.edaBendShare && (!hibi || L >= TUNE.edaBendHibiMinLen) ? 1 : 0;
+  const L1 = bends ? TUNE.edaBendFrom + Math.floor(rng() * (L - (hibi ? TUNE.edaBendTipGapHibi : TUNE.edaBendTipGap))) : L;
   const turn = rng() < 0.5 ? -1 : 1;
   const [lx, lz] = lat(t[0], t[1]);
   const h2: [number, number] = bends ? [lx * turn, lz * turn] : t;
@@ -92,7 +92,7 @@ function makeEda(c: EdaCtx, m: Pt, t: [number, number], old: boolean, kind: Dead
   // たいまつ: 口から 2〜3 マス・そのあと 6 マスごと こうご
   let sg = rng() < 0.5 ? -1 : 1;
   const f0 = E.torchFrom[0] - 1 + Math.floor(rng() * (E.torchFrom[1] - E.torchFrom[0] + 1));
-  for (let i = f0; i < L - 1; i += 6) {
+  for (let i = f0; i < L - 1; i += TUNE.edaTorchEvery) {
     if (hibi && i >= L - 3) continue;
     if (i >= L - 2 || nearCorner(centers[i]!)) continue;
     const [sx, sz] = lat(...legOf(i));
@@ -107,7 +107,7 @@ function makeEda(c: EdaCtx, m: Pt, t: [number, number], old: boolean, kind: Dead
   const end = buildEnd({ seed: c.seed, depth: c.style.depth, rng, kind, at, dx: ex, dz: ez, gap: 0, gapPart: 'eda', band: -1, pair: true, pb, taken: (k) => c.fit.b.air.has(k) || c.fit.b.put.has(k), frames, chestKeys });
   // わく: 口と 6 マスごと
   let n = 0;
-  for (let i = 0; i < L - 3; i += 6) {
+  for (let i = 0; i < L - 3; i += TUNE.frameEvery) {
     if (nearCorner(centers[i]!)) continue;
     const [sx, sz] = lat(...legOf(i));
     frames.push({ x: centers[i]!.x, z: centers[i]!.z, y, px: sx, pz: sz, broken: old ? n % 5 < 3 : rng() < TUNE.brokenFrameShare });

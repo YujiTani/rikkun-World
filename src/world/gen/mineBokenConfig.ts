@@ -53,8 +53,8 @@ export const SHAPE_TABLE = {
   hibi: { width: 1, height: 2, depth: [2, 4] as Span, cells: [4, 8] as Span, torchBefore: [2, 3] as Span, torches: 1 },
   /** 行きどまりの へや・かくしべや */
   room: { floor: 5, height: 4 },
-  /** 迷路: ますの 道・かべ・高さ・分かれ目／道の 輪の 下限・行きどまり・入口まで 歩く 数の 上限・たいまつの 上限・へやの ある 行きどまりが 入らない とき 迷路ごと やりなおす 回数 */
-  maze: { cell: 3, wall: 1, height: 4, forks: 3, loops: 1, deadEnds: [2, 4] as Span, walkMax: 60, torchMax: 16, strictTries: 12 },
+  /** 迷路: ますの 道・かべ・高さ・分かれ目／道の 輪の 下限・行きどまり・入口まで 歩く 数の 上限・たいまつの 上限 */
+  maze: { cell: 3, wall: 1, height: 4, forks: 3, loops: 1, deadEnds: [2, 4] as Span, walkMax: 60, torchMax: 16 },
   camp: { floor: 5, height: 4, mouth: 3 },
   limit: {
     torchesPerShaft: 320,
@@ -124,7 +124,7 @@ export const BOKEN_TUNING = {
   stepsMax: 12,
   /** さか道の たいまつの 間かく（マス。1C の SHAFT_CONFIG.road.torchEvery と 同じ。8 では 光が 6 に とどかない 所が できた） */
   rampTorchEvery: 6,
-  /** 本道・横穴の わくの 間かく（マス） */
+  /** 本道・横穴・えだ道の わくの 間かく（マス） */
   frameEvery: 6,
   /** わくが こわれた わく に なる わりあい（1E の 坑道の さか道・本道・横穴）・むかしの えだ道 */
   brokenFrameShare: 0.1,
@@ -138,4 +138,15 @@ export const BOKEN_TUNING = {
   /** 本道の 出る 向きを ためす 回数・迷路／キャンプの 置き場所を ためす 回数 */
   roadTries: 6,
   roomTries: 8,
+  /** 迷路の ますの つながり方を くじで つくる 回数の 上限（1 つの 形） */
+  mazeGraphTries: 300,
+  /** 迷路: へやの ある 行きどまりが 入らない とき、迷路の 形を やりなおす 回数（種類は 引きなおさない。つかい きると へやの ない 「あたり」に かえる） */
+  mazeStrictTries: 12,
+  /** えだ道: 曲がる わりあい・曲がり角を 口から はなす 下限（マス）・つきあたりから はなす 下限（マス。ひびの 行きどまりは もっと はなす）・ひびの えだ道が 曲がれる 長さの 下限（マス）・たいまつの 間かく（マス） */
+  edaBendShare: 0.3,
+  edaBendFrom: 3,
+  edaBendTipGap: 5,
+  edaBendTipGapHibi: 7,
+  edaBendHibiMinLen: 10,
+  edaTorchEvery: 6,
 };
