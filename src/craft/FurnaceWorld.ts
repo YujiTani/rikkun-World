@@ -55,12 +55,14 @@ export interface FurnaceWorldDeps {
   /** 2P が いるか。false の あいだは 入れた 人が 2 の 物も 1P へ（やけた 物も 待っている 物も。つぎの update から） */
   joined: () => boolean;
   /** やけた 物が 実際に 入った とき、受け取った 人と 入った 数だけ */
-  onDelivered?: (who: FurnaceWho, item: ItemId, count: number) => void;
+  onDelivered?: (who: FurnaceWho, item: ItemId, count: number, tick: number) => void;
   /** bakeTicks・bakeQueueMax は 1P と 同じ 表（渡した 物を そのまま 読む＝あとで 書きかえられても 効く） */
   config?: CraftConfig;
   requestSave?: () => void;
   /** 出来事に 付ける 時計（なければ 自分で 数える） */
   tick?: () => number;
+  /** 渡すと 入れた 人に よらず やけた 物・出来事は いつも この 人へ（自分だけの かまど。by が 2 の 保存を 1 人で 読んでも 出来事が きえない） */
+  fixedRecipient?: FurnaceWho;
 }
 
 const keyOf = (x: number, y: number, z: number) => `${x},${y},${z}`;
@@ -80,7 +82,8 @@ export class FurnaceWorld {
     return this.d.config ?? CRAFT_DEFAULTS;
   }
 
-  private now(): number {
+  /** いまの 時計（出来事の tick。受け取る 人の `notifyPickup` にも これを 渡して そろえる） */
+  now(): number {
     return this.d.tick ? this.d.tick() : this.ticks;
   }
 
@@ -96,6 +99,7 @@ export class FurnaceWorld {
 
   /** やけた 物を 受け取る 人。2P が いなければ 2 の 物も 1P */
   private recipient(by: FurnaceWho): FurnaceWho {
+    if (this.d.fixedRecipient) return this.d.fixedRecipient;
     return by === 2 && this.d.joined() ? 2 : 1;
   }
 
@@ -183,7 +187,7 @@ export class FurnaceWorld {
   /** 入れた 人の もちものへ。入らなかった 数を 返す */
   private deliver(who: FurnaceWho, item: ItemId, count: number): number {
     const left = this.d.inventoryOf(who).add(item, count);
-    if (count - left > 0) this.d.onDelivered?.(who, item, count - left);
+    if (count - left > 0) this.d.onDelivered?.(who, item, count - left, this.now());
     return left;
   }
 

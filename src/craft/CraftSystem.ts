@@ -130,8 +130,9 @@ export class CraftSystemImpl implements CraftSystem {
       new FurnaceWorld({
         world: d.world,
         inventoryOf: () => d.inventory,
-        joined: () => true, // 自分だけの かまど: 入れた 人 ＝ この つくる の 持ち主（いつも 自分の もちものへ・自分の 出来事へ）
-        onDelivered: (_who, item, count) => this.notifyPickup(item, count),
+        joined: () => true,
+        fixedRecipient: this.who, // 自分だけの かまど: やけた 物・出来事は いつも この つくる の 持ち主へ（by が 2 の 保存を 1 人で 読んでも）
+        onDelivered: (_who, item, count, tick) => this.notifyPickup(item, count, tick),
         config: this.config,
         requestSave: d.requestSave,
         tick: () => this.tickCount,
@@ -431,10 +432,10 @@ export class CraftSystemImpl implements CraftSystem {
   }
 
   /** すでに持ち物に入れた分を「拾った」として知らせる（ほった・落ちたものを拾った） */
-  notifyPickup(item: ItemId, count: number): void {
+  notifyPickup(item: ItemId, count: number, tick: number = this.tickCount): void {
     if (!(count > 0)) return;
     this.log.push(item, count);
-    this.emit({ type: 'pickup', tick: this.tickCount, item, count }, null);
+    this.emit({ type: 'pickup', tick, item, count }, null);
   }
 
   /** 今出ているログ（上＝古い） */

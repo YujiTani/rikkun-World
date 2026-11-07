@@ -50,7 +50,7 @@ export function createDuoInventory(deps: WiredLoop, position: () => Vec3, onClos
   });
   const craft = p2Craft.craft;
   // やけた 物が 2P の もちものに 入った: 2P の つくる の「ひろった」の 出来事（実績へ。2P の ログは 出さない。§2.6）
-  shared.p2Delivered = (item, count) => craft.notifyPickup(item, count);
+  shared.p2Delivered = (item, count, tick) => craft.notifyPickup(item, count, tick);
   let open = false;
   const state: ScreenState = { mode: () => (open ? 'inventory' : 'play'), inventoryOpen: () => open, timeScale: () => 1 };
   const nameOf = (item: ItemId): string => itemType(item)?.name ?? item;

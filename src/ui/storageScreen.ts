@@ -37,6 +37,7 @@ export class StorageScreen {
   private shown = false;
   private markedBtn!: HTMLButtonElement;
   private markKey = '';
+  private focusable = false;
 
   constructor(
     private readonly host: StorageHost,
@@ -92,8 +93,6 @@ export class StorageScreen {
     for (let i = 0; i < slots; i++) {
       const c = createSlot({ size: 'tansu' });
       c.root.dataset.tansu = String(i);
-      c.root.dataset.menuItem = ''; // 十字で えらべる（もちものの マスと 同じ。COOP-1 4c）
-      c.root.tabIndex = 0;
       c.root.addEventListener('click', (e) => {
         e.stopPropagation();
         if (e.shiftKey) this.storage.shiftClick('tansu', i);
@@ -104,9 +103,27 @@ export class StorageScreen {
     }
     this.el.append(band, head, grid);
     host.storageSlot.append(this.el);
+    this.syncFocusable();
+  }
+
+  /** 十字・Tab で マスに 入れるのは 2 人用（layout duo）だけ。1 人の 全面は 帯の ボタンだけ（仕様 §3.3） */
+  private syncFocusable(): void {
+    const on = (this.host.layout?.() ?? 'full') === 'duo';
+    if (on === this.focusable) return;
+    this.focusable = on;
+    for (const c of this.cells) {
+      if (on) {
+        c.root.dataset.menuItem = '';
+        c.root.tabIndex = 0;
+      } else {
+        delete c.root.dataset.menuItem;
+        c.root.removeAttribute('tabindex');
+      }
+    }
   }
 
   update(): void {
+    this.syncFocusable();
     const open = this.storage.ui().open;
     if (open !== this.shown) {
       this.shown = open;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PanelOrder } from './panelOrder';
+import { PanelOrder, panelOpDeferred } from './panelOrder';
 
 /**
  * COOP-1 4c（docs/design/COOP-1.md §3.3「同じ ステップは 1P が 先」・§8 の 4c の 宿題 3・AC93・AC94）の 先行テスト（赤）。
@@ -59,5 +59,16 @@ describe('PanelOrder: 同じ ステップは 1P が 先（たんすも かまど
     expect(ran).toEqual(['1P', '2P']);
     expect(order.flush()).toBe(1);
     expect(ran).toEqual(['1P', '2P', '1P-later']);
+  });
+});
+
+describe('panelOpDeferred: あずけるのは もちものの 画面で 更新が 回って いる ときだけ', () => {
+  it('2 人で もちものの 画面 → あずける', () => {
+    expect(panelOpDeferred(true, true, 'inventory-screen')).toBe(true);
+  });
+  it('ポーズ・せってい・本の メニュー、更新が 止まって いる、1 人 のときは すぐ やる（flush が 走らず 1P が 押せなく なるのを ふせぐ）', () => {
+    expect(panelOpDeferred(true, true, 'pause-menu')).toBe(false);
+    expect(panelOpDeferred(true, false, 'inventory-screen')).toBe(false);
+    expect(panelOpDeferred(false, true, 'inventory-screen')).toBe(false);
   });
 });

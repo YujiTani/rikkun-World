@@ -4,6 +4,11 @@
 
 type Op = () => void;
 
+/** 1P の パッドの けっていを PanelOrder へ あずけるか。あずけるのは「2 人で あそび中・ゲームの 更新が 回って いる（flush が 走る）・もちものの 画面」の ときだけ。ポーズ・せってい・本などの メニューは すぐ やる（flush が 走らない ため） */
+export function panelOpDeferred(joined: boolean, updating: boolean, menuRootId: string): boolean {
+  return joined && updating && menuRootId === 'inventory-screen';
+}
+
 export class PanelOrder {
   private p1: Op[] = [];
   private p2: Op[] = [];

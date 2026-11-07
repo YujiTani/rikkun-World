@@ -302,7 +302,8 @@ export function wireFighters(deps: WiredWeapons) {
     world,
     inventoryOf: (who) => (who === 2 ? shared.p2.inventory : inventory),
     joined: () => shared.duoJoined(),
-    onDelivered: (who, item, count) => (who === 1 ? craft.notifyPickup(item, count) : shared.p2Delivered(item, count)),
+    // 「ひろった」の 出来事の tick は かまどの 時計（bakeDone と そろう。craft.update の あとで 走っても ずれない）
+    onDelivered: (who, item, count, tick) => (who === 1 ? craft.notifyPickup(item, count, tick) : shared.p2Delivered(item, count, tick)),
     config: craftConfig,
     requestSave: () => shared.requestSave(),
   });

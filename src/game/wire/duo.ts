@@ -6,7 +6,7 @@ import { hearFrom } from '../../duo/hearing';
 import { distanceMeter } from '../../duo/meter';
 import { closeInvHand } from '../../duo/invClose';
 import { invCloseReason, invLayoutFor, invPadCommand, invQuitHeld, type InvLayout } from '../../duo/invRules';
-import { PanelOrder } from '../../duo/panelOrder';
+import { PanelOrder, panelOpDeferred } from '../../duo/panelOrder';
 import { DuoJoinHint, type DuoJoinHintInput } from '../../duo/joinHint';
 import { pressEquip } from '../../duo/p2Equip';
 import { duoWaitNotice } from '../../duo/rules';
@@ -212,7 +212,7 @@ export function wireDuo(deps: WiredLoop) {
   // たんす・かまどの 中身に かける 操作は ぜんぶ ここへ あずけ、1 ステップに 1 回 1P → 2P の 順に やる（同じ ステップは 1P が 先。COOP-1 4c）。
   // 1 人の ときは あずけず すぐ 実行（今の まま）。1P の マウスは ステップの あいだに 来る ので すぐ 実行で よい
   const order = new PanelOrder();
-  gamepadApi.duo.submit1 = (op) => (session.joined ? order.submit(1, op) : op());
+  gamepadApi.duo.submit1 = (op, active, rootId) => (panelOpDeferred(session.joined, active, rootId) ? order.submit(1, op) : op());
 
   // ---- 1P の もちもの画面: 2 人の あいだは 左半分の 2 人用（data-layout="duo"）。1P の パッド・キー・マウスは 今の まま（DOM の フォーカス）
   const inv1 = deps.inventoryScreen;
