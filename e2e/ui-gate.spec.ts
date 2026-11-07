@@ -16,6 +16,7 @@ import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid
 import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house';
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
+import { duoInvIssues, openDuoInv } from './helpers/duoInv';
 import { duoArrowPanelIssues, duoBandIssues, duoHudIssues, duoPadLostIssues, duoUsePadIssues, duoViewIssues, openDuoArrowPanel, openDuoBand, openDuoHud, openDuoUsePad, openDuoPadLost, openDuoSplit } from './helpers/duoUi';
 import { PICK_ROOTS, SITE_NEED_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen, siteNeedIssues } from './helpers/houseSite';
 
@@ -565,6 +566,27 @@ SCREENS.push(
     roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-inv-p2"]', '[data-testid="duo-arrow-p1"]'],
     open: openDuoArrowPanel,
     extra: (page: Page) => duoArrowPanelIssues(page),
+  },
+);
+
+/**
+ * COOP-1 4a（AC81・AC87）: 2 人とも 2 人用の もちもの・クラフト画面を 開いた 画面（もちもの／つくる）。3 つの 大きさ（1024×700・1280×800・1440×900）で、
+ * いちばん 多い とき（見本の もちもの `duo.sample`・メーターが 出ている）でも その人の 半分の 中（§9.8）に 入り、はみ出さない・重ならない・ちぢめない。
+ * 検査は e2e/helpers/duoInv.ts の duoInvIssues。やく・たんす は 4c で 足す。
+ */
+const DUO_INV_ROOTS = [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-inv-p1"]', '[data-testid="duo-inv-p2"]'];
+SCREENS.push(
+  {
+    id: 'duo-inv-items',
+    roots: DUO_INV_ROOTS,
+    open: (page: Page) => openDuoInv(page, 'items'),
+    extra: (page: Page) => duoInvIssues(page, 'items'),
+  },
+  {
+    id: 'duo-inv-craft',
+    roots: DUO_INV_ROOTS,
+    open: (page: Page) => openDuoInv(page, 'craft'),
+    extra: (page: Page) => duoInvIssues(page, 'craft'),
   },
 );
 

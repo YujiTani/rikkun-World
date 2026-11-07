@@ -1,6 +1,10 @@
-// 世界を 止める 画面（本・建築士さん・2 人で 1P の 全面の もちもの画面）の 1 コマを 決める。player.ts の game.setModal が 使う
+// 世界を 止める 画面（本・建築士さん）の 1 コマを 決める。player.ts の game.setModal が 使う
 import type { GameModal } from '../Game';
 
+/**
+ * 世界を 止める 画面は 本と 建築士さん（HOUSE-1A）の 2 つ だけ。
+ * もちもの画面は 2 人の ときも 世界を 止めない（COOP-1 4a。AC75）ので、updaters が 動き、画面まわりも 1P の パッドも そこで 回る。
+ */
 export interface ModalParts {
   bookActive: () => boolean;
   bookTick: () => void;
@@ -8,26 +12,16 @@ export interface ModalParts {
   houseFrozen: () => boolean;
   houseTick: () => void;
   houseRender: () => void;
-  /** 2 人で 1P の 全面の もちもの画面が 世界を 止めている（COOP-1 AC84） */
-  duoFrozen: () => boolean;
-  /** 1P の パッド。実時間の コマでは 呼ばない（その コマの idle が 1 回 読む）。step() の 道だけ */
-  padStep: () => void;
-  /** もちもの画面まわりの 1 コマ（updaters が 動かない ので ここから 呼ぶ） */
-  inventoryUiTick: () => void;
+  /** 2P の 側の 1 コマ（「ちょっと まってね」・「＋で さんか」の 出し入れ。updaters が 動かない ので ここから 呼ぶ） */
   duoModalTick: () => void;
 }
 
 export function createGameModal(p: ModalParts): GameModal {
   return {
-    active: () => p.bookActive() || p.houseFrozen() || p.duoFrozen(),
-    tick: (inFrame = false) => {
+    active: () => p.bookActive() || p.houseFrozen(),
+    tick: () => {
       if (p.bookActive()) p.bookTick();
       else if (p.houseFrozen()) p.houseTick();
-      else {
-        // 2 人で もちもの画面: updaters は 動かない ので、画面の 開閉・描きなおしを ここで 1 コマ 回す（開いた コマにも 必ず 1 回）
-        p.inventoryUiTick();
-        if (!inFrame) p.padStep(); // 1P の パッドで とじられる ように
-      }
       p.duoModalTick();
     },
     render: () => {

@@ -242,6 +242,12 @@ export class CraftPanel {
     this.dirty = true;
   }
 
+  /** かくれていた 画面を 見せたとき（2 人用の ページ切りかえ）: せつめいの 分け方を 実際の 大きさで 測りなおす */
+  relayout(): void {
+    this.detailKey = '';
+    this.dirty = true;
+  }
+
   info(): ItemInfoSource {
     return this.info_;
   }

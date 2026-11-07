@@ -279,6 +279,7 @@ export function wireFighters(deps: WiredWeapons) {
       shared.toItemsTab(); // たんす は もちもの タブで開く（できごと・じっせき の画面が のこっていても）
     },
     closeScreen: () => screen.toggle(),
+    canOpen: () => !shared.duoJoined(), // 2 人の あいだは 2 人用の たんすの ページ(4c)まで 開かない
     live: m6,
     tick: () => game.tick,
     requestSave: () => shared.requestSave(),

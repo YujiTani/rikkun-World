@@ -1,4 +1,3 @@
-import type { Inventory } from '../contracts';
 import { InventoryImpl } from '../inventory/Inventory';
 import { LevelSystem } from '../level/LevelSystem';
 import type { P2Save } from './types';
@@ -15,7 +14,7 @@ export function readP2Save(data: unknown): P2Save | null {
 
 /** 2P の もちものと レベル（1P とは 別。§2.6・§6）。`inventory` は 差しかえず 中身だけ 入れかえる */
 export class P2State {
-  readonly inventory: Inventory = new InventoryImpl();
+  readonly inventory: InventoryImpl = new InventoryImpl();
   /** 2P の レベルと けいけんち（1P の LevelSystem と 同じ 物） */
   readonly levels: LevelSystem;
 

@@ -13,7 +13,8 @@ import type { DuoState, DuoVec3, DuoView } from '../src/duo/types';
  *   gamepad.injectPads(pads)   偽パッドを 何本でも（null は ぬけた）。injectPad(pad) は injectPads([pad]) と 同じ
  *   ?duo=dev       E2E と 開発用。2P の 参加（＋・duo.join・setPadChoice）は ふつうの URL でも 効く（作業 3d・AC64）。`duo.place()` だけ この URL の ときしか 効かない
  *   duo-join-hint  作業 3d: 候補（2 本目の パッド）が つながると 3 秒 出る「＋で さんか」（文に「さんか」）。参加すると 消える。候補が いない ときは 見えない（なくても hidden でも よい。仕様 §12.0 に 足す 案）
- *   duo-wait       作業 3d: 2 人で 1P の 全面の もちもの画面（・本・建築士さん）が 開いている あいだ だけ ある「ちょっと まってね」。このとき 世界は 止まり（`duo.timeScale()` は 0、`__rikkun.step()` でも 2P は 動かない）
+ *   duo-wait       作業 3d: 本・建築士さんが 世界を 止めている あいだ だけ ある「ちょっと まってね」。COOP-1 4a から もちもの画面（1P の 2 人用・2P の 2 人用）では 出ない。世界は 止まらない（`duo.timeScale()` は 1）
+ *   duo-inv-p1 / duo-inv-p2  4a: 2 人用 もちもの・クラフト画面（`data-layout="duo"`。1P は E、2P は パッドの Y。くわしくは e2e/duoInv.spec.ts）
  *   2P の 出る 所   1P の 右 2 マス（空いて いれば）。ここでは 床を ならして 空けてから 試す
  *   2P の 歩き     2P の 左スティック上は 2P の カメラの 向き（duo.viewports()[1].yawDeg）の 奥（作業 3e・1.8: 2P は いつも 自分の カメラ。AC86）
  */
@@ -231,19 +232,20 @@ test('AC14: 1 人の 描画は SOLO_BASELINE の 1.2 倍以下。2P が 参加�
   expect(after.triangles).toBeLessThanOrEqual(Math.ceil(before.triangles * 1.02));
 });
 
-test('AC11・AC84・AC15: 2P の パネルを 開いても 倍率は 1。1P の 全面は 2 人の とき 世界を 止めて「ちょっと まってね」。2P の ボタンで 本・建築士さん・とりごや・たんすは 開かない', async ({ page }) => {
+test('AC11・AC75・AC15: 2 人用の もちもの画面を 開いても 倍率は 1 で 世界は 止まらない。2P の ボタンで 本・建築士さん・とりごや・たんすは 開かない', async ({ page }) => {
   await open(page);
   await standOnGround(page, 100.5, 100.5, { yaw: 90 });
   await installPads(page);
   expect(await page.evaluate(() => (window as any).__rikkun.duo.join())).toBe(true);
   await step(page, 5);
-  // 妖怪を 1 たい（動く）。止まっている あいだ 動かない ことを 見る
-  await page.evaluate(() => {
-    const h = (window as any).__rikkun;
-    const p = h.player.get().position;
-    (window as any).__yid = h.yokai.spawn('karakasa', p.x + 6, p.y, p.z, { ai: true });
-    h.step(2);
-  });
+  const timeScale = () => page.evaluate(() => (window as any).__rikkun.duo.timeScale());
+  const tapE = () =>
+    page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.input.press('toggleInventory');
+      h.input.release('toggleInventory');
+      h.step(3);
+    });
 
   // AC11: 2P の パネル（Y = 標準の ボタン 2）を 開いても 世界は 止まらない
   await setPad(page, 1, { buttons: [2] });
@@ -251,86 +253,52 @@ test('AC11・AC84・AC15: 2P の パネルを 開いても 倍率は 1。1P の 
   await setPad(page, 1, {});
   await step(page, 3);
   await expect(page.getByTestId('duo-inv-p2')).toBeVisible();
-  expect(await page.evaluate(() => (window as any).__rikkun.duo.timeScale()), '2P の パネル: ゆっくりに しない・止めない').toBe(1);
+  await expect(page.getByTestId('duo-inv-p2')).toHaveAttribute('data-layout', 'duo');
+  expect(await timeScale(), '2P の パネル: ゆっくりに しない・止めない').toBe(1);
   await expect(page.getByTestId('duo-wait')).toBeHidden();
-
-  // 2P の パネルを とじる（開いている あいだは 2P の スティックは カーソルで 体は 歩かない。歩きを 見る 所では とじておく）
-  await setPad(page, 1, { buttons: [1] }); // B（もどる）で とじる
+  // 2P の パネルを とじる（B = closeMenu）
+  await setPad(page, 1, { buttons: [1] });
   await step(page, 3);
   await setPad(page, 1, {});
   await step(page, 3);
   await expect(page.getByTestId('duo-inv-p2')).toBeHidden();
 
-  // AC84: 1P が 全面の もちもの画面を 開く → 世界が 止まり、2P の 側に「ちょっと まってね」。2P の スティックでも 動かない
-  await page.evaluate(() => {
-    const h = (window as any).__rikkun;
-    h.input.press('toggleInventory');
-    h.input.release('toggleInventory');
-    h.step(3);
-  });
-  // duo.timeScale() の 0 は 止まった 証拠に しない（step() は 倍率を 見ない）。2P の 位置と 妖怪の 位置が かわらない ことで 見る
-  expect(await page.evaluate(() => (window as any).__rikkun.duo.timeScale())).toBe(0);
-  await expect(page.getByTestId('duo-wait')).toContainText('まってね');
-  const yokaiAt = () =>
-    page.evaluate(() => {
-      const y = (window as any).__rikkun.yokai.list().find((e: any) => e.id === (window as any).__yid);
-      return y ? { x: y.position.x, y: y.position.y, z: y.position.z } : null;
-    });
-  const held = (await pos(page, 2))!;
-  const yokaiHeld = await yokaiAt();
-  expect(yokaiHeld, '妖怪が いる').not.toBeNull();
-  await setPad(page, 1, { axes: [0, -1, 0, 0] });
-  await step(page, 30);
-  const heldAfter = (await pos(page, 2))!;
-  expect(Math.hypot(heldAfter.x - held.x, heldAfter.z - held.z), '止まっている あいだ 2P は 動かない').toBeLessThan(0.05);
-  expect(await yokaiAt(), '妖怪も 動かない').toEqual(yokaiHeld);
-  // 1P の 全面を 1P の パッドで とじられる（止まっている あいだも 1P の パッドは 読まれる）。2P の スティックは 倒したまま
-  await setPad(page, 0, { buttons: [1] }); // B（もどる）
-  await step(page, 3);
-  await setPad(page, 0, {});
-  await step(page, 3);
-  // B は Esc と 同じ「とじて 案内画面へ」（closeToGuide。E2E は ロックが ふりなので 案内画面が 出る）。クリックの かわりに ロックを かけ直す
-  await expect(page.getByTestId('duo-wait'), 'とじたら「ちょっと まってね」は 消える').toBeHidden();
-  await page.evaluate(() => (window as any).__rikkun.lock.simulate(true));
-  await step(page, 2);
-  expect(await page.evaluate(() => (window as any).__rikkun.duo.timeScale()), 'とじたら 動きだす').toBe(1);
-  // とじた その ステップから 動きだす: 2P の スティックを 倒したまま step(1) で 位置が かわる
-  await setPad(page, 1, {});
-  await step(page, 2);
+  // AC75（AC84 から かわった）: 1P が もちもの画面を 開いても 世界は 止まらない。2P は 歩けて、「ちょっと まってね」は 出ない
+  await tapE();
+  expect((await page.evaluate(() => (window as any).__rikkun.duo.inv(1))).open, '1P の 2 人用 画面').toBe(true);
+  await expect(page.locator('#inventory-screen')).toHaveAttribute('data-layout', 'duo');
+  expect(await timeScale(), '1P の 画面: 倍率は 1').toBe(1);
+  await expect(page.getByTestId('duo-wait')).toBeHidden();
   const g0 = (await pos(page, 2))!;
   await setPad(page, 1, { axes: [0, -1, 0, 0] });
-  await step(page, 1);
-  const g1 = (await pos(page, 2))!;
-  expect(Math.hypot(g1.x - g0.x, g1.z - g0.z), 'とじた あと step(1) で 2P が 動く').toBeGreaterThan(0);
+  await step(page, 30);
   await setPad(page, 1, {});
-  await step(page, 2);
+  const g1 = (await pos(page, 2))!;
+  expect(Math.hypot(g1.x - g0.x, g1.z - g0.z), '1P が 開いている あいだも 2P は 歩ける（世界は 止まらない）').toBeGreaterThan(0.3);
+  await tapE();
+  expect((await page.evaluate(() => (window as any).__rikkun.duo.inv(1))).open).toBe(false);
+  await expect(page.locator('#inventory-screen')).toBeHidden();
+  expect(await timeScale()).toBe(1);
 
-  // 2P の パネルが 開いていても 同じ: 1P の 全面で 止まり、とじると 続き（パネルは 開いたまま）
+  // 2 人とも 開いても 同じ（世界は 止まらない）。とじると 続き
   await setPad(page, 1, { buttons: [2] });
   await step(page, 3);
   await setPad(page, 1, {});
   await step(page, 3);
+  await tapE();
+  await expect(page.getByTestId('duo-inv-p1')).toBeVisible();
   await expect(page.getByTestId('duo-inv-p2')).toBeVisible();
-  await page.evaluate(() => {
-    const h = (window as any).__rikkun;
-    h.input.press('toggleInventory');
-    h.input.release('toggleInventory');
-    h.step(3);
-  });
-  await expect(page.getByTestId('duo-wait')).toContainText('まってね');
-  await page.evaluate(() => {
-    const h = (window as any).__rikkun;
-    h.input.press('toggleInventory');
-    h.input.release('toggleInventory');
-    h.step(3);
-  });
+  expect(await timeScale()).toBe(1);
   await expect(page.getByTestId('duo-wait')).toBeHidden();
-  expect(await page.evaluate(() => (window as any).__rikkun.duo.timeScale())).toBe(1);
-  await setPad(page, 1, {});
-  await step(page, 2);
+  await tapE();
+  await expect(page.getByTestId('duo-inv-p1')).toBeHidden();
   await expect(page.getByTestId('duo-inv-p2'), '2P の パネルは 開いたまま').toBeVisible();
-
-  // 2P の パッドで 画面を 開く ボタンを ひと通り 押す（select・十字・L3・R3・面ボタン）
+  // 2P の パネルを とじてから、2P の パッドで 画面を 開く ボタンを ひと通り 押す（select・十字・L3・R3・面ボタン）。開かないのは 本・建築士さん・とりごや・たんす
+  await setPad(page, 1, { buttons: [1] });
+  await step(page, 3);
+  await setPad(page, 1, {});
+  await step(page, 3);
+  await expect(page.getByTestId('duo-inv-p2')).toBeHidden();
   for (const b of [8, 12, 13, 14, 15, 10, 11, 0, 1, 3]) {
     await setPad(page, 1, { buttons: [b] });
     await step(page, 3);
@@ -365,7 +333,7 @@ test('AC5: 2P の パッドを ぬくと padLost と「つないでね」、3600
   expect((await duoState(page)).joined).toBe(false);
 });
 
-test('AC84（#424 の 直し）: 2 人の とき 1P が もちもの画面を 開くと 見える。物を えらぶと 見た目が かわり、とじると 見えない', async ({ page }) => {
+test('AC75（#424 の 直しから）: 2 人の とき 1P が もちもの画面を 開くと 左半分の 2 人用で 見える。物を えらぶと 見た目が かわり、とじると 見えない', async ({ page }) => {
   await open(page);
   await standOnGround(page, 100.5, 100.5, { yaw: 90 });
   await installPads(page);
@@ -387,10 +355,15 @@ test('AC84（#424 の 直し）: 2 人の とき 1P が もちもの画面を �
     });
   await expect(screen).toBeHidden();
 
-  // 1P が 開く: 世界は 止まり（ちょっと まってね）、1P の 画面は ちゃんと 見える
+  // 1P が 開く: 世界は 止まらず（ちょっと まってね は 出ない）、1P の 画面は 左半分の 2 人用で ちゃんと 見える
   await press();
-  await expect(page.getByTestId('duo-wait')).toContainText('まってね');
+  await expect(page.getByTestId('duo-wait')).toBeHidden();
   await expect(screen).toBeVisible();
+  await expect(screen).toHaveAttribute('data-layout', 'duo');
+  await expect(page.getByTestId('duo-inv-p1')).toBeVisible();
+  const half = await page.evaluate(() => innerWidth / 2);
+  const box = (await screen.boundingBox())!;
+  expect(box.x + box.width, '左半分の 中').toBeLessThanOrEqual(half);
 
   // 物を えらぶ（もちあげる）と 描きなおされて、手に もった 物の 絵が 出る
   const cursor = screen.locator('.inv-cursor');
@@ -404,11 +377,16 @@ test('AC84（#424 の 直し）: 2 人の とき 1P が もちもの画面を �
   await step(page, 2);
   await expect(cursor, '物を えらぶと 見た目が かわる').toBeVisible();
 
-  // もどして とじる（世界が 止まっている あいだも とじられる）
+  // もどして とじる
   await screen.locator(`.inv-slot[data-index="${slot}"]`).click();
   await step(page, 2);
   await expect(cursor).toBeHidden();
   await press();
   await expect(screen).toBeHidden();
-  await expect(page.getByTestId('duo-wait')).toBeHidden();
+  // 2P が いなくなった あと 次に 開く ときは 全面（data-layout なし。AC75・AC79）
+  await page.evaluate(() => (window as any).__rikkun.duo.leave());
+  await step(page, 2);
+  await press();
+  await expect(screen).toBeVisible();
+  await expect(screen).not.toHaveAttribute('data-layout', 'duo');
 });

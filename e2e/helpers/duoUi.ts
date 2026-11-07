@@ -253,7 +253,7 @@ export async function openDuoPadLost(page: Page): Promise<void> {
 }
 
 /**
- * 2P の 小さい パネル（duo-inv-p2）を ひらいた 画面（AC87）。2P は 1P の 左 40 マス（矢印が 両方に 出る 場面）で、2P の パッド（番号 1）の 左の 面ボタン（standard の 2）で パネルを ひらく。
+ * 2P の 2 人用 パネル（duo-inv-p2）を ひらいた 画面（AC87）。2P は 1P の 左 40 マス（矢印が 両方に 出る 場面）で、2P の パッド（番号 1）の 左の 面ボタン（standard の 2）で パネルを ひらく。
  * 矢印は パネルの 上には 出ない（`duoArrowPanelIssues`）。
  */
 export async function openDuoArrowPanel(page: Page): Promise<void> {
@@ -379,7 +379,7 @@ export async function duoViewIssues(page: Page, arrows: 'both' | 'none'): Promis
 }
 
 /**
- * AC87 の 検査: 2P の 小さい パネル（duo-inv-p2）が ひらいている あいだは、2P の 半分の 矢印（duo-arrow-p2）を 出さない
+ * AC87 の 検査: 2P の 2 人用 パネル（duo-inv-p2）が ひらいている あいだは、2P の 半分の 矢印（duo-arrow-p2）を 出さない
  * （`duo.arrow(2)` が null・画面の 矢印が 見えない）。パネルが 見えている こと。空 = 合格。
  */
 export async function duoArrowPanelIssues(page: Page): Promise<DuoUiIssue[]> {
@@ -387,7 +387,7 @@ export async function duoArrowPanelIssues(page: Page): Promise<DuoUiIssue[]> {
   const add = (kind: string, target: string, detail: string) => out.push({ kind, target, detail });
   const panel = await boxOf(page, 'duo-inv-p2');
   if (!panel) {
-    add('missing', 'duo-inv-p2', '2P の 小さい パネルが ひらいていない');
+    add('missing', 'duo-inv-p2', '2P の 2 人用 パネルが ひらいていない');
     return out;
   }
   const info = await page.evaluate(() => {
