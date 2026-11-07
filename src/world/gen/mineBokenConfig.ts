@@ -121,8 +121,8 @@ export const BOKEN_TUNING = {
   /** さか道の 段の 数（1C と 同じ） */
   stepsMin: 8,
   stepsMax: 12,
-  /** さか道の たいまつの 間かく（マス） */
-  rampTorchEvery: 8,
+  /** さか道の たいまつの 間かく（マス。1C の SHAFT_CONFIG.road.torchEvery と 同じ。8 では 光が 6 に とどかない 所が できた） */
+  rampTorchEvery: 6,
   /** 本道・横穴の わくの 間かく（マス） */
   frameEvery: 6,
   /** わくが こわれた わく に なる わりあい（1E の 坑道の さか道・本道・横穴）・むかしの えだ道 */

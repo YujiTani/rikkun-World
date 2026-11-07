@@ -180,5 +180,9 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
   };
   void mazeFloor;
   void SHAPE_TABLE;
-  return { shaft, path: b.path, b, noTrees, noPlants, cols, rooms: [], roomCols: new Set(), tries: [], ref: { sigs: [], target: -1 }, areas };
+  // 行きどまりの 宝箱の 2 マスは 道の 足の マスに 数えない〔固い 宝箱の 上に 立てない。空気は へやと して あけてある〕
+  const endChest = new Set<number>();
+  for (const e of ends) for (const p of e.chest?.cells ?? []) endChest.add(keyOf(p.x, p.y, p.z));
+  const path = endChest.size > 0 ? b.path.filter((c) => !endChest.has(keyOf(c.x, c.y, c.z))) : b.path;
+  return { shaft, path, b, noTrees, noPlants, cols, rooms: [], roomCols: new Set(), tries: [], ref: { sigs: [], target: -1 }, areas };
 }

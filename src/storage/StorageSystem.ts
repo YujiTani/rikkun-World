@@ -127,8 +127,9 @@ export class StorageSystem implements TansuMaterialStore {
   private create(x: number, y: number, z: number, fill: boolean): TansuRecord {
     const slots = new Array<TansuSlot>(this.live.tansuSlots).fill(null);
     const r: TansuRecord = { x, y, z, facing: null, slots };
-    this.records.set(key(x, y, z), r);
+    // 記録を 作る 前に 引く〔窓口の campPreview は「記録が あるか」を 見て いるので、先に 作ると null に なる〕
     const stacks = fill ? this.d.firstFill?.(x, y, z) : null;
+    this.records.set(key(x, y, z), r);
     if (stacks) for (let i = 0; i < stacks.length && i < slots.length; i++) slots[i] = copyStack(stacks[i]!);
     return r;
   }
