@@ -10,8 +10,8 @@ import { CAVE_CONFIG, type CaveKind } from './mineCaveConfig';
 import type { RoomColOps } from './mineCaveRoom';
 import { colKey } from '../stream/ring';
 import { BOKEN_TUNING } from './mineBokenConfig';
-import { planBokenSteps } from './mineBokenPlan';
-import { styleOf } from './mineBokenStyle';
+import { bokenSiteOk, planBokenSteps } from './mineBokenPlan';
+import { styleLadder, styleOf } from './mineBokenStyle';
 
 /**
  * 坑道の 世界（MINE-1C。docs/design/MINE-1.md §4.5・§4.8・§6.1）。シード（と 古い 列の 一覧）から、はじまりの 坑道と 区画ごとの 坑道を 決める。
@@ -202,27 +202,33 @@ export class ShaftWorld implements CaveHost {
     return yield* this.regionJobE(rx, rz);
   }
 
-  /** 1E の 坑道〔性格は 世界の シードと 区画で きまる〕 */
+  /** 1E の 坑道〔性格は 世界の シードと 区画で きまる。入らない ときは 階・迷路・キャンプを へらした 性格で ためす〕 */
   private *regionJobE(rx: number, rz: number): Generator<void, Planned | null> {
-    const style = styleOf(this.seed, rx, rz);
+    const ladder = styleLadder(styleOf(this.seed, rx, rz));
     const boken = this.oldCols?.boken;
     const env = { isBoken: boken && boken.size > 0 ? (k: number): boolean => boken.has(k) || this.isOld(k) || this.isOldHeya(k) : null };
-    let budget = BOKEN_TUNING.budget;
-    for (const site of regionSites(this.G, rx, rz)) {
-      if (site === null) {
-        yield;
-        continue;
-      }
-      for (let a = 0; a < BOKEN_TUNING.attempts && budget-- > 0; a++) {
-        const plan = yield* planBokenSteps(this.G, site, `r${rx}_${rz}`, rx, rz, style, env, a);
-        if (plan) {
+    const sites: (Site | null)[] = [];
+    for (let level = 0; level < ladder.length; level++) {
+      // 性格どおりは 予算の 大半、ゆるめた 性格は のこりを 分けあう
+      let budget = level === 0 ? BOKEN_TUNING.budgetFull : Math.floor((BOKEN_TUNING.budget - BOKEN_TUNING.budgetFull) / (ladder.length - 1));
+      const list = level === 0 ? regionSites(this.G, rx, rz) : sites;
+      for (const site of list) {
+        if (level === 0) sites.push(site);
+        if (site === null || !bokenSiteOk(this.G, site)) {
           yield;
-          return { plan, ops: buildOps(plan) };
+          continue;
         }
+        for (let a = 0; a < BOKEN_TUNING.attempts && budget-- > 0; a++) {
+          const plan = yield* planBokenSteps(this.G, site, `r${rx}_${rz}`, rx, rz, ladder[level]!, env, a);
+          if (plan) {
+            yield;
+            return { plan, ops: buildOps(plan) };
+          }
+          yield;
+        }
+        if (budget <= 0) break;
         yield;
       }
-      if (budget <= 0) break;
-      yield;
     }
     return null;
   }

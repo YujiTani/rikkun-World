@@ -29,6 +29,11 @@ export interface BokenPlanEnv {
   isBoken: ((k: number) => boolean) | null;
 }
 
+/** 入口の 前を 歩いて 出られる か〔入口だけで きまる。ためす 回数に 数えない〕 */
+export function bokenSiteOk(G: Geo, site: Site): boolean {
+  return outsideWalkable(G, new Frame(site.x, site.z, site.dir), site.y);
+}
+
 export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: number, style: BokenStyle, env: BokenPlanEnv, attempt: number): Generator<void, ShaftPlan | null> {
   const seed = G.seed;
   const rng = createRng(hashInts(subSeed(seed, 831), site.x, site.z, attempt));

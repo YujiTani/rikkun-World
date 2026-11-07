@@ -37,3 +37,21 @@ export function styleOf(seed: number, rx: number, rz: number): BokenStyle {
     maze: level.mazeGrid !== null && draw(6) < level.maze,
   };
 }
+
+/**
+ * 計画が 入らない ときの ゆるめた 性格（MINE-1E §5「区画が せまくて 入らない」）。広さ・ふかさ・ふくざつさは そのままで、
+ * 階の 数を その ふかさの 下限まで → 迷路 なし → キャンプ なし の じゅんに へらす。最初の 要素は 性格 そのもの
+ */
+export function styleLadder(style: BokenStyle): BokenStyle[] {
+  const out: BokenStyle[] = [style];
+  const floorsMin = STYLE_TABLE.depth.find((d) => d.id === style.depth)!.floors[0];
+  let cur = style;
+  const push = (next: BokenStyle): void => {
+    out.push(next);
+    cur = next;
+  };
+  if (cur.floors > floorsMin) push({ ...cur, floors: floorsMin });
+  if (cur.maze) push({ ...cur, maze: false });
+  if (cur.camp) push({ ...cur, camp: false });
+  return out;
+}
