@@ -101,30 +101,55 @@ test('E18: ひびの 行きどまりの ひびの いしを ぜんぶ ほる →
 
   // --- 前を 向いて 左クリックを おしつづけて ぜんぶ ほる〔手前から。ひびが MAX〔ready〕に なるまで 長おし → はなして もう 1 回 おすと こわれる〕 ---
   const ordered = [...f.end.hibi].sort((a, b) => Math.hypot(a.x - f.end.at.x, a.z - f.end.at.z) - Math.hypot(b.x - f.end.at.x, b.z - f.end.at.z) || b.y - a.y);
-  // ひびは はば 1 でも、肩の点 S は 横に ずれているので、視線が 手前の 斜めの ひびの いしに 先に 当たることが ある。
-  // なので 「p を ねらう」でなく「ねらいに 乗った 残りの ひびの いし〔ねらわれた 石〕を ほる」。ひびの いし以外〔空気・壁〕に 当たったら 高さを かえて ねらいなおす。
+  // ひびの 行きどまりには 横の かべに たいまつ〔はば 0・ふれても 固くない〕が ある。ねらいの 線は 肩の 点 S から 出て、S が たいまつの マスに 入ると
+  // 「目が ブロックの 中」で そのまま たいまつに 当たる〔どの 高さでも 同じ。固くない ので 壁ぎわで S が ちぢまない〕。なので aimAtBlock だけに たよらず、
+  // 立つ 位置〔うしろ・左がわ に すこし〕と 向き〔yaw・pitch を 中心から そとへ〕を かえながら「ねらいに 乗った 残りの ひびの いし」を さがして、それを ほる。
   const key = (q: Pt): string => `${q.x},${q.y},${q.z}`;
   const remaining = new Map<string, Pt>(ordered.map((q) => [key(q), q]));
-  const tops = [0.5, 0.25, 0.75, 0.9, 0.1];
   let guard = ordered.length * 3;
   while (remaining.size > 0) {
     expect(guard--, 'ひびの いしを ほる 回数が 多すぎない').toBeGreaterThan(0);
     const want = ordered.find((q) => remaining.has(key(q)))!; // 残りの うち いちばん 手前
-    let aimed: Pt | null = null;
-    const tried: string[] = [];
-    for (const top of tops) {
-      await aimAtBlock(page, want.x, want.y, want.z, top);
-      const t = await page.evaluate(() => {
-        const r = (window as any).__rikkun.target.get();
-        return r ? (r.block as Pt) : null;
-      });
-      tried.push(`${top}→${t ? key(t) : 'なし'}`);
-      if (t && remaining.has(key(t))) {
-        aimed = { x: t.x, y: t.y, z: t.z };
-        break;
+    const found = await page.evaluate(({ want, keys, at, dir, yaw }) => {
+      const h = (window as any).__rikkun;
+      const A = (window as any).__aim;
+      const rem = new Set<string>(keys);
+      const RAD = Math.PI / 180;
+      const left = { x: -Math.cos(yaw * RAD), z: -Math.sin(yaw * RAD) };
+      const tried: string[] = [];
+      const read = (): { x: number; y: number; z: number } | null => {
+        const t = h.target.get();
+        return t ? { x: t.block.x, y: t.block.y, z: t.block.z } : null;
+      };
+      const ok = (t: { x: number; y: number; z: number } | null): boolean => t !== null && rem.has(`${t.x},${t.y},${t.z}`);
+      // [うしろへ, 左へ] の 立ち位置。まず ふつうに 立つ 位置
+      const stands: [number, number][] = [[0, 0], [0, 0.15], [0.7, 0], [0.7, 0.15], [1.0, 0.15], [0.35, 0.15]];
+      const turns: [number, number][] = [];
+      for (let dy = 0; dy <= 8; dy += 2) for (let dp = -30; dp <= 30; dp += 3) for (const sg of dy === 0 ? [1] : [1, -1]) turns.push([dy * sg, dp]);
+      turns.sort((a, b) => Math.abs(a[0]) + Math.abs(a[1]) / 3 - (Math.abs(b[0]) + Math.abs(b[1]) / 3));
+      for (const [back, side] of stands) {
+        h.player.set({ position: { x: at.x + 0.5 - dir.x * back + left.x * side, y: at.y, z: at.z + 0.5 - dir.z * back + left.z * side }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: 0 });
+        h.step(4);
+        for (const top of [0.5, 0.25, 0.75, 0.9, 0.1]) {
+          A.solve(want.x, want.y, want.z, top);
+          h.step(1);
+          const t = read();
+          if (ok(t)) return { hit: t, tried };
+        }
+        const sh = h.camera.get().shoulder;
+        const first = read();
+        tried.push(`立ち[${back},${side}] S(${sh.x.toFixed(2)},${sh.y.toFixed(2)},${sh.z.toFixed(2)}) 先:${first ? `${first.x},${first.y},${first.z}=${h.world.getBlock(first.x, first.y, first.z)}` : 'なし'}`);
+        for (const [dy, dp] of turns) {
+          h.player.set({ yaw: yaw + dy, pitch: dp });
+          h.step(1);
+          const t = read();
+          if (ok(t)) return { hit: t, tried };
+        }
       }
-    }
-    expect(aimed, `ねらいが 残りの ひびの いし〔ほしいのは (${want.x}, ${want.y}, ${want.z})・${tried.join(' / ')}〕に 乗った`).not.toBeNull();
+      return { hit: null, tried };
+    }, { want, keys: [...remaining.keys()], at: f.end.at, dir, yaw });
+    const aimed: Pt | null = found.hit;
+    expect(aimed, `ねらいが 残りの ひびの いし〔ほしいのは (${want.x}, ${want.y}, ${want.z})・${found.tried.join(' / ')}〕に 乗った`).not.toBeNull();
     const a = aimed!;
     const r = await page.evaluate((p) => {
       const h = (window as any).__rikkun;
