@@ -175,6 +175,7 @@ export function wireDuo(deps: WiredLoop) {
     ctl2: () => controller2(),
     joined: () => session.joined,
     padPresent: () => !router.padLost(),
+    camera2: () => views.camera2(),
     joinSpot,
     dev,
   });

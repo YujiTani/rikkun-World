@@ -16,3 +16,5 @@
 | 4a-2 | dev | code-reviewer | 【軽微】src/game/wire/combat.ts:282 canOpen で 2 人の あいだ 1P も たんすを 開けない（段階 1 では 開けた）。4c までの 仮の 決まりと して PO が 受けるか 決める（仕様に 1 行） | 4c との さかい | | 未 |
 | 4a-2 | dev | code-reviewer | 【軽微】src/ui/inventoryScreen.ts:427〜 629 行（500 目安 超え）。2 人用の 部分（setLayout・page・snapshot・pad*・cursorAnchor）は inventoryDuo.ts 側へ 分けられる | ファイルの 大きさ | | 未 |
 | 4a-2 | dev | code-reviewer | 【軽微】src/ui/inventoryScreen.ts:549 2 人用で 手に 物を もつ あいだ 毎コマ getBoundingClientRect 2 回（placeCursor）。えらびが かわった・描きなおした ときだけで 足りる | 毎フレームの 読み | | 未 |
+| 4b | dev | code-reviewer | 【軽微】src/game/wire/duoPlay.ts:203 2P の 小太刀の 斬撃の 手前の 向きを 1P の game.camera で きめる。分割画面で 2P の 半分では 妖怪の 向こう側に 出て 体に かくれる おそれ。duoView の camera2（vr.camera2）の 位置を わたす 口を 足すか、せめて 2P の 足もと（2P の カメラは 2P の 後ろ）を camera の かわりに わたす | 分割画面の 向き | | 未 |
+| 4b | dev | code-reviewer | 【軽微】src/game/wire/save.ts:101 セーブ読みこみで 1P の kodachi は clear するが 2P の live.kodachi は clear しない（参加中に 読みこむと 前の 世界の 追い打ちが 待ちに のこる おそれ。P2Kodachi.clear は 作ったが 呼ぶ 所が ない） | 後片付け | | 未 |

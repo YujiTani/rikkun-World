@@ -49,6 +49,8 @@ export interface DuoPlayCtx {
   joined: () => boolean;
   /** 2P の パッドが ささっているか */
   padPresent: () => boolean;
+  /** 2P の カメラ（小太刀の 斬撃の 向きに 使う。1P の game.camera ではない） */
+  camera2: () => { position: Vec3 };
   /** 2P が 出る 所（1P の 横） */
   joinSpot: () => DuoVec3;
   dev: boolean;
@@ -98,6 +100,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
   shared.duoMate = () => live?.mate ?? null;
   shared.duoDropMate = () => pickableMate(live?.mate ?? null, live?.life.down ?? false);
   shared.duoYokai = () => live?.yokai ?? null;
+  shared.p2LoadReset = () => live?.kodachi.clear(); // セーブを 読んだ とき 前の 世界の 妖怪 id に 追い打ちが 当たらない ように
   shared.p2LevelUp = () => live?.life.fill();
   shared.p2Hp = () => live?.life.hp ?? 0;
 
@@ -200,7 +203,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       sound: fxSound,
       tick: () => game.tick,
       onFire: (info) => {
-        if (info.yokaiId !== null) queueKodachiSlash(kodachiFx, game.camera, shared.yokaiManager!, ctl.state.position, info.yokaiId);
+        if (info.yokaiId !== null) queueKodachiSlash(kodachiFx, c.camera2(), shared.yokaiManager!, ctl.state.position, info.yokaiId);
       },
     });
     const walkBody: GetaPlayer = { running: false, onGround: false, inWater: false, velocity: ctl.state.velocity };
