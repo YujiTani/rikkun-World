@@ -5,7 +5,7 @@ import type { WearNotice } from '../ui/wearNotice';
 import type { SoundFx } from './sound';
 import { WEAPON_FX, pickShardColors } from './weaponFxModel';
 import { BladeTrail, type TrailSnapshot } from './bladeTrail';
-import { playBladeSound, playBowSound, playWeapon } from './weaponSounds';
+import { playBladeSound, playBowSound, playWearSound } from './weaponSounds';
 
 export interface WeaponFxDeps {
   scene: THREE.Scene;
@@ -136,16 +136,20 @@ export class WeaponFx {
 
   private onWear(e: WearEvent): void {
     const name = this.d.nameOf(e.item);
+    playWearSound(this.d.sound, e);
     if (e.type === 'wearLow') {
-      playWeapon(this.d.sound, 'wearLow');
       this.d.notice.low(e.item, name);
     } else {
-      playWeapon(this.d.sound, 'toolBreak');
       this.d.notice.broken(e.item, name);
-      const colors = pickShardColors(e.item, WEAPON_FX.shardCount, () => this.rand());
-      this.burst(this.d.handPos(), WEAPON_FX.shardCount, colors, WEAPON_FX.shardSeconds, 0.09, true);
+      this.breakShards(this.d.handPos(), e.item);
       this.d.onBreak?.(e.item);
     }
+  }
+
+  /** こわれた ときの かけらの つぶ（1P の 手もと・2P の 手もとで 同じ 数・同じ 色の えらび方。COOP-1 4b） */
+  breakShards(at: Vec3, item: ItemId): void {
+    const colors = pickShardColors(item, WEAPON_FX.shardCount, () => this.rand());
+    this.burst(at, WEAPON_FX.shardCount, colors, WEAPON_FX.shardSeconds, 0.09, true);
   }
 
   private burst(at: Vec3, n: number, color: number | number[], seconds: number, size: number, gravity: boolean): void {

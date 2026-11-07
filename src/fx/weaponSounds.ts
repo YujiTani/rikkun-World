@@ -1,4 +1,4 @@
-import type { BladeEvent, BowEvent } from '../contracts';
+import type { BladeEvent, BowEvent, WearEvent } from '../contracts';
 import { playCombat } from './combatSounds';
 import type { SoundFx, Tone } from './sound';
 import { box, hz, mar, noise, powan, swish, wood, xylo } from './sfxVoices';
@@ -69,6 +69,14 @@ export function weaponSoundLogNames(name: WeaponSoundName): string[] {
 export function playKodachi(sound: Pick<SoundFx, 'playTones'>): void {
   sound.playTones(WEAPON_SOUNDS.kiriage.map((t) => ({ ...t, gain: t.gain * 0.35, dur: t.dur * 0.7 })), 4);
   logSound('kodachi');
+}
+
+/**
+ * たいきゅうの 出来事の 音（1P の WeaponFx と 2P の p2Wear が 同じ 音を 鳴らす ための 共通。COOP-1 4b）。
+ * wearLow = 「もうすぐ こわれる」／ toolBreak = こわれた。
+ */
+export function playWearSound(sound: Pick<SoundFx, 'playTones'>, e: WearEvent): void {
+  playWeapon(sound, e.type === 'wearLow' ? 'wearLow' : 'toolBreak');
 }
 
 export function playWeapon(sound: Pick<SoundFx, 'playTones'>, name: WeaponSoundName): void {

@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { NINJA_GEAR, SAMURAI_GEAR } from '../../src/craft/config';
 import { findUnrubiedKanji } from '../../src/ui/text';
 import { openDuoHud, setFakePad, installFakePads, type DuoUiIssue } from './duoUi';
 
@@ -11,6 +12,8 @@ import { openDuoHud, setFakePad, installFakePads, type DuoUiIssue } from './duoU
  *   data-pad-focus="true"       2P の えらんでいる 物（2P の パネルの 中に ちょうど 1 つ）。`duo.inv(2).focus` と 同じ 物。
  *   `.inv-slot[data-index]`（もちものの マス）・`.cp-tile[data-id]`（レシピ）・`.cp-detail .cp-press`（つくる ボタン）は 1 人の 全面と 同じ 目印・class。
  *   `duo.sample(who)`（新しい 口・`?duo=dev` だけ）: その 人の もちものを 見本で いっぱいに する（2 人用 画面の「いちばん 多い とき」を UI 検査で 見る ため）。→ 仕様 §12.0 に 足す。
+ *   COOP-1 4b（1.10 §12.0）: `duo.equip(who, head, body, arms?, legs?)`（`?duo=dev` だけ）と `duo.armor(who)`（その 人の ArmorSnapshot。2P が いなければ who 2 は null）。
+ *   2 人用 画面の「もちもの」ページには そうびの マス 4 つ（`.equip-slot[data-slot]`。1P と 同じ EquipPanel）が 見え、着ている 物は `data-item` が つく。
  *   パッドの ボタン（standard）: 下 0 = confirm・右 1 = closeMenu・左 2 = もちもの画面を 開く（2P）・十字 12 上・13 下・14 左・15 右。
  */
 
@@ -100,12 +103,18 @@ export type InvScreenPage = 'items' | 'craft';
 export async function openDuoInv(page: Page, which: InvScreenPage): Promise<void> {
   await openDuoHud(page);
   await installFakePads(page, 2);
-  await page.evaluate(() => {
-    const h = (window as any).__rikkun;
-    h.duo.sample(1);
-    h.duo.sample(2);
-    h.step(2);
-  });
+  // いちばん 多い とき: そうびも 4 マス ぜんぶ 着せる（4b。名前の 長い 侍・忍びの 装備）。1P は 忍び、2P は 侍
+  await page.evaluate(
+    ({ g1, g2 }) => {
+      const h = (window as any).__rikkun;
+      h.duo.sample(1);
+      h.duo.sample(2);
+      h.duo.equip(1, g1.head, g1.body, g1.arms, g1.legs);
+      h.duo.equip(2, g2.head, g2.body, g2.arms, g2.legs);
+      h.step(2);
+    },
+    { g1: NINJA_GEAR, g2: SAMURAI_GEAR },
+  );
   await tapE(page);
   await tapPad(page, 1, PAD.inventory);
   if (which === 'craft') {
@@ -129,6 +138,8 @@ interface PanelInfo {
   tabFont: number[];
   tileColumns: number;
   hasHud: string[];
+  /** そうびの マス（`.equip-slot`）。見える 物の はばと、着ている 物の 絵（data-item）の あるなし */
+  equip: Array<{ slot: string; w: number; filled: boolean }>;
 }
 
 /**
@@ -144,7 +155,7 @@ export async function duoInvIssues(page: Page, which: InvScreenPage): Promise<Du
   const info: PanelInfo[] = await page.evaluate((which) => {
     const read = (who: 1 | 2): PanelInfo => {
       const root = document.querySelector<HTMLElement>(`[data-testid="duo-inv-p${who}"]`);
-      const empty: PanelInfo = { who, box: null, layout: null, page: null, html: '', scrollOverflow: false, transformed: [], slots: [], buttons: [], tabFont: [], tileColumns: 0, hasHud: [] };
+      const empty: PanelInfo = { who, box: null, layout: null, page: null, html: '', scrollOverflow: false, transformed: [], slots: [], buttons: [], tabFont: [], tileColumns: 0, hasHud: [], equip: [] };
       if (!root) return empty;
       const r = root.getBoundingClientRect();
       const visible = (e: Element) => {
@@ -171,6 +182,7 @@ export async function duoInvIssues(page: Page, which: InvScreenPage): Promise<Du
         const b = e.getBoundingClientRect();
         return b.left < r.right && r.left < b.right && b.top < r.bottom && r.top < b.bottom;
       });
+      const equip = Array.from(root.querySelectorAll<HTMLElement>('.equip-slot')).filter(visible).map((e) => ({ slot: e.dataset.slot ?? '', w: e.getBoundingClientRect().width, filled: !!e.dataset.item }));
       return {
         who,
         box: { l: r.left, t: r.top, r: r.right, b: r.bottom },
@@ -184,6 +196,7 @@ export async function duoInvIssues(page: Page, which: InvScreenPage): Promise<Du
         tabFont,
         tileColumns: lefts.size,
         hasHud,
+        equip,
       };
     };
     return [read(1), read(2)];
@@ -212,6 +225,16 @@ export async function duoInvIssues(page: Page, which: InvScreenPage): Promise<Du
     for (const b of p.buttons) if (b.h < 55.5) add('size', name, `${b.id} の 高さ ${b.h.toFixed(1)} が 56 より 小さい`);
     for (const b of p.buttons) if (b.id === 'duo-inv-close' && b.w < 55.5) add('size', name, `✕ の はば ${b.w.toFixed(1)} が 56 より 小さい`);
     for (const f of p.tabFont) if (f < 15.9) add('font', name, `タブの 字 ${f}px が 16px より 小さい`);
+    if (which === 'items') {
+      // 4b（AC83）: 2 人とも「もちもの」に そうびの マス 4 つが 見え、着せた 4 つの 絵が 出る。マスの 大きさは もちものの マスと 同じ 下限
+      const worn: Record<string, unknown> | null = await page.evaluate((who) => (window as any).__rikkun.duo.armor(who), p.who);
+      const wornCount = worn ? (['head', 'body', 'arms', 'legs'] as const).filter((k) => worn[k] != null).length : 0;
+      if (wornCount !== 4) add('layout', name, `duo.armor(${p.who}) に 着せた 4 つが 入っていない（${wornCount}）`);
+      if (p.equip.length !== 4) add('missing', name, `そうびの マスが 4 つ 見えない（${p.equip.length}）`);
+      for (const e of p.equip) if (e.w < minSlot) add('size', name, `そうびの マス ${e.slot} の はば ${e.w.toFixed(1)} が ${minSlot} より 小さい`);
+      const filled = p.equip.filter((e) => e.filled).length;
+      if (filled !== wornCount) add('layout', name, `着ている ${wornCount} つの うち 絵が 出ている マスは ${filled}`);
+    }
     if (which === 'craft') {
       const want = small ? 3 : 4;
       if (p.tileColumns !== want) add('layout', name, `レシピの 列が ${p.tileColumns}（${want} 列の はず）`);

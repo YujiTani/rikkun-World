@@ -1,5 +1,6 @@
 /* もうすぐ こわれるよ（チップ）: 画面の 上の方 まん中。点滅なし */
-#wear-hint {
+#wear-hint,
+#wear-hint-p2 {
   position: fixed;
   left: 50%;
   top: 18%;
@@ -7,11 +8,13 @@
   pointer-events: none;
   z-index: 7;
 }
-#wear-hint[hidden] {
+#wear-hint[hidden],
+#wear-hint-p2[hidden] {
   display: none;
 }
 /* こわれた ログ: 左はし、拾ったログの すこし 上 */
-#wear-log {
+#wear-log,
+#wear-log-p2 {
   position: fixed;
   left: var(--rk-sp-5);
   top: 44%;

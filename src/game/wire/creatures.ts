@@ -2,7 +2,6 @@
 import { bladeMidInto } from '../../fx/parryFx';
 import { playParry } from '../../fx/parrySounds';
 import { SlashFx } from '../../fx/slashFx';
-import { NINJA_TUNING } from '../../craft/ninjaTuning';
 import { Kodachi } from '../../combat/Kodachi';
 import { SEA_Y, type CombatEvent } from '../../contracts';
 import { ringSeen } from '../../animals/models/throwRing';
@@ -15,6 +14,7 @@ import { YokaiManager } from '../../yokai';
 import { creditDefeat, type CreditDeps } from '../../duo/credit';
 import { MachoMarks } from '../../ui/machoMarks';
 import { FX_SETTINGS } from '../../fx/config';
+import { queueKodachiSlash } from '../../fx/kodachiSlash';
 import { playKodachi } from '../../fx/weaponSounds';
 import type { WiredFighters } from './combat';
 import type { WiredHouse } from './house';
@@ -100,28 +100,7 @@ export function wireYokai(deps: WiredFighters) {
     onFire: (info) => {
       playKodachi(fxSound);
       if (info.yokaiId === null) return;
-      const y = yokaiM.list().find((q) => q.id === info.yokaiId);
-      if (!y) return;
-      const px = controller.state.position.x, pz = controller.state.position.z;
-      const dx = y.position.x - px, dz = y.position.z - pz;
-      const uDeg = (Math.atan2(dx, -dz) * 180) / Math.PI;
-      // 追い打ちの 当たりと 同じ ステップに（delay 0）、妖怪の 中心の 高さで カメラ側の 手前に 小さく 白く（体に かくれない・遠ざけない）
-      const T = NINJA_TUNING;
-      kodachiFx.queueSlash({
-        tech: 'kiriage',
-        step: 1,
-        uDeg,
-        pos: () => y.position,
-        reach: T.tekkoSlashReach,
-        delay: 0,
-        back: 0,
-        center: () => {
-          const c = game.camera.position;
-          const vx = c.x - y.position.x, vz = c.z - y.position.z;
-          const vl = Math.hypot(vx, vz) || 1;
-          return { x: y.position.x + (vx / vl) * T.tekkoSlashFront, y: y.position.y + T.tekkoSlashHeight, z: y.position.z + (vz / vl) * T.tekkoSlashFront };
-        },
-      });
+      queueKodachiSlash(kodachiFx, game.camera, yokaiM, controller.state.position, info.yokaiId);
     },
   });
   let kodachiHookBuf: CombatEvent[] = [];

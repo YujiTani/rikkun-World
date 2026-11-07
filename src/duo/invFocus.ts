@@ -3,7 +3,7 @@
 import { pickNext, type FocusBox, type FocusDir } from '../ui/menu/focusNav';
 
 /** 1P の えらび = DOM の フォーカスを「名前」に した物を 返す 口。2P は 使わない */
-export interface InvDomFocus {
+interface InvDomFocus {
   get(): string | null;
 }
 

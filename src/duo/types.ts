@@ -1,4 +1,5 @@
 import type { ItemId } from '../contracts';
+import type { ArmorSnapshot } from '../craft/ArmorSystem';
 /**
  * COOP-1（docs/design/COOP-1.md）の 型の 約束。作業 1〜2 で 使う 型を ここに 1 か所で 置く。
  * これは 型だけ（実行する コードを 持たない）。実装（developer）は この 型を そのまま 使う。変えるときは テストも 直す。
@@ -76,6 +77,10 @@ export interface DuoPlayHook {
   /** COOP-1 4a（§12.0・1.10）: その人の もちもの 9×3 と ホットバー 9 を 見本で いっぱいに する（`?duo=dev` の ときだけ。2P が いなければ who 2 は 何も しない） */
   sample(who: 1 | 2): void;
   count(who: 1 | 2, item: ItemId): number;
+  /** COOP-1 4b（§12.0）: その人の そうび（`armor.snapshot()` と 同じ 形）。2P が いなければ who 2 は null。ふつうの URL でも 効く（見るだけ） */
+  armor(who: 1 | 2): ArmorSnapshot | null;
+  /** COOP-1 4b（§12.0）: その人に そうびを 着せる（`armor.set` と 同じ）。`?duo=dev` の ときだけ */
+  equip(who: 1 | 2, head: ItemId | null, body: ItemId | null, arms?: ItemId | null, legs?: ItemId | null): void;
   hearts(who: 1 | 2): { hp: number; maxHp: number; down: boolean };
   hurt(who: 1 | 2, amount: number): void;
   /** 作業 3a の 足し: レベルと けいけんち（1P は `level.get()` と 同じ。2P が いないとき who=2 は null） */
@@ -117,6 +122,8 @@ export interface P2Save {
   inventory: unknown;
   /** 1P の `level` と 同じ 形 */
   level: { level: number; xp: number };
+  /** 2P の そうび（COOP-1 4b。1P の `armor` と 同じ 形。ない 保存〔前の 版〕は はだか） */
+  armor?: unknown;
 }
 
 /**

@@ -6,7 +6,7 @@ import { PlayerCombatImpl } from '../../combat';
 import { StaggerIcons } from '../../fx/parryFx';
 import { SamuraiBook } from '../../craft/SamuraiBook';
 import { LogSystem } from '../../ui/log';
-import type { ItemId, YokaiKind, CombatEvent, DigEvent, SwingAnim, Inventory, Vec3 } from '../../contracts';
+import { W2_SETTING_DEFAULTS, type ItemId, type YokaiKind, type CombatEvent, type DigEvent, type SwingAnim, type Inventory, type Vec3, type W2Settings } from '../../contracts';
 import type { YokaiPartner } from '../../yokai/ai/target';
 import { AchievementSystem } from '../../achievements';
 import { CelebrateUi } from '../../ui/celebrate';
@@ -38,6 +38,11 @@ export const NO_DIG: DigEvent[] = [];
 interface Shared {
   /** COOP-1: 2P の もちものと レベル（参加している あいだだけ 中身が ある。やめたら 空） */
   p2: P2State;
+  /**
+   * 2P の そうびの たいきゅうの 設定と 時計（COOP-1 4b）。p2 は w2・game より 先に 作る ので、読む 所だけ 先に 置き、
+   * wireDuoPlay が 本物（`() => w2`・`() => game.tick`）に 差しかえる。それまでは 初期値・0
+   */
+  p2Wear: { settings: () => Pick<W2Settings, 'toolDurability' | 'toolWear' | 'wearLowRatio'>; tick: () => number };
   /** COOP-1: 2P の 最後の 保存（やめたとき・セーブから 読んだとき。次に 参加すると ここから 戻る） */
   p2Store: { saved: P2Save | null };
   /** COOP-1: 2P が 参加しているか（時間の 倍率・セーブが 読む。wireDuo が 差しかえる） */
@@ -48,6 +53,8 @@ interface Shared {
   duoMate: () => { position: Vec3; inventory: Inventory } | null;
   /** COOP-1 3a: 落とし物を ひろえる 仲間（倒れている あいだは null。DropField だけが 読む。wireDuo が 差しかえる） */
   duoDropMate: () => { position: Vec3; inventory: Inventory } | null;
+  /** COOP-1 4b: セーブを 読みこんだ とき 2P の 小太刀の 待ちを すてる（wireDuoPlay が 差しかえる） */
+  p2LoadReset: () => void;
   /** COOP-1 3a: 妖怪が ねらう 仲間（参加していなければ null。wireDuo が 差しかえる） */
   duoYokai: () => YokaiPartner | null;
   /** COOP-1 3a: 2P の レベルアップ（ハートを 満タンに。wireDuo が 差しかえる） */
@@ -122,10 +129,12 @@ interface Shared {
 
 export function createShared(): Shared {
   const s = {
-    p2: new P2State({ onLevelUp: () => s.p2LevelUp() }),
+    p2: new P2State({ onLevelUp: () => s.p2LevelUp(), armorWear: { settings: () => s.p2Wear.settings(), tick: () => s.p2Wear.tick() } }),
+    p2Wear: { settings: () => W2_SETTING_DEFAULTS, tick: () => 0 },
     duoMate: () => null,
     duoDropMate: () => null,
     duoYokai: () => null,
+    p2LoadReset: () => {},
     p2LevelUp: () => {},
     p2Hp: () => 0,
     p2Store: { saved: null },

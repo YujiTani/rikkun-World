@@ -285,6 +285,11 @@ export class DuoViews {
     }
   }
 
+  /** 2P の カメラ（小太刀の 斬撃の 向きを 2P の 画面で 決める ため。いつも 同じ 1 つ） */
+  camera2(): { position: DuoVec3 } {
+    return this.vr.camera2;
+  }
+
   /** 2P が いる あいだの 区画（`duo.viewports()`。CSS px）: 参加した ステップから いつも 落ちついた 左右（見せ方の とちゅうの 四角ではなく） */
   viewports(p1Yaw: number): DuoViewport[] {
     const cam = this.d.game.camera.position;
