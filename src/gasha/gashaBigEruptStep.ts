@@ -15,6 +15,7 @@ import { EruptFx } from './gashaBigEruptFx';
 import { boxTouchesCapsule, boxTouchesFan, distToBox, rayBox, type BoxLike } from './gashaBigHit';
 import { crushable } from './gashaBigCrush';
 import { TUNE as T } from './gashaBigTuning';
+import { targetsOf, type TargetSource } from './gashaTargets';
 
 export interface EruptionEnv {
   actor(): BigActor | null;
@@ -24,7 +25,8 @@ export interface EruptionEnv {
   /** ガラスの 雲を 割る（gashaBigGlassField.ts） */
   breakGlass(c: { x: number; y: number; z: number }, radius: number, max?: number): number;
   reduced(): boolean;
-  deps: Pick<GashaBigDeps, 'scene' | 'camera' | 'groundY' | 'blockAt' | 'setBlockAir' | 'player' | 'hurt' | 'shake' | 'hit'>;
+  /** player = ねらった 人（隕石の ねらい）。ダメージ・ゆれ・燃えかすは 場所で きまるので 人の 一覧（targets）の 人ごと */
+  deps: Pick<GashaBigDeps, 'scene' | 'camera' | 'groundY' | 'blockAt' | 'setBlockAir' | 'player' | 'hit'> & TargetSource;
 }
 
 export interface EruptionStep {
@@ -98,12 +100,18 @@ export function createEruptionStep(env: EruptionEnv): EruptionStep {
   const onMeteorLand = (m: Meteor): void => {
     const K = T.eruption;
     const ember = embers.add(m.lx, m.ly, m.lz, m.body, m.id);
-    const p = deps.player();
-    const dist = Math.hypot(p.x - m.lx, p.z - m.lz);
-    sfx.meteor(dist);
+    const people = targetsOf(deps);
+    let near = people.length > 0 ? Infinity : 1e9;
+    for (let i = 0; i < people.length; i++) { const p = people[i]!.pos; near = Math.min(near, Math.hypot(p.x - m.lx, p.z - m.lz)); }
+    sfx.meteor(near);
     eruptFx.impact(m.lx, m.ly, m.lz);
-    if (!rain.finale && inBlast(m.lx, m.ly, m.lz, { x: p.x, y: p.y, z: p.z }) && deps.hurt?.(K.meteor.damage, { x: m.lx, y: m.ly, z: m.lz })) meteorHurts++;
-    if (dist < K.impact.shakeNear && !env.reduced()) deps.shake?.(K.impact.shake * (1 - dist / K.impact.shakeNear));
+    // 落下範囲ダメージ・近くの ゆれは 人ごと（場所で きまる 当たり。2 人とも 見る）
+    for (let i = 0; i < people.length; i++) {
+      const t = people[i]!, p = t.pos;
+      const dist = Math.hypot(p.x - m.lx, p.z - m.lz);
+      if (!rain.finale && inBlast(m.lx, m.ly, m.lz, { x: p.x, y: p.y, z: p.z }) && t.hurt?.(K.meteor.damage, { x: m.lx, y: m.ly, z: m.lz })) meteorHurts++;
+      if (dist < K.impact.shakeNear && !env.reduced()) t.shake?.(K.impact.shake * (1 - dist / K.impact.shakeNear));
+    }
     if (!m.body) terrainJobs.push({ x: m.lx, y: m.ly, z: m.lz, crater: !rain.finale, ember }); // 切りかえの 噴火は 演出: 穴は あけない（植物が 燃えるのは そのまま）
     else burnBody(m.lx, m.ly, m.lz, true);
   };
@@ -154,9 +162,11 @@ export function createEruptionStep(env: EruptionEnv): EruptionStep {
         }
         return best ? { id: EMBER_ID_BASE + best.id, kind: 'nurikabe', distance: bt } : real;
       };
-      ym.damage = (id, amount, from, knock, by) => {
+      // 引数は ぜんぶ そのまま わたす（6 番目の who を 落とさない）
+      ym.damage = (...a: Parameters<typeof dmgPrev>) => {
+        const id = a[0];
         if (id >= EMBER_ID_BASE && id < EMBER_ID_BASE + GHOST_ID_SPAN) { const want = id - EMBER_ID_BASE; douseWhere((_b, e) => e.id === want); return 0; }
-        return dmgPrev(id, amount, from, knock, by);
+        return dmgPrev(...a);
       };
     }
     if (!embers.list.length) return;
@@ -192,9 +202,13 @@ export function createEruptionStep(env: EruptionEnv): EruptionStep {
     embers.update(dt);
     stepDouse();
     eruptFx.setEmbers(embers.list, embers.version);
-    const p = deps.player();
-    const d = embers.step(dt, { x: p.x, y: p.y, z: p.z });
-    if (d > 0) deps.hurt?.(d, { x: p.x, y: p.y, z: p.z - 1 });
+    // 燃えかすに 触れた 人は 人ごとに ダメージ（間かくも 人ごと）
+    const people = targetsOf(deps);
+    for (let i = 0; i < people.length; i++) {
+      const t = people[i]!, p = t.pos;
+      const d = embers.step(dt, p, t.who - 1);
+      if (d > 0) t.hurt?.(d, { x: p.x, y: p.y, z: p.z - 1 });
+    }
     // 焼けた 体は 時間で もどる（ガラスは glass の 再生）
     while (bodyBurnt.length && eruptClock - bodyBurnt[0]!.t >= T.eruption.body.restoreSec) {
       const b = bodyBurnt.shift()!;

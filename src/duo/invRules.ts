@@ -183,3 +183,12 @@ export function invCloseReason(who: 1 | 2, i: { down: boolean; padLost: boolean;
   }
   return i.down ? 'down' : null;
 }
+
+/**
+ * 2P の もちもの画面を 開いて よいか（COOP-1 4d-2・AC105）。倒れて いる（down）か シャイニング中（legendLocked）なら 開かない。
+ * 開き口 3 つ（Y の もちもの・かまどを ねらった ZL・たんすを ねらった Y／ZL）が ぜんぶ これを 通る（1P の `screen.canOpen = !legend.locked()` と 同じ 考え方）。
+ * legendLocked には `createP2Legend().locked()` を わたす
+ */
+export function invMayOpen(i: { down: boolean; legendLocked: boolean }): boolean {
+  return !i.down && !i.legendLocked;
+}

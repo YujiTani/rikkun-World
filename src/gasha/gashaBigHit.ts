@@ -17,6 +17,7 @@ import { GHOST_BIG_BASE, GHOST_ID_SPAN } from '../combat/ghostIds';
 import type { BigModel } from './gashaBig';
 import { TUNE as T } from './gashaBigTuning';
 import { HpBar } from './gashaBigHpBar';
+import { HitMemories, type HitMemory } from './gashaBigHitMemory';
 
 /** 当たりの 箱（世界の 座標。BigActor の 箱と おなじ 形） */
 export interface BoxLike {
@@ -173,7 +174,8 @@ export function boxTouchesFan(b: BoxLike, f: Fan, margin = 0): boolean {
 /** 妖怪の 世界の うち、割りこむ 2 つ */
 export interface YokaiWorldLike {
   raycast(origin: Vec3, dir: Vec3, maxDistance: number): YokaiRayHit | null;
-  damage(id: number, amount: number, from: Vec3, knock?: unknown, by?: unknown): number | void;
+  /** 6 番目の who = 当てた 人（1P・2P）。割りこみは 引数を ぜんぶ そのまま わたす */
+  damage(id: number, amount: number, from: Vec3, knock?: unknown, by?: unknown, who?: 1 | 2): number | void;
 }
 
 export interface HitSources {
@@ -189,6 +191,16 @@ export interface HitSources {
   yokai?(): YokaiWorldLike | null;
   /** 当たった 音 */
   sound?(): void;
+}
+
+/** 攻撃を 当てる 人 1 人ぶん（COOP-1 4d-3）。刀・波・雷・ドームの 当たりは 人ごとに 見る */
+export interface HitPlayer {
+  who: 1 | 2;
+  sources: HitSources;
+  /** その人の 手甲の 防御力 無視 */
+  defIgnore?(): number;
+  /** その人の 手甲の 追い打ち */
+  onStrike?(info: { part: string; source: string }): void;
 }
 
 export interface HitEnv {
@@ -212,9 +224,18 @@ export interface HitEnv {
   /** 刀が ガラスの 雲に 当たった（ダメージの ある 部位に 当たらなかった とき）。当たった 点（世界の 座標） */
   onCloud?(at: Vec3): void;
   sources?: HitSources;
+  /** COOP-1 4d-3: 攻撃を 当てる 人の 一覧（毎ステップ 読み直す）。あれば 刀・波・雷・ドームは 人ごと（手甲の 防御無視・追い打ちも その人の もの。env.defIgnore・env.onStrike は 使わない）。yokai・sound は env.sources（2 人で 共通）。なければ 今の とおり（1 人） */
+  players?(): readonly HitPlayer[];
 }
 
-export interface LastHit { part: Part; mul: number; dealt: number; source: string; at: Vec3 | null; hp: number }
+/** 最後の 一撃（who = 当てた 人。とどめの 止め・ゆれを 受ける 相手） */
+export interface LastHit { part: Part; mul: number; dealt: number; source: string; at: Vec3 | null; hp: number; who: 1 | 2 }
+
+const NO_PERSON: Pick<HitPlayer, 'defIgnore' | 'onStrike'> = {};
+
+/** 妖怪の 世界ごとの 割りこみ（何体 出ても 1 重。いちばん あたらしい 持ち主が 受ける） */
+interface Tap { owner: BigHit; rayOrig: YokaiWorldLike['raycast']; dmgOrig: (...a: unknown[]) => number | void }
+const TAPS = new WeakMap<YokaiWorldLike, Tap>();
 
 const SPARKS_MAX = 48;
 
@@ -236,17 +257,12 @@ export class BigHit {
   private mats: { m: MeshBasicMaterial; r: number; g: number; b: number }[] = [];
   private flash = 0;
   private stepNo = 0;
-  private swingKey: string | null = null;
-  private swingFrame = 0;
-  private swingDone = false;
-  private waveLast = new Map<number, Vec3>();
-  private waveDone = new Set<number>();
-  private domeLast = -1e9;
+  /** 当たりの おぼえ（人ごと） */
+  private readonly mems = new HitMemories();
   private sparks: { mesh: Mesh; vx: number; vy: number; vz: number; left: number }[] = [];
   private sparkGeo: BoxGeometry | null = null;
   private sparkMat: MeshBasicMaterial | null = null;
   private bar: HpBar | null = null;
-  private installed = false;
   /** 今の ray の 当たりが 矢か（パンチは knock を わたさない・矢は わたす） */
   private viaArrow = false;
   /** とどめの あとの モード: off = ふつう / lock = どこに 当たっても ダメージ 0 / core = コアだけ onCoreHit に 知らせる */
@@ -300,8 +316,7 @@ export class BigHit {
     this.parts = [];
     this.mats = [];
     this.flash = 0;
-    this.swingKey = null; this.swingDone = false;
-    this.waveLast.clear(); this.waveDone.clear();
+    this.mems.reset();
     for (const sp of this.sparks) { sp.left = 0; sp.mesh.visible = false; }
   }
 
@@ -328,14 +343,13 @@ export class BigHit {
     this.hp = this.maxHp;
     this.last = null;
     this.hits = 0;
-    this.swingKey = null; this.swingDone = false;
-    this.waveLast.clear(); this.waveDone.clear();
+    this.mems.reset();
     this.makeBar();
   }
 
   // ------------------------------------------------------------ ダメージ
-  /** 部位に ダメージ（武器の 強さ amount × 倍率）。実際に 与えた 数を 返す（倍率 0 なら 0 で、怒らない） */
-  damage(part: string, amount: number, at: Vec3 | null = null, source = 'test'): number {
+  /** 部位に ダメージ（武器の 強さ amount × 倍率）。実際に 与えた 数を 返す（倍率 0 なら 0 で、怒らない）。who = 当てた 人（既定 1P） */
+  damage(part: string, amount: number, at: Vec3 | null = null, source = 'test', who: 1 | 2 = 1): number {
     if (this.finish !== 'off') return this.finishDamage(part, at);
     // 少女の 間: 体も コアも ダメージ 0(はじく 手ごたえだけ)。肩の 少女('girl')は 通る
     if (part !== 'girl' && mulOf(part) > 0 && this.env.bodyGuard?.()) {
@@ -356,12 +370,13 @@ export class BigHit {
       return 0;
     }
     const mul = mulOf(part);
-    const dealt = damageOf(part, amount, DEF_IGNORE_SOURCES.has(source) ? (this.env.defIgnore?.() ?? 0) : 0);
+    const person = this.personOf(who);
+    const dealt = damageOf(part, amount, DEF_IGNORE_SOURCES.has(source) ? (person.defIgnore?.() ?? 0) : 0);
     if (dealt <= 0) return 0;
     this.hp = Math.max(0, round2(this.hp - dealt));
     this.hits++;
-    this.last = { part: part as Part, mul, dealt, source, at: at ? { ...at } : null, hp: this.hp };
-    if (source === 'blade' || (source === 'ray' && !this.viaArrow)) this.env.onStrike?.({ part, source });
+    this.last = { part: part as Part, mul, dealt, source, at: at ? { ...at } : null, hp: this.hp, who };
+    if (source === 'blade' || (source === 'ray' && !this.viaArrow)) person.onStrike?.({ part, source });
     this.env.angry();
     if (part === 'core') this.env.onCore?.();
     if (!at) {
@@ -390,10 +405,18 @@ export class BigHit {
     return 0;
   }
 
+  /** 当てた 人の 手甲（人の 一覧が あれば その人の。なければ 1 人用の env の もの。一覧に いない 人は 手甲なし） */
+  private personOf(who: 1 | 2): Pick<HitPlayer, 'defIgnore' | 'onStrike'> {
+    const ps = this.env.players?.();
+    if (!ps) return this.env;
+    for (let i = 0; i < ps.length; i++) if (ps[i]!.who === who) return ps[i]!;
+    return NO_PERSON;
+  }
+
   /** 箱の 番号に ダメージ。at = 火花の 場所（なければ 箱の いちばん 近い 点） */
-  private strike(i: number, amount: number, from: Vec3, source: string): number {
+  private strike(i: number, amount: number, from: Vec3, source: string, who: 1 | 2): number {
     const at = closestOnBox(this.boxes[i]!, from.x, from.y, from.z, { x: 0, y: 0, z: 0 });
-    return this.damage(this.parts[i]!, amount, at, source);
+    return this.damage(this.parts[i]!, amount, at, source, who);
   }
 
   /** 当たった 箱の 中で いちばん 倍率が 高い もの（同じなら 近い もの）。当たりが なければ -1 */
@@ -411,60 +434,79 @@ export class BigHit {
   // ------------------------------------------------------------ 矢・パンチ（YokaiManager の 線の 当たりと ダメージに 割りこむ）
   private install(): void {
     const ym = this.env.sources?.yokai?.() ?? null;
-    if (!ym || this.installed) return;
-    this.installed = true;
-    const rayOrig = ym.raycast.bind(ym);
-    const dmgOrig = ym.damage.bind(ym);
-    ym.raycast = (origin: Vec3, dir: Vec3, max: number): YokaiRayHit | null => {
-      const real = rayOrig(origin, dir, max);
-      let bi = -1, bt = real ? real.distance : max;
-      const len = Math.hypot(dir.x, dir.y, dir.z) || 1;
-      for (let i = 0; i < this.boxes.length; i++) {
-        if (!(mulOf(this.parts[i]!) > 0)) continue;
-        const t = rayBox(this.boxes[i]!, origin.x, origin.y, origin.z, dir.x / len, dir.y / len, dir.z / len, bt);
-        if (t !== null && (bi < 0 ? t <= bt : t < bt)) { bi = i; bt = t; }
-      }
-      return bi >= 0 ? { id: BIG_ID_BASE + bi, kind: 'nurikabe', distance: bt } : real;
+    if (!ym) return;
+    // 何体 出ても 1 重: 世界ごとに 1 回だけ 割りこみ、いちばん あたらしい 持ち主が 受ける
+    const tap = TAPS.get(ym);
+    if (tap) { tap.owner = this; return; }
+    const t: Tap = { owner: this, rayOrig: ym.raycast.bind(ym), dmgOrig: ym.damage.bind(ym) as (...a: unknown[]) => number | void };
+    TAPS.set(ym, t);
+    ym.raycast = (origin: Vec3, dir: Vec3, max: number): YokaiRayHit | null => t.owner.rayThrough(t.rayOrig, origin, dir, max);
+    // 引数は ぜんぶ そのまま わたす（6 番目の who を 落とさない。少ない 呼び方も 足さない）
+    ym.damage = (...a: unknown[]): number | void => {
+      const id = a[0] as number;
+      if (id >= BIG_ID_BASE && id < BIG_ID_BASE + GHOST_ID_SPAN) return t.owner.damageBox(id - BIG_ID_BASE, a[1] as number, a[2] as Vec3, a[3], a[4], a[5] as 1 | 2 | undefined);
+      return t.dmgOrig(...a);
     };
-    ym.damage = (id: number, amount: number, from: Vec3, knock?: unknown, by?: unknown): number | void => {
-      if (id >= BIG_ID_BASE && id < BIG_ID_BASE + GHOST_ID_SPAN) {
-        const i = id - BIG_ID_BASE;
-        if (!this.boxes[i]) return 0;
-        // NINJA-1: 矢（knock を わたす）・マッチョの パンチ（by = macho）は 手甲の 追い打ちに しない
-        this.viaArrow = knock !== undefined || by === 'macho';
-        try {
-          return this.strike(i, amount, from, 'ray');
-        } finally {
-          this.viaArrow = false;
-        }
-      }
-      return (dmgOrig as (...a: unknown[]) => number | void)(id, amount, from, knock, by);
-    };
+  }
+
+  /** 妖怪の 線の 当たり（rayOrig）に がしゃどくろの 箱を 重ねる */
+  private rayThrough(rayOrig: YokaiWorldLike['raycast'], origin: Vec3, dir: Vec3, max: number): YokaiRayHit | null {
+    const real = rayOrig(origin, dir, max);
+    let bi = -1, bt = real ? real.distance : max;
+    const len = Math.hypot(dir.x, dir.y, dir.z) || 1;
+    for (let i = 0; i < this.boxes.length; i++) {
+      if (!(mulOf(this.parts[i]!) > 0)) continue;
+      const t = rayBox(this.boxes[i]!, origin.x, origin.y, origin.z, dir.x / len, dir.y / len, dir.z / len, bt);
+      if (t !== null && (bi < 0 ? t <= bt : t < bt)) { bi = i; bt = t; }
+    }
+    return bi >= 0 ? { id: BIG_ID_BASE + bi, kind: 'nurikabe', distance: bt } : real;
+  }
+
+  /** 矢・パンチの ダメージ（仮の id の 箱 i）。NINJA-1: 矢（knock を わたす）・マッチョの パンチ（by = macho）は 手甲の 追い打ちに しない */
+  private damageBox(i: number, amount: number, from: Vec3, knock: unknown, by: unknown, who: 1 | 2 | undefined): number {
+    if (!this.boxes[i]) return 0;
+    this.viaArrow = knock !== undefined || by === 'macho';
+    try {
+      return this.strike(i, amount, from, 'ray', who === 2 ? 2 : 1);
+    } finally {
+      this.viaArrow = false;
+    }
   }
 
   // ------------------------------------------------------------ 毎ステップ（刀・波・雷・ドームの 形を 聞く）
   step(dt: number): void {
     this.stepNo++;
-    const s = this.env.sources;
-    if (s && this.boxes.length > 0) {
-      this.stepBlade(s);
-      this.stepWaves(s);
-      this.stepStrikes(s);
-      this.stepDome(s);
+    if (this.boxes.length > 0) {
+      const ps = this.env.players?.();
+      if (ps) {
+        // 人ごと: 刀・波・雷・ドームは その人の 形・その人の おぼえで 見る。一覧に いない 人の おぼえは 手ばなす
+        this.mems.prune(ps);
+        this.bar?.halves(ps.length >= 2); // 2 人の とき ゲージは それぞれの 半分に
+        for (let n = 0; n < ps.length; n++) this.stepPerson(ps[n]!.sources, this.mems.of(ps[n]!.who), ps[n]!.who);
+      } else if (this.env.sources) {
+        this.stepPerson(this.env.sources, this.mems.of(1), 1);
+      }
     }
     this.stepFx(dt);
+  }
+
+  private stepPerson(s: HitSources, m: HitMemory, who: 1 | 2): void {
+    this.stepBlade(s, m, who);
+    this.stepWaves(s, m, who);
+    this.stepStrikes(s, who);
+    this.stepDome(s, m, who);
   }
 
   private reachOf(i: number): number {
     return this.coreReach > 0 && this.parts[i] === 'core' ? this.coreReach : 0;
   }
 
-  private stepBlade(s: HitSources): void {
+  private stepBlade(s: HitSources, mem: HitMemory, who: 1 | 2): void {
     const b = s.blade?.() ?? null;
-    if (!b) { this.swingKey = null; return; }
-    if (b.swing !== this.swingKey || b.frame < this.swingFrame) { this.swingKey = b.swing; this.swingDone = false; }
-    this.swingFrame = b.frame;
-    if (this.swingDone) return;
+    if (!b) { mem.swingKey = null; return; }
+    if (b.swing !== mem.swingKey || b.frame < mem.swingFrame) { mem.swingKey = b.swing; mem.swingDone = false; }
+    mem.swingFrame = b.frame;
+    if (mem.swingDone) return;
     const m = T.hit.swordMargin;
     let from: Vec3, touched: (i: number) => boolean;
     if (b.shape.kind === 'capsule') {
@@ -477,14 +519,14 @@ export class BigHit {
       touched = (i) => boxTouchesFan(this.boxes[i]!, sh, m + this.reachOf(i));
     }
     const i = this.pick(touched, from);
-    if (i < 0) { this.breakCloud(touched, from); return; }
-    this.swingDone = true; // 1 振りに つき 1 回
+    if (i < 0) { this.breakCloud(touched, from, mem); return; }
+    mem.swingDone = true; // 1 振りに つき 1 回
     // ダメージが 入らなかった(少女の 間・とどめの あと)ときは、そこに ガラスの 雲が あれば 割る(はじかれて ガラスまで 割れなく ならない ように)
-    if (this.strike(i, b.damage, from, 'blade') <= 0) this.breakCloud(touched, from);
+    if (this.strike(i, b.damage, from, 'blade', who) <= 0) this.breakCloud(touched, from, mem);
   }
 
   /** ガラスの 雲に 当たって いれば 割る(1 振りに つき 1 回) */
-  private breakCloud(touched: (i: number) => boolean, from: Vec3): void {
+  private breakCloud(touched: (i: number) => boolean, from: Vec3, mem: HitMemory): void {
     if (!this.env.onCloud) return;
     let bj = -1, bd = Infinity;
     for (let k = 0; k < this.boxes.length; k++) {
@@ -492,43 +534,43 @@ export class BigHit {
       const d = distToBox(this.boxes[k]!, from.x, from.y, from.z);
       if (d < bd) { bj = k; bd = d; }
     }
-    if (bj >= 0) { this.swingDone = true; this.env.onCloud(closestOnBox(this.boxes[bj]!, from.x, from.y, from.z, { x: 0, y: 0, z: 0 })); }
+    if (bj >= 0) { mem.swingDone = true; this.env.onCloud(closestOnBox(this.boxes[bj]!, from.x, from.y, from.z, { x: 0, y: 0, z: 0 })); }
   }
 
-  private stepWaves(s: HitSources): void {
+  private stepWaves(s: HitSources, mem: HitMemory, who: 1 | 2): void {
     const ws = s.waves?.();
     if (!ws) return;
     const alive = new Set<number>();
     for (const w of ws) {
       alive.add(w.id);
-      const prev = this.waveLast.get(w.id) ?? w.position;
-      if (!this.waveDone.has(w.id)) {
+      const prev = mem.waveLast.get(w.id) ?? w.position;
+      if (!mem.waveDone.has(w.id)) {
         const from = { ...prev }, to = { ...w.position };
         const i = this.pick((k) => boxTouchesCapsule(this.boxes[k]!, from, to, w.radius + T.hit.waveMargin + this.reachOf(k)), to);
-        if (i >= 0) { this.waveDone.add(w.id); this.strike(i, w.damage, to, 'wave'); }
+        if (i >= 0) { mem.waveDone.add(w.id); this.strike(i, w.damage, to, 'wave', who); }
       }
-      this.waveLast.set(w.id, { ...w.position });
+      mem.waveLast.set(w.id, { ...w.position });
     }
-    for (const id of [...this.waveLast.keys()]) if (!alive.has(id)) { this.waveLast.delete(id); this.waveDone.delete(id); }
+    for (const id of [...mem.waveLast.keys()]) if (!alive.has(id)) { mem.waveLast.delete(id); mem.waveDone.delete(id); }
   }
 
-  private stepStrikes(s: HitSources): void {
+  private stepStrikes(s: HitSources, who: 1 | 2): void {
     const ks = s.strikes?.();
     if (!ks) return;
     for (const k of ks) {
       const i = this.pick((n) => boxTouchesSphere(this.boxes[n]!, k.center, k.radius), k.center);
-      if (i >= 0) this.strike(i, k.damage, k.center, 'strike');
+      if (i >= 0) this.strike(i, k.damage, k.center, 'strike', who);
     }
   }
 
-  private stepDome(s: HitSources): void {
+  private stepDome(s: HitSources, mem: HitMemory, who: 1 | 2): void {
     const d = s.dome?.() ?? null;
-    if (!d) { this.domeLast = -1e9; return; }
-    if (this.stepNo - this.domeLast < d.everySteps) return;
+    if (!d) { mem.domeLast = -1e9; return; }
+    if (this.stepNo - mem.domeLast < d.everySteps) return;
     const i = this.pick((n) => boxTouchesSphere(this.boxes[n]!, d.center, d.radius), d.center);
     if (i < 0) return;
-    this.domeLast = this.stepNo;
-    this.strike(i, d.damage, d.center, 'dome');
+    mem.domeLast = this.stepNo;
+    this.strike(i, d.damage, d.center, 'dome', who);
   }
 
   // ------------------------------------------------------------ 火花・光る・体力ゲージ

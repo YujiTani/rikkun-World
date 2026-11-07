@@ -30,9 +30,9 @@ export function shiningRadiusAt(F: number, radius: number, riseSteps = 40, holdS
   return radius * shiningLevelAt(F, riseSteps, holdSteps, fallSteps);
 }
 
-/** 三人称の カメラの きょり（4 から d まで 引いて もどる）。d = 4 なら ずっと 4 */
-export function shiningCamDistanceAt(F: number, d: number, riseSteps = 40, holdSteps = 160, fallSteps = 40): number {
-  return 4 + (d - 4) * shiningLevelAt(F, riseSteps, holdSteps, fallSteps);
+/** 三人称の カメラの きょり（ふだんの きょり base〈既定 4〉から d まで 引いて もどる）。d = base なら ずっと base（COOP-1 4d-2: 2 人の ときの base は 5.0） */
+export function shiningCamDistanceAt(F: number, d: number, riseSteps = 40, holdSteps = 160, fallSteps = 40, base = 4): number {
+  return base + (d - base) * shiningLevelAt(F, riseSteps, holdSteps, fallSteps);
 }
 
 /** 球（中心 c・半径 r）が 妖怪の 当たりの 箱〈足もとの 中央から 半径 × 高さ〉に ふれるか */

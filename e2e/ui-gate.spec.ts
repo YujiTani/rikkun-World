@@ -17,6 +17,9 @@ import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
 import { duoInvIssues, duoInvStationIssues, openDuoInv } from './helpers/duoInv';
+import { duoParryEdgeIssues, openDuoParryEdge } from './helpers/duoParry';
+import { duoGashaHpIssues, openDuoGashaHp } from './helpers/duoGasha';
+import { duoFlashIssues, openDuoFlash } from './helpers/duoFlash';
 import { duoArrowPanelIssues, duoBandIssues, duoHudIssues, duoPadLostIssues, duoUsePadIssues, duoViewIssues, openDuoArrowPanel, openDuoBand, openDuoHud, openDuoUsePad, openDuoPadLost, openDuoSplit } from './helpers/duoUi';
 import { PICK_ROOTS, SITE_NEED_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen, siteNeedIssues } from './helpers/houseSite';
 
@@ -570,6 +573,19 @@ SCREENS.push(
 );
 
 /**
+ * COOP-1 4d-3（1.13 §3.6 (c)・AC112）: 2 人とも がしゃどくろに 近い とき（100 マス いない）の 体力ゲージ。3 つの 大きさで ゲージが その人の 半分の 中に おさまり、
+ * 距離メーター（上 12%）・時計・矢印・ハート・ホットバー・レベル表示に かからず、左右の ゲージが 重ならない。検査は e2e/helpers/duoGasha.ts の duoGashaHpIssues。
+ * ゲージの 見た目は 試作の スクショで オーナー OK（がしゃどくろの 試作の ゲージが 出る 画面）。
+ */
+SCREENS.push({
+  id: 'duo-gasha-hp',
+  roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="gasha-hp-p1"]', '[data-testid="gasha-hp-p2"]', '#clock'],
+  layoutOnly: true,
+  open: openDuoGashaHp,
+  extra: (page: Page) => duoGashaHpIssues(page),
+});
+
+/**
  * COOP-1 4a（AC81・AC87）: 2 人とも 2 人用の もちもの・クラフト画面を 開いた 画面（もちもの／つくる）。3 つの 大きさ（1024×700・1280×800・1440×900）で、
  * いちばん 多い とき（見本の もちもの `duo.sample`・メーターが 出ている）でも その人の 半分の 中（§9.8）に 入り、はみ出さない・重ならない・ちぢめない。
  * 検査は e2e/helpers/duoInv.ts の duoInvIssues。やく・たんす は 4c で 足した（下の 'duo-inv-furnace'・'duo-inv-tansu'）。
@@ -608,6 +624,22 @@ SCREENS.push(
 );
 
 /**
+ * COOP-1 4d-2（AC106）: 2 人の とき わざを 出した 人の 半分だけ うすく 光る（`duo-flash-p1`／`-p2`）。1P が 雷を 落とした 画面と、2P が 落とした 画面。
+ * 3 つの 大きさで、光は その人の 半分の 中だけ・半分の 9 割 以上を おおう・うすい・じゃましない・もう 1 人の 半分には 出ない・画面は 左右の まま。
+ * 検査は e2e/helpers/duoFlash.ts の duoFlashIssues。光の 強さ・色の 見た目は オーナー確認（試作の スクショ）。
+ */
+for (const who of [1, 2] as const) {
+  SCREENS.push({
+    id: `duo-flash-p${who}`,
+    roots: DUO_HUD_ROOTS,
+    freeze: true,
+    slow: true,
+    open: (page: Page) => openDuoFlash(page, who),
+    extra: (page: Page) => duoFlashIssues(page, who),
+  });
+}
+
+/**
  * 2 人あそびで 1P の 実績の おしらせ・テロップ・メダルの 印が 2P の ハート・ホットバー・距離メーターに かからない（yuzu 2026-11-06）。
  * 3 つの 大きさで 1P の 左半分の 中。検査は e2e/helpers/duoUi.ts の duoBandIssues。
  */
@@ -625,6 +657,19 @@ SCREENS.push(
     extra: (page: Page) => duoBandIssues(page, '.cel-telop'),
   },
 );
+
+/**
+ * COOP-1 4d-1（1.13 §3.6 (a)・AC100）: 2P が パリィに 成功した 直後の 画面。2P の 半分（右）だけに 青い ふち（`duo-parry-edge-p2`）が 出る。
+ * 3 つの 大きさで ふちが 2P の 半分の 中に おさまり ふちどり、1P の ふち（`duo-parry-edge-p1`）は 出ず、HUD と 重ならない（ふちは 押せる 物を ふさがない）。
+ * 見た目（色・太さ）は アートが きめる ので、ここでは 置き場と 大きさだけ。ステップを 進めずに 3 つの 大きさで 撮る（freeze）。検査は e2e/helpers/duoParry.ts の duoParryEdgeIssues。
+ */
+SCREENS.push({
+  id: 'duo-parry-edge',
+  roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-parry-edge-p2"]'],
+  freeze: true,
+  open: openDuoParryEdge,
+  extra: (page: Page) => duoParryEdgeIssues(page),
+});
 
 /**
  * COOP-1 作業 2.5（#401）AC62: せっていの「つかう コントローラー」タブ(`?duo=dev`)。2 本・待ち / 4 本(おりかえし) / 0 本。

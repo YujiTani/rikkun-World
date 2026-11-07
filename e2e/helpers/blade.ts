@@ -91,9 +91,9 @@ export const dist = (a: Vec3, b: Vec3): number => Math.hypot(a.x - b.x, a.y - b.
 export const fadeOfAge = (age: number): number => (age < 2.25 ? 1 : age < 4.5 ? 0.75 : age < 6.75 ? 0.5 : age < 9 ? 0.25 : 0);
 
 /** ゲームを 開く。ひらけた 平らな 地面に 立つ（北向き yaw 0）。刀の 絵は まだ 読まない */
-export async function openBladeWorld(page: Page, opts: { half?: number } = {}): Promise<void> {
+export async function openBladeWorld(page: Page, opts: { half?: number; query?: string } = {}): Promise<void> {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/?nosave=1');
+  await page.goto('/' + (opts.query ?? '?nosave=1')); // 2 人の テストは query に '?nosave=1&duo=dev'
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.waitForFunction(
     (ns) => {

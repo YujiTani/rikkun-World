@@ -136,7 +136,7 @@ describe('C8: 宝箱を あける', () => {
       expect(r.mine.chestPreview(a.x, a.y, a.z), `${f.shaft.id}: あけた あと`).toEqual(pa);
       expect(pa).toEqual(f.preview);
     }
-  });
+  }, 60_000); // 6 つの 坑道を 順に しらべる 重い 処理〔CI の おそい 実行で 5 秒を こえた〕
 
   it('本体で ない ほうの マスを 右クリック〔open〕→ 持ち物が chestPreview の とおり ふえる・2 マス とも あいた〔chestAt の opened・ブロックが かわる〕・あけた 出来事が 1 回', () => {
     for (const f of found.slice(0, 6)) {
@@ -156,7 +156,7 @@ describe('C8: 宝箱を あける', () => {
       expect(r.mine.chestAt(a.x, a.y, a.z)!.tier, '段は のこる').toBe(f.shaft.chest!.tier);
       expect(r.opened, 'あけた 出来事').toEqual([f.shaft.chest!.tier]);
     }
-  });
+  }, 60_000); // 6 つの 坑道を 順に しらべる 重い 処理
 
   it('本体を 右クリックしても 同じ 中身〔どちらの マスでも〕。あけたら 本体・のこりの マスの どちらを もう 1 回 右クリックしても ふえない・ログ「からっぽ だよ」', () => {
     const f = found[0]!;
@@ -249,7 +249,7 @@ describe('C8: 宝箱を あける', () => {
       NINJA_TUNING.ninjaChestChance = keep.ninja;
       NINJA_TUNING.samuraiChestChance = keep.samurai;
     }
-  });
+  }, 60_000); // 6 つの 坑道を 順に しらべる 重い 処理
 
   it('宝箱でない マスを open しても 何も おきない', () => {
     const f = found[0]!;

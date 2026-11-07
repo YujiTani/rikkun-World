@@ -79,6 +79,10 @@ interface Built {
   arrows: [ArrowEls, ArrowEls];
   line: HTMLDivElement;
   question: HTMLDivElement;
+  /** COOP-1 4d-1: パリィの 青い ふち [1P の 半分, 2P の 半分] */
+  edges: [HTMLDivElement, HTMLDivElement];
+  /** COOP-1 4d-2: わざの うすい 光 [1P の 半分, 2P の 半分] */
+  flashes: [HTMLDivElement, HTMLDivElement];
 }
 
 /** パッドの 絵（コントローラー。線だけ。色は 文字と 同じ） */
@@ -89,6 +93,9 @@ const PAD_SVG =
 function newShown() {
   return { meter: '', more: false, padLost: false, view: '' as string, q: [NaN, NaN, 0] as number[], arrows: [[NaN, NaN, NaN, NaN], [NaN, NaN, NaN, NaN]] as number[][] };
 }
+
+/** COOP-1 4d-1: 青い ふちの いちばん 濃い ときの opacity（0〜1。色・太さは css。アートが きめる） */
+const PARRY_EDGE_MAX_OPACITY = 0.85;
 
 /** 満タンの ハート（体力 20 = 10 こ）。2P の ダメージは 作業 3 */
 const FULL_HP = HEART_CONFIG.count * 2;
@@ -103,6 +110,10 @@ export class DuoHud {
   private badgePx = 0;
   /** 画面に 書いた 最後の 値（変わらなければ style・hidden を 書かない） */
   private shown = newShown();
+  /** 青い ふちに 書いた 最後の 濃さ（0〜100。-1 = まだ） */
+  private readonly edgeQ: [number, number] = [-1, -1];
+  /** うすい 光に 書いた 最後の 濃さ（0〜1000。-1 = まだ） */
+  private readonly flashQ: [number, number] = [-1, -1];
 
   constructor(private readonly d: DuoHudDeps) {}
 
@@ -179,13 +190,67 @@ export class DuoHud {
 
     const wear2 = new WearNotice(hud, '-p2');
 
+    // COOP-1 4d-1: パリィの 青い ふち（その人の 半分の ふちどり。出ている あいだ だけ 見える。押せる 物を ふさがない）
+    const edges: [HTMLDivElement, HTMLDivElement] = [this.buildEdge(1), this.buildEdge(2)];
+    // COOP-1 4d-2: わざの うすい 光（出した 人の 半分だけ。2 人の ときは 全面の 光の かわり）
+    const flashes: [HTMLDivElement, HTMLDivElement] = [this.buildFlash(1), this.buildFlash(2)];
+
     // 2P の もちもの・クラフト画面は InventoryScreen（src/game/wire/duoInventory.ts。COOP-1 4a）
-    hud.append(meter, padLost, arrows[0].root, arrows[1].root, line, question);
+    hud.append(meter, padLost, arrows[0].root, arrows[1].root, line, question, edges[0], edges[1], flashes[0], flashes[1]);
 
     // 色は tokens.css の 変数（案 B）。DUO_COLORS は 同じ 値の 写し（palette.test.ts が 見はる）。css は --rk-* を 直接 使う
     document.documentElement.style.setProperty('--duo-p1', DUO_COLORS.p1);
     document.documentElement.style.setProperty('--duo-p2', DUO_COLORS.p2);
-    return { meter, bar, more, padLost, root, hotbar2, hearts2, level2, wear2, arrows, line, question };
+    return { meter, bar, more, padLost, root, hotbar2, hearts2, level2, wear2, arrows, line, question, edges, flashes };
+  }
+
+  /** 青い ふち 1 つ。who = ふちが 出る 半分の 持ち主（`duo-parry-edge-p1`／`-p2`） */
+  private buildEdge(who: 1 | 2): HTMLDivElement {
+    const el = document.createElement('div');
+    el.className = `duo-parry-edge duo-parry-edge-p${who}`;
+    el.setAttribute('data-testid', `duo-parry-edge-p${who}`);
+    el.hidden = true;
+    return el;
+  }
+
+  /** うすい 光 1 つ。who = 光る 半分の 持ち主（`duo-flash-p1`／`-p2`） */
+  private buildFlash(who: 1 | 2): HTMLDivElement {
+    const el = document.createElement('div');
+    el.className = `duo-flash duo-flash-p${who}`;
+    el.setAttribute('data-testid', `duo-flash-p${who}`);
+    el.style.setProperty('--duo-flash-color', DUO_TUNING.flash.color);
+    el.hidden = true;
+    return el;
+  }
+
+  /**
+   * COOP-1 4d-2（AC106）: その人の 半分の うすい 光の 濃さ（opacity。0 で かくす）。2 人が 参加している あいだ だけ 効く。変わった ときだけ 書く。
+   * 濃さは `createDuoFlash().alpha(who)`（0〜DUO_TUNING.flash.alpha）
+   */
+  setFlash(who: 1 | 2, alpha: number): void {
+    const b = this.b;
+    if (!b || !this.on) return;
+    const q = Math.round(Math.max(0, alpha) * 1000);
+    if (q === this.flashQ[who - 1]) return;
+    this.flashQ[who - 1] = q;
+    const el = b.flashes[who - 1]!;
+    el.hidden = q <= 0;
+    if (q > 0) el.style.opacity = (q / 1000).toFixed(3);
+  }
+
+  /**
+   * COOP-1 4d-1（AC100）: その人の 半分の 青い ふちの 濃さ 0〜1（0 で かくす）。2 人が 参加している あいだ だけ 効く。変わった ときだけ 書く。
+   * 濃さは `createParryViews().edgeLevel`（青白い 光と 同じ 部品）。「動きを へらす」の ときは 呼ぶ 側が 0 を わたす
+   */
+  setParryEdge(who: 1 | 2, level: number): void {
+    const b = this.b;
+    if (!b || !this.on) return;
+    const q = Math.round(Math.max(0, Math.min(1, level)) * 100);
+    if (q === this.edgeQ[who - 1]) return;
+    this.edgeQ[who - 1] = q;
+    const el = b.edges[who - 1]!;
+    el.hidden = q <= 0;
+    if (q > 0) el.style.opacity = ((q / 100) * PARRY_EDGE_MAX_OPACITY).toFixed(2);
   }
 
   /** 矢印 1 つ。who = 矢印が 出る 画面の 持ち主（1 = 1P の 半分。2P を さすので バッジは「P2」）。色は css が 相手の 色に する */
@@ -216,6 +281,8 @@ export class DuoHud {
       this.lastW = -1;
       this.badgePx = 0;
       this.shown = newShown();
+      this.edgeQ[0] = this.edgeQ[1] = -1;
+      this.flashQ[0] = this.flashQ[1] = -1;
       this.d.hotbar1.setAttribute('data-testid', 'duo-hotbar-p1');
       this.d.hearts1.setAttribute('data-testid', 'duo-hearts-p1');
       this.d.levelbar1.setAttribute('data-testid', 'duo-levelbar-p1');
@@ -238,6 +305,8 @@ export class DuoHud {
         for (const a of b.arrows) a.root.hidden = true;
         b.line.hidden = true;
         b.question.hidden = true;
+        for (const e of b.edges) e.hidden = true;
+        for (const f of b.flashes) f.hidden = true;
         b.wear2.clear();
       }
     }
@@ -416,6 +485,7 @@ export class DuoHud {
     for (const a of b.arrows) a.root.remove();
     b.line.remove();
     b.question.remove();
+    for (const e of b.edges) e.remove();
     this.b = null;
   }
 }

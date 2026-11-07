@@ -27,6 +27,11 @@ export class DuoViewRenderer {
     private readonly mainCamera: THREE.PerspectiveCamera,
     /** 区画を 描く 前に 呼ぶ（キャラの 板を その カメラへ 向ける。キャラの 板は 区画ごとに 向きが ちがう） */
     private readonly beforePane: (cam: THREE.Camera) => void,
+    /**
+     * 各区画の 世界の 描画の すぐ あとに 呼ぶ（同じ viewport・scissor の 中。COOP-1 4d-2: 雷の 板を その 区画に 重ねる）。
+     * 2 人の ときは 全面の 光の 道を 通らない ので、世界の 中に 出る 雷は ここで 描く
+     */
+    private readonly afterPane: (cam: THREE.Camera) => void,
   ) {}
 
   /** 1 コマ ぶんを 描く（1 人の 全面で 切りかえも 終わった ときは 呼ばない） */
@@ -55,6 +60,7 @@ export class DuoViewRenderer {
     main.updateProjectionMatrix();
     this.beforePane(main);
     r.render(this.scene, main);
+    this.afterPane(main);
     main.aspect = aspect0;
     main.updateProjectionMatrix();
 
@@ -66,6 +72,7 @@ export class DuoViewRenderer {
       this.beforePane(cam2);
       this.pane(b);
       r.render(this.scene, cam2);
+      this.afterPane(cam2);
     }
     if (fog) {
       fog.near = this.fogNear0;

@@ -3,6 +3,7 @@
  */
 import type { Camera, Group, Scene } from 'three';
 import type { BoxLike } from './gashaBigHit';
+import type { GashaTarget } from './gashaTargets';
 
 export interface GashaGirlDeps {
   scene: Scene;
@@ -25,6 +26,8 @@ export interface GashaGirlDeps {
   suppressBgm(on: boolean, fade?: { outSec?: number; inSec?: number; delaySec?: number }): void;
   groundY(x: number, z: number): number;
   solid(x: number, y: number, z: number): boolean;
+  /** COOP-1 4d-3: 人の 一覧（毎回 呼ぶ）。なければ 今の player / hurt / parry / hp の 1 人（1P）だけ */
+  targets?(): readonly GashaTarget[];
 }
 
 export interface GashaGirlOpts {

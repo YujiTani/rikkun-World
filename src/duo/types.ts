@@ -5,7 +5,11 @@ import type { ArmorSnapshot } from '../craft/ArmorSystem';
  * これは 型だけ（実行する コードを 持たない）。実装（developer）は この 型を そのまま 使う。変えるときは テストも 直す。
  */
 
+import type { ParryStateView } from '../combat/parry';
 import type { PadChoice } from '../input/gamepad/padChoice';
+import type { ImpactView } from './impactRoute';
+import type { ThunderHook } from '../fx/thunderFx';
+import type { LegendStateView } from '../legend/LegendSystem';
 
 /** 画面の ようす（§2.3。1.8）。2P が いなければ 'one'（1 人の 全面）、いれば いつも 'split'（左右） */
 export type DuoView = 'one' | 'split';
@@ -20,6 +24,8 @@ export interface DuoState {
   columns: number;
   light: boolean;
   padLost: boolean;
+  /** 4d-0（AC98）: 2P が 参加して から 全面の 光の 道（worldPass）で 描いた コマの 数（参加で 0 に もどる）。2 人の ときは いつも 0 の はず。2P が いなければ 0 */
+  fullPass: number;
 }
 
 /**
@@ -89,6 +95,10 @@ export interface DuoPlayHook {
   setLevel(who: 1 | 2, level: number, xp?: number): void;
   /** けいけんちを 足す（`?duo=dev` の ときだけ。上がれば 演出・ハート回復も ふつうに 出る） */
   addXp(who: 1 | 2, amount: number): void;
+  /** COOP-1 4d-2（§12.0・AC103）: その人の わざ（`legend.state()` と 同じ 形。`got` は ない）。1P は 今の 物。2P が いなければ who 2 は null。ふつうの URL でも 効く */
+  legend(who: 1 | 2): LegendStateView | null;
+  /** COOP-1 4d-2（§12.0・AC106）: その人の 雷の 絵の 窓口（`thunder` と 同じ 形）。2P の 板は 2P の カメラを 向く。2P が いなければ who 2 は null */
+  thunder(who: 1 | 2): ThunderHook | null;
 }
 
 export interface DuoHook extends DuoPlayHook {
@@ -102,6 +112,12 @@ export interface DuoHook extends DuoPlayHook {
   timeScale(): number;
   /** いま 描いている 区画(作業 2。AC25・AC26。型は DuoViewport) */
   viewports(): DuoViewport[];
+  /** 4d-0（§12.0・AC97）: その人の 手ごたえ（ゆれ・止めの のこり・段の きろく）。1 人の ときの who 1 は 世界の 止め・1P の ゆれ。2P が いなければ who 2 は null */
+  impact(who: 1 | 2): ImpactView | null;
+  /** 4d-0（§12.0）: その人の カメラの 今の きょり（マス）。2P が いなければ who 2 は null */
+  camDistance(who: 1 | 2): number | null;
+  /** 4d-1（§12.0・AC99・AC100）: その人の パリィ（`parry.state()` と 同じ 形）。1P は 今の parry と 同じ 物。2P が いなければ who 2 は null */
+  parry(who: 1 | 2): ParryStateView | null;
   /** 1.8（§12.0）: その 人の 半分に 出ている 相手の 向きの 矢印。出ていない・2P が いない → null */
   arrow(who: 1 | 2): DuoArrow | null;
   /** 作業 2.5（#401。§12.0）: 決めて 保存してある えらび。なし・こわれた・つかえない → null(はじめの動き) */
@@ -114,6 +130,8 @@ export interface DuoHook extends DuoPlayHook {
   inv(who: 1 | 2): { open: boolean; page: 'items' | 'craft' | 'furnace' | 'tansu' | null; focus: string | null };
   /** 作業 3c（#417。§3.4・§12.0）: その 所で 鳴った 場所の ある 音の 大きさを 決める プレイヤー（近い方）と その 距離（マス）。2P が いない ときは いつも who 1。同じ 距離なら 1 */
   hearFrom(pos: DuoVec3): { who: 1 | 2; distance: number };
+  /** COOP-1 4d-3（§12.0）: がしゃどくろ・少女が 今 ねらっている 人。いない・だれも ねらって いない ときは null（1 人の ときは 1 か null） */
+  gasha: { target(): 1 | 2 | null; girlTarget(): 1 | 2 | null };
 }
 
 /** 2P の セーブ（`meta.p2`。§6）。場所・向き・ハートは 入れない */

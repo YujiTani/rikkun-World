@@ -34,7 +34,7 @@ export class YokaiHurt {
     const kodachi = by === 'kodachi';
     const wasDouble = !kodachi && d.stag.hasDouble(id);
     if (!kodachi) amount = d.stag.damage(id, amount);
-    if (wasDouble) d.opts.onParryEvent?.({ type: 'staggerDouble', yokaiId: id, damage: amount });
+    if (wasDouble) d.opts.onParryEvent?.({ type: 'staggerDouble', yokaiId: id, damage: amount }, who);
     e.hp = Math.max(0, Math.round((e.hp - amount) * 100 + 1e-7) / 100); // WEAPON-4: 0.01 の位に まるめる（小数の 誤差で のこさない）
     d.marks.showMarks(e);
     if (e.hp <= 0) {

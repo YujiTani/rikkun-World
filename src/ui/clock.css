@@ -1,4 +1,12 @@
 /* C 時計: 右上（はしから 24px）。いまの時間帯の絵 1 つ＋ことば（本文）＋ `3 にちめ`（小）（M6-clock） */
+:root {
+  /* 時計の 下はしの 高さ（画面の 上から）。下の 規則と 同じ 数で 足す: 上の すき間 + 上下の padding + 絵（ふち つき）+ すき間 2 つ + ことば 1 行 + 日 1 行。
+     時計の 下に 物を 置く 部品（2 人の ときの がしゃどくろの ゲージ COOP-1 4d-3）が 使う。ここを 変えたら 下の 規則も 合わせる */
+  --rk-clock-bottom: calc(
+    var(--rk-sp-5) + 2 * var(--rk-sp-2) + max(64px, calc(64 / 12.8 * 1vw)) + 2 * var(--rk-bw) + 2 * var(--rk-sp-1) +
+      var(--rk-lh) * (var(--rk-fs-body) + var(--rk-fs-small))
+  );
+}
 #clock {
   position: fixed;
   top: var(--rk-sp-5);

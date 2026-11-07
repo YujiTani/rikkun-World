@@ -256,6 +256,24 @@ export class DuoPadRouter {
     return this.out;
   }
 
+  /**
+   * COOP-1 4d-1（AC101）: ボタンの 押す／はなす だけを 実時間の 毎コマ 読む（ゆっくりの あいだ、ステップの あいだの 短い 押しを 取りこぼさない）。
+   * 参加の 求め・パッドの ぬけ・つなぎ直しの 判定には さわらない（それは `poll` だけ）。
+   * 読まない とき: 参加前（1 人の ときの 遊びは かえない）／2P は active = false・ぬけている・きまっていない・止まって いた あと とける まで（とけた ときの `holdButtonsUntilReleased` を くずさない）
+   */
+  pollButtons(nowMs: number, active = true): void {
+    if (!this.joined) return;
+    const pads = this.getPads();
+    this.cache = pads;
+    try {
+      this.reader1.pollButtons(nowMs);
+      if (!active || this.frozen || this.lost || this.p2 < 0) return;
+      this.reader2.pollButtons(nowMs);
+    } finally {
+      this.cache = null;
+    }
+  }
+
   private loseP2(): void {
     this.reader2.resetPad();
     this.lost = true;

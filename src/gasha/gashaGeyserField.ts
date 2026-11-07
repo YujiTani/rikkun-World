@@ -9,12 +9,14 @@
  * ・あとは 一定の 間かくで、体の 中心から 半径 spawn.radius の 地表の くさ・つちを ランダム（シード付き）に cells × cells で 1 か所ずつ かえる。
  *   数えるのは 半径の 中の 間欠泉の つち（4 つで 1 本）＋ かわる 途中。maxGroups に なったら 作らない。掘って へれば また 作る。
  * ・柱に 入ると 真上へ 打ち上がる。上から 落ちて 入ったら そっと おりる。柱の 中と 着地までは 落下ダメージなし（setNoFall）。
+ *   2 人の とき（COOP-1 4d-3）は 人ごとに 打ち上げ・落ちないを 見る（「柱に 入って いる／おりている／守りの 途中」の おぼえも 人ごと。式は 1P と 2P で 同じ）。
  *   かわる 途中の 場所は まだ 打ち上げない。
  * 純粋な 計算は ここに 切りはなして あり、gashaGeyser.test.ts / gashaGeyserField.test.ts で 確かめる。
  */
 import { TUNE as T } from './gashaBigTuning';
 import { groupsOf, pickSpot, type SpawnProbe } from './gashaGeyserSpawn';
 import { isWater } from '../world/blocks/water';
+import type { GashaTarget } from './gashaTargets';
 
 export interface GeyserSpec {
   /** 柱の 北西の かどの マス（x0, z0）。柱は x0 〜 x0 + w、z0 〜 z0 + d */
@@ -173,6 +175,20 @@ export interface FieldDeps {
   nudge(dx: number, dz: number): void;
   /** 落下ダメージを 受けない（combat の noFall に 重ねる） */
   setNoFall(on: boolean): void;
+  /** COOP-1 4d-3: 打ち上げる 相手の 一覧（毎ステップ 読む）。あれば 上の 1 人用の 口（body・setVelocity・nudge・setNoFall）の かわりに 人ごとの 口を 使う。なければ 1P だけ（今の まま） */
+  targets?(): readonly GashaTarget[];
+}
+
+/** 人ごとの おぼえ（柱の 中・おりて いる・守りの 途中） */
+interface PState {
+  assisted: boolean;
+  assistedT: number;
+  noFallNow: boolean;
+  sinking: string | null;
+  /** 今の 人（落ちないを はずす ときの 宛先） */
+  t: GashaTarget | null;
+  /** 一覧に いる 印 */
+  seen: number;
 }
 
 interface Cell { x: number; y: number; z: number; born: number }
@@ -201,10 +217,10 @@ export class GeyserField {
   private tick = 0;
   private rnd = makeRnd(T.geyser.seed);
   private rndSpawn = makeRnd(T.geyser.spawn.seed);
-  private assisted = false;
-  private assistedT = 0;
-  private noFallNow = false;
-  private sinking: string | null = null;
+  private readonly states = new Map<number, PState>();
+  private stamp = 0;
+  /** 1 人用の 口を 人の 形に した もの（targets が ない とき。使いまわす） */
+  private legacyList: readonly GashaTarget[] | null = null;
   /** 片づけた あと（place() まで 何もしない） */
   private dormant = false;
 
@@ -369,7 +385,7 @@ export class GeyserField {
       found.push({ x, y, z, born: 0 });
     });
     if (found.length > MAX_CELLS) {
-      const b = this.d.body().position;
+      const b = this.anchor();
       found.sort((p, q) => Math.hypot(p.x - b.x, p.z - b.z) - Math.hypot(q.x - b.x, q.z - b.z));
       found.length = MAX_CELLS;
     }
@@ -432,10 +448,41 @@ export class GeyserField {
   }
 
   // ---------------------------------------------------------------- プレイヤー
-  private setNoFall(on: boolean): void {
-    if (on === this.noFallNow) return;
-    this.noFallNow = on;
-    this.d.setNoFall(on);
+  /** 人の 一覧（targets が なければ 1 人用の 口から 1P 1 つ） */
+  private people(): readonly GashaTarget[] {
+    if (this.d.targets) return this.d.targets();
+    if (!this.legacyList) {
+      const d = this.d;
+      this.legacyList = [{
+        who: 1, down: false,
+        get pos() { return d.body().position; },
+        yawDeg: 0,
+        body: () => d.body(),
+        setVelocity: (v) => d.setVelocity(v),
+        nudge: (dx, dz) => d.nudge(dx, dz),
+        setNoFall: (on) => d.setNoFall(on),
+      }];
+    }
+    return this.legacyList;
+  }
+
+  /** 木の 数えなおしで 近さを くらべる 基準の 場所（先頭の 人） */
+  private anchor(): { x: number; z: number } {
+    const l = this.people();
+    return l.length > 0 ? l[0]!.pos : this.d.body().position;
+  }
+
+  private stateOf(t: GashaTarget): PState {
+    let st = this.states.get(t.who);
+    if (!st) { st = { assisted: false, assistedT: 0, noFallNow: false, sinking: null, t, seen: 0 }; this.states.set(t.who, st); }
+    st.t = t;
+    return st;
+  }
+
+  private setNoFall(st: PState, on: boolean): void {
+    if (on === st.noFallNow) return;
+    st.noFallNow = on;
+    st.t?.setNoFall?.(on);
   }
 
   /** プレイヤー(足もと p)の 頭の 上から 柱の 上の はしまでに、体の 固い マス(ガラスの 雲も)が あるか */
@@ -448,9 +495,21 @@ export class GeyserField {
   }
 
   private physics(dt: number): void {
-    if (!this.specList.length && !this.assisted) return;
+    const list = this.people();
+    // 一覧から 消えた 人（やめた）の 落ちないを はずして 手ばなす
+    this.stamp++;
+    for (const t of list) this.stateOf(t).seen = this.stamp;
+    for (const [who, st] of this.states) if (st.seen !== this.stamp) { this.setNoFall(st, false); this.states.delete(who); }
+    for (const t of list) this.physicsOne(dt, t, this.stateOf(t));
+  }
+
+  /** 1 人ぶん（式は 1P と 2P で 同じ） */
+  private physicsOne(dt: number, t: GashaTarget, st: PState): void {
+    if (!this.specList.length && !st.assisted) return;
+    const bd = t.body?.();
+    if (!bd) return;
     const R = T.geyser;
-    const b = this.d.body(), p = b.position, vel = b.velocity;
+    const b = bd, p = b.position, vel = b.velocity;
     let inside = false;
     let vy = vel.y;
     const reach = R.funnelMax + 2;
@@ -461,13 +520,13 @@ export class GeyserField {
       const gk = key(g.x0, g.z0);
       if (inColumn(g, p.x, p.y, p.z)) {
         // 柱の 上に がしゃどくろの 体・ガラスが あって つきぬけられない: 打ち上げない(天井に 押しつけられた まま 動けなく ならない ように。横へ 歩いて 出られる)
-        if (R.blockedByBody && this.blockedAbove(g, p)) { this.sinking = null; continue; }
+        if (R.blockedByBody && this.blockedAbove(g, p)) { st.sinking = null; continue; }
         inside = true;
         // 柱の 上の ほうから 落ちて きた ときは 打ち上げず、ゆっくり おりる（下まで ついて 柱を でるまで）
-        if (this.sinking === null && p.y > g.top - R.sinkBelowTop && vel.y < 0) this.sinking = gk;
-        if (this.sinking === gk) {
+        if (st.sinking === null && p.y > g.top - R.sinkBelowTop && vel.y < 0) st.sinking = gk;
+        if (st.sinking === gk) {
           vy = Math.max(vy, -R.slowFall);
-          this.d.setVelocity({ x: vel.x, y: vy, z: vel.z });
+          t.setVelocity?.({ x: vel.x, y: vy, z: vel.z });
           break;
         }
         vy = liftStep(vy, dt, R);
@@ -476,7 +535,7 @@ export class GeyserField {
           const m = R.holdMargin;
           const lo = g.x0 + Math.min(m, g.w / 2), hi = g.x0 + g.w - Math.min(m, g.w / 2), lz = g.z0 + Math.min(m, g.d / 2), hz = g.z0 + g.d - Math.min(m, g.d / 2);
           const nx = Math.min(hi, Math.max(lo, p.x)) - p.x, nz = Math.min(hz, Math.max(lz, p.z)) - p.z;
-          if (nx !== 0 || nz !== 0) this.d.nudge(nx, nz);
+          if (nx !== 0 || nz !== 0) t.nudge?.(nx, nz);
         }
         break;
       }
@@ -485,24 +544,24 @@ export class GeyserField {
         const dx = cx - p.x, dz = cz - p.z, dist = Math.hypot(dx, dz);
         if (dist < fr && dist > 0.05) {
           // 水平の 速さは 入力で 毎ステップ 上書きされる ので、位置を 直接 すこし 寄せる
-          const st = Math.min(dist, R.funnelPull * dt);
-          this.d.nudge((dx / dist) * st, (dz / dist) * st);
-          this.assisted = true; this.assistedT = 0;
+          const stp = Math.min(dist, R.funnelPull * dt);
+          t.nudge?.((dx / dist) * stp, (dz / dist) * stp);
+          st.assisted = true; st.assistedT = 0;
         }
       }
     }
-    if (this.sinking !== null && !this.specList.some((g) => key(g.x0, g.z0) === this.sinking && inColumn(g, p.x, p.y, p.z))) this.sinking = null;
+    if (st.sinking !== null && !this.specList.some((g) => key(g.x0, g.z0) === st.sinking && inColumn(g, p.x, p.y, p.z))) st.sinking = null;
     if (inside) {
-      this.assisted = true; this.assistedT = 0;
-      if (this.sinking === null) this.d.setVelocity({ x: vel.x, y: vy, z: vel.z });
+      st.assisted = true; st.assistedT = 0;
+      if (st.sinking === null) t.setVelocity?.({ x: vel.x, y: vy, z: vel.z });
     }
     // 柱から 出たあと 地面に 着く（または 時間ぎれ）まで 落下ダメージなし
-    if (this.assisted && !inside) {
-      this.assistedT += dt;
-      if (b.onGround === true && this.assistedT > 0.1) this.assisted = false;
-      else if (this.assistedT > R.assistMaxSec) this.assisted = false;
+    if (st.assisted && !inside) {
+      st.assistedT += dt;
+      if (b.onGround === true && st.assistedT > 0.1) st.assisted = false;
+      else if (st.assistedT > R.assistMaxSec) st.assisted = false;
     }
-    this.setNoFall(R.noFallInColumn && (inside || this.assisted));
+    this.setNoFall(st, R.noFallInColumn && (inside || st.assisted));
   }
 
   /**
@@ -532,9 +591,11 @@ export class GeyserField {
 
   /** 柱の 上に いる 人の 守りを やめる（片づけ） */
   reset(): void {
-    this.assisted = false;
-    this.sinking = null;
-    this.setNoFall(false);
+    for (const st of this.states.values()) {
+      st.assisted = false;
+      st.sinking = null;
+      this.setNoFall(st, false);
+    }
   }
 }
 

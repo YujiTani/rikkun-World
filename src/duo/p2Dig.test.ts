@@ -11,6 +11,9 @@ import { createBladeSystem } from '../tools/blade/BladeSystem';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { bindWho } from './credit';
 import { createP2Dig } from './p2Dig';
+import { createP2Legend } from './p2Legend';
+import { itemByCharge } from './p2LegendKit';
+import { createP2Parry } from './p2Parry';
 import { P2State } from './p2State';
 
 /**
@@ -461,6 +464,68 @@ describe('2P の ふつうの こうげき: ZR で とどく 妖怪を たたく
       expect(r.inv.count('dirt')).toBe(0);
     });
   }
+});
+
+/** COOP-1 4d-2: 雷神剣を もつ 2P。m4 に ため（p2Legend）と パリィ（p2Parry）の 両方を わたす（duoPlay の 配線と 同じ） */
+function legendRig() {
+  const world = new ArrayVoxelWorld({ x: 32, y: 24, z: 32 });
+  for (let x = 0; x < 32; x++) for (let z = 0; z < 32; z++) world.setBlock(x, 8, z, 'dirt');
+  const actions = new ActionState();
+  const p2 = new P2State();
+  p2.inventory.setSlot(0, { item: itemByCharge('lightning'), count: 1 });
+  p2.inventory.select(0);
+  const controller = new PlayerController(world, actions, { consume: () => ({ dx: 0, dy: 0 }) }, lock, () => ({ x: 16.5, y: 9, z: 16.5, yawDeg: 0, pitchDeg: 0 }));
+  const yokai = bindWho(new FakeYokaiWorld(), 2);
+  const tools = { current: () => ({ item: null, kind: 'hand' as const, power: 1, level: 0, damage: 1, reach: 3.5, ticks: 30 }), step() {}, pushSwing() {}, swingWhiff() {}, onPunchStart() {}, punchParams: () => ({ damage: 1, reach: 3.5, ticks: 30 }) };
+  const settings = settingsW3();
+  const combat = new PlayerCombatImpl({
+    world, player: { get: () => controller.state, set: (v) => controller.set(v) }, inventory: p2.inventory, yokai: () => yokai,
+    spawn: () => ({ x: 1.5, y: 9, z: 1.5, yawDeg: 0, pitchDeg: 0 }), tool: tools, settings,
+  });
+  let tick = 0;
+  const blade = createBladeSystem({ world, yokai: () => yokai, settings, weaponDamage: () => 4, onHit: () => {}, lunge: (dx, dz) => controller.lunge(dx, dz), tick: () => tick });
+  const parry = createP2Parry({ settings, armor: p2.armor, yawDeg: () => controller.state.yawDeg });
+  const legend = createP2Legend({
+    world, yokai: () => yokai, settings, tick: () => tick, armor: p2.armor, wear: () => {}, camFx: { setDistance() {} }, impact: { hit() {} },
+    baseDistance: () => 4, position: () => controller.state.position, seed: 1,
+  });
+  const m4 = { tools, blade, w2: settings, yokai: () => yokai, parry: parry.parry, legend: legend.legend };
+  const dig: DigSystemImpl = createP2Dig({ world, p2, actions, position: () => controller.state, lock, eyeHeight: () => EYE, partner: () => null, gate: combat, m4 });
+  /** step.ts と 同じ 順: parryInput → parry.update → dig.update（中で legend.step）→ p2legend.step */
+  const step = (n = 1): void => {
+    for (let i = 0; i < n; i++) {
+      tick++;
+      parry.update(dig.parryInput(tick));
+      dig.update();
+      legend.step({ item: itemByCharge('lightning'), tech: null, phase: 'idle', frame: 0, startup: 0, dirDeg: 0 });
+      combat.update();
+      actions.endFrame();
+    }
+  };
+  step(2);
+  return { actions, step, parry, legend };
+}
+
+describe('4d-2: 2P の ふりわけ（1P と 同じ routeAttackInput）: ZR だけ → ため。run＋ZR → パリィで ためは 始まらない', () => {
+  it('雷神剣を もって ZR だけ → ためが 始まる（パリィは 出ない）', () => {
+    const r = legendRig();
+    expect(r.legend.legend.state().charge).toBeNull();
+    r.actions.press('primary' as Action);
+    r.step(3);
+    expect(r.legend.legend.state().charge, 'ためが 始まる').not.toBeNull();
+    expect(r.parry.state().phase).toBe('idle');
+  });
+
+  it('雷神剣を もって run を 押しながら ZR → パリィ（ready）。ためは 始まらない', () => {
+    const r = legendRig();
+    r.actions.press('run' as Action);
+    r.actions.press('primary' as Action);
+    r.step(1);
+    expect(r.parry.state()).toMatchObject({ phase: 'ready', frame: 1 });
+    r.step(3);
+    expect(r.legend.legend.state().charge, 'ためは 始まらない').toBeNull();
+    expect(r.legend.legend.state().move).toBeNull();
+  });
 });
 
 // 型の 使い道（未使用 import を 避ける）

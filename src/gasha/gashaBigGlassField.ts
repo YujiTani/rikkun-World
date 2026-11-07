@@ -5,10 +5,11 @@ import { Vector3 } from 'three';
 import type { BigModel, GlassCell } from './gashaBigTypes';
 import type { GashaBigDeps } from './gashaBigDeps';
 import { TUNE as T } from './gashaBigTuning';
+import { targetsOf, type TargetSource } from './gashaTargets';
 
 export interface GlassEnv {
   model(): BigModel | null;
-  deps: Pick<GashaBigDeps, 'player' | 'onGlassBreak'>;
+  deps: Pick<GashaBigDeps, 'onGlassBreak'> & TargetSource;
 }
 
 export interface GlassField {
@@ -59,8 +60,11 @@ export function createGlassField(env: GlassEnv): GlassField {
     const G = T.glass, q = brokenQ[0];
     if (!model || !q || glassClock - q.t < G.regenDelaySec || glassClock - lastRegen < G.regenGapSec) return;
     // プレイヤーが その マスの 中に いる あいだは もどさない（うまらない ように）
-    const p = deps.player(), v = glassWorld(q.gc, new Vector3());
-    if (Math.abs(p.x - v.x) < 1.3 && Math.abs(p.z - v.z) < 1.3 && p.y > v.y - 2.2 && p.y < v.y + 1.2) return;
+    const v = glassWorld(q.gc, new Vector3());
+    for (const t of targetsOf(deps)) {
+      const p = t.pos;
+      if (Math.abs(p.x - v.x) < 1.3 && Math.abs(p.z - v.z) < 1.3 && p.y > v.y - 2.2 && p.y < v.y + 1.2) return;
+    }
     brokenQ.shift();
     model.setGlass(q.gc, true);
     lastRegen = glassClock;
