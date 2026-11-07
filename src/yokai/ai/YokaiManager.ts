@@ -510,8 +510,8 @@ export class YokaiManager implements YokaiWorld {
   }
 
   /** 攻撃を 取り消して よろける（パリィの 成功・はね返しが 当たった）。できたら true */
-  applyStagger(id: number, by: StaggerBy): boolean {
-    return this.reeler.applyStagger(id, by);
+  applyStagger(id: number, by: StaggerBy, who: 1 | 2 = 1): boolean {
+    return this.reeler.applyStagger(id, by, who);
   }
 
   /**

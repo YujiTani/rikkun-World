@@ -9,10 +9,17 @@ import type { ShockHit } from './gashaBigShock';
 import type { BigSfxEnv } from './gashaBigSfx';
 import type { EruptFx } from './gashaBigEruptFx';
 import type { WorldHit } from './gashaBigWorld';
+import type { GashaTarget } from './gashaTargets';
 
 export interface GashaBigDeps {
   scene: Scene;
   camera: Camera;
+  /**
+   * COOP-1 4d-3: 人の 一覧（1 人の ときは 1 つ。毎ステップ 読み直す）。あれば ねらう・ダメージ・のせる／押す・入力止め・落ちない・止め・ゆれは **ぜんぶ ここの 人ごとの 口**を 使う
+   * （下の player / hurt / carryPlayer / nudgePlayer / setPlayerVelocity / playerBody / setNoFall / blockPlayerInput / hitStop / shake / knockbackMul / defIgnore / hit / onStrike は 1 人用。
+   * targets が ある ときは 使わない〈player だけ 一覧が 空の ときの 代わり〉）。なければ 今の まま（1 人）
+   */
+  targets?(): readonly GashaTarget[];
   /** プレイヤーの いま の 位置と 向き（度） */
   player(): { x: number; y: number; z: number; yawDeg: number };
   /** 地面の いちばん 上の ブロックの 高さ（立つ 面は +1） */
@@ -61,8 +68,8 @@ export interface GashaBigDeps {
   giveNinjaTabi?(): void;
   /** true なら 起動時に 足袋を 自動で 着せない（ふだんの ゲームでは ごほうび。試作は 着せる）。`giveTabi()` で 後からも 着せられる */
   noTabi?: boolean;
-  /** 体力が 0 に なった（置いてから 1 回だけ。次の place() で また 数える）。実績・ごほうびは コアを こわした とき(onCoreBroken)に 呼んだ 側が 出す */
-  onDefeated?(): void;
+  /** 体力が 0 に なった（置いてから 1 回だけ。次の place() で また 数える）。実績・ごほうびは コアを こわした とき(onCoreBroken)に 呼んだ 側が 出す。who = 最後の 一撃を 当てた 人（とどめの 止め・ゆれを 受ける 相手。けいけんちは 出ない） */
+  onDefeated?(who?: 1 | 2): void;
   /** ヒットストップ(#276。ticks ステップ 世界を 止める)。とどめの 一撃で 使う。なければ 止めない */
   hitStop?(ticks: number): void;
   /** 画面の ゆれ(0〜1)。とどめの 一撃で 使う。なければ ゆらさない */
@@ -123,8 +130,10 @@ export interface GashaBigHandle {
   hit(): void;
   /** いまの 体力 */
   hp(): number;
-  /** 部位（hand・foreArm・upperArm・head・core など）に ダメージ（武器の 強さ amount × 部位の 倍率）。与えた 数を 返す。テスト用 */
-  damage(part: string, amount: number, at?: { x: number; y: number; z: number } | null, source?: string): number;
+  /** 部位（hand・foreArm・upperArm・head・core など）に ダメージ（武器の 強さ amount × 部位の 倍率）。与えた 数を 返す。テスト用。who = 当てた 人（既定 1P） */
+  damage(part: string, amount: number, at?: { x: number; y: number; z: number } | null, source?: string, who?: 1 | 2): number;
+  /** 今 ねらっている 人（`duo.gasha.target()` の もと）。わざの 最中は 始めた ときに 決めた 人、それ以外は 今 いちばん 近い 人。体が ない・だれも ねらえない ときは null */
+  targetWho(): 1 | 2 | null;
   /** 撮影用: コアの 左右の まんなかで 体を 半分に 切って 断面を 見せる（左がわを 消す）/ もどす */
   section(on: boolean): void;
   /** さまよう（はって あるく）のを はじめる / 止める */

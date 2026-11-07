@@ -26,6 +26,8 @@ export interface P2Kodachi {
   combat(events: readonly CombatEvent[]): void;
   /** 2P の blade.drainEvents()。techHit だけ 聞く */
   blade(events: readonly BladeEvent[]): void;
+  /** COOP-1 4d-3: がしゃどくろの 箱（部位）に 刀・パンチが 当たった（1P の Kodachi.onBigHit と 同じ） */
+  onBigHit(part: string): void;
   /** kodachiHit。毎ステップ 取り出す */
   drainEvents(): KodachiHitEvent[];
   pending(): number;
@@ -52,6 +54,7 @@ export function createP2Kodachi(d: P2KodachiDeps): P2Kodachi {
     blade(events) {
       for (const e of events) k.onCombatEvent(e);
     },
+    onBigHit: (part) => k.onBigHit(part),
     drainEvents: () => k.drainEvents(),
     pending: () => k.pending(),
     clear: () => k.clear(),

@@ -792,6 +792,9 @@
       "twistDeg": 12,
       "windupSec": 2.8
     },
+    "duoShake": {
+      "fullDeg": 4
+    },
     "eruption": {
       "body": {
         "glassMax": 5,

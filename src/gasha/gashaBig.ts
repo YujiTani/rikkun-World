@@ -9,19 +9,22 @@
  * ・目は ふだん 白、`__gashaBig.angry(true)` で 赤。
  * 数は ぜんぶ gashaBigTuning.ts。
  */
-import { Group, Mesh, MeshBasicMaterial, Plane, Quaternion, Vector3 } from 'three';
+import { Group, Mesh, MeshBasicMaterial, Plane, Quaternion, Vector3, type Camera } from 'three';
 import { BodyPlaced } from './gashaBigPlaced';
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
 import { BigActor, type ActorClips } from './gashaBigActor';
 import { sharedGashaBgm } from './gashaBgm';
 import { CoreBarrier } from './gashaBigBarrier';
 import { BigHit } from './gashaBigHit';
+import { createHitPlayers } from './gashaBigHitPlayers';
+import { createBigAim } from './gashaBigAim';
+import { facingCamera, targetsOf, type GashaTarget } from './gashaTargets';
 import { GashaGeyser } from './gashaGeyser';
-import { BigShock } from './gashaBigShock';
+import { createShockSet } from './gashaBigShockSet';
 import { ShockFx } from './gashaBigShockFx';
 import { createBigSfx, createBigWebAudioPlayer } from './gashaBigSfx';
 import { crushAt } from './gashaBigCrush';
-import { BodyQuake } from './gashaBigQuake';
+import { createQuakeSet } from './gashaBigQuakeSet';
 import climbUp from './gashaBigClips/climbUp.json';
 import climbDown from './gashaBigClips/climbDown.json';
 import lookBackClip from './gashaBigClips/lookBack.json';
@@ -58,10 +61,24 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   let isAngry = false;
   let pos = new Vector3(), yaw = 0;
   const reduced = (): boolean => deps.reducedMotion?.() ?? false;
+  // ---- COOP-1 4d-3: 人の 一覧と ねらい。targets が なければ 今の 1 人用の 口から 1P 1 つ（1 人の ときは 今の まま）
+  const people = (): readonly GashaTarget[] => targetsOf(deps);
+  const aim = createBigAim({ targets: people, from: () => pos, fallback: deps.player });
+  const personOf = (who: 1 | 2): GashaTarget | null => { for (const t of people()) if (t.who === who) return t; return null; };
+  /** 最後の 一撃を 当てた 人（とどめの 止め・ゆれ・コアの ふり落としを 受ける 相手。既定 1P） */
+  const hitterWho = (): 1 | 2 => bh.last?.who ?? 1;
+  const hitterView = deps.targets ? aim.viewOf(() => personOf(hitterWho())) : null;
+  // 板の 絵（光線・雷の 向き）が 向く カメラ＝ ねらった 人の 半分の カメラ。deps.camera の 見えかたで position だけ「ねらった 人の カメラの もの」を 返す（getter を 1 回 決める だけ。毎ステップ 新しい 物は 作らない）
+  const facing: Camera = deps.targets ? (Object.create(deps.camera) as Camera) : deps.camera;
+  if (facing !== deps.camera) Object.defineProperty(facing, 'position', { get: () => facingCamera(aim.target(), deps.camera).position, configurable: true });
+  /** ねらう わざ（光線・噴火・雷の ねらい）が 見る「プレイヤー」＝ ねらった 人。当たりは 各部品が 人の 一覧（targets）から 人ごとに 見る */
+  const pd: GashaBigDeps = deps.targets ? { ...deps, ...aim.aimed, camera: facing } : deps;
+  /** とどめ・コアの ふり落としが 見る「プレイヤー」＝ 最後の 一撃を 当てた 人 */
+  const hd: GashaBigDeps = hitterView ? { ...deps, ...hitterView } : deps;
   // コアを たたかれた ときの 予兆・ふり落とし（gashaBigCoreThrow.ts）
-  const core = new CoreThrow({ actor: () => actor, model: () => model, yaw: () => yaw, reduced, deps });
+  const core = new CoreThrow({ actor: () => actor, model: () => model, yaw: () => yaw, reduced, deps: hd });
   // ガラスの 雲: 割れた マスの 順番待ち（古い 順に 1 つずつ もどる。gashaBigGlassField.ts）
-  const glass = createGlassField({ model: () => model, deps });
+  const glass = createGlassField({ model: () => model, deps: pd });
   // プレイヤーが 体の 上に 置く ブロック（gashaBigPlaced.ts）。がしゃどくろを 置きなおすと ぜんぶ 消える
   const placed = new BodyPlaced({ model: () => model, actor: () => (hidden ? null : actor), lighting: deps.lighting, patch: hazePatch, breakGlassAt: (c, r, max) => glass.breakGlass(c, r, max) });
   // 少女の 間(固まって いる 間)は 体も コアも ダメージ 0 + コアは 虹色の バリアで まもられて いる(とどめの あとは 別)
@@ -70,11 +87,16 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   // プレイヤーの 攻撃を 受ける（体力・部位の 倍率・怒る・火花・体力ゲージ。gashaBigHit.ts）
   const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: core.throwOff, coreGuard: () => core.warnLeft > 0,
     bodyGuard: bodyGuardOn,
-    onDeflect: (at) => { if (at) barrier.ripple(at.x, at.y, at.z); else { const p = deps.player(); barrier.ripple(p.x, p.y + 1, p.z); } }, onCloud: (at) => { glass.breakGlass(at, T.glass.swordRadius); }, onCoreHit: (at) => finish.coreStruck(at), onStrike: deps.onStrike, defIgnore: deps.defIgnore, sources: deps.hit });
+    onDeflect: (at) => { if (at) barrier.ripple(at.x, at.y, at.z); else { const p = pd.player(); barrier.ripple(p.x, p.y + 1, p.z); } }, onCloud: (at) => { glass.breakGlass(at, T.glass.swordRadius); }, onCoreHit: (at) => finish.coreStruck(at), onStrike: deps.onStrike, defIgnore: deps.defIgnore, sources: deps.hit,
+    players: deps.targets ? createHitPlayers(people) : undefined });
   const { blockAt, setGeyserBlock, scanGeyserBlocks } = deps;
-  const geysers = deps.onUpdate && deps.playerBody && deps.setPlayerVelocity && deps.nudgePlayer && deps.setNoFall && blockAt && setGeyserBlock && scanGeyserBlocks
+  // 2 人の とき（targets）は 人ごとの 口を 使う ので、1 人用の 口が なくても わく（1 人用の 口は 一覧が 空の ときの 代わり）
+  const geyserPorts = deps.targets ? true : !!(deps.playerBody && deps.setPlayerVelocity && deps.nudgePlayer && deps.setNoFall);
+  const noBody = { position: { x: 1e9, y: 0, z: 1e9 }, velocity: { x: 0, y: 0, z: 0 }, onGround: true };
+  const geysers = deps.onUpdate && geyserPorts && blockAt && setGeyserBlock && scanGeyserBlocks
     ? new GashaGeyser({
-      scene: deps.scene, onUpdate: deps.onUpdate, groundY: deps.groundY, body: deps.playerBody, setVelocity: deps.setPlayerVelocity, nudge: deps.nudgePlayer, setNoFall: deps.setNoFall,
+      scene: deps.scene, onUpdate: deps.onUpdate, groundY: deps.groundY, body: deps.playerBody ?? (() => noBody), setVelocity: deps.setPlayerVelocity ?? (() => {}), nudge: deps.nudgePlayer ?? (() => {}), setNoFall: deps.setNoFall ?? (() => {}),
+      targets: deps.targets ? people : undefined,
       blockAt, setBlock: (x, y, z) => setGeyserBlock(x, y, z), restoreBlock: deps.restoreGeyserBlock, scanBlocks: scanGeyserBlocks,
       bodySolid: (x, y, z) => (hidden ? false : actor?.solid(x, y, z) ?? false),
       centre: () => (actor && !hidden ? { x: pos.x, z: pos.z } : null),
@@ -82,29 +104,41 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     : null;
   if (geysers) deps.onSaveOverrides?.(() => geysers.saveOverrides());
   // 手が 地面を たたいた ときの 打撃・衝撃波・小さい 衝撃・ひるみ（gashaBigShock.ts）と 見た目（gashaBigShockFx.ts）
-  const shock = new BigShock({
-    player: deps.player, groundY: deps.groundY, hurt: deps.hurt, setPlayerVelocity: deps.setPlayerVelocity, knockbackMul: deps.knockbackMul,
-    onGround: deps.playerBody ? () => deps.playerBody!().onGround ?? true : undefined,
-  });
+  const shock = createShockSet({ targets: people, groundY: deps.groundY });
   const shockFx = new ShockFx(deps.scene, deps.camera);
   // 攻撃 1 の アースクエイク: 体も ゆれて、のっている 人は 一定の 間かくで 横に ゆさぶられる（自動では ふり落とさない。歩いて 踏んばれば のこれる。ジャンプ中は 押されない）
-  const riding = (): boolean => { if (!actor || !deps.carryPlayer) return false; const p = deps.player(); return actor.boxUnder(p.x, p.y, p.z) >= 0; };
+  const isRider = (t: GashaTarget): boolean => { if (!actor || !t.carry) return false; const p = t.pos; return actor.boxUnder(p.x, p.y, p.z) >= 0; };
   // 効果音（gashaBigSfx.ts。オーナー OK 済みの sfx-big-v1。数は 調整表の sfx）。ファイルは 最初に まとめて 読みこむ
   const sfxPlayer = deps.sfxEnv ? null : createBigWebAudioPlayer(deps.sfxOut);
   const sfx = createBigSfx(deps.sfxEnv ?? sfxPlayer!);
   sfxPlayer?.preload();
-  const quake = new BodyQuake({
-    isRider: riding, onGround: () => deps.playerBody?.().onGround ?? true,
-    nudge: (dx, dz) => deps.nudgePlayer?.(dx, dz),
-    onPush: () => { sfx.shake(); },
-  });
+  const quake = createQuakeSet({ targets: people, isRider, onPush: () => { sfx.shake(); } });
   // 攻撃 2「両手で 払う」・3「目から 光線」・4「口から 火山噴火」・5「自分に 落雷」の 世界との つなぎ（gashaBig{Sweep,Beam,Eruption,Thunder}Step.ts）
-  const stepSweep = createSweepStep({ actor: () => actor, shock, shockFx, deps });
-  const beam = createBeamStep({ actor: () => actor, sfx, deps });
-  const eruption = createEruptionStep({ actor: () => actor, model: () => model, placed, sfx, breakGlass: glass.breakGlass, reduced, deps });
-  const thunder = createThunderStep({ actor: () => actor, reduced, sfx, landAt: eruption.landAt, deps });
-  deps.blockPlayerInput?.(() => shock.inputBlocked() || core.blocked());
-  deps.onBeforeRender?.(() => shockFx.applyShake(Math.max(reduced() ? 0 : shock.shakeNow, core.warnLeft > 0 ? T.core.throwOff.warnShakeDeg * (reduced() ? 0.25 : 1) : 0, quake.active && riding() ? T.slam2.quake.bodyShakeDeg * (reduced() ? 0.25 : 1) : 0), shock.time));
+  const stepSweep = createSweepStep({ actor: () => actor, shock, shockFx, deps: pd });
+  const beam = createBeamStep({ actor: () => actor, sfx, deps: pd });
+  const eruption = createEruptionStep({ actor: () => actor, model: () => model, placed, sfx, breakGlass: glass.breakGlass, reduced, deps: pd });
+  const thunder = createThunderStep({ actor: () => actor, reduced, sfx, landAt: eruption.landAt, deps: pd });
+  // ひるみの 入力止めは その人の 口だけに（2P が あとから 来たら その人の 口にも つなぐ）
+  const hooked = new WeakSet<GashaTarget>();
+  const hookInputs = (): void => {
+    for (const t of people()) {
+      if (hooked.has(t) || !t.blockInput) continue;
+      hooked.add(t);
+      const who = t.who;
+      t.blockInput(() => shock.inputBlocked(who) || (core.blocked() && hitterWho() === who));
+    }
+  };
+  hookInputs();
+  /** その人の 画面の ゆれ（度）: 衝撃・コアの 予兆・アースクエイクに のっている 間 */
+  const shakeDegOf = (who: 1 | 2): number => {
+    const t = personOf(who), k = reduced() ? 0.25 : 1;
+    return Math.max(reduced() ? 0 : shock.shakeNow(who), core.warnLeft > 0 ? T.core.throwOff.warnShakeDeg * k : 0, quake.active && t !== null && isRider(t) ? T.slam2.quake.bodyShakeDeg * k : 0);
+  };
+  deps.onBeforeRender?.(() => {
+    shockFx.applyShake(shakeDegOf(1), shock.time);
+    // 2 人の とき 2P の 半分にも 同じ ゆれ（1P と 同じ 式の 度を trauma に 直して その人の カメラへ。1 人の ときは なし）
+    if (deps.targets) { const t2 = personOf(2); if (t2?.shakeTo) { const d = shakeDegOf(2); if (d > 0) t2.shakeTo(d / T.duoShake.fullDeg); } }
+  });
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
 
   const clear = () => {
@@ -135,6 +169,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     deps.lighting?.registerTree(model.group, 'doll');
     const p = deps.player();
     const f = fwdOf(p);
+    aim.clear();
     const mx = at ? at.x : p.x + f.fx * T.place.distance, mz = at ? at.z : p.z + f.fz * T.place.distance;
     yaw = at && at.yawDeg !== undefined ? (at.yawDeg * Math.PI) / 180 : Math.atan2(p.x - mx, p.z - mz) + (T.place.faceYawOffsetDeg * Math.PI) / 180;
     const s = model.scale;
@@ -154,14 +189,14 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     // 間欠泉は ここで 場所を きめる（がしゃどくろが その後 動いても そのまま）
     geysers?.place({ x: pos.x, y: pos.y, z: pos.z, yaw, scale: s });
     actor = new BigActor(model, CLIPS, {
-      groundY: deps.groundY, player: deps.player, carryPlayer: deps.carryPlayer,
+      groundY: deps.groundY, player: pd.player, carryPlayer: deps.carryPlayer, targets: deps.targets ? people : undefined,
       onSlam: (x, y, z) => { if (farNow) return;
         shockFx.spawn(shock.add('slam', x, y, z));
         sfx.step();
         if (blockAt && deps.setBlockAir) crushAt(x, y, z, { getBlock: blockAt, setAir: deps.setBlockAir, onBlocks: deps.onCrushBlocks });
       },
       onTap: (x, y, z) => { if (farNow) return; shockFx.spawn(shock.add('tap', x, y, z)); sfx.step(); },
-      onAttackStart: (name) => { if (farNow) return; if (name === 'slam2') sfx.lift(); else if (name === 'sweep') sfx.windup(); else if (name === 'beam') sfx.omen(); else if (name === 'eruption') sfx.inhale(); else if (name === 'thunder') sfx.cloud(); },
+      onAttackStart: (name) => { aim.begin(); if (farNow) return; if (name === 'slam2') sfx.lift(); else if (name === 'sweep') sfx.windup(); else if (name === 'beam') sfx.omen(); else if (name === 'eruption') sfx.inhale(); else if (name === 'thunder') sfx.cloud(); },
       onEruptStart: () => { if (farNow) return; eruption.begin(); }, // 少女への 切りかえの 噴火（hold）は プレイヤーの まわりに 落とさない
       onThunderStrike: () => { if (farNow) return; thunder.onStrike(); },
       onThunderLand: () => { if (farNow) return; thunder.onLand(); },
@@ -182,7 +217,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   // ---- とどめの あと(FIX-BRIEF-2 §5): 一撃 → 倒れる → 赤い コア → たたくと ばらまく → こわすと くずれて 消える（gashaBigFinishStep.ts）----
   const finish = createFinishStep({
     actor: () => actor, model: () => model, pos: () => pos, hit: bh, sfx, core,
-    setAngry: (on) => { isAngry = on; }, clearFx: () => clearFx(false), stopBgm: () => bgm?.request('big', false), deps,
+    setAngry: (on) => { isAngry = on; }, clearFx: () => clearFx(false), stopBgm: () => bgm?.request('big', false), deps: hd,
   });
 
   deps.addPlayerSolid((x, y, z) => actor !== null && !hidden && actor.solid(x, y, z));
@@ -205,19 +240,23 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     if (!actor || hidden) { barrier.setOn(false); bgm?.step(); return; }
     stepBarrier(dt);
     updateHaze();
-    // プレイヤーが 遠い(perf.farDist より 遠い)間は 攻撃の 当たり・見た目・音・ゆれを まいコマ 省く(体の 動きと 体力だけ)。遠く なった しゅんかんに 画面の 効果・音を 片づける
-    const fp = deps.player();
-    const far = Math.hypot(fp.x - actor.pos.x, fp.z - actor.pos.z) > T.perf.farDist;
+    hookInputs();
+    // プレイヤーが 遠い(perf.farDist より 遠い)間は 攻撃の 当たり・見た目・音・ゆれを まいコマ 省く(体の 動きと 体力だけ)。遠く なった しゅんかんに 画面の 効果・音を 片づける。2 人の ときは 2 人とも 遠い とき
+    let far = true;
+    const list = people();
+    for (let i = 0; i < list.length; i++) { const fp = list[i]!.pos; if (Math.hypot(fp.x - actor.pos.x, fp.z - actor.pos.z) <= T.perf.farDist) { far = false; break; } }
+    if (list.length === 0) { const fp = deps.player(); far = Math.hypot(fp.x - actor.pos.x, fp.z - actor.pos.z) > T.perf.farDist; }
     if (far && !farNow) clearFx(false, true); // 燃えかすは ワールドに のこる もの: 遠くへ いっても 消さず（約 5 分の 寿命どおり）
     farNow = far;
     const wasAttack = actor.mode === 'attack';
     actor.update(dt);
+    if (actor.mode !== 'attack') aim.clear(); // わざが おわったら ねらいを はずす（次の わざの はじめに 決め直す）
     if (wasAttack && !actor.isAngry()) clearFx(false, true); // 攻撃の 途中で 怒りが 自然に とけた（calmSec）: 効果・雷・灰・音を 片づける（燃えかすは のこす）
     if (actor.held && !heldFired && finish.phase() === 'off') { heldFired = true; bgm?.cut(); deps.onHeld?.(); } // 固まった しゅんかん: BGM を ぶつっと 切って 少女を 呼ぶ
     if (far) {
       eruption.embers.update(dt); // 遠い 間も 燃えかすの 年れいは 進める（寿命どおり）
       bh.step(dt);
-      if (!defeatedFired && bh.hp <= 0) { defeatedFired = true; finish.start(); deps.onDefeated?.(); }
+      if (!defeatedFired && bh.hp <= 0) { defeatedFired = true; finish.start(); deps.onDefeated?.(hitterWho()); }
       finish.step(dt);
       if (actor) { pos = actor.pos; yaw = actor.yaw; }
       if (bgm && actor) { const w = actor.angryLeft > 0; if (w !== bgmWant) { bgmWant = w; bgm.request('big', w); } bgm.step(); }
@@ -225,7 +264,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     }
     model?.updateMoss();
     bh.step(dt);
-    if (!defeatedFired && bh.hp <= 0) { defeatedFired = true; finish.start(); deps.onDefeated?.(); if (!actor) return; }
+    if (!defeatedFired && bh.hp <= 0) { defeatedFired = true; finish.start(); deps.onDefeated?.(hitterWho()); if (!actor) return; }
     finish.step(dt);
     if (!actor) return; // くずれて 消えた 合図で 呼んだ 側が despawn() した
     glass.step(dt);
@@ -263,6 +302,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
 
   /** 片づける（#293 まとめ）。体・当たり・間欠泉・体力ゲージ・射線の 割りこみ・エフェクト・燃えかす・音を 消す。あとは place(at) で また 出せる */
   const despawn = (): void => {
+    aim.clear();
     clearFx(true);
     geysers?.dismiss();
     bh.dismiss();
@@ -281,8 +321,11 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     model.group.visible = !on;
     if (on) {
       // 体の 上に のっている 人は 地面へ おろす（高い 所から 落とさない）
-      const p = deps.player();
-      if (deps.carryPlayer && actor.boxUnder(p.x, p.y, p.z) >= 0) deps.carryPlayer(0, deps.groundY(Math.floor(p.x), Math.floor(p.z)) + 1 - p.y, 0, 0);
+      for (const t of people()) {
+        const p = t.pos;
+        if (t.carry && actor.boxUnder(p.x, p.y, p.z) >= 0) t.carry(0, deps.groundY(Math.floor(p.x), Math.floor(p.z)) + 1 - p.y, 0, 0);
+      }
+      aim.clear();
       clearFx(false);
       actor.abortAttack(); // 攻撃の 途中の 状態(払い・雷・噴火・光線)を ぜんぶ 片づける。怒りは のこす
       bh.bind([], null);
@@ -311,7 +354,8 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     finishInfo: () => finish.info(),
     maxHp: () => bh.maxHp,
     hp: () => bh.hp,
-    damage: (part, amount, at, source) => bh.damage(part, amount, at ?? null, source),
+    damage: (part, amount, at, source, who) => bh.damage(part, amount, at ?? null, source, who),
+    targetWho: () => (actor && !hidden ? aim.who() : null),
     section: (on) => {
       if (!model || !actor) return;
       const i = actor.model.hits.findIndex((h) => h.name === 'core');
@@ -360,7 +404,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     spawnGeyser: (x, z, sec) => geysers?.spawn(x, z, sec) ?? false,
     giveTabi: () => deps.giveNinjaTabi?.(),
     shock: () => ({
-      staggerLeft: shock.staggerLeft, inputBlocked: shock.inputBlocked(), hits: shock.hits.slice(), impacts: shock.impacts.length, shake: shock.shakeNow, lastPush: shock.lastPush,
+      staggerLeft: shock.staggerLeft(1), inputBlocked: shock.inputBlocked(1), hits: shock.hits(1).slice(), impacts: shock.impactCount, shake: shock.shakeNow(1), lastPush: shock.lastPush(1),
       slams: actor?.step.slams ?? 0, taps: actor?.step.taps ?? 0, phase: actor?.step.phase ?? '', fx: shockFx.counts(), lastSlam: actor?.lastSlam ?? null, lastTap: actor?.lastTap ?? null,
     }),
     info: () => ({

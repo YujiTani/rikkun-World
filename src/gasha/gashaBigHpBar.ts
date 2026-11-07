@@ -74,11 +74,16 @@ export class HpBar {
   private count!: HTMLElement;
   private shaker!: HTMLElement;
   private ratio = 1;
+  /** COOP-1 4d-3: 2 人の とき 右半分に 出す 2 つ目（id なし。data-testid="gasha-hp-p2"）。1 人の ときは null */
+  private twin: HpBar | null = null;
+  private baseCss = '';
+  private last = { hp: 1, max: 1 };
 
-  constructor(private readonly style: BarStyle = (T.hit.barStyle as BarStyle)) {
+  constructor(private readonly style: BarStyle = (T.hit.barStyle as BarStyle), isTwin = false) {
     this.root = el('div');
-    this.root.id = 'gashaBigHp';
+    if (!isTwin) this.root.id = 'gashaBigHp';
     this.build();
+    this.baseCss = this.root.style.cssText;
     // メニュー・本・ポーズ画面（#hud の 中で z-index 8 以上）より 下に 出す ため #hud の 中に 置く。実績の おしらせは body 直下（#hud の 外）なので いちばん 上の まま
     (document.getElementById('hud') ?? document.body).appendChild(this.root);
   }
@@ -106,9 +111,9 @@ export class HpBar {
     this.shaker = el('div', 'display:flex;flex-direction:column', this.root);
     // 上の 段: 名前（左）・どくろ（まん中）・数（右）
     const head = el('div', `position:relative;display:flex;align-items:flex-end;justify-content:space-between;height:${Math.round(skullH * 0.74)}px;padding:0 ${half}px ${p}px`, this.shaker);
-    const name = el('span', `font:900 ${H.barNameSizePx + 2}px/1 system-ui,sans-serif;letter-spacing:.14em;color:#fff;text-shadow:${stroke('#0a0d14', 2)},0 ${p}px 0 #0a0d14;white-space:nowrap`, head);
+    const name = el('span', `font:900 ${H.barNameSizePx + 2}px/1.3 system-ui,sans-serif;letter-spacing:.14em;color:#fff;text-shadow:${stroke('#0a0d14', 2)},0 ${p}px 0 #0a0d14;white-space:nowrap`, head);
     name.textContent = 'がしゃどくろ';
-    this.count = el('div', `font:900 ${Math.round(H.barNameSizePx * 1.35)}px/1 system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#fff;text-shadow:${stroke('#0a0d14', 2)},0 ${p}px 0 #0a0d14;letter-spacing:.04em;white-space:nowrap`, head);
+    this.count = el('div', `font:900 ${Math.round(H.barNameSizePx * 1.35)}px/1.3 system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#fff;text-shadow:${stroke('#0a0d14', 2)},0 ${p}px 0 #0a0d14;letter-spacing:.04em;white-space:nowrap`, head);
     // 枠つきの バー（左右は ひし形。外がわに 暗い ふちどり）
     const edge = el('div', `position:relative;z-index:1;filter:drop-shadow(${p}px 0 0 #0a0d14) drop-shadow(-${p}px 0 0 #0a0d14) drop-shadow(0 ${p}px 0 #0a0d14) drop-shadow(0 -${p}px 0 #0a0d14)`, this.shaker);
     const dia = (d: number): string => `polygon(0 50%,${d}px 0,calc(100% - ${d}px) 0,100% 50%,calc(100% - ${d}px) 100%,${d}px 100%)`;
@@ -226,6 +231,8 @@ export class HpBar {
       this.ghost.style.width = `${Math.round(r * 1000) / 10}%`;
     }
     this.ratio = r;
+    this.last.hp = hp; this.last.max = max;
+    this.twin?.set(hp, max, damaged, instant);
     this.count.textContent = `${Math.ceil(hp)} / ${max}`;
     this.root.dataset.hp = String(hp);
     if (damaged && !instant && H.barShakePx > 0 && !(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
@@ -236,5 +243,36 @@ export class HpBar {
     }
   }
 
-  destroy(): void { this.root.remove(); }
+  /**
+   * COOP-1 4d-3（§3.6 (c)「体力ゲージ」）: 2 人の とき（on）は 左半分（この ゲージ。data-testid="gasha-hp-p1"）と 右半分（2 つ目）に 分けて 出す。
+   * 位置は 半分の まん中。はばは 半分の 80% より 小さく、上は 距離メーター（上）と 右上の 時計（--rk-clock-bottom）の 下。2 つ目は 最初は かくれている（呼ぶ 側が display で 出す）。1 人に もどれば 2 つ目を 消して もとの 位置
+   */
+  halves(on: boolean): void {
+    if (on === (this.twin !== null)) return;
+    if (!on) {
+      this.twin?.destroy();
+      this.twin = null;
+      const shown = this.root.style.display;
+      this.root.style.cssText = this.baseCss;
+      this.root.style.display = shown;
+      this.root.removeAttribute('data-testid');
+      return;
+    }
+    const twin = new HpBar(this.style, true);
+    twin.root.style.display = 'none';
+    twin.set(this.last.hp, this.last.max, false, true);
+    this.twin = twin;
+    const H = T.hit;
+    const place = (r: HTMLElement, leftPct: number, id: string): void => {
+      r.style.left = `${leftPct}%`;
+      r.style.width = `min(40vw,${H.barMaxPx}px)`;
+      // 右上の 時計の 下はし（src/ui/clock.css の --rk-clock-bottom。時計の css から 足した 高さ）+ すき間 sp-3。左右とも 同じ 高さ（時計が ない ときの 予備は 1440 の 高さ）
+      r.style.top = 'calc(var(--rk-clock-bottom, 190px) + var(--rk-sp-3, 12px))';
+      r.dataset.testid = id;
+    };
+    place(this.root, 25, 'gasha-hp-p1');
+    place(twin.root, 75, 'gasha-hp-p2');
+  }
+
+  destroy(): void { this.twin?.destroy(); this.twin = null; this.root.remove(); }
 }

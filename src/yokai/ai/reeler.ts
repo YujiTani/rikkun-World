@@ -22,8 +22,8 @@ export class YokaiReeler {
     return Math.round(YOKAI_STATS[kind].cooldownSeconds * 60);
   }
 
-  /** 攻撃を 取り消して よろける（パリィの 成功・はね返しが 当たった）。できたら true */
-  applyStagger(id: number, by: StaggerBy): boolean {
+  /** 攻撃を 取り消して よろける（パリィの 成功・はね返しが 当たった）。できたら true。who = パリィした 人（COOP-1 4d-1。出来事の 行き先） */
+  applyStagger(id: number, by: StaggerBy, who: 1 | 2 = 1): boolean {
     const { f } = this.d;
     const e = f.ents.find((q) => q.id === id);
     if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove) return false;
@@ -43,7 +43,7 @@ export class YokaiReeler {
     this.d.stag.stagger(id, by);
     e.stag = true;
     e.stagPhase = 0;
-    this.d.opts.onParryEvent?.({ type: 'stagger', yokaiId: id, by });
+    this.d.opts.onParryEvent?.({ type: 'stagger', yokaiId: id, by }, who);
     return true;
   }
 

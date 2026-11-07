@@ -12,8 +12,10 @@ import { countryAt } from '../../world/gen/biome';
 import { groundHeightAt } from '../../world/gen/terrain';
 import { YokaiManager } from '../../yokai';
 import { creditDefeat, type CreditDeps } from '../../duo/credit';
+import { createParryEventSink, createParryPort } from '../../duo/p2Parry';
 import { MachoMarks } from '../../ui/machoMarks';
 import { FX_SETTINGS } from '../../fx/config';
+import { impactOf } from '../../fx/impact';
 import { queueKodachiSlash } from '../../fx/kodachiSlash';
 import { playKodachi } from '../../fx/weaponSounds';
 import type { WiredFighters } from './combat';
@@ -25,6 +27,17 @@ export function wireYokai(deps: WiredFighters) {
     strengthLevel, renderer, island, w2, legend, parry, parryFx, sparkAt, reducedMotionMq, fxSound, level,
   } = deps;
   const credit: CreditDeps = { level1: level, level2: shared.p2.levels, feedDefeat: (who, kind) => shared.onDefeatAch(kind, who) };
+  // COOP-1 4d-1: 妖怪の 攻撃は ねらっている 人の パリィに 聞く。1P の 側は 今の 中身（1P の parry・向き・火花）を そのまま 包む。2P の 側は 参加している あいだ だけ（いなければ 受けない）
+  const side1 = {
+    hit: (h: { by: 'attack' | 'fireball'; yokaiId: number | null; dirDeg: number | null; amount: number }) => {
+      const r = parry.hit({ dirDeg: h.dirDeg, yawDeg: controller.state.yawDeg, by: h.by, yokaiId: h.yokaiId, amount: h.amount });
+      if (r.first) parryFx.spark(bladeMidInto(sparkAt, controller.state.position, controller.state.facingDeg), reducedMotionMq?.matches ?? false, controller.state.facingDeg);
+      return { result: r.result, amount: r.amount };
+    },
+  };
+  const parrySide = (who: 1 | 2) => (who === 1 ? side1 : shared.p2Parry());
+  const parryNote = createParryEventSink((who) => (who === 1 ? parry : shared.p2Parry()));
+  const domeList: ({ x: number; y: number; z: number; r: number } | null)[] = [null, null];
   shared.yokaiManager = new YokaiManager({
     world,
     time,
@@ -54,30 +67,34 @@ export function wireYokai(deps: WiredFighters) {
     seaY: () => SEA_Y,
     settings: w2,
     // WEAPON-9: 弾は ドームの 球に ふれた ステップに 消える（音は 1 ステップに 1 つ）
+    // COOP-1 4d-2: 2P の ドームも 弾を 消す（0 番目 = 1P、1 番目 = 2P。2P が いなければ null）。音は 1 ステップに 1 つ（旗は 1P と 共通）
     dome: () => legend.dome(),
-    onDomeErase: (id) => {
-      legend.emit({ type: 'domeErase', tick: game.tick, projectileId: id });
+    domes: () => {
+      domeList[0] = shared.legendFor(1)?.dome() ?? null;
+      domeList[1] = shared.legendFor(2)?.dome() ?? null;
+      return domeList;
+    },
+    onDomeErase: (id, who) => {
+      (shared.legendFor(who) ?? legend).emit({ type: 'domeErase', tick: game.tick, projectileId: id });
       shared.domeEraseThisStep = true;
     },
     // WEAPON-7: ヌシが レジェンダリーを おとした → 上の 帯の テロップ
     onLegendDrop: (info) => shared.celebrate.enqueueTelop(info.item),
     // WEAPON-5: 妖怪の 攻撃が 当たる所で パリィに 聞く
-    parry: {
-      hit: (h) => {
-        const r = parry.hit({ dirDeg: h.dirDeg, yawDeg: controller.state.yawDeg, by: h.by, yokaiId: h.yokaiId, amount: h.amount });
-        if (r.first) parryFx.spark(bladeMidInto(sparkAt, controller.state.position, controller.state.facingDeg), reducedMotionMq?.matches ?? false, controller.state.facingDeg);
-        return { result: r.result, amount: r.amount };
-      },
-    },
-    onParryEvent: (e) => {
-      parry.note({ type: e.type, yokaiId: e.yokaiId, ...(e.by ? { by: e.by } : {}), ...(e.damage !== undefined ? { damage: e.damage } : {}) });
+    parry: createParryPort(parrySide),
+    onParryEvent: (e, who) => {
+      parryNote(e, who); // ねらわれた 人の パリィの 出来事の 列に だけ（1P の 列に 2P の ひるみを まぜない）
       if (e.type === 'staggerDouble') {
         shared.staggerIcons.burstAt(e.yokaiId);
         playParry(fxSound, 'staggerBreak');
       }
     },
     // COOP-1 3a: さいごの 1 発を 当てた 人の けいけんちに だけ 入る。実績は 2 人で 1 つ
-    onDefeat: (kind, info) => creditDefeat(credit, info.who, kind, info.xp),
+    onDefeat: (kind, info) => {
+      creditDefeat(credit, info.who, kind, info.xp);
+      // COOP-1 4d-0: 2 人の ときの たおした 手ごたえ（止め・ゆれ）は たおした 人の 半分だけ。1 人の ときは combatFx の onDefeat（今の まま）
+      if (shared.duoJoined()) shared.impactFor(info.who).hit(impactOf({ kind: 'defeat' }));
+    },
     // ぬりかべ: たおれこみでこわす・みず で石になる（くだけるつぶと音。fx はあとで作るので関数で包む）
     onBlocks: (cells, why) => {
       for (const c of cells) shared.fx.particles.burst({ x: c.x, y: c.y, z: c.z }, why === 'stone' ? c.to : c.from, FX_SETTINGS);

@@ -53,6 +53,8 @@ export class Game {
   private rafId = 0;
   private readonly updaters: Array<(dt: number) => void> = [];
   private readonly idleUpdaters: Array<(dt: number) => void> = [];
+  /** 実時間の 毎コマ（ステップ 0 回でも）、ステップの 前に 呼ぶ 処理 */
+  private readonly frameUpdaters: Array<(dt: number, worldRuns: boolean) => void> = [];
   /** ヒットストップで 止まっている ステップに 呼ぶ 処理（カメラの ゆれだけ 動かす） */
   private readonly frozenUpdaters: Array<(dt: number) => void> = [];
   /** ヒットストップ: あと 何ステップ 世界を 止めるか */
@@ -68,6 +70,8 @@ export class Game {
   /** 本が 出ている 間に 画面の 大きさが かわって、世界の 絵が きえた */
   private worldStale = false;
   private viewPass: { active(): boolean; render(): void } | null = null;
+  /** 全面の 光の 道（worldPass）で 描いた コマの 数（COOP-1 4d-0 の 試験の 口 `duo.state().fullPass` が 引き算で 読む） */
+  worldPassFrames = 0;
   private worldPass: { active(): boolean; render(r: THREE.WebGLRenderer, s: THREE.Scene, c: THREE.PerspectiveCamera): void } | null = null;
 
   constructor(private readonly container: HTMLElement) {
@@ -87,6 +91,14 @@ export class Game {
   /** 毎ステップ呼ばれる処理を登録する */
   onUpdate(fn: (dt: number) => void): void {
     this.updaters.push(fn);
+  }
+
+  /**
+   * 実時間の 毎コマ（固定ステップの 回数が 0 でも）、ステップを 進める 前に 呼ばれる 処理を登録する（COOP-1 4d-1。ゆっくりの あいだの 短い 押しを 取りこぼさない ため）。
+   * 2 つ目の 引数 worldRuns = 世界が 動いている（時間の 倍率が 0 より 大きい）。本・案内の あいだは 呼ばれない（ヒットストップの コマは 呼ばれる。止めの あいだは endFrame しない ので 押しは のこる）
+   */
+  onFrame(fn: (dt: number, worldRuns: boolean) => void): void {
+    this.frameUpdaters.push(fn);
   }
 
   /** ヒットストップ中（世界の 更新が 止まっている ステップ）に 毎ステップ呼ばれる処理を登録する */
@@ -140,7 +152,10 @@ export class Game {
   private drawWorld(): void {
     const wp = this.worldPass;
     const vp = this.viewPass;
-    if (wp && wp.active()) wp.render(this.renderer, this.scene, this.camera);
+    if (wp && wp.active()) {
+      this.worldPassFrames++;
+      wp.render(this.renderer, this.scene, this.camera);
+    }
     else if (vp && vp.active()) vp.render();
     else this.renderer.render(this.scene, this.camera);
   }
@@ -254,7 +269,9 @@ export class Game {
 
     const start = performance.now();
     // 何ステップ進めるかは 時計が決める（スローの倍率も かけ算で入る。WEAPON-5 AC8）
-    const n = this.clock.advance(elapsed / 1000, this.timeScale());
+    const scale = this.timeScale();
+    for (const fn of this.frameUpdaters) fn(Math.min(elapsed / 1000, 0.1), scale > 0);
+    const n = this.clock.advance(elapsed / 1000, scale);
     for (let i = 0; i < n; i++) this.update();
     this.render();
     this.frameStats.add(Math.max(elapsed, performance.now() - start));

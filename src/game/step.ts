@@ -18,6 +18,8 @@ import { type ItemId, cropKindOfBlock, VEG_ITEM } from '../contracts';
 import { FARM_HINT_VIEW } from '../ui/farmHintModel';
 import { actionHintLines } from '../ui/actionHintModel';
 import { impactOf } from '../fx/impact';
+import { feedLegendImpact, newLegendImpactState } from '../legend/legendImpact';
+import { createSelectLock } from '../legend/selectLock';
 import { cooldownCells } from '../ui/hotbarModel';
 import { skyDarkness, darkenFromBrightness } from '../world/light';
 import { waterSettings, waterWaveUniforms } from '../world/render/waterWave';
@@ -33,7 +35,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     coopMenu, itadakimasu, deliverAnimalEvents, animalFx, animalViews, pendingDust, animalHint, arrowRelay,
     screen, kodachi, geta, craft, furnaceWorld, storage, dropController, farm, renderer, m7, trackOldFarmSeeds,
     madeTracker, fxSound, pickupLog, log, celebrate, achievements, waterFx, farmFx, eyePos, sparkle,
-    sparkleView, sprayFx, sprinklers, dropper, notice, impactBus, titleOfYokai, kodachiHookBuf,
+    sparkleView, sprayFx, sprinklers, dropper, notice, impactBus, camFx1, camFx2, titleOfYokai, kodachiHookBuf,
     arrowVisuals, stuckVisuals, wearNotice, weaponFx, thunderFx, windWaveFx, reducedMotionMq, spiralFx,
     spiralDebris, chargeLight, handNow, chargeLightFx, handInfo, chargeChest, domeGrains, nijiCenter,
     nijiFx, slashFx, kodachiFx, fujinFx, raijinFx, rainbowFx, buffIcons, buffModel, parryFx, combatUi,
@@ -43,9 +45,10 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     hotbar, shiningCooldownOf, inventoryScreen, storageScreen, achievementsPage, logPage, inventoryTabs,
     updateAchievements, save, gadgets, seat,
   } = deps;
-  /** シャイニングの ドーム: 始めてから まだ 当たって いない（最初の 当たりだけ 大） */
-  let domeFirstHit = true;
-  let nijiLockSel = -1;
+  /** シャイニングの ドーム: 始めてから まだ 当たって いない（最初の 当たりだけ 大）。1P も 2P も 同じ 部品（legendImpact.ts） */
+  const legendImpact = newLegendImpactState();
+  /** シャイニング中は 手の 物を かえさせない（1P も 2P も 同じ 部品〔selectLock.ts〕） */
+  const selLock = createSelectLock();
   return (dt: number): void => {
     streamFrame();
     audioStep();
@@ -58,6 +61,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     if (parryIn.run && parryIn.active && isBladeItem(parryIn.item)) sprite?.preloadParry();
     parryIn.jingasa = armor.equipped('head') === SAMURAI_GEAR.head; // SAMURAI-1: 始めた ステップの 値が そのパリィの 間 つかわれる
     parry.update(parryIn);
+    shared.preYokai(); // COOP-1 4d-1: 2P の パリィの 入力も 妖怪の 更新の 前に（受けの はじめの F で 当たったとき おしい〔半分〕に ならない ように）。1 人の ときは 何もしない
     // WEAPON-2: 刀・弓の 動きの 制限（歩く倍率・ジャンプ止め）を プレイヤーへ
     {
       const bm = blade.motion();
@@ -71,7 +75,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       controller.motion.noRun = lm.noRun;
       // WEAPON-9: シャイニングの うかぶ（重力を 使わず 目標の 高さへ）と カメラを 引く
       controller.motion.hoverY = lm.hoverY ?? null;
-      rig.distanceOverride = legend.camDistance() ?? shared.duoCamDistance; // COOP-1: 2 人のときは 引く
+      rig.distanceOverride = legend.camDistance() ?? camFx1.override() ?? shared.duoCamDistance; // COOP-1: 2 人のときは 引く（4d-0: 1P の よせ・引きの 口 camFx1 が 次）
       // CHAR-2: わざのあいだは 向きを わざの向きに 固定（わざを始めたステップは あとで その場で）
       // WEAPON-3: 刀の わざ・パンチの あいだは 攻撃の向き u。攻撃・空ぶりは ＋マークへ 回らない（leftAims）
       // WEAPON-5: パリィの あいだは 今 向いている 方（カメラの 向き）を向く。始めた ステップは すべらず 止まる
@@ -88,14 +92,13 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     if (worldReady()) controller.update(dt); // 読みこみを まつ間は 動かない・落ちない（VOX-D）
     seat.afterUpdate(); // HOUSE-1D: 座って いる 間は「地面に 立って いる」ことに する（人形が とびあがる 形に ならない）
     // カメラ（肩の点 S）を先に決める。ねらい（dig.update）は S を使う（CHAR-1 第 5.2 版）
-    rig.update(dt);
+    // COOP-1 4d-0: 2 人の ときは 1P の 止め（体・ねらいは 進め、カメラだけ 止める）。2P の カメラの 止め・ゆれの 数えも ここ（当たりを 出す flush より 前）
+    camFx1.update(dt);
+    camFx2.step();
     if (worldReady()) yokaiM.update();
     if (worldReady()) animals.update();
     // WEAPON-9: シャイニング F1〜240 は 持ちかえ・もちもの画面を 出せない
-    if (legend.locked()) {
-      if (nijiLockSel < 0) nijiLockSel = inventory.selected();
-      else if (inventory.selected() !== nijiLockSel) inventory.select(nijiLockSel);
-    } else nijiLockSel = -1;
+    selLock.step(legend.locked(), inventory);
     dig.update();
     // WEAPON-7 PR2: 真空波（刀が きまった あと。体は ふみこんだ あとの 位置）
     {
@@ -296,17 +299,10 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     {
       const evs = legend.drainEvents();
       const holdingLegend = legend.chargeable(inventory.held()?.item ?? null);
+      feedLegendImpact(impactBus, evs, legendImpact); // 出来事 → 手ごたえの 段（1P と 2P で 同じ 部品）
       for (const e of evs) {
         thunderFx.onEvent(e);
         windWaveFx.onEvent(e);
-        if (e.type === 'lightningStrike' && e.hits.length > 0) impactBus.hit(impactOf({ kind: 'charged' }));
-        // シャイニングの ドーム: 始めてから 最初の 当たりだけ 大。2 回目からは 止めなし（ゆれは 中の 量）
-        if (e.type === 'waveHit' || e.type === 'spiralHit') impactBus.hit(impactOf({ kind: 'repeat' })); // 真空波・らせん: 止めなし
-        if (e.type === 'shiningStart') domeFirstHit = true;
-        if (e.type === 'domeHit') {
-          impactBus.hit(impactOf({ kind: domeFirstHit ? 'charged' : 'repeat' }));
-          domeFirstHit = false;
-        }
         if (e.type === 'lightningStrike') {
           for (const id of e.hits) {
             const y = yokaiM.list().find((q) => q.id === id);
@@ -442,6 +438,6 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     renderer.update({ x: pp.x, z: pp.z });
     save.update(game.tick + 1);
     // #276: このステップの 当たりを まとめて 1 回（ヒットストップ・画面の ゆれ）
-    impactBus.flush();
+    shared.impactFlush();
   };
 }

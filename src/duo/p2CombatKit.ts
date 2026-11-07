@@ -45,6 +45,8 @@ export interface P2CombatKitOptions {
   rng?: Rng;
   /** 2P の はじめの 高さ（落ちる ダメージの 準備に 使う）。既定 8（床の 上） */
   y?: number;
+  /** COOP-1 4d-2: わざの 受ける ダメージの 倍率・落下なしの 口（`createP2Legend().combat`）。wire/duoPlay.ts の build() も 同じ 2 つを わたす */
+  ports?: { takenMul?: () => number; noFall?: () => boolean };
 }
 
 export function makeP2Combat(o: P2CombatKitOptions = {}) {
@@ -71,6 +73,8 @@ export function makeP2Combat(o: P2CombatKitOptions = {}) {
     rng: o.rng ?? createRng(1),
     drops,
     armor: p2.armor,
+    takenMul: o.ports?.takenMul,
+    noFall: o.ports?.noFall,
   });
   const life = new P2Life({ combat, p1Down: () => false });
   const run = (n: number) => {

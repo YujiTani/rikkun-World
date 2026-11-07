@@ -30,6 +30,7 @@ import { createEruptions } from './gashaGirlEruption';
 import { createVortices } from './gashaGirlVortex';
 import { createProjs, chestOf, type GirlStats } from './gashaGirlProjs';
 import { createShy } from './gashaGirlShy';
+import { createGirlAim } from './gashaGirlAim';
 
 export type { GashaGirlDeps } from './gashaGirlTypes';
 
@@ -87,6 +88,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const pivot = new Group();
   pivot.add(model);
   scene.add(pivot);
+  const aim = createGirlAim(deps, () => pivot.position);
   // 立ち姿の ポーズを 保存（詠唱のあと もどす）
   const standPose: { bone: Object3D; q: Quaternion; p: Vector3 }[] = [];
   model.traverse((o) => { if ((o as Bone).isBone) standPose.push({ bone: o, q: o.quaternion.clone(), p: o.position.clone() }); });
@@ -117,26 +119,26 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   /** パリィに 聞く（当たる 瞬間）。success: 防ぐ／はね返す、early: ダメージが へる */
   let parryForce: 'success' | 'early' | null = null;
   const askParry = (by: 'attack' | 'fireball', at: { x: number; y: number; z: number }) => {
-    const p = deps.player();
+    const p = aim.player();
     if (parryForce) return { result: parryForce, amount: parryForce === 'early' ? T.damage.heart / 2 : T.damage.heart }; // テスト用
-    return deps.parry({ dirDeg: bearingOf({ x: p.x, y: p.y, z: p.z }, at), by, amount: T.damage.heart });
+    return aim.parry({ dirDeg: bearingOf({ x: p.x, y: p.y, z: p.z }, at), by, amount: T.damage.heart });
   };
   /** 設置系（輪・渦）の 当たり: パリィは 防ぐだけ。'hit' = ダメージが 入った、'blocked' = 防いだ、'retry' = むてき時間 など */
   const setHit = (from: { x: number; y: number; z: number }): 'hit' | 'blocked' | 'retry' => {
     const r = askParry('attack', from);
     if (r.result === 'success') { st2.parried++; return 'blocked'; }
     if (r.result === 'early') st2.parryEarly++;
-    const ok = deps.hurt(r.result === 'early' ? r.amount : T.damage.heart, from);
+    const ok = aim.hurt(r.result === 'early' ? r.amount : T.damage.heart, from);
     if (ok) { stats.hits++; sfx.playerHit(); }
     return ok ? 'hit' : 'retry';
   };
   let nextSetHit = 0; // 設置系の 次の 判定（むてき時間と おなじ ぐらい あける）
   let flinchT = 0, flinchTotal = 1, reflectWait = 0;
-  const hurtPlayer = (from: { x: number; y: number; z: number }, amount = T.damage.heart): boolean => { const ok = deps.hurt(amount, from); if (ok) { stats.hits++; sfx.playerHit(); } return ok; };
+  const hurtPlayer = (from: { x: number; y: number; z: number }, amount = T.damage.heart): boolean => { const ok = aim.hurt(amount, from); if (ok) { stats.hits++; sfx.playerHit(); } return ok; };
 
   // ---- 魔法 1（噴き出す）・魔法 2（渦）・弾（魔法 3・4）。効果音は あとで 作る ので 使う ときに 取りだす ----
   const groundY: GashaGirlDeps['groundY'] = (x, z) => deps.groundY(x, z);
-  const player: GashaGirlDeps['player'] = () => deps.player();
+  const player: GashaGirlDeps['player'] = () => aim.player();
   const eruptions = createEruptions({ scene, gfx, add, smoke, vr, vrng, rng, groundY, player, sfx: () => sfx });
   const erups = eruptions.list, fireEruptions = eruptions.fire;
   const vortexes = createVortices({ scene, gfx, add, vr, groundY, pivot, sfx: () => sfx });
@@ -175,11 +177,11 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     if (camMode === 'overview' || !pivot.visible) return false;
     const lookLike = camMode === 'look' || camMode === 'close';
     headCenter(headC);
-    const p = deps.player();
+    const p = aim.player(), cam = aim.camera();
     if (lookLike) viewPos.set(p.x, p.y + 1.6, p.z);
-    else deps.camera.getWorldPosition(viewPos);
+    else cam.getWorldPosition(viewPos);
     const to = tmpV.copy(headC).sub(viewPos); const d = to.length(); to.divideScalar(d || 1);
-    if (lookLike) viewDir.copy(to); else deps.camera.getWorldDirection(viewDir);
+    if (lookLike) viewDir.copy(to); else cam.getWorldDirection(viewDir);
     if (Math.acos(Math.min(1, viewDir.dot(to))) > T.eye.angleDeg * D2R) return false;
     for (let s = 0.5; s < d - 0.5; s += 0.25) if (deps.solid(Math.floor(viewPos.x + to.x * s), Math.floor(viewPos.y + to.y * s), Math.floor(viewPos.z + to.z * s))) return false;
     return true;
@@ -229,7 +231,8 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     else { ang = (rng() * 2 - 1) * T.warp.far.fanDeg * D2R; dist = T.warp.far.distMin + (T.warp.far.distMax - T.warp.far.distMin) * rng(); }
   };
   const teleport = () => {
-    const p = deps.player(); const f = fwdOf(p);
+    aim.begin(); // あらわれる ステップで ねらう 人を 決める（この 魔法の あいだは かえない）
+    const p = aim.player(); const f = fwdOf(p);
     let dx: number, dz: number;
     if (spell >= 2) { dx = f.fx * Math.cos(ang) + f.rx * Math.sin(ang); dz = f.fz * Math.cos(ang) + f.rz * Math.sin(ang); }
     else if (side === 'left') { dx = -f.rx; dz = -f.rz; } else { dx = -f.fx; dz = -f.fz; }
@@ -251,7 +254,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const handPos = (out: Vector3) => hand.getWorldPosition(out);
   const hp = new Vector3(), dirV = new Vector3();
   const fireWave = (shift: number) => { // 前方 180° の 扇に 16 発（2 波目は 少し ずらした 角度）
-    const p = deps.player();
+    const p = aim.player();
     handPos(hp); chestOf(p, chest);
     const base = Math.atan2(chest.x - hp.x, chest.z - hp.z); // +Z 基準の 向き
     const pit = Math.atan2(chest.y - hp.y, Math.hypot(chest.x - hp.x, chest.z - hp.z));
@@ -264,7 +267,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     purpleBurstAt(hp, 0x80c0ff);
   };
   const fire = () => {
-    const p = deps.player();
+    const p = aim.player();
     if (spell === 0) fireEruptions();
     else if (spell === 1) fireVortices();
     else if (spell === 3) fireWave(0);
@@ -278,7 +281,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     return out.set(pivot.position.x + Math.sin(a) * r, pivot.position.y + H * (0.58 + 0.24 * tier) + 0.15 * Math.sin(t * 3 + i * 1.7), pivot.position.z + Math.cos(a) * r);
   };
   const shootFireball = (i: number) => {
-    const p = deps.player(); orbPos(i, hp); chestOf(p, chest);
+    const p = aim.player(); orbPos(i, hp); chestOf(p, chest);
     const h = Math.atan2(chest.x - hp.x, chest.z - hp.z) + (i % 2 ? 1 : -1) * vr(0.1, 0.4);
     const pit = T.s3.pitchRad;
     dirV.set(Math.sin(h) * Math.cos(pit), Math.sin(pit), Math.cos(h) * Math.cos(pit));
@@ -375,11 +378,11 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     if (pivot.visible) { purpleBurst(8); lineBurst(); }
     pivot.position.set(x, groundAt(x, z), z);
     pivot.visible = true; fade(0);
-    faceTo(deps.player());
+    faceTo(aim.player());
     purpleBurst(14); sfx.warpIn();
   };
   const onIntro = (e: IntroEvent) => {
-    const p = deps.player(), I = T.intro;
+    const p = aim.player(), I = T.intro;
     if (e.kind === 'laugh') { phase = 'laugh'; pt = 0; pivot.visible = false; sfx.laugh(); }
     else if (e.kind === 'warp') {
       phase = 'orbit'; pt = 0; ensureFootBase(); restorePose(); model.position.y = y0; model.rotation.y = 0;
@@ -407,7 +410,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     const P = T.perch;
     const isDown = phase === 'down' || phase === 'crumble';
     if (isDown && downPerched) { const sp = opts.perchSpot?.() ?? null; if (sp) pivot.position.set(sp.x, sp.y, sp.z); }
-    faceTo(deps.player());
+    faceTo(aim.player());
     for (const k of Object.keys(SIT_DELTA)) { const v = SIT_DELTA[k]!; const q = sitNow[k] ?? (sitNow[k] = [0, 0, 0]); q[0] = v[0]; q[1] = v[1]; q[2] = v[2]; }
     const sw = isDown ? 0 : P.swayDeg * Math.sin((perchT / Math.max(0.1, P.swaySec)) * Math.PI * 2); // とどめの あとは 足も 動かさない
     sitNow.LeftLeg![0] = SIT_DELTA.LeftLeg![0] + sw; sitNow.RightLeg![0] = SIT_DELTA.RightLeg![0] - sw;
@@ -453,7 +456,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     bgm.uncut(); bgm.request('girl', false);
     sfxPlayer.stopAll?.();
     restorePose(); model.position.y = y0; model.position.x = 0;
-    const p = deps.player();
+    const p = aim.player();
     const sp = wasPerch ? opts.perchSpot?.() ?? null : null;
     downPerched = !!sp;
     if (sp) pivot.position.set(sp.x, sp.y, sp.z);
@@ -493,7 +496,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     t += dt; pt += dt;
     const frozen = flinchT > 0;
     if (frozen) { flinchT -= dt; pt -= dt; const u = 1 - Math.max(0, flinchT) / flinchTotal; model.rotation.x = -T.parry.flinchTiltRad * Math.sin(Math.PI * u); if (flinchT <= 0) model.rotation.x = 0; } // 短く 止まって 小さく のけぞる
-    const p = deps.player();
+    const p = aim.player();
     if (phase === 'stand') {
       faceTo(p); idleSway();
       if (holdStand) pt = 0;
@@ -621,10 +624,10 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     if (camMode === 'idleSide') { const q = pivot.rotation.y; cam.position.set(pivot.position.x + Math.cos(q) * 4.6, pivot.position.y + 1.7, pivot.position.z - Math.sin(q) * 4.6); cam.lookAt(pivot.position.x, pivot.position.y + 1.5, pivot.position.z); cam.updateMatrixWorld(true); }
     if (camMode === 'idle') { const q = pivot.rotation.y; cam.position.set(pivot.position.x + Math.sin(q) * 3.8 + Math.cos(q) * 1.0, pivot.position.y + 1.9, pivot.position.z + Math.cos(q) * 3.8 - Math.sin(q) * 1.0); cam.lookAt(pivot.position.x, pivot.position.y + 1.5, pivot.position.z); cam.updateMatrixWorld(true); }
     // 決めポーズを 撮る(GIF 用): pose = プレイヤーの 目の 高さから、poseSide = 少女の 右の 真横から 腰の 高さで(見本と おなじ 向き)
-    if (camMode === 'pose') { const p = deps.player(); cam.position.set(p.x, p.y + 1.6, p.z); cam.lookAt(pivot.position.x, pivot.position.y + 2.1, pivot.position.z); cam.updateMatrixWorld(true); }
+    if (camMode === 'pose') { const p = aim.player(); cam.position.set(p.x, p.y + 1.6, p.z); cam.lookAt(pivot.position.x, pivot.position.y + 2.1, pivot.position.z); cam.updateMatrixWorld(true); }
     if (camMode === 'poseSide') { const q = pivot.rotation.y + model.rotation.y; const hy = hipsBone ? hipsBone.getWorldPosition(gw).y + 0.3 : pivot.position.y + 2; cam.position.set(pivot.position.x - Math.cos(q) * 4.6, hy, pivot.position.z + Math.sin(q) * 4.6); cam.lookAt(pivot.position.x, hy, pivot.position.z); cam.updateMatrixWorld(true); }
     if (camMode !== 'default' && cam.fov !== wantFov) { cam.fov = wantFov; cam.updateProjectionMatrix(); } // ふだんの 画角は ゲームに まかせる
-    if ((camMode === 'look' || camMode === 'close') && pivot.visible) { const p = deps.player(); headCenter(headC);
+    if ((camMode === 'look' || camMode === 'close') && pivot.visible) { const p = aim.player(); headCenter(headC);
       cam.position.set(p.x, p.y + 1.6, p.z);
       if (camMode === 'close') { upOff.copy(cam.position).sub(headC); upOff.y = 0; cam.position.copy(headC).addScaledVector(upOff.normalize(), 1.7); cam.position.y = headC.y + 0.1; } // 顔の すぐ 前まで 近づく
       cam.lookAt(headC.x, headC.y + (camMode === 'close' ? 0.15 : 0), headC.z); cam.updateMatrixWorld(true); }
@@ -638,7 +641,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
 
   // ---- 外から 使う（テスト・スクショ） ----
   const place = (opts?: { groundY?: number; shift?: number; side?: boolean }) => {
-    const p = deps.player(); const f = fwdOf(p);
+    const p = aim.player(); const f = fwdOf(p);
     const sd = opts?.shift ?? 0;
     const x = p.x + f.fx * 5 + f.rx * sd, z = p.z + f.fz * 5 + f.rz * sd;
     pivot.position.set(x, (opts?.groundY ?? deps.groundY(Math.floor(x), Math.floor(z))) + 1, z);
@@ -682,7 +685,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     info: () => ({
       bgmFile: bgm.info('saiyaku').file, bgmStarted: bgm.info('saiyaku').started, bgmDur: bgm.info('saiyaku').duration, bgmLoop: bgm.info('saiyaku').loop,
       bgmLoops: bgm.info('saiyaku').loops, bgmFade: bgm.info('saiyaku').fade, bgmCtx: bgm.info('saiyaku').ctx, bgmPlaying: bgm.status().playing ?? 'none', bgmGirlLock: bgm.status().girlLock,
-      turn, cancels, eyeContact: eyeNow, soundCount, lastSoundT, bigCount, shy: shy.active(), warnRing: warn0(), camMode, camFov: (deps.camera as PerspectiveCamera).fov, parried: st2.parried, parryEarly: st2.parryEarly, reflected: st2.reflected, reflectHits: st2.reflectHits, flinch: flinchT > 0, hitActive: erups.some((e) => e.hitActive()), eruptionR: Math.max(...erups.map((e) => (e.e.t >= 0 ? e.e.rad : 0))), eruptionMaxR: T.s1.radius, playerHp: deps.hp(), playerMaxHp: deps.maxHp(), phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: Math.max(...erups.map((e) => e.e.t)), vortexT: Math.max(...vortices.map((v) => v.v.t)), vortexCount: vortices.filter((v) => v.v.t >= 0).length,
+      turn, cancels, eyeContact: eyeNow, soundCount, lastSoundT, bigCount, shy: shy.active(), warnRing: warn0(), camMode, camFov: (deps.camera as PerspectiveCamera).fov, parried: st2.parried, parryEarly: st2.parryEarly, reflected: st2.reflected, reflectHits: st2.reflectHits, flinch: flinchT > 0, hitActive: erups.some((e) => e.hitActive()), eruptionR: Math.max(...erups.map((e) => (e.e.t >= 0 ? e.e.rad : 0))), eruptionMaxR: T.s1.radius, aimWho: aim.who() ?? 0, playerHp: aim.hearts().hp, playerMaxHp: aim.hearts().maxHp, phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: Math.max(...erups.map((e) => e.e.t)), vortexT: Math.max(...vortices.map((v) => v.v.t)), vortexCount: vortices.filter((v) => v.v.t >= 0).length,
       fireballs: projs.filter((q) => q.on && q.kind === 0).length, waves: projs.filter((q) => q.on && q.kind === 1).length,
       ...(stats as unknown as Record<string, number>), girlX: pivot.position.x, girlZ: pivot.position.z, footGap: pivot.visible ? feetLow() : 0, poseName: T.intro.poseName,
     }),

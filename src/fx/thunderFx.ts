@@ -57,6 +57,8 @@ export interface ThunderFxDeps {
   camera: THREE.Camera;
   basePath?: string;
   seed?: number;
+  /** COOP-1 4d-2: 2P 用。板だけを 区画に 重ねる（`renderInPane`）。世界を 絵に 描く 入れ物・うつす 板は 作らない */
+  paneOnly?: boolean;
 }
 
 /** ため中の 見た目の 入力（毎ステップ） */
@@ -139,6 +141,7 @@ const BOLT_FRAG = `
 uniform sampler2D uSheet;
 uniform float uCol;
 uniform float uFlip;
+uniform float uSoft;
 varying vec2 vUv;
 varying float vLayer;
 ${DEPTH_GLSL}
@@ -147,8 +150,11 @@ void main() {
   if (uFlip > 0.5) lu.x = 1.0 - lu.x;
   vec2 st = vec2((uCol * ${BOLT.cellW}.0 + lu.x * ${BOLT.cellW}.0) / ${BOLT.sheetW}.0, 1.0 - (vLayer * ${BOLT.cellH}.0 + (1.0 - lu.y) * ${BOLT.cellH}.0) / ${BOLT.sheetH}.0);
   vec4 c = texture2D(uSheet, st);
-  float diff = sceneDist() - vDist;
-  float soft = diff <= 0.0 ? 0.0 : clamp(floor(diff * 8.0 + 0.0001) / 4.0, 0.0, 1.0);
+  float soft = 1.0;
+  if (uSoft > 0.5) {
+    float diff = sceneDist() - vDist;
+    soft = diff <= 0.0 ? 0.0 : clamp(floor(diff * 8.0 + 0.0001) / 4.0, 0.0, 1.0);
+  }
   gl_FragColor = vec4(c.rgb, c.a * soft);
   #include <colorspace_fragment>
 }`;
@@ -273,8 +279,11 @@ export class ThunderFx {
   private readonly yawState = { yaw: 0 };
   private billboard: ReturnType<typeof boltBillboard> | null = null;
 
+  private readonly paneOnly: boolean;
+
   constructor(deps: ThunderFxDeps) {
     this.cam = deps.camera;
+    this.paneOnly = deps.paneOnly === true;
     const base = deps.basePath ?? BASE;
     this.timeline = new ThunderTimeline((deps.seed ?? 7) ^ 0x7a11);
     this.shown = this.timeline.view();
@@ -282,7 +291,7 @@ export class ThunderFx {
     // 雷（3 まいを 1 つの 形に まとめる: 6 三角形）
     this.sheet = loadTexture(`${base}${THUNDER_ASSETS.sheet.file}`);
     this.boltMat = new THREE.ShaderMaterial({
-      uniforms: { ...this.depthU, uSheet: { value: this.sheet }, uCol: { value: 0 }, uFlip: { value: 0 } },
+      uniforms: { ...this.depthU, uSheet: { value: this.sheet }, uCol: { value: 0 }, uFlip: { value: 0 }, uSoft: { value: 1 } },
       vertexShader: BOLT_VERT,
       fragmentShader: BOLT_FRAG,
       transparent: true,
@@ -512,8 +521,9 @@ export class ThunderFx {
       }
     }
     renderer.compile(this.fxScene, camera);
-    renderer.compile(this.blitScene, this.blitCam);
+    if (!this.paneOnly) renderer.compile(this.blitScene, this.blitCam);
     for (const o of hidden) o.visible = false;
+    if (this.paneOnly) return; // 2P 用は 世界の 絵の 入れ物を 作らない
     // 世界の 絵の 入れ物も 先に 確保（最初の 落雷で 作ると ひっかかる）。大きさが 変われば render で 作りなおす
     renderer.getDrawingBufferSize(_size);
     if (!this.rt) this.rt = this.makeRt(renderer, _size.x, _size.y);
@@ -564,6 +574,22 @@ export class ThunderFx {
     renderer.render(this.fxScene, camera);
     renderer.autoClear = wasAutoClear;
     info.autoReset = wasAuto;
+  }
+
+  /**
+   * COOP-1 4d-2: 2 人の とき、いまの 区画の 描き先に 雷 B の 板（fxScene）だけを 重ねる。世界を 絵に しない・うつす 板を 使わない・深さの 書きもどしを しない。
+   * 深さは その 区画の 深さバッファを そのまま 使う（やわらかい 深さは なし）。active() が false の ときは 何も 描かない。
+   * `DuoViewRenderer` の afterPane（各区画の 世界の 描画の すぐ あと。同じ viewport・scissor の 中）から 呼ぶ。
+   */
+  renderInPane(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void {
+    if (!this.shown.active) return;
+    const soft = this.boltMat.uniforms.uSoft!;
+    soft.value = 0;
+    const wasAutoClear = renderer.autoClear;
+    renderer.autoClear = false;
+    renderer.render(this.fxScene, camera);
+    renderer.autoClear = wasAutoClear;
+    soft.value = 1;
   }
 
   /** テストの 窓口 */

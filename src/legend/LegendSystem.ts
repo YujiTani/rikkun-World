@@ -53,6 +53,11 @@ export interface LegendDeps {
   powerMul?: (item: ItemId | null) => number;
   /** 雷の 形（4 通り）を えらぶ 乱数の もと（シード付き） */
   seed?: number;
+  /**
+   * COOP-1 4d-2: その人の カメラの ふだんの きょり（マス）。シャイニングの 引きが もどる 先。**毎回 呼んで 読む**（2 人 ↔ 1 人に かわっても ついてくる）。
+   * なければ 4（1 人の ときの 今の まま = DUO_TUNING.cameraSolo）
+   */
+  baseDistance?: () => number;
 }
 
 export interface LegendStepCtx {
@@ -218,6 +223,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
   const centerNow: Vec3 = { x: 0, y: 0, z: 0 };
   const domeOut = { x: 0, y: 0, z: 0, r: 0 };
   const domeRadiusNow = (): number => (sh && move ? (move.F >= sh.def.riseSteps + sh.def.holdSteps + sh.def.fallSteps ? 0 : shiningRadiusAt(move.F, sh.def.radius, sh.def.riseSteps, sh.def.holdSteps, sh.def.fallSteps)) : 0);
+  const baseDist = (): number => deps.baseDistance?.() ?? 4;
   const lastDist = { v: 4 };
   // すいこみ（§5.3.1）: すわれて いる 妖怪の 位置（つぶ用）・すいこみの 音
   const pulledNow: Vec3[] = [];
@@ -337,7 +343,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
       deps.sound?.('shiningStart');
     }
     domeStep(F);
-    lastDist.v = shiningCamDistanceAt(F, deps.settings.shiningCamDistance, d.riseSteps, d.holdSteps, d.fallSteps);
+    lastDist.v = shiningCamDistanceAt(F, deps.settings.shiningCamDistance, d.riseSteps, d.holdSteps, d.fallSteps, baseDist());
     if (F === move.total) endShining(false);
   }
 
@@ -669,7 +675,10 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
 
     camDistance(): number | null {
       if (sh && move) return lastDist.v;
-      if (camBack) return 4 + (camBack.from - 4) * (1 - easeInOut(1 - camBack.left / BACK_STEPS));
+      if (camBack) {
+        const b = baseDist();
+        return b + (Math.max(camBack.from, b) - b) * (1 - easeInOut(1 - camBack.left / BACK_STEPS));
+      }
       return null;
     },
   };

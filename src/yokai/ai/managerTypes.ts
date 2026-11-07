@@ -91,14 +91,19 @@ export interface YokaiManagerOptions {
   parry?: YokaiParryPort;
   /** WEAPON-9: シャイニングの ドームの 球（なければ null）。火の玉などの 弾は ふれた ステップに 消える */
   dome?: () => { x: number; y: number; z: number; r: number } | null;
-  /** WEAPON-9: 弾が ドームで 消えた（弾の id） */
-  onDomeErase?: (projectileId: number) => void;
+  /** COOP-1 4d-2: 2 人分の ドームの 球（0 番目 = 1P、1 番目 = 2P。いない 人・出ていない ときは null）。あれば `dome` より こちらを 見る。毎回 同じ 配列を 返す */
+  domes?: () => readonly ({ x: number; y: number; z: number; r: number } | null)[];
+  /** WEAPON-9: 弾が ドームで 消えた（弾の id。who = 消した ドームの 持ち主 1 か 2。1 人の ときは いつも 1） */
+  onDomeErase?: (projectileId: number, who: 1 | 2) => void;
   /** COUNTRY-1 §3.3: (x, z) の 国の kind を 聞く（つなぎ込みは countryAt を わたす。なければ いつも はらっぱ） */
   countryOf?: (x: number, z: number) => string;
   /** COUNTRY-1 §3.3: 国の表（kind と 妖怪の重み）。なければ 12 国の表 */
   countryTable?: readonly { kind: string; yokai: YokaiRow }[];
-  /** WEAPON-5: よろけ・2 倍・はね返しが当たった 出来事を パリィの 出来事の 列へ */
-  onParryEvent?: (e: { type: 'stagger' | 'staggerDouble' | 'reflectHit'; yokaiId: number; by?: StaggerBy; damage?: number }) => void;
+  /**
+   * WEAPON-5: よろけ・2 倍・はね返しが当たった 出来事を パリィの 出来事の 列へ。
+   * COOP-1 4d-1: who = その 出来事の もとに なった パリィの 人（stagger = 受けた 攻撃の ねらい、reflectHit = はね返した 火の玉の ねらい、staggerDouble = ダメージを 当てた 人）。1 人の ときは いつも 1
+   */
+  onParryEvent?: (e: { type: 'stagger' | 'staggerDouble' | 'reflectHit'; yokaiId: number; by?: StaggerBy; damage?: number }, who: 1 | 2) => void;
 }
 
 /** パリィの 答え（`createParry().hit` と 同じ形のうち 使う分） */
@@ -109,8 +114,11 @@ export interface YokaiParryVerdict {
 }
 
 export interface YokaiParryPort {
-  /** dirDeg = プレイヤーの足もとから 来た向き（0 = 北。null = 真上・真下）。amount = 元のダメージ */
-  hit(h: { by: 'attack' | 'fireball'; yokaiId: number | null; dirDeg: number | null; amount: number }): YokaiParryVerdict;
+  /**
+   * dirDeg = プレイヤーの足もとから 来た向き（0 = 北。null = 真上・真下）。amount = 元のダメージ。
+   * COOP-1 4d-1: who = ねらっている 人（その人の パリィに 聞く）。1 人の ときは いつも 1
+   */
+  hit(h: { by: 'attack' | 'fireball'; yokaiId: number | null; dirDeg: number | null; amount: number }, who: 1 | 2): YokaiParryVerdict;
 }
 
 /** 飛んでいる 火の玉の 見た目の 情報（テストの窓口 `yokai.fireballList()`） */
