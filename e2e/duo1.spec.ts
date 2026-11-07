@@ -232,7 +232,7 @@ test('AC14: 1 人の 描画は SOLO_BASELINE の 1.2 倍以下。2P が 参加�
   expect(after.triangles).toBeLessThanOrEqual(Math.ceil(before.triangles * 1.02));
 });
 
-test('AC11・AC75・AC15: 2 人用の もちもの画面を 開いても 倍率は 1 で 世界は 止まらない。2P の ボタンで 本・建築士さん・とりごや・たんすは 開かない', async ({ page }) => {
+test('AC11・AC75・AC95: 2 人用の もちもの画面を 開いても 倍率は 1 で 世界は 止まらない。2P の ボタンで 本・建築士さん・とりごやは 開かない（たんす・かまどは ねらった ときだけ 開く。ここでは 何も ねらって いない）', async ({ page }) => {
   await open(page);
   await standOnGround(page, 100.5, 100.5, { yaw: 90 });
   await installPads(page);
@@ -293,7 +293,7 @@ test('AC11・AC75・AC15: 2 人用の もちもの画面を 開いても 倍率�
   await tapE();
   await expect(page.getByTestId('duo-inv-p1')).toBeHidden();
   await expect(page.getByTestId('duo-inv-p2'), '2P の パネルは 開いたまま').toBeVisible();
-  // 2P の パネルを とじてから、2P の パッドで 画面を 開く ボタンを ひと通り 押す（select・十字・L3・R3・面ボタン）。開かないのは 本・建築士さん・とりごや・たんす
+  // 2P の パネルを とじてから、2P の パッドで 画面を 開く ボタンを ひと通り 押す（select・十字・L3・R3・面ボタン）。開かないのは 本・建築士さん・とりごや（4c から たんす・かまども ねらえば 開くが、ここは 何も ねらって いない。たんす・かまどの 開き方は duoTansu.spec.ts・src/duo/p2Dig.test.ts）
   await setPad(page, 1, { buttons: [1] });
   await step(page, 3);
   await setPad(page, 1, {});

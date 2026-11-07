@@ -1,5 +1,8 @@
 import type { Page } from '@playwright/test';
 import { NINJA_GEAR, SAMURAI_GEAR } from '../../src/craft/config';
+import { ITEM_TYPES } from '../../src/inventory/items';
+import type { DuoVec3 } from '../../src/duo/types';
+import { STORAGE_DEFAULTS } from '../../src/storage/StorageSystem';
 import { findUnrubiedKanji } from '../../src/ui/text';
 import { openDuoHud, setFakePad, installFakePads, type DuoUiIssue } from './duoUi';
 
@@ -14,10 +17,20 @@ import { openDuoHud, setFakePad, installFakePads, type DuoUiIssue } from './duoU
  *   `duo.sample(who)`（新しい 口・`?duo=dev` だけ）: その 人の もちものを 見本で いっぱいに する（2 人用 画面の「いちばん 多い とき」を UI 検査で 見る ため）。→ 仕様 §12.0 に 足す。
  *   COOP-1 4b（1.10 §12.0）: `duo.equip(who, head, body, arms?, legs?)`（`?duo=dev` だけ）と `duo.armor(who)`（その 人の ArmorSnapshot。2P が いなければ who 2 は null）。
  *   2 人用 画面の「もちもの」ページには そうびの マス 4 つ（`.equip-slot[data-slot]`。1P と 同じ EquipPanel）が 見え、着ている 物は `data-item` が つく。
- *   パッドの ボタン（standard）: 下 0 = confirm・右 1 = closeMenu・左 2 = もちもの画面を 開く（2P）・十字 12 上・13 下・14 左・15 右。
+ *   パッドの ボタン（standard）: 下 0 = confirm・右 1 = closeMenu・左 2 = もちもの画面を 開く（2P）・十字 12 上・13 下・14 左・15 右・ZL 6（2P の「やく」）。
+ *
+ * ---- 【4c】COOP-1 4c（§3.3「4c の しくみ」・§9.8・§12.0、AC80・AC81・AC94）で 足した 部分。実装の 前に 書いた。目印は 今の 画面と 同じ名前を 使う ----
+ *   duo-inv-tab-furnace / duo-inv-tab-tansu   3 つ目の タブ。かまど／たんすを 開いている あいだ だけ ある（ほかの とき・もう 片方は 要素ごと ない）。高さ 56 以上・字 16px 以上。
+ *   たんすの マス: `[data-tansu="<番号>"]`（今の StorageScreen の まま。2 人用の 画面の 中に 9 列 × 54）。中身が ある マスには `data-rarity`（今の まま）。えらびの 名前は `tansu:<番号>`。
+ *   たんすの 帯の ボタン: `.tansu-act` が ちょうど 3 つ（ぜんぶ しまう・おなじ もの を しまう・ぜんぶ とりだす）。1 行・高さ 56 以上。2 人用では「えらんだ もの を しまう」（`.tansu-act` の 4 つ目）は 出さない（1P も）。
+ *   （id `tansu-store-all` などは 1 つの 画面に 1 つ。2 つ 目の 画面〔2P〕の 帯の ボタンには id を つけない。E2E は class で さがす）
+ *   たんすの 名前（`.tansu-title`）・絵（`.tansu-icon`）・金具の 帯（`.tansu-band`）は 2 人用では 出さない。たんすは 9 列 × 3 段 見えて、のこりは `.tansu-grid` の 中だけで たてに スクロール。
+ *   「やく」の ページ: 「つくる」と 同じ 配置（`.cp-tile` が 左、`.cp-detail` が 右）。かまどの 絵（`canvas.bake-furnace`）は 出さない。`.cp-detail` の ◀▶（`.cp-prev`・`.cp-next`）は 1024 で 47.5 以上、1280・1440 で 55.5 以上。
+ *   `duo.inv(who).page` は 'furnace'・'tansu'、`focus` は 開いた ときは 'tansu:0'・`tile:<はじめの やく レシピ>`（AC80）。
+ *   2P が 開く: かまどを ねらって ZL（ボタン 6）・たんすを ねらって Y（ボタン 2）か ZL。1P が 開く: かまどを ねらって 右クリック（secondary）・たんすを ねらって E か 右クリック。
  */
 
-export const PAD = { confirm: 0, close: 1, inventory: 2, up: 12, down: 13, left: 14, right: 15 } as const;
+export const PAD = { confirm: 0, close: 1, inventory: 2, zl: 6, up: 12, down: 13, left: 14, right: 15 } as const;
 export type PadDir = 'up' | 'down' | 'left' | 'right';
 
 export interface InvSnap {
@@ -52,6 +65,7 @@ function selectorOf(goal: string): string {
   if (goal.startsWith('tab:')) return `[data-testid="duo-inv-tab-${goal.slice(4)}"]`;
   if (goal.startsWith('tile:')) return `.cp-tile[data-id="${goal.slice(5)}"]`;
   if (goal.startsWith('slot:')) return `.inv-slot[data-index="${goal.slice(5)}"]`;
+  if (goal.startsWith('tansu:')) return `[data-tansu="${goal.slice(6)}"]`;
   if (goal === 'craft') return '.cp-detail .cp-press';
   if (goal === 'quit') return '[data-testid="duo-quit"]';
   if (goal === 'close') return '[data-testid="duo-inv-close"]';
@@ -91,14 +105,61 @@ export async function padSteer(page: Page, goal: string, index = 1): Promise<voi
   throw new Error(`40 回 押しても ${goal} に 着かない`);
 }
 
+/**
+ * 2 人の 前に かまど／たんすを 1 つ 置き、2 人とも そこを ねらう（`duo.aimAt`。`?duo=dev` だけ）。置いた マスを 返す。
+ * たんすは 全部の マスを いったん 空に する。full を 渡すと「いちばん 多い とき」: 全部の マスを 登録表の 先頭から 数の 上限で いっぱいに する（id を 直書きしない）。
+ * 2 人とも そのマスを ねらえている ことまで 見る（ねらえて いなければ 開かない ため）。
+ */
+export async function placeStation(page: Page, kind: 'tansu' | 'furnace', opts: { full?: boolean } = {}): Promise<DuoVec3> {
+  const slots = STORAGE_DEFAULTS.tansuSlots; // たんすの マスの 数（設定の 表から。決め打ちしない）
+  const fill = opts.full ? ITEM_TYPES.slice(0, slots).map((t) => ({ item: t.id, count: Math.min(64, t.maxStack) })) : [];
+  const cell: DuoVec3 = await page.evaluate(
+    ({ kind, fill, slots }) => {
+      const h = (window as any).__rikkun;
+      const p1 = h.duo.pos(1);
+      const p2 = h.duo.pos(2);
+      const c = { x: Math.floor(Math.max(p1.x, p2.x)) + 2, y: Math.floor(p2.y) + 1, z: Math.floor(p2.z) };
+      h.world.fill(c.x - 1, c.y - 1, c.z - 1, c.x + 1, c.y + 1, c.z + 1, 'air');
+      h.world.setBlock(c.x, c.y, c.z, kind);
+      if (kind === 'tansu') {
+        for (let i = 0; i < slots; i++) h.storage.set(c.x, c.y, c.z, i, fill[i] ?? null);
+      }
+      h.duo.aimAt(1, c);
+      h.duo.aimAt(2, c);
+      h.step(2);
+      return c;
+    },
+    { kind, fill, slots },
+  );
+  const aimed = await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    return [h.duo.target(1)?.block ?? null, h.duo.target(2)?.block ?? null];
+  });
+  if (JSON.stringify(aimed[0]) !== JSON.stringify(cell) || JSON.stringify(aimed[1]) !== JSON.stringify(cell)) {
+    throw new Error(`2 人とも ${kind} を ねらえて いない（1P ${JSON.stringify(aimed[0])}・2P ${JSON.stringify(aimed[1])}・${JSON.stringify(cell)}）`);
+  }
+  return cell;
+}
+
+/** 1P が ねらった かまどを 右クリック（secondary）で 開く（「やく」の ページ） */
+export async function openFurnace1P(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.input.press('secondary');
+    h.input.release('secondary');
+    h.step(3);
+  });
+}
+
 // ---------------------------------------------------------------------------------------------
 // UI 検査（AC81）: 2 人とも 開いた 画面
 
-export type InvScreenPage = 'items' | 'craft';
+export type InvScreenPage = 'items' | 'craft' | 'furnace' | 'tansu';
 
 /**
  * 2 人とも もちもの画面を 開いた 画面を 出す（いちばん 多い とき: 見本で いっぱい・お知らせと メーターが 出ている）。
  * 1P は E、2P は パッド。page = 'craft' なら 1P は タブを クリック、2P は 十字と confirm で「つくる」の ページに する。
+ * 4c: page = 'furnace' なら かまどを 置いて 1P は 右クリック・2P は ZL、'tansu' なら 54 マスいっぱいの たんすを 置いて 1P は E・2P は Y（AC80）。
  */
 export async function openDuoInv(page: Page, which: InvScreenPage): Promise<void> {
   await openDuoHud(page);
@@ -115,6 +176,20 @@ export async function openDuoInv(page: Page, which: InvScreenPage): Promise<void
     },
     { g1: NINJA_GEAR, g2: SAMURAI_GEAR },
   );
+  if (which === 'furnace') {
+    await placeStation(page, 'furnace');
+    await openFurnace1P(page);
+    await tapPad(page, 1, PAD.zl);
+    await stepN(page, 6);
+    return;
+  }
+  if (which === 'tansu') {
+    await placeStation(page, 'tansu', { full: true });
+    await tapE(page);
+    await tapPad(page, 1, PAD.inventory);
+    await stepN(page, 6);
+    return;
+  }
   await tapE(page);
   await tapPad(page, 1, PAD.inventory);
   if (which === 'craft') {
@@ -171,7 +246,7 @@ export async function duoInvIssues(page: Page, which: InvScreenPage): Promise<Du
       }
       const frame = (root.querySelector('.inv-frame') as HTMLElement | null) ?? (root.firstElementChild as HTMLElement | null) ?? root;
       const slots = Array.from(root.querySelectorAll<HTMLElement>('.inv-slot[data-index]')).filter(visible).map((e) => e.getBoundingClientRect().width);
-      const btnSel = ['[data-testid^="duo-inv-tab-"]', '[data-testid="duo-inv-close"]', '[data-testid="duo-quit"]', ...(which === 'craft' ? ['.cp-detail .cp-press'] : [])].join(',');
+      const btnSel = ['[data-testid^="duo-inv-tab-"]', '[data-testid="duo-inv-close"]', '[data-testid="duo-quit"]', ...(which === 'craft' || which === 'furnace' ? ['.cp-detail .cp-press'] : [])].join(',');
       const buttons = Array.from(root.querySelectorAll<HTMLElement>(btnSel)).filter(visible).map((e) => ({ id: e.getAttribute('data-testid') ?? e.className, w: e.getBoundingClientRect().width, h: e.getBoundingClientRect().height }));
       const tabFont = Array.from(root.querySelectorAll<HTMLElement>('[data-testid^="duo-inv-tab-"]')).filter(visible).map((e) => parseFloat(getComputedStyle(e).fontSize));
       const lefts = new Set(Array.from(root.querySelectorAll<HTMLElement>('.cp-tile')).filter(visible).map((e) => Math.round(e.getBoundingClientRect().left)));
@@ -235,7 +310,7 @@ export async function duoInvIssues(page: Page, which: InvScreenPage): Promise<Du
       const filled = p.equip.filter((e) => e.filled).length;
       if (filled !== wornCount) add('layout', name, `着ている ${wornCount} つの うち 絵が 出ている マスは ${filled}`);
     }
-    if (which === 'craft') {
+    if (which === 'craft' || which === 'furnace') {
       const want = small ? 3 : 4;
       if (p.tileColumns !== want) add('layout', name, `レシピの 列が ${p.tileColumns}（${want} 列の はず）`);
     }
@@ -258,5 +333,86 @@ export async function duoInvIssues(page: Page, which: InvScreenPage): Promise<Du
   const [a, b] = info;
   if (a?.box && b?.box && a.box.l < b.box.r && b.box.l < a.box.r) add('overlap', 'duo-inv-p1', '1P と 2P の パネルが 重なる');
   // 矢印が 開いた パネルの 上に 出ない こと（AC87）は、2P を 遠くに 置く openDuoArrowPanel（duoArrowPanelIssues）が 見る。ここは 近い 場面で duo.arrow が いつも null なので 見ない
+  return out;
+}
+
+/**
+ * 4c の 画面（やく・たんす）の 検査（AC80・AC81）。`duoInvIssues` の 検査（半分の 中・はみ出し・ちぢめ・ボタン 56・タブ 16px・メーター等に かからない・ふりがな）に 足して:
+ *  - 3 つ目の タブが その 1 つ だけ ある（やく の ページに たんす の タブは ない。逆も）
+ *  - たんす: 帯の ボタン 3 つが 1 行で 高さ 56 以上、名前・絵・金具の 帯・「えらんだ もの を しまう」は 見えない、
+ *    たんす 9 列 × 3 段が まるごと 見えて（27 マス）、のこりの 段は `.tansu-grid` の 中だけ スクロール（パネル ぜんたいは スクロールしない）
+ *  - やく: かまどの 絵（canvas.bake-furnace）は 見えない、◀▶ は 1024 で 47.5 以上・1280/1440 で 55.5 以上
+ */
+export async function duoInvStationIssues(page: Page, which: 'furnace' | 'tansu'): Promise<DuoUiIssue[]> {
+  const out = await duoInvIssues(page, which);
+  const add = (kind: string, target: string, detail: string) => out.push({ kind, target, detail });
+  const vw: number = await page.evaluate(() => innerWidth);
+  const small = vw <= 1100;
+  interface StationInfo {
+    who: 1 | 2;
+    tabs: string[];
+    shown: Record<string, boolean>;
+    band: Array<{ top: number; h: number }>;
+    gridCols: number;
+    fullyVisibleCells: number;
+    gridScrolls: boolean;
+    gridXOverflow: boolean;
+    arrows: Array<{ id: string; w: number; h: number }>;
+  }
+  const info: StationInfo[] = await page.evaluate(() => {
+    const visible = (e: Element) => {
+      const b = e.getBoundingClientRect();
+      const cs = getComputedStyle(e);
+      return b.width > 0 && b.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none';
+    };
+    return ([1, 2] as const).map((who) => {
+      const root = document.querySelector<HTMLElement>(`[data-testid="duo-inv-p${who}"]`);
+      const q = (sel: string) => (root ? Array.from(root.querySelectorAll<HTMLElement>(sel)).filter(visible) : []);
+      const grid = root?.querySelector<HTMLElement>('.tansu-grid') ?? null;
+      const gr = grid?.getBoundingClientRect();
+      const cells = q('[data-tansu]');
+      const lefts = new Set(cells.map((c) => Math.round(c.getBoundingClientRect().left)));
+      const fully = gr ? cells.filter((c) => { const b = c.getBoundingClientRect(); return b.top >= gr.top - 1 && b.bottom <= gr.bottom + 1; }).length : 0;
+      return {
+        who,
+        tabs: q('[data-testid^="duo-inv-tab-"]').map((e) => e.getAttribute('data-testid') ?? ''),
+        shown: {
+          title: q('.tansu-title').length > 0,
+          icon: q('.tansu-icon').length > 0,
+          band: q('.tansu-band').length > 0,
+          furnaceArt: q('canvas.bake-furnace').length > 0,
+        },
+        band: q('.tansu-act').map((e) => ({ top: e.getBoundingClientRect().top, h: e.getBoundingClientRect().height })),
+        gridCols: lefts.size,
+        fullyVisibleCells: fully,
+        gridScrolls: !!grid && grid.scrollHeight > grid.clientHeight + 1,
+        gridXOverflow: !!grid && grid.scrollWidth > grid.clientWidth + 1,
+        arrows: q('.cp-detail .cp-prev, .cp-detail .cp-next').map((e) => ({ id: e.className, w: e.getBoundingClientRect().width, h: e.getBoundingClientRect().height })),
+      };
+    });
+  });
+  const mine = `duo-inv-tab-${which}`;
+  const other = `duo-inv-tab-${which === 'tansu' ? 'furnace' : 'tansu'}`;
+  for (const p of info) {
+    const name = `duo-inv-p${p.who}`;
+    if (!p.tabs.includes(mine)) add('tab', name, `3 つ目の タブ ${mine} が 見えない`);
+    if (p.tabs.includes(other)) add('tab', name, `${other} は ない はず`);
+    if (p.tabs.length !== 3) add('tab', name, `タブは 3 つ（${p.tabs.length}）`);
+    if (which === 'tansu') {
+      if (p.band.length !== 3) add('layout', name, `帯の ボタンが 3 つでない（${p.band.length}。「えらんだ もの を しまう」は 出さない）`);
+      if (p.band.some((b) => Math.abs(b.top - p.band[0]!.top) > 1)) add('layout', name, '帯の ボタンが 1 行に ならんで いない');
+      for (const b of p.band) if (b.h < 55.5) add('size', name, `帯の ボタンの 高さ ${b.h.toFixed(1)} が 56 より 小さい`);
+      for (const k of ['title', 'icon', 'band'] as const) if (p.shown[k]) add('layout', name, `たんすの ${k}（名前・絵・金具の 帯）は 2 人用では 出さない`);
+      if (p.gridCols !== 9) add('layout', name, `たんすの 列が ${p.gridCols}（9 列の はず）`);
+      if (p.fullyVisibleCells !== 27) add('layout', name, `まるごと 見える たんすの マスが ${p.fullyVisibleCells}（9 列 × 3 段 = 27 の はず）`);
+      if (!p.gridScrolls) add('scroll', name, 'たんすの 中が スクロールできない（54 マス 6 段の うち 3 段しか 見えない はず）');
+      if (p.gridXOverflow) add('scroll', name, 'たんすの 中が よこに はみ出す');
+    } else {
+      if (p.shown.furnaceArt) add('layout', name, 'かまどの 絵（bake-furnace）は 「やく」の ページに 出さない');
+      const min = small ? 47.5 : 55.5;
+      if (p.arrows.length !== 2) add('layout', name, `せつめいの ◀▶ が 2 つ 見えない（${p.arrows.length}）`);
+      for (const a of p.arrows) if (a.w < min || a.h < min) add('size', name, `◀▶ の 大きさ ${a.w.toFixed(1)}×${a.h.toFixed(1)} が ${min} より 小さい`);
+    }
+  }
   return out;
 }

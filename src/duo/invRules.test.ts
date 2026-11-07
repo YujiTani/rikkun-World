@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { ACTIONS, type Action } from '../input/actions';
+import { BAKE_RECIPES } from '../craft/recipes';
 import {
+  duoFirstFocus,
   duoInvSnapshot,
+  duoPageAvailable,
+  duoPageFallback,
   duoPageOf,
+  duoQuitShown,
+  duoTabs,
   invAccepts,
   invCloseReason,
   invLayoutFor,
   invPadCommand,
   invQuitHeld,
+  scrollTopToShow,
+  tansuBandIds,
   type InvLayout,
   type InvSource,
 } from './invRules';
@@ -41,6 +49,25 @@ import { DUO_TUNING } from './tuning';
  *                                                             1P: 倒れた → 'down' だけ。1P の パッドが ぬけても（padLost）null（キー・マウスで つづく）。1P には「やめた」が ない。
  *   配線（wireDuo）: 毎ステップ invLayoutFor で 1P の 画面の 形を きめ、invCloseReason が null でなければ その人の パネルを とじる（手に もっている 物は invClose.ts〔invClose.test.ts〕）。
  *   足りない 口: 仕様 §12.0 の 表に 上の 関数名は いらない（内側の 約束）。
+ *
+ * ---- 【4c】COOP-1 4c（§3.3「4c の しくみ」・§8 の 宿題 4〜6・§9.8・AC80・AC81）で src/duo/invRules.ts に 足す 関数（DOM を 使わない）----
+ *   duoTabs(open: { furnace: boolean; storage: boolean }): readonly DuoInvPage[]
+ *       上の タブの 並び。いつも ['items', 'craft']、かまどを 開いている あいだは 3 つ目に 'furnace'、たんすを 開いている あいだは 3 つ目に 'tansu'
+ *       （両方 同時には 出ない。両方 true には ならない〔開いている 人は その場に 止まり、Y・ZL は 何も しない〕ので 決めない）。
+ *   duoPageAvailable(page: DuoInvPage, open: { furnace; storage }): boolean   … duoTabs に ある ページか
+ *   duoPageFallback(page: DuoInvPage, open: { furnace; storage }): DuoInvPage … 今の ページが もう 出せない（かまど・たんすが こわれた）なら 'items'、出せるなら そのまま
+ *       （パネルは とじない。もちもの／つくる へ 行っても 3 つ目の タブは とじるまで のこる〔open の まま〕）
+ *   duoFirstFocus(page: DuoInvPage, bakeRecipeIds: readonly string[]): string | null
+ *       開いた ときの 最初の えらび（`duo.inv(who).focus`）。'tansu' → 'tansu:0'、'furnace' → `tile:${bakeRecipeIds[0]}`（はじめの やく レシピ）。
+ *       'items'・'craft' は 4a の とおり（null ＝ 画面の いちばん はじめの 物を 呼ぶ側が えらぶ）。やく レシピが 0 こ なら null。
+ *   duoQuitShown(page: DuoInvPage): boolean   … 2P の「やめる」(`duo-quit`) を 出すページ。'items' だけ（つくる・やく・たんす には 出さない）
+ *   scrollTopToShow(index: number, g: { columns: number; rowHeight: number; rowGap: number; viewHeight: number; scrollTop: number }): number
+ *       たんす（9 列）・レシピの 列で、index の マスの 段が まるごと 見える ために 中の スクロール量を どうするか（新しい scrollTop）。
+ *       すでに まるごと 見えていれば そのまま。上に はみ出していれば その 段の 上へ、下に はみ出していれば その 段の 下が 見える 最小の 量へ。
+ *       段 r の 上 = r × (rowHeight + rowGap)・下 = 上 + rowHeight。
+ *   tansuBandIds(layout: InvLayout): readonly string[]
+ *       たんすの 帯の ボタンの 種類の 名前（`StorageScreen` の 中の ボタン。1P は これを id に 使う。2P の 画面の ボタンには id を つけない〔id は 1 つの 画面に 1 つ〕。E2E は `.tansu-act` で さがす）。'full' は ['tansu-store-all', 'tansu-store-same', 'tansu-take-all', 'tansu-store-marked']、
+ *       'duo' は「えらんだ もの を しまう」（しるし。マウスの Ctrl クリック）を 出さない ので 最初の 3 つ だけ（1P も 2P も 同じ。宿題 6）。
  */
 
 describe('AC75・AC79: 画面の 形（data-layout）', () => {
@@ -201,5 +228,113 @@ describe('AC89: とじる とき（その人が 倒れた・2P の パッドが 
   });
   it('2P が パッドぬけで 60 秒 たって やめた とき 理由は「やめた」（消える）', () => {
     expect(invCloseReason(2, { down: false, padLost: true, left: true })).toBe('left');
+  });
+});
+
+describe('AC80: 3 つ目の タブ（やく・たんす）', () => {
+  const none = { furnace: false, storage: false };
+  const furnace = { furnace: true, storage: false };
+  const storage = { furnace: false, storage: true };
+
+  it('ふだんは もちもの・つくる の 2 つ。かまどを 開いている あいだは 3 つ目に やく、たんすを 開いている あいだは 3 つ目に たんす（両方 同時には 出ない）', () => {
+    expect(duoTabs(none)).toEqual(['items', 'craft']);
+    expect(duoTabs(furnace)).toEqual(['items', 'craft', 'furnace']);
+    expect(duoTabs(storage)).toEqual(['items', 'craft', 'tansu']);
+  });
+  it('ページが 出せるか: やくは かまどを 開いている とき だけ、たんすは たんすを 開いている とき だけ。もちもの・つくる は いつも', () => {
+    for (const o of [none, furnace, storage]) {
+      expect(duoPageAvailable('items', o)).toBe(true);
+      expect(duoPageAvailable('craft', o)).toBe(true);
+    }
+    expect(duoPageAvailable('furnace', furnace)).toBe(true);
+    expect(duoPageAvailable('furnace', storage)).toBe(false);
+    expect(duoPageAvailable('furnace', none)).toBe(false);
+    expect(duoPageAvailable('tansu', storage)).toBe(true);
+    expect(duoPageAvailable('tansu', furnace)).toBe(false);
+    expect(duoPageAvailable('tansu', none)).toBe(false);
+  });
+  it('「もちもの」「つくる」へ 行っても 3 つ目の タブは のこる（開いている あいだ）', () => {
+    for (const page of ['items', 'craft'] as const) {
+      expect(duoPageFallback(page, furnace)).toBe(page);
+      expect(duoTabs(furnace)).toContain('furnace');
+      expect(duoTabs(storage)).toContain('tansu');
+    }
+  });
+  it('かまど・たんすが こわれた（出せなく なった）ら 今の ページは「もちもの」へ（パネルは とじない）。出せる ページは そのまま', () => {
+    expect(duoPageFallback('furnace', none)).toBe('items');
+    expect(duoPageFallback('tansu', none)).toBe('items');
+    expect(duoPageFallback('furnace', storage)).toBe('items');
+    expect(duoPageFallback('furnace', furnace)).toBe('furnace');
+    expect(duoPageFallback('tansu', storage)).toBe('tansu');
+    expect(duoPageFallback('craft', none)).toBe('craft');
+  });
+  it('2P の「やめる」は「もちもの」の ページ だけ', () => {
+    expect(duoQuitShown('items')).toBe(true);
+    expect(duoQuitShown('craft')).toBe(false);
+    expect(duoQuitShown('furnace')).toBe(false);
+    expect(duoQuitShown('tansu')).toBe(false);
+  });
+});
+
+describe('AC80・§8 宿題 5: 開いた ときの 最初の えらび', () => {
+  const ids = BAKE_RECIPES.map((r) => r.id);
+  it('たんす → tansu:0、やく → はじめの やく レシピ（登録表の 先頭）', () => {
+    expect(ids.length).toBeGreaterThan(0);
+    expect(duoFirstFocus('tansu', ids)).toBe('tansu:0');
+    expect(duoFirstFocus('furnace', ids)).toBe(`tile:${ids[0]}`);
+  });
+  it('やく レシピが 0 こ なら null（えらべる 物が ない）', () => {
+    expect(duoFirstFocus('furnace', [])).toBeNull();
+  });
+  it('もちもの・つくる は 4a の とおり（null ＝ いちばん はじめの 物）', () => {
+    expect(duoFirstFocus('items', ids)).toBeNull();
+    expect(duoFirstFocus('craft', ids)).toBeNull();
+  });
+});
+
+describe('§8 宿題 5・§9.8: たんすの 中を えらびに ついて スクロール（9 列・3 段 見える・6 段）', () => {
+  const g = (scrollTop: number) => ({ columns: 9, rowHeight: 40, rowGap: 4, viewHeight: 3 * 40 + 2 * 4, scrollTop });
+
+  it('見えている 3 段（0〜26）の マスは そのまま', () => {
+    for (let i = 0; i < 27; i++) expect(scrollTopToShow(i, g(0)), `index ${i}`).toBe(0);
+  });
+  it('見えない 段（27〜53）に 入ったら、その 段の 下が まるごと 見える 最小の 量まで', () => {
+    // 段 3: 上 132・下 172 → 下に そろえて 172 − 128 = 44
+    expect(scrollTopToShow(27, g(0))).toBe(44);
+    expect(scrollTopToShow(35, g(0))).toBe(44);
+    // 段 5（いちばん 下）: 上 220・下 260 → 132
+    expect(scrollTopToShow(53, g(0))).toBe(132);
+    expect(scrollTopToShow(45, g(0))).toBe(132);
+  });
+  it('下まで スクロール している とき 上の 段に 入ったら、その 段の 上へ', () => {
+    // scrollTop 132 → 見える 段は 3〜5。段 0 → 0、段 2（上 88）→ 88
+    expect(scrollTopToShow(0, g(132))).toBe(0);
+    expect(scrollTopToShow(18, g(132))).toBe(88);
+    expect(scrollTopToShow(9, g(132))).toBe(44);
+  });
+  it('すでに まるごと 見えている 段は うごかさない（中途半端な 位置でも）', () => {
+    // scrollTop 44: 見える 範囲は 44〜172。段 1（44〜84）・段 3（132〜172）は まるごと 見える
+    expect(scrollTopToShow(9, g(44))).toBe(44);
+    expect(scrollTopToShow(27, g(44))).toBe(44);
+  });
+  it('一部だけ 見えている 段は まるごと 見える ところまで（上に 少し はみ出す・下に 少し はみ出す）', () => {
+    expect(scrollTopToShow(0, g(10))).toBe(0); // 段 0 は 上が 10 かくれている
+    expect(scrollTopToShow(27, g(10))).toBe(44); // 段 3 は 下が はみ出す
+  });
+  it('十字で 下へ 1 段ずつ 進んでも えらびが いつも 見える（0 → 53）', () => {
+    let top = 0;
+    for (let i = 0; i < 54; i += 9) {
+      top = scrollTopToShow(i, g(top));
+      const rowTop = Math.floor(i / 9) * 44;
+      expect(rowTop, `index ${i}`).toBeGreaterThanOrEqual(top);
+      expect(rowTop + 40, `index ${i}`).toBeLessThanOrEqual(top + 128);
+    }
+  });
+});
+
+describe('§8 宿題 6: 2 人用では「えらんだ もの を しまう」を 出さない', () => {
+  it('2 人用の たんすの 帯は 3 つ（1P も 2P も 同じ）。全面は しるし用を ふくめた 4 つ', () => {
+    expect(tansuBandIds('duo')).toEqual(['tansu-store-all', 'tansu-store-same', 'tansu-take-all']);
+    expect(tansuBandIds('full')).toEqual(['tansu-store-all', 'tansu-store-same', 'tansu-take-all', 'tansu-store-marked']);
   });
 });
