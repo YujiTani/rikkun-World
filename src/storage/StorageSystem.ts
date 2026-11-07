@@ -47,6 +47,11 @@ export interface StorageDeps {
   onSound?: (name: StorageSound) => void;
   /** 入りきらなかった（合図の文字を出す）。which = どっちが いっぱい */
   onFull?: (which: 'inv' | 'tansu') => void;
+  /**
+   * MINE-1E（E11）: 記録が まだ ない たんすを はじめて あける とき・あける 前に こわす ときだけ 呼ぶ（`placed` では 呼ばない）。
+   * 返した 山が 中身に なる（なければ null ＝ 空）。キャンプの たんすの 中身（`campPreview`）を わたす 口
+   */
+  firstFill?: (x: number, y: number, z: number) => ItemStack[] | null;
 }
 
 const key = (x: number, y: number, z: number) => `${x},${y},${z}`;
@@ -113,21 +118,30 @@ export class StorageSystem implements TansuMaterialStore {
     return !isFurnKind(b, K_TANSU) && b !== 'outside';
   }
 
-  /** そこの たんす の記録。たんす でなければ null。記録がなければ（テストで置いた）空で作る */
-  private ensure(x: number, y: number, z: number): TansuRecord | null {
-    if (!this.isTansu(x, y, z)) return null;
-    const k = key(x, y, z);
-    let r = this.records.get(k);
-    if (!r) {
-      r = { x, y, z, facing: null, slots: new Array<TansuSlot>(this.live.tansuSlots).fill(null) };
-      this.records.set(k, r);
-    }
+  /** 記録が あるか（キャンプの たんすは はじめて あけるまで 記録が ない。E11） */
+  has(x: number, y: number, z: number): boolean {
+    return this.records.has(key(x, y, z));
+  }
+
+  /** 空の 記録を 作る。`firstFill` が あれば 返した 山を 中身に する（入りきらない 分は 捨てない: マスの 数が 上限） */
+  private create(x: number, y: number, z: number, fill: boolean): TansuRecord {
+    const slots = new Array<TansuSlot>(this.live.tansuSlots).fill(null);
+    const r: TansuRecord = { x, y, z, facing: null, slots };
+    this.records.set(key(x, y, z), r);
+    const stacks = fill ? this.d.firstFill?.(x, y, z) : null;
+    if (stacks) for (let i = 0; i < stacks.length && i < slots.length; i++) slots[i] = copyStack(stacks[i]!);
     return r;
   }
 
-  /** たんす を置いた（向きを記録する） */
+  /** そこの たんす の記録。たんす でなければ null。記録がなければ 作る（`fill` ＝ はじめて 開く 道なら 中身を 入れる。`placed` は 入れない） */
+  private ensure(x: number, y: number, z: number, fill = true): TansuRecord | null {
+    if (!this.isTansu(x, y, z)) return null;
+    return this.records.get(key(x, y, z)) ?? this.create(x, y, z, fill);
+  }
+
+  /** たんす を置いた（向きを記録する。中身は 空: `firstFill` は 呼ばない） */
   placed(x: number, y: number, z: number, yawDeg: number): void {
-    const r = this.ensure(x, y, z);
+    const r = this.ensure(x, y, z, false);
     if (r) {
       r.facing = facingFromYaw(yawDeg);
       this.d.requestSave?.();
@@ -408,7 +422,8 @@ export class StorageSystem implements TansuMaterialStore {
    */
   broken(x: number, y: number, z: number): number {
     const k = key(x, y, z);
-    const r = this.records.get(k);
+    // 記録が まだ ない（キャンプの たんすを あける 前に こわした）ときも、はじめての 中身を 落とす（ブロックは もう 消えて いる）
+    const r = this.records.get(k) ?? (this.d.firstFill ? this.create(x, y, z, true) : null);
     if (!r) return 0;
     this.records.delete(k);
     this.fullNow.delete(r);

@@ -20,24 +20,17 @@ import type {
   WorldRegions,
   YokaiKind,
 } from '../contracts';
-import type { CaveKind } from '../world/gen/mineCaveConfig';
 import { COUNTRY_KINDS } from '../world/gen/config';
 import { baseRecipeId } from '../craft/recipes';
-import { isChalkMarkId } from '../world/blocks/chalkMark';
 import {
   ACHIEVEMENT_DEFS,
   ARMOR_ITEMS,
-  ARMOR_RECIPES,
-  KIN_RECIPES,
-  CRAFT_RECIPE_NAMES,
   DEFS_BY_STAT,
   DEF_BY_ID,
   DEF_INDEX,
   MEDAL_RANK,
-  PICKAXE_RECIPES,
-  WEAPON_RECIPES,
 } from './defs';
-import { applyAnimalEvents, applyFarmEvents, type StatSink } from './feedStats';
+import { applyAnimalEvents, applyCraftEvents, applyDigEvents, applyFarmEvents, applyMineEvents, applyStorageEvents, applyWearEvents, type MineAchEvent, type StatSink } from './feedStats';
 
 /** 記録の上限（§5） */
 export const STAT_CAP = 2_000_000_000;
@@ -266,40 +259,12 @@ export class AchievementSystem implements AchievementShowSource {
 
   feedDig(events: readonly DigEvent[]): void {
     if (events.length === 0) return;
-    this.run(() => {
-      for (const e of events) {
-        if (isChalkMarkId(e.id)) continue; // MINE-1B: チョークの しるしは ブロックを おいた・こわした 数に 入れない
-        if (e.type === 'break') {
-          this.bump(`break:${e.id}`, 1);
-          this.bump('break:*', 1);
-        } else if (e.type === 'place') {
-          this.bump(`place:${e.id}`, 1);
-          this.bump('place:*', 1);
-          // LIVE-2: 小屋 を 置く と DigSystem が さく の ブロック で 出す。ブロック 1 こ ではなく toriya を 1 回 置いた 数
-          if (e.id === 'toriya_fence') this.bump('place:toriya', 1);
-        }
-      }
-    });
+    this.run(() => applyDigEvents(this.sink, events));
   }
 
   feedCraft(events: readonly CraftEvent[]): void {
     if (events.length === 0) return;
-    this.run(() => {
-      for (const e of events) {
-        if (e.type === 'craft') {
-          this.bump(`craft:${baseRecipeId(e.recipe)}`, 1);
-          this.bump('craft:*', 1);
-          if (e.recipe === 'ya') this.bump('craftItems:ya', e.count);
-          this.derivedCraft();
-        } else if (e.type === 'bakeDone') {
-          this.bump(`bake:${e.recipe}`, 1);
-          this.bump('bake:*', 1);
-        } else if (e.type === 'pickup') {
-          this.bump(`obtain:${e.item}`, e.count);
-          this.bump('pickup:*', e.count);
-        }
-      }
-    });
+    this.run(() => applyCraftEvents(this.sink, events));
   }
 
   feedCombat(events: readonly CombatEvent[]): void {
@@ -339,13 +304,7 @@ export class AchievementSystem implements AchievementShowSource {
 
   feedStorage(events: readonly StorageEvent[]): void {
     if (events.length === 0) return;
-    this.run(() => {
-      for (const e of events) {
-        if (e.type === 'drop') this.bump('drop:*', e.count);
-        else if (e.type === 'store') this.bump('store:*', e.count);
-        else this.bump('storeFull', 1);
-      }
-    });
+    this.run(() => applyStorageEvents(this.sink, events));
   }
 
   /** 農業の出来事（M7 §4.7）。つなぎ込みが `farm.drainEvents()` の列を わたす */
@@ -366,12 +325,7 @@ export class AchievementSystem implements AchievementShowSource {
   /** WEAPON-2: たいきゅうの 出来事（持ち物と 防具の 2 本をまとめて わたす）。こわれた: マス番号 = 道具、部位 = 防具 */
   feedWear(events: ReadonlyArray<{ type: 'wearLow' | 'toolBreak'; slot: number | string }>): void {
     if (events.length === 0) return;
-    this.run(() => {
-      for (const e of events) {
-        if (e.type !== 'toolBreak') continue;
-        this.bump(typeof e.slot === 'number' ? 'toolBroken' : 'armorBroken', 1);
-      }
-    });
+    this.run(() => applyWearEvents(this.sink, events));
   }
 
   /** WEAPON-6: 刀の 出来事。1 回の 3 段で 1・2・3 段目が どれも 当たったら `bladeCombo3` */
@@ -428,10 +382,11 @@ export class AchievementSystem implements AchievementShowSource {
 
   /**
    * MINE-1C: 坑道の 出来事。足が いちばん 下の へやに 入った（bottom）／宝箱を あけた（chestOpen。段は 数えない）。
-   * MINE-1D: 足が はじめて ほらあなの 部屋に 入った（cave。kind = 部屋の 種類。種類ごとに 1 回）
+   * MINE-1D: 足が はじめて ほらあなの 部屋に 入った（cave。kind = 部屋の 種類。種類ごとに 1 回）。
+   * MINE-1E: 足が はじめて 坑道の 場所に 入った（area。kind = かくしべや・むかしの えだ道・迷路の いちばん おく・キャンプあと。場所ごとに 1 回）
    */
-  feedMine(events: ReadonlyArray<{ type: 'bottom' | 'chestOpen'; tick: number; tier?: number } | { type: 'cave'; tick: number; kind: CaveKind }>): void {
-    for (const e of events) this.run(() => this.setMax(e.type === 'cave' ? `cave:${e.kind}` : e.type === 'bottom' ? 'mineBottom' : 'mineChest', 1));
+  feedMine(events: readonly MineAchEvent[]): void {
+    this.run(() => applyMineEvents(this.sink, events));
   }
 
   /** 「もちもの が いっぱい」の合図が出た */
@@ -674,15 +629,6 @@ export class AchievementSystem implements AchievementShowSource {
       if (DEF_BY_ID.get(id)?.small && this.oldestSmallAt === null) this.oldestSmallAt = this.now;
     }
     this.batch = [];
-  }
-
-  private derivedCraft(): void {
-    const count = (ids: readonly string[]): number => ids.filter((r) => this.stat(`craft:${r}`) > 0).length;
-    this.setMax('craft:pickaxes', count(PICKAXE_RECIPES));
-    this.setMax('craft:weapons', count(WEAPON_RECIPES));
-    this.setMax('craft:armors', count(ARMOR_RECIPES));
-    this.setMax('craft:kinKinds', count(KIN_RECIPES));
-    this.setMax('craft:everything', count(CRAFT_RECIPE_NAMES.map(([id]) => id)));
   }
 
   private sampleBody(ctx: StepContext): void {
