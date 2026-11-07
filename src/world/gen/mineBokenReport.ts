@@ -66,7 +66,8 @@ export function boxProblems(s: BokenShaft, path: readonly PathCell[], seed: numb
   const size = s.style?.size ?? 0;
   if (b.x1 - b.x0 + 1 > size || b.z1 - b.z0 + 1 > size) bad.push(`箱 ${b.x1 - b.x0 + 1}×${b.z1 - b.z0 + 1} が 広さ ${size} より 大きい`);
   if (Math.floor(b.x0 / 256) !== Math.floor(b.x1 / 256) || Math.floor(b.z0 / 256) !== Math.floor(b.z1 / 256)) bad.push('箱が 区画の 中に ない');
-  if (b.x0 % 256 < 2 || b.z0 % 256 < 2 || 255 - (b.x1 % 256) < 2 || 255 - (b.z1 % 256) < 2) bad.push('箱が 区画の ふちから 2 マス 内がわに ない');
+  const m256 = (v: number): number => ((v % 256) + 256) % 256; // 負の 座標でも 0〜255〔JS の % は 負に なる〕
+  if (m256(b.x0) < 2 || m256(b.z0) < 2 || 255 - m256(b.x1) < 2 || 255 - m256(b.z1) < 2) bad.push('箱が 区画の ふちから 2 マス 内がわに ない');
   const C = SHAFT_CONFIG.cover;
   const e = s.entrance;
   for (const c of path) {
@@ -181,7 +182,10 @@ const cellsOf = (path: readonly PathCell[], part: string): PathCell[] => path.fi
 /** C4 の まま〔横穴の 先・いちばん 下の へやの 宝箱の 前〕＋ 1E の 道〔階・えだ道・行きどまりの へや・迷路・キャンプ・かくしべや〕が 入口と 行き来 できる */
 export function walkProblemsE(g: GenCols, s: BokenShaft, path: PathCell[], reach: Reach): string[] {
   const bad: string[] = [...walkProblems(g, s, path)];
+  // 宝箱の マスは 固い ブロックで 立てない ので 行き来を 求めない〔「宝箱である」ことは deadEndProblems が 見る〕
+  const chestCells = new Set<string>([...(s.chest?.cells ?? []), ...deadEndsOf(s).flatMap((e) => e.chest?.cells ?? [])].map(ptKey));
   const need = (what: string, p: Pt): void => {
+    if (chestCells.has(ptKey(p))) return;
     if (!reach.ok(p)) bad.push(`入口と ${what} (${p.x}, ${p.y}, ${p.z}) が 行き来 できない`);
   };
   for (const f of s.floors ?? []) {
@@ -194,7 +198,14 @@ export function walkProblemsE(g: GenCols, s: BokenShaft, path: PathCell[], reach
   }
   for (const e of deadEndsOf(s)) {
     need('行きどまり', e.at);
-    if (e.room) need('へやの 床', { x: (e.room.x0 + e.room.x1) >> 1, y: e.room.y, z: (e.room.z0 + e.room.z1) >> 1 });
+    if (e.room) {
+      // へやの 中央〔宝箱の マスなら 同じ へやの 宝箱で ない マスを 1 つ〕
+      const r = e.room;
+      const floor: Pt[] = [];
+      for (let x = r.x0; x <= r.x1; x++) for (let z = r.z0; z <= r.z1; z++) floor.push({ x, y: r.y, z });
+      const mid = floor.find((c) => c.x === (r.x0 + r.x1) >> 1 && c.z === (r.z0 + r.z1) >> 1)!;
+      need('へやの 床', chestCells.has(ptKey(mid)) ? floor.find((c) => !chestCells.has(ptKey(c)))! : mid);
+    }
   }
   for (const c of cellsOf(path, 'maze')) need('迷路の ます', c);
   for (const c of cellsOf(path, 'camp')) need('キャンプあとの 床', c);

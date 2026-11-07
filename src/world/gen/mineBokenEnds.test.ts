@@ -114,11 +114,16 @@ describe('E8: かくしべやは とじて いる・ほると 行き来 でき�
         reaches.set(p, r);
       }
       const room = e.room!;
-      const mid: Pt = { x: (room.x0 + room.x1) >> 1, y: room.y, z: (room.z0 + room.z1) >> 1 };
+      const chest = new Set((e.chest?.cells ?? []).map(ptKey)); // 宝箱の マスは 固くて 立てない〔宝箱である ことは E7 が 見る〕
+      const center: Pt = { x: (room.x0 + room.x1) >> 1, y: room.y, z: (room.z0 + room.z1) >> 1 };
+      // 宝箱で ない マスの うち 中央に いちばん 近い 1 つ
+      const floor: Pt[] = [];
+      for (let x = room.x0; x <= room.x1; x++) for (let z = room.z0; z <= room.z1; z++) if (!chest.has(ptKey({ x, y: room.y, z }))) floor.push({ x, y: room.y, z });
+      const mid: Pt = floor.sort((a, b) => Math.abs(a.x - center.x) + Math.abs(a.z - center.z) - (Math.abs(b.x - center.x) + Math.abs(b.z - center.z)))[0]!;
       if (e.at.y !== room.y) bad.push(`${tagOf(p)}: 段差 ${room.y - e.at.y}`);
       if (!r.before.ok(e.at)) bad.push(`${tagOf(p)}: ほる 前でも 行きどまりに 行けない`);
       if (r.before.ok(mid)) bad.push(`${tagOf(p)}: ほる 前に かくしべやに 入れる (${mid.x}, ${mid.y}, ${mid.z})`);
-      for (let x = room.x0; x <= room.x1; x++) for (let z = room.z0; z <= room.z1; z++) if (!r.after.ok({ x, y: room.y, z })) bad.push(`${tagOf(p)}: ほった あと かくしべやの 床 (${x}, ${room.y}, ${z}) に 行き来 できない`);
+      for (let x = room.x0; x <= room.x1; x++) for (let z = room.z0; z <= room.z1; z++) if (!chest.has(ptKey({ x, y: room.y, z })) && !r.after.ok({ x, y: room.y, z })) bad.push(`${tagOf(p)}: ほった あと かくしべやの 床 (${x}, ${room.y}, ${z}) に 行き来 できない`);
     }
     fail('ほった あと', bad);
   });
