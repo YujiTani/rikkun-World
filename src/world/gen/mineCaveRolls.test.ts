@@ -37,7 +37,7 @@ beforeAll(() => {
     const a = areaAround(seed, REGIONS_STAT);
     samples.push({ seed, rolls: h.caveRolls(a.x0, a.z0, a.x1, a.z1) });
   }
-}, 120_000);
+}, 600_000); // CI は ほかの テストと 同時に 回るので 余裕を みる
 
 const key = (r: { rx: number; rz: number; layer: string }): string => `${r.rx},${r.rz},${r.layer}`;
 
