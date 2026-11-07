@@ -26,11 +26,14 @@ import { spawnOf } from './terrain';
  *       1 マスずつ〔両はし ふくむ。いちばん 下の 階は いちばん 下の へやの 入口の 前まで〕。**本道の 長さ ＝ `main.length − 1`**〔歩数〕
  *   ・`Shaft.work` ＝ 計画の 仕事〔ためした 回数。E19〕: `{ entrance; floors; sides; eda; maze }`〔どれも 整数〕。上の 限りは `shaftShapeTable().limit.tries`
  *   ・`DeadEnd.room` ＝ たからの へや・きらきらの へや〔かくしべや〕の 床の はんい〔足の y〕。あたり・はずれは null。`DeadEnd.at` ＝ つきあたりの 手前の 足の マス
- *       〔へやが あれば へやの 入口の 足の マス〕。`hibi` ＝ ひびの いしの マス〔足と 頭。はば 1・高さ 2・おく 2〜4 ＝ 4〜8 こ〕
+ *       〔ひびの 行きどまりは ひびの いしの 手前の マス。かくしべやの 入口では ない。ほかの 行きどまりで へやが あれば へやの 入口の 足の マス〕。`hibi` ＝ ひびの いしの マス〔足と 頭。はば 1・高さ 2・おく 2〜4 ＝ 4〜8 こ〕
  *   ・`maze.box` ＝ 外がわの かべを ふくむ 四角〔横 `4 × grid + 1`〕。ます i の まん中 ＝ `box.x0 + 2 + 4 i`・`box.z0 + 2 + 4 j`。ますの あいだの かべの まん中 ＝ ます i の まん中 ＋ 2
  *   ・`shaftPath` の `part`: `'hiroba'`・`'main'`・`'eda'`・`'end'`〔行きどまりの へや〕・`'hibi'`〔ひびの 通り道の 足の マス〕・`'kakushi'`・`'maze'`・`'camp'`〔仕様 §6.1〕。
  *       道の 足の マスは 空気の マス〔ひびの いし・くずれた いしの マスも 足の マスに 入る ＝「ほった あと」で 見る〕
  *   ・ブロックの id: `hibi_ishi`・`kuzure_ishi`・`furui_rail_x`／`_z`・`kowareta_waku`・`taoreta_hashigo_x`／`_z`・`takibi_ato`・アイテム `kabita_pan`〔仕様 §4.9〕
+ *   ・キャンプの くじ〔E11〕: `campRoll(depth, seed): CampItem[]`〔安い くじ。E14 の `rollChest` と 同じ 形〕・`campSeed(x, y, z): number`〔世界の シードと たんすの 場所〕・
+ *       表 `campTable().ores[層]`〔ほると 出る 物と 数〕。`campPreview(たんす)` ＝ `campRoll(層, campSeed(たんす))`
+ *   ・場所の 窓口 `areaAt(x, y, z): 'kakushi' | 'mukashi' | 'meiro' | 'camp' | null`〔E17。実績の 'area' の つなぎ込みが 使う〕
  *   ・キャンプの たんす〔E11〕: `createMineHook({ tansuHas })`〔その マスの たんすの 記録が すでに あるか〕・`StorageSystem.has(x, y, z)`〔記録が あるか〕・
  *       `StorageDeps.firstFill?(x, y, z): ItemStack[] | null`〔記録が まだ ない たんすを はじめて あける とき／あける 前に こわす とき だけ 呼ぶ。`placed` では 呼ばない〕
  *   ・実績: `AchievementSystem.feedMine` の 出来事に `{ type: 'area', tick, kind: 'kakushi' | 'mukashi' | 'meiro' | 'camp' }`〔E17〕。「かびた パンを たべた」は 今の `feedFarm` の `eat`
@@ -155,12 +158,14 @@ interface DeadEndTable {
   /** 層ごとの 鉱石〔ブロック id〕: naka ＝ きらきらの へやで 見える 数〔以上〕・atari ＝ あたりの 鉱石の 候補・bottom ＝ いちばん 下の へやの かべ〔以上〕 */
   ores: Record<Depth, { naka: Record<string, number>; atari: string[]; bottom: Record<string, number> }>;
 }
-/** キャンプの たんすの 表〔§4.8〕 */
+/** キャンプの たんすの 表〔§4.8〕。`ores` ＝ 層ごとの 「ほると 出る 物」と 数〔ふかい ＝ きんの いし 1〕。`rows` の `ore` の `count` は ふつうの 鉱石の 数 */
 interface CampTable {
   rows: { kind: 'pan' | 'pickaxe' | 'drop' | 'ore' | 'torch'; chance: number; count: Span; items?: string[] }[];
   wear: Span;
   pickaxe: Record<Depth, string>;
+  ores: Record<Depth, { item: string; count: Span }[]>;
 }
+export type Area = 'kakushi' | 'mukashi' | 'meiro' | 'camp';
 export interface CampItem {
   item: string;
   count: number;
@@ -177,6 +182,11 @@ export interface MineHookE {
   deadEndTable(): DeadEndTable;
   campTable(): CampTable;
   campPreview(x: number, y: number, z: number): CampItem[] | null;
+  /** 安い くじ〔E11〕: 坑道を 作らずに たんすの 中身の 予定を 引く。`campPreview` ＝ `campRoll(層, campSeed(たんすの マス))` */
+  campRoll(depth: Depth, seed: number): CampItem[];
+  campSeed(x: number, y: number, z: number): number;
+  /** その 足の マスが どの 場所か〔E17〕。かくしべやの 床・むかしの えだ道の いちばん おく・迷路の いちばん おくの 行きどまり・キャンプの 床 ＝ 4 つの どれか、ほかは null */
+  areaAt(x: number, y: number, z: number): Area | null;
   caveAt(x: number, y: number, z: number): string | null;
   layers(): { id: Layer; minY: number; maxY: number | null }[];
   work(cx: number, cz: number): { shaftRegions: number; caveRegions: number; emitters: number };

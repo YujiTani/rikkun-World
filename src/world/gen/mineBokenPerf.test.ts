@@ -140,10 +140,11 @@ describe('E19: たいまつの 数', () => {
       if (n > S.limit.torchesPerShaft) bad.push(`seed ${a.seed} ${a.shaft.id}: たいまつ ${n} 本〔上限 ${S.limit.torchesPerShaft}〕`);
     }
     for (const a of mazes) {
-      const h = hookE(a.seed);
       const g = new GenCols(a.seed);
-      const mz = h.shaftPath(a.shaft.id).filter((c) => (c.part as string) === 'maze');
-      const n = torchesNear(g, mz);
+      // 迷路の 四角の 中〔外がわの かべ ふくむ。E9 と 同じ 箱〕だけ 数える。外の 本道・ひろばの たいまつは 入れない
+      const m = a.shaft.maze!;
+      let n = 0;
+      for (let x = m.box.x0; x <= m.box.x1; x++) for (let z = m.box.z0; z <= m.box.z1; z++) for (let y = m.y; y <= m.y + S.maze.height; y++) if (g.id(x, y, z) === 'torch') n++;
       if (n > S.maze.torchMax) bad.push(`seed ${a.seed} ${a.shaft.id}: 迷路の たいまつ ${n} 本〔上限 ${S.maze.torchMax}〕`);
     }
     expect(bad).toEqual([]);

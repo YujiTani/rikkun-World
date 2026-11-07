@@ -14,7 +14,7 @@ import {
   type ESample,
   type Level,
 } from './mineBokenKit';
-import { SEEDS_20, components, pathIndex } from './mineShaftKit';
+import { SEEDS_20, components, pathIndex, type PathCell, type Pt } from './mineShaftKit';
 
 /**
  * MINE-1E（docs/design/MINE-1E.md §4.1〜§4.7・受け入れ基準 E1・E2・E4 の 形の きまり・E6・E7・E9・E10 の わりあい）: 坑道の 計画〔ブロックは 作らない〕。
@@ -146,7 +146,7 @@ describe('E2: 階〔計画〕', () => {
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
   });
 
-  it('本道の 長さ〔歩数 ＝ main.length − 1〕が ふくざつさ の はんい・曲がり 1 まで・下り口の ある 階だけ 見る。いちばん 下の 階は 下り口が null', () => {
+  it('本道の 長さ〔歩数 ＝ main.length − 1〕が ふくざつさ の はんい〔いちばん 下の 階も〕・曲がり 1 まで・平ら。いちばん 下の 階は 下り口が null・ほかは ある', () => {
     const T = tablesOf();
     const bad: string[] = [];
     for (const a of all) {
@@ -158,10 +158,8 @@ describe('E2: 階〔計画〕', () => {
         if (f.bends > T.shape.floor.main.bendsMax) bad.push(`${tag}: 本道の 曲がり ${f.bends}`);
         if (i === fl.length - 1) {
           if (f.down !== null) bad.push(`${tag}: いちばん 下の 階に 下り口`);
-        } else {
-          if (f.down === null) bad.push(`${tag}: 下り口が ない`);
-          else if (!inSpan(f.main.length - 1, lev.mainLength)) bad.push(`${tag}: 本道の 長さ ${f.main.length - 1}〔${lev.mainLength.join('〜')}〕`);
-        }
+        } else if (f.down === null) bad.push(`${tag}: 下り口が ない`);
+        if (!inSpan(f.main.length - 1, lev.mainLength)) bad.push(`${tag}: 本道の 長さ ${f.main.length - 1}〔${lev.mainLength.join('〜')}〕`);
         if (f.main.some((p) => p.y !== f.y)) bad.push(`${tag}: 本道が 平らでない`);
       });
     }
@@ -179,6 +177,43 @@ describe('E4: 形の きまり〔計画〕', () => {
       for (const b of s.branches ?? []) {
         if (b.bends > S.eda.bendsMax) bad.push(`${s.id}: えだ道の 曲がり ${b.bends}`);
         if (!s.sides[b.side]) bad.push(`${s.id}: えだ道の side ${b.side} が ない`);
+      }
+    }
+    expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
+  });
+});
+
+/** えだ道が 2 本 以上 ある 坑道 60 こ〔ブロックは 作らず 道の マスだけ〕 */
+function edaSample(): { s: ESample; eda: PathCell[]; comps: Pt[][] }[] {
+  const many = all.filter((a) => (a.shaft.branches?.length ?? 0) >= 2).slice(0, 60);
+  return many.map((s) => {
+    const h = hookE(s.seed);
+    needBokenHook(h, ['shaftPath']);
+    const eda = h.shaftPath(s.shaft.id).filter((c) => (c.part as string) === 'eda');
+    return { s, eda, comps: components(eda) };
+  });
+}
+
+describe('E4・E6: えだ道の 形〔道の マス。標本 60 こ〕', () => {
+  it('E4: えだ道は 1 本ずつ 別の かたまり〔えだ道から 分かれない・えだ道どうしが つながらない〕・かたまりの 数 ＝ 計画の 本数', () => {
+    const list = edaSample();
+    expect(list.length, 'えだ道が 2 本 以上 ある 1E の 坑道').toBeGreaterThan(0);
+    const bad: string[] = [];
+    for (const { s, comps } of list) if (comps.length !== s.shaft.branches!.length) bad.push(`${s.shaft.id}: えだ道 ${s.shaft.branches!.length} 本が かたまり ${comps.length}`);
+    expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
+  });
+
+  it('E6: 上り下りは 2 マスに 1 段 まで〔どの マスも 同じ えだ道の となりに 高さの ちがう マスが 1 つ まで。段差 1 までは かたまりの きまり〕', () => {
+    const list = edaSample();
+    expect(list.length, 'えだ道が 2 本 以上 ある 1E の 坑道').toBeGreaterThan(0);
+    const bad: string[] = [];
+    for (const { s, comps } of list) {
+      for (const comp of comps) {
+        const at = new Map(comp.map((c) => [`${c.x},${c.z}`, c.y]));
+        for (const c of comp) {
+          const diffs = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dz]) => at.get(`${c.x + dx!},${c.z + dz!}`)).filter((y): y is number => y !== undefined && y !== c.y);
+          if (diffs.length > 1) bad.push(`${s.shaft.id}: 2 マスに 1 段を こえる (${c.x}, ${c.y}, ${c.z})`);
+        }
       }
     }
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);

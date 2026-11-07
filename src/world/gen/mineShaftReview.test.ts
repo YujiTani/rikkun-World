@@ -7,7 +7,6 @@ import {
   genColumn,
   hook1c,
   ptKey,
-  legacyOld,
   sampleShafts,
   shaftCoveredCols,
   standable,
@@ -19,6 +18,7 @@ import {
   type Pt,
   type Shaft,
 } from './mineShaftKit';
+import { legacyOld } from './mineLegacyKit';
 import { SHAFT_CONFIG } from './mineShaftConfig';
 import { heightAt, spawnOf } from './terrain';
 
@@ -225,4 +225,19 @@ describe('R6〔軽微 9〕: キットの「実際に 坑道が かえる 列」�
     expect(missing.length, 'touchesShaft が 答えない 列').toBe(0);
     expect(covered.size, `touchesShaft ${covered.size} 列 / 実際 ${real.size} 列`).toBeLessThanOrEqual(real.size * 1.6);
   });
+
+  // 新しい 世界〔1E の 坑道を 作る〕でも もれは 0〔広さの 上限は 1C・1D の 坑道だけ。1E の 坑道は E19 の 見る 区画の 数で 見る〕
+  it.each(SEEDS)('seed %i: 新しい 世界の 1E の 坑道も 道 ±2・山が かかる 列は ぜんぶ touchesShaft〔もれ 0〕', (seed) => {
+    const sp = spawnOf(seed);
+    const box = { x0: sp.x - 1024, z0: sp.z - 1024, x1: sp.x + 1023, z1: sp.z + 1023 };
+    const h = hook1c(seed);
+    const boxCols = colKeysIn(box);
+    const real = new Set<number>();
+    const shafts = h.shafts(box.x0, box.z0, box.x1, box.z1);
+    expect(shafts.filter((s) => (s as { gen?: string }).gen === 'e').length, '1E の 坑道が ない').toBeGreaterThan(0);
+    for (const s of shafts) for (const k of touchedColKeys(s, h.shaftPath(s.id))) if (boxCols.has(k)) real.add(k);
+    const covered = shaftCoveredCols(seed, box.x0, box.z0, box.x1, box.z1);
+    expect(real.size, 'しらべる 列').toBeGreaterThan(0);
+    expect([...real].filter((k) => !covered.has(k)).length, 'touchesShaft が 答えない 列').toBe(0);
+  }, 120_000);
 });

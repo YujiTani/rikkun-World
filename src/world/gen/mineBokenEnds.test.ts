@@ -169,14 +169,21 @@ describe('E6〔ブロック〕: くずれた いしの 口・むかしの えだ
       for (const b of p.shaft.branches ?? []) {
         if (!b.old) continue;
         n++;
-        let torches = 0;
-        for (let x = b.from.x - S.torchFrom[1] - 2; x <= b.from.x + S.torchFrom[1] + 2; x++) {
-          for (let z = b.from.z - S.torchFrom[1] - 2; z <= b.from.z + S.torchFrom[1] + 2; z++) {
-            const d = cheb({ x, z }, b.from);
-            if (!inSpan(d, S.torchFrom)) continue;
-            for (let y = b.from.y; y <= b.from.y + 3; y++) if (p.orig.id(x, y, z) === ID.torch) torches++;
+        // えだ道の 道の マスで 口から torchFrom の はなれに ある マスの まわり〔横 ±1・高さ 4〕だけ 数える。横穴〔ほかの 道の マス〕の たいまつは 入れない
+        const others = new Set(p.path.filter((c) => (c.part as string) !== 'eda').map(ptKey));
+        const inside = p.path.filter((c) => (c.part as string) === 'eda' && Math.abs(c.y - b.from.y) <= 1 && inSpan(cheb(c, b.from), S.torchFrom));
+        const found = new Set<string>();
+        for (const c of inside) {
+          for (let x = c.x - 1; x <= c.x + 1; x++) {
+            for (let z = c.z - 1; z <= c.z + 1; z++) {
+              for (let y = c.y; y <= c.y + 3; y++) {
+                const k = ptKey({ x, y, z });
+                if (!others.has(k) && p.orig.id(x, y, z) === ID.torch) found.add(k);
+              }
+            }
           }
         }
+        const torches = found.size;
         if (torches < 1) bad.push(`${tagOf(p)} (${b.from.x}, ${b.from.y}, ${b.from.z}): 口から ${S.torchFrom.join('〜')} マスに たいまつが ない`);
       }
     }

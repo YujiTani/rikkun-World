@@ -90,7 +90,7 @@ export function safetyProblemsE(g: GenCols, s: BokenShaft, path: readonly PathCe
   const open = new Set<string>();
   for (const c of path) for (let k = 0; k < airHeightE(c); k++) open.add(ptKey({ x: c.x, y: c.y + k, z: c.z }));
   const chestCells = new Set<string>([...(s.chest?.cells ?? []), ...deadEndsOf(s).flatMap((e) => e.chest?.cells ?? [])].map(ptKey));
-  const mouths: Pt[] = [s.entrance, ...s.sides.flatMap((d) => [d.from, d.to]), ...(s.branches ?? []).flatMap((b) => [b.from, b.to]), ...(s.maze ? [s.maze.entrance] : [])];
+  const mouths: Pt[] = [s.entrance, ...s.sides.flatMap((d) => [d.from, d.to]), ...(s.branches ?? []).map((b) => b.from), ...(s.maze ? [s.maze.entrance] : [])];
   const nearMouth = (p: Pt): boolean => mouths.some((m) => Math.abs(m.x - p.x) <= 2 && Math.abs(m.z - p.z) <= 2 && Math.abs(m.y - p.y) <= 6);
   const solidAt = (p: Pt): boolean => open.has(ptKey(p)) || nearMouth(p) || chestCells.has(ptKey(p)) || isSolidIndex(g.at(p.x, p.y, p.z));
   for (const c of path) {
@@ -292,8 +292,20 @@ export function deadEndProblems(orig: GenCols, dug: GenCols, e: DeadEnd, T: Tabl
     if (e.hibi.length > 0) bad.push(`${at}: はずれに ひびが ある`);
     const marks = countIds(orig, e.at, 4, 0, 3, [ID.waku, ID.hashigoX, ID.hashigoZ]);
     if (marks < 1) bad.push(`${at}: こわれた わく か たおれた はしごが 近くに ない`);
-    const keys = countIds(orig, e.at, 6, -1, 4, [ID.hibi, ID.kuzure]);
-    if (keys > 0) bad.push(`${at}: はずれに ひび・くずれた いしが ある`);
+    // つきあたりの かべだけ 見る〔来た 道いがいの 3 方向の 距離 1〜2・はば 3・高さ 4 の 面。ほかの 行きどまりの ひび・口の くずれた いしは 見ない〕
+    for (const [dx, dz] of FOUR) {
+      if (isBodyIndex(orig.at(e.at.x + dx, e.at.y, e.at.z + dz))) continue;
+      for (let dist = 1; dist <= 2; dist++) {
+        for (let side = -1; side <= 1; side++) {
+          for (let y = 0; y <= 3; y++) {
+            const x = e.at.x + dx * dist + (dx === 0 ? side : 0);
+            const z = e.at.z + dz * dist + (dz === 0 ? side : 0);
+            const id = orig.id(x, e.at.y + y, z);
+            if (id === ID.hibi || id === ID.kuzure) bad.push(`${at}: つきあたりの かべに ${id} (${x}, ${e.at.y + y}, ${z})`);
+          }
+        }
+      }
+    }
   }
   if (hibi) bad.push(...hibiProblems(orig, e, T, at));
   return bad;
@@ -392,6 +404,8 @@ export function mazeGraph(s: BokenShaft, path: readonly PathCell[]): MazeGraph |
 
 // ------------------------------------------------------------------ E10 キャンプあと
 
+const range = (a: number, b: number): number[] => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+
 const AIR_ROOM_CAMP = (g: GenCols, r: { x0: number; y: number; z0: number; x1: number; z1: number }, h: number, furniture: readonly Pt[]): string[] => {
   const furn = new Set(furniture.map(ptKey));
   const bad: string[] = [];
@@ -416,6 +430,18 @@ export function campProblems(g: GenCols, s: BokenShaft, T: Tables): string[] {
   if (!isFurnKind(g.id(c.tansu.x, c.tansu.y, c.tansu.z), K_TANSU)) bad.push(`たんすの マス (${c.tansu.x}, ${c.tansu.y}, ${c.tansu.z}) が ${g.id(c.tansu.x, c.tansu.y, c.tansu.z)}`);
   if (g.id(c.lantern.x, c.lantern.y, c.lantern.z) !== ID.lantern) bad.push(`ちょうちんの マスが ${g.id(c.lantern.x, c.lantern.y, c.lantern.z)}`);
   if (g.id(c.takibi.x, c.takibi.y, c.takibi.z) !== ID.takibi) bad.push(`たきびの あとの マスが ${g.id(c.takibi.x, c.takibi.y, c.takibi.z)}`);
+  // 口: へやの まわり 1 マスの かべの うち 足と 頭が 空気の 列。口は 1 か所・はば T.shape.camp.mouth
+  const openings: number[] = [];
+  const ringOpen = (x: number, z: number): boolean => isBodyIndex(g.at(x, r.y, z)) && isBodyIndex(g.at(x, r.y + 1, z));
+  const sideCounts: [string, number][] = [
+    ['西', range(r.z0, r.z1).filter((z) => ringOpen(r.x0 - 1, z)).length],
+    ['東', range(r.z0, r.z1).filter((z) => ringOpen(r.x1 + 1, z)).length],
+    ['北', range(r.x0, r.x1).filter((x) => ringOpen(x, r.z0 - 1)).length],
+    ['南', range(r.x0, r.x1).filter((x) => ringOpen(x, r.z1 + 1)).length],
+  ];
+  for (const [, n] of sideCounts) if (n > 0) openings.push(n);
+  if (openings.length !== 1) bad.push(`キャンプの 口が ${openings.length} か所〔1 か所〕: ${sideCounts.map(([k, n]) => `${k}${n}`).join(' ')}`);
+  else if (openings[0] !== R.mouth) bad.push(`キャンプの 口の はば ${openings[0]}〔${R.mouth}〕`);
   if (c.futon.length === 0) bad.push('ふとんが ない');
   for (const p of c.futon) if (!g.id(p.x, p.y, p.z).startsWith('futon')) bad.push(`ふとんの マス (${p.x}, ${p.y}, ${p.z}) が ${g.id(p.x, p.y, p.z)}`);
   return bad;

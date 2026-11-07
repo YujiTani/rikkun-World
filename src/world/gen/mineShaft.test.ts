@@ -8,12 +8,12 @@ import {
   genColumn,
   hook1c,
   isPlantId,
-  legacyOld,
   sampleShafts,
   shapeProblems,
   type PathCell,
   type Shaft,
 } from './mineShaftKit';
+import { legacyOld } from './mineLegacyKit';
 import { clearTerrainCache, heightAt, spawnOf, terrainFor } from './terrain';
 
 /**

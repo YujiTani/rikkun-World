@@ -182,6 +182,14 @@ test('E18: ひびの 行きどまりの ひびの いしを ぜんぶ ほる →
       return t ? (t.block as Pt) : null;
     });
     expect(aimed, 'ねらいが 宝箱に 乗った').toEqual(rest);
+    // ひびの いしを ほった とき 持ち物に 入った 物〔いし など〕を 引くため、あける 直前の 持ち物を とっておく
+    const bagNow = () =>
+      page.evaluate(() => {
+        const out: Record<string, number> = {};
+        for (const s of (window as any).__rikkun.inventory.get().slots as ({ item: string; count: number } | null)[]) if (s) out[s.item] = (out[s.item] ?? 0) + s.count;
+        return out;
+      });
+    const before = await bagNow();
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.input.press('secondary');
@@ -189,29 +197,30 @@ test('E18: ひびの 行きどまりの ひびの いしを ぜんぶ ほる →
       h.input.release('secondary');
       h.step(60); // ふたが 動いて 持ち物に 入る まで
     });
-    const bag = await page.evaluate(() => {
-      const out: Record<string, number> = {};
-      for (const s of (window as any).__rikkun.inventory.get().slots as ({ item: string; count: number } | null)[]) if (s) out[s.item] = (out[s.item] ?? 0) + s.count;
-      return out;
-    });
+    const bag = await bagNow();
+    const gained: Record<string, number> = {};
+    for (const id of new Set([...Object.keys(bag), ...Object.keys(before)])) {
+      const d = (bag[id] ?? 0) - (before[id] ?? 0);
+      if (d !== 0) gained[id] = d;
+    }
     const want: Record<string, number> = {};
     for (const it of preview!.items) want[it.item] = (want[it.item] ?? 0) + it.count;
-    expect(bag, '持ち物が プレビューの とおり ふえる').toEqual(want);
+    expect(gained, '持ち物が プレビューの とおり ふえる〔あける 前との さ〕').toEqual(want);
   } else {
     // --- hibi_naka: 見える 鉱石が 表の 数 以上 ---
     const need = await page.evaluate((depth) => {
       const t = (window as any).__rikkun.mine.deadEndTable();
       return t.ores[depth].naka as Record<string, number>;
     }, f.depth);
-    const seen = await page.evaluate(({ room }) => {
+    const seen = await page.evaluate(({ room, need }) => {
       const h = (window as any).__rikkun;
       const out: Record<string, number> = {};
       for (let x = room.x0 - 1; x <= room.x1 + 1; x++) for (let z = room.z0 - 1; z <= room.z1 + 1; z++) for (let y = room.y - 1; y <= room.y + 4; y++) {
         const id = h.world.getBlock(x, y, z) as string;
-        if (id.endsWith('_ore') || id.endsWith('ishi') || id === 'hotaruishi') out[id] = (out[id] ?? 0) + 1;
+        if (id in need) out[id] = (out[id] ?? 0) + 1; // 表の きらきらの id を そのまま 数える〔nendo・sekkaiseki も〕
       }
       return out;
-    }, { room });
+    }, { room, need });
     expect(Object.keys(need).length, '表の きらきらの 鉱石').toBeGreaterThan(0);
     for (const [id, n] of Object.entries(need)) expect(seen[id] ?? 0, `見える ${id}`).toBeGreaterThanOrEqual(n);
   }

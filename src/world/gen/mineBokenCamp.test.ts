@@ -1,16 +1,17 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BlockId, ItemStack, VoxelWorld } from '../../contracts';
 import { W2_SETTING_DEFAULTS } from '../../contracts';
 import { InventoryImpl } from '../../inventory/Inventory';
 import { StorageSystem } from '../../storage/StorageSystem';
 import { maxDurability } from '../../tools/durability';
-import { SEED_POOL_BIG, bigSample, hookE, needBokenHook, sum, tablesOf, type BokenShaft, type CampItem, type ESample, type MineHookE } from './mineBokenKit';
+import { DEPTHS, SEED_POOL, bigSample, hookE, needBokenHook, sum, tablesOf, type BokenShaft, type CampItem, type Depth, type ESample, type MineHookE } from './mineBokenKit';
 
 /**
  * MINE-1E（docs/design/MINE-1E.md §4.8・§6.1・受け入れ基準 E11）: キャンプの たんす。
  *
- *   ・はじめて あけると `campPreview` の 物が たんすに 入る〔その あと null〕。たんす 2,000 こで 物ごとの わりあいが `campTable()` から ±0.04・数・たいきゅう・つるはしの しゅるい
- *   ・同じ〔シード, 場所〕は 同じ 中身〔あける 前に 保存して 開きなおしても〕
+ *   ・わりあい・数・たいきゅう・つるはしの しゅるいは 安い くじの 窓口 `campRoll(depth, seed)`〔坑道を 作らずに たんすの 中身の 予定を 引く〕を 層ごとに 2,000 回 引いて 見る
+ *     〔物ごとの わりあいが `campTable()` から ±0.04〕。本物の キャンプは 数十こ だけ 引いて `campPreview(x, y, z)` ＝ `campRoll(層, campSeed(x, y, z))` を 見る
+ *   ・はじめて あけると `campPreview` の 物が たんすに 入る〔その あと null〕。同じ〔シード, 場所〕は 同じ 中身〔あける 前に 保存して 開きなおしても〕
  *   ・あける 前に こわすと 中身が 足もとに 落ちる・置きなおして あけても 2 回は 出ない・自分で 置いた たんすは null
  *
  * 【つなぎの 約束】 本番の つなぎ込みと 同じに つなぐ: `createMineHook({ tansuHas: (x, y, z) => storage.has(x, y, z) })`・
@@ -18,13 +19,17 @@ import { SEED_POOL_BIG, bigSample, hookE, needBokenHook, sum, tablesOf, type Bok
  *   `StorageSystem.has(x, y, z)` ＝ その マスの 記録が あるか〔`placed` で できる／はじめて あけた とき できる／こわすと 消える〕。
  *   `firstFill` は「記録が まだ ない たんす」を はじめて あける とき・あける 前に こわす ときだけ 呼ぶ〔`placed` では 呼ばない〕。
  *   たいきゅうの へった 量〔`ItemStack.wear`〕＝ 新品の 値 ×〔1 − `CampItem.wear`〕を まるめた 数。時間〔ms〕では 合否を きめない。
+ *   くじの 窓口〔テスト用の 約束。仕様 §6.1 に 1 行〕: `campRoll(depth, seed): CampItem[]`・`campSeed(x, y, z): number`〔世界の シードと 場所で きまる〕。
+ *   鉱石は `campTable().ores[層]`〔その 層で ほると 出る 物と 数。ふかい ＝ きんの いし 1〕から 読む〔物の 名前を テストに 決め打ち しない〕。
  *   赤の 確かめ: 1E の 前は「窓口が まだ ない」「1E の 坑道が ない」で 落ちる。
  */
 
-vi.setConfig({ testTimeout: 900_000 });
+vi.setConfig({ testTimeout: 300_000 });
 
-const TANSU_TARGET = 2000;
+const ROLLS = 2000;
+const REAL_CAMPS = 40;
 const withCamp = (all: readonly ESample[]): number => all.filter((a) => a.shaft.camp).length;
+const campsIn = (all: readonly ESample[], d: Depth): number => all.filter((a) => a.shaft.camp && a.shaft.style?.depth === d).length;
 
 interface Tansu {
   seed: number;
@@ -34,9 +39,29 @@ interface Tansu {
   items: CampItem[];
 }
 const tansus: Tansu[] = [];
+const rolls: Record<Depth, CampItem[][]> = { asai: [], nakahodo: [], fukai: [] };
+
+// 窓口が まだ ない ときは、ファイルごと 落とさず 1 つずつの テストを 同じ わけで 落とす〔赤の 数を 正しく 数える〕
+let setupError: unknown = null;
+beforeEach(() => {
+  if (setupError) throw setupError;
+});
 
 beforeAll(() => {
-  const { all } = bigSample((xs) => withCamp(xs) >= TANSU_TARGET, SEED_POOL_BIG);
+  try {
+    setup();
+  } catch (e) {
+    setupError = e;
+  }
+}, 300_000);
+
+function setup(): void {
+  const h0 = hookE(SEED_POOL[0]!);
+  needBokenHook(h0, ['campRoll', 'campSeed', 'campPreview']);
+  // くじ: 層ごとに 2,000 回〔坑道は 作らない〕
+  for (const d of DEPTHS) for (let k = 0; k < ROLLS; k++) rolls[d].push(h0.campRoll(d, 1000 + k * 40503));
+  // 本物の キャンプ: 数十こ〔どの 層も 6 こ 以上〕
+  const { all } = bigSample((xs) => withCamp(xs) >= REAL_CAMPS && DEPTHS.every((d) => campsIn(xs, d) >= 6), SEED_POOL);
   const hooks = new Map<number, MineHookE>();
   for (const a of all) {
     if (!a.shaft.camp) continue;
@@ -50,90 +75,144 @@ beforeAll(() => {
     const items = h.campPreview(t.x, t.y, t.z);
     if (items) tansus.push({ seed: a.seed, shaft: a.shaft, hook: h, at: t, items });
   }
-}, 900_000);
+}
 
-describe('E11: キャンプの たんすの 中身〔表の とおり〕', () => {
-  it(`たんすが ${TANSU_TARGET} こ あつまる〔キャンプの ある 坑道の たんすは はじめて あける 前〕`, () => {
-    expect(tansus.length, '1E の キャンプが ない').toBeGreaterThanOrEqual(TANSU_TARGET);
-  });
+type Kind = 'pan' | 'pickaxe' | 'drop' | 'ore' | 'torch';
+/** 物が 表の どの 行の 物か〔かびた パン・たいまつ・たいきゅうの ある 物＝つるはし・落とし物の 表・のこりは 鉱石〕 */
+function kindOf(d: Depth, i: CampItem): Kind {
+  const T = tablesOf().camp;
+  if (i.item === 'kabita_pan') return 'pan';
+  if (i.item === 'torch') return 'torch';
+  if (i.wear !== undefined || i.item === T.pickaxe[d]) return 'pickaxe';
+  if (T.rows.find((r) => r.kind === 'drop')?.items?.includes(i.item)) return 'drop';
+  return 'ore';
+}
+const rowOf = (k: Kind) => tablesOf().camp.rows.find((r) => r.kind === k)!;
+const oreCount = (d: Depth, item: string) => tablesOf().camp.ores[d].find((o) => o.item === item)?.count ?? null;
 
-  it('物ごとの 入る わりあいが `campTable()` の 表から ±0.04', () => {
+describe('E11: キャンプの たんすの 表', () => {
+  it('表: 行 5 つ・かびた パンは いつも・落とし物の 種類・層ごとの 鉱石・のこりの たいきゅう', () => {
     const T = tablesOf().camp;
-    expect(T.rows.length, 'キャンプの 表').toBeGreaterThan(0);
-    expect(T.rows.find((r) => r.kind === 'drop')?.items?.length ?? 0, '表に 落とし物の 種類〔ヌシ・レジェンダリー・ようかいだま いがい〕').toBeGreaterThan(0);
+    expect(T.rows.map((r) => r.kind).sort()).toEqual(['drop', 'ore', 'pan', 'pickaxe', 'torch']);
+    expect(rowOf('pan').chance, 'かびた パンは いつも').toBe(1);
+    expect(rowOf('drop').items?.length ?? 0, '表に 落とし物の 種類〔ヌシ・レジェンダリー・ようかいだま いがい〕').toBeGreaterThan(0);
+    for (const d of DEPTHS) {
+      expect(T.ores[d].length, `${d} の 鉱石`).toBeGreaterThan(0);
+      expect(typeof T.pickaxe[d], `${d} の つるはし`).toBe('string');
+      for (const o of T.ores[d]) expect(rowOf('drop').items ?? [], `鉱石 ${o.item} は 落とし物の 表に ない`).not.toContain(o.item);
+    }
+    // ふかい の 鉱石には 数が 1 の 物〔きんの いし〕が ある
+    expect(T.ores.fukai.some((o) => o.count[0] === 1 && o.count[1] === 1)).toBe(true);
+    expect(T.wear[0]).toBeLessThan(T.wear[1]);
+  });
+});
+
+describe(`E11: たんすの 中身の くじ〔層ごとに campRoll ${ROLLS} 回〕`, () => {
+  it('物ごとの 入る わりあいが `campTable()` の 表から ±0.04', () => {
     const bad: string[] = [];
-    for (const row of T.rows) {
-      const hasKind = (c: CampItem[]): boolean => c.some((i) => kindOf(i.item) === row.kind);
-      const kindOf = (item: string): string => {
-        if (item === 'kabita_pan') return 'pan';
-        if (item === 'torch') return 'torch';
-        if (T.rows.find((r) => r.kind === 'pickaxe')?.items?.includes(item) || Object.values(T.pickaxe).includes(item)) return 'pickaxe';
-        if (T.rows.find((r) => r.kind === 'drop')?.items?.includes(item)) return 'drop';
-        return 'ore';
-      };
-      const rate = tansus.filter((t) => hasKind(t.items)).length / tansus.length;
-      if (Math.abs(rate - row.chance) > 0.04) bad.push(`${row.kind}: ${rate.toFixed(3)}〔表 ${row.chance}〕`);
+    for (const d of DEPTHS) {
+      expect(rolls[d].length, `${d} の くじ`).toBe(ROLLS);
+      for (const row of tablesOf().camp.rows) {
+        const rate = rolls[d].filter((c) => c.some((i) => kindOf(d, i) === row.kind)).length / ROLLS;
+        if (Math.abs(rate - row.chance) > 0.04) bad.push(`${d} ${row.kind}: ${rate.toFixed(3)}〔表 ${row.chance}〕`);
+      }
     }
     expect(bad).toEqual([]);
   });
 
-  it('かびた パンは いつも 入る・数は 表の はんい・同じ 物を 2 つの 山に しない', () => {
-    const T = tablesOf().camp;
-    const pan = T.rows.find((r) => r.kind === 'pan')!;
-    expect(pan.chance, 'かびた パンは いつも').toBe(1);
+  it('かびた パンは いつも 1 山・数は 表の はんい・同じ 物を 2 つの 山に しない・どの 数も 1 以上', () => {
+    const pan = rowOf('pan');
     const bad: string[] = [];
-    for (const t of tansus) {
-      const pans = t.items.filter((i) => i.item === 'kabita_pan');
-      if (pans.length !== 1) bad.push(`seed ${t.seed} ${t.shaft.id}: パンの 山 ${pans.length}`);
-      else if (pans[0]!.count < pan.count[0] || pans[0]!.count > pan.count[1]) bad.push(`seed ${t.seed}: パン ${pans[0]!.count} こ`);
-      if (new Set(t.items.map((i) => i.item)).size !== t.items.length) bad.push(`seed ${t.seed} ${t.shaft.id}: 同じ 物が 2 山`);
-      if (t.items.some((i) => !(i.count >= 1))) bad.push(`seed ${t.seed}: 数が 1 未満`);
-    }
+    for (const d of DEPTHS)
+      rolls[d].forEach((c, k) => {
+        const pans = c.filter((i) => i.item === 'kabita_pan');
+        if (pans.length !== 1) bad.push(`${d} #${k}: パンの 山 ${pans.length}`);
+        else if (pans[0]!.count < pan.count[0] || pans[0]!.count > pan.count[1]) bad.push(`${d} #${k}: パン ${pans[0]!.count} こ`);
+        if (new Set(c.map((i) => i.item)).size !== c.length) bad.push(`${d} #${k}: 同じ 物が 2 山`);
+        if (c.some((i) => !(i.count >= 1) || !Number.isInteger(i.count))) bad.push(`${d} #${k}: 数が 整数の 1 以上でない`);
+      });
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
   });
 
-  it('つるはしは 1 本・しゅるいは 層で きまる〔あさい・なかほど ＝ いし、ふかい ＝ てつ〕・のこりの たいきゅうが 表の はんい', () => {
+  it('つるはしは 1 本・しゅるいは 層で きまる〔表の `pickaxe`〕・のこりの たいきゅうが 表の はんい', () => {
     const T = tablesOf().camp;
     const bad: string[] = [];
-    let n = 0;
-    for (const t of tansus) {
-      const d = t.shaft.style!.depth;
-      const picks = t.items.filter((i) => i.wear !== undefined);
-      for (const p of picks) {
-        n++;
-        if (p.item !== T.pickaxe[d]) bad.push(`seed ${t.seed} ${d}: ${p.item}〔${T.pickaxe[d]} の はず〕`);
-        if (p.count !== 1) bad.push(`seed ${t.seed}: つるはし ${p.count} 本`);
-        if (p.wear! < T.wear[0] - 1e-9 || p.wear! > T.wear[1] + 1e-9) bad.push(`seed ${t.seed}: のこり ${p.wear}`);
-      }
-      if (picks.length > 1) bad.push(`seed ${t.seed}: つるはしが ${picks.length} 山`);
-    }
-    expect(n, 'つるはしの ある たんす').toBeGreaterThan(100);
-    expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-    for (const d of ['asai', 'nakahodo', 'fukai'] as const) expect(tansus.some((t) => t.shaft.style!.depth === d), `${d} の たんす`).toBe(true);
-  });
-
-  it('妖怪の 落とし物・鉱石・たいまつの 数が 表の はんい〔きんの いしは 1〕・落とし物は 表の 物だけ', () => {
-    const T = tablesOf().camp;
-    const row = (k: string) => T.rows.find((r) => r.kind === k)!;
-    const bad: string[] = [];
-    for (const t of tansus) {
-      for (const i of t.items) {
-        if (i.item === 'torch' && (i.count < row('torch').count[0] || i.count > row('torch').count[1])) bad.push(`seed ${t.seed}: たいまつ ${i.count}`);
-        if (row('drop').items?.includes(i.item) && (i.count < row('drop').count[0] || i.count > row('drop').count[1])) bad.push(`seed ${t.seed}: 落とし物 ${i.item} ${i.count}`);
-        const isOre = i.item !== 'torch' && i.item !== 'kabita_pan' && i.wear === undefined && !row('drop').items?.includes(i.item);
-        if (isOre) {
-          const gold = i.item.includes('gold');
-          if (gold ? i.count !== 1 : i.count < row('ore').count[0] || i.count > row('ore').count[1]) bad.push(`seed ${t.seed}: 鉱石 ${i.item} ${i.count}`);
+    for (const d of DEPTHS) {
+      const wears: number[] = [];
+      rolls[d].forEach((c, k) => {
+        const picks = c.filter((i) => kindOf(d, i) === 'pickaxe');
+        if (picks.length > 1) bad.push(`${d} #${k}: つるはしが ${picks.length} 山`);
+        for (const p of picks) {
+          if (p.item !== T.pickaxe[d]) bad.push(`${d} #${k}: ${p.item}〔${T.pickaxe[d]} の はず〕`);
+          if (p.count !== 1) bad.push(`${d} #${k}: つるはし ${p.count} 本`);
+          if (p.wear === undefined || p.wear < T.wear[0] - 1e-9 || p.wear > T.wear[1] + 1e-9) bad.push(`${d} #${k}: のこり ${p.wear}`);
+          else wears.push(p.wear);
         }
-      }
+      });
+      expect(wears.length, `${d} の つるはしの ある くじ`).toBeGreaterThan(300);
+      // たいきゅうは はんいの 中で ばらつく〔いつも 同じ 値では ない〕
+      expect(Math.max(...wears) - Math.min(...wears), `${d} の のこりの ばらつき`).toBeGreaterThan((T.wear[1] - T.wear[0]) * 0.5);
     }
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
+  });
+
+  it('妖怪の 落とし物・鉱石・たいまつの 数が 表の はんい〔鉱石は 層の 表の 物だけ・きんの いしは 1〕・落とし物は 表の 物だけ 1 種類', () => {
+    const T = tablesOf().camp;
+    const bad: string[] = [];
+    for (const d of DEPTHS)
+      rolls[d].forEach((c, k) => {
+        if (c.filter((i) => kindOf(d, i) === 'drop').length > 1) bad.push(`${d} #${k}: 落とし物が 2 種類`);
+        if (c.filter((i) => kindOf(d, i) === 'ore').length > 1) bad.push(`${d} #${k}: 鉱石が 2 種類`);
+        for (const i of c) {
+          const kind = kindOf(d, i);
+          if (kind === 'torch' && (i.count < rowOf('torch').count[0] || i.count > rowOf('torch').count[1])) bad.push(`${d} #${k}: たいまつ ${i.count}`);
+          if (kind === 'drop' && (i.count < rowOf('drop').count[0] || i.count > rowOf('drop').count[1])) bad.push(`${d} #${k}: 落とし物 ${i.item} ${i.count}`);
+          if (kind === 'ore') {
+            const span = oreCount(d, i.item);
+            if (!span) bad.push(`${d} #${k}: ${i.item} は ${d} の 鉱石の 表に ない`);
+            else if (i.count < span[0] || i.count > span[1]) bad.push(`${d} #${k}: 鉱石 ${i.item} ${i.count}〔表 ${span.join('〜')}〕`);
+          }
+        }
+      });
+    expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
+    // 表の 鉱石は どれも 実際に 出る〔層の 表を 見ずに 1 つだけ 出す 実装を 落とす〕
+    for (const d of DEPTHS) for (const o of T.ores[d]) expect(rolls[d].some((c) => c.some((i) => i.item === o.item)), `${d} の ${o.item}`).toBe(true);
+  });
+
+  it('同じ〔層, シード〕は 同じ 中身・シードが ちがえば 中身も ばらける', () => {
+    const h = hookE(SEED_POOL[0]!);
+    for (const d of DEPTHS) {
+      for (const k of [0, 17, 999]) expect(h.campRoll(d, 1000 + k * 40503)).toEqual(rolls[d][k]);
+      expect(new Set(rolls[d].slice(0, 200).map((c) => JSON.stringify(c))).size, `${d} の 中身の ちがい`).toBeGreaterThan(20);
+    }
+  });
+});
+
+describe('E11: 本物の キャンプ〔数十こ〕は くじと 同じ', () => {
+  it(`キャンプが ${REAL_CAMPS} こ 以上〔どの 層も 6 こ 以上〕`, () => {
+    expect(tansus.length, '1E の キャンプが ない').toBeGreaterThanOrEqual(REAL_CAMPS);
+    for (const d of DEPTHS) expect(tansus.filter((t) => t.shaft.style!.depth === d).length, `${d} の キャンプ`).toBeGreaterThanOrEqual(6);
+  });
+
+  it('`campPreview(たんす)` ＝ `campRoll(層, campSeed(たんす))`・場所が ちがえば シードも ちがう', () => {
+    expect(tansus.length, '1E の キャンプが ない').toBeGreaterThan(0);
+    const bad: string[] = [];
+    const seeds = new Set<string>();
+    for (const t of tansus) {
+      const s = t.hook.campSeed(t.at.x, t.at.y, t.at.z);
+      seeds.add(`${t.seed}:${s}`);
+      const roll = t.hook.campRoll(t.shaft.style!.depth, s);
+      if (JSON.stringify(roll) !== JSON.stringify(t.items)) bad.push(`seed ${t.seed} ${t.shaft.id}`);
+      if (t.items.some((i) => kindOf(t.shaft.style!.depth, i) === 'pickaxe' && i.item !== tablesOf().camp.pickaxe[t.shaft.style!.depth])) bad.push(`seed ${t.seed}: つるはしの しゅるい`);
+    }
+    expect(bad).toEqual([]);
+    expect(seeds.size, 'たんすごとに ちがう シード').toBeGreaterThan(tansus.length * 0.9);
   });
 
   it('同じ〔シード, 場所〕は 同じ 中身〔窓口を 作りなおしても〕', () => {
     expect(tansus.length, '1E の キャンプが ない').toBeGreaterThan(0);
     const bad: string[] = [];
-    for (const t of tansus.filter((_, i) => i % 40 === 0)) {
+    for (const t of tansus.filter((_, i) => i % 4 === 0)) {
       const again = hookE(t.seed).campPreview(t.at.x, t.at.y, t.at.z);
       if (JSON.stringify(again) !== JSON.stringify(t.items)) bad.push(`seed ${t.seed} ${t.shaft.id}`);
       if (JSON.stringify(t.hook.campPreview(t.at.x, t.at.y, t.at.z)) !== JSON.stringify(t.items)) bad.push(`seed ${t.seed}: 2 回 よぶと ちがう`);

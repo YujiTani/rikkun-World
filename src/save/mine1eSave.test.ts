@@ -337,6 +337,61 @@ describe('E16: 版 6 の fixture で 区画ごとに どちらの 坑道を 作�
   });
 });
 
+// ------------------------------------------------------------------ 版 5・6 で 書いた 古い 列の 配列
+
+describe('E16: 版 5・6 の 保存が meta に 書いた「古い 列の 配列」を そのまま 読む〔りっくんの 本当の 世界〕', () => {
+  /** 版 3 の fixture を 開き、meta を 版 5・6 の 書き方〔中身の ある `oldCols` の 配列〕に すりかえた 保存 */
+  async function withMeta(gen: number, pick: (stored: number[]) => { kodo?: number[]; heya?: number[] }) {
+    const { db, store } = await openFile(FIXTURES[3]);
+    const stored = sorted(await keysOf(db));
+    expect(stored.length, 'fixture の 列').toBeGreaterThan(20);
+    const lists = pick(stored);
+    const meta = { ...(db.metas.get(SAVE_ID) as object), gen, oldCols: lists };
+    db.metas.set(SAVE_ID, meta as never);
+    return { db, store, stored, lists };
+  }
+
+  it('版 6〔坑道・部屋の 配列〕: 坑道・部屋の 一覧は その 配列・1E の 一覧は 保存の 列ぜんぶ・窓口の 数も 合う', async () => {
+    const { db, store, stored, lists } = await withMeta(6, (st) => ({ kodo: st.filter((_, i) => i % 2 === 0), heya: st.filter((_, i) => i % 3 === 0) }));
+    const { restored } = await openGame(db, store);
+    expect(listsOf(restored)).toEqual({ kodo: lists.kodo, heya: lists.heya, boken: stored });
+    const h = hookE(SEED, { oldCols: restored.oldCols });
+    needBokenHook(h, ['oldCols']);
+    expect([h.oldCols('kodo'), h.oldCols('heya'), h.oldCols('boken')]).toEqual([lists.kodo!.length, lists.heya!.length, stored.length]);
+  });
+
+  it('版 5〔坑道の 配列 だけ〕: 坑道の 一覧は その 配列・部屋の 一覧は 保存の 列ぜんぶ〔版 5 は 部屋が ない〕・1E の 一覧も ぜんぶ', async () => {
+    const { db, store, stored, lists } = await withMeta(5, (st) => ({ kodo: st.filter((_, i) => i % 4 === 1) }));
+    const { restored } = await openGame(db, store);
+    expect(listsOf(restored)).toEqual({ kodo: lists.kodo, heya: stored, boken: stored });
+  });
+
+  it('版 6〔配列が 空〕: 坑道・部屋の 一覧は 空のまま〔新しい 世界で 作った 保存〕・1E の 一覧は 保存の 列ぜんぶ', async () => {
+    const { db, store, stored } = await withMeta(6, () => ({ kodo: [], heya: [] }));
+    const { restored } = await openGame(db, store);
+    expect(listsOf(restored)).toEqual({ kodo: [], heya: [], boken: stored });
+  });
+
+  it('保存しなおして 開いても 同じ 3 つの 一覧・1E の 前の 世界の 配列は へらない・ふえない・meta の 大きさは 列 1 つに つき 12 バイト 以下', async () => {
+    const { db, store, stored, lists } = await withMeta(6, (st) => ({ kodo: st.filter((_, i) => i % 2 === 0), heya: st.filter((_, i) => i % 3 === 0) }));
+    const first = await openGame(db, store);
+    await first.save.now();
+    const meta = await metaOf(db);
+    expect(meta['gen']).toBe(SAVE_GEN);
+    const fresh = new MemoryBackend();
+    const g = await openGame(fresh, new MemoryStore());
+    g.world.loadColumn(genColumn(SEED, 30, 30));
+    g.world.setBlock(30 * 16 + 1, 300, 30 * 16 + 1, 'stone');
+    await g.save.now();
+    expect(sizeOf(meta) - sizeOf(await metaOf(fresh)), `meta の 一覧の 大きさ〔列 ${stored.length} こ〕`).toBeLessThanOrEqual(12 * stored.length + 64);
+    for (let k = 0; k < 2; k++) {
+      const again = await openGame(db, store);
+      expect(listsOf(again.restored), `${k + 1} 回目`).toEqual({ kodo: lists.kodo, heya: lists.heya, boken: stored });
+      await again.save.now();
+    }
+  });
+});
+
 describe('E16: meta が ない・こわれて いる・新しい 世界', () => {
   it('meta が ない・gen が こわれて いる → 版 3 と みなして 3 つの 一覧が 保存の 列 ぜんぶ', async () => {
     for (const make of [(db: MemoryBackend) => void db.metas.delete(SAVE_ID), (db: MemoryBackend) => void db.metas.set(SAVE_ID, { v: SAVE_VERSION, seed: SEED, gen: 'x' } as never)]) {

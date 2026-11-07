@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { colKey } from '../stream/ring';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
-import { SEEDS_20, GenCols, hook1c, legacyOld, sampleShafts, type Shaft } from './mineShaftKit';
+import { SEEDS_20, GenCols, hook1c, sampleShafts, type Shaft } from './mineShaftKit';
+import { legacyOld } from './mineLegacyKit';
 
 /**
  * MINE-1C（docs/design/MINE-1.md §4.9・§6.1 `work`・受け入れ基準 C14 の【ユニット】の 分）: 坑道の 仕事の 数。

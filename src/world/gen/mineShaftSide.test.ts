@@ -10,7 +10,6 @@ import {
   isSolidIndex,
   pathIndex,
   ptKey,
-  legacyOld,
   sampleShafts,
   type Compass,
   type GenCols,
@@ -19,6 +18,7 @@ import {
   type Pt,
   type Shaft,
 } from './mineShaftKit';
+import { legacyOld } from './mineLegacyKit';
 import { spawnOf } from './terrain';
 
 /**

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { colKey } from '../stream/ring';
-import { legacyOld } from './mineShaftKit';
+import { legacyOld } from './mineLegacyKit';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import { shaftWorldFor } from './mineShafts';
 import { planShaft, type PlanEnv, type ShaftPlan } from './mineShaftPlan';
