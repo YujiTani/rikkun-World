@@ -46,7 +46,13 @@ interface ShaftSide {
   layer: Layer;
   from: Pt;
   to: Pt;
-  end: 'cave' | 'joint' | 'koheya';
+  end: 'cave' | 'joint' | 'koheya' | 'heya';
+  /** 1D〔仕様 §4.7.5〕: つなぐ くじの 当たり〔部屋が 入らず はずれに した ときも true。はじまりの ほたるは true〕。1C では ない */
+  heyaHit?: boolean;
+  /** 1D: くじに 当たった 部屋の 種類〔部屋が 入らず はずれに した 横穴も。当たりでなければ null〕 */
+  heyaKind?: string | null;
+  /** 1D: end が 'heya'〔と はじまりの ほたる〕の とき その 部屋の Cave.id */
+  cave?: string | null;
   /** 計画の 長さ〔上の 限り 12〜40〕 */
   length: number;
   /** 計画の 曲がり〔0〜2〕 */
@@ -551,6 +557,24 @@ export function shaftCoveredCols(seed: number, x0: number, z0: number, x1: numbe
   if (typeof h.touchesShaft !== 'function') return out;
   for (let cz = z0 >> 4; cz <= z1 >> 4; cz++) for (let cx = x0 >> 4; cx <= x1 >> 4; cx++) if (h.touchesShaft(cx, cz)) out.add(colKey(cx, cz));
   return out;
+}
+
+/**
+ * ある シードで、坑道 か ほらあなの 種類の 部屋〔1D〕が かかる 列〔地下の 中身が 前と かわる〕。窓口 `touchesShaft`〔坑道〕と `touchesRoom`〔部屋〕から 読む。
+ * 1C の 「前と 同じ」くらべは 部屋の 列も のぞく ために 使う〔`touchesShaft` だけは R6 の とおり 坑道だけ〕。
+ */
+export function underCoveredCols(seed: number, x0: number, z0: number, x1: number, z1: number): Set<number> {
+  const out = shaftCoveredCols(seed, x0, z0, x1, z1);
+  const h = hook1c(seed) as unknown as { touchesRoom?: (cx: number, cz: number) => boolean };
+  if (typeof h.touchesRoom !== 'function') return out;
+  for (let cz = z0 >> 4; cz <= z1 >> 4; cz++) for (let cx = x0 >> 4; cx <= x1 >> 4; cx++) if (h.touchesRoom(cx, cz)) out.add(colKey(cx, cz));
+  return out;
+}
+
+/** ある シードで「ほらあなの 種類の 部屋〔1D〕が かかる 列か」を 答える 関数〔窓口 `touchesRoom`。まだ 無い ときは いつも false〕 */
+export function roomTouchesCol(seed: number): (cx: number, cz: number) => boolean {
+  const h = hook1c(seed) as unknown as { touchesRoom?: (cx: number, cz: number) => boolean };
+  return typeof h.touchesRoom === 'function' ? (cx, cz) => h.touchesRoom!(cx, cz) : () => false;
 }
 
 /** ある シードで「坑道が かかる 列か」を 答える 関数〔窓口 `touchesShaft`。窓口が まだ 無い ときは いつも false〕 */

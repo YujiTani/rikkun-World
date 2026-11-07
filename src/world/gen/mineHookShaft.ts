@@ -1,15 +1,16 @@
 import type { BlockId, ItemId, Rarity, VoxelWorld } from '../../contracts';
 import { itemDef } from '../../content/items/registry';
 import { RARITY_ORDER } from '../../drops/rarityTable';
-import { KODO_GEN, SAVE_GEN } from '../../save/gens';
-import { BLOCK_INDEX } from '../blocks/blockTypes';
+import { HEYA_GEN, KODO_GEN, SAVE_GEN } from '../../save/gens';
 import { EMISSION } from '../light/opacity';
 import { chestBlockId, chestBlockInfo, chestFrontAt, chestPartner, type ChestCompass } from '../blocks/chestBlock';
+import { terrainFor } from './terrain';
 import { colKey } from '../stream/ring';
 import { buildBlocks } from './chunk';
 import { chestExcluded, chestPool, rollChest } from './mineChest';
 import { chestSeed, chestTableOf } from './mineChestTable';
 import { shaftWorldFor, type OldCols } from './mineShafts';
+import { createCaveHook } from './mineHookCave';
 import type { ChestRoll, ChestTable, PathCell, Pt, Shaft, ShaftRoll, Tier } from './mineShaftTypes';
 
 /**
@@ -54,14 +55,16 @@ export interface ShaftHookOptions {
   chest?: ChestPorts;
 }
 
-/** 坑道が 置く 光る ブロック〔たいまつ・ほたるいし。マグマ・あんどんは 数えない〕 */
-const EMITTERS: ReadonlySet<number> = new Set([BLOCK_INDEX.torch, BLOCK_INDEX.hotaruishi, BLOCK_INDEX.start_torch].filter((i) => EMISSION[i]! > 0));
 const SUPER = RARITY_ORDER.indexOf('superRare');
 const idxOf = (r: Rarity): number => RARITY_ORDER.indexOf(r);
 
 export function createShaftHook(o: ShaftHookOptions) {
   const { seed } = o;
   const world = (): ShaftWorldType => o.shafts ?? shaftWorldFor(seed, o.oldCols);
+  const cave = createCaveHook(world, () => {
+    const sp = terrainFor(seed).spawn();
+    return { x: sp.x, z: sp.z };
+  });
 
   function chestAt(x: number, y: number, z: number): ChestAtInfo | null {
     if (!o.world) return null;
@@ -137,18 +140,21 @@ export function createShaftHook(o: ShaftHookOptions) {
     rollChest,
     chestPreview,
     open,
-    caveAt: (x: number, y: number, z: number): string | null => (world().inside(Math.floor(x), Math.floor(y), Math.floor(z)) ? 'kodo' : null),
-    saveGens: () => ({ current: SAVE_GEN, meta: o.metaGen?.() ?? SAVE_GEN, kodo: (o.kodoGen ?? KODO_GEN) as number | null, heya: null as number | null }),
+    caveAt: (x: number, y: number, z: number): string | null => (world().inside(Math.floor(x), Math.floor(y), Math.floor(z)) ? 'kodo' : cave.caveKindAt(x, y, z)),
+    ...cave,
+    saveGens: () => ({ current: SAVE_GEN, meta: o.metaGen?.() ?? SAVE_GEN, kodo: (o.kodoGen ?? KODO_GEN) as number | null, heya: HEYA_GEN as number | null }),
     oldCols: (kind: 'kodo' | 'heya'): number => o.oldCols?.[kind]?.size ?? 0,
     isOld: (kind: 'kodo' | 'heya', cx: number, cz: number): boolean => o.oldCols?.[kind]?.has(colKey(cx, cz)) === true,
     work(cx: number, cz: number): { shaftRegions: number; caveRegions: number; emitters: number } {
       const b = buildBlocks(seed, cx, cz, undefined, o.oldCols).blocks;
       let emitters = 0;
-      for (let i = 0; i < b.length; i++) if (EMITTERS.has(b[i]!)) emitters++;
-      return { shaftRegions: world().regionCount(cx, cz), caveRegions: 0, emitters };
+      for (let i = 0; i < b.length; i++) if (EMISSION[b[i]!]! > 0) emitters++;
+      return { shaftRegions: world().regionCount(cx, cz), caveRegions: world().touchesRoom(cx, cz) ? 1 : 0, emitters };
     },
     /** 坑道が かかる 列か（かかる 列は 「ふつうの 列」ではない） */
     touchesShaft: (cx: number, cz: number): boolean => world().touches(cx, cz),
+    /** ほらあなの 種類の 部屋が かかる 列か（地下の 中身が かわる） */
+    touchesRoom: (cx: number, cz: number): boolean => world().touchesRoom(cx, cz),
   };
 }
 

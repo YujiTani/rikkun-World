@@ -20,6 +20,7 @@ import type {
   WorldRegions,
   YokaiKind,
 } from '../contracts';
+import type { CaveKind } from '../world/gen/mineCaveConfig';
 import { COUNTRY_KINDS } from '../world/gen/config';
 import { baseRecipeId } from '../craft/recipes';
 import { isChalkMarkId } from '../world/blocks/chalkMark';
@@ -425,9 +426,12 @@ export class AchievementSystem implements AchievementShowSource {
     this.run(() => this.setMax('samuraiKinds', kinds));
   }
 
-  /** MINE-1C: 坑道の 出来事。足が いちばん 下の へやに 入った（bottom）／宝箱を あけた（chestOpen。段は 数えない） */
-  feedMine(events: ReadonlyArray<{ type: 'bottom' | 'chestOpen'; tick: number; tier?: number }>): void {
-    for (const e of events) this.run(() => this.setMax(e.type === 'bottom' ? 'mineBottom' : 'mineChest', 1));
+  /**
+   * MINE-1C: 坑道の 出来事。足が いちばん 下の へやに 入った（bottom）／宝箱を あけた（chestOpen。段は 数えない）。
+   * MINE-1D: 足が はじめて ほらあなの 部屋に 入った（cave。kind = 部屋の 種類。種類ごとに 1 回）
+   */
+  feedMine(events: ReadonlyArray<{ type: 'bottom' | 'chestOpen'; tick: number; tier?: number } | { type: 'cave'; tick: number; kind: CaveKind }>): void {
+    for (const e of events) this.run(() => this.setMax(e.type === 'cave' ? `cave:${e.kind}` : e.type === 'bottom' ? 'mineBottom' : 'mineChest', 1));
   }
 
   /** 「もちもの が いっぱい」の合図が出た */

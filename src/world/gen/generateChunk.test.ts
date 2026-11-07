@@ -8,7 +8,7 @@ import { columnHash, generateChunk } from './chunk';
 import { inMouthFootprint, mouthsNear } from './mouths';
 import { countryAt } from './biome';
 import { createMineHook } from './mineHook';
-import { shaftTouchesCol } from './mineShaftKit';
+import { roomTouchesCol, shaftTouchesCol } from './mineShaftKit';
 import { clearTerrainCache, terrainFor } from './terrain';
 import { treesInRect } from './trees';
 
@@ -217,6 +217,7 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
       const trunkSet = new Set<number>();
       const trunks: [number, number][] = [];
       const touches = shaftTouchesCol(seed); // 坑道が かかる 列〔山・入口。木・地面が 変わる〕は この 基準の 数えから のぞく
+      const inRoom = roomTouchesCol(seed); // ほらあなの 種類の 部屋〔1D。地下の 鉱石・洞くつが かわる。木は かわらない〕が かかる 列は 地下の 数えから のぞく
       // 読みこみ範囲の 64 列 ＋（10 シードは）海の列を 4 つ
       const list: [number, number][] = [];
       for (let cz = 0; cz < 8; cz++) for (let cx = 0; cx < 8; cx++) list.push([cx, cz]);
@@ -249,6 +250,7 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
           const x0 = cx * 16;
           const z0 = cz * 16;
           const mouths = mouthsNear(T, cx, cz);
+          const underRoom = inRoom(cx, cz);
           let pureGrass = 0;
           let pureForest = 0;
           let trunkCount = 0;
@@ -261,12 +263,15 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
               const onMouth = mouths.some((m) => inMouthFootprint(m, x, z, 1));
               const rock = T.inRock(x, z, 1);
               // 層ごとの マスの 数（MINE-1A §4.1: あさい 96〜地面・なかほど 52〜95・ふかい 1〜51）
-              st.cellsAsai += Math.max(0, H - ASAI_MIN_Y + 1);
-              st.cellsNakahodo += Math.max(0, Math.min(H, ASAI_MIN_Y - 1) - NAKAHODO_MIN_Y + 1);
-              st.cellsFukai += Math.max(0, Math.min(H, NAKAHODO_MIN_Y - 1));
+              if (!underRoom) {
+                st.cellsAsai += Math.max(0, H - ASAI_MIN_Y + 1);
+                st.cellsNakahodo += Math.max(0, Math.min(H, ASAI_MIN_Y - 1) - NAKAHODO_MIN_Y + 1);
+                st.cellsFukai += Math.max(0, Math.min(H, NAKAHODO_MIN_Y - 1));
+              }
               // 鉱石の数え（列ぜんぶ）
               for (let y = 1; y < WORLD_HEIGHT; y++) {
                 const b = at(y);
+                if (underRoom && b !== LOG) continue;
                 if (b === COAL) {
                   st.coal++;
                   if (y < ASAI_MIN_Y) st.coalOutsideAsai++;
@@ -290,7 +295,7 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
                 else if (bio.kind === 'mori') pureForest++;
               }
               // MAGMA-SPAWN: 溶岩・滝の いけ と へり（底・へりは いし、滝の 底は たきつぼ）は 地層の きまりの 外
-              if (onMouth || rock || T.liquid.pondAt(x, z) !== null) continue;
+              if (onMouth || rock || underRoom || T.liquid.pondAt(x, z) !== null) continue;
               // 基準 4: 地層
               const bad = (why: string): void => {
                 if (st.strataBad.length < 8) st.strataBad.push(`seed ${seed} (${x},${z}) H=${H} ${why}`);

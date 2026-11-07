@@ -1,4 +1,5 @@
 // main.ts の 流れ 7: 保存と 世界の 読みこみ・毎ステップの 準備・ゲームの 毎コマの 登録と 影。
+import type { CaveKind } from '../../world/gen/mineCaveConfig';
 import { createCameraHook } from '../../camera/hook';
 import { createCombatHook } from '../../combat';
 import { createCraftHook } from '../../craft';
@@ -346,6 +347,7 @@ export function wireFrame(deps: WiredSave) {
   };
   let peakKey = NaN;
   const warmAt: { x: number; z: number }[] = [{ x: 0, z: 0 }]; // 坑道の 先読みの 中心〔毎ステップ 配列を 作らない〕
+  let wasCave: CaveKind | null = null;
   let wasInBottom = false;
   let yokaiSample: StepContext['yokai'] = [];
   const regions = island.regions();
@@ -390,6 +392,10 @@ export function wireFrame(deps: WiredSave) {
       const inBottom = !ctx.dead && st.position.y < SHAFT_CONFIG.room.maxY + SHAFT_CONFIG.room.height && shafts.inBottom(Math.floor(st.position.x), Math.floor(st.position.y + 0.1), Math.floor(st.position.z));
       if (inBottom && !wasInBottom) achievements.feedMine([{ type: 'bottom', tick: game.tick }]);
       wasInBottom = inBottom;
+      // MINE-1D §4.10: 足が はじめて 部屋に 入った〔種類が かわった コマだけ 送る。実績は 種類ごとに 1 回〕
+      const kind = ctx.dead ? null : shafts.caveKindAt(Math.floor(st.position.x), Math.floor(st.position.y + 0.1), Math.floor(st.position.z));
+      if (kind !== null && kind !== wasCave) achievements.feedMine([{ type: 'cave', tick: game.tick, kind }]);
+      wasCave = kind;
     }
     celebrate.setPending(achievements.pendingCount());
   }

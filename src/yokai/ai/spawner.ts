@@ -34,7 +34,7 @@ interface SpawnerDeps {
   config: YokaiConfig;
   events: Pick<YokaiEvents, 'emit' | 'tick'>;
   /** countryTable・countryOf・canSpawnAt・light・groundY を 使うときに 読む */
-  opts: Pick<YokaiManagerOptions, 'countryTable' | 'countryOf' | 'canSpawnAt' | 'light' | 'groundY'>;
+  opts: Pick<YokaiManagerOptions, 'countryTable' | 'countryOf' | 'canSpawnAt' | 'noSpawnAt' | 'light' | 'groundY'>;
   /** 出した妖怪の 見た目・体力のバーを 入れる 入れ物 */
   group: THREE.Group;
   rng: Rng;
@@ -276,6 +276,8 @@ export class YokaiSpawner {
       const ai = KIND_AI[kind];
       const T = groundSupport(world, x, z, top, ai);
       if (Number.isNaN(T)) continue;
+      // MINE-1D §4.3: ほたるの ほらあなの 床には 出ない（つなぎ込みが 足の マスを 聞く）
+      if (opts.noSpawnAt?.(Math.floor(x), Math.floor(T), Math.floor(z))) continue;
       // 光の少ない場所だけ: 屋根の下、またはよる
       const light = opts.light;
       if (light) {

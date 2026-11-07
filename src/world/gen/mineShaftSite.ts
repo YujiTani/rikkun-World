@@ -2,7 +2,7 @@ import { SEA_Y } from '../../contracts';
 import { caveAirFor, type CaveAir } from './mineCaveAir';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import { DV } from './mineShaftBuild';
-import { inMouthFootprint, mouthsNear, type Mouth } from './mouths';
+import { inMouthFootprint, mouthsNear, roomFloor, type Mouth } from './mouths';
 import { createRng, hash01, hashInts, subSeed, type Rng } from './random';
 import { terrainFor, type Terrain } from './terrain';
 
@@ -48,6 +48,21 @@ export class Geo {
     }
     for (const m of list) if (inMouthFootprint(m, x, z, margin)) return true;
     return false;
+  }
+  /** (x, z) の まわり margin マスに かかる 洞くつの 口の いちばん 低い 空気の y（なければ null） */
+  mouthBottom(x: number, z: number, margin: number): number | null {
+    const cx = x >> 4;
+    const cz = z >> 4;
+    const k = (cx + 4096) * 8192 + (cz + 4096);
+    let list = this.mouths.get(k);
+    if (!list) {
+      if (this.mouths.size > 4000) this.mouths.clear();
+      list = mouthsNear(this.T, cx, cz);
+      this.mouths.set(k, list);
+    }
+    let low: number | null = null;
+    for (const m of list) if (inMouthFootprint(m, x, z, margin)) low = Math.min(low ?? Infinity, roomFloor(m.h0));
+    return low;
   }
   /** (x, z) に いけ・溶岩の いけ・はじまりの 岩山が かかるか */
   special(x: number, z: number, margin = 0): boolean {

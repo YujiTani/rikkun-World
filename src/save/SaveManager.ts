@@ -1,5 +1,5 @@
 import type { BlockId, ChunkColumn, Inventory, PlayerState, ScreenSettings, SpawnPoint, Vec3 } from '../contracts';
-import { KODO_GEN, OLDEST_READABLE_GEN, SAVE_GEN } from './gens';
+import { HEYA_GEN, KODO_GEN, OLDEST_READABLE_GEN, SAVE_GEN } from './gens';
 import { packColumn, SAVE_ID, type PersistBackend, type StoredChunk, type StoredMeta } from './backend';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 import { encodeSections } from './chunkCodec';
@@ -164,7 +164,7 @@ export const SAVE_VERSION = 1;
  * 3 = VOX-B（無限の地形・高さ 352。前の世界（2）は読まない）、4 = MINE-1A（地下の 3 つの層と 鉱石の かたまり。docs/design/MINE-1.md §4.8）、
  * 5 = MINE-1C（坑道。古い 列には 坑道を かかない〔meta.oldCols〕）
  */
-export { SAVE_GEN, OLDEST_READABLE_GEN, KODO_GEN };
+export { SAVE_GEN, OLDEST_READABLE_GEN, KODO_GEN, HEYA_GEN };
 
 /** その 版の 保存の 列を 読めるか（OLDEST_READABLE_GEN から 今の 版 SAVE_GEN まで。今の 版より 新しい 保存は 読まない） */
 export function isReadableGen(gen: number): boolean {

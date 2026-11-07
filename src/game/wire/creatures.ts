@@ -43,6 +43,8 @@ export function wireYokai(deps: WiredFighters) {
     armor, // NINJA-1: 忍び装束で 気づく 距離が 半分
     samurai: () => ({ book: shared.samuraiBook.got(), have: shared.samuraiHave() }), // SAMURAI-1 §4.2: ヌシの 表で 選べない 侍装備の 行を とばす
     strength: strengthLevel,
+    // MINE-1D §4.3: ほたるの ほらあなの 床には 出ない
+    noSpawnAt: (x, y, z) => deps.shafts.caveKindAt(x, y, z) === 'hotaru',
     light: renderer.light,
     // 出る場所は 描く輪の メッシュずみの列だけ（VOX-D）
     // HOUSE-1C §4.6: 建築中の 家の まわり 16 マスには 湧かない（建築中の 家だけを 見る。世界は 読まない）

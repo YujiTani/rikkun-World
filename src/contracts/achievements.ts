@@ -85,6 +85,7 @@ export type StatKey =
   | 'samuraiKinds' // SAMURAI-1: 手に 入れた ことの ある 侍装備の しゅるいの 数
   | 'mineBottom' // MINE-1C: 坑道の いちばん 下の へやに ついた（1）
   | 'mineChest' // MINE-1C: 宝箱を あけた（1）
+  | `cave:${string}` // MINE-1D: 足が はじめて その 種類の ほらあなに 入った（1。`cave:hiroi` など）
   | 'legendKinds' // WEAPON-7: 手に 入れた ことの ある レジェンダリーの しゅるいの 数
   | 'wearAll'
   | 'death'

@@ -223,6 +223,7 @@
     "toriya_fence": 42,
     "toriya_gate": 43,
     "toriya_nest": 44,
+    "tsurara": 203,
     "wakimizu": 165,
     "water": 9,
     "water_1": 152,
@@ -1455,6 +1456,12 @@
       "id": "takarabako_4_open_r",
       "name": "あいた ミラクルの たからばこ",
       "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "tsurara",
+      "name": "つらら",
+      "solid": false
     }
   ],
   "DIG_DEFAULTS": {
@@ -1664,6 +1671,7 @@
       "toriya_fence": 5,
       "toriya_gate": 5,
       "toriya_nest": 5,
+      "tsurara": 0.5,
       "wakimizu": 1.5,
       "water": null,
       "water_1": null,
@@ -1869,6 +1877,7 @@
       "toriya_fence": 0,
       "toriya_gate": 0,
       "toriya_nest": 0,
+      "tsurara": 0,
       "wakimizu": 0,
       "water": 0,
       "water_1": 0,
@@ -2075,6 +2084,7 @@
       "toriya_fence": "uncommon",
       "toriya_gate": "uncommon",
       "toriya_nest": "uncommon",
+      "tsurara": "common",
       "wakimizu": "uncommon",
       "water": "common",
       "water_1": "common",
@@ -2188,6 +2198,10 @@
     "takitsubo": {
       "count": 1,
       "item": "takitsubo"
+    },
+    "tsurara": {
+      "count": 1,
+      "item": "sekkaiseki"
     }
   },
   "NO_DROP_BLOCKS": [

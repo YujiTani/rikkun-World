@@ -33,6 +33,17 @@ const SIX: readonly (readonly [number, number, number])[] = [
 /** 道の 足の マス 1 つの 上に 空気に する 高さ（マス）。へやは 5 */
 export const airHeightOf = (part: PathPart): number => (part === 'room' ? 5 : 4);
 
+/** `ShaftBuilder.snapshot` の 中身 */
+export interface BuilderSnap {
+  air: Set<number>;
+  ring: Set<number>;
+  put: Map<number, number>;
+  pathKeys: Set<number>;
+  exempt: Set<number>;
+  path: PathCell[];
+  reserved: { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number }[];
+}
+
 export class ShaftBuilder {
   /** 空気に する マス */
   readonly air = new Set<number>();
@@ -42,6 +53,8 @@ export class ShaftBuilder {
   readonly put = new Map<number, number>();
   readonly path: PathCell[] = [];
   readonly pathKeys = new Set<number>();
+  /** 坑道の へや〔1D〕の 箱。ほかの 横穴は ここに かからない */
+  readonly reserved: { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number }[] = [];
 
   /** 道の 足の マスを 足す（空気・かべ・床・天井は まとめて あとで `commitRing`） */
   addCell(p: Pt3, part: PathPart): void {
@@ -53,6 +66,37 @@ export class ShaftBuilder {
 
   /** かべに しない マス〔外に ひらく 面〕 */
   readonly exempt = new Set<number>();
+
+  /** 今の 状態を 写しておく〔横穴を 1C の 形と へやの 形で ためして もどす ため〕 */
+  snapshot(): BuilderSnap {
+    return {
+      air: new Set(this.air),
+      ring: new Set(this.ring),
+      put: new Map(this.put),
+      pathKeys: new Set(this.pathKeys),
+      exempt: new Set(this.exempt),
+      path: this.path.slice(),
+      reserved: this.reserved.slice(),
+    };
+  }
+
+  /** `snapshot` の 状態に もどす */
+  restore(s: BuilderSnap): void {
+    this.air.clear();
+    for (const k of s.air) this.air.add(k);
+    this.ring.clear();
+    for (const k of s.ring) this.ring.add(k);
+    this.put.clear();
+    for (const [k, v] of s.put) this.put.set(k, v);
+    this.pathKeys.clear();
+    for (const k of s.pathKeys) this.pathKeys.add(k);
+    this.exempt.clear();
+    for (const k of s.exempt) this.exempt.add(k);
+    this.path.length = 0;
+    for (const c of s.path) this.path.push(c);
+    this.reserved.length = 0;
+    for (const r of s.reserved) this.reserved.push(r);
+  }
 
   /** air から ring を 作りなおす */
   buildRing(): void {

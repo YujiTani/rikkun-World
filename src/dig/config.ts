@@ -171,6 +171,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kogeta: 1.0, // 版 2: もろい
     magma_takitsubo: 0.5, // WAKIDOKORO: たきつぼと 同じ
     kodo_waku: 5, // MINE-1C: 坑道の わく（すでで 5 秒。ほると き 1。仕様 §4.4）
+    tsurara: 0.5, // MINE-1D: つらら（すでで 0.5 秒。ほると せっかいせき 1。仕様 §4.4）
     ...forChest<number | null>(null), // 宝箱は ほっても こわれない（start_torch と 同じ）
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
@@ -262,6 +263,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kogeta: 0,
     magma_takitsubo: 0,
     kodo_waku: 0, // 素手から
+    tsurara: 0, // MINE-1D: 素手から
     ...forChest(0),
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
@@ -367,6 +369,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kogeta: 'common',
     magma_takitsubo: 'uncommon',
     kodo_waku: 'common',
+    tsurara: 'common', // MINE-1D
     ...forChest<Rarity>('common'),
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
@@ -413,6 +416,8 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   kogeta: { item: 'sumi', count: 1 },
   // MINE-1C: 坑道の わくを ほると き 1 こ（わくは 持てない）
   kodo_waku: { item: 'log', count: 1 },
+  // MINE-1D: つららは ほると せっかいせき いつも 1 こ（持てない ブロック）
+  tsurara: { item: 'sekkaiseki', count: 1 },
 };
 
 /**

@@ -6,7 +6,9 @@ import { chestPlaced, chestTierAt } from './mineChestTable';
 import { COMPASS, DV, Frame, ShaftBuilder, airHeightOf, keyOf, keyX, keyY, keyZ, type Pt3 } from './mineShaftBuild';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import { planSides, type Hub } from './mineShaftSide';
+import type { SideRef, StartLink } from './mineShaftHeya';
 import { Geo, coverOk, type Dir, type Site } from './mineShaftSite';
+import type { HiroiTryRow, PlacedCave } from './mineCaves';
 import type { Compass, PathCell, Shaft } from './mineShaftTypes';
 import { createRng, hashInts, subSeed, type Rng } from './random';
 
@@ -34,6 +36,26 @@ export interface ShaftPlan {
   noPlants: [number, number, number, number][];
   /** 形が かわる 列（colKey）。古い 列と かさなる 場所には 置かない ための 一覧 */
   cols: Set<number>;
+  /** 坑道の へや〔1D。はじまりの 坑道は ほたるの ほらあな〕 */
+  rooms: PlacedCave[];
+  /** 部屋が かかる 列〔colKey〕 */
+  roomCols: Set<number>;
+  /** 坑道の へやの ひろい ほらあなを ためした 記録 */
+  tries: HiroiTryRow[];
+  /** 横穴の しるし〔はじまりの 坑道を 1C の まま に する ための くらべ〕 */
+  ref: SideRef;
+}
+
+/** 計画の 外の 事情 */
+export interface PlanEnv {
+  /** 古い 坑道の 列か */
+  isOld(k: number): boolean;
+  /** 古い 部屋の 列か */
+  isOldHeya(k: number): boolean;
+  /** はじまりの 坑道: 1C の 計画を ref に して、なかほどの いちばん 上の 横穴を ほたるの ほらあなへ かえる ためし〔null は 1C の 形〕 */
+  link: StartLink | null;
+  /** 坑道の へやの くじを 引くか〔false は 1C の 形。テストの くらべ用〕 */
+  heya: boolean;
 }
 
 const dirOf = (dx: number, dz: number): Dir => DV.findIndex((d) => d[0] === dx && d[1] === dz) as Dir;
@@ -108,15 +130,16 @@ function outsideWalkable(G: Geo, F: Frame, ey: number): boolean {
 }
 
 /** 計画を いっきに 作る（はじまりの 坑道・テスト用） */
-export function planShaft(G: Geo, site: Site, id: string, start: boolean, isOldCol: (k: number) => boolean, attempt: number): ShaftPlan | null {
-  const job = planShaftSteps(G, site, id, start, isOldCol, attempt);
+export function planShaft(G: Geo, site: Site, id: string, start: boolean, env: PlanEnv, attempt: number): ShaftPlan | null {
+  const job = planShaftSteps(G, site, id, start, env, attempt);
   let r = job.next();
   while (!r.done) r = job.next();
   return r.value;
 }
 
 /** 計画を 少しずつ 作る 仕事（短い 仕事ごとに yield。先読みが 時間で 止まれる ように。結果は planShaft と 同じ） */
-export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, isOldCol: (k: number) => boolean, attempt: number): Generator<void, ShaftPlan | null> {
+export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, env: PlanEnv, attempt: number): Generator<void, ShaftPlan | null> {
+  const isOldCol = env.isOld;
   const seed = G.seed;
   const rng = createRng(hashInts(subSeed(seed, 811), site.x, site.z, attempt));
   const ey = site.y;
@@ -216,8 +239,9 @@ export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, 
   b.buildRing();
   yield;
   // 横穴
-  const sides = yield* planSides(G, b, hubs, start, rng, F, site, chestCells);
-  if (sides === null) return null;
+  const out = yield* planSides(G, b, hubs, start, rng, F, site, chestCells, { shaftId: id, lottery: env.heya, link: env.link, isOld: (k) => env.isOld(k) || env.isOldHeya(k) });
+  if (out === null) return null;
+  const sides = out.sides;
 
   yield;
   // わく: 入口と 道に そって ６ マスごと（かべ・天井の 中に うめる）
@@ -329,6 +353,12 @@ export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, 
     z0 = Math.min(z0, mound.z - h);
     z1 = Math.max(z1, mound.z + h);
   }
+  for (const r of out.rooms) {
+    x0 = Math.min(x0, r.box.x0 - 1);
+    x1 = Math.max(x1, r.box.x1 + 1);
+    z0 = Math.min(z0, r.box.z0 - 1);
+    z1 = Math.max(z1, r.box.z1 + 1);
+  }
   const m = S.boxMargin;
   const box = { x0: x0 - m, z0: z0 - m, x1: x1 + m, z1: z1 + m };
   if (box.x1 - box.x0 + 1 > S.boxMax || box.z1 - box.z0 + 1 > S.boxMax) return null;
@@ -364,7 +394,9 @@ export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, 
     sides,
     box,
   };
-  return { shaft, path: b.path, b, noTrees, noPlants, cols };
+  const roomCols = new Set<number>();
+  for (const r of out.rooms) if (r.shaft !== null) for (const k of r.room.ops.keys()) roomCols.add(k); // はじまりの ほたるは 抽選の 部屋として 置く
+  return { shaft, path: b.path, b, noTrees, noPlants, cols, rooms: out.rooms, roomCols, tries: out.tries, ref: out.ref };
 }
 
 function frameCell(b: ShaftBuilder, x: number, y: number, z: number): void {

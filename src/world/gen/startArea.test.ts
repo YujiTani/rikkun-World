@@ -66,7 +66,7 @@ describe('スタートの広場（基準 12・13）', () => {
       }
       expect(w.get(sp.x + GEN_CONFIG.startTorch.dx, sp.h + 1, sp.z + GEN_CONFIG.startTorch.dz)).toBe(BLOCK_INDEX.start_torch);
     }
-  });
+  }, 90_000); // 20 シードの 初めの 列ごとに 1D の 部屋の 計画〔区画 1 つ〕を 作る ぶん 5 秒では たりない
 
   it('4 方向（北・東・南・西）へ 1 マスずつ 歩いて 広場の外へ出られる（となりとの高さの差が 1 以下）', () => {
     for (const seed of SEEDS_20) {
@@ -83,7 +83,7 @@ describe('スタートの広場（基準 12・13）', () => {
         }
       }
     }
-  });
+  }, 90_000); // 20 シードの はじまりの 坑道の 計画〔ほたるへ つなぐ 形さがし〕を 作る ぶん 5 秒では たりない
 });
 
 describe('はじまりの木・岩山（基準 14）', () => {
@@ -135,7 +135,7 @@ describe('はじまりの木・岩山（基準 14）', () => {
       expect(coal, `seed ${seed}`).toBeGreaterThanOrEqual(6);
       expect(south, `seed ${seed}`).toBeGreaterThanOrEqual(3);
     }
-  });
+  }, 90_000); // 同上
 });
 
 describe('洞くつの口（基準 8）', () => {
@@ -220,7 +220,7 @@ describe('仮の海のふちが無い（VOX-D 基準 22）', () => {
         expect(w.top(x, z), `seed ${seed} (${x},${z})`).toBe(heightAt(seed, x, z));
       }
     }
-  });
+  }, 90_000); // CI は ほかの テストと 同時に 回るので 余裕を みる〔1D の 計画を 作る ぶん〕
 
   it('スタート・岩山の高さは 生成のまま', () => {
     for (const seed of SEEDS_20) {
@@ -230,5 +230,5 @@ describe('仮の海のふちが無い（VOX-D 基準 22）', () => {
       expect(w.top(sp.x, sp.z)).toBe(sp.h);
       expect(w.top(r.cx, r.cz)).toBe(heightAt(seed, r.cx, r.cz));
     }
-  });
+  }, 90_000); // 同上
 });

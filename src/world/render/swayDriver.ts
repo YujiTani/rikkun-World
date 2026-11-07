@@ -1,7 +1,7 @@
 import type { Group, MeshBasicMaterial } from 'three';
 import type { CropStageSource } from '../../contracts';
 import { cropKindOfBlock } from '../../contracts';
-import { BLOCK_TYPES, isCrossIndex, isWildIndex } from '../blocks/blockTypes';
+import { BLOCK_TYPES, isCrossIndex, isTsuraraIndex, isWildIndex } from '../blocks/blockTypes';
 import { CropSwayMesh, SWAY_POOL_MAX, type SwayItem } from './cropSway';
 import { crossTileName, RIPE_FLAG } from './meshChunk';
 
@@ -62,7 +62,7 @@ export class SwayDriver {
       this.source((x, y, z, deg) => {
         if (this.cells.length >= SWAY_POOL_MAX) return;
         const b = this.world.getIndex(x, y, z);
-        if (b < 0 || !isCrossIndex(b)) return;
+        if (b < 0 || !isCrossIndex(b) || isTsuraraIndex(b)) return; // つららは ゆれない（MINE-1D）
         this.cells.push({ x, y, z, deg });
         this.next.add(this.keyOf(x, y, z));
       });

@@ -94,6 +94,8 @@
   "e2e/m72.spec.ts": 354,
   "e2e/mine1a.spec.ts": 15,
   "e2e/mine1b.spec.ts": 16,
+  "e2e/mine1d-hiroi.spec.ts": 120,
+  "e2e/mine1d.spec.ts": 60,
   "e2e/night76.spec.ts": 232,
   "e2e/ninja1.spec.ts": 65,
   "e2e/partsPage.spec.ts": 7,

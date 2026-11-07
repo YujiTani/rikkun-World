@@ -1,9 +1,13 @@
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { keyOf, keyX, keyY, keyZ } from './mineShaftBuild';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
-import { planShaft, planShaftSteps, type ShaftPlan } from './mineShaftPlan';
+import { planShaft, planShaftSteps, type PlanEnv, type ShaftPlan } from './mineShaftPlan';
+import { LINK_TRIES, type StartLink } from './mineShaftHeya';
 import { geoFor, regionHit, regionLand, regionOf, regionSites, startSiteAt, startSites, type Geo, type Site } from './mineShaftSite';
 import type { PathCell, Shaft, ShaftRoll } from './mineShaftTypes';
+import { CaveWorld, type CaveHost, type HiroiTryRow, type PlacedCave } from './mineCaves';
+import { CAVE_CONFIG, type CaveKind } from './mineCaveConfig';
+import type { RoomColOps } from './mineCaveRoom';
 import { colKey } from '../stream/ring';
 
 /**
@@ -28,6 +32,7 @@ export interface ColOps {
 /** パック: block | y << 8 | lz << 17 | lx << 21 */
 const pack = (block: number, y: number, lz: number, lx: number): number => block | (y << 8) | (lz << 17) | (lx << 21);
 
+const CAVE_REGION = CAVE_CONFIG.region;
 const AIR_BLOCK = BLOCK_INDEX.air;
 const STONE_BLOCK = BLOCK_INDEX.stone;
 
@@ -59,8 +64,9 @@ export function setShaftsOn(on: boolean): void {
   shaftsOn = on;
 }
 
-export class ShaftWorld {
+export class ShaftWorld implements CaveHost {
   readonly G: Geo;
+  private caveWorld: CaveWorld | undefined;
   private startPlanned: Planned | null | undefined;
   private readonly regions = new Map<number, Planned | null>();
   constructor(
@@ -74,6 +80,88 @@ export class ShaftWorld {
 
   isOld = (k: number): boolean => this.oldCols?.kodo.has(k) === true;
 
+  isOldHeya = (k: number): boolean => this.oldCols?.heya.has(k) === true;
+
+  private env(link: StartLink | null): PlanEnv {
+    return { isOld: this.isOld, isOldHeya: this.isOldHeya, link, heya: true };
+  }
+
+  /** ほらあなの 種類（部屋）の 世界（MINE-1D）。坑道と 同じ シード・同じ 古い 列の 一覧 */
+  get caves(): CaveWorld {
+    return (this.caveWorld ??= new CaveWorld(this));
+  }
+
+  /** はじまりの 坑道の ほたるの ほらあな〔その 区画・層の 抽選の 部屋〕 */
+  fixedRoom(rx: number, rz: number, layer: string): PlacedCave | null {
+    const r = this.start()?.plan.rooms.find((q) => q.shaft === null);
+    if (!r || r.layer !== layer) return null;
+    return Math.floor(r.box.x0 / CAVE_REGION) === rx && Math.floor(r.box.z0 / CAVE_REGION) === rz ? r : null;
+  }
+
+  /** 箱（両はし ふくむ）の 中に 坑道の 道の マスが あるか */
+  nearShaft(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean {
+    for (const s of this.shafts(x0, z0, x1, z1)) {
+      const plan = this.planById(s.id);
+      if (!plan) continue;
+      for (const c of plan.path) if (c.x >= x0 && c.x <= x1 && c.z >= z0 && c.z <= z1 && c.y >= y0 && c.y <= y1) return true;
+      for (const r of plan.rooms) if (r.box.x0 <= x1 && r.box.x1 >= x0 && r.box.z0 <= z1 && r.box.z1 >= z0 && r.box.y0 <= y1 && r.box.y1 >= y0) return true;
+    }
+    return false;
+  }
+
+  /** 箱が 範囲に かかる 部屋ぜんぶ〔抽選の 部屋 ＋ 坑道の へや ＋ はじまりの ほたる〕 */
+  allCaves(x0: number, z0: number, x1: number, z1: number): PlacedCave[] {
+    const out = this.caves.caves(x0, z0, x1, z1);
+    for (const s of this.shafts(x0, z0, x1, z1)) {
+      for (const r of this.planById(s.id)?.rooms ?? []) if (r.shaft !== null && r.box.x0 <= x1 && r.box.x1 >= x0 && r.box.z0 <= z1 && r.box.z1 >= z0) out.push(r);
+    }
+    return out;
+  }
+
+  /** id から 部屋〔坑道の へや `<坑道の id>_h<n>` か 抽選の 部屋〕 */
+  caveById(id: string): PlacedCave | null {
+    const m = /^(r-?\d+_-?\d+)_h(\d+)$/.exec(id);
+    if (!m) return this.caves.byId(id);
+    return this.planById(m[1]!)?.rooms.find((r) => r.id === id) ?? null;
+  }
+
+  /** (x, y, z) は どの 部屋の 空気か */
+  caveKindAt(x: number, y: number, z: number): CaveKind | null {
+    for (const plan of this.plansNear(x >> 4, z >> 4)) for (const r of plan.rooms) if (r.shaft !== null && r.room.has(x, y, z)) return r.kind;
+    return this.caves.kindAt(x, y, z);
+  }
+
+  /** 範囲の ひろい ほらあなの 計画を ためした 記録〔抽選の 部屋 ＋ 坑道の へや〕 */
+  hiroiTries(x0: number, z0: number, x1: number, z1: number): HiroiTryRow[] {
+    const out = this.caves.hiroiTries(x0, z0, x1, z1);
+    for (const s of this.shafts(x0, z0, x1, z1)) for (const row of this.planById(s.id)?.tries ?? []) out.push({ ...row, work: { ...row.work } });
+    return out;
+  }
+
+  /** 列に 部屋〔抽選・坑道の へや〕が かかるか */
+  touchesRoom(cx: number, cz: number): boolean {
+    if (!shaftsOn) return false;
+    const ck = colKey(cx, cz);
+    return this.caves.touches(cx, cz) || this.plansNear(cx, cz).some((p) => p.roomCols.has(ck));
+  }
+
+  /** 列に 置く 部屋の 物（`?mine=0` では 作らない） */
+  caveOps(cx: number, cz: number): RoomColOps[] | null {
+    if (this.caves.inScene) return this.caves.sceneColumn(cx, cz);
+    if (!shaftsOn) return null;
+    let out = this.caves.opsFor(cx, cz);
+    const ck = colKey(cx, cz);
+    for (const plan of this.plansNear(cx, cz)) {
+      if (!plan.roomCols.has(ck)) continue;
+      for (const r of plan.rooms) {
+        if (r.shaft === null) continue;
+        const o = r.room.ops.get(ck);
+        if (o) (out ??= []).push(o);
+      }
+    }
+    return out;
+  }
+
   /** はじまりの 坑道。置ける 所が どこにも なければ null（坑道 なしで 世界は 作る。§5） */
   start(): Planned | null {
     if (!shaftsOn) return null;
@@ -85,19 +173,37 @@ export class ShaftWorld {
 
   private planStart(): Planned | null {
     if (this.startHint === null) return null; // meta に「さがしたが 置けなかった」と ある
+    // 場所と 試行は 1C の 順〔link なし〕で きめる。そのあと、なかほどの いちばん 上の 横穴 1 本だけ ほたるへ かえる
     const tryAt = (site: Site): Planned | null => {
       for (let a = 0; a < S.planTries; a++) {
-        const plan = planShaft(this.G, site, 'start', true, this.isOld, a);
-        if (plan) return { plan, ops: null };
+        const plain = planShaft(this.G, site, 'start', true, this.env(null), a);
+        if (!plain) continue;
+        return this.linkUp(site, a, plain) ?? { plan: plain, ops: null };
       }
       return null;
     };
     const hint = this.startHint ? startSiteAt(this.G, this.startHint.x, this.startHint.z) : null;
-    const hinted = hint ? tryAt(hint) : null;
-    if (hinted) return hinted;
+    if (hint) {
+      const hinted = tryAt(hint);
+      if (hinted) return hinted;
+    }
     for (const site of startSites(this.G)) {
       const p = tryAt(site);
       if (p) return p;
+    }
+    return null;
+  }
+
+  /** 1C の 計画 plain の ほかは そのままで、横穴 1 本を ほたるの ほらあなへ かえた 計画〔かえられなければ null〕 */
+  private linkUp(site: Site, a: number, plain: ShaftPlan): Planned | null {
+    if (plain.ref.target < 0) return null;
+    const link = { ref: plain.ref, from: 0, used: -1 };
+    while (link.from < LINK_TRIES) {
+      link.used = -1;
+      const plan = planShaft(this.G, site, 'start', true, this.env(link), a);
+      if (plan) return { plan, ops: null };
+      if (link.used < 0) return null; // へやの 形が どれも だめ
+      link.from = link.used + 1; // 当たったが 1C の ほかの 横穴が ずれた → 次の 形から
     }
     return null;
   }
@@ -127,7 +233,7 @@ export class ShaftWorld {
         continue;
       }
       for (let a = 0; a < S.planTries && budget-- > 0; a++) {
-        const plan = yield* planShaftSteps(this.G, site, `r${rx}_${rz}`, false, this.isOld, a);
+        const plan = yield* planShaftSteps(this.G, site, `r${rx}_${rz}`, false, this.env(null), a);
         if (plan) {
           yield;
           return { plan, ops: buildOps(plan) };
@@ -186,7 +292,45 @@ export class ShaftWorld {
       this.warmSig = sig;
       this.rebuildWarm(centers, reach);
     }
+    this.caves.warmPrep(centers, reach);
+    // 坑道の 先読みと ほらあなの 先読みで 時間を わけあう〔交互に 短い 仕事を 1 つずつ。どちらかが おわれば のこりを 使う〕
     const t0 = performance.now();
+    for (;;) {
+      const a = this.warmShaftStep();
+      // ほらあなの 区画は、そこに かかる 坑道の 区画を 先に 計画して から はじめる〔ほらあなの 計画の 中で 坑道の 計画が いっきに 走らない ように〕
+      const front = this.caves.warmFront();
+      let b = false;
+      if (front) {
+        const miss = this.missingShaftRegion(front.rx, front.rz);
+        b = miss ? this.stepShaftRegion(miss[0], miss[1]) : this.caves.warmStep();
+      }
+      if (!a && !b && !front) return;
+      if (performance.now() - t0 >= ms) return;
+    }
+  }
+
+  /** ほらあなの 区画 (rx, rz) の 計画で 坑道を しらべる はんいに かかる 区画の うち、まだ 計画して いない 1 つ */
+  private missingShaftRegion(rx: number, rz: number): [number, number] | null {
+    const g = CAVE_CONFIG.gap + 2;
+    for (let sz = regionOf(rz * CAVE_REGION - g); sz <= regionOf(rz * CAVE_REGION + CAVE_REGION + g); sz++) {
+      for (let sx = regionOf(rx * CAVE_REGION - g); sx <= regionOf(rx * CAVE_REGION + CAVE_REGION + g); sx++) if (!this.regions.has(this.regionKey(sx, sz))) return [sx, sz];
+    }
+    return null;
+  }
+
+  /** 坑道の 区画 (rx, rz) の 計画を 短い 仕事 1 つ だけ すすめる */
+  private stepShaftRegion(rx: number, rz: number): boolean {
+    const key = this.regionKey(rx, rz);
+    if (this.regions.has(key)) return false;
+    let job = this.jobs.get(key);
+    if (!job) this.jobs.set(key, (job = this.regionJob(rx, rz)));
+    const r = job.next();
+    if (r.done) this.store(key, r.value);
+    return true;
+  }
+
+  /** 坑道の 先読みを 短い 仕事 1 つ だけ すすめる。まだ のこって いれば true */
+  private warmShaftStep(): boolean {
     while (this.warmAt < this.warmKeys.length) {
       const key = this.warmKeys[this.warmAt]!;
       if (this.regions.has(key)) {
@@ -200,8 +344,9 @@ export class ShaftWorld {
         this.store(key, r.value);
         this.warmAt++;
       }
-      if (performance.now() - t0 >= ms) return;
+      return true;
     }
+    return false;
   }
 
   private rebuildWarm(centers: readonly { x: number; z: number }[], reach: number): void {

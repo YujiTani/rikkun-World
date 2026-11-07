@@ -21,11 +21,17 @@ export interface ShaftSide {
   layer: ShaftLayer;
   from: Pt;
   to: Pt;
-  end: 'cave' | 'joint' | 'koheya';
+  end: 'cave' | 'joint' | 'koheya' | 'heya';
   /** 計画の 長さ〔12〜40〕 */
   length: number;
   /** 計画の 曲がり〔0〜2〕 */
   bends: number;
+  /** 1D: 坑道の へやの くじに 当たったか〔部屋が 入らず はずれに した 横穴も true。はじまりの 坑道は ほたるの 1 本だけ〕 */
+  heyaHit: boolean;
+  /** 1D: くじに 当たった 部屋の 種類〔部屋が 入らず はずれに した 横穴も。当たりでなければ null。はじまりの ほたるは 'hotaru'〕。end が 'heya' の とき 部屋の kind と 同じ */
+  heyaKind: string | null;
+  /** 1D: end が 'heya'〔と はじまりの ほたる〕の とき その 部屋の id */
+  cave?: string;
 }
 interface ShaftChest {
   x: number;

@@ -123,7 +123,9 @@ export type BlockId =
   | 'magma_takitsubo'
   // MINE-1C（#350。うしろに足す）: 坑道の わく・宝箱 2 マス（段 4 × あいた 2 × 本体/のこり 2 ＝ 16 こ。向きは となりの 並びで きめる。`src/world/blocks/chestBlock.ts`）
   | 'kodo_waku'
-  | ChestBlockId;
+  | ChestBlockId
+  // MINE-1D（#351。うしろに足す）: つらら（固くない。天井の 下に さがる。ほると せっかいせき 1）
+  | 'tsurara';
 
 export interface BlockType {
   id: BlockId;
