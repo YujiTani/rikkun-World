@@ -296,7 +296,10 @@ describe('E10: キャンプあと〔計画〕', () => {
     }
   });
 
-  it('表の 形: ふかさ・ふくざつさ・広さが 3 つずつ・LEVELS／DEPTHS の どれも ある', () => {
+});
+
+describe('E1: 性格の 表の 形', () => {
+  it('ふかさ・ふくざつさ・広さが 3 つずつ・LEVELS／DEPTHS の どれも ある・わりあいの 合計 1', () => {
     const T = tablesOf().style;
     expect(T.depth.map((d) => d.id).sort()).toEqual([...DEPTHS].sort());
     expect(T.level.map((l) => l.id).sort()).toEqual([...LEVELS].sort() as Level[]);
