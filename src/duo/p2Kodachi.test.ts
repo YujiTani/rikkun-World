@@ -17,7 +17,7 @@ import { createP2Kodachi } from './p2Kodachi';
  *     P2KodachiDeps = {
  *       armor: { equipped(slot: ArmorSlot): ItemId | null };   // p2.armor（1P の そうびは 見ない）
  *       yokai: YokaiWorld;                                    // 妖怪の 本体（YokaiManager。1P の Kodachi に わたす 物と 同じ）。中で `bindWho(yokai, 2)` して 2P の 当てたことに する
- *       playerPos: () => Vec3;                                // 2P の 足もと（追い打ちの 向きの めやす）
+ *       playerPos: () => Vec3;                                // 2P の 足もと（追い打ちの 向きの めやす）。配線は `() => ctl.state.position` を そのまま 返し、コピーを 作らない（毎ステップ 新しい 物を 作らない）
  *       sound: Pick<SoundFx, 'playTones'>;                    // 追い打ちが 出たら `playKodachi(sound)`（1P と 同じ 音）
  *       tick?: () => number;
  *       onFire?: (info: { yokaiId: number | null; part: string | null; damage: number }) => void;   // 絵（1P の kodachiFx を 使いまわす）

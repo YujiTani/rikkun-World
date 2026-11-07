@@ -25,8 +25,9 @@ import { createWeaponDamage } from './weaponDamage';
  *       armor: { equipped(slot: ArmorSlot): ItemId | null };        // 1P は armor、2P は p2.armor（呼ぶ たびに いまの 着ている 物を 読む）
  *     }
  *     返す 関数 = `(legendPowerOf(settings, item, item === 'niji' ? (held()?.power ?? null) : null) ?? base[item] ?? 1) * tekkoBladeMulOf(armor, item)`
- *   配線: wire/combat.ts（1P）の weaponDamage も、wire/duoPlay.ts の build()（2P）の weaponDamage も これを 呼ぶ
- *     （1P: held = inventory.held・armor = armor／ 2P: held = p2.inventory.held・armor = p2.armor）。1P の 値は かわらない。
+ *   配線: wire/combat.ts（1P）の weaponDamage も、wire/gasha.ts:33（がしゃどくろの 当たり `makeHitSources` に わたす weaponDamage。1P と 同じ 式の 写しが ある）も、
+ *     wire/duoPlay.ts の build()（2P）の weaponDamage も これを 呼ぶ
+ *     （1P と gasha.ts: held = inventory.held・armor = armor／ 2P: held = p2.inventory.held・armor = p2.armor）。1P の 値は かわらない。
  */
 
 const S = createW2Settings();

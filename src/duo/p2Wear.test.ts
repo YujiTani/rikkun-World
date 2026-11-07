@@ -22,24 +22,29 @@ import { createP2Wear } from './p2Wear';
  *       sound: Pick<SoundFx, 'playTones'>;               // 1P と 同じ 音の 窓口（fxSound）。数の 上限は 2 人で 1 つ
  *       notice: Pick<WearNotice, 'low' | 'broken'>;      // 2P の 半分に 出す お知らせ（WearNotice を 2P の 半分に もう 1 つ。`#wear-hint`・`#wear-log` の id は 2P 用に かえる）
  *       nameOf(item: ItemId): string;                    // 1P と 同じ（アイテムの 名前）
+ *       handPos(): Vec3;                                 // 2P の 手もと（足もと + 1。1P の WeaponFx.handPos と 同じ。読むたびに いまの 位置）
+ *       burst?(at: Vec3, item: ItemId): void;            // かけらの つぶ（1P の WeaponFx.burst〔shardCount・shardSeconds・pickShardColors〕を 2P の 手もとで 出す。配線が 同じ 部品を 呼ぶ）
  *     }
  *     step() = 毎ステップ 1 回。`inventory.drainWearEvents()` を 先に、`armor.drainWearEvents()` を あとに 取り出し、**かならず 両方 空に する**。
  *       出来事ごとに `playWearSound` ＋ wearLow なら `notice.low(item, nameOf(item))`・toolBreak なら `notice.broken(item, nameOf(item))`。
- *       （1P の WeaponFx.onWear と 同じ。かけらの つぶ（burst）は 2P では 出さない。2P の 実績は 今まで どおり 共有しない）
+ *       **toolBreak の ときだけ 1 回** `burst?.(handPos(), item)`（かけらの つぶを 2P の 手もとに。wearLow では 出さない）。道具でも そうびでも 同じ。
+ *       （1P の WeaponFx.onWear と そろえる。2P の 実績は 今まで どおり 共有しない）
  *   配線: wire/duoPlay.ts の step() が `l.wear.step()` を 毎ステップ 呼ぶ（Live に 持たせる。2P の 半分の WearNotice は ui/duoHud.ts か wire/duoInventory.ts が 持ち、`step()` を 毎ステップ 呼ぶ）。
  *   見た目（2P の 半分の お知らせの 位置・重ならない）は UI 検査（e2e/ui-gate.spec.ts の duo-inv-items）が 見る。
  */
 
 const sound = { playTones: () => undefined } as never;
+const HAND = { x: 1, y: 2, z: 3 };
 function setup() {
   const p2 = new P2State();
   const calls: string[] = [];
+  const bursts: Array<{ at: unknown; item: ItemId }> = [];
   const notice = {
     low: (item: ItemId, name: string) => void calls.push(`low:${item}:${name}`),
     broken: (item: ItemId, name: string) => void calls.push(`broken:${item}:${name}`),
   };
-  const wear = createP2Wear({ inventory: p2.inventory, armor: p2.armor, sound, notice, nameOf: (i) => `名前-${i}` });
-  return { p2, calls, wear };
+  const wear = createP2Wear({ inventory: p2.inventory, armor: p2.armor, sound, notice, nameOf: (i) => `名前-${i}`, handPos: () => HAND, burst: (at, item) => void bursts.push({ at, item }) });
+  return { p2, calls, wear, bursts };
 }
 /** 道具 1 つが のこり n に なる ように して、1 回 へらす（のこり わずか／こわれる を 起こす） */
 function wearTool(inv: InventoryImpl, item: ItemId, left: number): void {
@@ -142,6 +147,30 @@ describe('AC92 2P の 道具・そうびが へった／こわれた: 音と お
       expect(p2.inventory.drainWearEvents(), `${i} 回目 もちもの`).toEqual([]);
       expect(p2.armor.drainWearEvents(), `${i} 回目 そうび`).toEqual([]);
     }
+  });
+
+  it('かけらの つぶ: toolBreak の ときだけ 1 回、2P の 手もと（handPos）で。wearLow では 出さない。道具でも そうびでも', () => {
+    const { p2, wear, bursts } = setup();
+    wearTool(p2.inventory, 'katana', 26); // のこり わずか
+    wear.step();
+    expect(bursts, 'wearLow では 出ない').toEqual([]);
+    wearTool(p2.inventory, 'katana', 1); // こわれる
+    wear.step();
+    expect(bursts).toEqual([{ at: HAND, item: 'katana' }]);
+    wear.step();
+    expect(bursts, '次の ステップで くり返さない').toHaveLength(1);
+    p2.armor.set(null, 'yoroi');
+    p2.armor.setDurability('body', 1);
+    p2.armor.cut('normal', 5);
+    wear.step();
+    expect(bursts.map((b) => b.item)).toEqual(['katana', 'yoroi']);
+  });
+
+  it('burst を わたさなくても こわれない（音と お知らせだけ）', () => {
+    const p2 = new P2State();
+    const wear = createP2Wear({ inventory: p2.inventory, armor: p2.armor, sound, notice: { low: () => undefined, broken: () => undefined }, nameOf: () => '', handPos: () => HAND });
+    wearTool(p2.inventory, 'katana', 1);
+    expect(() => wear.step()).not.toThrow();
   });
 
   it('何も おきない ステップは 何も 鳴らさない・何も 出さない', () => {

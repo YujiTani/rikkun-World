@@ -75,7 +75,7 @@ describe('AC83 2P の そうび: 2P 用の しくみ', () => {
     expect(p2.armor.equipped('body')).toBe(SAMURAI_GEAR.body);
   });
 
-  it('ハートの 左に 出す 絵: snapshot().hudIcons は 着ている 物を あたま・からだ・うで・あしの 順（1P の setArmor に わたす 物と 同じ）', () => {
+  it('ハートの 右に 出す 絵（1P は ui/hearts.ts の setArmor で ハートの 右。2P も 同じ Hearts.setArmor）: snapshot().hudIcons は 着ている 物を あたま・からだ・うで・あしの 順（1P の setArmor に わたす 物と 同じ）', () => {
     const p2 = new P2State();
     expect(p2.armor.snapshot().hudIcons).toEqual([]);
     p2.armor.set('kabuto', 'yoroi', 'kote', 'suneate');
