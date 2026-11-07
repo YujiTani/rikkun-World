@@ -66,15 +66,21 @@ test('AC110・AC109: 2P が がしゃどくろの 近くで 刀を ふると 当
   expect(await page.evaluate(() => (window as any).__rikkun.duo.gasha.target()), '近い 2P が ねらい').toBe(2);
   expect(await page.evaluate(() => (window as any).__rikkun.gasha.state())).toBe('present');
 
-  // 2P の 刀を ふる
-  await page.evaluate(({ c }) => {
-    const h = (window as any).__rikkun;
-    h.duo.give(2, 'katana', 1);
-    h.duo.aimAt(2, { x: Math.floor(c[0]!), y: Math.floor(c[1]!), z: Math.floor(c[2]!) });
-  }, { c: hand.c });
+  // 2P の 刀を ふる。中段の 突きは 体の点 B（足もと + 1.40）から 水平に のびる ので、1P の E2E と 同じく 体の点 B を 手の 箱の まん中の 高さに うかせる
+  // （地面から の 突きは 地面に おいた 手の 上を とおる。1P と 同じ 動き）。足もとが 地面に かかる ときは その 列を 空気に する。ふる たびに 置きなおす（落ちる ぶん）
+  await page.evaluate(() => (window as any).__rikkun.duo.give(2, 'katana', 1));
   const xp1 = await page.evaluate(() => (window as any).__rikkun.duo.level(1).xp as number);
   const hp0 = await page.evaluate(() => (window as any).__gashaBig.hp() as number);
   for (let k = 0; k < 12; k++) {
+    await page.evaluate(({ c, spot }) => {
+      const h = (window as any).__rikkun;
+      const y = c[1]! - 1.4;
+      const ix = Math.floor(spot.x), iz = Math.floor(spot.z);
+      const top = h.world.groundHeight(ix, iz) as number;
+      if (top >= Math.floor(y)) h.world.fill(ix, Math.floor(y), iz, ix, top, iz, 'air');
+      h.duo.place(2, { x: spot.x, y, z: spot.z });
+      h.duo.aimAt(2, { x: Math.floor(c[0]!), y: Math.floor(c[1]!), z: Math.floor(c[2]!) });
+    }, { c: hand.c, spot });
     await setFakePad(page, 1, { buttons: [PAD_R2] });
     await stepN(page, 3);
     await setFakePad(page, 1, { buttons: [] });

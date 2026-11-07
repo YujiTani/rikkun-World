@@ -21,8 +21,8 @@ import { extendPerson, peopleList, type P2GashaPort } from './gashaPeople';
  * wire の 部品を 組んで 1 本で 見る。2P の 入力（primary）→ DigSystem（2P 用。体の点 B の 口なし）→ BladeSystem.update → shape()
  * → gasha.ts の hit2 と 同じ makeHitSources → peopleList の 2P の 口 → BigHit の 人ごとの 当たり（who 2）→ damage。
  *
- * 見つけた こと: 地面に 立って 中段（突き）で 地面に おいた 手を ねらうと、突きは 体の点 B（足もと + 1.40）から 水平に のびて 手の 上（足もと + 1.08）を
- * とおりすぎて いた。突きは ねらった 妖怪の 中心へ かたむく（WEAPON-3）が、がしゃどくろの 箱（仮の 妖怪）は 一覧に 無いので かたむかなかった（1P も 同じ）。
+ * 場面は e2e/duoGasha.spec.ts と そろえる: 2P の 体の点 B（足もと + 1.40）を 手の 箱の まん中の 高さに 置く（突きが 箱を とおる 高さ。1P の E2E と 同じ やり方）。
+ * 地面から の 突きは 地面に おいた 手（上は 足もと + 1.08）の 上を とおる。これは 1P と 同じ 動き（がしゃどくろの 箱へは 突きは かたむかない。PO 2026-11-07・AC113）。
  */
 
 const FLOOR = 8; // 床の 高さ（ブロック。足もとは FLOOR + 1）
@@ -86,7 +86,7 @@ function rig() {
   };
   step(5);
   h.refreshColliders();
-  return { h, ctl, actions, step };
+  return { h, ctl, actions, step, world };
 }
 
 describe('2P の 刀が がしゃどくろの 体力に とどく（wire の 通し。AC110）', () => {
@@ -94,26 +94,26 @@ describe('2P の 刀が がしゃどくろの 体力に とどく（wire の 通
   beforeEach(() => { vi.stubGlobal('location', { search: '' }); vi.stubGlobal('window', {}); chase = T.chase.enabled; T.chase.enabled = false; });
   afterEach(() => { vi.unstubAllGlobals(); T.chase.enabled = chase; });
 
-  it('地面に 立って 中段（突き）で 地面に おいた 手を ねらう → 体力が へり、当てたのは 2P', () => {
+  it('中段（突き）で 手の 箱の まん中の 高さから 手を ねらう → 体力が へり、当てたのは 2P', () => {
     const r = rig();
     const g = r.h as unknown as { colliders(): { name: string; center: number[]; half: number[] }[]; hp(): number; info(): { pos: number[]; lastHit: { who: number } | null } };
     const hand = g.colliders().find((q) => q.name === 'handL')!;
     const boss = g.info().pos;
-    // e2e/duoGasha.spec.ts と 同じ 立ち位置: 体の まん中 → 手の 向きに、手の 箱の ふち + 0.9 マス。地面の 上
+    // e2e/duoGasha.spec.ts と 同じ 立ち位置: 体の まん中 → 手の 向きに、手の 箱の ふち + 0.9 マス。高さは 体の点 B が 手の 箱の まん中（足もとが 床に かかる ので その 列は 空気に）
     let ox = hand.center[0]! - boss[0]!, oz = hand.center[2]! - boss[2]!;
     const od = Math.hypot(ox, oz) || 1;
     ox /= od; oz /= od;
     const stand = Math.abs(ox) * hand.half[0]! + Math.abs(oz) * hand.half[2]! + 0.9;
     const x = hand.center[0]! + ox * stand, z = hand.center[2]! + oz * stand;
-    expect(hand.center[1]! + hand.half[1]!, '手は 地面に おいて ある（体の点 B より 下）').toBeLessThan(FLOOR + 1 + 1.4);
+    const y = hand.center[1]! - 1.4;
+    for (let k = 0; k <= Math.floor(y); k++) r.world.setBlock(Math.floor(x), k, Math.floor(z), 'air');
     // duo.aimAt と 同じ 向き（手の 中心の マスの まん中を 目から ねらう）
     const cx = Math.floor(hand.center[0]!) + 0.5, cy = Math.floor(hand.center[1]!) + 0.5, cz = Math.floor(hand.center[2]!) + 0.5;
-    const dx = cx - x, dy = cy - (FLOOR + 1 + 1.62), dz = cz - z;
+    const dx = cx - x, dy = cy - (y + 1.62), dz = cz - z;
     const yaw = (Math.atan2(dx, -dz) * 180) / Math.PI;
     const pitch = (Math.asin(dy / Math.hypot(dx, dy, dz)) * 180) / Math.PI;
-    r.ctl.set({ position: { x, y: FLOOR + 1, z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: yaw, pitchDeg: pitch, facingDeg: yaw });
-    r.step(2);
     const hp0 = g.hp();
+    r.ctl.set({ position: { x, y, z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: yaw, pitchDeg: pitch, facingDeg: yaw });
     expect(hp0).toBe(T.hit.hp);
     r.actions.press('primary');
     r.step(3);
