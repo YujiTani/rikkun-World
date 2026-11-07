@@ -111,6 +111,7 @@ export function wireSave(deps: WiredAchievements) {
       serialize: () => (shared.duoJoined() ? shared.p2.serialize() : shared.p2Store.saved),
       deserialize: (d) => {
         shared.p2Store.saved = readP2Save(d);
+        shared.p2LoadReset();
       },
     },
     // VOX-D: 列は stream が読みこむ。保険から戻したときの最初の保存は ready のあと

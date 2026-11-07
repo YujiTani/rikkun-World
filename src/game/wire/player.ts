@@ -19,7 +19,6 @@ import { createDialogStack, mountChoiceDialog } from '../../ui/menu/choiceDialog
 import { TITLE_RETURN_STAY } from '../../ui/menu/titleReturn';
 import { ruby } from '../../ui/text';
 import { isBodyPlaceable } from '../../save';
-import { duoWorldFrozen } from '../../duo/rules';
 import { bindKeyboardAndMouse } from '../../input/actions';
 import { wireGamepad } from './gamepad';
 import { createGameModal } from './modalTick';
@@ -58,15 +57,8 @@ export function wireInput(deps: WiredRender) {
     beforeOpen: () => game.flushRender(),
   });
   bookRef = book;
-  // 世界を 止める 画面は 3 つ: 本と、建築士さんの メニュー（HOUSE-1A。時刻・妖怪も 止まる）と、2 人で あそぶ とき 1P の 全面の もちもの画面（COOP-1 AC84）。
-  // 建築士さんと もちもの画面は HTML なので 描く 物は ない
-  const duoFrozen = (): boolean => {
-    try {
-      return duoWorldFrozen({ joined: shared.duoJoined(), mode: shared.screen.mode() });
-    } catch {
-      return false; // screen を 作る 前
-    }
-  };
+  // 世界を 止める 画面は 2 つ: 本と、建築士さんの メニュー（HOUSE-1A。時刻・妖怪も 止まる）。建築士さんは HTML なので 描く 物は ない。
+  // もちもの画面は 2 人の ときも 世界を 止めない（COOP-1 4a）
   game.setModal(createGameModal({
     bookActive: () => book.active(),
     bookTick: () => book.tick(),
@@ -74,9 +66,6 @@ export function wireInput(deps: WiredRender) {
     houseFrozen: () => shared.houseFrozen(),
     houseTick: () => shared.houseModal.tick(),
     houseRender: () => shared.houseModal.render(),
-    duoFrozen,
-    padStep: () => gamepadApi?.modalStep(),
-    inventoryUiTick: () => shared.inventoryUiTick(),
     duoModalTick: () => shared.duoModalTick(),
   }));
   game.input.onPress((action) => book.onAction(action));

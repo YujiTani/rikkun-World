@@ -7,6 +7,7 @@ import type { YokaiWorld } from '../../contracts';
 import { ArmorSystemImpl, CraftSystemImpl } from '../../craft';
 import { ToolSystemImpl } from '../../tools';
 import { createBladeSystem } from '../../tools/blade/BladeSystem';
+import { createWeaponDamage } from '../../tools/blade/weaponDamage';
 import { createParry } from '../../combat/parry';
 import { ParryFx } from '../../fx/parryFx';
 import { playLegend, startLegendLoop, startLegendOneShot } from '../../fx/legendSounds';
@@ -30,7 +31,7 @@ import { ThunderFx } from '../../fx/thunderFx';
 import { tekkoBladeMulOf } from '../../craft/samuraiPower';
 import { GetaStepper } from '../../craft/geta';
 import { playGeta } from '../../fx/getaSounds';
-import { legendPowerOf, chargeOf } from '../../legend/defs';
+import { chargeOf } from '../../legend/defs';
 import type { SwingAnim } from '../../contracts';
 import { StorageSystem } from '../../storage/StorageSystem';
 import { ItemDropper, DropController } from '../../storage/ItemDropper';
@@ -86,7 +87,7 @@ export function wireWeapons(deps: WiredDrops) {
     // WEAPON-7: レジェンダリーの 強さは 設定 `legendary` の power（ふつうの 刀は 今の 表）
     // 虹は 1 本ごとの 強さ（手に 持っている 1 本）
     // SAMURAI-1 §4.5: 明珍手甲を 着ていれば 刀の 強さ × 1.5（わざの 倍率の 前に かける）
-    weaponDamage: (item) => (legendPowerOf(w2, item, item === 'niji' ? (inventory.held()?.power ?? null) : null) ?? toolConfig.weaponDamage[item] ?? 1) * tekkoBladeMulOf(armor, item),
+    weaponDamage: createWeaponDamage({ settings: w2, base: toolConfig.weaponDamage, held: () => inventory.held(), armor }),
     onHit: () => {
       inventory.wearHeld(w2.toolWear.blade.hit);
     },
@@ -279,6 +280,7 @@ export function wireFighters(deps: WiredWeapons) {
       shared.toItemsTab(); // たんす は もちもの タブで開く（できごと・じっせき の画面が のこっていても）
     },
     closeScreen: () => screen.toggle(),
+    canOpen: () => !shared.duoJoined(), // 2 人の あいだは 2 人用の たんすの ページ(4c)まで 開かない
     live: m6,
     tick: () => game.tick,
     requestSave: () => shared.requestSave(),

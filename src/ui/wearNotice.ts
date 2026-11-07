@@ -24,13 +24,14 @@ export class WearNotice {
   onLow?: (item: ItemId) => void;
   onBroken?: (item: ItemId) => void;
 
-  constructor(parent: HTMLElement) {
+  /** idSuffix: 2P の 半分の 分は '-p2'（`#wear-hint-p2`・`#wear-log-p2`。COOP-1 4b） */
+  constructor(parent: HTMLElement, idSuffix = '') {
     this.hintEl = document.createElement('div');
-    this.hintEl.id = 'wear-hint';
+    this.hintEl.id = `wear-hint${idSuffix}`;
     this.hintEl.setAttribute('role', 'status');
     this.hintEl.hidden = true;
     this.logEl = document.createElement('div');
-    this.logEl.id = 'wear-log';
+    this.logEl.id = `wear-log${idSuffix}`;
     this.logEl.setAttribute('aria-hidden', 'true');
     parent.append(this.hintEl, this.logEl);
   }
@@ -75,6 +76,14 @@ export class WearNotice {
         r.el.style.opacity = String(r.left / 30);
       }
     }
+  }
+
+  /** 出ている お知らせを ぜんぶ けす（2P が やめた とき） */
+  clear(): void {
+    this.hintLeft = 0;
+    this.hintEl.hidden = true;
+    for (const r of this.rows) r.el.remove();
+    this.rows.length = 0;
   }
 
   dispose(): void {

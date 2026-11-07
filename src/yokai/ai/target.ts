@@ -1,4 +1,4 @@
-import type { DamageKind, PlayerCombat, Vec3, YokaiKind } from '../../contracts';
+import type { ArmorSlot, DamageKind, ItemId, PlayerCombat, Vec3, YokaiKind } from '../../contracts';
 import type { Ent, YokaiField } from './entity';
 
 /** 仲間（2P）の 窓口（YokaiManagerOptions.partner と 同じ形） */
@@ -6,8 +6,10 @@ export interface YokaiPartner {
   position: Vec3;
   /** false（倒れている・パッドが ぬけている）の 2P は ねらわない・数えない */
   targetable: boolean;
-  /** 妖怪の 攻撃が 当たった。むてきなどで 受けなかったら false */
-  hurt(amount: number, kind: YokaiKind, from: Vec3): boolean;
+  /** ねらわれる 2P の そうび（忍び装束の 判定が 読む。なければ はだか。1P の そうびには 代えない） */
+  armor?: { equipped(slot: ArmorSlot): ItemId | null };
+  /** 妖怪の 攻撃が 当たった。むてきなどで 受けなかったら false。damageKind = ダメージの 種類（火の玉は 'ball'。なければ 'normal'） */
+  hurt(amount: number, kind: YokaiKind, from: Vec3, damageKind?: DamageKind): boolean;
 }
 
 /** プレイヤー 1 人ぶんの 足もと */
@@ -76,6 +78,6 @@ export function nearestWho(f: YokaiField, x: number, y: number, z: number): 1 | 
 export function currentTarget(f: YokaiField, p1: Pick<PlayerCombat, 'damage' | 'dead'>, partner: () => YokaiPartner | null | undefined): Pick<PlayerCombat, 'damage' | 'dead'> {
   return {
     dead: () => (f.who === 2 ? !f.p2.on : p1.dead()),
-    damage: (amount: number, by: YokaiKind, from: Vec3, kind?: DamageKind) => (f.who === 2 ? (partner()?.hurt(amount, by, from) ?? false) : p1.damage(amount, by, from, kind)),
+    damage: (amount: number, by: YokaiKind, from: Vec3, kind?: DamageKind) => (f.who === 2 ? (partner()?.hurt(amount, by, from, kind) ?? false) : p1.damage(amount, by, from, kind)),
   };
 }

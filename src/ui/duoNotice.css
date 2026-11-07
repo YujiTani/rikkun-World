@@ -20,6 +20,10 @@
   pointer-events: none;
   z-index: 7;
 }
+/* 本・建築士さんで 世界が 止まる ときの「ちょっと まってね」は 2 人用の パネル（inventoryDuo.css の z-index 8）より 上（§3.3） */
+.duo-wait {
+  z-index: 9;
+}
 .duo-join-hint[hidden],
 .duo-wait[hidden] {
   display: none;

@@ -1,8 +1,8 @@
-import type { Vec3, YokaiKind } from '../contracts';
+import type { DamageKind, Vec3, YokaiKind } from '../contracts';
 import type { PlayerCombatImpl } from '../combat/PlayerCombat';
 
 /** 2P に とどく ダメージの 元。プレイヤーの こうげきは 仲間には 当たらない（AC37） */
-export type HitSource = { type: 'yokai'; kind?: YokaiKind; from?: Vec3 } | { type: 'player'; who: 1 | 2 };
+export type HitSource = { type: 'yokai'; kind?: YokaiKind; from?: Vec3; damageKind?: DamageKind } | { type: 'player'; who: 1 | 2 };
 
 export interface P2LifeDeps {
   /** 2P 用の PlayerCombatImpl（体力・おまもり・落ちる・袋の 持ち主） */
@@ -45,7 +45,8 @@ export class P2Life {
     if (c.dead()) return { applied: 0, knock: false };
     const before = c.hp();
     // from が なければ のけぞらない（debugDamage は from なし）
-    if (from.from) c.damage(amount, from.kind ?? 'karakasa', from.from);
+    // damageKind は そうびの 式の 種類（火の玉 'ball'。なければ 'normal'）
+    if (from.from) c.damage(amount, from.kind ?? 'karakasa', from.from, from.damageKind ?? 'normal');
     else c.debugDamage(amount, from.kind ?? 'karakasa');
     this.noticeDown();
     const applied = before - c.hp();

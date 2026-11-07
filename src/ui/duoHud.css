@@ -72,6 +72,17 @@ html[data-duo] #hud-self-p2 {
   left: calc(75% - var(--hb-w) * var(--duo-scale) / 2);
 }
 
+/* たいきゅうの お知らせ（COOP-1 4b）: 1P は 左半分、2P は 右半分の まん中・はし（まん中の 線に またがらない） */
+html[data-duo] #wear-hint {
+  left: 25%;
+}
+html[data-duo] #wear-hint-p2 {
+  left: 75%;
+}
+html[data-duo] #wear-log-p2 {
+  left: calc(50% + var(--rk-sp-5));
+}
+
 /* レベルアップの 演出は 起きた 人の 半分の まん中に 出す（まん中の 線に またがらない）。2P の 棒と 演出は 2P の 色（--duo-p2） */
 html[data-duo] #levelup {
   left: 25%;
@@ -289,45 +300,6 @@ html[data-duo] #hotbar-p2 {
   text-shadow: none;
 }
 
-/* 2P の もちもの: 右半分の 画面（1P の 画面は ひらかない） */
-.duo-inv {
-  position: fixed;
-  left: 50%;
-  right: 0;
-  top: 14%;
-  bottom: calc(var(--hb-bottom) + var(--rk-slot-hotbar) * 1.6);
-  box-sizing: border-box;
-  margin: 0 var(--rk-sp-4);
-  padding: var(--rk-sp-4);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--rk-sp-3);
-  overflow: hidden;
-  background: var(--rk-panel-bg);
-  border: var(--rk-bw) solid var(--rk-rarity-3);
-  border-radius: var(--rk-r-l);
-  color: var(--rk-text);
-  text-shadow: var(--rk-text-outline);
-  pointer-events: none;
-  z-index: 8;
-}
-.duo-inv[hidden] {
-  display: none;
-}
-.duo-inv-title {
-  font-size: var(--rk-fs-head);
-  font-weight: 800;
-}
-.duo-inv-grid {
-  display: grid;
-  grid-template-columns: repeat(9, auto);
-  gap: var(--rk-sp-1);
-}
-.duo-inv-grid .slot {
-  width: calc(var(--rk-slot-hotbar) * 0.62);
-  height: calc(var(--rk-slot-hotbar) * 0.62);
-}
 /* やめる: 長押しで ゲージが 左から 右へ たまる */
 .duo-quit {
   position: relative;
