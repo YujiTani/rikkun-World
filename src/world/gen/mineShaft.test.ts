@@ -8,6 +8,7 @@ import {
   genColumn,
   hook1c,
   isPlantId,
+  legacyOld,
   sampleShafts,
   shapeProblems,
   type PathCell,
@@ -137,6 +138,8 @@ describe('C1: はじまりの 坑道（新しい 世界 20 シード）', () => 
 
 // ------------------------------------------------------------------ ほかの 坑道
 
+// MINE-1E の 準備で 直した: ほかの 坑道の 1C の 基準〔C2 の 入口・箱・洞くつ・C3 の 形〕は `gen: 'c'` の 坑道だけに かかる〔MINE-1E.md §6〕。
+// 新しい 世界の ほかの 坑道は 1E の 坑道〔E2〜E4 が 見る〕に なる ので、1C・1D の 作り方の 世界〔`legacyOld`: スタートの まわりの 列が ぜんぶ 1E の 古い 列〕で 見る。
 describe('C2: ほかの 坑道（256×256 区画）', () => {
   const REGION = 256;
   const SEEDS_ROLL = [20261012, 1000 + 7919, 1000 + 7919 * 2];
@@ -181,9 +184,10 @@ describe('C2: ほかの 坑道（256×256 区画）', () => {
   beforeAll(() => {
     for (const seed of SEEDS_20.slice(0, 6)) {
       const sp = spawnOf(seed);
-      const h = hook1c(seed);
+      const old = legacyOld(seed);
+      const h = hook1c(seed, { oldCols: old });
       const start = h.startShaft();
-      const g = new GenCols(seed);
+      const g = new GenCols(seed, old);
       const near = h
         .shafts(sp.x - 1536, sp.z - 1536, sp.x + 1535, sp.z + 1535)
         .filter((s) => !s.start)
@@ -248,7 +252,7 @@ describe('C2: ほかの 坑道（256×256 区画）', () => {
   it('洞くつの 口と 重ならない〔道の 足の マスの まわり 2 マスが 口の 外わくに 入らない〕', () => {
     for (const o of others) {
       const T = terrainFor(o.seed);
-      const path = hook1c(o.seed).shaftPath(o.shaft.id);
+      const path = hook1c(o.seed, { oldCols: legacyOld(o.seed) }).shaftPath(o.shaft.id);
       const bad: string[] = [];
       for (const c of path) for (const m of mouthsNear(T, c.x >> 4, c.z >> 4)) if (inMouthFootprint(m, c.x, c.z, 2)) bad.push(`${c.part} (${c.x}, ${c.y}, ${c.z})`);
       expect(bad.slice(0, 4), `seed ${o.seed} ${o.shaft.id}`).toEqual([]);
@@ -277,7 +281,7 @@ describe('C3: 形（さか道・おどりば・いちばん 下の へや）', (
   const samples: { seed: number; shaft: Shaft; path: PathCell[]; g: GenCols }[] = [];
   beforeAll(() => {
     for (const seed of SEEDS_20) {
-      const s = sampleShafts(seed, 2);
+      const s = sampleShafts(seed, 2, { legacy: true });
       for (const shaft of s.shafts) samples.push({ seed, shaft, path: s.hook.shaftPath(shaft.id), g: s.g });
     }
   }, 240_000);

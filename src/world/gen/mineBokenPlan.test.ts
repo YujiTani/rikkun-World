@@ -260,6 +260,7 @@ describe('E9: 迷路〔計画〕', () => {
   });
 
   it('迷路の 階は いちばん 上・いちばん 下に ない〔階が 2 つの 坑道は いちばん 下に ない〕・下り口は 迷路の 外・平ら〔迷路の y が どれかの 階の y〕', () => {
+    expect(all.filter((a) => a.shaft.maze).length, '迷路の ある 1E の 坑道が ない').toBeGreaterThan(0);
     const bad: string[] = [];
     for (const a of all) {
       const s = a.shaft;

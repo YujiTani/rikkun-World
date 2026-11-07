@@ -102,6 +102,7 @@ describe('E8: かくしべやは とじて いる・ほると 行き来 でき�
   });
 
   it('ひびの いしを ぜんぶ ほると 行きどまりと かくしべやが 入口から 行き来 できる〔段差 0〕。ほる 前は 入口から 入れない', () => {
+    expect(hibiEnds().length, 'ひびの 行きどまりの ある 1E の 坑道が ない').toBeGreaterThan(0);
     const bad: string[] = [];
     const reaches = new Map<Pick, { before: ReturnType<typeof reachOf>; after: ReturnType<typeof reachOf> }>();
     for (const { p, e } of hibiEnds()) {

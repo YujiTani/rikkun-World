@@ -56,7 +56,7 @@ export function dugSetOf(s: BokenShaft): Set<string> {
 // ------------------------------------------------------------------ 道の 空気の 高さ・箱
 
 /** 道の 足の マスから 上へ 空気で あるべき 高さ〔いちばん 下の へやは 5・ひびの 通り道は 2・ほかは 4〕 */
-export const airHeightE = (c: PathCell): number => (c.part === 'room' ? 5 : (c.part as string) === 'hibi' ? 2 : 4);
+const airHeightE = (c: PathCell): number => (c.part === 'room' ? 5 : (c.part as string) === 'hibi' ? 2 : 4);
 
 /** 箱・区画・天井の 上の 石〔R4 と 同じ 数: SHAFT_CONFIG.cover〕 */
 export function boxProblems(s: BokenShaft, path: readonly PathCell[], seed: number): string[] {
@@ -128,7 +128,7 @@ export function lightProblemsE(g: GenCols, s: BokenShaft, path: readonly PathCel
 // ------------------------------------------------------------------ E4 もどれる
 
 /** to へ 歩いて 行ける マス〔帰り。stepTo の さかさ〕と 歩数 */
-export function walkRev(g: GenCols, to: Pt, box: Box3): Map<string, number> & { capped?: boolean } {
+function walkRev(g: GenCols, to: Pt, box: Box3): Map<string, number> & { capped?: boolean } {
   const dist: Map<string, number> & { capped?: boolean } = new Map();
   if (!standable(g, to.x, to.y, to.z)) return dist;
   dist.set(ptKey(to), 0);
@@ -215,7 +215,7 @@ const AIR_ROOM = (g: GenCols, r: { x0: number; y: number; z0: number; x1: number
 };
 
 /** へやの 空気に ふれる 石〔かべ・天井・床〕の うち ids の ブロックの 数〔同じ ブロックは 1 回〕 */
-export function visibleIn(g: GenCols, r: { x0: number; y: number; z0: number; x1: number; z1: number }, h: number, ids: readonly string[]): Record<string, number> {
+function visibleIn(g: GenCols, r: { x0: number; y: number; z0: number; x1: number; z1: number }, h: number, ids: readonly string[]): Record<string, number> {
   const seen = new Set<string>();
   const out: Record<string, number> = {};
   for (let x = r.x0 - 1; x <= r.x1 + 1; x++) {
@@ -414,7 +414,7 @@ export function campProblems(g: GenCols, s: BokenShaft, T: Tables): string[] {
   if (r.x1 - r.x0 + 1 !== R.floor || r.z1 - r.z0 + 1 !== R.floor) bad.push(`キャンプの 床が ${R.floor}×${R.floor} でない`);
   bad.push(...AIR_ROOM_CAMP(g, r, R.height, [c.tansu, c.lantern, c.takibi, ...c.futon]));
   if (!isFurnKind(g.id(c.tansu.x, c.tansu.y, c.tansu.z), K_TANSU)) bad.push(`たんすの マス (${c.tansu.x}, ${c.tansu.y}, ${c.tansu.z}) が ${g.id(c.tansu.x, c.tansu.y, c.tansu.z)}`);
-  if (g.id(c.lantern.x, c.lantern.y, c.lantern.z) !== 'lantern') bad.push(`ちょうちんの マスが ${g.id(c.lantern.x, c.lantern.y, c.lantern.z)}`);
+  if (g.id(c.lantern.x, c.lantern.y, c.lantern.z) !== ID.lantern) bad.push(`ちょうちんの マスが ${g.id(c.lantern.x, c.lantern.y, c.lantern.z)}`);
   if (g.id(c.takibi.x, c.takibi.y, c.takibi.z) !== ID.takibi) bad.push(`たきびの あとの マスが ${g.id(c.takibi.x, c.takibi.y, c.takibi.z)}`);
   if (c.futon.length === 0) bad.push('ふとんが ない');
   for (const p of c.futon) if (!g.id(p.x, p.y, p.z).startsWith('futon')) bad.push(`ふとんの マス (${p.x}, ${p.y}, ${p.z}) が ${g.id(p.x, p.y, p.z)}`);

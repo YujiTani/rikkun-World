@@ -141,8 +141,8 @@ describe.each(FIXTURES)('C9: $name の 古い 保存', (f) => {
     await save.now();
     const meta = await metaOf(db);
     expect(meta.gen, '保存した meta の 版').toBe(SAVE_GEN);
-    expect(sorted(meta.oldCols?.kodo ?? []), 'meta の 一覧').toEqual(want);
-    expect(JSON.stringify(meta.oldCols?.kodo ?? []).length, '一覧の 大きさ〔列 1 つ 12 バイト〕').toBeLessThanOrEqual(12 * want.length + 2);
+    // MINE-1E の 準備で 直した: 一覧の 書き方〔meta の 配列とは かぎらない。1E で 一覧が 3 つに なり 12 バイト／列に おさえる〕は developer の もの。
+    // 書き方に よらない 見かた〔開きなおして 同じ 一覧・保存の 大きさ〕は src/save/mine1eSave.test.ts〔E16〕。ここは 下の「2 回 開いても 同じ」で 見る。
     const after = await db.readAll(SAVE_ID);
     expect(after.chunks.length).toBe(before.chunks.length);
     for (const rec of after.chunks) expect(columnHash(await unpackColumn(rec, NS)), `列 (${rec.cx}, ${rec.cz})`).toBe(hashes.get(`${rec.cx},${rec.cz}`));

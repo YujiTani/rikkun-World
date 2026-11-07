@@ -48,6 +48,7 @@ describe('E3: 明るい', () => {
   });
 
   it('作った ときの 足の マス ぜんぶで ブロックの 光 6 以上・isDarkForSpawn false〔迷路の 床・かくしべや・ほった あとの ひびの 通り道も〕。こわれない たいまつ なし', () => {
+    expect(picks.length, '1E の 坑道が ない').toBeGreaterThan(0);
     const bad: string[] = [];
     for (const p of picks) for (const m of lightProblemsE(p.dug, p.shaft, p.path).slice(0, 3)) bad.push(`seed ${p.seed} ${p.shaft.id}: ${m}`);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);

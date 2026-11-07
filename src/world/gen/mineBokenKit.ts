@@ -2,7 +2,6 @@ import { createMineHook } from './mineHook';
 import {
   GenCols,
   SEEDS_20,
-  isBodyIndex,
   type Layer,
   type OldCols,
   type PathCell,
@@ -49,7 +48,7 @@ export const DEPTHS: readonly Depth[] = ['asai', 'nakahodo', 'fukai'];
 export const LEVELS: readonly Level[] = ['yasashii', 'futsu', 'fukuzatsu'];
 export type Span = readonly [number, number];
 
-export interface Style {
+interface Style {
   depth: Depth;
   floors: number;
   size: 64 | 96 | 128;
@@ -57,14 +56,14 @@ export interface Style {
   camp: boolean;
   maze: boolean;
 }
-export interface Floor {
+interface Floor {
   y: number;
   up: Pt;
   down: Pt | null;
   main: Pt[];
   bends: number;
 }
-export interface Room {
+interface Room {
   x0: number;
   y: number;
   z0: number;
@@ -79,7 +78,7 @@ export interface DeadEnd {
   chest: { x: number; y: number; z: number; cells: Pt[]; front: 'n' | 'e' | 's' | 'w'; tier: Tier } | null;
   ores: Record<string, number>;
 }
-export interface Branch {
+interface Branch {
   side: number;
   from: Pt;
   to: Pt;
@@ -89,7 +88,7 @@ export interface Branch {
   rubble: Pt[];
   end: DeadEnd;
 }
-export interface Maze {
+interface Maze {
   box: { x0: number; z0: number; x1: number; z1: number };
   y: number;
   grid: 4 | 5;
@@ -97,14 +96,14 @@ export interface Maze {
   deadEnds: DeadEnd[];
   farthest: number;
 }
-export interface Camp {
+interface Camp {
   room: Room;
   tansu: Pt;
   lantern: Pt;
   futon: Pt[];
   takibi: Pt;
 }
-export interface PlanWork {
+interface PlanWork {
   entrance: number;
   floors: number;
   sides: number;
@@ -124,14 +123,14 @@ export interface BokenShaft extends Omit<Shaft, 'sides'> {
 }
 
 /** 性格の 表〔§4.1〕。数は 実装の 表 1 か所〔#311〕 */
-export interface StyleTable {
+interface StyleTable {
   depth: { id: Depth; chance: number; floors: Span }[];
   size: { size: 64 | 96 | 128; chance: number }[];
   level: { id: Level; chance: number; sides: Span; eda: Span; edaMax: number; maze: number; mazeGrid: 4 | 5 | null; mainLength: Span }[];
   camp: number;
 }
 /** 形の 表〔§4.2〜§4.8・§4.14〕 */
-export interface ShapeTable {
+interface ShapeTable {
   floor: {
     /** いちばん 下の 階の 足の y */
     bottomY: Record<Depth, Span>;
@@ -149,7 +148,7 @@ export interface ShapeTable {
   limit: { torchesPerShaft: number; torchesPerCol: number; regionsPerCol: number; workRatio: number; newBlockIds: number; totalBlockIds: number; tries: PlanWork };
 }
 /** 行きどまりの くじの 表〔§4.4〕 */
-export interface DeadEndTable {
+interface DeadEndTable {
   kinds: { kind: DeadEndKind; chance: number }[];
   atariCount: Span;
   mazeFarthest: { oo: number; naka: number };
@@ -157,7 +156,7 @@ export interface DeadEndTable {
   ores: Record<Depth, { naka: Record<string, number>; atari: string[]; bottom: Record<string, number> }>;
 }
 /** キャンプの たんすの 表〔§4.8〕 */
-export interface CampTable {
+interface CampTable {
   rows: { kind: 'pan' | 'pickaxe' | 'drop' | 'ore' | 'torch'; chance: number; count: Span; items?: string[] }[];
   wear: Span;
   pickaxe: Record<Depth, string>;
@@ -207,7 +206,7 @@ export function needBokenHook(h: MineHookE, names: readonly (keyof MineHookE)[])
 }
 
 /** 1E の 坑道か〔`gen: 'e'`。1E の 前は いつも false ＝ 標本が 空で 赤〕 */
-export const isE = (s: BokenShaft): boolean => s.gen === 'e';
+const isE = (s: BokenShaft): boolean => s.gen === 'e';
 
 // ------------------------------------------------------------------ 表を 読む〔数は ここを 通して 1 か所〕
 
@@ -256,6 +255,8 @@ export function bigSample(enough: (all: readonly ESample[]) => boolean, pool: re
   let seeds = 0;
   for (const seed of pool) {
     if (enough(all)) break;
+    // 1E の 前〔`gen` が 無い〕は 何シード 見ても 空 → 6 シードで 見きりを つけて 赤にする〔全シードを なめない〕
+    if (seeds >= 6 && all.length === 0) break;
     seeds++;
     const h = hookE(seed);
     const sp = spawnOf(seed);
@@ -265,7 +266,7 @@ export function bigSample(enough: (all: readonly ESample[]) => boolean, pool: re
 }
 
 /** シード 1 つで スタートに 近い 順に 1E の 坑道 n こ〔ブロックまで しらべる 標本〕 */
-export function eNear(seed: number, n: number): { hook: MineHookE; g: GenCols; shafts: BokenShaft[] } {
+function eNear(seed: number, n: number): { hook: MineHookE; g: GenCols; shafts: BokenShaft[] } {
   const hook = hookE(seed);
   const sp = spawnOf(seed);
   const near = hook
@@ -301,8 +302,6 @@ export const ID = {
   takibi: 'takibi_ato',
   kodoWaku: 'kodo_waku',
   torch: 'torch',
+  lantern: 'lantern',
 } as const;
-export const OLD_IDS: readonly string[] = [ID.hibi, ID.kuzure, ID.railX, ID.railZ, ID.waku, ID.hashigoX, ID.hashigoZ, ID.takibi];
 
-/** 立てる マス〔足と 頭が 体の 通る マス〕か。足の 下は 見ない */
-export const bodyAt = (g: GenCols, p: Pt): boolean => isBodyIndex(g.at(p.x, p.y, p.z));

@@ -7,7 +7,7 @@ import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { columnHash } from '../world/gen/chunk';
 import { GEN_CONFIG } from '../world/gen/config';
 import { CAVE_RULES, hookCave, needCaveHook } from '../world/gen/mineCaveKit';
-import { GenCols, bothWays, genColumn, hook1c, type OldCols, type Shaft } from '../world/gen/mineShaftKit';
+import { GenCols, bothWays, genColumn, hook1c, legacyOld, legacyWith, type OldCols, type Shaft } from '../world/gen/mineShaftKit';
 import { spawnOf } from '../world/gen/terrain';
 import { colKey } from '../world/stream/ring';
 import { MemoryBackend, SAVE_ID, unpackColumn } from './backend';
@@ -214,9 +214,8 @@ describe.each(FIXTURES)('D9: $name の 古い 保存', (f) => {
     await save.now();
     const meta = await metaOf(db);
     expect(meta.gen).toBe(SAVE_GEN);
-    expect(sorted(meta.oldCols?.heya ?? []), 'meta の 部屋の 一覧').toEqual(want);
-    expect(sorted(meta.oldCols?.kodo ?? []), 'meta の 坑道の 一覧').toEqual(wantKodo);
-    expect(JSON.stringify(meta.oldCols?.heya ?? []).length).toBeLessThanOrEqual(12 * want.length + 2);
+    // MINE-1E の 準備で 直した: 一覧の 書き方〔meta の 配列とは かぎらない。1E で 一覧が 3 つに なり 12 バイト／列に おさえる〕は developer の もの。
+    // 書き方に よらない 見かた〔開きなおして 同じ 一覧・保存の 大きさ〕は src/save/mine1eSave.test.ts〔E16〕。ここは 下の「2 回 開いても 同じ」で 見る。
     const after = await db.readAll(SAVE_ID);
     expect(after.chunks.length).toBe(before.chunks.length);
     for (const rec of after.chunks) expect(columnHash(await unpackColumn(rec, NS)), `列 (${rec.cx}, ${rec.cz})`).toBe(hashes.get(`${rec.cx},${rec.cz}`));
@@ -298,7 +297,9 @@ describe('D9: 版 5 の fixture で 1C の 形の まま', () => {
     const { db, store } = await openFile(f);
     const { restored } = await openGame(db, store);
     const gold = golden();
-    const h = hookCave(SEED, { oldCols: restored.oldCols });
+    // MINE-1E の 準備で 直した: 「1C の あとと 同じ」は 1C・1D の 作り方の 世界〔1E の 古い 列を スタートの まわり ぜんぶに した `legacyWith`〕で 見る
+    const legacy = legacyWith(SEED, restored.oldCols);
+    const h = hookCave(SEED, { oldCols: legacy });
     needCaveHook(h, ['startShaft', 'isOld', 'caves', 'shafts', 'shaftPath']);
     const start = h.startShaft();
     // はじまりの 坑道: 1C の あとと 同じ〔横穴の 先も end も 道も〕。古い 列が かかる 横穴は つなぎかえない
@@ -328,19 +329,19 @@ describe('D9: 版 5 の fixture で 1C の 形の まま', () => {
     for (const [k, want] of Object.entries(gold.columns)) {
       if (skip.has(k)) continue;
       const [cx, cz] = k.split(',').map(Number) as [number, number];
-      expect(columnHash(genColumn(SEED, cx, cz, restored.oldCols)), `列 (${k}) が 1C の あとと ちがう`).toBe(want);
+      expect(columnHash(genColumn(SEED, cx, cz, legacy)), `列 (${k}) が 1C の あとと ちがう`).toBe(want);
       compared++;
     }
     expect(compared, '1C の あとと くらべた 列').toBeGreaterThan(Object.keys(gold.columns).length / 2);
     // 入口と 横穴の 先が 行き来 できる
-    const g = new GenCols(SEED, restored.oldCols);
+    const g = new GenCols(SEED, legacy);
     const box = { x0: start.box.x0 - 12, x1: start.box.x1 + 12, z0: start.box.z0 - 12, z1: start.box.z1 + 12 };
     for (const d of naka.filter((x) => x.from.y === topY)) expect(bothWays(g, { x: start.entrance.x, y: start.entrance.y, z: start.entrance.z }, d.to, box), '入口と 横穴の 先').toBe(true);
   }, 240_000);
 
   it('4 版: 古い 列が かかる 坑道の へやの 横穴は 1C の まま〔古い 列が ない 新しい 世界では つなぐ 横穴を もつ 坑道を、その 箱の 列ぜんぶ 古い 列に して 開くと shaftPath・end が 1C の あとと 同じ〕', () => {
     const gold = golden();
-    const fresh = hookCave(SEED);
+    const fresh = hookCave(SEED, { oldCols: legacyOld(SEED) }); // 1E の 前の 世界〔上と 同じ 理由〕
     needCaveHook(fresh, ['shafts', 'shaftPath']);
     const sp = spawnOf(SEED);
     const live = new Map(fresh.shafts(sp.x - 1536, sp.z - 1536, sp.x + 1535, sp.z + 1535).map((x) => [x.id, x] as const));
@@ -355,7 +356,7 @@ describe('D9: 版 5 の fixture で 1C の 形の まま', () => {
     for (const x of withHeya) {
       const heya = new Set<number>();
       for (let cz = (x.box.z0 - 16) >> 4; cz <= (x.box.z1 + 16) >> 4; cz++) for (let cx = (x.box.x0 - 16) >> 4; cx <= (x.box.x1 + 16) >> 4; cx++) heya.add(colKey(cx, cz));
-      const old = hookCave(SEED, { oldCols: { kodo: new Set<number>(), heya } });
+      const old = hookCave(SEED, { oldCols: { kodo: new Set<number>(), heya, boken: legacyOld(SEED).boken } });
       const sh = old.shafts(x.box.x0, x.box.z0, x.box.x1, x.box.z1).find((y) => y.id === x.id);
       expect(sh, `${x.id} が ある`).toBeDefined();
       expect(sh!.sides.map((d) => d.end), `${x.id}: 古い 列が かかる 横穴は end が 1C の まま`).toEqual(x.sides.map((d) => d.end));

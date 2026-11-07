@@ -100,6 +100,7 @@ describe('E2〔ブロック〕: 階', () => {
   });
 
   it('おどりば〔さか道の おりかえし〕から 横穴が 出ない: 横穴の 出どころ〔階から〕が おどりばの 2 マス いないに ない', () => {
+    expect(samples.length, '1E の 坑道が ない').toBeGreaterThan(0);
     const bad: string[] = [];
     for (const s of samples) {
       const landing = s.path.filter((c) => c.part === 'landing');
@@ -114,12 +115,14 @@ describe('E2〔ブロック〕: 階', () => {
 
 describe('E3: 形と 安全', () => {
   it('足の マスぜんぶ〔ひび・くずれた いしは ほった あと〕: 上 4 マス〔ひびの 通り道は 2〕空気・下 2 マス 固い・まわり 1 マスが 口・出口 いがい 固い', () => {
+    expect(samples.length, '1E の 坑道が ない').toBeGreaterThan(0);
     const bad: string[] = [];
     for (const s of samples) for (const m of safetyProblemsE(s.g, s.shaft, s.path).slice(0, 3)) bad.push(`${tagOf(s)}: ${m}`);
     fail('安全', bad);
   });
 
   it('箱が 広さ〔style.size〕と 区画の 中・箱の 中に 道ぜんぶ・天井の 上の 石〔地面まで cover.ground 以上・海の 下は cover.sea 以上〕', () => {
+    expect(samples.length, '1E の 坑道が ない').toBeGreaterThan(0);
     const bad: string[] = [];
     for (const s of samples) for (const m of boxProblems(s.shaft, s.path, s.seed)) bad.push(`${tagOf(s)}: ${m}`);
     fail('箱・天井', bad);
@@ -149,6 +152,7 @@ describe('E4: もどれる〔道さがし〕', () => {
 
 describe('E5: 帰り道の しるしを 作らない', () => {
   it('生成の チョークの しるしが 道の まわりに ない〔チョーク ＝ id が chalk で はじまる ブロック〕', () => {
+    expect(samples.length, '1E の 坑道が ない').toBeGreaterThan(0);
     const bad: string[] = [];
     for (const s of samples) {
       const seen = new Set<string>();

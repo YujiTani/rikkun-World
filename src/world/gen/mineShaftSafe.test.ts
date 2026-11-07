@@ -34,7 +34,7 @@ const lightSamples: Sample[] = [];
 
 beforeAll(() => {
   SEEDS_20.forEach((seed, k) => {
-    const s = sampleShafts(seed, 2);
+    const s = sampleShafts(seed, 2, { legacy: true });
     s.shafts.forEach((shaft, i) => {
       const one = { seed, shaft, path: s.hook.shaftPath(shaft.id), g: s.g };
       samples.push(one);

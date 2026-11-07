@@ -81,6 +81,7 @@ describe('E19: 列 1 つで 見る 区画・光る ブロック', () => {
   });
 
   it('読みこんだ 列の 数で ふえない〔となり合う 列を たくさん 見ても 1 列で 見る 数は 同じ〕', () => {
+    expect(biggest(1).length, '広さ 128 の 1E の 坑道が ない').toBeGreaterThan(0);
     const a = biggest(1)[0]!;
     const h = hookE(a.seed);
     needBokenHook(h, ['work']);

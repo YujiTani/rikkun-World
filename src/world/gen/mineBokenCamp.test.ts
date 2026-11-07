@@ -131,6 +131,7 @@ describe('E11: キャンプの たんすの 中身〔表の とおり〕', () =>
   });
 
   it('同じ〔シード, 場所〕は 同じ 中身〔窓口を 作りなおしても〕', () => {
+    expect(tansus.length, '1E の キャンプが ない').toBeGreaterThan(0);
     const bad: string[] = [];
     for (const t of tansus.filter((_, i) => i % 40 === 0)) {
       const again = hookE(t.seed).campPreview(t.at.x, t.at.y, t.at.z);
@@ -220,6 +221,7 @@ const expected = (items: CampItem[]): Map<string, number> => {
 };
 const pickOnes = (): Tansu[] => {
   const want = ['asai', 'nakahodo', 'fukai'] as const;
+  expect(tansus.length, '1E の キャンプが ない').toBeGreaterThan(0);
   return want.map((d) => tansus.find((t) => t.shaft.style!.depth === d && t.items.some((i) => i.wear !== undefined)) ?? tansus.find((t) => t.shaft.style!.depth === d)).filter((t): t is Tansu => !!t);
 };
 
@@ -306,6 +308,7 @@ describe('E11: あける 前に こわす・置きなおす・自分で 置く',
   });
 
   it('自分で 置いた たんすは `campPreview` が null・あけても 中身は 出ない〔どこでも〕', () => {
+    expect(tansus.length, '1E の キャンプが ない').toBeGreaterThan(0);
     const t = tansus[0]!;
     const r = rig(t);
     for (const [dx, dz] of [[3, 0], [0, 7], [-9, 4]] as const) {
@@ -321,6 +324,7 @@ describe('E11: あける 前に こわす・置きなおす・自分で 置く',
   });
 
   it('キャンプの 場所が ない マスは `campPreview` が null', () => {
+    expect(tansus.length, '1E の キャンプが ない').toBeGreaterThan(0);
     const t = tansus[0]!;
     const h = hookE(t.seed);
     expect(h.campPreview(t.at.x + 1, t.at.y, t.at.z)).toBeNull();

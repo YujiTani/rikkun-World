@@ -10,6 +10,7 @@ import {
   isSolidIndex,
   pathIndex,
   ptKey,
+  legacyOld,
   sampleShafts,
   type Compass,
   type GenCols,
@@ -43,7 +44,7 @@ const samples: Sample[] = [];
 
 beforeAll(() => {
   for (const seed of SEEDS_20) {
-    const s = sampleShafts(seed, 2);
+    const s = sampleShafts(seed, 2, { legacy: true });
     for (const shaft of s.shafts) samples.push({ seed, shaft, path: s.hook.shaftPath(shaft.id), g: s.g });
   }
 }, 240_000);
@@ -290,8 +291,8 @@ describe('C7: いちばん 下の へや', () => {
       // chestAt は どちらの マスでも 同じ
       // chestAt は 生きている 世界〔あいたか〕を 読む 側: 宝箱の 列だけ 読みこんだ 世界を わたす
       const world = new ArrayVoxelWorld({ x: 0, z: 0 });
-      world.loadColumn(genColumn(s.seed, c.cells[0]!.x >> 4, c.cells[0]!.z >> 4));
-      const h = hook1c(s.seed, { world });
+      world.loadColumn(genColumn(s.seed, c.cells[0]!.x >> 4, c.cells[0]!.z >> 4, legacyOld(s.seed)));
+      const h = hook1c(s.seed, { world, oldCols: legacyOld(s.seed) });
       const a = h.chestAt(c.cells[0]!.x, c.cells[0]!.y, c.cells[0]!.z);
       const b = h.chestAt(c.cells[1]!.x, c.cells[1]!.y, c.cells[1]!.z);
       expect(a, `${tag}: chestAt 本体`).not.toBeNull();

@@ -121,7 +121,10 @@ export interface OldCols {
  * この 世界の「ほかの 坑道」で 見る〔新しい 世界の ほかの 坑道は 1E の 坑道 `gen: 'e'` で E2〜E4 が 見る〕。
  * 1E の 実装の 前は `boken` を 読まない ので、いつもの 世界と 同じ〔緑のまま〕。
  */
+const legacyMemo = new Map<string, OldCols>();
 export function legacyOld(seed: number, half = 2304): OldCols {
+  const memo = legacyMemo.get(`${seed}:${half}`);
+  if (memo) return memo;
   const sp = spawnOf(seed);
   const boken = new Set<number>();
   const cx0 = (sp.x - half) >> 4;
@@ -129,7 +132,14 @@ export function legacyOld(seed: number, half = 2304): OldCols {
   const cz0 = (sp.z - half) >> 4;
   const cz1 = (sp.z + half) >> 4;
   for (let cz = cz0; cz <= cz1; cz++) for (let cx = cx0; cx <= cx1; cx++) boken.add(colKey(cx, cz));
-  return { kodo: new Set<number>(), heya: new Set<number>(), boken };
+  const out: OldCols = { kodo: new Set<number>(), heya: new Set<number>(), boken };
+  legacyMemo.set(`${seed}:${half}`, out);
+  return out;
+}
+
+/** 古い 保存から 開いた 一覧に「1E の 前の 世界」の 1E の 一覧〔スタートの まわり ぜんぶ〕を 足す。坑道・部屋の 一覧は 保存の とおり */
+export function legacyWith(seed: number, old?: OldCols): OldCols {
+  return { kodo: old?.kodo ?? new Set<number>(), heya: old?.heya ?? new Set<number>(), boken: legacyOld(seed).boken! };
 }
 
 /** 仕様 §6.1 の 1C の 窓口。型には まだ 無いので 文字で 読む〔赤の 間も 型が 通る ように〕 */
@@ -577,9 +587,9 @@ export function touchedColKeys(s: Shaft, path: readonly { x: number; z: number }
  * ある シードで、坑道〔はじまり ＋ 区画の ほか〕が かかる 列。実装の 窓口 `touchesShaft(cx, cz)`〔`columnOres().normal` の 元と 同じ 一覧。
  * 木を 置かない 四角の 広げも ふくむ〕から 読む〔数を テストに 書かない〕。窓口が まだ 無い ときは 空。範囲は 世界の ブロック座標。
  */
-export function shaftCoveredCols(seed: number, x0: number, z0: number, x1: number, z1: number): Set<number> {
+export function shaftCoveredCols(seed: number, x0: number, z0: number, x1: number, z1: number, oldCols?: OldCols): Set<number> {
   const out = new Set<number>();
-  const h = hook1c(seed) as unknown as { touchesShaft?: (cx: number, cz: number) => boolean };
+  const h = hook1c(seed, oldCols ? { oldCols } : {}) as unknown as { touchesShaft?: (cx: number, cz: number) => boolean };
   if (typeof h.touchesShaft !== 'function') return out;
   for (let cz = z0 >> 4; cz <= z1 >> 4; cz++) for (let cx = x0 >> 4; cx <= x1 >> 4; cx++) if (h.touchesShaft(cx, cz)) out.add(colKey(cx, cz));
   return out;

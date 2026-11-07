@@ -13,7 +13,7 @@ interface Pt3 {
   y: number;
   z: number;
 }
-export interface SideG {
+interface SideG {
   layer: string;
   from: Pt3;
   to: Pt3;
