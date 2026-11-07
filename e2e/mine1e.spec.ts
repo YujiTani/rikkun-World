@@ -101,12 +101,33 @@ test('E18: ひびの 行きどまりの ひびの いしを ぜんぶ ほる →
 
   // --- 前を 向いて 左クリックを おしつづけて ぜんぶ ほる〔手前から。ひびが MAX〔ready〕に なるまで 長おし → はなして もう 1 回 おすと こわれる〕 ---
   const ordered = [...f.end.hibi].sort((a, b) => Math.hypot(a.x - f.end.at.x, a.z - f.end.at.z) - Math.hypot(b.x - f.end.at.x, b.z - f.end.at.z) || b.y - a.y);
-  for (const p of ordered) {
-    await aimAtBlock(page, p.x, p.y, p.z, 0.5);
+  // ひびは はば 1 でも、肩の点 S は 横に ずれているので、視線が 手前の 斜めの ひびの いしに 先に 当たることが ある。
+  // なので 「p を ねらう」でなく「ねらいに 乗った 残りの ひびの いし〔ねらわれた 石〕を ほる」。ひびの いし以外〔空気・壁〕に 当たったら 高さを かえて ねらいなおす。
+  const key = (q: Pt): string => `${q.x},${q.y},${q.z}`;
+  const remaining = new Map<string, Pt>(ordered.map((q) => [key(q), q]));
+  const tops = [0.5, 0.25, 0.75, 0.9, 0.1];
+  let guard = ordered.length * 3;
+  while (remaining.size > 0) {
+    expect(guard--, 'ひびの いしを ほる 回数が 多すぎない').toBeGreaterThan(0);
+    const want = ordered.find((q) => remaining.has(key(q)))!; // 残りの うち いちばん 手前
+    let aimed: Pt | null = null;
+    const tried: string[] = [];
+    for (const top of tops) {
+      await aimAtBlock(page, want.x, want.y, want.z, top);
+      const t = await page.evaluate(() => {
+        const r = (window as any).__rikkun.target.get();
+        return r ? (r.block as Pt) : null;
+      });
+      tried.push(`${top}→${t ? key(t) : 'なし'}`);
+      if (t && remaining.has(key(t))) {
+        aimed = { x: t.x, y: t.y, z: t.z };
+        break;
+      }
+    }
+    expect(aimed, `ねらいが 残りの ひびの いし〔ほしいのは (${want.x}, ${want.y}, ${want.z})・${tried.join(' / ')}〕に 乗った`).not.toBeNull();
+    const a = aimed!;
     const r = await page.evaluate((p) => {
       const h = (window as any).__rikkun;
-      const t = h.target.get();
-      const aimed = t ? (t.block as Pt) : null;
       let readyAt = -1;
       h.input.press('primary');
       for (let i = 1; i <= 400; i++) {
@@ -122,12 +143,12 @@ test('E18: ひびの 行きどまりの ひびの いしを ぜんぶ ほる →
       for (let i = 1; i <= 30 && h.world.getBlock(p.x, p.y, p.z) !== 'air'; i++) h.step(1);
       h.input.release('primary');
       h.step(30);
-      return { aimed, readyAt, after: h.world.getBlock(p.x, p.y, p.z) as string };
-    }, p);
-    expect(r.aimed, `ねらいが ひびの いし (${p.x}, ${p.y}, ${p.z}) に 乗った`).toEqual(p);
-    expect(r.readyAt, `ひびの いし (${p.x}, ${p.y}, ${p.z}) は 90 ステップ前後で ほれる`).toBeGreaterThan(0);
+      return { readyAt, after: h.world.getBlock(p.x, p.y, p.z) as string };
+    }, a);
+    expect(r.readyAt, `ひびの いし (${a.x}, ${a.y}, ${a.z}) は 90 ステップ前後で ほれる`).toBeGreaterThan(0);
     expect(r.readyAt, 'すでで 1.5 秒〔90 ステップ〕前後').toBeLessThanOrEqual(120);
-    expect(r.after, `(${p.x}, ${p.y}, ${p.z}) が 消えた`).toBe('air');
+    expect(r.after, `(${a.x}, ${a.y}, ${a.z}) が 消えた`).toBe('air');
+    remaining.delete(key(a));
   }
   const left = await page.evaluate((cells) => cells.filter((p) => (window as any).__rikkun.world.getBlock(p.x, p.y, p.z) !== 'air').length, f.end.hibi);
   expect(left, 'ひびの いしが ぜんぶ 消えた').toBe(0);
