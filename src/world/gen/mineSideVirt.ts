@@ -1,10 +1,11 @@
 import { SEA_Y } from '../../contracts';
-import { BLOCK_INDEX } from '../blocks/blockTypes';
+import { BLOCK_TYPES } from '../blocks/blockTypes';
 import type { Geo } from './mineShaftSite';
 import { ShaftBuilder, keyOf } from './mineShaftBuild';
 import type { Pt } from './mineShaftTypes';
 
-const TORCH = BLOCK_INDEX.torch;
+/** ブロックごとの 固さ〔計画で 置く 物が 固いか。たいまつ・レール・たおれた はしごなどは 固くない〕 */
+const SOLID: readonly boolean[] = BLOCK_TYPES.map((t) => t.solid);
 const FOUR: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 
@@ -22,7 +23,7 @@ export class Virt {
     if (y <= 0) return true;
     const k = keyOf(x, y, z);
     const p = this.b.put.get(k);
-    if (p !== undefined) return p !== TORCH;
+    if (p !== undefined) return SOLID[p] === true;
     if (this.air.has(k) || this.b.air.has(k)) return false;
     if (this.ring.has(k) || this.b.ring.has(k)) return true;
     if (this.exempt.has(k)) return this.natural(x, y, z);

@@ -44,7 +44,19 @@ export interface Cand {
   entry: Set<number>;
 }
 
-export const MAX_BOX = S.boxMax - 2 * S.boxMargin - 4;
+const MAX_BOX = S.boxMax - 2 * S.boxMargin - 4;
+
+/** 横穴を 作る ときの 大きさの 上限〔1C は 表の まま。1E は 広さ・長めの 横穴で かえる〕 */
+export interface SideLim {
+  /** 坑道 ぜんぶの 道の 広がりの 上限（マス） */
+  maxBox: number;
+  /** 横穴 1 本の 長さ（計画。マス） */
+  lengthMin: number;
+  lengthMax: number;
+  /** ほらあなの 床へ 向ける 横穴を ためす 回数の 上限 */
+  aimTries: number;
+}
+export const LIM_C: SideLim = { maxBox: MAX_BOX, lengthMin: S.side.lengthMin, lengthMax: S.side.lengthMax, aimTries: S.side.aimTries };
 
 /** 層の 鉱石の ブロック〔光る ほたるいしと 一番 まれな ダイヤは のぞく〕 */
 function layerOres(layer: ShaftLayer): number[] {
@@ -83,6 +95,7 @@ export function build(
   chestCells: ReadonlySet<number>,
   rng: Rng,
   s: number,
+  lim: SideLim = LIM_C,
 ): Cand | null {
   const { center, dirs, corners, end } = spec;
   const { tx: tdx, tz: tdz, c1x, c1z } = exitOf(F, hub, s);
@@ -182,7 +195,7 @@ export function build(
     z0 = Math.min(z0, site.mound.z - mh);
     z1 = Math.max(z1, site.mound.z + mh);
   }
-  if (x1 - x0 + 1 > MAX_BOX || z1 - z0 + 1 > MAX_BOX) return null;
+  if (x1 - x0 + 1 > lim.maxBox || z1 - z0 + 1 > lim.maxBox) return null;
   if (region) {
     const R = S.region;
     if (x0 - 4 < region.x0 || x1 + 4 >= region.x0 + R || z0 - 4 < region.z0 || z1 + 4 >= region.z0 + R) return null;
@@ -195,7 +208,7 @@ export function build(
     if (G.special(c.x, c.z, 2)) return null;
     if (!coverOk(G, site, c, airHeightOf(c.part))) return null;
   }
-  if (cells.filter((c) => c.part === 'side').length > 3 * S.side.lengthMax) return null;
+  if (cells.filter((c) => c.part === 'side').length > 3 * lim.lengthMax) return null;
   // ほかの 横穴と 上から 見て かさならない〔かたまりを 見わけやすく する〕
   const sideXZ = new Set<number>();
   for (const p of b.path) if (p.part === 'side' || p.part === 'koheya' || p.part === 'joint') sideXZ.add(p.x * 100003 + p.z);
@@ -279,11 +292,14 @@ export function build(
   return { cells, torches, exempt, to, end, heya: built, oreCells, oreBlocks, door, entry };
 }
 
-export function commit(b: ShaftBuilder, hub: Hub, c: Cand, length: number, bends: number, s: number, F: Frame): ShaftSide {
-  for (const cell of c.cells) b.addCell(cell, cell.part);
+export function commit(b: ShaftBuilder, hub: Hub, c: Cand, length: number, bends: number, s: number, F: Frame, lim: SideLim = LIM_C, inc = false): ShaftSide {
   for (const t of c.torches) b.put.set(keyOf(t.x, t.y, t.z), TORCH);
-  for (const k of c.exempt) b.exempt.add(k);
-  b.buildRing();
+  if (inc) b.addCellsInc(c.cells, c.exempt);
+  else {
+    for (const cell of c.cells) b.addCell(cell, cell.part);
+    for (const k of c.exempt) b.exempt.add(k);
+    b.buildRing();
+  }
   c.oreCells.forEach((k, i) => b.put.set(k, c.oreBlocks[i]!));
   const from = { x: F.x(hub.u, s < 0 ? hub.vMin : hub.vMax), y: hub.y, z: F.z(hub.u, s < 0 ? hub.vMin : hub.vMax) };
   const layer = (layerAt(hub.y) ?? 'fukai') as ShaftLayer;
@@ -291,5 +307,5 @@ export function commit(b: ShaftBuilder, hub: Hub, c: Cand, length: number, bends
   const sideCells = c.cells.filter((x) => x.part === 'side').length;
   if (c.heya) b.reserved.push({ ...c.heya.cave.box });
   const heya = c.heya ? { end: c.heya.cave.shaft === null ? ('cave' as const) : ('heya' as const), heyaHit: true, heyaKind: c.heya.cave.kind as string | null, cave: c.heya.cave.id } : { end: c.end, heyaHit: false, heyaKind: null };
-  return { layer, from, to: c.to, ...heya, length: Math.min(S.side.lengthMax, Math.max(length, Math.ceil(sideCells / 3))), bends: Math.min(S.side.bendsMax, bends + (c.end === 'joint' ? 1 : 0)) };
+  return { layer, from, to: c.to, ...heya, length: Math.min(lim.lengthMax, Math.max(length, Math.ceil(sideCells / 3))), bends: Math.min(S.side.bendsMax, bends + (c.end === 'joint' ? 1 : 0)) };
 }

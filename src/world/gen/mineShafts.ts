@@ -9,6 +9,9 @@ import { CaveWorld, type CaveHost, type HiroiTryRow, type PlacedCave } from './m
 import { CAVE_CONFIG, type CaveKind } from './mineCaveConfig';
 import type { RoomColOps } from './mineCaveRoom';
 import { colKey } from '../stream/ring';
+import { BOKEN_TUNING } from './mineBokenConfig';
+import { planBokenSteps } from './mineBokenPlan';
+import { styleOf } from './mineBokenStyle';
 
 /**
  * 坑道の 世界（MINE-1C。docs/design/MINE-1.md §4.5・§4.8・§6.1）。シード（と 古い 列の 一覧）から、はじまりの 坑道と 区画ごとの 坑道を 決める。
@@ -190,6 +193,42 @@ export class ShaftWorld implements CaveHost {
    */
   private *regionJob(rx: number, rz: number): Generator<void, Planned | null> {
     if (!(regionHit(this.seed, rx, rz) && !this.blocked(rx, rz) && regionLand(this.G, rx, rz) >= S.minLand)) return null;
+    // 古い 世界: 1C・1D の 坑道〔版 6 の 計画〕が 1E の 一覧の 列に かかる 区画は その まま 作る（MINE-1E §4.13）
+    const boken = this.oldCols?.boken;
+    if (boken && boken.size > 0) {
+      const c = yield* this.regionJobC(rx, rz);
+      if (c) for (const k of c.plan.cols) if (boken.has(k)) return c;
+    }
+    return yield* this.regionJobE(rx, rz);
+  }
+
+  /** 1E の 坑道〔性格は 世界の シードと 区画で きまる〕 */
+  private *regionJobE(rx: number, rz: number): Generator<void, Planned | null> {
+    const style = styleOf(this.seed, rx, rz);
+    const boken = this.oldCols?.boken;
+    const env = { isBoken: boken && boken.size > 0 ? (k: number): boolean => boken.has(k) || this.isOld(k) || this.isOldHeya(k) : null };
+    let budget = BOKEN_TUNING.budget;
+    for (const site of regionSites(this.G, rx, rz)) {
+      if (site === null) {
+        yield;
+        continue;
+      }
+      for (let a = 0; a < BOKEN_TUNING.attempts && budget-- > 0; a++) {
+        const plan = yield* planBokenSteps(this.G, site, `r${rx}_${rz}`, rx, rz, style, env, a);
+        if (plan) {
+          yield;
+          return { plan, ops: buildOps(plan) };
+        }
+        yield;
+      }
+      if (budget <= 0) break;
+      yield;
+    }
+    return null;
+  }
+
+  /** 1C・1D の 坑道 */
+  private *regionJobC(rx: number, rz: number): Generator<void, Planned | null> {
     let budget = S.plan.budget;
     for (const site of regionSites(this.G, rx, rz)) {
       if (site === null) {

@@ -2,7 +2,7 @@ import { Frame, ShaftBuilder } from './mineShaftBuild';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import type { Geo, Site } from './mineShaftSite';
 import type { ShaftSide } from './mineShaftTypes';
-import { build, commit, exitOf, type Hub, type Spec } from './mineSideBuild';
+import { LIM_C, build, commit, exitOf, type Hub, type SideLim, type Spec } from './mineSideBuild';
 import type { Rng } from './random';
 
 const FOUR: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -42,11 +42,11 @@ export function scanFloors(G: Geo, hub: Hub, F: Frame, s: number): Found[] {
   return found;
 }
 
-export function* tryAimed(G: Geo, b: ShaftBuilder, hub: Hub, rng: Rng, F: Frame, region: { x0: number; z0: number } | null, site: Site, chestCells: ReadonlySet<number>, s: number, found: Found[]): Generator<void, ShaftSide | null> {
+export function* tryAimed(G: Geo, b: ShaftBuilder, hub: Hub, rng: Rng, F: Frame, region: { x0: number; z0: number } | null, site: Site, chestCells: ReadonlySet<number>, s: number, found: Found[], lim: SideLim = LIM_C, inc = false): Generator<void, ShaftSide | null> {
   const E = S.side;
   const { tx, tz, c1x, c1z, px, pz } = exitOf(F, hub, s);
   const y = hub.y;
-  for (let t = 0; t < E.aimTries && found.length > 0; t++) {
+  for (let t = 0; t < lim.aimTries && found.length > 0; t++) {
     const f = found.splice(Math.floor(rng() * found.length), 1)[0]!;
     const m = Math.abs(f.dy) <= E.caveStep ? 0 : Math.abs(f.dy);
     const tail = m > 0 ? E.jointSize + m : 0;
@@ -74,8 +74,8 @@ export function* tryAimed(G: Geo, b: ShaftBuilder, hub: Hub, rng: Rng, F: Frame,
     const spec: Spec = { center, dirs, corners, end: m > 0 ? 'joint' : 'cave', stairs: m, stairSgn: f.dy > 0 ? 1 : -1 };
     if (center.some((c) => G.nearMouth(c.x, c.z, 3))) continue;
     yield; // 1 つ ためす ごとに ひと休み
-    const c = build(G, b, hub, y, spec, F, region, site, chestCells, rng, s);
-    if (c) return commit(b, hub, c, Math.min(E.lengthMax, Math.max(E.lengthMin, center.length + tail)), corners.length, s, F);
+    const c = build(G, b, hub, y, spec, F, region, site, chestCells, rng, s, lim);
+    if (c) return commit(b, hub, c, Math.min(lim.lengthMax, Math.max(lim.lengthMin, center.length + tail)), corners.length, s, F, lim, inc);
   }
   return null;
 }

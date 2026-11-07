@@ -3,12 +3,12 @@ import { layerAt } from './mineLayers';
 import { Frame, ShaftBuilder } from './mineShaftBuild';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import type { Geo, Site } from './mineShaftSite';
-import type { ShaftSide } from './mineShaftTypes';
+import type { PathCell, ShaftSide } from './mineShaftTypes';
 import { CAVE_CONFIG as CC, type CaveKind } from './mineCaveConfig';
 import type { HiroiTryRow, PlacedCave } from './mineCaves';
 import { HEYA_TRIES, LINK_TRIES, cellsSig, heyaSource, pickKind, planBoxOk, type HeyaSource, type SideRef, type StartLink } from './mineShaftHeya';
 import { scanFloors, tryAimed } from './mineSideAimed';
-import { build, commit, exitOf, type Hub, type Spec } from './mineSideBuild';
+import { LIM_C, build, commit, exitOf, type Hub, type SideLim, type Spec } from './mineSideBuild';
 import { createRng, hash01, hashInts, subSeed, type Rng } from './random';
 
 /**
@@ -173,10 +173,10 @@ function weightedIndex(rng: Rng, w: readonly number[]): number {
   }
   return w.length - 1;
 }
-function tryWinding(G: Geo, b: ShaftBuilder, hub: Hub, rng: Rng, F: Frame, region: { x0: number; z0: number } | null, site: Site, chestCells: ReadonlySet<number>, s: number, heya?: HeyaSource): ShaftSide | null {
+export function tryWinding(G: Geo, b: ShaftBuilder, hub: Hub, rng: Rng, F: Frame, region: { x0: number; z0: number } | null, site: Site, chestCells: ReadonlySet<number>, s: number, heya?: HeyaSource, lim: SideLim = LIM_C, inc = false, accept?: (cells: readonly PathCell[]) => boolean): ShaftSide | null {
   const E = S.side;
   const { tx, tz, c1x, c1z } = exitOf(F, hub, s);
-  const length = E.lengthMin + Math.floor(rng() * (E.lengthMax - E.lengthMin + 1));
+  const length = lim.lengthMin + Math.floor(rng() * (lim.lengthMax - lim.lengthMin + 1));
   const bends = weightedIndex(rng, E.bendWeights);
   const legs: number[] = [];
   let rest = length;
@@ -217,6 +217,6 @@ function tryWinding(G: Geo, b: ShaftBuilder, hub: Hub, rng: Rng, F: Frame, regio
     corners.push({ x: last.x, z: last.z });
   }
   const spec: Spec = { center, dirs, corners, end: heya ? 'heya' : 'koheya', heya, stairs: 0, stairSgn: 1 };
-  const c = build(G, b, hub, hub.y, spec, F, region, site, chestCells, rng, s);
-  return c ? commit(b, hub, c, length, bends, s, F) : null;
+  const c = build(G, b, hub, hub.y, spec, F, region, site, chestCells, rng, s, lim);
+  return c && (!accept || accept(c.cells)) ? commit(b, hub, c, length, bends, s, F, lim, inc) : null;
 }
