@@ -45,6 +45,8 @@ test('D11: ほたるの ほらあなを さがして 床に 置く → caveAt �
   await page.evaluate(({ x, z }) => (window as any).__rikkun.world.teleport(x, z), { x: cave!.center.x, z: cave!.center.z });
   await settleWorld(page, true);
 
+  // openStream は 実績を mute するので、足が 部屋に 入る 前に 解除する〔mute の 間は 実績を 数えない〕
+  await page.evaluate(() => (window as any).__rikkun.achievements.mute(false));
   // 部屋の 床〔caveAt が hotaru で、足と 頭が 空気、足の 下が 固い マス〕に 置く
   const put = await page.evaluate((box) => {
     const h = (window as any).__rikkun;
@@ -83,6 +85,12 @@ test('D11: ほたるの ほらあなを さがして 床に 置く → caveAt �
 
   const unlocked = await page.evaluate((name) => (window as any).__rikkun.achievements.list().filter((a: any) => a.name === name).map((a: any) => a.unlocked as boolean), ACHIEVEMENT);
   expect(unlocked, `実績「${ACHIEVEMENT}」`).toEqual([true]);
+  // 実績の 画面は もう いらない: 妖怪の 確かめの あいだは また mute
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.achievements.flush();
+    h.achievements.mute(true);
+  });
 
   // 部屋の 床には 妖怪が 出ない: 自動で 出す〔地下の 間かくの 10 回ぶん〕。出た ステップの うちに 消す
   const spawned = await page.evaluate(() => {
