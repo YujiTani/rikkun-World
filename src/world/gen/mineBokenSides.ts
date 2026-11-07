@@ -61,6 +61,8 @@ const HEYA_CANDS = 8;
 const HEYA_TRIES_PER_CAND = 12;
 /** 部屋の ない ふつうの 横穴を 口 1 か所で ためす 回数 */
 const PLAIN_TRIES = 6;
+/** 部屋の ない 横穴を ためす 口の 数の 上限 */
+const PLAIN_CANDS = 8;
 
 export function* planBokenSides(c: SidesCtx): Generator<void, SidesOut | null> {
   const { fit, rng } = c;
@@ -132,11 +134,11 @@ export function* planBokenSides(c: SidesCtx): Generator<void, SidesOut | null> {
     return false;
   };
   /** 1 つの 階〔か いちばん 下の へや〕から 横穴を want 本 出す。出せなければ false */
-  const place = function* (hubs: Cand[], f: number, want: number, mouths: { x: number; z: number }[]): Generator<void, boolean> {
+  const place = function* (hubs: Cand[], f: number, want: number, lo: number, mouths: { x: number; z: number }[]): Generator<void, boolean> {
     const order = hubs.map((h) => ({ h, r: rng() })).sort((p, q) => p.r - q.r).map((e) => e.h);
     for (let k = 0; k < want; k++) {
       const cands = order.filter((h) => !mouths.some((m) => cheb(m, h) < TUNE.mouthGap));
-      if (cands.length === 0) return false;
+      if (cands.length === 0) return k >= lo; // 下限より 多い 分は 出せなくても よい
       // 坑道の へやの くじ〔横穴 1 本ごと。1D と 同じ 表。口の 成り行きで 当たりが かたよらない ように 1 本めの 番号で 引く〕
       const layer = layerAt(cands[0]!.hub.y) ?? 'fukai';
       const hit = hash01(subSeed(G.seed, 951), fit.env.site.x, fit.env.site.z, cands[0]!.hub.y, k + 1) < CC.link[layer].chance;
@@ -148,13 +150,13 @@ export function* planBokenSides(c: SidesCtx): Generator<void, SidesOut | null> {
           if (done !== false) break;
         }
       }
-      if (done === null) return false;
-      for (const cand of cands) {
+      if (done === null) return k >= lo;
+      for (const cand of cands.slice(0, PLAIN_CANDS)) {
         if (done) break;
         done = yield* plain(cand, f, kind, mouths);
-        if (done === null) return false;
+        if (done === null) return k >= lo;
       }
-      if (!done) return false;
+      if (!done) return k >= lo;
     }
     return true;
   };
@@ -162,11 +164,11 @@ export function* planBokenSides(c: SidesCtx): Generator<void, SidesOut | null> {
     const fl = c.floors[f]!;
     const want = lev.sides[0] + Math.floor(rng() * (lev.sides[1] - lev.sides[0] + 1));
     const hubs = roadSpots(fl).map((s) => ({ x: fl.main[s.i]!.x, z: fl.main[s.i]!.z, hub: s.hub }));
-    if (!(yield* place(hubs, f, want, c.mouths[f]!))) return null;
+    if (!(yield* place(hubs, f, want, lev.sides[0], c.mouths[f]!))) return null;
   }
   if (rng() < 0.5) {
     const h = c.roomHub;
-    yield* place([{ x: h.frame.x(h.u, 0), z: h.frame.z(h.u, 0), hub: h }], -1, 1, []);
+    yield* place([{ x: h.frame.x(h.u, 0), z: h.frame.z(h.u, 0), hub: h }], -1, 1, 1, []);
   }
   return out;
 }
