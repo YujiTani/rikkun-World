@@ -70,8 +70,10 @@ function makeEda(c: EdaCtx, m: Pt, t: [number, number], old: boolean, kind: Dead
   const { rng } = c;
   const y = m.y;
   const L = E.length[0] + Math.floor(rng() * (E.length[1] - E.length[0] + 1));
-  const bends = rng() < 0.3 ? 1 : 0;
-  const L1 = bends ? 3 + Math.floor(rng() * (L - 5)) : L;
+  const hibi = kind === 'hibi_naka' || kind === 'hibi_oo';
+  // ひびの 行きどまりは 曲がり角を つきあたりから 5 マス いじょう はなす〔手前の たいまつが ちょうど 1 本に なる ように〕
+  const bends = rng() < 0.3 && (!hibi || L >= 10) ? 1 : 0;
+  const L1 = bends ? 3 + Math.floor(rng() * (L - (hibi ? 7 : 5))) : L;
   const turn = rng() < 0.5 ? -1 : 1;
   const [lx, lz] = lat(t[0], t[1]);
   const h2: [number, number] = bends ? [lx * turn, lz * turn] : t;
@@ -86,7 +88,6 @@ function makeEda(c: EdaCtx, m: Pt, t: [number, number], old: boolean, kind: Dead
     for (let w = -1; w <= 1; w++) pb.cell(p.x + sx * w, y, p.z + sz * w, 'eda');
   });
   if (bends) for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) pb.cell(K.x + dx, y, K.z + dz, 'eda');
-  const hibi = kind === 'hibi_naka' || kind === 'hibi_oo';
   const nearCorner = (p: Pt3): boolean => bends === 1 && Math.max(Math.abs(p.x - K.x), Math.abs(p.z - K.z)) <= 2;
   // たいまつ: 口から 2〜3 マス・そのあと 6 マスごと こうご
   let sg = rng() < 0.5 ? -1 : 1;
@@ -153,7 +154,9 @@ export function planEdaOn(c: EdaCtx, sideIdx: number, spots: { m: Pt; t: [number
     const old = c.rng() < E.oldShare;
     const kind = pickEndKind(c.rng);
     let done = false;
-    for (let t = 0; t < TUNE.edaTries && !done && cands.length > 0; t++) {
+    // へやが ある 結果は 入りにくい ので 多めに ためす〔入らない ものが 多いと「あたり」に かたよる〕
+    const tries = kind === 'oo' || kind === 'naka' || kind === 'hibi_naka' || kind === 'hibi_oo' ? TUNE.edaTries * 3 : TUNE.edaTries;
+    for (let t = 0; t < tries && !done && cands.length > 0; t++) {
       if (c.work.eda++ >= SHAPE_TABLE.limit.tries.eda) return out;
       const ix = Math.floor(c.rng() * cands.length);
       const sp = cands[ix]!;

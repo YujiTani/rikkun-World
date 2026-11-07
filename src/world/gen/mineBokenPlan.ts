@@ -83,7 +83,7 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
     if (!camp) return null;
   }
   // 横穴
-  const so = yield* planBokenSides({ fit, rng, style, work, floors: sk.floors, roomHub: sk.roomHub, chestCells: chestKeys, mouths });
+  const so = yield* planBokenSides({ fit, rng, style, work, floors: sk.floors, roomHub: sk.roomHub, chestCells: chestKeys, mouths, shaftId: id, isOld: env.isBoken });
   if (!so) return null;
   // えだ道
   const branches: Branch[] = [];
@@ -127,6 +127,12 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
     z0 = Math.min(z0, mound.z - h);
     z1 = Math.max(z1, mound.z + h);
   }
+  for (const r of so.rooms) {
+    x0 = Math.min(x0, r.box.x0 - 1);
+    x1 = Math.max(x1, r.box.x1 + 1);
+    z0 = Math.min(z0, r.box.z0 - 1);
+    z1 = Math.max(z1, r.box.z1 + 1);
+  }
   const m = S.boxMargin;
   const box = { x0: x0 - m, z0: z0 - m, x1: x1 + m, z1: z1 + m };
   if (box.x1 - box.x0 + 1 > style.size || box.z1 - box.z0 + 1 > style.size) return null;
@@ -146,6 +152,8 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
   for (const r of noTrees) addCols(r[0] - 5, r[1] - 5, r[2] + 5, r[3] + 5);
   for (const r of noPlants) addCols(r[0], r[1], r[2], r[3]);
   if (env.isBoken) for (const k of cols) if (env.isBoken(k)) return null;
+  const roomCols = new Set<number>();
+  for (const r of so.rooms) for (const k of r.room.ops.keys()) roomCols.add(k);
   // 場所の 窓口
   const areas = new Map<number, Area>();
   const floorKeys = (r: { x0: number; z0: number; x1: number; z1: number; y: number }, a: Area): void => {
@@ -185,9 +193,5 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
   };
   void mazeFloor;
   void SHAPE_TABLE;
-  // 行きどまりの 宝箱の 2 マスは 道の 足の マスに 数えない〔固い 宝箱の 上に 立てない。空気は へやと して あけてある〕
-  const endChest = new Set<number>();
-  for (const e of ends) for (const p of e.chest?.cells ?? []) endChest.add(keyOf(p.x, p.y, p.z));
-  const path = endChest.size > 0 ? b.path.filter((c) => !endChest.has(keyOf(c.x, c.y, c.z))) : b.path;
-  return { shaft, path, b, noTrees, noPlants, cols, rooms: [], roomCols: new Set(), tries: [], ref: { sigs: [], target: -1 }, areas };
+  return { shaft, path: b.path, b, noTrees, noPlants, cols, rooms: so.rooms, roomCols, tries: so.tries, ref: { sigs: [], target: -1 }, areas };
 }

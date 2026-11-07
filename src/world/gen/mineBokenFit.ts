@@ -139,9 +139,16 @@ export class Fit {
     return x0 - 4 >= region.x0 && x1 + 4 < region.x0 + S.region && z0 - 4 >= region.z0 && z1 + 4 < region.z0 + S.region;
   }
 
+  /** 坑道の へやの 箱〔まわり 1 マス〕を 足しても 箱・区画に おさまる か */
+  roomFits(r: { x0: number; z0: number; x1: number; z1: number }): boolean {
+    return this.boxOk([], { x0: r.x0 - 1, z0: r.z0 - 1, x1: r.x1 + 1, z1: r.z1 + 1 });
+  }
+
   /** 部品が 入るか しらべる〔足さない〕 */
   check(p: Piece): boolean {
     if (!this.boxOk(p.cells)) return false;
+    // 坑道の へやの 箱〔横穴の 先〕から 3 マス いじょう はなす
+    for (const r of this.b.reserved) for (const c of p.cells) if (c.x >= r.x0 - 3 && c.x <= r.x1 + 3 && c.z >= r.z0 - 3 && c.z <= r.z1 + 3 && c.y >= r.y0 - 3 && c.y <= r.y1 + 3) return false;
     for (const c of p.cells) if (!this.terrainFine(c.x, c.z) || !this.covered(c) || !this.freshCol(c.x, c.z)) return false;
     const { b } = this;
     const air = new Set<number>();
