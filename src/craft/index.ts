@@ -1,3 +1,4 @@
+export { FurnaceWorld } from './FurnaceWorld';
 export { CraftSystemImpl, type CraftDeps, type FurnaceView, type MakeReason, type BakeReason } from './CraftSystem';
 export { ArmorSystemImpl, type ArmorInventory, type ArmorSnapshot } from './ArmorSystem';
 export { CRAFT_DEFAULTS, createCraftConfig, ARMOR_SLOT_OF, type CraftConfig } from './config';

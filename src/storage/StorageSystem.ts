@@ -1,13 +1,15 @@
 import type { TansuMaterialStore, Inventory, ItemId, ItemStack, StorageEvent, Vec3, VoxelWorld } from '../contracts';
 import { K_TANSU, furnRotFromYaw, isFurnKind } from '../world/blocks/houseBlocks';
-import { addInto } from '../inventory/Inventory';
 import { itemType } from '../inventory/items';
-import { addStack, copyStack, readPlan, readPower, readWater, readWear, maxDurability } from '../tools/durability';
+import { copyStack, readPlan, readPower, readWater, readWear, maxDurability } from '../tools/durability';
 import { W2_SETTING_DEFAULTS } from '../contracts';
+import { TansuMover, clickRule, tansuCloseReason, tansuDistance, type ShiftReason, type TansuSlot } from './tansuMove';
+
+// 2P の たんす（TansuView）と 同じ うつし方・とじる 決まりを 使う（tansuMove.ts）
+export type { ShiftReason, TansuSlot };
 
 /** たんす 1 つの中身（M6 §2.9）。場所ごとにべつべつ */
 export type Facing = 'n' | 'e' | 's' | 'w';
-export type TansuSlot = ItemStack | null;
 
 export interface TansuRecord {
   x: number;
@@ -26,7 +28,6 @@ export interface StorageLive {
 export const STORAGE_DEFAULTS: Readonly<StorageLive> = { tansuSlots: 54, tansuCloseDist: 6 };
 
 export type StorageSound = 'drawerOpen' | 'drawerClose';
-export type ShiftReason = null | 'full' | 'closed';
 
 export interface StorageDeps {
   world: VoxelWorld;
@@ -42,8 +43,6 @@ export interface StorageDeps {
   openScreen: () => void;
   closeScreen: () => void;
   live?: StorageLive;
-  /** false の あいだは たんすを 開けない（COOP-1 4a: 2 人の あいだは 2 人用の たんすの ページが できる 4c まで 開かない）。なければ いつも 開ける */
-  canOpen?: () => boolean;
   tick?: () => number;
   requestSave?: () => void;
   onSound?: (name: StorageSound) => void;
@@ -52,25 +51,6 @@ export interface StorageDeps {
 }
 
 const key = (x: number, y: number, z: number) => `${x},${y},${z}`;
-
-/** マスのクリック 2 回の決まり（M2 §2.5）を 1 回ぶん。変わらないなら null */
-export function clickRule(slot: TansuSlot, cur: ItemStack | null): { slot: TansuSlot; cur: ItemStack | null } | null {
-  if (!cur) {
-    if (!slot) return null;
-    return { slot: null, cur: slot };
-  }
-  if (!slot) return { slot: cur, cur: null };
-  if (slot.item === cur.item) {
-    const max = itemType(slot.item)!.maxStack;
-    const n = Math.min(max - slot.count, cur.count);
-    if (n <= 0) return null;
-    return {
-      slot: { item: slot.item, count: slot.count + n },
-      cur: cur.count - n > 0 ? { item: cur.item, count: cur.count - n } : null,
-    };
-  }
-  return { slot: cur, cur: slot };
-}
 
 /** 家具の 向き rot（0 ＝ 前が 南 → 1 ＝ 西 → 2 ＝ 北 → 3 ＝ 東。world/blocks/houseBlocks.ts）→ 前の 面が 向く 方 */
 const FACING_OF_ROT: readonly Facing[] = ['s', 'w', 'n', 'e'];
@@ -96,6 +76,27 @@ export class StorageSystem implements TansuMaterialStore {
 
   constructor(private readonly d: StorageDeps) {
     d.inventory.setReturnHandler?.((st) => this.returnToLifted(st));
+    this.mover = new TansuMover({
+      inventory: this.d.inventory,
+      slots: () => this.opened?.slots ?? null,
+      changed: () => {
+        if (this.opened) this.afterChange(this.opened);
+      },
+      onFull: (which) => this.d.onFull?.(which),
+      onStore: (item, count) => this.pushStore(item, count),
+      onClick: (c) => {
+        const r = this.opened!;
+        if (!c.curBefore) this.liftedFrom = null; // 空のカーソルからは、古い目印は使わない
+        const liftedBefore = this.liftedFrom;
+        // たんす から持ち上げた → 目印をつける（画面を閉じたとき そこへもどす）。置ききったら消す
+        this.liftedFrom = c.cur ? { rec: r, index: c.index, item: c.cur.item } : null;
+        // 持ち物から たんす へ入れた分を「しまった」と数える（たんす から出したものを戻すだけなら数えない）
+        if (c.curBefore && liftedBefore?.item !== c.curBefore.item) {
+          const put = c.before && c.before.item === c.curBefore.item ? c.slot!.count - c.before.count : c.curBefore.count;
+          if (put > 0) this.pushStore(c.curBefore.item, put);
+        }
+      },
+      });
   }
 
   private get live(): StorageLive {
@@ -160,7 +161,6 @@ export class StorageSystem implements TansuMaterialStore {
   // ------------------------------------------------------------ ひらく・とじる
 
   open(x: number, y: number, z: number, opts?: { screenOpens?: boolean }): boolean {
-    if (this.d.canOpen && !this.d.canOpen()) return false;
     const r = this.ensure(x, y, z);
     if (!r) return false;
     if (this.opened && this.opened !== r) this.markClosed();
@@ -204,142 +204,51 @@ export class StorageSystem implements TansuMaterialStore {
     return this.opened ? this.opened.slots : null;
   }
 
-  // ------------------------------------------------------------ うつす
+  /**
+   * COOP-1 4c: 2P の たんすの ページ（TansuView）が 同じ 中身を そのまま 読み書きする 口。そこの たんすの マス（コピーしない）。
+   * 世界の ブロックが たんすで なければ（update の 前でも）null。変えたら `changed()` を 呼ぶ
+   */
+  slotsAt(x: number, y: number, z: number): TansuSlot[] | null {
+    return this.ensure(x, y, z)?.slots ?? null;
+  }
+
+  /** 2P の たんすの ページが 中身を かえた（いっぱいの 印・保存・つくる の 数えなおし。`version()` が ふえる） */
+  changed(x: number, y: number, z: number): void {
+    const r = this.ensure(x, y, z);
+    if (r) this.afterChange(r);
+  }
+
+  // ------------------------------------------------------------ うつす（うつし方は 2P の TansuView と 同じ tansuMove.ts）
+
+  private readonly mover: TansuMover;
 
   /** 開いている たんす のマス i をクリック（カーソルで運ぶ。M2 §2.5） */
   click(i: number): boolean {
-    const r = this.opened;
-    if (!r || !Number.isInteger(i) || i < 0 || i >= r.slots.length) return false;
-    const inv = this.d.inventory;
-    const curBefore = inv.cursor();
-    const before = r.slots[i];
-    const res = clickRule(before, curBefore);
-    if (!res) return false;
-    if (!curBefore) this.liftedFrom = null; // 空のカーソルからは、古い目印は使わない
-    const liftedBefore = this.liftedFrom;
-    r.slots[i] = res.slot;
-    inv.setCursor(res.cur);
-    // たんす から持ち上げた → 目印をつける（画面を閉じたとき そこへもどす）。置ききったら消す
-    this.liftedFrom = res.cur ? { rec: r, index: i, item: res.cur.item } : null;
-    // 持ち物から たんす へ入れた分を「しまった」と数える（たんす から出したものを戻すだけなら数えない）
-    if (curBefore && liftedBefore?.item !== curBefore.item) {
-      const put = before && before.item === curBefore.item ? res.slot!.count - before.count : curBefore.count;
-      if (put > 0) this.pushStore(curBefore.item, put);
-    }
-    this.afterChange(r);
-    return true;
+    return this.mover.click(i);
   }
 
-  /**
-   * シフトクリック（そのマスのぜんぶを もう片方へ）。from = 'tansu' か 'inv'（持ち物のマス）。
-   * カーソルに何か持っているときは ふつうのクリック
-   */
+  /** シフトクリック（そのマスのぜんぶを もう片方へ）。from = 'tansu' か 'inv'（持ち物のマス）。カーソルに何か持っているときは ふつうのクリック */
   shiftClick(from: 'tansu' | 'inv', i: number): { moved: number; reason: ShiftReason } {
-    const r = this.opened;
-    if (!r) return { moved: 0, reason: 'closed' };
-    const inv = this.d.inventory;
-    if (inv.cursor()) {
-      if (from === 'tansu') this.click(i);
-      else inv.click(i);
-      return { moved: 0, reason: null };
-    }
-    if (from === 'inv') {
-      const s = inv.slots()[i];
-      if (!s) return { moved: 0, reason: null };
-      const left = addInto(r.slots, s.item, s.count, 0, r.slots.length, s.wear ?? 0, s.water ?? 0, s.power ?? 0, s.plan ?? 0);
-      const moved = s.count - left;
-      if (moved === 0) {
-        this.d.onFull?.('tansu');
-        return { moved: 0, reason: 'full' };
-      }
-      inv.setSlot(i, left > 0 ? { ...s, count: left } : null);
-      this.pushStore(s.item, moved);
-      this.afterChange(r);
-      return { moved, reason: null };
-    }
-    const s = r.slots[i];
-    if (!s) return { moved: 0, reason: null };
-    const left = addStack(inv, s);
-    const moved = s.count - left;
-    if (moved === 0) {
-      this.d.onFull?.('inv');
-      return { moved: 0, reason: 'full' };
-    }
-    r.slots[i] = left > 0 ? { ...s, count: left } : null;
-    this.afterChange(r);
-    return { moved, reason: null };
+    return this.mover.shiftClick(from, i);
   }
 
   // ------------------------------------------------------------ いっきに しまう・とりだす（FIX-tansu）
 
   private readonly markSet = new Set<number>();
 
-  /** 持ち物のマス i のぜんぶを たんす へ。入らない分は のこる。しまった数を返す */
-  private storeSlot(r: TansuRecord, i: number): number {
-    const inv = this.d.inventory;
-    const s = inv.slots()[i];
-    if (!s) return 0;
-    const left = addInto(r.slots, s.item, s.count, 0, r.slots.length, s.wear ?? 0, s.water ?? 0, s.power ?? 0, s.plan ?? 0);
-    const moved = s.count - left;
-    if (moved <= 0) return 0;
-    inv.setSlot(i, left > 0 ? { ...s, count: left } : null);
-    this.pushStore(s.item, moved);
-    return moved;
-  }
-
-  private storeWhere(pred: (i: number, item: ItemId) => boolean): { moved: number; reason: ShiftReason | 'nothing' } {
-    const r = this.opened;
-    if (!r) return { moved: 0, reason: 'closed' };
-    let moved = 0;
-    let tried = 0;
-    for (let i = 0; i < this.d.inventory.slots().length; i++) {
-      const s = this.d.inventory.slots()[i];
-      if (!s || !pred(i, s.item)) continue;
-      tried++;
-      moved += this.storeSlot(r, i);
-    }
-    if (moved > 0) this.afterChange(r);
-    else if (tried > 0) {
-      this.d.onFull?.('tansu');
-      return { moved: 0, reason: 'full' };
-    }
-    return { moved, reason: moved > 0 || tried === 0 ? null : 'full' };
-  }
-
   /** ぜんぶ しまう: もちもの の上 3 だん（9〜35）。ホットバー と そうび は うごかさない */
   storeAll(): { moved: number; reason: ShiftReason } {
-    return this.storeWhere((i) => i >= 9) as { moved: number; reason: ShiftReason };
+    return this.mover.storeAll();
   }
 
   /** おなじ もの を しまう: たんす に もう ある アイテム と おなじ ものだけ（ホットバー以外） */
   storeSame(): { moved: number; reason: ShiftReason } {
-    const r = this.opened;
-    const have = new Set<ItemId>();
-    for (const t of r?.slots ?? []) if (t) have.add(t.item);
-    return this.storeWhere((i, item) => i >= 9 && have.has(item)) as { moved: number; reason: ShiftReason };
+    return this.mover.storeSame();
   }
 
   /** ぜんぶ とりだす: たんす の中身を もちもの へ（入る分だけ） */
   takeAll(): { moved: number; reason: ShiftReason } {
-    const r = this.opened;
-    if (!r) return { moved: 0, reason: 'closed' };
-    const inv = this.d.inventory;
-    let moved = 0;
-    let tried = 0;
-    for (let i = 0; i < r.slots.length; i++) {
-      const s = r.slots[i];
-      if (!s) continue;
-      tried++;
-      const left = addStack(inv, s);
-      moved += s.count - left;
-      r.slots[i] = left > 0 ? { ...s, count: left } : null;
-    }
-    if (moved > 0) this.afterChange(r);
-    else if (tried > 0) {
-      this.d.onFull?.('inv');
-      return { moved: 0, reason: 'full' };
-    }
-    return { moved, reason: null };
+    return this.mover.takeAll();
   }
 
   /** Ctrl（⌘）クリックの ✓。つけたら true・はずしたら false。たんす が開いていて 中身のあるマスだけ */
@@ -362,7 +271,7 @@ export class StorageSystem implements TansuMaterialStore {
   storeMarked(): { moved: number; reason: ShiftReason } {
     const ids = new Set(this.markSet);
     this.markSet.clear();
-    return this.storeWhere((i) => ids.has(i)) as { moved: number; reason: ShiftReason };
+    return this.mover.storeWhere((i) => ids.has(i)) as { moved: number; reason: ShiftReason };
   }
 
   /** そのマスから 1 こ（all ならぜんぶ）取り出す（すてる用）。開いていなければ null */
@@ -442,16 +351,14 @@ export class StorageSystem implements TansuMaterialStore {
     if (this.liftedFrom && !this.d.inventory.cursor()) this.liftedFrom = null;
     const o = this.opened;
     if (o) {
-      const p = this.d.player();
-      const gone = this.changedAway(o.x, o.y, o.z);
-      const far = Math.hypot(p.x - (o.x + 0.5), p.z - (o.z + 0.5), p.y - o.y) > this.live.tansuCloseDist;
-      if (gone) {
+      const reason = tansuCloseReason({ exists: !this.changedAway(o.x, o.y, o.z), dist: tansuDistance(this.d.player(), o), closeDist: this.live.tansuCloseDist });
+      if (reason === 'gone') {
         this.records.delete(key(o.x, o.y, o.z));
         this.ver++;
         this.opened = null;
         this.lookOpenNow = false;
         if (this.d.inventoryOpen()) this.d.closeScreen();
-      } else if (far || !this.d.inventoryOpen()) {
+      } else if (reason === 'far' || !this.d.inventoryOpen()) {
         // 画面が閉じられた（E・Esc・とじる）か、遠くなった
         this.markClosed();
         if (this.d.inventoryOpen()) this.d.closeScreen();

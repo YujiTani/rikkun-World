@@ -4,7 +4,7 @@ import { aimPivot } from '../../camera/pivot';
 import { PlayerCombatImpl } from '../../combat';
 import { bindWho } from '../../duo/credit';
 import type { YokaiWorld } from '../../contracts';
-import { ArmorSystemImpl, CraftSystemImpl } from '../../craft';
+import { ArmorSystemImpl, CraftSystemImpl, FurnaceWorld } from '../../craft';
 import { ToolSystemImpl } from '../../tools';
 import { createBladeSystem } from '../../tools/blade/BladeSystem';
 import { createWeaponDamage } from '../../tools/blade/weaponDamage';
@@ -280,7 +280,6 @@ export function wireFighters(deps: WiredWeapons) {
       shared.toItemsTab(); // たんす は もちもの タブで開く（できごと・じっせき の画面が のこっていても）
     },
     closeScreen: () => screen.toggle(),
-    canOpen: () => !shared.duoJoined(), // 2 人の あいだは 2 人用の たんすの ページ(4c)まで 開かない
     live: m6,
     tick: () => game.tick,
     requestSave: () => shared.requestSave(),
@@ -297,7 +296,17 @@ export function wireFighters(deps: WiredWeapons) {
     },
   });
   // つくる・やく（CRAFT-2: たんす の素材も数える。たんす を先に作る）
-  const craft = new CraftSystemImpl({ world, inventory, drops, requestSave: () => shared.requestSave(), config: craftConfig, tansu: storage, player: () => controller.state.position, tansuRange: () => craft2Settings.craftTansuRange });
+  // かまどの 中身は 世界に 1 つ（COOP-1 4c）。1P・2P の つくる が 同じ 物に 入れる。すすめるのは step.ts の `furnaceWorld.update()` だけ（毎ステップ 1 回）。
+  // やけた 物は 入れた 人の もちものへ（2P が いなければ 1P へ）。入った とき 受け取る 人の つくる に「ひろった」を 知らせる
+  const furnaceWorld = new FurnaceWorld({
+    world,
+    inventoryOf: (who) => (who === 2 ? shared.p2.inventory : inventory),
+    joined: () => shared.duoJoined(),
+    onDelivered: (who, item, count) => (who === 1 ? craft.notifyPickup(item, count) : shared.p2Delivered(item, count)),
+    config: craftConfig,
+    requestSave: () => shared.requestSave(),
+  });
+  const craft = new CraftSystemImpl({ world, inventory, drops, requestSave: () => shared.requestSave(), config: craftConfig, tansu: storage, player: () => controller.state.position, tansuRange: () => craft2Settings.craftTansuRange, furnaces: furnaceWorld, who: 1 });
   const dropper = new ItemDropper({
     inventory,
     storage,
@@ -497,7 +506,7 @@ export function wireFighters(deps: WiredWeapons) {
     };
   }
   return {
-    combat, storage, craft, dropper, dropController, sprinklers, pet, farm, dig, aimCfg, aimPointInto, gadgets,
+    combat, storage, craft, furnaceWorld, dropper, dropController, sprinklers, pet, farm, dig, aimCfg, aimPointInto, gadgets,
     seat: furniture.seat,
   };
 }

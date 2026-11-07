@@ -5,7 +5,7 @@ import type { Action } from '../input/actions';
 export type InvLayout = 'full' | 'duo';
 /** 1P の 全面が 今 見せている ページ */
 export type FullPage = 'items' | 'craft' | 'furnace' | 'storage' | 'achievements' | 'log';
-/** 2 人用 画面の ページ（`data-page`・`duo.inv(who).page`）。やく・たんす は 4c */
+/** 2 人用 画面の ページ（`data-page`・`duo.inv(who).page`）。やく・たんす は 4c から 3 つ目の タブ */
 export type DuoInvPage = 'items' | 'craft' | 'furnace' | 'tansu';
 
 /**
@@ -29,6 +29,92 @@ const DUO_PAGE_OF = {
 
 export function duoPageOf(full: FullPage): DuoInvPage {
   return DUO_PAGE_OF[full];
+}
+
+// ---- 【4c】COOP-1 4c（§3.3「3 つ目の タブ」「開いた ときの えらび」・§9.8）
+
+/** かまど・たんすを 開いている か（開いている 人は その場に 止まるので 両方 true には ならない） */
+export interface DuoOpenNow {
+  furnace: boolean;
+  storage: boolean;
+}
+
+/**
+ * 2 人用の ページごとの 性質。足し忘れは 型で 落とす。
+ * craftTab = その ページで「つくる」の 部品が 見せる 中身（なければ null）、furnace・storage = かまど・たんすを 開いている ときだけ 出る ページか
+ */
+const PAGE_TRAITS = {
+  items: { craftTab: null, furnace: false, storage: false },
+  craft: { craftTab: 'craft', furnace: false, storage: false },
+  furnace: { craftTab: 'bake', furnace: true, storage: false },
+  tansu: { craftTab: null, furnace: false, storage: true },
+} as const satisfies Record<DuoInvPage, { craftTab: 'craft' | 'bake' | null; furnace: boolean; storage: boolean }>;
+
+export function duoPageTraits(page: DuoInvPage): (typeof PAGE_TRAITS)[DuoInvPage] {
+  return PAGE_TRAITS[page];
+}
+
+const TABS_BASE: readonly DuoInvPage[] = ['items', 'craft'];
+const TABS_FURNACE: readonly DuoInvPage[] = ['items', 'craft', 'furnace'];
+const TABS_TANSU: readonly DuoInvPage[] = ['items', 'craft', 'tansu'];
+
+/** 上の タブの 並び。いつも もちもの・つくる、かまどを 開いている あいだは 3 つ目に やく、たんすを 開いている あいだは 3 つ目に たんす */
+export function duoTabs(open: DuoOpenNow): readonly DuoInvPage[] {
+  if (open.furnace) return TABS_FURNACE;
+  if (open.storage) return TABS_TANSU;
+  return TABS_BASE;
+}
+
+/** その ページの タブを 出して よいか（やく = かまどを 開いている・たんす = たんすを 開いている。もちもの・つくる は いつも） */
+export function duoPageAvailable(page: DuoInvPage, open: DuoOpenNow): boolean {
+  const t = PAGE_TRAITS[page];
+  return (!t.furnace || open.furnace) && (!t.storage || open.storage);
+}
+
+/** 今の ページが もう 出せない（かまど・たんすが こわれた）なら「もちもの」。出せるなら そのまま（パネルは とじない） */
+export function duoPageFallback(page: DuoInvPage, open: DuoOpenNow): DuoInvPage {
+  return duoPageAvailable(page, open) ? page : 'items';
+}
+
+/**
+ * 開いた ときの 最初の えらび（`duo.inv(who).focus`）。たんす → 'tansu:0'、やく → はじめの やく レシピ。
+ * もちもの・つくる は null（画面の いちばん はじめの 物を 呼ぶ側が えらぶ）。2P は いつも、1P は パッドで 開いた とき
+ */
+export function duoFirstFocus(page: DuoInvPage, bakeRecipeIds: readonly string[]): string | null {
+  return FIRST_FOCUS[page](bakeRecipeIds);
+}
+
+/** ページごとの はじめの えらび。足し忘れは 型で 落とす */
+const FIRST_FOCUS = {
+  items: () => null,
+  craft: () => null,
+  furnace: (ids) => (ids.length > 0 ? `tile:${ids[0]}` : null),
+  tansu: () => 'tansu:0',
+} as const satisfies Record<DuoInvPage, (bakeRecipeIds: readonly string[]) => string | null>;
+
+/** 2P の「やめる」を 出す ページ（「もちもの」だけ。つくる・やく・たんす には 出さない） */
+export function duoQuitShown(page: DuoInvPage): boolean {
+  return page === 'items';
+}
+
+/**
+ * たんす（9 列）・レシピの 列で、index の マスの 段が まるごと 見える ために 中の スクロール量を どうするか（新しい scrollTop）。
+ * すでに まるごと 見えていれば そのまま。上に はみ出していれば その 段の 上へ、下に はみ出していれば その 段の 下が 見える 最小の 量へ。
+ */
+export function scrollTopToShow(index: number, g: { columns: number; rowHeight: number; rowGap: number; viewHeight: number; scrollTop: number }): number {
+  const top = Math.floor(index / g.columns) * (g.rowHeight + g.rowGap);
+  const bottom = top + g.rowHeight;
+  if (top < g.scrollTop) return top;
+  if (bottom > g.scrollTop + g.viewHeight) return bottom - g.viewHeight;
+  return g.scrollTop;
+}
+
+const TANSU_BAND_DUO = ['tansu-store-all', 'tansu-store-same', 'tansu-take-all'] as const;
+const TANSU_BAND_FULL = [...TANSU_BAND_DUO, 'tansu-store-marked'] as const;
+
+/** たんすの 帯の ボタンの 種類の 名前。2 人用は「えらんだ もの を しまう」（マウスの Ctrl クリック）を 出さない（1P も 2P も 同じ 3 つ。§13） */
+export function tansuBandIds(layout: InvLayout): readonly string[] {
+  return layout === 'duo' ? TANSU_BAND_DUO : TANSU_BAND_FULL;
 }
 
 /** `duo.inv(who)` の 値。2 人用で 開いている ときだけ 中身が ある（1 人の 全面・とじている ときは 空） */

@@ -29,9 +29,10 @@ export class InvFocus {
     return this.o.who === 2 && this.cur !== null ? [this.cur] : NONE;
   }
 
-  /** 開いた とき: はじめの 物（2P だけ） */
-  reset(items: readonly FocusBox[]): void {
-    if (this.o.who === 2) this.set(items[0]?.id ?? null);
+  /** 開いた とき: はじめの 物（2P だけ）。`first` が 見えていれば それ（たんす → 0 番の マス・やく → はじめの レシピ。4c）、なければ 画面の いちばん はじめの 物 */
+  reset(items: readonly FocusBox[], first: string | null = null): void {
+    if (this.o.who !== 2) return;
+    this.set(first !== null && items.some((b) => b.id === first) ? first : (items[0]?.id ?? null));
   }
 
   /** とじた とき（2P だけ） */

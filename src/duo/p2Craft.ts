@@ -2,6 +2,7 @@
 // 数えるのは 2P の もちものと、2P の 足もとから `craftTansuRange` の 中の たんす（共有）。1P の もちものは 数えない。
 import type { CraftEvent, Inventory, Vec3, VoxelWorld } from '../contracts';
 import { CraftSystemImpl, type CraftDeps } from '../craft/CraftSystem';
+import type { FurnaceWorld } from '../craft/FurnaceWorld';
 
 export interface P2CraftDeps {
   /** 1P の CraftSystemImpl と 同じ 世界 */
@@ -17,6 +18,8 @@ export interface P2CraftDeps {
   requestSave: () => void;
   drops?: CraftDeps['drops'];
   config?: CraftDeps['config'];
+  /** COOP-1 4c: 世界の かまど（1P と 共有。2P の「やく」は ここへ 入れる。すすめるのは FurnaceWorld.update だけ） */
+  furnaces?: FurnaceWorld;
   /** 実績へ（`achievements.feedCraft`。実績は 2 人で 共有） */
   feedCraft: (events: CraftEvent[]) => void;
   /** 音など 2P の 側の 受け手（任意。出来事が あった ステップに 1 回） */
@@ -40,10 +43,13 @@ export function createP2Craft(d: P2CraftDeps): P2Craft {
     tansu: d.tansu,
     player: d.position,
     tansuRange: d.tansuRange,
+    furnaces: d.furnaces,
+    who: 2,
   });
   return {
     craft,
     step(): void {
+      craft.update(); // 時計・ひろったログ・開いている かまどが こわれた かの 確認（世界の かまどは すすめない。FurnaceWorld.update が 1 回）
       const events = craft.drainEvents();
       if (events.length === 0) return;
       d.feedCraft(events);

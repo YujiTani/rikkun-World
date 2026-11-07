@@ -21,6 +21,10 @@ export interface P2DigDeps {
   /** 2P 用の PlayerCombatImpl（2P の 体力の 持ち主。型は PunchGate） */
   gate?: PunchGate | null;
   m4?: DigM4Deps;
+  /** COOP-1 4c（AC95）: 2P が かまどを ねらって ZL。2P の 画面の「やく」の ページを 開く 合図（1 回）。渡さない 2P は 何も 開かない */
+  onOpenFurnace?: (x: number, y: number, z: number) => void;
+  /** COOP-1 4c（AC95）: 2P が たんすを ねらって ZL か Y。「たんす」の ページを 開く 合図（1 回）。渡さない 2P は 何も 開かない */
+  onOpenTansu?: (x: number, y: number, z: number) => void;
   config?: DigConfig;
   rng?: Rng;
 }
@@ -29,8 +33,10 @@ const FURNACE: BlockId = 'furnace';
 const TANSU: BlockId = 'tansu';
 
 /**
- * 2P の ほる・おく係（AC35・AC15）。1P と 同じ DigSystemImpl を もう 1 つ 作る。持ち物は `p2.inventory` だけ。
- * 2P は 画面を 開かない: かまど・たんすを ねらった ZL は 何も 置かず、開く 口（openFurnace・storage.open）も 呼ばない。
+ * 2P の ほる・おく係（AC35・AC15・AC95）。1P と 同じ DigSystemImpl を もう 1 つ 作る。持ち物は `p2.inventory` だけ。
+ * かまど・たんすを ねらった ZL は 何も 置かない。開く 口は 1P 用の m4（craft.openFurnace・storage.open）では なく
+ * 2P の 画面の ページを 開く `onOpenFurnace`・`onOpenTansu`（渡さなければ 3a の とおり 何も 開かない）。
+ * かまどを こわした ときの `m4.craft.furnaceBroken` は 呼ぶ 側が 2P の つくる を 渡す（中身は こわした 人へ）。
  */
 export function createP2Dig(d: P2DigDeps): DigSystemImpl {
   const w = d.world;
@@ -41,13 +47,16 @@ export function createP2Dig(d: P2DigDeps): DigSystemImpl {
     partner: d.partner,
     craft: {
       isFurnace: (x, y, z) => craft?.isFurnace(x, y, z) ?? w.getBlock(x, y, z) === FURNACE,
-      openFurnace: () => {},
+      openFurnace: (x, y, z) => d.onOpenFurnace?.(x, y, z),
       furnaceBroken: (x, y, z) => craft?.furnaceBroken(x, y, z),
       fixedDrop: (id) => craft?.fixedDrop(id) ?? null,
     },
     storage: {
       isTansu: (x, y, z) => w.getBlock(x, y, z) === TANSU,
-      open: () => false,
+      open: (x, y, z) => {
+        d.onOpenTansu?.(x, y, z);
+        return d.onOpenTansu !== undefined;
+      },
       placed: () => {},
       broken: (x, y, z) => given.storage?.broken(x, y, z) ?? 0,
     },
