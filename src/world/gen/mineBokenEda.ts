@@ -146,8 +146,8 @@ function makeEda(c: EdaCtx, m: Pt, t: [number, number], old: boolean, kind: Dead
   return { piece, branch, frames, chestKeys };
 }
 
-/** 横穴 1 本に えだ道を want 本 ふやす〔足せた 分だけ 返す〕 */
-export function planEdaOn(c: EdaCtx, sideIdx: number, spots: { m: Pt; t: [number, number] }[], want: number, room: number, existing: Pt[]): Branch[] {
+/** 横穴 1 本に えだ道を want 本 ふやす〔足せた 分だけ 返す。場所を 1 か所 ためす ごとに yield する。くじの 順は 一度に やった ときと 同じ〕 */
+export function* planEdaOn(c: EdaCtx, sideIdx: number, spots: { m: Pt; t: [number, number] }[], want: number, room: number, existing: Pt[]): Generator<void, Branch[]> {
   const out: Branch[] = [];
   const cands = [...spots];
   for (let w = 0; w < want && out.length < room; w++) {
@@ -158,6 +158,7 @@ export function planEdaOn(c: EdaCtx, sideIdx: number, spots: { m: Pt; t: [number
     const tries = kind === 'oo' || kind === 'naka' || kind === 'hibi_naka' || kind === 'hibi_oo' ? TUNE.edaTries * 3 : TUNE.edaTries;
     for (let t = 0; t < tries && !done && cands.length > 0; t++) {
       if (c.work.eda++ >= SHAPE_TABLE.limit.tries.eda) return out;
+      yield;
       const ix = Math.floor(c.rng() * cands.length);
       const sp = cands[ix]!;
       const from = { x: sp.m.x + sp.t[0], z: sp.m.z + sp.t[1] };
@@ -167,6 +168,7 @@ export function planEdaOn(c: EdaCtx, sideIdx: number, spots: { m: Pt; t: [number
       }
       const made = makeEda(c, sp.m, sp.t, old, kind, sideIdx);
       if (!made) continue;
+      yield;
       if (!c.fit.add(made.piece)) continue;
       for (const k of made.chestKeys) c.chestKeys.add(k);
       c.frames.push(...made.frames);

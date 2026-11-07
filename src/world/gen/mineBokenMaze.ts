@@ -134,12 +134,15 @@ function genGraph(rng: Rng, g: number, ent: number): Graph | null {
   return null;
 }
 
-/** 迷路を 階 `fl` の 本道に つける。つけられなければ null〔Fit には 何も 足さない〕 */
-export function placeMaze(
+/**
+ * 迷路を 階 `fl` の 本道に つける。つけられなければ null〔Fit には 何も 足さない〕。
+ * 形を 1 回 ためす ごとに 3 か所で yield する〔先読みが 時間で 止まれる ように。くじの 順は 一度に やった ときと 同じ〕。
+ */
+export function* placeMaze(
   c: MazeCtx,
   fl: FloorGeo,
   mouths: { x: number; z: number }[],
-): { maze: MazeOut; ends: Piece[]; mouth: { x: number; z: number } } | null {
+): Generator<void, { maze: MazeOut; ends: Piece[]; mouth: { x: number; z: number } } | null> {
   const { fit, rng } = c;
   const lev = STYLE_TABLE.level.find((l) => l.id === c.style.level)!;
   const g = lev.mazeGrid!;
@@ -171,7 +174,9 @@ export function placeMaze(
         x: o.x + tx * b + dx * a,
         z: o.z + tz * b + dz * a,
       });
+      yield;
       const graph = genGraph(rng, g, ent);
+      yield;
       if (!graph) continue;
       const y = fl.y;
       const centre = (idx: number): { x: number; z: number } =>
@@ -301,6 +306,7 @@ export function placeMaze(
       if (!fit.check(base)) continue;
       const farEnd = mk(far, kinds.get(far)!);
       if (!fit.check(farEnd.piece)) continue;
+      yield;
       // へやの ある 行きどまりが 入らない ときは、はじめの 何回かは 迷路ごと やりなおす〔「あたり」に かたよらない ため〕
       const made = new Map<number, ReturnType<typeof mk>>();
       let roomsFit = true;

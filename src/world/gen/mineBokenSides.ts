@@ -8,7 +8,7 @@ import type { HiroiTryRow, PlacedCave } from './mineCaves';
 import { layerAt } from './mineLayers';
 import type { MineLayerId } from './mineConfig';
 import { heyaSource, pickKind } from './mineShaftHeya';
-import { tryWinding } from './mineShaftSide';
+import { tryWindingSteps } from './mineShaftSide';
 import type { Hub, SideLim } from './mineSideBuild';
 import type { PathCell, ShaftSide } from './mineShaftTypes';
 import { createRng, hash01, hashInts, subSeed, type Rng } from './random';
@@ -97,7 +97,7 @@ export function* planBokenSides(c: SidesCtx): Generator<void, SidesOut | null> {
       yield;
       const hrng = createRng(hashInts(subSeed(G.seed, 953), cand.x, cand.z, cand.hub.y, t));
       // 部屋の 箱まで ふくめて 箱・区画に おさまる ときだけ 足す
-      const side = tryWinding(G, fit.b, cand.hub, hrng, cand.hub.frame, fit.env.region, fit.env.site, c.chestCells, t % 2 === 0 ? s0 : -s0, src, lim(), true, (cells) => {
+      const side = yield* tryWindingSteps(G, fit.b, cand.hub, hrng, cand.hub.frame, fit.env.region, fit.env.site, c.chestCells, t % 2 === 0 ? s0 : -s0, src, lim(), true, (cells) => {
         const cave = src.built();
         return fresh(cells) && (!cave || fit.roomFits(cave.box));
       });
@@ -121,7 +121,7 @@ export function* planBokenSides(c: SidesCtx): Generator<void, SidesOut | null> {
       if (over()) return null;
       yield;
       const p0 = fit.b.path.length;
-      const side = tryWinding(G, fit.b, cand.hub, rng, cand.hub.frame, fit.env.region, fit.env.site, c.chestCells, rng() < 0.5 ? -1 : 1, undefined, lim(), true, fresh);
+      const side = yield* tryWindingSteps(G, fit.b, cand.hub, rng, cand.hub.frame, fit.env.region, fit.env.site, c.chestCells, rng() < 0.5 ? -1 : 1, undefined, lim(), true, fresh);
       if (side) {
         if (hit) {
           side.heyaHit = true;

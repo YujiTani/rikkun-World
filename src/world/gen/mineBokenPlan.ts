@@ -57,7 +57,7 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
     for (const f of elig.map((i) => ({ i, r: rng() })).sort((a, b) => a.r - b.r).map((e) => e.i)) {
       work.maze++;
       yield;
-      const r = placeMaze({ fit, rng, seed, style, chestKeys, frames }, sk.floors[f]!, mouths[f]!);
+      const r = yield* placeMaze({ fit, rng, seed, style, chestKeys, frames }, sk.floors[f]!, mouths[f]!);
       if (r) {
         maze = r.maze;
         mouths[f]!.push(r.mouth);
@@ -91,7 +91,7 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
     const want = lev.eda[0] + Math.floor(rng() * (lev.eda[1] - lev.eda[0] + 1));
     const side = so.sides[i]!;
     const spots = mouthSpots(so.slices[i]!, side.from, side.to);
-    const made = planEdaOn(ec, i, spots, want, lev.edaMax - branches.length, []);
+    const made = yield* planEdaOn(ec, i, spots, want, lev.edaMax - branches.length, []);
     branches.push(...made);
   }
   yield;
@@ -108,6 +108,7 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
   }
   yield;
   const { mound, noTrees, noPlants } = surfaceOf(G, site, b, F);
+  yield;
   let x0 = Infinity;
   let x1 = -Infinity;
   let z0 = Infinity;
@@ -141,7 +142,14 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
   const addCols = (xa: number, za: number, xb: number, zb: number): void => {
     for (let cz = za >> 4; cz <= zb >> 4; cz++) for (let cx = xa >> 4; cx <= xb >> 4; cx++) cols.add(colKey(cx, cz));
   };
-  for (const set of [b.air, b.ring, b.put]) for (const k of set instanceof Map ? set.keys() : set) cols.add(colKey(keyX(k) >> 4, keyZ(k) >> 4));
+  let seen = 0;
+  for (const set of [b.air, b.ring, b.put]) {
+    for (const k of set instanceof Map ? set.keys() : set) {
+      cols.add(colKey(keyX(k) >> 4, keyZ(k) >> 4));
+      if (++seen % TUNE.colsChunk === 0) yield; // 大きい 坑道でも 1 ステップが 長く ならない ように
+    }
+  }
+  yield;
   for (const c of b.path) for (const dx of [-2, 0, 2]) for (const dz of [-2, 0, 2]) cols.add(colKey((c.x + dx) >> 4, (c.z + dz) >> 4));
   if (mound) {
     const h = Math.ceil(mound.width / 2);

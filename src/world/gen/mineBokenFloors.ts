@@ -245,18 +245,22 @@ export function* planSkeleton(c: FloorCtx): Generator<void, Skeleton | null> {
   const level = STYLE_TABLE.level.find((l) => l.id === style.level)!;
   const floors: FloorGeo[] = [];
   const frames: FrameMark[] = [];
-  const tryAdd = <T extends { piece: Piece }>(make: () => T | null): T | null => {
+  /** 部品を 作って 足す〔ためす ごとに yield。先読みが 時間で 止まれる ように〕 */
+  const tryAdd = function* <T extends { piece: Piece }>(make: () => T | null): Generator<void, T | null> {
     for (let t = 0; t < TUNE.roadTries; t++) {
       if (c.work.floors++ >= SHAPE_TABLE.limit.tries.floors) return null;
+      yield;
       const m = make();
-      if (m && fit.add(m.piece)) return m;
+      if (!m) continue;
+      yield;
+      if (fit.add(m.piece)) return m;
     }
     return null;
   };
   // 入口 ＋ 1 つめの さか道
   const pad0: PadIn = { x: F.x(1, 0), z: F.z(1, 0), y: ey, ax: F.ux, az: F.uz };
   const ent = entrancePiece(F, ey);
-  const first: DescentOut | null = tryAdd(() => {
+  const first: DescentOut | null = yield* tryAdd(() => {
     const d = descent(rng, pad0, plan.ns[0]!, pad0);
     return d ? { ...d, piece: { cells: [...ent.cells, ...d.piece.cells], puts: [...ent.puts!, ...d.piece.puts!], exempt: ent.exempt } } : null;
   });
@@ -268,7 +272,7 @@ export function* planSkeleton(c: FloorCtx): Generator<void, Skeleton | null> {
     const bottom = f === style.floors - 1;
     const up = cur.hiroba;
     const upRect = cur.rect;
-    const made = tryAdd(() => {
+    const made = yield* tryAdd(() => {
       const road = planRoad(rng, up, upRect, level.mainLength as [number, number], bottom);
       if (!road) return null;
       if (!bottom) return { piece: road.piece, road, room: null };
@@ -305,7 +309,7 @@ export function* planSkeleton(c: FloorCtx): Generator<void, Skeleton | null> {
     const hx = rd.end.dx;
     const hz = rd.end.dz;
     const [lx, lz] = lat(hx, hz);
-    const next = tryAdd(() => {
+    const next = yield* tryAdd(() => {
       const pick = Math.floor(rng() * 4);
       const a: [number, number] = pick < 2 ? [hx, hz] : pick === 2 ? [lx, lz] : [-lx, -lz];
       const reach = pick < 2 ? HALF_D : HALF_W;
