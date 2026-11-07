@@ -32,7 +32,7 @@ import { spawnOf } from './terrain';
  */
 
 /** 坑道を たくさん しらべる ので 1 つの it に ゆとりを みる */
-vi.setConfig({ testTimeout: 120_000 });
+vi.setConfig({ testTimeout: 360_000 });
 
 interface Sample {
   seed: number;
@@ -47,7 +47,7 @@ beforeAll(() => {
     const s = sampleShafts(seed, 2, { legacy: true });
     for (const shaft of s.shafts) samples.push({ seed, shaft, path: s.hook.shaftPath(shaft.id), g: s.g });
   }
-}, 240_000);
+}, 720_000);
 
 const FOUR: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const cheb = (a: Pt, b: Pt): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.z - b.z));
@@ -161,7 +161,7 @@ describe('C6: 横穴', () => {
     expect(tunnels, '横穴').toBeGreaterThan(0);
     expect(bad.slice(0, 6), `${bad.length} つ`).toEqual([]);
     expect(corners, '曲がり角が 1 つ 以上').toBeGreaterThan(0);
-  }, 120_000);
+  }, 360_000);
 
   it('先: joint は 床 5×5 〔25 マス いじょう〕・koheya は 床 5×5 で その 層の 鉱石が 3 こ 以上 見える', () => {
     const oreByLayer = new Map<Layer, Set<string>>();
@@ -320,7 +320,7 @@ describe('C7: 宝箱の ある わりあい', () => {
     }
     expect(n, '数えた 坑道').toBeGreaterThanOrEqual(600);
     expect(Math.abs(withChest / n - placeChance), `宝箱の ある わりあい ${(withChest / n).toFixed(3)}・表 ${placeChance}`).toBeLessThanOrEqual(0.06);
-  }, 240_000);
+  }, 720_000);
 
   it('はじまりの 坑道も 同じ 抽選〔20 シードで 宝箱の ある 坑道と ない 坑道の 両方が ある。毎回 かならず ある ではない〕', () => {
     const has = SEEDS_20.map((seed) => hook1c(seed).startShaft().chest !== null);

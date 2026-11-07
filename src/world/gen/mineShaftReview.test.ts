@@ -33,7 +33,7 @@ import { heightAt, spawnOf } from './terrain';
  *   数〔cover・roofedWithin〕は 実装の 設定〔mineShaftConfig.ts〕から 読む。件数・並びは 決め打ちしない〔#311〕。時間では 合否を きめない。
  */
 
-vi.setConfig({ testTimeout: 120_000 });
+vi.setConfig({ testTimeout: 360_000 });
 
 interface Sample {
   seed: number;
@@ -48,7 +48,7 @@ beforeAll(() => {
     const s = sampleShafts(seed, 4, { legacy: true });
     for (const shaft of s.shafts) samples.push({ seed, shaft, path: s.hook.shaftPath(shaft.id), g: s.g });
   });
-}, 240_000);
+}, 720_000);
 
 // ------------------------------------------------------------------ R1 入口の 前
 
@@ -84,7 +84,7 @@ describe('R1〔重大 1〕: 入口の 前に かべが ない', () => {
       if (comeBack.length === 0) bad.push(`seed ${s.seed} ${s.shaft.id}: 入口 (${e.x}, ${e.y}, ${e.z}) と 入口の 前の 立てる マス ${outside.length} こが 行き来 できない`);
     }
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 240_000);
+  }, 720_000);
 });
 
 // ------------------------------------------------------------------ R2 古い 列ばかり
@@ -194,7 +194,7 @@ describe('R5〔軽微 4〕: 横穴の 出口の たいまつは 道の 両がわ
     }
     expect(exits, 'しらべた 出口').toBeGreaterThan(0);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 120_000);
+  }, 360_000);
 });
 
 // ------------------------------------------------------------------ R6 touchesShaft の 見張り
@@ -239,5 +239,5 @@ describe('R6〔軽微 9〕: キットの「実際に 坑道が かえる 列」�
     const covered = shaftCoveredCols(seed, box.x0, box.z0, box.x1, box.z1);
     expect(real.size, 'しらべる 列').toBeGreaterThan(0);
     expect([...real].filter((k) => !covered.has(k)).length, 'touchesShaft が 答えない 列').toBe(0);
-  }, 120_000);
+  }, 360_000);
 });

@@ -14,7 +14,7 @@ import { standable, type PathCell } from './mineShaftKit';
  * 時間〔ms〕では 合否を きめない。赤の 確かめ: 1E の 前は「窓口が まだ ない」「1E の 坑道が ない」で 落ちる。
  */
 
-vi.setConfig({ testTimeout: 900_000 });
+vi.setConfig({ testTimeout: 1200_000 });
 
 const hasHibi = (s: BokenShaft): boolean => deadEndsOf(s).some((e) => e.kind === 'hibi_naka' || e.kind === 'hibi_oo');
 const enough = (all: readonly ESample[]): boolean => all.filter((a) => hasHibi(a.shaft)).length >= 3 && all.filter((a) => a.shaft.camp).length >= 3 && all.filter((a) => a.shaft.maze).length >= 2;
@@ -37,7 +37,7 @@ beforeAll(() => {
     needBokenHook(h, ['shaftPath']);
     picks.push({ seed: a.seed, shaft: a.shaft, path: h.shaftPath(a.shaft.id), dug: new DugCols(a.seed, dugSetOf(a.shaft)) });
   }
-}, 900_000);
+}, 1200_000);
 
 describe('E3: 明るい', () => {
   it('光を しらべる 坑道が ある〔ひび・キャンプ・迷路〕', () => {

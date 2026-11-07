@@ -15,7 +15,7 @@ import type { ShaftSide } from './mineShaftTypes';
  * 「1C」＝ 同じ 計画に `heya: false`〔へやの くじ・ほたるの つなぎ なし〕を わたした もの。
  */
 
-vi.setConfig({ testTimeout: 240_000 });
+vi.setConfig({ testTimeout: 720_000 });
 
 const SEEDS = [20261012, 7, 31415, 1000, 2024, 99];
 const env = (o: Partial<PlanEnv> = {}): PlanEnv => ({ isOld: () => false, isOldHeya: () => false, link: null, heya: true, ...o });

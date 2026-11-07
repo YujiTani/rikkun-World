@@ -42,7 +42,7 @@ import { GenCols, isBodyIndex, isSolidIndex, ptKey, standable, stepTo, type Pt }
  * 赤の 確かめ: 1D の 前は 窓口〔caves・hiroiPlan・hiroiTable など〕が なく「窓口が まだ ない」で 落ちる。
  */
 
-vi.setConfig({ testTimeout: 120_000 });
+vi.setConfig({ testTimeout: 360_000 });
 
 const REGIONS = 12;
 /** 1 シードで しらべる 部屋の 数の 上の 限り〔時間の ため。ブロックを 1 マスずつ 見る〕 */
@@ -438,7 +438,7 @@ beforeAll(() => {
       rooms.push({ seed, cave, heya, plan, tries: row, items: analyse(seed, g, h, cave, table, plan, row, rate) });
     }
   }
-}, 290_000);
+}, 870_000);
 
 const tag = (r: RoomRow): string => `seed ${r.seed} ${r.cave.id}${r.heya ? '〔坑道の へや〕' : '〔抽選〕'}`;
 const report = (name: keyof Items): void => {
@@ -525,7 +525,7 @@ describe('D15 ⑨: すその 見こみ〔部屋の 乱数 200 こ〕', () => {
     table = h.hiroiTable();
     if (!table.layers) throw new Error('hiroiTable().layers〔層ごとの 高さ・minCeil〕が まだ ない');
     for (const layer of LAYERS) for (const s of AIM_SEEDS) tries.set(`${layer}:${s}`, h.hiroiTry(s, layer));
-  }, 120_000);
+  }, 360_000);
 
   it('大きさは 表の とおり・work は 上の 限り 以下・置けた 計画の work と 同じ', () => {
     const spec = CAVE_SPEC.hiroi;

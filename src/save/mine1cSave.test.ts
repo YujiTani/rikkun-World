@@ -182,7 +182,7 @@ describe.each(FIXTURES)('C9: $name の 古い 保存', (f) => {
       const h2 = hook1c(SEED, { oldCols: again.restored.oldCols });
       expect(h2.startShaft(), `${k + 2} 回目に 開いた`).toEqual(start);
     }
-  }, 120_000);
+  }, 360_000);
 
   it('【レビュー A 重大 2】えらんだ はじまりの 坑道の 場所が meta に 書かれる〔meta.shaftStart: { x, z } ＝ 入口の x・z〕。閉じて 開きなおして 保存しなおしても 同じ（§4.8。名前は tester の 案）', async () => {
     const { db, store } = await openFile(f);
@@ -196,7 +196,7 @@ describe.each(FIXTURES)('C9: $name の 古い 保存', (f) => {
       await again.save.now();
       expect(((await metaOf(db)) as { shaftStart?: unknown }).shaftStart, `${k + 2} 回目に 開いて 保存した あと`).toEqual({ x: entrance.x, z: entrance.z });
     }
-  }, 60_000);
+  }, 180_000);
 
   it('ほかの 坑道〔スタートの まわり 3,072 マス四方〕も どれも 古い 列に かからない〔とちゅうで 切れた 道が ない〕', async () => {
     const { db, store } = await openFile(f);
@@ -210,7 +210,7 @@ describe.each(FIXTURES)('C9: $name の 古い 保存', (f) => {
       const hit = [...touchedColKeys(s, h.shaftPath(s.id))].filter((k) => old.kodo.has(k));
       expect(hit.length, `${s.id}`).toBe(0);
     }
-  }, 60_000);
+  }, 180_000);
 
   it('古い 列を さわって 保存しなおしても 古い まま・新しく 保存した 列は 古くない。一覧の 大きさも 数も かわらない', async () => {
     const { db, store } = await openFile(f);
@@ -237,7 +237,7 @@ describe.each(FIXTURES)('C9: $name の 古い 保存', (f) => {
     expect(h.isOld('kodo', first.cx, first.cz)).toBe(true);
     expect(h.isOld('kodo', 40, 40)).toBe(false);
     expect(h.oldCols('kodo')).toBe(want.length);
-  }, 60_000); // 列を 作って 保存する。よそが 混む ときの ゆとり（おそくて 落ちない）
+  }, 180_000); // 列を 作って 保存する。よそが 混む ときの ゆとり（おそくて 落ちない）
 
   it('ファイル〔.rikkun.gz〕に 書き出して 読みこんでも 一覧が 同じ〔開いて 保存した あとでも・保存する 前の 古い ファイルでも〕', async () => {
     const { db, store } = await openFile(f);

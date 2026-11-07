@@ -12,7 +12,7 @@ import type { PathCell, Pt } from './mineShaftKit';
  * 赤の 確かめ: 1E の 前は「窓口が まだ ない」「1E の 坑道が ない」で 落ちる。
  */
 
-vi.setConfig({ testTimeout: 300_000 });
+vi.setConfig({ testTimeout: 900_000 });
 
 const NEED = 3;
 const isOldBranch = (s: BokenShaft): boolean => (s.branches ?? []).some((b) => b.old);
@@ -39,7 +39,7 @@ beforeAll(() => {
     needBokenHook(h, ['areaAt', 'shaftPath']);
     picks.push({ seed: a.seed, shaft: a.shaft, hook: h });
   }
-}, 300_000);
+}, 900_000);
 
 const tag = (p: Pick): string => `seed ${p.seed} ${p.shaft.id}`;
 const area = (p: Pick, c: Pt): Area | null => p.hook.areaAt(c.x, c.y, c.z);

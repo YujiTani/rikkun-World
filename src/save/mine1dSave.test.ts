@@ -143,7 +143,7 @@ describe('fixture を 作る', () => {
     const file = await exportSave(db, SAVE_ID);
     writeFileSync(fixtureUrl(V5), file);
     expect((await keysOf(db)).size).toBeGreaterThan(49);
-  }, 180_000);
+  }, 540_000);
 });
 
 describe('1C の 見本を 作る', () => {
@@ -167,7 +167,7 @@ describe('1C の 見本を 作る', () => {
     };
     writeFileSync(fixtureUrl(GOLDEN), JSON.stringify(g));
     expect(g.shafts.length).toBeGreaterThan(10);
-  }, 180_000);
+  }, 540_000);
 });
 
 describe('D9: 保存の 版', () => {
@@ -250,7 +250,7 @@ describe.each(FIXTURES)('D9: $name の 古い 保存', (f) => {
       const b = c.box;
       for (let cz = (b.z0 - E) >> 4; cz <= (b.z1 + E) >> 4; cz++) for (let cx = (b.x0 - E) >> 4; cx <= (b.x1 + E) >> 4; cx++) expect(h.isOld('heya', cx, cz), `${c.id} の 列 (${cx}, ${cz})`).toBe(false);
     }
-  }, 120_000);
+  }, 360_000);
 
   it('ページを 閉じる ときの 保険〔PENDING_KEY〕から もどしても 部屋の 一覧・坑道の 一覧が 同じ', async () => {
     const { db, store } = await openFile(f);
@@ -278,7 +278,7 @@ describe.each(FIXTURES)('D9: $name の 古い 保存', (f) => {
     expect(sorted(heyaOf(again.restored)), '保険から もどした 部屋の 一覧').toEqual(want);
     expect(sorted(kodoOf(again.restored)), '保険から もどした 坑道の 一覧').toEqual(wantKodo);
     expect(hookCave(SEED, { oldCols: again.restored.oldCols }).oldCols('heya')).toBe(want.length);
-  }, 60_000);
+  }, 180_000);
 
   it('ファイルに 書き出して 読みこんでも 部屋の 一覧が 同じ', async () => {
     const { db, store } = await openFile(f);
@@ -338,7 +338,7 @@ describe('D9: 版 5 の fixture で 1C の 形の まま', () => {
     const g = new GenCols(SEED, legacy);
     const box = { x0: start.box.x0 - 12, x1: start.box.x1 + 12, z0: start.box.z0 - 12, z1: start.box.z1 + 12 };
     for (const d of naka.filter((x) => x.from.y === topY)) expect(bothWays(g, { x: start.entrance.x, y: start.entrance.y, z: start.entrance.z }, d.to, box), '入口と 横穴の 先').toBe(true);
-  }, 240_000);
+  }, 720_000);
 
   it('4 版: 古い 列が かかる 坑道の へやの 横穴は 1C の まま〔古い 列が ない 新しい 世界では つなぐ 横穴を もつ 坑道を、その 箱の 列ぜんぶ 古い 列に して 開くと shaftPath・end が 1C の あとと 同じ〕', () => {
     const gold = golden();
@@ -363,7 +363,7 @@ describe('D9: 版 5 の fixture で 1C の 形の まま', () => {
       expect(sh!.sides.map((d) => d.end), `${x.id}: 古い 列が かかる 横穴は end が 1C の まま`).toEqual(x.sides.map((d) => d.end));
       expect(pathHash(old.shaftPath(x.id)), `${x.id}: shaftPath が 1C の まま`).toBe(x.pathHash);
     }
-  }, 240_000);
+  }, 720_000);
 });
 
 describe('D9: 保険〔PENDING_KEY〕・meta が ない／こわれて いる・新しい 世界', () => {

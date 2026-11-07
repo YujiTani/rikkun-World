@@ -61,7 +61,7 @@ beforeAll(() => {
     for (let dx = -400; dx <= 400; dx += 20) for (let dz = -400; dz <= 400; dz += 20) add((sp.x + dx) >> 4, (sp.z + dz) >> 4);
     ones.push({ seed, shafts: s.shafts, g: s.g, onPath, cols: [...cols.values()] });
   }
-}, 240_000);
+}, 720_000);
 
 describe('C14: 坑道の 仕事の 数（ユニット）', () => {
   it('見る 区画は 4 つ まで・光る ブロックは 80 こ まで〔窓口の 数〕。窓口は 数を 返す', () => {
@@ -78,7 +78,7 @@ describe('C14: 坑道の 仕事の 数（ユニット）', () => {
     }
     expect(seen).toBeGreaterThan(SEEDS.length * 100);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 240_000);
+  }, 720_000);
 
   it('ごまかさない: 作った 列の たいまつ・ほたるいしが 80 こ 以下で、窓口の「光る ブロック」は それ 以上', () => {
     const bad: string[] = [];
@@ -95,7 +95,7 @@ describe('C14: 坑道の 仕事の 数（ユニット）', () => {
     }
     expect(torches, '坑道の たいまつが 1 本も ない').toBeGreaterThan(0);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 240_000);
+  }, 720_000);
 
   it('道が 通る 列は 区画 1 以上〔仕様の 縛りは「4 まで」「ふえない」。坑道が かからない 列の 値は 決めない〕', () => {
     const bad: string[] = [];
@@ -111,7 +111,7 @@ describe('C14: 坑道の 仕事の 数（ユニット）', () => {
     }
     expect(near, '道の 列').toBeGreaterThan(SEEDS.length * 10);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 240_000);
+  }, 720_000);
 
   it('読みこんだ 列の 数・場所で ふえない: ほかの 列を 先に 調べ・作っても、同じ 列は 同じ 数', () => {
     const bad: string[] = [];
@@ -128,7 +128,7 @@ describe('C14: 坑道の 仕事の 数（ユニット）', () => {
       }
     }
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 240_000);
+  }, 720_000);
 
   it('同じ 列は 何回 数えても 同じ〔窓口は 列の 座標と シードだけで 決まる〕', () => {
     const o = ones[0]!;

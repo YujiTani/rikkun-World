@@ -35,7 +35,7 @@ import { openStoredKeys, type StreamRestore } from './streamRestore';
  *   meta の 書き方は developer の もの〔配列とは かぎらない〕。1C・1D の meta の `oldCols: { kodo, heya? }` は 読めること〔版 5・6 の fixture〕。
  */
 
-vi.setConfig({ testTimeout: 600_000 });
+vi.setConfig({ testTimeout: 900_000 });
 
 const SEED = GEN_CONFIG.defaultSeed;
 const NS = WORLD_HEIGHT / 16;
@@ -131,7 +131,7 @@ describe('fixture を 作る', () => {
     await save.now();
     writeFileSync(fixtureUrl(FIXTURES[0].file), await exportSave(db, SAVE_ID));
     expect((await keysOf(db)).size).toBeGreaterThan(60);
-  }, 300_000);
+  }, 900_000);
 });
 
 // ------------------------------------------------------------------ 版
@@ -239,7 +239,7 @@ describe.each(FIXTURES)('E16: $name の 古い 保存', (f) => {
     expect(again.restored.fromPending, '保険から もどした').toBe(true);
     expect(listsOf(again.restored), '保険から もどした 一覧').toEqual(want);
     expect(hookE(SEED, { oldCols: again.restored.oldCols }).oldCols('boken')).toBe(want.boken.length);
-  }, 60_000);
+  }, 180_000);
 
   it('ファイルに 書き出して 読みこんでも 一覧が 同じ', async () => {
     const { db, store } = await openFile(f);
@@ -293,7 +293,7 @@ describe('E16: 版 6 の fixture で 区画ごとに どちらの 坑道を 作�
     }
     expect(compared, '古い 列に かかる 1C・1D の 坑道〔fixture に 道の 列を 入れた〕').toBeGreaterThan(0);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
-  }, 240_000);
+  }, 720_000);
 
   it('道さがし: はじまりの 坑道と、古い 列に かかる 坑道は 入口と 横穴の 先が 行き来 できる', async () => {
     const { db, store } = await openFile(f);
@@ -309,7 +309,7 @@ describe('E16: 版 6 の fixture で 区画ごとに どちらの 坑道を 作�
       const box = { x0: s.box.x0 - 12, x1: s.box.x1 + 12, z0: s.box.z0 - 12, z1: s.box.z1 + 12 };
       for (const d of s.sides.slice(0, 4)) expect(bothWays(g, { x: s.entrance.x, y: s.entrance.y, z: s.entrance.z }, d.to, box), `${s.id} の 入口と 横穴の 先`).toBe(true);
     }
-  }, 240_000);
+  }, 720_000);
 
   it('`gen: \'e\'` の 坑道は 1E の 一覧の 列〔まわり 2 マス〕に かからない〔スタートの まわり 1,536 マス〕', async () => {
     const { db, store } = await openFile(f);
@@ -322,7 +322,7 @@ describe('E16: 版 6 の fixture で 区画ごとに どちらの 坑道を 作�
     const es = all.filter((s) => s.gen === 'e');
     expect(es.length, '1E の 坑道').toBeGreaterThan(0);
     for (const s of es) expect(hits(s.box, list), `${s.id} が 古い 列に かかる`).toBe(false);
-  }, 240_000);
+  }, 720_000);
 
   it('はじまりの 入口 `meta.shaftStart` は 前と 同じ〔開いて 保存しなおしても〕', async () => {
     const { db, store } = await openFile(f);

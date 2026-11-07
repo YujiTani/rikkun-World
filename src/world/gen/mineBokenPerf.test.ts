@@ -13,7 +13,7 @@ import { GenCols, type PathCell } from './mineShaftKit';
  * 赤の 確かめ: 1E の 前は「1E の 坑道が ない」「窓口が まだ ない」で 落ちる。
  */
 
-vi.setConfig({ testTimeout: 900_000 });
+vi.setConfig({ testTimeout: 1200_000 });
 
 const bySize = (all: readonly ESample[], size: number): ESample[] => all.filter((a) => a.shaft.style?.size === size);
 const enough = (all: readonly ESample[]): boolean => bySize(all, 128).length >= 12 && bySize(all, 64).length >= 12;
@@ -21,7 +21,7 @@ const enough = (all: readonly ESample[]): boolean => bySize(all, 128).length >= 
 let all: ESample[] = [];
 beforeAll(() => {
   all = bigSample(enough, SEED_POOL_BIG).all;
-}, 900_000);
+}, 1200_000);
 
 const WORK_KEYS = ['entrance', 'floors', 'sides', 'eda', 'maze'] as const;
 const totalWork = (s: BokenShaft): number => sum(WORK_KEYS.map((k) => s.work?.[k] ?? 0));

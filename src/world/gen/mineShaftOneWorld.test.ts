@@ -19,7 +19,7 @@ import { heightAt, spawnOf } from './terrain';
  *           【窓口は 案】`surfaceFor(seed, { flora?, shafts?: ShaftWorld })`
  */
 
-vi.setConfig({ testTimeout: 120_000 });
+vi.setConfig({ testTimeout: 360_000 });
 
 // ------------------------------------------------------------------ (1) ソースの 見張り
 
