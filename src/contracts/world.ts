@@ -125,7 +125,16 @@ export type BlockId =
   | 'kodo_waku'
   | ChestBlockId
   // MINE-1D（#351。うしろに足す）: つらら（固くない。天井の 下に さがる。ほると せっかいせき 1）
-  | 'tsurara';
+  | 'tsurara'
+  // MINE-1E（うしろに足す。204〜211）: 坑道の 冒険の 8 こ（ひび・くずれ・ふるい レール 2 向き・こわれた わく・たおれた はしご 2 向き・たきびの あと。仕様 §4.9）
+  | 'hibi_ishi'
+  | 'kuzure_ishi'
+  | 'furui_rail_x'
+  | 'furui_rail_z'
+  | 'kowareta_waku'
+  | 'taoreta_hashigo_x'
+  | 'taoreta_hashigo_z'
+  | 'takibi_ato';
 
 export interface BlockType {
   id: BlockId;

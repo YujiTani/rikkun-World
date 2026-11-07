@@ -6357,6 +6357,23 @@
         }
       ]
     },
+    "kabita_pan": {
+      "ITEM_INFO.kabita_pan": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック",
+        "use": "たべると すこし だけ げんき に なる。でも かびて いる"
+      },
+      "category": "food",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "かびた パン",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
     "table": {
       "DIG_DEFAULTS.hardness.table": 5,
       "DIG_DEFAULTS.harvestLevel.table": 0,

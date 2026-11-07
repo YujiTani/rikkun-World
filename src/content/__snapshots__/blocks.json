@@ -78,6 +78,8 @@
     "furnace_e": 92,
     "furnace_n": 91,
     "furnace_w": 90,
+    "furui_rail_x": 206,
+    "furui_rail_z": 207,
     "futon": 51,
     "futon_foot_e": 56,
     "futon_foot_n": 59,
@@ -89,6 +91,7 @@
     "geyser_dirt": 49,
     "grass": 1,
     "haniwa": 52,
+    "hibi_ishi": 204,
     "hotaruishi": 63,
     "house_door": 83,
     "house_door_open": 85,
@@ -106,7 +109,9 @@
     "kodo_waku": 186,
     "kogeta": 184,
     "kokuyouseki": 167,
+    "kowareta_waku": 208,
     "kusa": 39,
+    "kuzure_ishi": 205,
     "lantern": 50,
     "leaves": 6,
     "log": 5,
@@ -213,11 +218,14 @@
     "takarabako_4_open": 201,
     "takarabako_4_open_r": 202,
     "takarabako_4_r": 200,
+    "takibi_ato": 211,
     "takitsubo": 166,
     "tansu": 16,
     "tansu_e": 89,
     "tansu_n": 88,
     "tansu_w": 87,
+    "taoreta_hashigo_x": 209,
+    "taoreta_hashigo_z": 210,
     "torch": 14,
     "toriya_box": 45,
     "toriya_fence": 42,
@@ -1462,6 +1470,54 @@
       "id": "tsurara",
       "name": "つらら",
       "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "hibi_ishi",
+      "name": "ひびの いし",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "kuzure_ishi",
+      "name": "くずれた いし",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "furui_rail_x",
+      "name": "ふるい レール",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "furui_rail_z",
+      "name": "ふるい レール",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "kowareta_waku",
+      "name": "こわれた わく",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "taoreta_hashigo_x",
+      "name": "たおれた はしご",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "taoreta_hashigo_z",
+      "name": "たおれた はしご",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "takibi_ato",
+      "name": "たきびの あと",
+      "solid": false
     }
   ],
   "DIG_DEFAULTS": {
@@ -1526,6 +1582,8 @@
       "furnace_e": 6,
       "furnace_n": 6,
       "furnace_w": 6,
+      "furui_rail_x": 0.5,
+      "furui_rail_z": 0.5,
       "futon": 0.25,
       "futon_foot_e": 0.25,
       "futon_foot_n": 0.25,
@@ -1537,6 +1595,7 @@
       "geyser_dirt": 0.5,
       "grass": 0.5,
       "haniwa": 1,
+      "hibi_ishi": 1.5,
       "hotaruishi": 6,
       "house_door": 5,
       "house_door_open": 5,
@@ -1554,7 +1613,9 @@
       "kodo_waku": 5,
       "kogeta": 1,
       "kokuyouseki": 12,
+      "kowareta_waku": 5,
       "kusa": 0.05,
+      "kuzure_ishi": 1,
       "lantern": 0.05,
       "leaves": 0.25,
       "log": 5,
@@ -1661,11 +1722,14 @@
       "takarabako_4_open": null,
       "takarabako_4_open_r": null,
       "takarabako_4_r": null,
+      "takibi_ato": 0.5,
       "takitsubo": 0.5,
       "tansu": 5,
       "tansu_e": 5,
       "tansu_n": 5,
       "tansu_w": 5,
+      "taoreta_hashigo_x": 0.5,
+      "taoreta_hashigo_z": 0.5,
       "torch": 0.05,
       "toriya_box": 5,
       "toriya_fence": 5,
@@ -1732,6 +1796,8 @@
       "furnace_e": 0,
       "furnace_n": 0,
       "furnace_w": 0,
+      "furui_rail_x": 0,
+      "furui_rail_z": 0,
       "futon": 0,
       "futon_foot_e": 0,
       "futon_foot_n": 0,
@@ -1743,6 +1809,7 @@
       "geyser_dirt": 0,
       "grass": 0,
       "haniwa": 0,
+      "hibi_ishi": 0,
       "hotaruishi": 1,
       "house_door": 0,
       "house_door_open": 0,
@@ -1760,7 +1827,9 @@
       "kodo_waku": 0,
       "kogeta": 0,
       "kokuyouseki": 2,
+      "kowareta_waku": 0,
       "kusa": 0,
+      "kuzure_ishi": 0,
       "lantern": 0,
       "leaves": 0,
       "log": 0,
@@ -1867,11 +1936,14 @@
       "takarabako_4_open": 0,
       "takarabako_4_open_r": 0,
       "takarabako_4_r": 0,
+      "takibi_ato": 0,
       "takitsubo": 0,
       "tansu": 0,
       "tansu_e": 0,
       "tansu_n": 0,
       "tansu_w": 0,
+      "taoreta_hashigo_x": 0,
+      "taoreta_hashigo_z": 0,
       "torch": 0,
       "toriya_box": 0,
       "toriya_fence": 0,
@@ -1939,6 +2011,8 @@
       "furnace_e": "uncommon",
       "furnace_n": "uncommon",
       "furnace_w": "uncommon",
+      "furui_rail_x": "common",
+      "furui_rail_z": "common",
       "futon": "uncommon",
       "futon_foot_e": "uncommon",
       "futon_foot_n": "uncommon",
@@ -1950,6 +2024,7 @@
       "geyser_dirt": "uncommon",
       "grass": "common",
       "haniwa": "uncommon",
+      "hibi_ishi": "common",
       "hotaruishi": "rare",
       "house_door": "uncommon",
       "house_door_open": "uncommon",
@@ -1967,7 +2042,9 @@
       "kodo_waku": "common",
       "kogeta": "common",
       "kokuyouseki": "rare",
+      "kowareta_waku": "common",
       "kusa": "common",
+      "kuzure_ishi": "common",
       "lantern": "uncommon",
       "leaves": "common",
       "log": "uncommon",
@@ -2074,11 +2151,14 @@
       "takarabako_4_open": "common",
       "takarabako_4_open_r": "common",
       "takarabako_4_r": "common",
+      "takibi_ato": "common",
       "takitsubo": "uncommon",
       "tansu": "uncommon",
       "tansu_e": "uncommon",
       "tansu_n": "uncommon",
       "tansu_w": "uncommon",
+      "taoreta_hashigo_x": "common",
+      "taoreta_hashigo_z": "common",
       "torch": "common",
       "toriya_box": "uncommon",
       "toriya_fence": "uncommon",
@@ -2118,6 +2198,14 @@
     "farmland_wet": {
       "count": 1,
       "item": "dirt"
+    },
+    "furui_rail_x": {
+      "count": 1,
+      "item": "log"
+    },
+    "furui_rail_z": {
+      "count": 1,
+      "item": "log"
     },
     "futon": {
       "count": 1,
@@ -2159,6 +2247,10 @@
       "count": 1,
       "item": "haniwa"
     },
+    "hibi_ishi": {
+      "count": 1,
+      "item": "stone"
+    },
     "katame_tsuchi": {
       "count": 1,
       "item": "dirt"
@@ -2174,6 +2266,14 @@
     "kokuyouseki": {
       "count": 1,
       "item": "kokuyouseki"
+    },
+    "kowareta_waku": {
+      "count": 1,
+      "item": "log"
+    },
+    "kuzure_ishi": {
+      "count": 1,
+      "item": "stone"
     },
     "lantern": {
       "count": 1,
@@ -2195,9 +2295,21 @@
       "count": 1,
       "item": "sprinkler"
     },
+    "takibi_ato": {
+      "count": 1,
+      "item": "coal_ore"
+    },
     "takitsubo": {
       "count": 1,
       "item": "takitsubo"
+    },
+    "taoreta_hashigo_x": {
+      "count": 1,
+      "item": "log"
+    },
+    "taoreta_hashigo_z": {
+      "count": 1,
+      "item": "log"
     },
     "tsurara": {
       "count": 1,

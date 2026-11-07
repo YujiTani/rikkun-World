@@ -565,6 +565,15 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   // MINE-1C（#350）: 坑道の わく（横・上下）。宝箱は 平らな 箱の 絵（近くは 小ブロックの 形〔render/looks/chestLooks.ts〕）
   kodo_waku: ['kodo_waku_top', 'kodo_waku_side', 'kodo_waku_top'],
   tsurara: ['tsurara', 'tsurara', 'tsurara'], // MINE-1D: 十字の 板の 絵（天井から さがる 3 本）
+  // MINE-1E: 仮（小ブロックの 絵・描画は 次の コミットで 足す）
+  hibi_ishi: ['stone', 'stone', 'stone'],
+  kuzure_ishi: ['stone', 'stone', 'stone'],
+  furui_rail_x: ['log_top', 'log_top', 'log_side'],
+  furui_rail_z: ['log_top', 'log_top', 'log_side'],
+  kowareta_waku: ['kodo_waku_top', 'kodo_waku_side', 'kodo_waku_top'],
+  taoreta_hashigo_x: ['log_top', 'log_top', 'log_side'],
+  taoreta_hashigo_z: ['log_top', 'log_top', 'log_side'],
+  takibi_ato: ['coal_ore_b', 'coal_ore_b', 'coal_ore_b'],
   ...CHEST_BLOCK_TILES,
   // チョークの しるし 12 こ: 立方体では ない（面に はる 板。render/chalkMesh.ts）。ここは かけらの 色・アイテムの 絵などの ため
   ...CHALK_BLOCK_TILES,
