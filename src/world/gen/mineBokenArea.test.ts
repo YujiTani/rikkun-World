@@ -57,8 +57,8 @@ describe('E17: 場所の 窓口 `areaAt`', () => {
     for (const p of camps) {
       const cells = p.hook.shaftPath(p.shaft.id).filter((c: PathCell) => (c.part as string) === 'camp');
       expect(cells.length, `${tag(p)}: camp の 道の マス`).toBeGreaterThan(0);
-      for (const c of cells) if (area(p, c) !== 'camp') bad.push(`${tag}: (${c.x}, ${c.y}, ${c.z}) が ${area(p, c)}`);
-      for (const c of floorOf(p.shaft.camp!.room)) if (area(p, c) !== 'camp') bad.push(`${tag}: 床 (${c.x}, ${c.y}, ${c.z}) が ${area(p, c)}`);
+      for (const c of cells) if (area(p, c) !== 'camp') bad.push(`${tag(p)}: (${c.x}, ${c.y}, ${c.z}) が ${area(p, c)}`);
+      for (const c of floorOf(p.shaft.camp!.room)) if (area(p, c) !== 'camp') bad.push(`${tag(p)}: 床 (${c.x}, ${c.y}, ${c.z}) が ${area(p, c)}`);
     }
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
   });
@@ -82,6 +82,13 @@ describe('E17: 場所の 窓口 `areaAt`', () => {
       const got = area(p, b.end.at);
       if (b.old && got !== 'mukashi') bad.push(`${tag(p)}: むかしの えだ道の おわり (${b.end.at.x}, ${b.end.at.y}, ${b.end.at.z}) が ${got}`);
       if (!b.old && got !== null) bad.push(`${tag(p)}: むかしでない えだ道の おわり (${b.end.at.x}, ${b.end.at.y}, ${b.end.at.z}) が ${got}`);
+      // えだ道の 中の マス〔道の マス part が eda。口から 2〜3 マス 内がわ〕でも 同じ〔おくの へやを えだ道に 入れない 実装を 落とす〕
+      const inside = p.hook.shaftPath(p.shaft.id).filter((c: PathCell) => (c.part as string) === 'eda' && Math.abs(c.y - b.from.y) <= 1 && Math.max(Math.abs(c.x - b.from.x), Math.abs(c.z - b.from.z)) >= 2 && Math.max(Math.abs(c.x - b.from.x), Math.abs(c.z - b.from.z)) <= 3);
+      expect(inside.length, `${tag(p)}: 口から 2〜3 マスの えだ道の マス`).toBeGreaterThan(0);
+      for (const c of inside) {
+        const a = area(p, c);
+        if (b.old && a !== 'mukashi') bad.push(`${tag(p)}: むかしの えだ道の 中 (${c.x}, ${c.y}, ${c.z}) が ${a}`);
+      }
     }
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
   });

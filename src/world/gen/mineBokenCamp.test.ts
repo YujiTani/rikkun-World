@@ -77,16 +77,9 @@ function setup(): void {
   }
 }
 
-type Kind = 'pan' | 'pickaxe' | 'drop' | 'ore' | 'torch';
-/** 物が 表の どの 行の 物か〔かびた パン・たいまつ・たいきゅうの ある 物＝つるはし・落とし物の 表・のこりは 鉱石〕 */
-function kindOf(d: Depth, i: CampItem): Kind {
-  const T = tablesOf().camp;
-  if (i.item === 'kabita_pan') return 'pan';
-  if (i.item === 'torch') return 'torch';
-  if (i.wear !== undefined || i.item === T.pickaxe[d]) return 'pickaxe';
-  if (T.rows.find((r) => r.kind === 'drop')?.items?.includes(i.item)) return 'drop';
-  return 'ore';
-}
+type Kind = CampItem['row'];
+/** 物が 表の どの 行から 出たか〔`CampItem.row`。物の 名前では 見分けない: 鉱石と 落とし物に 同じ id〔せきたん〕が あって よい〕 */
+const kindOf = (_d: Depth, i: CampItem): Kind => i.row;
 const rowOf = (k: Kind) => tablesOf().camp.rows.find((r) => r.kind === k)!;
 const oreCount = (d: Depth, item: string) => tablesOf().camp.ores[d].find((o) => o.item === item)?.count ?? null;
 
@@ -99,7 +92,6 @@ describe('E11: キャンプの たんすの 表', () => {
     for (const d of DEPTHS) {
       expect(T.ores[d].length, `${d} の 鉱石`).toBeGreaterThan(0);
       expect(typeof T.pickaxe[d], `${d} の つるはし`).toBe('string');
-      for (const o of T.ores[d]) expect(rowOf('drop').items ?? [], `鉱石 ${o.item} は 落とし物の 表に ない`).not.toContain(o.item);
     }
     // ふかい の 鉱石には 数が 1 の 物〔きんの いし〕が ある
     expect(T.ores.fukai.some((o) => o.count[0] === 1 && o.count[1] === 1)).toBe(true);
@@ -125,10 +117,11 @@ describe(`E11: たんすの 中身の くじ〔層ごとに campRoll ${ROLLS} �
     const bad: string[] = [];
     for (const d of DEPTHS)
       rolls[d].forEach((c, k) => {
-        const pans = c.filter((i) => i.item === 'kabita_pan');
+        const pans = c.filter((i) => i.row === 'pan');
+        if (pans.some((i) => i.item !== 'kabita_pan')) bad.push(`${d} #${k}: pan の 行の 物が かびた パンでない`);
         if (pans.length !== 1) bad.push(`${d} #${k}: パンの 山 ${pans.length}`);
         else if (pans[0]!.count < pan.count[0] || pans[0]!.count > pan.count[1]) bad.push(`${d} #${k}: パン ${pans[0]!.count} こ`);
-        if (new Set(c.map((i) => i.item)).size !== c.length) bad.push(`${d} #${k}: 同じ 物が 2 山`);
+        if (new Set(c.map((i) => `${i.row}:${i.item}`)).size !== c.length) bad.push(`${d} #${k}: 同じ 行の 同じ 物が 2 山`);
         if (c.some((i) => !(i.count >= 1) || !Number.isInteger(i.count))) bad.push(`${d} #${k}: 数が 整数の 1 以上でない`);
       });
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
@@ -176,7 +169,7 @@ describe(`E11: たんすの 中身の くじ〔層ごとに campRoll ${ROLLS} �
       });
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
     // 表の 鉱石は どれも 実際に 出る〔層の 表を 見ずに 1 つだけ 出す 実装を 落とす〕
-    for (const d of DEPTHS) for (const o of T.ores[d]) expect(rolls[d].some((c) => c.some((i) => i.item === o.item)), `${d} の ${o.item}`).toBe(true);
+    for (const d of DEPTHS) for (const o of T.ores[d]) expect(rolls[d].some((c) => c.some((i) => i.row === 'ore' && i.item === o.item)), `${d} の ${o.item}`).toBe(true);
   });
 
   it('同じ〔層, シード〕は 同じ 中身・シードが ちがえば 中身も ばらける', () => {

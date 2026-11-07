@@ -32,7 +32,7 @@ import { spawnOf } from './terrain';
  *       道の 足の マスは 空気の マス〔ひびの いし・くずれた いしの マスも 足の マスに 入る ＝「ほった あと」で 見る〕
  *   ・ブロックの id: `hibi_ishi`・`kuzure_ishi`・`furui_rail_x`／`_z`・`kowareta_waku`・`taoreta_hashigo_x`／`_z`・`takibi_ato`・アイテム `kabita_pan`〔仕様 §4.9〕
  *   ・キャンプの くじ〔E11〕: `campRoll(depth, seed): CampItem[]`〔安い くじ。E14 の `rollChest` と 同じ 形〕・`campSeed(x, y, z): number`〔世界の シードと たんすの 場所〕・
- *       表 `campTable().ores[層]`〔ほると 出る 物と 数〕。`campPreview(たんす)` ＝ `campRoll(層, campSeed(たんす))`
+ *       表 `campTable().ores[層]`〔ほると 出る 物と 数。MINE-1 の 鉱石の 表〔`mineConfig.ts` の `ores`〕と 行の ふつうの 鉱石の 数から 作る。**写さない**〕・`CampItem.row` ＝ 出た 行〔`pan`・`pickaxe`・`drop`・`ore`・`torch`〕。`campPreview(たんす)` ＝ `campRoll(層, campSeed(たんす))`
  *   ・場所の 窓口 `areaAt(x, y, z): 'kakushi' | 'mukashi' | 'meiro' | 'camp' | null`〔E17。実績の 'area' の つなぎ込みが 使う〕
  *   ・キャンプの たんす〔E11〕: `createMineHook({ tansuHas })`〔その マスの たんすの 記録が すでに あるか〕・`StorageSystem.has(x, y, z)`〔記録が あるか〕・
  *       `StorageDeps.firstFill?(x, y, z): ItemStack[] | null`〔記録が まだ ない たんすを はじめて あける とき／あける 前に こわす とき だけ 呼ぶ。`placed` では 呼ばない〕
@@ -170,6 +170,8 @@ export interface CampItem {
   item: string;
   count: number;
   wear?: number;
+  /** どの 行から 出たか〔表 `campTable().rows` の `kind`〕。鉱石と 落とし物に 同じ id〔せきたん など〕が あって よい ので、行は 物の 名前でなく これで 見分ける */
+  row: 'pan' | 'pickaxe' | 'drop' | 'ore' | 'torch';
 }
 
 /** 仕様 §6.1 の 1E の 窓口。型には まだ 無いので 文字で 読む〔赤の 間も 型が 通る ように〕 */

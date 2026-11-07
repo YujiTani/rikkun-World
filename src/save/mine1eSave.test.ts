@@ -352,7 +352,7 @@ describe('E16: 版 5・6 の 保存が meta に 書いた「古い 列の 配列
   }
 
   it('版 6〔坑道・部屋の 配列〕: 坑道・部屋の 一覧は その 配列・1E の 一覧は 保存の 列ぜんぶ・窓口の 数も 合う', async () => {
-    const { db, store, stored, lists } = await withMeta(6, (st) => ({ kodo: st.filter((_, i) => i % 2 === 0), heya: st.filter((_, i) => i % 3 === 0) }));
+    const { db, store, stored, lists } = await withMeta(6, (st) => ({ kodo: st.filter((_, i) => i % 4 === 0), heya: st.filter((_, i) => i % 2 === 0) }));
     const { restored } = await openGame(db, store);
     expect(listsOf(restored)).toEqual({ kodo: lists.kodo, heya: lists.heya, boken: stored });
     const h = hookE(SEED, { oldCols: restored.oldCols });
@@ -373,7 +373,7 @@ describe('E16: 版 5・6 の 保存が meta に 書いた「古い 列の 配列
   });
 
   it('保存しなおして 開いても 同じ 3 つの 一覧・1E の 前の 世界の 配列は へらない・ふえない・meta の 大きさは 列 1 つに つき 12 バイト 以下', async () => {
-    const { db, store, stored, lists } = await withMeta(6, (st) => ({ kodo: st.filter((_, i) => i % 2 === 0), heya: st.filter((_, i) => i % 3 === 0) }));
+    const { db, store, stored, lists } = await withMeta(6, (st) => ({ kodo: st.filter((_, i) => i % 4 === 0), heya: st.filter((_, i) => i % 2 === 0) }));
     const first = await openGame(db, store);
     await first.save.now();
     const meta = await metaOf(db);

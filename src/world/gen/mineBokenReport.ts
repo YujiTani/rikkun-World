@@ -293,8 +293,10 @@ export function deadEndProblems(orig: GenCols, dug: GenCols, e: DeadEnd, T: Tabl
     const marks = countIds(orig, e.at, 4, 0, 3, [ID.waku, ID.hashigoX, ID.hashigoZ]);
     if (marks < 1) bad.push(`${at}: こわれた わく か たおれた はしごが 近くに ない`);
     // つきあたりの かべだけ 見る〔来た 道いがいの 3 方向の 距離 1〜2・はば 3・高さ 4 の 面。ほかの 行きどまりの ひび・口の くずれた いしは 見ない〕
+    let looked = 0; // 見た 方向の 数〔0 なら 何も 見ずに 通って しまう ので 落とす〕
     for (const [dx, dz] of FOUR) {
       if (isBodyIndex(orig.at(e.at.x + dx, e.at.y, e.at.z + dz))) continue;
+      looked++;
       for (let dist = 1; dist <= 2; dist++) {
         for (let side = -1; side <= 1; side++) {
           for (let y = 0; y <= 3; y++) {
@@ -306,6 +308,7 @@ export function deadEndProblems(orig: GenCols, dug: GenCols, e: DeadEnd, T: Tabl
         }
       }
     }
+    if (looked === 0) bad.push(`${at}: はずれの つきあたりの かべが 見つからない〔4 方向とも 体の 通る マス〕`);
   }
   if (hibi) bad.push(...hibiProblems(orig, e, T, at));
   return bad;
