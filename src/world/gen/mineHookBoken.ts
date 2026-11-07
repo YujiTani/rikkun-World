@@ -49,6 +49,18 @@ function campRoll(depth: Depth, seed: number): CampItem[] {
   return out;
 }
 
+/** (x, y, z) は どの 場所か〔かくしべや・むかしの えだ道・迷路の いちばん おく・キャンプあと〕。先読みずみの 区画だけを 見る。実績の つなぎ込みも これを 使う */
+export function areaIn(world: ShaftWorld, x: number, y: number, z: number): Area | null {
+  const bx = Math.floor(x);
+  const bz = Math.floor(z);
+  const k = keyOf(bx, Math.floor(y), bz);
+  for (const p of world.plansNear(bx >> 4, bz >> 4)) {
+    const a = p.areas?.get(k);
+    if (a) return a;
+  }
+  return null;
+}
+
 export function createBokenHook(o: { seed: number; world: () => ShaftWorld; tansuHas?: (x: number, y: number, z: number) => boolean }) {
   const campSeed = (x: number, y: number, z: number): number => hashInts(subSeed(o.seed, 823), x, y, z);
   return {
@@ -71,15 +83,6 @@ export function createBokenHook(o: { seed: number; world: () => ShaftWorld; tans
       }
       return null;
     },
-    areaAt(x: number, y: number, z: number): Area | null {
-      const bx = Math.floor(x);
-      const bz = Math.floor(z);
-      const k = keyOf(bx, Math.floor(y), bz);
-      for (const p of o.world().plansNear(bx >> 4, bz >> 4)) {
-        const a = p.areas?.get(k);
-        if (a) return a;
-      }
-      return null;
-    },
+    areaAt: (x: number, y: number, z: number): Area | null => areaIn(o.world(), x, y, z),
   };
 }

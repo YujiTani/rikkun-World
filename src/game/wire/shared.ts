@@ -6,7 +6,7 @@ import { PlayerCombatImpl } from '../../combat';
 import { StaggerIcons } from '../../fx/parryFx';
 import { SamuraiBook } from '../../craft/SamuraiBook';
 import { LogSystem } from '../../ui/log';
-import type { ItemId, YokaiKind, CombatEvent, DigEvent, SwingAnim, Inventory, Vec3 } from '../../contracts';
+import type { ItemId, ItemStack, YokaiKind, CombatEvent, DigEvent, SwingAnim, Inventory, Vec3 } from '../../contracts';
 import type { YokaiPartner } from '../../yokai/ai/target';
 import { AchievementSystem } from '../../achievements';
 import { CelebrateUi } from '../../ui/celebrate';
@@ -79,6 +79,8 @@ interface Shared {
   /** COOP-1 AC84: もちもの画面まわりの 1 コマ（createStep が 差しかえる）。2 人で 1P の 全面が 世界を 止めている あいだ、player.ts の modal tick が 呼ぶ */
   inventoryUiTick: () => void;
   requestSave: () => void;
+  /** MINE-1E: キャンプの たんすを はじめて あける ときの 中身〔wireMine が つなぐ。つなぐ 前は null〕。`StorageSystem` の firstFill が 読む */
+  campFill: (x: number, y: number, z: number) => ItemStack[] | null;
   skipSignalLog: boolean;
   onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
   yokaiManager: YokaiManager | null;
@@ -147,6 +149,7 @@ export function createShared(): Shared {
     duoModalTick: () => {},
     inventoryUiTick: () => {},
     requestSave: () => {},
+    campFill: () => null,
     skipSignalLog: false,
     onDropPicked: () => {},
     yokaiManager: null,

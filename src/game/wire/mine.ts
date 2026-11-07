@@ -1,12 +1,13 @@
 // main.ts の 流れ 10: 坑道の 宝箱（MINE-1C #350。docs/design/MINE-1.md §3・§4.6・§6.1）。
 // 宝箱を あける〔右クリック → mine.open〕の つなぎ: 持ち物・落とし物・ふた・光の 柱・音・ログ・テロップ・実績。
-import type { ItemId, Rarity } from '../../contracts';
+import type { ItemId, ItemStack, Rarity } from '../../contracts';
 import { itemDef } from '../../content/items/registry';
 import { RARITY_ORDER } from '../../drops/rarity';
 import { ChestLidFx } from '../../fx/chestLidFx';
 import { CHEST_SOUNDS } from '../../fx/chestSounds';
 import { itemType } from '../../inventory/items';
 import { KODO_GEN } from '../../save/SaveManager';
+import { maxDurability } from '../../tools/durability';
 import { setChestLidless } from '../../world/render/looks/chestLooks';
 import { createMineHook } from '../../world/gen/mineHook';
 import type { HotbarGain } from '../../ui/hotbarModel';
@@ -37,7 +38,7 @@ export function chestLogLine(got: readonly Pick<Got, 'item'>[], nameOf: (item: I
 }
 
 export function wireMine(deps: WiredDuo) {
-  const { shared, game, world, controller, inventory, drops, celebrate, achievements, seed, shafts, yokaiM, save, restored, fxSound, dig, hotbar, renderer, reducedMotionMq, notice } = deps;
+  const { shared, game, world, controller, inventory, drops, celebrate, achievements, seed, shafts, yokaiM, save, restored, fxSound, dig, hotbar, renderer, reducedMotionMq, notice, storage, w2 } = deps;
   const rarityOf = (item: ItemId): number => RARITY_ORDER.indexOf(itemDef(item)!.rarity);
   const nameOf = (item: ItemId): string => itemType(item)?.name ?? item;
 
@@ -71,6 +72,7 @@ export function wireMine(deps: WiredDuo) {
     metaGen: () => save.metaGen(),
     kodoGen: KODO_GEN,
     oldCols: restored.oldCols,
+    tansuHas: (x, y, z) => storage.has(x, y, z), // MINE-1E: 記録が ある たんすは キャンプの 予告を 出さない
     chest: {
       add: (item, count) => {
         const rest = inventory.add(item, count);
@@ -96,6 +98,18 @@ export function wireMine(deps: WiredDuo) {
       },
     },
   });
+
+  // MINE-1E §4.8: キャンプの たんすを はじめて あけた とき 入る 中身〔たいきゅうは 新品の 値から へった 量に 直す〕
+  shared.campFill = (x, y, z) => {
+    const items = mine.campPreview(x, y, z);
+    if (!items) return null;
+    return items.map((i): ItemStack => {
+      const stack: ItemStack = { item: i.item as ItemId, count: i.count };
+      const max = maxDurability(stack.item, w2.toolDurability);
+      if (i.wear !== undefined && max !== null) stack.wear = Math.min(max - 1, Math.round(max * (1 - i.wear)));
+      return stack;
+    });
+  };
 
   const lidFx = new ChestLidFx(game.scene, (x, y, z) => renderer.light.brightness(x, y, z));
   game.onUpdate(() => lidFx.step());

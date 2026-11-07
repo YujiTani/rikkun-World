@@ -2,7 +2,7 @@ import type { BlockId, ChunkColumn } from '../contracts';
 import { blockIndexOf } from '../world/blocks/blockTypes';
 import { colKey } from '../world/stream/ring';
 import { shaftWorldFor } from '../world/gen/mineShafts';
-import { HEYA_GEN, KODO_GEN } from './gens';
+import { oldColsOf, type OldColSets } from './oldCols';
 import { SAVE_VERSION } from './SaveManager';
 import { NO_SAVE, readPending, removePendingOf, validMeta, type RestoreOptions, type RestoredSave } from './restore';
 
@@ -22,8 +22,8 @@ export interface PendingColumn {
 export interface StreamRestore extends RestoredSave {
   /** 保存にある列（colKey） */
   keys: Set<number>;
-  /** 古い 列の 一覧（colKey。MINE-1C §4.8）: 坑道（kodo）を かかない 列。開いた とき 決まり、増やさず 減らさない。部屋（heya）は 1D */
-  oldCols: { kodo: Set<number>; heya: Set<number> };
+  /** 古い 列の 一覧（colKey。MINE-1C §4.8）: 坑道（kodo）を かかない 列。開いた とき 決まり、増やさず 減らさない。部屋（heya）は 1D・1E の 坑道（boken）は 1E。kodo ⊆ heya ⊆ boken */
+  oldCols: OldColSets;
   /** はじまりの 坑道の 入口 (x, z)（MINE-1C §4.8）。null ＝ さがしたが 置ける 所が なかった〔meta に 書いて 次から さがさない〕。キーが ない ＝ まだ さがして いない */
   shaftStart?: { x: number; z: number } | null;
   /** 保険にあるマスを持つ列（colKey → 中身） */
@@ -32,25 +32,11 @@ export interface StreamRestore extends RestoredSave {
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-export const emptyStreamRestore = (base: RestoredSave = NO_SAVE): StreamRestore => ({ ...base, keys: new Set(), pending: new Map(), oldCols: { kodo: new Set(), heya: new Set() } });
+export const emptyStreamRestore = (base: RestoredSave = NO_SAVE): StreamRestore => ({ ...base, keys: new Set(), pending: new Map(), oldCols: { kodo: new Set(), heya: new Set(), boken: new Set() } });
 
 /** はじまりの 坑道を 計画して 入口を 返す（置けなければ なし）。世界は 一覧ごとに 1 つ 作って、あとで ゲームが 同じ ものを 使う */
-function startOf(seed: number, oldCols: { kodo: Set<number>; heya: Set<number> }, hint?: { x: number; z: number } | null): { x: number; z: number } | null {
+function startOf(seed: number, oldCols: OldColSets, hint?: { x: number; z: number } | null): { x: number; z: number } | null {
   return shaftWorldFor(seed, oldCols, hint).startEntrance();
-}
-
-const ints = (v: unknown): number[] => (Array.isArray(v) ? v.filter((x): x is number => typeof x === 'number' && Number.isFinite(x)) : []);
-
-/**
- * 古い 列の 一覧を 決める〔kodo は KODO_GEN・heya は HEYA_GEN を 基準に〕。
- */
-function oldColsOf(meta: Record<string, unknown> | null, keys: ReadonlySet<number>): { kodo: Set<number>; heya: Set<number> } {
-  const list = meta?.oldCols;
-  const gen = meta?.gen;
-  const g = typeof gen === 'number' && Number.isInteger(gen) ? gen : -1;
-  // 坑道（kodo）と 部屋（heya）は べつべつ: 一覧が あれば それ。なければ 版が その 版 以上なら 空〔新しい 世界〕・古い・meta が ない ときは 保存の 列 ぜんぶ
-  const pick = (v: unknown, from: number): Set<number> => (Array.isArray(v) ? new Set(ints(v)) : g >= from ? new Set() : new Set(keys));
-  return { kodo: pick(isObj(list) ? list.kodo : undefined, KODO_GEN), heya: pick(isObj(list) ? list.heya : undefined, HEYA_GEN) };
 }
 
 /** meta に 書いて あった はじまりの 坑道の 入口（形が おかしければ なし） */
