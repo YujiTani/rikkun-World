@@ -86,6 +86,7 @@ test('AC53: 通し（?duo=dev&pad=2p）: setPadChoice({p1:1,p2:0}) → 番号 1 
 });
 
 test('AC50・AC52・AC56・AC59・AC60・AC65: ふつうの URL の「つかう コントローラー」タブ（0 本 → 2 本 → 光る → 待ち → ＋ で 決まる → 読みなおし → 保存 {p1:null,p2:0} で 参加）', async ({ page }) => {
+  test.setTimeout(120_000); // 長い 通し。CI が 重い とき 60 秒では たりなかった〔MINE-1D の CI で 1 回 時間切れ。別の 回は 緑〕
   await openUsePadTab(page, '?nosave=1'); // AC65: ふつうの URL でも タブが ある
 
   // AC59: 2 だん目に タブが あり、おすと 2 だん目のまま 中身が かわる
