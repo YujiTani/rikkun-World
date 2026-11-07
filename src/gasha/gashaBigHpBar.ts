@@ -245,7 +245,7 @@ export class HpBar {
 
   /**
    * COOP-1 4d-3（§3.6 (c)「体力ゲージ」）: 2 人の とき（on）は 左半分（この ゲージ。data-testid="gasha-hp-p1"）と 右半分（2 つ目）に 分けて 出す。
-   * 位置は 半分の まん中。はばは 半分の 80% より 小さく、上は 距離メーター（上）と 右上の 時計の 下。2 つ目は 最初は かくれている（呼ぶ 側が display で 出す）。1 人に もどれば 2 つ目を 消して もとの 位置
+   * 位置は 半分の まん中。はばは 半分の 80% より 小さく、上は 距離メーター（上）と 右上の 時計（--rk-clock-bottom）の 下。2 つ目は 最初は かくれている（呼ぶ 側が display で 出す）。1 人に もどれば 2 つ目を 消して もとの 位置
    */
   halves(on: boolean): void {
     if (on === (this.twin !== null)) return;
@@ -266,7 +266,8 @@ export class HpBar {
     const place = (r: HTMLElement, leftPct: number, id: string): void => {
       r.style.left = `${leftPct}%`;
       r.style.width = `min(40vw,${H.barMaxPx}px)`;
-      r.style.top = 'calc(max(64px,5vw) + 96px)'; // 右上の 時計（絵 5vw〈64px 以上〉+ ことば + 日）の 下。左右とも 同じ 高さ
+      // 右上の 時計の 下はし（src/ui/clock.css の --rk-clock-bottom。時計の css から 足した 高さ）+ すき間 sp-3。左右とも 同じ 高さ（時計が ない ときの 予備は 1440 の 高さ）
+      r.style.top = 'calc(var(--rk-clock-bottom, 190px) + var(--rk-sp-3, 12px))';
       r.dataset.testid = id;
     };
     place(this.root, 25, 'gasha-hp-p1');
