@@ -9,7 +9,8 @@ import { colKey } from '../stream/ring';
 import { buildBlocks } from './chunk';
 import { chestExcluded, chestPool, rollChest } from './mineChest';
 import { chestSeed, chestTableOf } from './mineChestTable';
-import { shaftWorldFor, type OldCols } from './mineShafts';
+import type { OldCols } from './mineShaftOps';
+import { shaftWorldFor } from './mineShafts';
 import { createCaveHook } from './mineHookCave';
 import type { ChestRoll, ChestTable, PathCell, Pt, Shaft, ShaftRoll, Tier } from './mineShaftTypes';
 
