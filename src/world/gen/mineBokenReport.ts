@@ -203,11 +203,13 @@ export function walkProblemsE(g: GenCols, s: BokenShaft, path: PathCell[], reach
 
 // ------------------------------------------------------------------ E7 行きどまりの くじ
 
-const AIR_ROOM = (g: GenCols, r: { x0: number; y: number; z0: number; x1: number; z1: number }, h: number): string[] => {
+/** `except` ＝ 体が 通らなくて よい マス〔宝箱の マス。宝箱は 固い ブロック。「宝箱である」ことは ほかで 見る〕 */
+const AIR_ROOM = (g: GenCols, r: { x0: number; y: number; z0: number; x1: number; z1: number }, h: number, except: readonly Pt[] = []): string[] => {
+  const skip = new Set(except.map(ptKey));
   const bad: string[] = [];
   for (let x = r.x0; x <= r.x1; x++) {
     for (let z = r.z0; z <= r.z1; z++) {
-      for (let k = 0; k < h; k++) if (!isBodyIndex(g.at(x, r.y + k, z))) bad.push(`へやの (${x}, ${r.y + k}, ${z}) が 体の 通る マスでない: ${g.id(x, r.y + k, z)}`);
+      for (let k = 0; k < h; k++) if (!isBodyIndex(g.at(x, r.y + k, z)) && !skip.has(ptKey({ x, y: r.y + k, z }))) bad.push(`へやの (${x}, ${r.y + k}, ${z}) が 体の 通る マスでない: ${g.id(x, r.y + k, z)}`);
       if (!isSolidIndex(g.at(x, r.y - 1, z))) bad.push(`へやの 床の 下 (${x}, ${r.y - 1}, ${z}) が 固くない`);
     }
   }
@@ -259,7 +261,7 @@ export function deadEndProblems(orig: GenCols, dug: GenCols, e: DeadEnd, T: Tabl
   if (e.room) {
     const r = e.room;
     if (r.x1 - r.x0 + 1 !== R.floor || r.z1 - r.z0 + 1 !== R.floor) bad.push(`${at}: へやが ${R.floor}×${R.floor} でない`);
-    bad.push(...AIR_ROOM(dug, r, R.height).slice(0, 3).map((m) => `${at}: ${m}`));
+    bad.push(...AIR_ROOM(dug, r, R.height, e.chest?.cells ?? []).slice(0, 3).map((m) => `${at}: ${m}`));
   }
   if (e.kind === 'oo' || e.kind === 'hibi_oo') {
     const c = e.chest;
@@ -409,13 +411,14 @@ export function mazeGraph(s: BokenShaft, path: readonly PathCell[]): MazeGraph |
 
 const range = (a: number, b: number): number[] => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
+/** `furniture` ＝ 体が 通らなくて よい マス〔たんす・ちょうちん・ふとん・たきびの あと。高さは そのまま〕。「その ブロックである」ことは campProblems が 別に 見る */
 const AIR_ROOM_CAMP = (g: GenCols, r: { x0: number; y: number; z0: number; x1: number; z1: number }, h: number, furniture: readonly Pt[]): string[] => {
   const furn = new Set(furniture.map(ptKey));
   const bad: string[] = [];
   for (let x = r.x0; x <= r.x1; x++) {
     for (let z = r.z0; z <= r.z1; z++) {
       if (!isSolidIndex(g.at(x, r.y - 1, z))) bad.push(`キャンプの 床の 下 (${x}, ${r.y - 1}, ${z}) が 固くない`);
-      for (let k = 0; k < h; k++) if (!isBodyIndex(g.at(x, r.y + k, z)) && !(k === 0 && furn.has(ptKey({ x, y: r.y, z })))) bad.push(`キャンプの (${x}, ${r.y + k}, ${z}) が 体の 通る マスでない: ${g.id(x, r.y + k, z)}`);
+      for (let k = 0; k < h; k++) if (!isBodyIndex(g.at(x, r.y + k, z)) && !furn.has(ptKey({ x, y: r.y + k, z }))) bad.push(`キャンプの (${x}, ${r.y + k}, ${z}) が 体の 通る マスでない: ${g.id(x, r.y + k, z)}`);
     }
   }
   return bad.slice(0, 4);
