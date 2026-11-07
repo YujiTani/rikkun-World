@@ -378,7 +378,7 @@ html[data-duo] :is(#hearts, #hearts-p2) {
   bottom: 0;
   box-sizing: border-box;
   pointer-events: none;
-  background: var(--duo-flash-color, #fff6d0);
+  background: var(--duo-flash-color, var(--rk-text));
   opacity: 0;
   z-index: 3;
 }
