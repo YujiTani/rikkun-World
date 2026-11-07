@@ -5,7 +5,7 @@ import { InventoryImpl } from '../inventory/Inventory';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { MemoryBackend, SAVE_ID } from './backend';
 import { NO_SAVE } from './restore';
-import { SaveManager, type KeyValueStore, type SaveExtra } from './SaveManager';
+import { SAVE_VERSION, SaveManager, type KeyValueStore, type SaveExtra } from './SaveManager';
 
 /**
  * COOP-1 作業 1（#395）の 先行テスト（赤）。AC10（セーブ）。
@@ -80,15 +80,22 @@ describe('AC10: 2P の セーブ', () => {
     for (const k of ['x', 'y', 'z', 'position', 'yaw', 'pitch', 'hearts']) expect(meta.p2).not.toHaveProperty(k);
   });
 
-  it('本物の P2State を 渡すと meta.p2 は { inventory, level } だけ（場所・向きなし）', async () => {
+  // COOP-1 4b（1.10 §3.5・§6）: 2P の そうび `p2.armor` が 加わった。キーは armor・inventory・level（場所・向きは 今までどおり なし）。SAVE_VERSION は 上げない
+  it('本物の P2State を 渡すと meta.p2 は { armor, inventory, level } だけ（場所・向きなし）。armor は 1P の armor と 同じ 形', async () => {
     const st = new P2State();
     st.inventory.add('dirt', 5);
     st.level = { level: 4, xp: 12 };
+    st.armor.set('kabuto', 'yoroi');
     const db = new MemoryBackend();
     await build(db, { serialize: () => st.serialize(), deserialize: (d) => st.deserialize(d) }, null).now();
     const p2 = (db.metas.get(SAVE_ID) as Record<string, unknown>).p2 as Record<string, unknown>;
-    expect(Object.keys(p2).sort()).toEqual(['inventory', 'level']);
+    expect(Object.keys(p2).sort()).toEqual(['armor', 'inventory', 'level']);
     expect(p2.level).toEqual({ level: 4, xp: 12 });
+    expect(p2.armor).toEqual({ head: 'kabuto', body: 'yoroi', arms: null, legs: null });
+  });
+
+  it('SAVE_VERSION は 上げない（p2.armor は 足すだけ。armor の ない 前の セーブも 読める）', () => {
+    expect(SAVE_VERSION).toBe(1);
   });
 
   it('読み直すと 2P の 持ち物とレベルが 戻る（deserialize に meta.p2 が 渡る）', async () => {

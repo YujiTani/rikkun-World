@@ -1,12 +1,17 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import type { BladeEvent, BowEvent, CombatEvent, DigEvent, DigState, DigSystem, TargetInfo } from '../contracts';
+import type { ArmorSlot, BladeEvent, BowEvent, CombatEvent, DigEvent, DigState, DigSystem, ItemId, TargetInfo } from '../contracts';
 import { COMBAT_SOUNDS, playCombat } from '../fx/combatSounds';
 import { FX_SETTINGS } from '../fx/config';
 import { createFootsteps, FOOTSTEP_TUNING } from '../fx/footsteps';
 import { SoundFx, type Tone } from '../fx/sound';
 import { playSwing } from '../ui/craftUi';
 import { WEAPON_SOUNDS, playBladeSound, playBowSound } from '../fx/weaponSounds';
+import { GetaStepper } from '../craft/geta';
+import { NINJA_TUNING } from '../craft/ninjaTuning';
+import { SAMURAI_GEAR } from '../craft/config';
+import { playGeta } from '../fx/getaSounds';
+import { drainSounds } from '../fx/soundLog';
 import { createP2DigFx } from './p2DigFx';
 import { createP2Sounds } from './p2Sounds';
 
@@ -380,5 +385,102 @@ describe('AC67: 2P の DigFx（見張り。今の 実装で 緑）', () => {
     expect(t.names()).toContain('crack');
     for (let i = 0; i < 60; i++) t.fx.update(1 / 60);
     expect(t.names()).toContain('dig');
+  });
+});
+
+/**
+ * COOP-1 作業 4b（docs/design/COOP-1.md 1.10 §3.5・AC91）の 先行テスト（赤）。明珍下駄の 2P: 走ると「カラン」の 1 歩。
+ * ---- 実装への 約束 ----
+ *   src/duo/p2Sounds.ts   createP2Sounds(sound, armor?: { equipped(slot: ArmorSlot): ItemId | null }): P2Sounds
+ *     2 つめの 引数 = 2P の そうび（p2.armor。読むたびに いまの 着ている 物）。なければ 下駄は ない（いまの テストは そのまま）。
+ *     step(body, groundId) は 中に **1P と 同じ GetaStepper**（armor, onStep = `playGeta(sound)`）を もう 1 つ 持ち、先に `geta.step(body)` を 呼ぶ。
+ *     下駄で 走る ステップ（geta.step が true）は ふつうの 足音を 鳴らさず null を 返す（1P の step.ts:195 と 同じ）。そうでなければ 今までどおり。
+ *   配線: wire/duoPlay.ts の build() が `createP2Sounds(fxSound, p2.armor)`。
+ */
+const wearingLegs = (get: () => ItemId | null) => ({ equipped: (slot: ArmorSlot): ItemId | null => (slot === 'legs' ? get() : null) });
+const run = (o: { running?: boolean } = {}) => walk({ running: o.running ?? true, v: 5.6 });
+const GETA = SAMURAI_GEAR.legs;
+
+describe('AC91: 2P の 明珍下駄（走ると getaStep、そのあいだ ふつうの 足音なし）', () => {
+  it('走って getaStepTicks ごとに 下駄の 音が 1 つ。1P の GetaStepper と 同じ 回数・同じ 数の 音', () => {
+    const r1 = recorder();
+    const r2 = recorder();
+    const geta1 = new GetaStepper(wearingLegs(() => GETA), () => playGeta(r1.sound));
+    const foot1 = createFootsteps(r1.sound);
+    const p2 = createP2Sounds(r2.sound, wearingLegs(() => GETA));
+    const total = NINJA_TUNING.getaStepTicks * 3;
+    drainSounds();
+    let k2 = 0;
+    for (let i = 0; i < total; i++) {
+      const b = run();
+      if (!geta1.step(b)) foot1.step(b, () => 'grass');
+      if (p2.step(run(), () => 'grass') === null) k2++;
+    }
+    const names = drainSounds().filter((n) => n === 'getaStep');
+    expect(names, '1P と 2P で 3 回ずつ').toHaveLength(6);
+    expect(r2.played.length, '2P の 音の 数 = 1P の 音の 数').toBe(r1.played.length);
+    expect(r2.played.length).toBe(3);
+    expect(k2, '下駄で 走る ステップは いつも null').toBe(total);
+  });
+
+  it('走っている 30 ステップの あいだ ふつうの 足音は 1 つも 鳴らない（下駄の 音だけ）。下駄を ぬいだ 走りは ふつうの 足音', () => {
+    const r = recorder();
+    let legs: ItemId | null = GETA;
+    const p2 = createP2Sounds(r.sound, wearingLegs(() => legs));
+    drainSounds();
+    for (let i = 0; i < NINJA_TUNING.getaStepTicks; i++) expect(p2.step(run(), () => 'grass')).toBeNull();
+    expect(drainSounds().filter((n) => n === 'getaStep')).toHaveLength(1);
+    expect(r.played.length, '下駄の 1 つだけ').toBe(1);
+    legs = null;
+    let foot = 0;
+    for (let i = 0; i < FOOTSTEP_TUNING.runTicks * 2; i++) if (p2.step(run(), () => 'grass') === 'grass') foot++;
+    expect(foot).toBe(2);
+    expect(drainSounds().filter((n) => n === 'getaStep')).toHaveLength(0);
+  });
+
+  it('歩き（Shift なし）・止まっている・空中・水の 中では 下駄の 音は 鳴らない。歩きは ふつうの 足音', () => {
+    const r = recorder();
+    const p2 = createP2Sounds(r.sound, wearingLegs(() => GETA));
+    drainSounds();
+    let foot = 0;
+    for (let i = 0; i < FOOTSTEP_TUNING.walkTicks * 3; i++) if (p2.step(walk({ running: false }), () => 'grass') === 'grass') foot++;
+    expect(foot).toBe(3);
+    for (const o of [{ onGround: false }, { v: 0 }, { inWater: true }]) for (let i = 0; i < 100; i++) p2.step(walk({ running: true, ...o }), () => 'grass');
+    expect(drainSounds().filter((n) => n === 'getaStep')).toHaveLength(0);
+  });
+
+  it('下駄が ない（ふつうの すねあて・はだか・そうびを 渡さない）2P が 走っても 下駄の 音は 鳴らない', () => {
+    for (const make of [() => createP2Sounds(recorder().sound), () => createP2Sounds(recorder().sound, wearingLegs(() => null)), () => createP2Sounds(recorder().sound, wearingLegs(() => 'suneate'))]) {
+      const p2 = make();
+      drainSounds();
+      for (let i = 0; i < NINJA_TUNING.getaStepTicks * 3; i++) p2.step(run(), () => 'grass');
+      expect(drainSounds().filter((n) => n === 'getaStep')).toHaveLength(0);
+    }
+  });
+
+  it('2 人が 同時に 走ると 下駄の 音は 2 人分（数えは 1 人ずつ。2P が 止まっても 1P の 数えは 進む）', () => {
+    const r1 = recorder();
+    const r2 = recorder();
+    const geta1 = new GetaStepper(wearingLegs(() => GETA), () => playGeta(r1.sound));
+    const p2 = createP2Sounds(r2.sound, wearingLegs(() => GETA));
+    drainSounds();
+    for (let i = 0; i < NINJA_TUNING.getaStepTicks * 2; i++) {
+      geta1.step(run());
+      p2.step(walk({ running: true, v: 0 }), () => 'grass'); // 2P は 止まって いる
+    }
+    expect(drainSounds().filter((n) => n === 'getaStep'), '1P の 2 回だけ').toHaveLength(2);
+    expect(r2.played.length).toBe(0);
+  });
+
+  it('走るのを やめると 数えは 0 から（途中で 切れたら 30 ステップ 走りなおし）', () => {
+    const r = recorder();
+    const p2 = createP2Sounds(r.sound, wearingLegs(() => GETA));
+    drainSounds();
+    for (let i = 0; i < NINJA_TUNING.getaStepTicks - 1; i++) p2.step(run(), () => 'grass');
+    p2.step(run({ running: false }), () => 'grass');
+    for (let i = 0; i < NINJA_TUNING.getaStepTicks - 1; i++) p2.step(run(), () => 'grass');
+    expect(drainSounds().filter((n) => n === 'getaStep')).toHaveLength(0);
+    p2.step(run(), () => 'grass');
+    expect(drainSounds().filter((n) => n === 'getaStep')).toHaveLength(1);
   });
 });
