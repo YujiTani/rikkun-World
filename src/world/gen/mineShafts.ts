@@ -204,10 +204,15 @@ export class ShaftWorld implements CaveHost {
   private *regionJob(rx: number, rz: number): Generator<void, Planned | null> {
     if (!(regionHit(this.seed, rx, rz) && !this.blocked(rx, rz) && regionLand(this.G, rx, rz) >= S.minLand)) return null;
     // 古い 世界: 1C・1D の 坑道〔版 6 の 計画〕が 1E の 一覧の 列に かかる 区画は その まま 作る（MINE-1E §4.13）
+    // 1E の 一覧の 列が 区画の まわりに ひとつも なければ 1C の 計画は 読まれない ので 作らない〔1C の 計画の 列は 区画の 中と その まわり 2 列の 中〕
     const boken = this.oldCols?.boken;
     if (boken && boken.size > 0) {
-      const c = yield* regionJobC(this.G, this.env(null), rx, rz);
-      if (c) for (const k of c.plan.cols) if (boken.has(k)) return c;
+      const R = S.region;
+      const m = S.plan.v6Margin;
+      if (touchesBoken(boken, rx * R - m, rz * R - m, rx * R + R - 1 + m, rz * R + R - 1 + m)) {
+        const c = yield* regionJobC(this.G, this.env(null), rx, rz);
+        if (c) for (const k of c.plan.cols) if (boken.has(k)) return c;
+      }
     }
     return yield* this.regionJobE(rx, rz);
   }

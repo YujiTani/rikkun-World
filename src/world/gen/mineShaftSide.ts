@@ -8,7 +8,7 @@ import { CAVE_CONFIG as CC, type CaveKind } from './mineCaveConfig';
 import type { HiroiTryRow, PlacedCave } from './mineCaves';
 import { HEYA_TRIES, LINK_TRIES, cellsSig, heyaSource, pickKind, planBoxOk, type HeyaSource, type SideRef, type StartLink } from './mineShaftHeya';
 import { scanFloors, tryAimed } from './mineSideAimed';
-import { LIM_C, build, commit, exitOf, type Hub, type SideLim, type Spec } from './mineSideBuild';
+import { LIM_C, buildSteps, commit, exitOf, type Hub, type SideLim, type Spec } from './mineSideBuild';
 import { createRng, hash01, hashInts, subSeed, type Rng } from './random';
 
 /**
@@ -68,7 +68,7 @@ export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean,
     for (let t = t0; t < t1; t++) {
       yield; // 形を 1 つ ためす ごとに ひと休み
       const hrng = createRng(hashInts(subSeed(G.seed, 953), site.x, site.z, h.y, t));
-      const side = tryWinding(G, b, h, hrng, F, region, site, chestCells, t % 2 === 0 ? s0 : -s0, src);
+      const side = yield* tryWindingSteps(G, b, h, hrng, F, region, site, chestCells, t % 2 === 0 ? s0 : -s0, src);
       const cave = src.built();
       if (side && cave) {
         out.rooms.push(cave);
@@ -111,7 +111,7 @@ export function* planSides(G: Geo, b: ShaftBuilder, hubs: Hub[], start: boolean,
     }
     for (let t = 0; t < E.tries && side === null; t++) {
       yield;
-      side = tryWinding(G, b, h, rng, F, region, site, chestCells, t % 2 === 0 ? s0 : -s0);
+      side = yield* tryWindingSteps(G, b, h, rng, F, region, site, chestCells, t % 2 === 0 ? s0 : -s0);
     }
     if (snap0 !== null) {
       const touchesOld = b.path.slice(p0).some(oldCell);
@@ -173,7 +173,8 @@ function weightedIndex(rng: Rng, w: readonly number[]): number {
   }
   return w.length - 1;
 }
-export function tryWinding(G: Geo, b: ShaftBuilder, hub: Hub, rng: Rng, F: Frame, region: { x0: number; z0: number } | null, site: Site, chestCells: ReadonlySet<number>, s: number, heya?: HeyaSource, lim: SideLim = LIM_C, inc = false, accept?: (cells: readonly PathCell[]) => boolean): ShaftSide | null {
+/** 横穴を 1 本 ためす。ほらあなの へやを 作る 横穴は 短い 仕事ごとに yield する〔先読みが 時間で 止まれる ように。結果は いっきに やった ときと 同じ〕 */
+export function* tryWindingSteps(G: Geo, b: ShaftBuilder, hub: Hub, rng: Rng, F: Frame, region: { x0: number; z0: number } | null, site: Site, chestCells: ReadonlySet<number>, s: number, heya?: HeyaSource, lim: SideLim = LIM_C, inc = false, accept?: (cells: readonly PathCell[]) => boolean): Generator<void, ShaftSide | null> {
   const E = S.side;
   const { tx, tz, c1x, c1z } = exitOf(F, hub, s);
   const length = lim.lengthMin + Math.floor(rng() * (lim.lengthMax - lim.lengthMin + 1));
@@ -217,6 +218,6 @@ export function tryWinding(G: Geo, b: ShaftBuilder, hub: Hub, rng: Rng, F: Frame
     corners.push({ x: last.x, z: last.z });
   }
   const spec: Spec = { center, dirs, corners, end: heya ? 'heya' : 'koheya', heya, stairs: 0, stairSgn: 1 };
-  const c = build(G, b, hub, hub.y, spec, F, region, site, chestCells, rng, s, lim);
+  const c = yield* buildSteps(G, b, hub, hub.y, spec, F, region, site, chestCells, rng, s, lim);
   return c && (!accept || accept(c.cells)) ? commit(b, hub, c, length, bends, s, F, lim, inc) : null;
 }

@@ -6,7 +6,8 @@ import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import { coverOk, type Geo, type Site } from './mineShaftSite';
 import type { PathCell, Pt, ShaftLayer, ShaftSide } from './mineShaftTypes';
 import type { Overlay } from './mineCaveGrid';
-import { heyaTail, type HeyaBuilt, type HeyaPrep, type HeyaSource } from './mineShaftHeya';
+import { drain } from './mineCaveRoom';
+import { heyaTailSteps, type HeyaBuilt, type HeyaPrep, type HeyaSource } from './mineShaftHeya';
 import { Virt } from './mineSideVirt';
 import { hashInts, type Rng } from './random';
 
@@ -83,7 +84,13 @@ export function exitOf(F: Frame, hub: Hub, s: number): { tx: number; tz: number;
   return { tx, tz, c1x: F.x(hub.u, edge), c1z: F.z(hub.u, edge), edge, px: -tz, pz: tx };
 }
 
-export function build(
+/** 横穴の 候補を いっきに 作る〔ほらあなの へやが ない 横穴 用〕 */
+export function build(G: Geo, b: ShaftBuilder, hub: Hub, y: number, spec: Spec, F: Frame, region: { x0: number; z0: number } | null, site: Site, chestCells: ReadonlySet<number>, rng: Rng, s: number, lim: SideLim = LIM_C): Cand | null {
+  return drain(buildSteps(G, b, hub, y, spec, F, region, site, chestCells, rng, s, lim));
+}
+
+/** 横穴の 候補を 作る。ほらあなの へやを 作る 横穴は 短い 仕事ごとに yield する〔先読みが 時間で 止まれる ように。結果は いっきに 作った ときと 同じ〕 */
+export function* buildSteps(
   G: Geo,
   b: ShaftBuilder,
   hub: Hub,
@@ -96,7 +103,7 @@ export function build(
   rng: Rng,
   s: number,
   lim: SideLim = LIM_C,
-): Cand | null {
+): Generator<void, Cand | null> {
   const { center, dirs, corners, end } = spec;
   const { tx: tdx, tz: tdz, c1x, c1z } = exitOf(F, hub, s);
   const seen = new Set<number>();
@@ -158,7 +165,7 @@ export function build(
   let prep: HeyaPrep | null = null;
   if (end === 'heya') {
     if (center.some((c) => spec.heya!.oldAt(c.x, c.z))) return null; // 古い 列が かかる 横穴は 1C の 形のまま
-    const tail = heyaTail(spec.heya!, y, lastC, ldx, ldz, center);
+    const tail = yield* heyaTailSteps(spec.heya!, y, lastC, ldx, ldz, center);
     if (!tail) return null;
     prep = tail.prep;
     for (const c of tail.cells) add(c.x, c.y, c.z, 'side');
@@ -262,7 +269,7 @@ export function build(
       solid: (k) => hard(k) || ring.has(k) || b.ring.has(k),
       taken: (k) => air.has(k) || b.air.has(k) || ring.has(k) || b.ring.has(k) || b.put.has(k),
     };
-    built = prep!.stage(over, { x: faceX, y: faceY, z: faceZ }) ?? undefined;
+    built = (yield* prep!.stageSteps(over, { x: faceX, y: faceY, z: faceZ })) ?? undefined;
     if (!built) return null;
   } else {
     // こべやの かべに その 層の 鉱石を 4 こ いじょう

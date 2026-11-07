@@ -1,7 +1,7 @@
 import { BOKEN_TUNING } from './mineBokenConfig';
 import { bokenSiteOk, planBokenSteps, type BokenPlanEnv } from './mineBokenPlan';
 import { styleLadder, styleOf } from './mineBokenStyle';
-import { buildOps, type ColOps } from './mineShaftOps';
+import { buildOpsSteps, type ColOps } from './mineShaftOps';
 import type { ShaftPlan } from './mineShaftPlan';
 import { regionSites, type Geo, type Site } from './mineShaftSite';
 
@@ -26,7 +26,7 @@ export function* bokenRegionJob(G: Geo, seed: number, rx: number, rz: number, en
         const plan = yield* planBokenSteps(G, site, `r${rx}_${rz}`, rx, rz, ladder[level]!, env, a);
         if (plan) {
           yield;
-          return { plan, ops: buildOps(plan) };
+          return { plan, ops: yield* buildOpsSteps(plan) };
         }
         yield;
       }

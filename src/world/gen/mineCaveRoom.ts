@@ -114,7 +114,7 @@ export function buildRoom(args: BuildArgs): BuiltRoom {
   return finishRoom(stageRoom(args));
 }
 
-export function stageRoom(args: BuildArgs): RoomStage {
+function stageRoom(args: BuildArgs): RoomStage {
   return drain(stageRoomSteps(args));
 }
 
@@ -200,7 +200,7 @@ export function* stageRoomSteps(args: BuildArgs): Generator<void, RoomStage> {
 }
 
 /** 部屋づくりの 後半: かざり・数える・置く 物 */
-export function finishRoom(st: RoomStage): BuiltRoom {
+function finishRoom(st: RoomStage): BuiltRoom {
   return drain(finishRoomSteps(st));
 }
 
