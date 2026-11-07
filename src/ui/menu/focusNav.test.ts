@@ -59,4 +59,27 @@ describe('メニューのフォーカス', () => {
       expect(['slot0', 'slot8']).toContain(pickNext(wide, 'quit', 'up'));
     });
   });
+
+  describe('1 人の 全面の もちもの・つくる（実際の 寸法。gamepad1 e2e の 道すじ）', () => {
+    const full: FocusBox[] = [
+      { id: 'equip', l: 414, t: 102, w: 30, h: 30 },
+      { id: 'slot13', l: 448, t: 152, w: 30, h: 30 },
+      { id: 'slot35', l: 584, t: 220, w: 30, h: 30 },
+      { id: 'tile1', l: 649, t: 110, w: 34, h: 34 },
+      { id: 'tile4', l: 751, t: 110, w: 34, h: 34 },
+      { id: 'tileY', l: 649, t: 212, w: 34, h: 34 },
+      { id: 'tileY4', l: 751, t: 212, w: 34, h: 34 },
+      { id: 'close', l: 887, t: 37, w: 82, h: 56 },
+      { id: 'next', l: 907, t: 171, w: 45, h: 56 },
+    ];
+    it('そうびの マスから 右へ は、遠い 一覧の タイルへ とばず 近い もちものの マスへ', () => {
+      expect(pickNext(full, 'equip', 'right')).toBe('slot13');
+    });
+    it('もちものの マスから 右へ 同じ 行の タイルへ', () => {
+      expect(pickNext(full, 'slot35', 'right')).toBe('tileY');
+    });
+    it('一覧の 右はしの タイルから 右へ せつめいの ボタンへ', () => {
+      expect(pickNext(full, 'tileY4', 'right')).toBe('next');
+    });
+  });
 });

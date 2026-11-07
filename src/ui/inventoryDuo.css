@@ -95,6 +95,10 @@
   font-size: var(--rk-fs-small);
   padding-inline: var(--rk-sp-3);
 }
+/* ボタンは どの 大きさでも 高さ 56 以上（AC81・§9.8。1024 では --rk-h-btn が 47.6） */
+.inv-root[data-layout='duo'] :is(.inv-duo-tabs .rk-tab, .cp-detail .cp-press) {
+  min-height: max(56px, var(--rk-h-btn));
+}
 .inv-duo-close {
   box-sizing: border-box;
   width: max(56px, var(--rk-h-btn));

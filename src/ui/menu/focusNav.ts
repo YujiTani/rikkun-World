@@ -32,6 +32,9 @@ function gap(l1: number, w1: number, l2: number, w2: number): number {
 /** 同じ 点数の ときは 中心が 近い 物（COOP-1 4a。0.5px までは 同点） */
 const TIE = 0.5;
 
+/** 同じ 行で 先に 見る 相手の 遠さの 上限（自分の 大きさ[大きい ほう]の 何倍まで。箱どうしの すきまで はかる） */
+const SAME_ROW_REACH = 4;
+
 function pickFrom(boxes: readonly FocusBox[], cur: FocusBox, dir: FocusDir): FocusBox | null {
   const cx = cur.l + cur.w / 2;
   const cy = cur.t + cur.h / 2;
@@ -57,6 +60,8 @@ function pickFrom(boxes: readonly FocusBox[], cur: FocusBox, dir: FocusDir): Foc
         const sameRow = gap(cur.t, cur.h, b.t, b.h) === 0;
         if (pass === 0) {
           if (!sameRow) continue;
+          // 行は 同じでも 遠い 物（べつの まとまり）へは とばない: 間に ある 近い 物が 先（今の 決まり）。1 人の 全面で、そうびの マスから 右へ 行くと 一覧の タイルへ とんでしまう のを ふせぐ
+          if (gap(cur.l, cur.w, b.l, b.w) > SAME_ROW_REACH * Math.max(cur.w, cur.h)) continue;
           secondary = 0;
         } else {
           // 今までの 決まり。ただし 真上・真下に 重なる 物（はばの 広い ボタンと その 上の マス）は よこの 仲間では ないので 行かない
