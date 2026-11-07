@@ -269,7 +269,7 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
       dot.dataset.src = src;
       dot.dataset.ok = String(src !== 'none');
     }
-    chip.dataset.tansu = String(m.inTansu ?? 0);
+    chip.dataset.inTansu = String(m.inTansu ?? 0); // data-in-tansu（data-tansu は たんすの マスの 番号。同じ 名前に すると 2 人用の 画面で マスと 取りちがえる）
     if ((m.inTansu ?? 0) > 0) addTansuMini(chip, iconOf);
     e.mats.append(chip);
   }
@@ -289,7 +289,7 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
       chip.style.cursor = 'pointer';
       chip.style.pointerEvents = 'auto';
       const t = d.fuel.inTansu?.[item] ?? 0;
-      chip.dataset.tansu = String(t);
+      chip.dataset.inTansu = String(t);
       if (t > 0) addTansuMini(chip, iconOf);
       chip.addEventListener('click', (ev) => {
         ev.stopPropagation();

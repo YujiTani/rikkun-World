@@ -49,6 +49,8 @@ export interface DuoPlayCtx {
   joined: () => boolean;
   /** 2P の パッドが ささっているか */
   padPresent: () => boolean;
+  /** 2P の 向きを この 角度（度。+ が 右）だけ 回す（次の ステップの 2P の カメラへ。`duo.aimAt(2, …)` が 向きを 変える ため。毎ステップ 向きは カメラから もどされる） */
+  lookBy: (deg: number) => void;
   /** 2P の カメラ（小太刀の 斬撃の 向きに 使う。1P の game.camera ではない） */
   camera2: () => { position: Vec3 };
   /** 2P が 出る 所（1P の 横） */
@@ -279,7 +281,10 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       const dy = cell.y + 0.5 - (p.y + ctl.settings.eyeHeight);
       const dz = cell.z + 0.5 - p.z;
       const len = Math.hypot(dx, dy, dz) || 1;
-      ctl.set({ yawDeg: Math.atan2(dx, -dz) / DEG, pitchDeg: Math.asin(dy / len) / DEG });
+      const yaw = Math.atan2(dx, -dz) / DEG;
+      // 2P の 向き（yaw）は 毎ステップ 2P の カメラから もどされる ので、カメラも 同じ だけ 回す（ctl.set だけだと 次の ステップで 消える）
+      if (who === 2) c.lookBy((((yaw - ctl.state.yawDeg + 180) % 360) + 360) % 360 - 180);
+      ctl.set({ yawDeg: yaw, pitchDeg: Math.asin(dy / len) / DEG });
     },
     target(who) {
       const t = who === 1 ? dig1.target() : (live?.dig.target() ?? null);

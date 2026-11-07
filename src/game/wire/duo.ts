@@ -174,6 +174,9 @@ export function wireDuo(deps: WiredLoop) {
     actions: p2Actions,
     lock: lock2,
     ctl2: () => controller2(),
+    lookBy: (deg) => {
+      pendingLook += deg;
+    },
     joined: () => session.joined,
     padPresent: () => !router.padLost(),
     camera2: () => views.camera2(),
