@@ -23,6 +23,9 @@ import { createP2Dig } from '../../duo/p2Dig';
 import { createP2DigFx } from '../../duo/p2DigFx';
 import { createP2Sounds, type P2Sounds } from '../../duo/p2Sounds';
 import { P2Life } from '../../duo/p2Life';
+import { sampleStacks } from '../../duo/sample';
+import { ALL_RECIPES } from '../../craft/recipes';
+import { ITEM_TYPES } from '../../inventory/items';
 import { pickableMate } from '../../duo/rules';
 import { DUO_TUNING } from '../../duo/tuning';
 import type { DuoPlayHook, DuoVec3 } from '../../duo/types';
@@ -234,6 +237,13 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       const inv = invOf(who);
       if (!dev || !inv) return;
       inv.setSlot(0, { item, count });
+      inv.select(0);
+    },
+    sample(who) {
+      const inv = invOf(who);
+      if (!dev || !inv) return;
+      inv.clear();
+      sampleStacks(ITEM_TYPES, ALL_RECIPES, inv.size).forEach((s, i) => inv.setSlot(i, s));
       inv.select(0);
     },
     count: (who, item) => invOf(who)?.count(item) ?? 0,

@@ -31,6 +31,8 @@ export class EquipPanel {
       c.root.classList.add('inv-slot', 'equip-slot');
       c.root.dataset.slot = slot;
       c.root.title = label;
+      c.root.dataset.menuItem = ''; // 十字で えらべる（もちものの マスと 同じ。COOP-1 4a）
+      c.root.tabIndex = 0;
       c.root.addEventListener('click', (e) => {
         e.stopPropagation();
         this.click(slot);

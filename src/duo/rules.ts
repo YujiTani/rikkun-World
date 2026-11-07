@@ -1,11 +1,9 @@
-import type { ScreenMode } from '../contracts';
-
 /**
- * 1P の 全面の もちもの画面（'inventory'）の ときの 時間の 倍率。2 人の ときは 0（世界が 止まる。AC84）。1 人の ときは base の まま。
- * base = `screen.timeScale()` の 値。2P の パネルを 開いても 画面は 'inventory' に ならないので 倍率は 1 のまま（AC11）
+ * 1P の もちもの画面（'inventory'）の ときの 時間の 倍率。2 人の ときは 1（世界は 止めない・ゆっくりにも しない。もう 1 人が 遊んでいる。AC11・AC75）。
+ * 1 人の ときは base の まま（全面は 0.25 倍）。base = `screen.timeScale()` の 値
  */
 export function duoTimeScale(base: number, joined: boolean): number {
-  return joined ? 0 : base;
+  return joined ? 1 : base;
 }
 
 /** 2P が ボタンで 開こうと する 画面（§8・AC15）。段階 1 で 開けるのは 'inventory'（2P 自分の もちもの）だけ */
@@ -51,14 +49,10 @@ export function pickableMate<T>(mate: T | null, down: boolean): T | null {
 }
 
 /**
- * 2P の 側に「ちょっと まってね」を 出すか（AC84）。2 人の とき、世界が 止まっている あいだ（1P の 全面の もちもの画面・本・建築士さん）。
- * joined = 2P が いる / inventoryOpen = 1P の 全面の もちもの画面 / modal = 本・建築士さんの 画面
+ * 2P の 側に「ちょっと まってね」を 出すか。2 人の とき、世界が 止まっている あいだ（本・建築士さん）。
+ * もちもの画面（1P の 2 人用・2P の 2 人用）は 世界を 止めない ので 出さない（4a。AC75）。
+ * joined = 2P が いる / modal = 本・建築士さんの 画面
  */
-export function duoWaitNotice(i: { joined: boolean; inventoryOpen: boolean; modal: boolean }): boolean {
-  return i.joined && (i.inventoryOpen || i.modal);
-}
-
-/** 2 人で 1P の 全面の もちもの画面（'inventory'）が 開いている あいだ 世界を 止めるか（AC84・§10）。`game.setModal` の `active()` が 使う */
-export function duoWorldFrozen(i: { joined: boolean; mode: ScreenMode }): boolean {
-  return i.joined && i.mode === 'inventory';
+export function duoWaitNotice(i: { joined: boolean; modal: boolean }): boolean {
+  return i.joined && i.modal;
 }

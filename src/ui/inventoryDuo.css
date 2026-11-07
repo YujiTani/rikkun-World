@@ -1,0 +1,194 @@
+/*
+ * COOP-1 4a（docs/design/COOP-1.md §3.3・§9.8）: 2 人用の もちもの・クラフト画面。
+ * 2 人の あいだ だけ `data-layout="duo"` に なる。1 人の ときの 全面（`data-layout` なし）は ここの 規則を 受けない。
+ * 置き場: 画面の はしから 8px、まん中の 線（4px）の ふちから 8px。上は 高さの 12%、下は 8px。ちぢめない（transform なし）。
+ * 1P = 左（data-who="1"・ライム）、2P = 右（data-who="2"・むらさき）。
+ */
+.inv-root[data-who='1'] {
+  --duo-inv-color: var(--rk-xp);
+}
+.inv-root[data-who='2'] {
+  --duo-inv-color: var(--rk-rarity-3);
+}
+
+/* 2P の 画面は マウスを うけない（マウスは 1P の 物。下へ ぬける） */
+.inv-root[data-who='2'],
+.inv-root[data-who='2'] * {
+  pointer-events: none !important;
+}
+
+.inv-duo-bar {
+  display: none;
+}
+
+:is(#inventory-screen, .inv-root)[data-layout='duo'] {
+  position: fixed;
+  inset: auto;
+  top: 12vh;
+  bottom: 8px;
+  display: block;
+  background: none;
+  z-index: 8;
+}
+:is(#inventory-screen, .inv-root)[data-layout='duo'][data-who='1'] {
+  left: 8px;
+  right: calc(50% + 10px);
+}
+:is(#inventory-screen, .inv-root)[data-layout='duo'][data-who='2'] {
+  left: calc(50% + 10px);
+  right: 8px;
+}
+:is(#inventory-screen, .inv-root)[data-layout='duo'][hidden] {
+  display: none;
+}
+
+/* わく: その 人の 色。4px のふち（わく＋中の すきま 4px。§9.8。UI 検査の すきまの 段に そろえる） */
+.inv-root[data-layout='duo'] .inv-frame {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  gap: var(--rk-sp-3);
+  align-items: center;
+  border: 4px solid var(--duo-inv-color);
+  border-radius: var(--rk-r-m);
+  transform: none !important;
+}
+/* 1 人の ときの 上の 帯・見出し・とじる は 2 人用では 使わない（かわりに inv-duo-bar）。「つくる／やく」の 小さい タブ・たんすは 4c まで 出さない */
+.inv-root[data-layout='duo'] :is(.craft-tabs, .inv-storage) {
+  display: none !important;
+}
+.inv-root[data-layout='duo'] .inv-head > :is(.inv-tabs, .inv-title, .inv-close) {
+  display: none;
+}
+.inv-root[data-layout='duo'] .inv-head {
+  width: 100%;
+}
+.inv-root[data-layout='duo'] .inv-duo-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+  width: 100%;
+}
+.inv-duo-badge {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  min-width: 1.6em;
+  height: 1.6em;
+  padding: 0 var(--rk-sp-1);
+  border: 2px solid var(--rk-bg-900);
+  border-radius: var(--rk-r-pill);
+  background: var(--duo-inv-color);
+  color: var(--rk-bg-900);
+  font-size: var(--rk-fs-small);
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: none;
+}
+.inv-duo-tabs {
+  display: flex;
+  gap: var(--rk-sp-2);
+  flex: 1;
+}
+.inv-duo-tabs .rk-tab {
+  font-size: var(--rk-fs-small);
+  padding-inline: var(--rk-sp-3);
+}
+.inv-duo-close {
+  box-sizing: border-box;
+  width: max(56px, var(--rk-h-btn));
+  height: max(56px, var(--rk-h-btn));
+  display: grid;
+  place-items: center;
+  padding: 0;
+  margin-left: auto;
+  font: inherit;
+  font-size: var(--rk-fs-head);
+  font-weight: 800;
+  color: var(--rk-ink);
+  background: var(--rk-accent-grad);
+  border: var(--rk-bw) solid var(--rk-accent);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-1);
+  cursor: pointer;
+}
+
+/* ページ: 「もちもの」= そうび・もちもの・ホットバー / 「つくる」= レシピ・せつめい・ホットバー。body・panel・main は 外して 並べる */
+.inv-root[data-layout='duo'] :is(.inv-body, .inv-panel, .inv-main) {
+  display: contents;
+}
+.inv-root[data-layout='duo'] .equip-panel {
+  order: 1;
+}
+.inv-root[data-layout='duo'] .inv-side {
+  order: 2;
+  width: auto;
+}
+.inv-root[data-layout='duo'] .inv-grid {
+  order: 3;
+}
+.inv-root[data-layout='duo'] .inv-hints,
+.inv-root[data-layout='duo'] .inv-duo-quit {
+  order: 9;
+  margin-top: auto;
+}
+.inv-root[data-layout='duo'][data-page='items'] .inv-side,
+.inv-root[data-layout='duo'][data-page='craft'] :is(.equip-panel, .inv-bag, .inv-gap, .inv-hints, .inv-duo-quit) {
+  display: none;
+}
+/* 操作の ひとこと（キー・マウスの 説明）は 1P だけ。2P は パッドだけ なので「やめる」 */
+.inv-root[data-who='2'] .inv-hints {
+  display: none;
+}
+.inv-root[data-layout='duo'] .inv-duo-quit {
+  align-self: stretch;
+  min-height: max(56px, var(--rk-h-btn));
+}
+.inv-root[data-layout='duo'] .inv-hints {
+  align-self: stretch;
+  justify-content: center;
+}
+
+/* 「つくる」: 左に レシピ（1280・1440 は 4 列、1024 は 3 列）、右に せつめい（ちぢめない）。レシピは 中で たてに スクロール */
+.inv-root[data-layout='duo'] .craft-panel {
+  height: calc(var(--rk-slot-inv) * 7.5);
+  padding: 0;
+  background: none;
+  gap: var(--rk-sp-4);
+}
+.inv-root[data-layout='duo'] .cp-left {
+  min-height: 0;
+}
+.inv-root[data-layout='duo'] .craft-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* 右は スクロールバー（thin）の ぶんを あけて、列が 欠けない ように */
+  padding: var(--rk-sp-1) calc(var(--rk-sp-1) + 12px) var(--rk-sp-1) var(--rk-sp-1);
+  scrollbar-width: thin;
+}
+@media (max-width: 1100px) {
+  .inv-root[data-layout='duo'] .cp-grid {
+    grid-template-columns: repeat(3, var(--rk-slot-inv));
+  }
+}
+
+/* 2P の えらび（十字）: 1 人の ときの フォーカスの わくと 同じ 見え方 */
+.inv-root [data-pad-focus='true'] {
+  outline: 4px solid var(--rk-accent, #ffc83d);
+  outline-offset: 3px;
+}
+
+/* 開いている 人の ホットバー・ハート・レベルの 棒は かくす。もう 1 人の HUD・メーター・時計・お知らせは そのまま */
+#hud:has(> #inventory-screen[data-layout='duo']:not([hidden])) > :is(#title, #clock, #notice-signal, #notice-signal-text, #notice-name) {
+  opacity: 1;
+}
+#hud:has([data-testid='duo-inv-p2']:not([hidden])) :is(#hotbar-p2, #hud-self-p2, #levelbar-p2, #levelup-p2) {
+  opacity: 0;
+  visibility: hidden;
+}
+#hud:has(> #inventory-screen[data-layout='duo']:not([hidden])) :is(#hotbar, #hud-self, #levelbar, #levelup) {
+  visibility: hidden;
+}

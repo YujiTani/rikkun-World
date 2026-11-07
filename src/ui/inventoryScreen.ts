@@ -5,9 +5,12 @@ import { EquipPanel, type ArmorUi } from './equipPanel';
 import { createSlotEl, paintSlot, type SlotEls } from './hotbar';
 import { itemIconUrl } from './itemIcon';
 import { Tooltip, type HoverTarget } from './tooltip';
-import { mouseHtml } from './craftPanel.art';
-import { ruby } from './text';
-import { createChip } from './theme';
+import { buildHintChips } from './inventoryHints';
+import { duoPageOf, duoInvSnapshot, type DuoInvPage, type FullPage, type InvLayout } from '../duo/invRules';
+import { InvFocus } from '../duo/invFocus';
+import { duoPageShown, focusName, mountDuoChrome, type DuoChrome } from './inventoryDuo';
+import { PadNav } from './menu/padNav';
+import type { FocusDir } from './menu/focusNav';
 import { wearSignature } from './wearGauge';
 import './inventoryScreen.css';
 
@@ -28,6 +31,9 @@ export interface InventoryM4 {
   /** CRAFT-2: たんす の素材（つくる・やく の数え方） */
   materials?: PanelMaterials;
 }
+
+/** 画面の 形（COOP-1 4a。'duo' = 2 人の あいだの 半分の 形。§3.3）。ふだんは 全面 */
+export type InventoryLayout = InvLayout;
 
 /** もちもの画面の 上のタブ（M6 §2.7）。じっせき のとき パネルぜんたいが じっせき ページになる */
 export type InventoryTab = 'items' | 'achievements' | 'log';
@@ -72,9 +78,18 @@ export class InventoryScreen {
   readonly craftSlot: HTMLDivElement;
   readonly storageSlot: HTMLDivElement;
   readonly pageSlot: HTMLDivElement;
+  /** 上の 帯（タブ・とじる）と 外わく。2 人用の 帯が ここに 入る（COOP-1 4a） */
+  readonly head: HTMLDivElement;
+  readonly frame: HTMLDivElement;
+  /** 2P の 画面だけ: パネルごとの 十字の えらび（§3.3「2P の えらび」。DOM の フォーカスを 使わない） */
+  readonly nav: PadNav | null = null;
   private readonly bodyEl: HTMLDivElement;
-  private readonly frame: HTMLDivElement;
   private readonly onResize: () => void;
+  private layoutNow: InventoryLayout = 'full';
+  private pageNow: DuoInvPage = 'items';
+  private duoChrome: DuoChrome | null = null;
+  /** 1P の えらび = DOM の フォーカス（`duo.inv(1).focus`） */
+  private readonly domFocus: InvFocus;
   private sideNow: InventorySide = 'craft';
   private tabNow: InventoryTab = 'items';
   private hintsEl!: HTMLDivElement;
@@ -114,12 +129,18 @@ export class InventoryScreen {
     parent: HTMLElement,
     private readonly inv: Inventory,
     private readonly screen: ScreenState,
-    onClose: () => void,
+    private readonly onClose: () => void,
     private readonly m4?: InventoryM4,
+    /** COOP-1 4a: 1 = 今までの 画面（id・マウス・窓の 大きさの 聞き耳あり）、2 = 2P の 画面（id なし・マウスを うけない・いつも 半分） */
+    private readonly who: 1 | 2 = 1,
   ) {
     this.el = document.createElement('div');
-    this.el.id = 'inventory-screen';
+    this.el.className = 'inv-root';
+    this.el.dataset.who = String(who);
+    this.el.dataset.page = 'items';
+    if (who === 1) this.el.id = 'inventory-screen';
     this.el.hidden = true;
+    this.domFocus = new InvFocus({ who: 1, dom: { get: () => this.domName() } });
 
     this.panel = document.createElement('div');
     this.panel.className = 'inv-panel';
@@ -131,14 +152,15 @@ export class InventoryScreen {
     title.textContent = 'もちもの・クラフト';
     this.closeButton = document.createElement('button');
     this.closeButton.type = 'button';
-    this.closeButton.id = 'inventory-close';
+    if (who === 1) this.closeButton.id = 'inventory-close';
     this.closeButton.className = 'inv-close';
     this.closeButton.innerHTML = '<span class="inv-close-x" aria-hidden="true">✕</span><span>とじる</span>';
     this.closeButton.addEventListener('click', (e) => {
       e.stopPropagation();
-      onClose();
+      this.onClose();
     });
     head.append(title, this.closeButton);
+    this.head = head;
 
     const layout = inventoryLayout();
     const grid = document.createElement('div');
@@ -185,7 +207,8 @@ export class InventoryScreen {
     main.className = 'inv-main';
     if (m4) {
       const hover = (t: HoverTarget | null) => this.tooltip?.hover(t);
-      this.tooltip = new Tooltip(this.el, {
+      // ツールチップは マウスの 物（2P の 画面には 出さない。§3.3）
+      if (who === 1) this.tooltip = new Tooltip(this.el, {
         nameOf: m4.nameOf,
         rarityOf: m4.rarityOf,
         placeable: m4.placeable,
@@ -250,6 +273,16 @@ export class InventoryScreen {
 
     parent.append(this.el);
     this.off = inv.onChange(() => (this.dirty = true));
+    if (who === 2) {
+      // 2P の 画面: マウス・キー・窓の 大きさの 聞き耳は つけない。いつも 2 人用の 半分の 形（§3.3）
+      this.nav = new PadNav(this.el, focusName);
+      this.el.inert = true; // キーでは さわれない（Tab で フォーカスが 来ない）。十字は PadNav が 動かす
+      this.onMove = () => undefined;
+      this.onPointer = () => undefined;
+      this.onResize = () => undefined;
+      this.setLayout('duo');
+      return;
+    }
     this.onMove = (e) => {
       this.mouseX = e.clientX;
       this.mouseY = e.clientY;
@@ -291,6 +324,18 @@ export class InventoryScreen {
   /** 小さい画面では パネルぜんたいを 同じ比で ちぢめる（はしから 24px あける。大きい画面は CSS の clamp で大きくなる） */
   private fit(): void {
     const f = this.frame;
+    if (this.layoutNow === 'duo') {
+      // 2 人用は ちぢめない（マス・ボタン・字は 1 人の ときと 同じ。§3.3）
+      f.style.transform = '';
+      f.style.removeProperty('--rk-fit');
+      // 上は 高さの 12%（メーター・お知らせ）。右上の 時計と かさなる ときは 時計の 下 ＋8px まで 下げる（1P・2P そろえる。§9.8）
+      const clock = document.getElementById('clock');
+      const cb = clock && !clock.hidden ? clock.getBoundingClientRect().bottom : 0;
+      this.el.style.top = `${Math.round(Math.max(window.innerHeight * 0.12, cb > 0 ? cb + 8 : 0))}px`;
+      this.fitSize = `${f.offsetWidth}x${f.offsetHeight}`;
+      this.fitWin = `${window.innerWidth}x${window.innerHeight}`;
+      return;
+    }
     const w = f.offsetWidth;
     const h = f.offsetHeight;
     this.fitSize = `${w}x${h}`;
@@ -309,29 +354,12 @@ export class InventoryScreen {
   /** 画面の下に「ここでできる操作」を出す（じっせき タブでは出さない。たんす のときは 文をかえる） */
   private paintHints(): void {
     const tansu = this.sideNow === 'storage';
-    const key = `${this.tabNow}|${tansu}`;
+    const duo = this.layoutNow === 'duo';
+    const key = `${this.tabNow}|${tansu}|${duo}`;
     if (key === this.hintsKey) return;
     this.hintsKey = key;
     this.hintsEl.hidden = this.tabNow !== 'items';
-    const K = (k: string) => `<span class="inv-key">${k}</span>`;
-    const rows: [string, string][] = [
-      [K('Q'), '1こ すてる'],
-      [`${K('Shift')}＋${K('Q')}`, 'ぜんぶ すてる'],
-      [`${mouseHtml('left')}${ruby('枠', 'わく')}の そとへ ひっぱる`, 'すてる'],
-      ...(tansu ? ([[`${K('Ctrl')}（${K('⌘')}）＋${mouseHtml('left')}クリック`, 'えらぶ（✓）']] as [string, string][]) : []),
-      [`${K('Shift')}＋${mouseHtml('left')}クリック`, tansu ? 'たんす へ うつす' : 'いっきに うつす'],
-      [`${mouseHtml('left')}ダブルクリック`, `${ruby('防具', 'ぼうぐ')}を ${ruby('着', 'き')}る・ぬぐ`],
-      [K('E'), 'とじる'],
-    ];
-    this.hintsEl.replaceChildren(
-      ...rows.map(([a, b]) => {
-        const c = createChip({ text: '' });
-        c.classList.add('inv-hint');
-        const t = c.querySelector('.rk-chip__text')!;
-        t.innerHTML = `${a}<span class="inv-hint-sep">:</span> ${b}`;
-        return c;
-      }),
-    );
+    this.hintsEl.replaceChildren(...buildHintChips({ tansu, duo }));
   }
 
   /** 右の場所を入れかえる（つくる・やく ⇄ たんす）。見た目は style.display だけで切る */
@@ -382,7 +410,8 @@ export class InventoryScreen {
 
   /** その画面の位置が パネル（持ち物・右の場所・じっせき ページ）の中か */
   isInsidePanels(x: number, y: number): boolean {
-    const els: HTMLElement[] = [this.panel, this.craftSlot, this.storageSlot, this.pageSlot];
+    // 2 人用は わくぜんたいが「パネルの 中」（panel などは 並べるだけで 大きさを もたない）
+    const els: HTMLElement[] = this.layoutNow === 'duo' ? [this.frame] : [this.panel, this.craftSlot, this.storageSlot, this.pageSlot];
     for (const el of els) {
       if (el.hidden || el.style.display === 'none') continue;
       const r = el.getBoundingClientRect();
@@ -393,6 +422,88 @@ export class InventoryScreen {
 
   isOpen(): boolean {
     return this.open;
+  }
+
+  // ---- COOP-1 4a: 2 人用（§3.3）
+
+  layout(): InventoryLayout {
+    return this.layoutNow;
+  }
+
+  /** 全面の ページ（タブ「もちもの／じっせき／できごと」と 右の「つくる／たんす」） */
+  private fullPage(): FullPage {
+    return this.tabNow !== 'items' ? this.tabNow : this.sideNow === 'storage' ? 'storage' : 'items';
+  }
+
+  /** 画面の 形を かえる。開いたまま かえても 手に もった 物は そのまま。2 人用に する ときは 全面の ページを 2 人用の ページに うつす（AC79） */
+  setLayout(layout: InventoryLayout): void {
+    if (layout === this.layoutNow) return;
+    if (layout === 'duo') {
+      const page = duoPageOf(this.fullPage());
+      if (this.tabNow !== 'items') this.setTab('items'); // じっせき・できごと は 2 人用に ない
+      this.layoutNow = layout;
+      this.el.dataset.layout = 'duo';
+      this.el.setAttribute('data-testid', `duo-inv-p${this.who}`);
+      this.duoChrome ??= mountDuoChrome(this, this.who, this.onClose);
+      this.setPage(duoPageShown(page) ? page : 'items');
+    } else {
+      this.layoutNow = layout;
+      delete this.el.dataset.layout;
+      this.el.style.top = '';
+      this.el.removeAttribute('data-testid');
+      this.frame.style.transform = '';
+    }
+    this.fitSize = '';
+    this.dirty = true;
+    this.paintHints();
+    if (this.open) this.fit();
+  }
+
+  /** 2 人用の ページ（もちもの／つくる。やく・たんす は 4c） */
+  page(): DuoInvPage {
+    return this.pageNow;
+  }
+
+  setPage(page: DuoInvPage): void {
+    if (!duoPageShown(page)) return;
+    this.pageNow = page;
+    this.el.dataset.page = page;
+    this.duoChrome?.update();
+    // かくれていた「つくる」を 見せたら、せつめいの 分け方を 実際の 大きさで 測りなおす
+    if (page === 'craft') this.craftPanel?.relayout();
+    this.dirty = true;
+    this.nav?.sync();
+  }
+
+  /** 「やめる」ゲージ 0〜1（2P の 画面） */
+  setQuitGauge(g: number): void {
+    this.duoChrome?.setGauge(g);
+  }
+
+  /** 1P の えらび: DOM の フォーカスを 名前に した物（この 画面の 中に なければ null） */
+  private domName(): string | null {
+    const a = document.activeElement;
+    return a instanceof HTMLElement && this.el.contains(a) ? focusName(a) : null;
+  }
+
+  /** `duo.inv(who)` の 値。2 人用で 開いている ときだけ 中身が ある */
+  snapshot(): { open: boolean; page: DuoInvPage | null; focus: string | null } {
+    return duoInvSnapshot({ layout: this.layoutNow, open: this.open, page: this.pageNow, focus: this.focusKey() });
+  }
+
+  /** いま えらんでいる 物の 名前。1P は DOM の フォーカス、2P は 2P の えらび */
+  focusKey(): string | null {
+    return this.nav ? this.nav.current() : this.domFocus.current();
+  }
+
+  /** 十字 1 回（2P の えらび。1P の フォーカスには さわらない） */
+  padMove(dir: FocusDir): void {
+    this.nav?.move(dir);
+  }
+
+  /** `confirm`（2P の えらび） */
+  padPress(): void {
+    this.nav?.press();
   }
 
   update(): void {
@@ -406,14 +517,19 @@ export class InventoryScreen {
         this.render();
         this.craftPanel?.update();
         this.fit();
+        this.nav?.reset();
         if (this.tabNow === 'items') {
           const w = this.bodyEl.offsetWidth;
           const h = this.bodyEl.offsetHeight;
           if (w > 0 && h > 0) this.pageSize = { w, h };
         }
       }
-      if (!open) this.tooltip?.hover(null);
+      if (!open) {
+        this.tooltip?.hover(null);
+        this.nav?.clear();
+      }
     }
+    if (open && this.layoutNow === 'duo' && `${window.innerWidth}x${window.innerHeight}` !== this.fitWin) this.fit(); // 窓の 大きさ（2P の 画面は 聞き耳を もたない）
     if (open && `${this.frame.offsetWidth}x${this.frame.offsetHeight}` !== this.fitSize) this.fit(); // せつめい などで 大きさが変わったら ちぢめなおす
     if (open) {
       const sig = wearSignature(this.inv.slots());
@@ -422,11 +538,15 @@ export class InventoryScreen {
         this.dirty = true;
       }
     }
-    if (open && this.dirty) this.render();
+    if (open && this.dirty) {
+      this.render();
+      this.nav?.tick(); // 描きなおしで 要素が かわっても えらびの わくを 付け直す
+    }
     this.craftPanel?.update();
     if (open) {
       this.equip?.update();
       this.tooltip?.update();
+      if (this.layoutNow === 'duo' && !this.cursorEl.hidden) this.placeCursor();
     }
   }
 
@@ -474,7 +594,25 @@ export class InventoryScreen {
   }
 
   private placeCursor(): void {
-    this.cursorEl.style.transform = `translate(${this.mouseX - 24}px, ${this.mouseY - 24}px)`;
+    let x = this.mouseX - 24;
+    let y = this.mouseY - 24;
+    const anchor = this.layoutNow === 'duo' ? this.cursorAnchor() : null;
+    if (anchor) {
+      // 手に もっている 物は えらんでいる マスの 右上に 出す。パネルの そとへ はみ出さない（§3.3）
+      const r = anchor.getBoundingClientRect();
+      const f = this.frame.getBoundingClientRect();
+      x = Math.min(Math.max(r.right - 24, f.left), f.right - 48);
+      y = Math.min(Math.max(r.top - 24, f.top), f.bottom - 48);
+    }
+    this.cursorEl.style.transform = `translate(${x}px, ${y}px)`;
+  }
+
+  /** 手に もっている 物を 出す 目じるし: 2P は いつも えらんでいる マス。1P は マウスが パネルの そとに ある ときだけ フォーカス */
+  private cursorAnchor(): HTMLElement | null {
+    if (this.nav) return this.nav.currentEl();
+    if (this.isInsidePanels(this.mouseX, this.mouseY)) return null;
+    const a = document.activeElement;
+    return a instanceof HTMLElement && this.el.contains(a) ? a : null;
   }
 
   dispose(): void {

@@ -6,6 +6,8 @@ export interface DuoSessionDeps {
   p2: P2State;
   /** やめる前に 呼ぶ（2P の 持ち物を セーブへ。AC7・AC17）。joined が まだ true の あいだに 呼ぶ */
   saveP2(p2: P2Save): void;
+  /** やめる 直前に 呼ぶ（joined が まだ true の あいだ。2P の もちもの画面を とじて 手に もっている 物を もどす。保存の 前。COOP-1 4a・§3.3「とじる とき」） */
+  beforeLeave?(reason: DuoLeaveReason): void;
   /** 参加の とき 呼ぶ。前に 参加した ことが あれば その セーブ、なければ null（からっぽで 始める。AC7） */
   loadP2(): P2Save | null;
   /** 2P が いなく なった あと（joined が false に なってから）呼ぶ */
@@ -75,6 +77,7 @@ export class DuoSession {
   /** いなくなる: saveP2 → joined = false → onLeft の 順。いなければ 何もしない。'import'（よみこむ）だけは 保存しない（AC72） */
   leave(reason: DuoLeaveReason): void {
     if (!this.on) return;
+    this.deps.beforeLeave?.(reason);
     if (reason !== 'import') this.deps.saveP2(this.deps.p2.serialize());
     this.deps.p2.clear();
     this.on = false;

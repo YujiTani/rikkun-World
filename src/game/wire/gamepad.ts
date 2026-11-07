@@ -94,13 +94,6 @@ export function wireGamepad(opts: {
       pumpUi = fn;
     },
     look2: padLook2,
-    /**
-     * AC84: __rikkun.step() の 道（idle が 回らない）で 2 人の もちもの画面が 世界を 止めている あいだ、`game.setModal` の tick から 呼ぶ。
-     * 1P の パッドを ここで 読む（B などで とじられる）。2P は 読まない（世界が 止まっている）。実時間の コマでは 呼ばない（idle が 読む）
-     */
-    modalStep(): void {
-      step(false, 1 / 60);
-    },
     /** E2E: 偽パッドを差し込む */
     injectPad(pad: Gamepad | null): void {
       router.getPads = () => (pad ? [pad] : []);

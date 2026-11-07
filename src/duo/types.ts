@@ -73,6 +73,8 @@ export interface DuoPlayHook {
   target(who: 1 | 2): { block: DuoVec3; place: DuoVec3; id: string } | null;
   frame(who: 1 | 2): { visible: boolean; color: string };
   give(who: 1 | 2, item: ItemId, count: number): void;
+  /** COOP-1 4a（§12.0・1.10）: その人の もちもの 9×3 と ホットバー 9 を 見本で いっぱいに する（`?duo=dev` の ときだけ。2P が いなければ who 2 は 何も しない） */
+  sample(who: 1 | 2): void;
   count(who: 1 | 2, item: ItemId): number;
   hearts(who: 1 | 2): { hp: number; maxHp: number; down: boolean };
   hurt(who: 1 | 2, amount: number): void;
@@ -103,6 +105,8 @@ export interface DuoHook extends DuoPlayHook {
   setPadChoice(c: PadChoice): boolean;
   /** 作業 2.5: 1P・2P が 今 読んでいる パッドの 番号(1 本のときの かわりも 出る)。なし → null */
   padIndex(who: 1 | 2): number | null;
+  /** COOP-1 4a（§12.0）: その 人の 2 人用 もちもの画面。開いているか・今の ページ・えらんでいる 物（1P は DOM の フォーカス、2P は 2P の えらび）。1 人の ときの 全面は who 1 でも open false */
+  inv(who: 1 | 2): { open: boolean; page: 'items' | 'craft' | 'furnace' | 'tansu' | null; focus: string | null };
   /** 作業 3c（#417。§3.4・§12.0）: その 所で 鳴った 場所の ある 音の 大きさを 決める プレイヤー（近い方）と その 距離（マス）。2P が いない ときは いつも who 1。同じ 距離なら 1 */
   hearFrom(pos: DuoVec3): { who: 1 | 2; distance: number };
 }

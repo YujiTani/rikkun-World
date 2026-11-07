@@ -42,6 +42,8 @@ export interface StorageDeps {
   openScreen: () => void;
   closeScreen: () => void;
   live?: StorageLive;
+  /** false の あいだは たんすを 開けない（COOP-1 4a: 2 人の あいだは 2 人用の たんすの ページが できる 4c まで 開かない）。なければ いつも 開ける */
+  canOpen?: () => boolean;
   tick?: () => number;
   requestSave?: () => void;
   onSound?: (name: StorageSound) => void;
@@ -158,6 +160,7 @@ export class StorageSystem implements TansuMaterialStore {
   // ------------------------------------------------------------ ひらく・とじる
 
   open(x: number, y: number, z: number, opts?: { screenOpens?: boolean }): boolean {
+    if (this.d.canOpen && !this.d.canOpen()) return false;
     const r = this.ensure(x, y, z);
     if (!r) return false;
     if (this.opened && this.opened !== r) this.markClosed();

@@ -74,10 +74,8 @@ interface Shared {
   houseFrozen: () => boolean;
   /** HOUSE-1B: エディターが 開いて いる 間の 1 コマ（見本の 向き・ふきだしの 時間）と 描画（見本）。player.ts の 窓が 呼ぶ。開いて いなければ 何も しない */
   houseModal: { tick: () => void; render: () => void };
-  /** COOP-1 作業 3d（AC84）: modal が active の あいだ 1 コマごとに 呼ぶ（2P の「ちょっと まってね」・「＋で さんか」の 出し入れ。wireDuo が 差しかえる） */
+  /** COOP-1 作業 3d: modal（本・建築士さん）が active の あいだ 1 コマごとに 呼ぶ（2P の「ちょっと まってね」・「＋で さんか」の 出し入れ。wireDuo が 差しかえる） */
   duoModalTick: () => void;
-  /** COOP-1 AC84: もちもの画面まわりの 1 コマ（createStep が 差しかえる）。2 人で 1P の 全面が 世界を 止めている あいだ、player.ts の modal tick が 呼ぶ */
-  inventoryUiTick: () => void;
   requestSave: () => void;
   skipSignalLog: boolean;
   onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
@@ -145,7 +143,6 @@ export function createShared(): Shared {
     houseFrozen: () => false,
     houseModal: { tick: () => undefined, render: () => undefined },
     duoModalTick: () => {},
-    inventoryUiTick: () => {},
     requestSave: () => {},
     skipSignalLog: false,
     onDropPicked: () => {},

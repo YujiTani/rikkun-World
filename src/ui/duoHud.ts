@@ -7,9 +7,8 @@ import type { Inventory } from '../contracts';
 import type { LevelState } from '../level/LevelSystem';
 import { DUO_COLORS, DUO_TUNING } from '../duo/tuning';
 import type { DuoView } from '../duo/types';
-import { INVENTORY_SIZE } from '../inventory/items';
 import { Hearts } from './hearts';
-import { Hotbar, createSlotEl, paintSlot, type SlotEls } from './hotbar';
+import { Hotbar } from './hotbar';
 import { HEART_CONFIG } from './heartsModel';
 import { LevelHud } from './levelHud';
 import './duoHud.css';
@@ -40,9 +39,6 @@ export interface DuoHudView {
   meter: number;
   distance: number;
   padLost: boolean;
-  /** 「やめる」ゲージ 0〜1 */
-  quitGauge: number;
-  panelOpen: boolean;
   /** 画面の ようす（分割の 線を 出し入れ する） */
   view: DuoView;
   /** 相手の 向きの 矢印。[1P の 半分（2P を さす）, 2P の 半分（1P を さす）] */
@@ -80,10 +76,6 @@ interface Built {
   arrows: [ArrowEls, ArrowEls];
   line: HTMLDivElement;
   question: HTMLDivElement;
-  panel: HTMLDivElement;
-  quit: HTMLButtonElement;
-  cells: SlotEls[];
-  off: () => void;
 }
 
 /** パッドの 絵（コントローラー。線だけ。色は 文字と 同じ） */
@@ -92,7 +84,7 @@ const PAD_SVG =
 
 /** 画面に 書いた 最後の 値の 初期値（変わらなければ style・hidden を 書かない） */
 function newShown() {
-  return { meter: '', more: false, padLost: false, panel: false, quit: '', view: '' as string, q: [NaN, NaN, 0] as number[], arrows: [[NaN, NaN, NaN, NaN], [NaN, NaN, NaN, NaN]] as number[][] };
+  return { meter: '', more: false, padLost: false, view: '' as string, q: [NaN, NaN, 0] as number[], arrows: [[NaN, NaN, NaN, NaN], [NaN, NaN, NaN, NaN]] as number[][] };
 }
 
 /** 満タンの ハート（体力 20 = 10 こ）。2P の ダメージは 作業 3 */
@@ -101,7 +93,6 @@ const FULL_HP = HEART_CONFIG.count * 2;
 export class DuoHud {
   private b: Built | null = null;
   private on = false;
-  private dirty = true;
   /** 「たおれちゃった」（倒れているあいだだけ ある） */
   private downEl: HTMLDivElement | null = null;
   private lastW = -1;
@@ -183,40 +174,13 @@ export class DuoHud {
     const level2 = new LevelHud(root, { cluster: hearts2.el.parentElement as HTMLElement, idSuffix: '-p2' });
     level2.barEl.setAttribute('data-testid', 'duo-levelbar-p2');
 
-    // 2P の もちもの（右半分。読むだけ。「やめる」の 長押しが ある）
-    const panel = document.createElement('div');
-    panel.className = 'duo-inv';
-    panel.setAttribute('data-testid', 'duo-inv-p2');
-    panel.hidden = true;
-    const title = document.createElement('div');
-    title.className = 'duo-inv-title';
-    title.textContent = 'P2 の もちもの';
-    const grid = document.createElement('div');
-    grid.className = 'duo-inv-grid';
-    const cells: SlotEls[] = [];
-    for (let i = 0; i < INVENTORY_SIZE; i++) {
-      const c = createSlotEl();
-      cells.push(c);
-      grid.append(c.root);
-    }
-    const quit = document.createElement('button');
-    quit.type = 'button';
-    quit.className = 'duo-quit';
-    quit.setAttribute('data-testid', 'duo-quit');
-    const fill = document.createElement('span');
-    fill.className = 'duo-quit-fill';
-    const text = document.createElement('span');
-    text.className = 'duo-quit-text';
-    text.textContent = 'ながおし で やめる';
-    quit.append(fill, text);
-    panel.append(title, grid, quit);
-    hud.append(meter, padLost, panel, arrows[0].root, arrows[1].root, line, question);
+    // 2P の もちもの・クラフト画面は InventoryScreen（src/game/wire/duoInventory.ts。COOP-1 4a）
+    hud.append(meter, padLost, arrows[0].root, arrows[1].root, line, question);
 
     // 色は tokens.css の 変数（案 B）。DUO_COLORS は 同じ 値の 写し（palette.test.ts が 見はる）。css は --rk-* を 直接 使う
     document.documentElement.style.setProperty('--duo-p1', DUO_COLORS.p1);
     document.documentElement.style.setProperty('--duo-p2', DUO_COLORS.p2);
-    const off = inv.onChange(() => (this.dirty = true));
-    return { meter, bar, more, padLost, root, hotbar2, hearts2, level2, arrows, line, question, panel, quit, cells, off };
+    return { meter, bar, more, padLost, root, hotbar2, hearts2, level2, arrows, line, question };
   }
 
   /** 矢印 1 つ。who = 矢印が 出る 画面の 持ち主（1 = 1P の 半分。2P を さすので バッジは「P2」）。色は css が 相手の 色に する */
@@ -244,7 +208,6 @@ export class DuoHud {
     const html = document.documentElement;
     if (on) {
       this.b ??= this.build();
-      this.dirty = true;
       this.lastW = -1;
       this.badgePx = 0;
       this.shown = newShown();
@@ -267,7 +230,6 @@ export class DuoHud {
       b.root.hidden = !on;
       if (!on) {
         b.padLost.hidden = true;
-        b.panel.hidden = true;
         for (const a of b.arrows) a.root.hidden = true;
         b.line.hidden = true;
         b.question.hidden = true;
@@ -324,17 +286,7 @@ export class DuoHud {
       this.shown.padLost = v.padLost;
       b.padLost.hidden = !v.padLost;
     }
-    if (v.panelOpen !== this.shown.panel) {
-      this.shown.panel = v.panelOpen;
-      b.panel.hidden = !v.panelOpen;
-    }
     this.updateViewParts(b, v);
-    if (v.panelOpen && this.dirty) this.paintPanel();
-    const quit = v.panelOpen ? v.quitGauge.toFixed(2) : '0';
-    if (quit !== this.shown.quit) {
-      this.shown.quit = quit;
-      b.quit.style.setProperty('--duo-quit', quit);
-    }
   }
 
   /** 相手の 向きの 矢印（変わったときだけ 書く）: 外接の 四角を 先・三角の 角・バッジから 決め、中の 三角と バッジを その 四角の 中に 置く */
@@ -429,18 +381,10 @@ export class DuoHud {
     document.documentElement.style.setProperty('--duo-scale', s.toFixed(4));
   }
 
-  private paintPanel(): void {
-    const b = this.b!;
-    this.dirty = false;
-    const slots = this.d.p2Inventory.slots();
-    for (let i = 0; i < b.cells.length; i++) paintSlot(b.cells[i]!, slots[i] ?? null, this.d.p2Inventory.durability(i));
-  }
-
   dispose(): void {
     const b = this.b;
     if (!b) return;
     this.setJoined(false);
-    b.off();
     b.hotbar2.dispose();
     b.hearts2.dispose();
     b.root.remove();
@@ -449,7 +393,6 @@ export class DuoHud {
     for (const a of b.arrows) a.root.remove();
     b.line.remove();
     b.question.remove();
-    b.panel.remove();
     this.b = null;
   }
 }

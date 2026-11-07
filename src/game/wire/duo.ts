@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { DuoBody } from '../../duo/body';
 import { hearFrom } from '../../duo/hearing';
 import { distanceMeter } from '../../duo/meter';
+import { closeInvHand } from '../../duo/invClose';
+import { invCloseReason, invLayoutFor, invPadCommand, invQuitHeld } from '../../duo/invRules';
 import { DuoJoinHint, type DuoJoinHintInput } from '../../duo/joinHint';
 import { duoWaitNotice } from '../../duo/rules';
 import { DuoSession } from '../../duo/session';
@@ -19,10 +21,15 @@ import { charBasePath } from './player';
 import type { WiredLoop } from './save';
 import { DuoViews, type DuoViewsInput } from './duoView';
 import { wireDuoPlay } from './duoPlay';
+import { createDuoInventory, type DuoInventory } from './duoInventory';
 
 const DEG = Math.PI / 180;
 /** 角度の 差を -180〜180 に */
 const wrapDeg = (d: number): number => ((((d + 180) % 360) + 360) % 360) - 180;
+/** 2 人用 もちもの画面を パッドで うごかす Action（十字・けってい・とじる。毎ステップ 配列を 作らない） */
+const INV_PAD_ACTIONS = ['focusUp', 'focusDown', 'focusLeft', 'focusRight', 'confirm', 'closeMenu'] as const;
+/** `duo.inv(who)` の とじている 値 */
+const CLOSED_INV = { open: false, page: null, focus: null } as const;
 /** ホットバーの 数字ボタン（毎ステップ 文字を 作らない） */
 const HOTBAR_KEYS = ['hotbar1', 'hotbar2', 'hotbar3', 'hotbar4', 'hotbar5', 'hotbar6', 'hotbar7', 'hotbar8', 'hotbar9'] as const;
 /** 2P が 出る 所の 順（1P の 向きから 見て）: 右・左・うしろ・前。それぞれ 何マス 先か は DUO_TUNING.joinOffsetTiles */
@@ -40,7 +47,9 @@ export function wireDuo(deps: WiredLoop) {
   const p2Actions = gamepadApi.slots.get(1);
   const p2 = shared.p2;
 
-  let panelOpen = false;
+  /** 2P の もちもの・クラフト画面（COOP-1 4a。はじめて 参加した とき 作る） */
+  let inv2: DuoInventory | null = null;
+  const panelOpen = (): boolean => inv2?.isOpen() === true;
   let distance = 0;
   /** 分割のとき 2P の 右スティックで 回った 角度（次のステップの P2Camera に 渡す） */
   let pendingLook = 0;
@@ -56,7 +65,7 @@ export function wireDuo(deps: WiredLoop) {
    * 世界が 止まっている あいだは updaters が 動かない ので、modal の tick (shared.duoModalTick) と onIdle からも 呼ぶ
    */
   const hintIn: DuoJoinHintInput = { candidate: false, joined: false, active: false, anyButton: false };
-  const waitIn = { joined: false, inventoryOpen: false, modal: false };
+  const waitIn = { joined: false, modal: false };
   function noticeStep(active: boolean): void {
     const joined = session.joined;
     // 候補の 番号・「何か 押している」は gamepad の poll が 出した 物を 読む（ここで パッドの 一覧を 作らない）
@@ -68,7 +77,6 @@ export function wireDuo(deps: WiredLoop) {
     joinHint.step(hintIn);
     notices.setJoinHint(joinHint.visible());
     waitIn.joined = joined;
-    waitIn.inventoryOpen = shared.screen.mode() === 'inventory';
     waitIn.modal = deps.book.active() || shared.houseFrozen();
     notices.setWait(duoWaitNotice(waitIn));
   }
@@ -99,7 +107,7 @@ export function wireDuo(deps: WiredLoop) {
   });
   const view = views.hud;
   /** views.update に 毎ステップ 渡す 入力（使いまわす） */
-  const viewIn: DuoViewsInput = { p1: controller.state.position, p2: controller.state.position, p1YawDeg: 0, p2PitchDeg: 0, distance: 0, padLost: false, panelOpen: false };
+  const viewIn: DuoViewsInput = { p1: controller.state.position, p2: controller.state.position, p1YawDeg: 0, p2PitchDeg: 0, distance: 0, padLost: false, panelOpen: false, panel1Open: false };
 
   const session = new DuoSession({
     p2,
@@ -110,7 +118,6 @@ export function wireDuo(deps: WiredLoop) {
     loadP2: () => shared.p2Store.saved,
     onLeft: () => {
       router.setJoined(false);
-      panelOpen = false;
       distance = 0;
       pendingLook = 0;
       views.reset();
@@ -120,7 +127,12 @@ export function wireDuo(deps: WiredLoop) {
       body.hide();
       ui.setJoined(false);
       shared.duoCamDistance = session.cameraDistance() === DUO_TUNING.cameraSolo ? null : session.cameraDistance();
+      // 2P の パネルは 消える。1P の パネルは そのまま（開いている あいだは 半分の まま。AC79）
+      inv2?.screen.update();
+      syncLayout1();
     },
+    // 手に もっている 物は 2P の もちものへ もどしてから 保存（いっぱいなら 足もとへ。§3.3「とじる とき」）
+    beforeLeave: () => inv2?.setOpen(false),
   });
   shared.duoJoined = () => session.joined;
   shared.leaveDuo = (reason) => session.leave(reason);
@@ -130,7 +142,8 @@ export function wireDuo(deps: WiredLoop) {
     overlayVisible: () => lock.overlayVisible(),
     realtimeAllowed: () => lock.realtimeAllowed(),
     // 倒れている あいだは 2P の 入力を ぜんぶ はなす（歩く・ほる・おく・こうげき）
-    playInputEnabled: () => lock.playInputEnabled() && !panelOpen && !play.down(),
+    // もちもの画面は 世界を 止めない: 1P が 画面を 開いていても 2P は 遊べる（lock.playInputEnabled は 1P の 画面で false になる）
+    playInputEnabled: () => lock.realtimeAllowed() && !panelOpen() && !play.down(),
   };
 
   /** 2P が 出る 所: 1P の 右 2 マス。ふさがっていたら 左・うしろ・前。どこも だめなら 1P の 真上 */
@@ -170,6 +183,7 @@ export function wireDuo(deps: WiredLoop) {
     if (!session.join()) return false;
     const spot = joinSpot();
     const c = controller2();
+    inv2 ??= createDuoInventory(deps, () => (ctl2 ?? controller).state.position, () => inv2?.setOpen(false));
     c.set({ position: spot, velocity: { x: 0, y: 0, z: 0 }, yawDeg: controller.state.yawDeg, pitchDeg: 0, facingDeg: controller.state.facingDeg });
     router.setJoined(true);
     ui.setJoined(true);
@@ -177,33 +191,73 @@ export function wireDuo(deps: WiredLoop) {
     body.step(c.state);
     play.onJoin();
     splitSound.onJoined();
+    syncLayout1(); // 1P の 画面が 開いていたら、その ステップで 左半分の 2 人用に かわる（AC79）
     return true;
   }
   // 2 本目の ＋: ふつうの URL でも 参加できる（作業 3d・AC64）
   gamepadApi.duo.onJoinRequested = () => {
     join();
   };
-  gamepadApi.duo.menuOpen2 = () => session.joined && panelOpen;
+  gamepadApi.duo.menuOpen2 = () => session.joined && panelOpen();
+
+  // ---- 1P の もちもの画面: 2 人の あいだは 左半分の 2 人用（data-layout="duo"）。1P の パッド・キー・マウスは 今の まま（DOM の フォーカス）
+  const inv1 = deps.inventoryScreen;
+  function syncLayout1(): void {
+    const next = invLayoutFor({ joined: session.joined, open: shared.screen.inventoryOpen(), current: inv1.layout() });
+    if (next === inv1.layout()) return;
+    if (next === 'duo') {
+      if (inv1.tab() !== 'items') deps.toItemsTab(); // じっせき・できごと は 2 人用に ない
+      if (deps.storage.ui().open) deps.storage.close(); // たんすの ページは 4c まで ない（開いていたら とじる）
+    }
+    inv1.setLayout(next);
+  }
+  // 1P が とじる とき（自分で・倒れて）: 手に もっている 物は 1P の もちものへ、いっぱいなら 1P の 足もとへ（AC89）
+  shared.screen.onClose(() => {
+    if (inv1.layout() === 'duo') closeInvHand(deps.inventory, (st) => deps.drops.scatter(controller.state.position, [st]));
+  });
 
   function leave(reason: DuoLeaveReason): void {
     session.leave(reason);
   }
 
+  /** 2P の もちもの画面を パッドで うごかす（十字は 2P の えらびを うごかす。1P の フォーカスには さわらない。AC88） */
+  function padInv2(screen: DuoInventory['screen']): void {
+    for (const a of INV_PAD_ACTIONS) {
+      if (!p2Actions.wasPressed(a)) continue;
+      const cmd = invPadCommand(a);
+      if (cmd === 'close') inv2?.setOpen(false);
+      else if (cmd === 'press') screen.padPress();
+      else if (cmd !== null) screen.padMove(cmd);
+    }
+  }
+
   /** 毎ステップ（固定）。1P の 更新（createStep）の あとに 呼ばれる */
   function step(dt: number): void {
     noticeStep(true);
-    if (session.joined) {
-      // 2P の もちもの画面（Y・＋で ひらく / B で とじる）と ホットバーの 切りかえ。本・建築士さん・とりごや・たんすは 開かない（AC15）
-      if (!play.down() && p2Actions.wasPressed('toggleInventory')) panelOpen = !panelOpen;
-      if (p2Actions.wasPressed('closeMenu')) panelOpen = false;
-      if (!panelOpen && !play.down()) {
+    if (session.joined && inv2) {
+      const down2 = play.down();
+      // 2P の もちもの画面（Y で ひらく / B で とじる）。開いている Y は 何も しない（とじるのは B だけ）。
+      // 本・建築士さん・とりごや・たんすは 開かない（AC15）
+      if (!inv2.isOpen() && !down2 && p2Actions.wasPressed('toggleInventory')) inv2.setOpen(true);
+      else if (inv2.isOpen()) {
+        // 倒れた・パッドが ぬけた ステップに とじる（AC89）。やめた ときは session.leave の beforeLeave が とじる
+        if (invCloseReason(2, { down: down2, padLost: session.padLost(), left: false }) !== null) inv2.setOpen(false);
+        else padInv2(inv2.screen);
+      }
+      if (!inv2.isOpen() && !down2) {
         const inv = p2.inventory;
         if (p2Actions.wasPressed('hotbarNext')) inv.selectNext(1);
         if (p2Actions.wasPressed('hotbarPrev')) inv.selectNext(-1);
         for (let i = 0; i < HOTBAR_KEYS.length; i++) if (p2Actions.wasPressed(HOTBAR_KEYS[i]!)) inv.select(i);
       }
+      inv2.step();
     }
-    session.step({ padPresent: !router.padLost(), quitHeld: panelOpen && p2Actions.isHeld('confirm') });
+    // 1P が 倒れた ステップは 1P の パネルも とじる（combat.die の closeInventory と 同じ。AC89）
+    if (invCloseReason(1, { down: deps.combat.dead(), padLost: false, left: false }) !== null && shared.screen.inventoryOpen()) shared.screen.toggle();
+    session.step({
+      padPresent: !router.padLost(),
+      quitHeld: invQuitHeld({ open: panelOpen(), focus: inv2?.screen.focusKey() ?? null, confirmHeld: p2Actions.isHeld('confirm') }),
+    });
     const camNow = session.cameraDistance();
     shared.duoCamDistance = camNow === DUO_TUNING.cameraSolo ? null : camNow;
     if (session.joined && ctl2) {
@@ -226,17 +280,21 @@ export function wireDuo(deps: WiredLoop) {
       vi.p2PitchDeg = ctl2.state.pitchDeg;
       vi.distance = distance;
       vi.padLost = session.padLost();
-      vi.panelOpen = panelOpen;
+      vi.panelOpen = panelOpen();
+      vi.panel1Open = shared.screen.inventoryOpen();
       views.update(vi);
       view.meter = distanceMeter(distance);
       view.distance = distance;
       view.padLost = session.padLost();
-      view.quitGauge = session.quitGauge();
-      view.panelOpen = panelOpen;
       ui.update(view);
     } else {
       // 2P が いなくても ようす・軽くする 工夫・矢印の 数えは すすめる（やめた あとも 120 ステップ 軽いまま）
       views.update(null);
+    }
+    syncLayout1(); // 1P の 画面の 形（2P が いなくなっても 開いている あいだは 半分の まま。とじた つぎから 全面）
+    if (inv2) {
+      inv2.screen.setQuitGauge(panelOpen() ? session.quitGauge() : 0);
+      inv2.screen.update();
     }
     p2Actions.endFrame();
   }
@@ -291,6 +349,8 @@ export function wireDuo(deps: WiredLoop) {
     padChoice: () => router.choice(),
     setPadChoice: (c) => router.setChoice(c),
     padIndex: (who) => router.padIndex(who),
+    // COOP-1 4a（§12.0）: その 人の 2 人用 もちもの画面（1 人の ときの 全面は who 1 でも open false）
+    inv: (who) => (who === 1 ? inv1 : inv2?.screen)?.snapshot() ?? CLOSED_INV,
     // 作業 3c（#417）: 場所の ある 音を 聞く 人（近い 方）
     hearFrom: (pos) => hearFrom(controller.state.position, session.joined && ctl2 ? ctl2.state.position : null, pos),
   };

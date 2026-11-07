@@ -38,6 +38,8 @@ export interface DuoViewsInput {
   padLost: boolean;
   /** 2P の もちもの パネルが 開いている（2P の 半分の 矢印を 出さない。AC87） */
   panelOpen: boolean;
+  /** 1P の もちもの パネルが 開いている（1P の 半分の 矢印を 出さない。COOP-1 4a・AC87） */
+  panel1Open: boolean;
 }
 
 export class DuoViews {
@@ -74,8 +76,6 @@ export class DuoViews {
     meter: 0,
     distance: 0,
     padLost: false,
-    quitGauge: 0,
-    panelOpen: false,
     view: 'one',
     arrows: [
       { x: 0, y: 0, angle: 0, opacity: 0 },
@@ -210,7 +210,7 @@ export class DuoViews {
       ai.pane.w = pane.w;
       ai.pane.h = pane.h;
       ai.tanHalfFovY = Math.tan((cam.fov * Math.PI) / 360);
-      ai.panelOpen = who === 2 && inp.panelOpen;
+      ai.panelOpen = who === 2 ? inp.panelOpen : inp.panel1Open;
       const tr = this.arrows[who - 1]!;
       tr.step(ai);
       const ha = this.hud.arrows[who - 1]!;
