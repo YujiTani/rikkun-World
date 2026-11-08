@@ -5,6 +5,9 @@ import { AchievementSystem } from '../achievements/AchievementSystem';
 import { InventoryImpl } from '../inventory/Inventory';
 import { createP2Wear } from './p2Wear';
 import { P2State } from './p2State';
+import { createP2Craft } from './p2Craft';
+import { StorageSystem } from '../storage/StorageSystem';
+import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { createDropPicked, createP2Feed, feedArrowEvents, routeDropPicked } from './p2Feed';
 
 /**
@@ -15,13 +18,14 @@ import { createDropPicked, createP2Feed, feedArrowEvents, routeDropPicked } from
  * ---- 実装への 約束（developer が 作る 名前・形）----
  *   src/duo/p2Feed.ts（新しく。`game/wire/duoPlay.ts` は これを 呼ぶ 行だけ）
  *     type P2FeedSink = Pick<AchievementSystem, 'feedDig' | 'feedCombat' | 'feedBlade' | 'feedArrow' | 'feedWear'>
+ *       … AchievementSystem.feedBlade は `feedBlade(events, who: 1 | 2 = 1)` に する（3 段コンボの 途中経過 comboHit を 人ごとに もつ。1P の 呼び出しは そのまま）
  *     createP2Feed(sink: P2FeedSink): P2Feed
  *     P2Feed = {
  *       tapDig(drain: () => DigEvent[]): () => DigEvent[]   … 2P の ほる係の 出来事の とり出し口を 包む。包んだ 口が 呼ばれる たびに、とり出した 出来事を
  *                                                            sink.feedDig に **1 回** わたして、同じ 配列を そのまま 返す（空なら feedDig は 呼ばない）。
  *                                                            配線は `createP2DigFx({ ..., events: feed.tapDig(() => dig.drainEvents()) })`（DigFx が 毎ステップ 取る）
  *       combat(events: readonly CombatEvent[]): void        … sink.feedCombat(events) を 1 回（空なら 呼ばない）。配列は かえない（音〔l.sounds.combat〕にも 同じ 配列を 使う）
- *       blade(events: readonly BladeEvent[]): void          … sink.feedBlade(events) を 1 回（空なら 呼ばない）
+ *       blade(events: readonly BladeEvent[]): void          … sink.feedBlade(events, 2) を 1 回（空なら 呼ばない）
  *       arrows(events: readonly BowEvent[]): void           … feedArrowEvents(sink, events)
  *       wear(events: readonly WearEvent[]): void            … sink.feedWear(events) を 1 回（空なら 呼ばない）
  *     }
@@ -29,8 +33,8 @@ import { createDropPicked, createP2Feed, feedArrowEvents, routeDropPicked } from
  *       … arrowShot ごとに feedArrow('shot')・arrowHit ごとに feedArrow('hit')。ほかは 何もしない。**1P の step.ts も この 関数を 使う**（式の コピーを 作らない）
  *     type DropPicked = (item: ItemId, count: number, fromYokai: boolean) => void
  *     createDropPicked(d: { notifyPickup(item: ItemId, count: number): void; noteSeedFound(item: ItemId, at: Vec3): void; position(): Vec3; extra?: DropPicked }): DropPicked
- *       … 落とし物を ひろった ときの 知らせ（1P の ui.ts の onDropPicked と 同じ 中身を 1 つに）。notifyPickup(item, count)（実績 obtain:*・pickup:* の もと）を 1 回。
- *         fromYokai が true で item が たね（SEED_ITEM の どれか）なら noteSeedFound(item, position())。そのあと extra（1P は ホットバーの ぽん）。
+ *       … 落とし物を ひろった ときの 知らせ（1P の ui.ts の onDropPicked と 同じ 中身を 1 つに）。(notifyPickup は 実績 obtain:*・pickup:* の もと)
+ *         順番は 今の 1P（ui.ts:181）と 同じ: ① fromYokai が true で item が たね（SEED_ITEM の どれか）なら noteSeedFound(item, position()) ② notifyPickup(item, count) を 1 回 ③ extra（1P は ホットバーの ぽん）。
  *         **1P の ui.ts も これで 作る**（2P の ぶんは extra なし）
  *     routeDropPicked(d: { p1: DropPicked; p2: DropPicked }): (item: ItemId, count: number, fromYokai: boolean, who: 1 | 2) => void
  *       … who 1 は p1・who 2 は p2 を 1 回。`game/wire/inventory.ts` の DropField.onPickup が これを 使う（今の `if (who === 1)` を やめる）
@@ -123,14 +127,14 @@ describe('AC132: 落とし物を ひろった 知らせ（obtain:*・pickup:*・
     return { log, mkDrop };
   }
 
-  it('ひろった 数が notifyPickup に 1 回。妖怪の おとしものの たねだけ noteSeedFound（その 人の 場所で）', () => {
+  it('ひろった 数が notifyPickup に 1 回。妖怪の おとしものの たねだけ noteSeedFound（その 人の 場所で。notifyPickup より 先 = 今の 1P と 同じ 順）', () => {
     const { log, mkDrop } = parts();
     const drop = mkDrop('p2', { x: 7, y: 0, z: 0 });
     drop('dirt' as ItemId, 3, false);
     drop(SEED, 1, false); // 妖怪の おとしものでは ない
     drop('dirt' as ItemId, 1, true); // 妖怪の おとしものでも たねでは ない
     drop(SEED, 2, true);
-    expect(log).toEqual(['p2:pickup:dirt:3', `p2:pickup:${SEED}:1`, 'p2:pickup:dirt:1', `p2:pickup:${SEED}:2`, `p2:seed:${SEED}:7`]);
+    expect(log).toEqual(['p2:pickup:dirt:3', `p2:pickup:${SEED}:1`, 'p2:pickup:dirt:1', `p2:seed:${SEED}:7`, `p2:pickup:${SEED}:2`]);
   });
 
   it('extra（1P の ホットバーの ぽん）は 最後に 1 回。2P は extra なし', () => {
@@ -147,12 +151,22 @@ describe('AC132: 落とし物を ひろった 知らせ（obtain:*・pickup:*・
     expect(log).toEqual(['p1:dirt:1', 'p2:stone:2']);
   });
 
-  it('実績: 2P が ひろった 物の 「はじめて ◯◯ を てにいれた」(obtain:*) も 1P と 同じ だけ ふえる（2P の つくる の pickup 出来事を feedCraft へ）', () => {
+  it('実績: 2P が ひろった 物は 2P の notifyPickup → 2P の つくる の step → feedCraft の 道で obtain:*・pickup:* に 入る(1P の 道と 同じ 数)', () => {
+    const world = new ArrayVoxelWorld({ x: 16, y: 16, z: 16 });
+    const mkCraft = (a: AchievementSystem) =>
+      createP2Craft({ world, inventory: new InventoryImpl(), tansu: new StorageSystem({ world, inventory: new InventoryImpl(), player: () => pos, scatter: () => undefined, inventoryOpen: () => false, openScreen: () => undefined, closeScreen: () => undefined }), position: () => pos, tansuRange: () => 8, requestSave: () => undefined, feedCraft: (e) => a.feedCraft(e) });
     const one = mk();
     const two = mk();
-    const ev = [{ type: 'pickup', tick: T, item: 'dirt', count: 3 }] as never;
-    one.feedCraft(ev);
-    two.feedCraft(ev);
+    const c1 = mkCraft(one);
+    const c2 = mkCraft(two);
+    // 1P の 道（今の ui.ts）: craft.notifyPickup → 毎ステップ feedCraft
+    createDropPicked({ notifyPickup: (i, c) => c1.craft.notifyPickup(i, c), noteSeedFound() {}, position: () => pos })('dirt' as ItemId, 3, false);
+    c1.step();
+    // 2P の 道: routeDropPicked(who 2) → 2P の notifyPickup → p2Craft.step が feedCraft
+    const p2 = createDropPicked({ notifyPickup: (i, c) => c2.craft.notifyPickup(i, c), noteSeedFound() {}, position: () => pos });
+    routeDropPicked({ p1: () => undefined, p2 })('dirt' as ItemId, 3, false, 2);
+    expect(two.stats()['obtain:dirt'], 'step の 前は まだ').toBeUndefined();
+    c2.step();
     expect(two.stats()['obtain:dirt']).toBe(3);
     expect(two.stats()['pickup:*']).toBe(3);
     expect(two.stats()).toEqual(one.stats());
@@ -187,6 +201,28 @@ describe('AC150: 2P の combat・blade・arrow・wear の 出来事が 実績へ
     createP2Feed(two).blade(BLADE);
     expect(two.stats()['bladeCombo3']).toBe(1);
     expect(two.stats()).toEqual(one.stats());
+  });
+
+  it('blade: sink には who 2 で わたる(feedBlade(events, 2))', () => {
+    const got: Array<unknown[]> = [];
+    const feed = createP2Feed({ feedDig() {}, feedCombat() {}, feedBlade: ((e: unknown, who: unknown) => void got.push([e, who])) as never, feedArrow() {}, feedWear() {} });
+    feed.blade(BLADE);
+    expect(got).toEqual([[BLADE, 2]]);
+  });
+
+  it('blade: 1P と 2P が まざって 打っても それぞれの 3 段だけ 数える(途中経過は 人ごと)', () => {
+    const s = mk();
+    const p2 = createP2Feed(s);
+    const step = (n: number, kind: 'techStart' | 'techHit'): BladeEvent[] => [BLADE.find((e) => e.type === kind && (e as { step?: number }).step === n)!];
+    s.feedBlade(step(1, 'techStart')); // 1P 1 段目
+    s.feedBlade(step(1, 'techHit'));
+    p2.blade(BLADE.slice(0, 2)); // 2P 1 段目（2P の techStart が 1P の 途中経過を けさない）
+    p2.blade(BLADE.slice(2, 4)); // 2P 2 段目
+    s.feedBlade([...step(2, 'techStart'), ...step(2, 'techHit')]); // 1P 2 段目
+    p2.blade(BLADE.slice(4)); // 2P 3 段目 → 2P の コンボ 1
+    expect(s.stats()['bladeCombo3']).toBe(1);
+    s.feedBlade([...step(3, 'techStart'), ...step(3, 'techHit')]); // 1P 3 段目 → 1P の コンボ
+    expect(s.stats()['bladeCombo3']).toBe(2);
   });
 
   it('arrow: 矢を うつ／当てるが 1 つずつ。noArrow・pickup は 数えない。1P の step.ts と 同じ 関数', () => {

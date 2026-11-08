@@ -21,6 +21,7 @@ import { createBuildPort, createHarapanPort } from './combat';
  *       … 今の `build: { locked, level, tamp }`（shared.house を 関数で 包んだ 物）と 同じ。家が まだ ない(null)ときは locked は false・level／tamp は 何もしない。
  *     createHarapanPort(roll: Pick<HarapanRoll, 'block'>): NonNullable<DigM4Deps['harapan']>
  *       … `(id, y) => roll.block(id, y)`。**1 つの くじを 1P と 2P が 引く**（wireFighters が 1 回 作って 両方に 渡す。2P の ほる係には P2DigDeps.harapan として）。
+ *   **輪を 作らない**: `game/wire/duoPlay.ts` は combat.ts を import しない（combat.ts → … → duoPlay.ts の 輪の おそれ）。wireFighters が 作った 2 つの 口を `shared`（例 `shared.buildPort`・`shared.harapanPort`）に 入れて、duoPlay.ts は shared から 読む（か ctx の 引数で 渡す）。check:ratchet の 循環の 上限を ふやさない。
  *   2P の 渡し方: createP2Dig({ ..., build: buildPort, harapan: harapanPort })（p2Dig5b.test.ts）。
  *   1 人の ときは かわらない（AC130・AC146）: 1P の 守り・くじの 順は 今の まま（くじは 1 回 ほる ごとに 1 回）。
  */

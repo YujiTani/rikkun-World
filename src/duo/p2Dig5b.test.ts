@@ -21,9 +21,10 @@ import { P2State } from './p2State';
  *     armor?: Pick<ArmorSystemImpl, 'tryEquip' | 'slotFor'>     … ZL で 着る（AC134）。m4.armor = { tryEquip: (i) => armor.tryEquip(i), canEquip: (i) => armor.slotFor(i) !== null }。配線は p2.armor（1P の armor ではない）
  *     build?: NonNullable<DigM4Deps['build']>                    … 建築中の 家の 守り・みずもり・どうづき（AC135）。m4.build に そのまま。**1P と 同じ 守り**（配線は game/wire/combat.ts の createBuildPort を 2 人に 渡す。combatPorts.test.ts）
  *     chestPort?: NonNullable<DigSystemImpl['chestPort']>        … ダンジョンの 宝箱（AC148）。createP2Dig が dig.chestPort に 入れる
- *   src/dig/DigSystem.ts   public `chestWho: number`（既定 0）… 右クリックで 宝箱を あける とき `chestPort.open(x, y, z, this.chestWho)`（いまは 0 固定）。createP2Dig は 1 に する。
- *     who の 約束: 0 = 1P・1 = 2P（今の chestPort の コメント「1P は 0」の つづき）。
- *   1 人の ときは かわらない（AC130・AC146）: 1P の DigSystemImpl は chestWho 0 の まま・m4 に 2P の 口は 入らない。
+ *   src/dig/DigSystem.ts   public `chestWho: 1 | 2 = 1` … 右クリックで 宝箱を あける とき `chestPort.open(x, y, z, this.chestWho)`（いまは 0 固定）。createP2Dig は 2 に する。
+ *     chestPort の 型は `{ open(x: number, y: number, z: number, who: 1 | 2): void }`（who に 既定は ない。ほかの 所と そろえて 1 = 1P・2 = 2P。今の コメント「1P は 0」は やめる）。
+ *     DigSystem.ts は 722 行 なので 足すのは この 1 欄と 呼ぶ 1 行だけ。
+ *   1 人の ときは かわらない（AC130・AC146）: 1P の DigSystemImpl は chestWho 1 の まま・m4 に 2P の 口は 入らない。
  */
 
 const lock: LockStatus = { locked: () => true, overlayVisible: () => false, realtimeAllowed: () => true, playInputEnabled: () => true };
@@ -229,7 +230,7 @@ describe('AC135: 建築中の 家（守られた ブロックは 2P も こわ�
   });
 });
 
-describe('AC148: 宝箱（2P が ZL で あける → chestPort.open に who = 1 が とどく）', () => {
+describe('AC148: 宝箱（2P が ZL で あける → chestPort.open に who = 2 が とどく）', () => {
   const [RX, RZ] = CHEST_RIGHT.n;
   function chestRig(extra: Partial<P2DigDeps> = {}) {
     const world = new ArrayVoxelWorld({ x: 48, y: 24, z: 48 });
@@ -237,8 +238,8 @@ describe('AC148: 宝箱（2P が ZL で あける → chestPort.open に who = 1
     const p2 = new P2State();
     const actions = new ActionState();
     const state = mkPlayer(24.5, 10, 24.5, 0);
-    const opened: Array<{ x: number; y: number; z: number; who: number | undefined }> = [];
-    const chestPort = { open: (x: number, y: number, z: number, who?: number) => void opened.push({ x, y, z, who }) };
+    const opened: Array<{ x: number; y: number; z: number; who: 1 | 2 }> = [];
+    const chestPort = { open: (x: number, y: number, z: number, who: 1 | 2) => void opened.push({ x, y, z, who }) };
     const dig = createP2Dig({ world, p2, actions, position: () => state, lock, eyeHeight: () => EYE, partner: () => null, chestPort, ...extra });
     const tick = (n = 1): void => {
       for (let i = 0; i < n; i++) {
@@ -267,17 +268,17 @@ describe('AC148: 宝箱（2P が ZL で あける → chestPort.open に who = 1
     return { world, p2, dig, opened, look, click, x, y, z };
   }
 
-  it('2P の ZL は chestPort.open(x, y, z, 1) を 1 回 よぶ（who 1 = 2P）。手の ブロックは 置かない', () => {
+  it('2P の ZL は chestPort.open(x, y, z, 2) を 1 回 よぶ（who 2 = 2P）。手の ブロックは 置かない', () => {
     const r = chestRig();
     r.p2.inventory.setSlot(0, { item: 'dirt' as ItemId, count: 5 });
     r.p2.inventory.select(0);
     r.look(r.x + 0.5, r.y + 0.5, r.z + 0.5);
     r.click();
-    expect(r.opened).toEqual([{ x: r.x, y: r.y, z: r.z, who: 1 }]);
+    expect(r.opened).toEqual([{ x: r.x, y: r.y, z: r.z, who: 2 }]);
     expect(r.p2.inventory.held()?.count).toBe(5);
   });
 
-  it('1P の DigSystemImpl は who 0 の まま（1 人の ときは かわらない・AC146）', () => {
+  it('1P の DigSystemImpl は who 1 の まま（1 人の ときは かわらない・AC146）', () => {
     const world = new ArrayVoxelWorld({ x: 48, y: 24, z: 48 });
     world.fill(0, 0, 0, 47, 9, 47, 'stone');
     world.setBlock(26, 10, 24, chestBlockId(1, false, false) as BlockId);
@@ -286,9 +287,9 @@ describe('AC148: 宝箱（2P が ZL で あける → chestPort.open に who = 1
     const state = mkPlayer(24.5, 10, 24.5, 90);
     const inv = new InventoryImpl();
     const dig = new DigSystemImpl(world as never, () => state, actions, lock, inv, () => EYE);
-    const whos: Array<number | undefined> = [];
+    const whos: Array<1 | 2> = [];
     dig.chestPort = { open: (_x, _y, _z, who) => void whos.push(who) };
-    expect(dig.chestWho).toBe(0);
+    expect(dig.chestWho).toBe(1);
     const tick = (n: number): void => {
       for (let i = 0; i < n; i++) {
         dig.update();
@@ -302,7 +303,7 @@ describe('AC148: 宝箱（2P が ZL で あける → chestPort.open に who = 1
     tick(2);
     actions.release('secondary');
     tick(3);
-    expect(whos).toEqual([0]);
+    expect(whos).toEqual([1]);
   });
 
   it('口(chestPort)を 渡さない 2P の ZL は 何も 起きない(落ちない)', () => {

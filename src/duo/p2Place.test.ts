@@ -14,7 +14,7 @@ import { createPlaceWatch } from './p2Place';
  *   src/duo/p2Place.ts（新しく。`game/wire/save.ts` は 1P 用と 2P 用に 1 つずつ 作って 毎ステップ step を 呼ぶ。1P の wasInBottom・wasCave・wasArea は ここに うつす）
  *     createPlaceWatch(d: {
  *       country: Pick<CountryWatch, 'step' | 'reset'>               … その 人の 国の 見はり（CountryWatch を 人ごとに 1 つ。onEnter は どちらも achievements.enterCountry）
- *       bottom(x: number, y: number, z: number): boolean             … 足が いちばん 下の へやに いるか。高さの ふるい込み(SHAFT_CONFIG.room)も ここ
+ *       bottom(x: number, y: number, z: number): boolean             … 足が いちばん 下の へやに いるか。**高さの ふるい込み(SHAFT_CONFIG.room)は ここで、今の save.ts と 同じに 足の y（pos.y）で 見る**。step は y に + 0.1 を 渡す ので、この 関数の 中で `y - 0.1 < SHAFT_CONFIG.room.maxY + SHAFT_CONFIG.room.height` と 引きもどす（今の `st.position.y < …`〔+ 0.1 なし〕と 同じ）。そのあとの inBottom の 呼び出しは 今の まま（floor(y + 0.1) 相当）
  *       cave(x: number, y: number, z: number): CaveKind | null      … ほらあなの 部屋の 種類（いなければ null）
  *       area(x: number, y: number, z: number): MineAreaKind | null  … かくしべや・むかしの えだ道・迷路の おく・キャンプあと（いなければ null）
  *       feedMine(events: MineAchEvent[]): void                        … achievements.feedMine
