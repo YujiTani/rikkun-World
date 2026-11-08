@@ -475,7 +475,7 @@ export function wireAchievements(deps: WiredWeaponFx) {
   const farmFx = new FarmFx({
     sound: fxSound,
     particles: fx.particles,
-    hint: farmHint,
+    hintFor: (who) => (who === 1 ? farmHint : shared.p2FarmHint()), // 合図の チップは 起こした 人の 半分へ（COOP-1 5a）
     achievements,
     sparkle,
     say: (text) => deps.log.chestSay(text), // MINE-1E: かびた パンの「うぇ〜 かびてる…」

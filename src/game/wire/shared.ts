@@ -6,7 +6,7 @@ import { PlayerCombatImpl } from '../../combat';
 import { StaggerIcons } from '../../fx/parryFx';
 import { SamuraiBook } from '../../craft/SamuraiBook';
 import { LogSystem } from '../../ui/log';
-import { W2_SETTING_DEFAULTS, type ItemId, type ItemStack, type YokaiKind, type CombatEvent, type DigEvent, type SwingAnim, type Inventory, type Vec3, type W2Settings } from '../../contracts';
+import { W2_SETTING_DEFAULTS, type FarmAim, type FarmHintKind, type ItemId, type ItemStack, type YokaiKind, type CombatEvent, type DigEvent, type SwingAnim, type Inventory, type Vec3, type W2Settings } from '../../contracts';
 import type { YokaiPartner } from '../../yokai/ai/target';
 import { AchievementSystem } from '../../achievements';
 import { CelebrateUi } from '../../ui/celebrate';
@@ -92,6 +92,10 @@ interface Shared {
   legendFor: (who: 1 | 2) => LegendSystem | null;
   /** COOP-1 4d-1: 2P の パリィ（参加している あいだ だけ。いなければ null）。wireDuoPlay が 差しかえる */
   p2Parry: () => P2Parry | null;
+  /** COOP-1 5a: 2P の 半分の 合図の チップ（`FarmFx.hintFor(2)` が 読む。参加している あいだ だけ。いなければ null。wireDuoPlay が 差しかえる） */
+  p2FarmHint: () => { show(kind: FarmHintKind): void } | null;
+  /** COOP-1 5a: 2P の 作物の しるしの 中身（`duo.farmAim(2)`。ねらい なし・2P が いない → null。wireDuoPlay が 差しかえる） */
+  p2FarmAim: () => FarmAim | null;
   /** COOP-1 4d-1: 妖怪の 更新の 直前に 毎ステップ 呼ぶ（createStep。1P の parry.update の すぐ あと）。2P の 入力を 妖怪の 当たりより 先に 入れる。wireDuoPlay が 差しかえる */
   preYokai: () => void;
   /** COOP-1: Game に 渡している 時間の 倍率（テストの 口 duo.timeScale() が 読む。wireLoop が 差しかえる） */
@@ -180,6 +184,8 @@ export function createShared(): Shared {
     parryFor: () => null,
     legendFor: () => null,
     p2Parry: () => null,
+    p2FarmHint: () => null,
+    p2FarmAim: () => null,
     preYokai: () => {},
     gameTimeScale: () => 1,
     gashaBgmFade: {},
