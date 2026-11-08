@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { SEED_ITEM, VEG_ITEM } from '../src/contracts';
-import { PAD_ZR, countOf, farmAimOf, farmHintOf, placeCrop, startDuoFarm, stepN, tapPad } from './helpers/duoFarm';
+import { FARM_HINT_STEPS } from '../src/ui/farmHintModel';
+import { PAD_ZL, PAD_ZR, countOf, farmAimOf, farmHintOf, placeCrop, startDuoFarm, stepN, tapPad } from './helpers/duoFarm';
 
 /**
  * COOP-1 5a（docs/design/COOP-1.md 1.14 §3.7 (a)・§8 の 5a の 行・§12.0、AC115・AC126）の E2E（1 本）。実装の 前に 書いた 赤の テスト。
@@ -20,18 +21,21 @@ test('AC115・AC126: 2P が みのった 作物を ZR で とる（やさい・�
   await startDuoFarm(page);
   const cell = await placeCrop(page, 2, { stage: 3 });
 
-  // ---- とる 前: 2P の しるしが 出ていて、中身は 1P が 同じ 作物を ねらった ときと 同じ 形 ----
+  // ---- とる 前: 2P の しるしが 出ていて、中身は 1P が 同じ マスを ねらった ときの farm.hud() と 同じ ----
   const aim = await farmAimOf(page, 2);
   expect(aim, '2P の しるし').not.toBeNull();
   expect(aim!.ripe, 'みのった 作物').toBe(true);
-  expect(aim!.dots, '4 つ').toBe(4);
   await expect(page.getByTestId('duo-farm-aim-p2'), '2P の しるしが 見える').toBeVisible();
   expect(await farmHintOf(page, 2), '合図は ない').toBeNull();
-  const mine = await page.evaluate(() => {
+  const mine = await page.evaluate((c) => {
     const h = (window as any).__rikkun;
-    return { hud: h.farm.hud(), aim1: h.duo.farmAim(1) };
-  });
-  expect(mine.aim1, '1P の しるしは farm.hud() と 同じ').toEqual(mine.hud);
+    h.duo.aimAt(1, c); // 1P にも 同じ マスを ねらわせる
+    h.step(2);
+    return { target1: h.duo.target(1)?.block ?? null, hud: h.farm.hud(), aim1: h.duo.farmAim(1) };
+  }, cell);
+  expect(mine.target1, '1P も 同じ 作物を ねらえた').toEqual(cell);
+  expect(aim, '2P の しるしの 中身は 1P が 同じ マスを ねらった farm.hud() と 同じ').toEqual(mine.hud);
+  expect(mine.aim1, '1P の duo.farmAim(1) も farm.hud() と 同じ').toEqual(mine.hud);
 
   const crop = await page.evaluate((c) => (window as any).__rikkun.farm.crop(c.x, c.y, c.z) as { kind: string; ripe: boolean } | null, cell);
   expect(crop?.ripe).toBe(true);
@@ -76,4 +80,23 @@ test('AC115・AC126: 2P が みのった 作物を ZR で とる（やさい・�
   }, cell);
   expect(await farmAimOf(page, 2), 'ねらいを 外す').toBeNull();
   await expect(page.getByTestId('duo-farm-aim-p2')).toBeHidden();
+
+  // ---- 2P の 合図は 2P の 半分だけに 出て、120 ステップ あとに 消える ----
+  await page.evaluate((c) => {
+    const h = (window as any).__rikkun;
+    h.duo.give(2, 'watering_can', 1); // からっぽの じょうろ
+    h.duo.aimAt(2, { x: c.x, y: c.y - 1, z: c.z }); // はたけの 上
+    h.step(2);
+  }, cell);
+  await tapPad(page, PAD_ZL);
+  expect(await farmHintOf(page, 2), '2P の 合図（からっぽの じょうろ）').toBe('fill');
+  expect(await farmHintOf(page, 1), '1P の チップは 出ない').toBeNull();
+  await expect(page.getByTestId('duo-farm-hint-p2')).toBeVisible();
+  const hints = (await farmEvents(page)).filter((e) => e.type === 'hint');
+  expect(hints[hints.length - 1]?.by, '合図の 出来事は 2P の 物').toBe(2);
+  await stepN(page, FARM_HINT_STEPS - 20);
+  expect(await farmHintOf(page, 2), '120 ステップ たつ 前は まだ 出ている').toBe('fill');
+  await stepN(page, 40);
+  expect(await farmHintOf(page, 2), '120 ステップ あとに 消える').toBeNull();
+  await expect(page.getByTestId('duo-farm-hint-p2')).toBeHidden();
 });

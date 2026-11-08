@@ -15,6 +15,7 @@ import {
 import { AchievementSystem } from '../achievements/AchievementSystem';
 import { M6_SETTING_DEFAULTS } from '../contracts';
 import { itemDef } from '../content/items/registry';
+import { W2_SETTING_DEFAULTS } from '../contracts';
 import { createDigConfig } from '../dig/config';
 import { DigSystemImpl } from '../dig/DigSystem';
 import { createFarmSystem, type FarmSystemImpl } from '../farm/FarmSystem';
@@ -59,6 +60,11 @@ import { P2State } from './p2State';
  *       aim(): FarmAim | null;                // 2P の ねらいの `farm.aim`（= `shared.p2FarmAim()`）。ねらい なし・畑でない → null
  *     }
  *     - m4.farm・m4.emitFarm・m4.water・m4.bucket が 出す 出来事は ぜんぶ `by: 2`。畑の `lastHint` は 書かない（2P の 合図は 出来事 `hint`〔by: 2〕だけ）。
+ *     - 畑の 中で 出る 出来事（till・plant・harvest・pourAt の pour…）に `by: 2` を つけ、2P の pour が 1P の `lastPour` を 上書き しない ために、
+ *       FarmSystemImpl に 小さい 口を 足す（包みは 2P の 呼び出しを ぜんぶ これで 包む。形は src/farm/farmTwo.test.ts の 頭の 約束）:
+ *         `farm.actAs<T>(by: 2, fn: () => T): T` … fn の あいだ: emit に `by: 2`（もう `by` が ある 出来事は そのまま）・`noteHint` は lastHint を 書かない（出来事 hint は 出す）・
+ *         `pourAt` は 畑の lastPour を 書かず 2P の 分を 別に もつ。`farm.lastPourCells(by?: 2)`（by: 2 なら 2P の さいごの マス。`P2Farm.lastPourCells()` は これ）。
+ *         fn が 例外を 投げても もとに もどる。1P の 呼び出し（actAs の 外）は 今まで どおり。
  *     - 水は 2P の もちもの（p2.inventory）の じょうろ・バケツ。ハートは 2P の vitals。やさいは とった 人の もちもの（ほる係が 入れる）。
  *     - 1P の 呼び出しの 出来事に `by` は つかない・畑の 乱数の 順は かわらない（2P が 何も しない 間は 今と 同じ）。
  *
@@ -132,6 +138,7 @@ function scene(o: Opts = {}) {
   const dig1 = new DigSystemImpl(world as never, () => players[1], a1, lock, inv1, () => EYE, createDigConfig(), createRng(1), null, {
     farm,
     pet,
+    w2: W2_SETTING_DEFAULTS,
     water: createWatering({ farm, inventory: inv1, settings, tick: () => state.tick }),
     bucket: createBucket({ inventory: inv1, emit: (e) => farm.emit(e), tick: () => state.tick, world }),
     vitals: vit(1),
@@ -158,6 +165,7 @@ function scene(o: Opts = {}) {
       rng: createRng(1),
       m4: {
         ...p2farm.m4,
+        w2: W2_SETTING_DEFAULTS,
         nowTick: () => state.tick,
         onPickup: (item, count) => void picked.push({ who: 2, item, count }),
         scatterItem: (_pos, item, count) => void scattered.push({ who: 2, item, count }),
@@ -483,7 +491,9 @@ describe('AC117: こわす（作物・はたけ・くさ）', () => {
 describe('AC118: たがやす（人ごとに 数える）', () => {
   const grass = (z: number) => ({ x: G, y: S.y, z });
 
-  it('くわ 1 回 → はたけ（till は by: 2）。1P でも 同じ', () => {
+  it('くわ 1 回 → はたけ（till は by: 2）・くわの たいきゅうは その人の くわが 同じ だけ へる（1P でも 同じ）', () => {
+    expect(W2_SETTING_DEFAULTS.toolWear.kuwa.till, 'たがやして へる 量は 表から').toBeGreaterThan(0);
+    const wear: Record<Who, number> = { 1: 0, 2: 0 };
     for (const who of WHOS) {
       const r = scene();
       const z = rowZ(2);
@@ -495,7 +505,11 @@ describe('AC118: たがやす（人ごとに 数える）', () => {
       expect(r.world.getBlock(G, S.y, z), `${who}P`).toBe('farmland');
       const t = only<Extract<FarmEvent, { type: 'till' }>>(r, 'till');
       expect(who === 2 ? byOf(t) === 2 : noBy(t), `${who}P の by`).toBe(true);
+      wear[who] = r.invOf(who).slots()[0]?.wear ?? 0;
+      expect(wear[who], `${who}P の くわが へった`).toBe(W2_SETTING_DEFAULTS.toolWear.kuwa.till);
+      expect(r.invOf(who === 1 ? 2 : 1).slots()[0], 'もう 1 人の もちものは かわらない').toBeNull();
     }
+    expect(wear[2], '2P の へりは 1P と 同じ').toBe(wear[1]);
   });
 
   it('すで: farmHandTillPresses 回で はたけ。1 〜 (回数-1) 回目は tillPress（count つき・by: 2）', () => {
@@ -676,6 +690,7 @@ describe('AC120: じょうろ（2P の じょうろ）', () => {
       const cell = (who: Who) => ({ x: S.x, y: S.y, z: rowZ(rowOf(who)) });
       expect(r.farm.lastPourCells(), `${order.join('→')}: 畑の 物は 1P の まいた マス`).toEqual([cell(1)]);
       expect(r.p2farm.lastPourCells(), `${order.join('→')}: 2P の 物は 2P の まいた マス`).toEqual([cell(2)]);
+      expect(r.farm.lastPourCells(2), `${order.join('→')}: 畑の lastPourCells(2) も 同じ`).toEqual([cell(2)]);
     }
   });
 });
@@ -847,7 +862,7 @@ describe('AC123: 食べる（食べた 人の ハート）', () => {
 // ================================================================== AC129（出来事の 人に よらず 同じ 実績）
 describe('AC129: 実績は 共有（2P の 畑の 出来事も 1P と 同じ 記録に 数える）・けいけんちは 出ない', () => {
   /** step.ts と 同じ 道: 毎ステップ `farmFx.feed(farm.drainEvents())` → 実績 */
-  function playAs(who: Who): { stats: Record<string, number>; xp: { level: number; xp: number } } {
+  function playAs(who: Who): { stats: Record<string, number>; xp: { level: number; xp: number }; picked: Rig['picked'] } {
     const r = scene();
     const ach = new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
     const fx = new FarmFx({ sound: { playTones: () => undefined }, achievements: ach });
@@ -885,7 +900,7 @@ describe('AC129: 実績は 共有（2P の 畑の 出来事も 1P と 同じ 記
     r.aim(who, 'top');
     r.tap(who);
     feed();
-    return { stats: ach.stats(), xp: who === 2 ? r.p2.level : { level: 1, xp: 0 } };
+    return { stats: ach.stats(), xp: who === 2 ? r.p2.level : { level: 1, xp: 0 }, picked: r.picked };
   }
 
   it('同じ 一連の 作業を 1P が した ときと 2P が した ときで 実績の 記録が 同じ（数が 同じ だけ ふえる）', () => {
@@ -897,6 +912,16 @@ describe('AC129: 実績は 共有（2P の 畑の 出来事も 1P と 同じ 記
     expect(Object.keys(two.stats).sort()).toEqual(keys);
     expect(two.stats).toEqual(one.stats);
     expect(two.xp, '2P の けいけんちは 出ない').toEqual({ level: 1, xp: 0 });
+  });
+
+  it('とった やさいで 2P の onPickup（「はじめて てにいれた」の もと）が 呼ばれる。1P と 同じ 品・同じ 数で、1P の onPickup は 呼ばれない', () => {
+    const one = playAs(1);
+    const two = playAs(2);
+    expect(one.picked.length, '1P の onPickup').toBeGreaterThan(0);
+    expect(one.picked.some((p) => p.item === VEG_ITEM.tomato), 'とった やさい').toBe(true);
+    expect(one.picked.every((p) => p.who === 1)).toBe(true);
+    expect(two.picked.every((p) => p.who === 2), '呼ばれるのは 2P の onPickup だけ').toBe(true);
+    expect(two.picked.map(({ item, count }) => ({ item, count }))).toEqual(one.picked.map(({ item, count }) => ({ item, count })));
   });
 });
 

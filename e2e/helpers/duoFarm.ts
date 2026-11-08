@@ -104,23 +104,25 @@ const overlap = (a: Box, b: Box) => a.l < b.r && b.l < a.r && a.t < b.b && b.t <
 
 /**
  * 2 人とも 畑を ねらい、合図の チップが 2 つ 出ている 画面（ui-gate の 'duo-farm'）。ステップは これ以上 進めない（チップは 120 ステップで 消える ので freeze で 3 つの 大きさを 撮る）。
- *   1P: から の バケツを もって 作物を ねらい 右クリック → 合図 'bucket'（1P の 半分）
+ *   1P: から の バケツを もって はたけの 上を ねらい 右クリック → 合図 'bucket'（1P の 半分）
  *   2P: から の じょうろを もって 作物を ねらい ZL → 合図 'fill'（2P の 半分）
- * どちらも 作物の しるしが 出ている（4 つ 目の まるまで みのった 作物）。
+ * 2P は 作物を ねらい（しるしは みのった 作物）、1P は 作物の はたけの 上を ねらう（しるしは はたけ）。
  */
 export async function openDuoFarm(page: Page): Promise<void> {
   await openDuoHud(page);
   await installFakePads(page, 2);
-  await placeCrop(page, 1);
+  const c1 = await placeCrop(page, 1);
   await placeCrop(page, 2);
-  await page.evaluate(() => {
+  await page.evaluate((c) => {
     const h = (window as any).__rikkun;
+    h.duo.aimAt(1, { x: c.x, y: c.y - 1, z: c.z }); // 1P は はたけの 上を ねらう（バケツの 合図は 畑の 上で 出る。ユニットの AC121 と そろえる）
+    h.step(2);
     h.duo.give(1, 'bucket', 1);
     h.duo.give(2, 'watering_can', 1);
     h.input.press('secondary');
     h.input.release('secondary');
     h.step(3);
-  });
+  }, c1);
   await tapPad(page, PAD_ZL);
   await stepN(page, 3);
 }

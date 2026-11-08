@@ -12,6 +12,11 @@ import { createFarmSystem, type FarmSystemImpl } from './FarmSystem';
  *     `farm.update({ playerPos, p2Pos })` … かかし の 近さ（横 VISIT_RANGE ＋ 0.5 以内・たて 8 以内。今の 判定）を 2 人分 見て、どちらかが 近ければ「近い」。
  *     「近い」に かわった ステップに `visitOldFarm` を 1 つ（`by` は 書かない。実績は 共有）。2P の 足もとが 渡されない とき（1 人）は 今と まったく 同じ。
  *   `FarmEvent` の 型に 省ける `by?: 2` を 足す（`as FarmEvent` なしで 書ける ことを このファイルの 型で 見る）。
+ *   FarmSystemImpl に 小さい 口 `actAs<T>(by: 2, fn: () => T): T`（2P の 呼び出しを 包む。`duo/p2Farm.ts` が 使う。AC120・AC125）:
+ *     fn の あいだ ① `emit` した 出来事に `by: 2`（もう `by` が ある 物は そのまま）② `noteHint` は 畑の lastHint を 書かない（出来事 hint は `by: 2` で 出す）
+ *     ③ `pourAt` は 畑の lastPour を 書かず、2P の 分を 別に もつ（`lastPourCells(2)`）。`lastPourCells()` は 1P の まいた マス のまま。
+ *     fn の 戻り値を そのまま 返す。fn が 例外を 投げても もとに もどる（そのあとの 1P の 呼び出しに `by` は つかない）。入れ子は 内側の あと 外側の まま。
+ *   `lastPourCells(by?: 2): readonly Vec3[]` … by: 2 なら 2P の さいごに まいた マス（まだ なければ 空）。
  */
 
 const KAKASHI: Vec3 = { x: 20, y: 8, z: 20 };
@@ -120,5 +125,97 @@ describe('AC130: 出来事の 型（省ける `by?: 2`）', () => {
     const got = m.farm.drainEvents();
     expect(got).toEqual([e, p, one]);
     expect('by' in got[2]!).toBe(false);
+  });
+});
+
+describe('actAs: 畑の 中で 2P の 呼び出しを 見分ける（AC120・AC125）', () => {
+  const ground = (): { farm: FarmSystemImpl; world: ArrayVoxelWorld; cells: Vec3[]; ev: () => FarmEvent[] } => {
+    const world = new ArrayVoxelWorld({ x: 32, y: 16, z: 32 });
+    world.fill(0, 0, 0, 31, 7, 31, 'dirt');
+    const farm = createFarmSystem({
+      world,
+      light: { skyLight: () => 15, blockLight: () => 0, level: () => 15 },
+      seed: 1,
+      dayLength: () => DAY,
+      settings: createM7Settings(),
+      tick: () => 0,
+      fillTansu: () => undefined,
+      placement: () => ({ wild: [], oldFarm: null }),
+    });
+    const cells: Vec3[] = [];
+    for (const z of [4, 6, 8]) {
+      expect(farm.till(5, 7, z)).toBe(true);
+      cells.push({ x: 5, y: 7, z });
+    }
+    farm.drainEvents();
+    return { farm, world, cells, ev: () => farm.drainEvents() };
+  };
+
+  it('fn の あいだに emit した 出来事に by: 2。外の 出来事には つかない。戻り値は そのまま', () => {
+    const { farm, ev } = ground();
+    const r = farm.actAs(2, () => {
+      farm.emit({ type: 'till', tick: 1, x: 1, y: 2, z: 3 });
+      return 'ok';
+    });
+    farm.emit({ type: 'till', tick: 1, x: 1, y: 2, z: 4 });
+    expect(r).toBe('ok');
+    const got = ev();
+    expect(got.map((e) => ('by' in e ? e.by : undefined))).toEqual([2, undefined]);
+    expect('by' in got[1]!).toBe(false);
+  });
+
+  it('畑の 中で 出る 出来事（plant・harvest・pour）にも by: 2。もう by が ある 物は そのまま', () => {
+    const { farm, cells, ev } = ground();
+    const c = cells[0]!;
+    farm.actAs(2, () => {
+      expect(farm.plant(c.x, c.y, c.z, 'tomato')).toBe(true);
+      farm.setStage(c.x, c.y + 1, c.z, 3);
+      farm.harvest(c.x, c.y + 1, c.z);
+      farm.pourAt(c, 'watering_can', 1, 0);
+    });
+    const got = ev().filter((e) => e.type === 'plant' || e.type === 'harvest' || e.type === 'pour');
+    expect(got.map((e) => e.type)).toEqual(['plant', 'harvest', 'pour']);
+    expect(got.every((e) => 'by' in e && e.by === 2)).toBe(true);
+  });
+
+  it('noteHint は 畑の lastHint を 書かない（出来事 hint は by: 2 で 出る）。外の noteHint は 今まで どおり lastHint を 書く', () => {
+    const { farm, ev } = ground();
+    farm.actAs(2, () => farm.noteHint('fill', { x: 1, y: 2, z: 3 }));
+    expect(farm.lastHint()).toBeNull();
+    const h = ev().filter((e) => e.type === 'hint');
+    expect(h.length).toBe(1);
+    expect('by' in h[0]! && h[0]!.by).toBe(2);
+    farm.noteHint('bucket', { x: 1, y: 2, z: 3 });
+    expect(farm.lastHint()).toBe('bucket');
+    expect('by' in ev().filter((e) => e.type === 'hint')[0]!).toBe(false);
+  });
+
+  it('pourAt: 1P → 2P の じゅんで まいても 畑の lastPourCells() は 1P の まま・2P の 分は lastPourCells(2)。2P → 1P でも 同じ', () => {
+    for (const order of [[1, 2], [2, 1]] as const) {
+      const { farm, cells } = ground();
+      expect(farm.lastPourCells(2), 'まだ 2P は まいて いない').toEqual([]);
+      for (const who of order) {
+        const c = cells[who === 1 ? 0 : 1]!;
+        if (who === 2) farm.actAs(2, () => farm.pourAt(c, 'watering_can', 1, 0));
+        else farm.pourAt(c, 'watering_can', 1, 0);
+      }
+      expect(farm.lastPourCells(), `${order.join('→')}: 1P の 分`).toEqual([cells[0]]);
+      expect(farm.lastPourCells(2), `${order.join('→')}: 2P の 分`).toEqual([cells[1]]);
+      // 2P の はたけも ちゃんと ぬれる
+      expect(farm.soil(5, 7, 6)?.wet).toBe(true);
+    }
+  });
+
+  it('fn が 例外を 投げても もとに もどる。入れ子は 外側の まま', () => {
+    const { farm, ev } = ground();
+    expect(() => farm.actAs(2, () => { throw new Error('x'); })).toThrow('x');
+    farm.emit({ type: 'till', tick: 1, x: 1, y: 2, z: 3 });
+    expect('by' in ev()[0]!, '例外の あとの 1P の 出来事に by は つかない').toBe(false);
+    farm.actAs(2, () => {
+      farm.actAs(2, () => undefined);
+      farm.emit({ type: 'till', tick: 1, x: 1, y: 2, z: 3 });
+    });
+    const e = ev()[0]!;
+    expect('by' in e && e.by).toBe(2);
   });
 });
