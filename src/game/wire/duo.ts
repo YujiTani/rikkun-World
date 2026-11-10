@@ -145,6 +145,8 @@ export function wireDuo(deps: WiredLoop) {
     shadow: () => shared.shadowSystem,
     fx2: camFx2,
     beforePane: (c) => {
+      // 区画ごとに その カメラから 見える 地下だけ 残す（画面が 2 つでも 見えない 坑道は 描かない）
+      renderer.applyView(c as THREE.PerspectiveCamera);
       sprite?.render(c);
       body.faceCamera(c);
     },

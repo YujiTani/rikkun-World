@@ -171,6 +171,8 @@ export function wireRender(deps: WiredBoot) {
   renderer.enableStreaming();
   renderer.setViewer(island.spawn().x, island.spawn().z);
   renderer.attach(game.scene);
+  // 地上から 見えない 地下は 描かない（#405）。影の 前に 登録する（影は その 見え方を 使う）
+  game.onBeforeRender(() => renderer.applyView(game.camera));
   const lighting = new Lighting();
   const sceneBefore = new Set(game.scene.children);
   buildScenery(game.scene);

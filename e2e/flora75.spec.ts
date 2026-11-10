@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { fine, wide } from './helpers/fine';
 import { measureCountry, measureStart, openFlora } from './helpers/flora';
 
-/** はじまりの 坑道〔地下の セクションの たいまつ・わく・地形〕の ぶんの 描画回数の ふえの 上限の 上げ幅〔回〕。CI 094818d で +15〔10 ＋ 5〕。決定 13 */
-const START_SHAFT_DRAWS = 5;
+/** スタートの 描画回数の 上乗せ〔回〕。#405 で 見えない 地下を かくすと ゴールデンとの 差は 7（上限 +10 の 中）。上乗せは 0 に もどした */
+const START_SHAFT_DRAWS = 0;
 
 /**
  * #75 FLORA-75（docs/design/FLORA-75.md 1.3 版）の E2E。AC10・AC11・AC17b（【E2E】と書いた物）。
