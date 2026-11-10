@@ -19,9 +19,10 @@ export class FarmAimHud {
   private readonly dark: HTMLSpanElement;
   private key = '';
 
-  constructor(parent: HTMLElement) {
+  /** idSuffix: 2P の 半分の 分は '-p2'（`#farm-aim-p2`。中の しずく・ハート・月・文の id にも つく。COOP-1 5a） */
+  constructor(parent: HTMLElement, idSuffix = '') {
     this.el = document.createElement('div');
-    this.el.id = 'farm-aim';
+    this.el.id = `farm-aim${idSuffix}`;
     this.el.setAttribute('aria-hidden', 'true');
     this.el.hidden = true;
     this.name = document.createElement('span');
@@ -35,24 +36,24 @@ export class FarmAimHud {
       dots.append(d);
     }
     this.drop = document.createElement('img');
-    this.drop.id = 'farm-aim-drop';
+    this.drop.id = `farm-aim-drop${idSuffix}`;
     this.drop.className = 'farm-aim__art rk-art';
     this.drop.alt = '';
     this.drop.src = extraIconUrl('droplet');
     this.moon = document.createElement('img');
-    this.moon.id = 'farm-aim-moon';
+    this.moon.id = `farm-aim-moon${idSuffix}`;
     this.moon.className = 'farm-aim__art rk-art';
     this.moon.alt = '';
     this.moon.src = extraIconUrl('moon');
     this.heart = document.createElement('img');
-    this.heart.id = 'farm-aim-heart';
+    this.heart.id = `farm-aim-heart${idSuffix}`;
     this.heart.className = 'farm-aim__art rk-art';
     this.heart.alt = '';
     const hc = document.createElement('canvas');
     drawPixels(hc, heartPixels('full'));
     this.heart.src = hc.toDataURL();
     this.dark = document.createElement('span');
-    this.dark.id = 'farm-aim-dark';
+    this.dark.id = `farm-aim-dark${idSuffix}`;
     this.dark.className = 'farm-aim__dark';
     this.el.append(this.name, dots);
     parent.append(this.el);

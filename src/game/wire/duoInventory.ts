@@ -5,6 +5,7 @@
 import type { ItemId, ItemStack, ScreenState, Vec3 } from '../../contracts';
 import { closeInvHand } from '../../duo/invClose';
 import { createP2Craft, type P2Craft } from '../../duo/p2Craft';
+import { createDropPicked } from '../../duo/p2Feed';
 import { p2ArmorUi } from '../../duo/p2Equip';
 import { itemRarity } from '../../drops/rarity';
 import { playCraft } from '../../fx/craftSounds';
@@ -33,7 +34,7 @@ export interface DuoInventory {
 }
 
 export function createDuoInventory(deps: WiredLoop, position: () => Vec3, onClose: () => void): DuoInventory {
-  const { shared, hud, world, drops, craftConfig, craft2Settings, storage, uiTools, craftUi, live, achievements, fxSound, m6, furnaceWorld } = deps;
+  const { shared, hud, world, drops, craftConfig, craft2Settings, storage, uiTools, craftUi, live, achievements, fxSound, m6, furnaceWorld, farm } = deps;
   const inventory = shared.p2.inventory;
   const p2Craft = createP2Craft({
     world,
@@ -51,6 +52,12 @@ export function createDuoInventory(deps: WiredLoop, position: () => Vec3, onClos
   const craft = p2Craft.craft;
   // やけた 物が 2P の もちものに 入った: 2P の つくる の「ひろった」の 出来事（実績へ。2P の ログは 出さない。§2.6）
   shared.p2Delivered = (item, count, tick) => craft.notifyPickup(item, count, tick);
+  // COOP-1 5b（AC132）: 2P が 落とし物を ひろった 知らせ（1P の ui.ts と 同じ 中身。ホットバーの ぽん〔extra〕は 2P には ない）
+  shared.p2DropPicked = createDropPicked({
+    notifyPickup: (item, count) => craft.notifyPickup(item, count),
+    noteSeedFound: (item, at) => farm.noteSeedFound('yokai', item, at),
+    position,
+  });
   let open = false;
   const state: ScreenState = { mode: () => (open ? 'inventory' : 'play'), inventoryOpen: () => open, timeScale: () => 1 };
   const nameOf = (item: ItemId): string => itemType(item)?.name ?? item;

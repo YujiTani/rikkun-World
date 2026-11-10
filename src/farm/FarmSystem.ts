@@ -29,12 +29,12 @@ import {
 } from '../contracts';
 import { blockIndexOf } from '../world/blocks/blockTypes';
 import { cellFromKey, cellKey } from './cellKey';
+import { createFarmBy, nearKakashi as nearKakashiPos } from './farmBy';
 import { isWater } from '../world/blocks/water';
 
 /** 合図が出ている長さ（ステップ） */
 export const HINT_TICKS = 120;
 const LOG_MAX = 500;
-const VISIT_RANGE = 4;
 
 /** つなぎ込み・保存・テストの窓口が使う、`FarmSystem` に足した口 */
 export interface FarmSystemImpl extends FarmSystem {
@@ -48,6 +48,11 @@ export interface FarmSystemImpl extends FarmSystem {
   lastHint(): FarmHintKind | null;
   /** 世界の かかし の 場所（置かれていなければ null） */
   kakashi(): Vec3 | null;
+  /**
+   * COOP-1 5a: 2P の 呼び出しを 包む（畑は 世界に 1 つ）。fn の あいだ 出来事に `by: 2`・`noteHint` は `lastHint` を 書かない・
+   * `pourAt` は 2P の 分を 別に もつ（`lastPourCells(2)`）。fn の 戻り値を そのまま 返し、例外でも もとに もどる
+   */
+  actAs<T>(by: 2, fn: () => T): T;
   /**
    * 列を読みこんだあとに呼ぶ（VOX-D）。読みこんでいる列の はたけ・スプリンクラーを 数えなおす。
    * 読みこんでいない列の分は 覚えたまま（時間は止まる）。まとめて 1 コマに 1 回でよい
@@ -67,7 +72,7 @@ export interface FarmSystemImpl extends FarmSystem {
    */
   pourAt(target: Vec3, item: WateringCanId, dx: number, dz: number): number;
   /** 直前の `pourAt` で しめらせた はたけ の マス（しずく の 位置用。`pour` の 出来事 を 受けた ときに 読む）。次の `pourAt` まで 変わらない */
-  lastPourCells(): readonly Vec3[];
+  lastPourCells(by?: 2): readonly Vec3[];
   /** なでる。ごきげん の 口（`PetPort`）を 呼び、出来事 `pet` を 出す。作物 でなければ null */
   petCrop(x: number, y: number, z: number): PetResult | null;
   /** ブロック が 変わった（置いた・こわした）。スプリンクラー の 口 へ 伝え、出来事 sprinklerPlaced / sprinklerBroken を 出す */
@@ -164,8 +169,10 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
   let hint: { kind: FarmHintKind; tick: number } | null = null;
   let pending: FarmEvent[] = [];
   let log: FarmEvent[] = [];
+  const fb = createFarmBy();
 
-  const emit = (e: FarmEvent) => {
+  const emit = (raw: FarmEvent) => {
+    const e = fb.tag(raw);
     pending.push(e);
     log.push(e);
     if (log.length > LOG_MAX) log.splice(0, log.length - LOG_MAX);
@@ -385,11 +392,8 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
     }
     // かかし に 近づいた
     if (kakashiPos) {
-      const p = ctx.playerPos;
-      const near =
-        Math.abs(p.x - (kakashiPos.x + 0.5)) <= VISIT_RANGE + 0.5 &&
-        Math.abs(p.z - (kakashiPos.z + 0.5)) <= VISIT_RANGE + 0.5 &&
-        Math.abs(p.y - kakashiPos.y) <= 8;
+      // 2 人の どちらかが 近ければ 近い（実績は 共有。COOP-1 5a）
+      const near = nearKakashiPos(kakashiPos, ctx.playerPos) || (ctx.p2Pos !== undefined && nearKakashiPos(kakashiPos, ctx.p2Pos));
       if (near && !nearKakashi) emit({ type: 'visitOldFarm', tick: deps.tick(), x: kakashiPos.x, y: kakashiPos.y, z: kakashiPos.z });
       nearKakashi = near;
     }
@@ -411,7 +415,6 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
   const facingAxis = (dx: number, dz: number): { ax: number; az: number } =>
     Math.abs(dx) >= Math.abs(dz) ? { ax: dx < 0 ? -1 : 1, az: 0 } : { ax: 0, az: dz < 0 ? -1 : 1 };
 
-  let lastPour: Vec3[] = [];
   const wetNow = (x: number, y: number, z: number) => {
     const k = key(x, y, z);
     watered.set(k, waterDuration());
@@ -548,7 +551,7 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
       emit({ type: 'eat', tick: deps.tick(), x: at.x, y: at.y, z: at.z, item, heal });
     },
     noteHint(h, at) {
-      hint = { kind: h, tick: deps.tick() };
+      if (!fb.active()) hint = { kind: h, tick: deps.tick() }; // 2P の 合図は 1P の チップの もとに しない
       emit({ type: 'hint', tick: deps.tick(), x: at.x, y: at.y, z: at.z, hint: h });
     },
     noteSeedFound(from: SeedSource, item, at) {
@@ -557,7 +560,8 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
 
     update,
     emit,
-    lastPourCells: () => lastPour,
+    lastPourCells: (by) => fb.pourCells(by),
+    actAs: fb.run,
     canLeft: (x, y, z) => watered.get(key(x, y, z)) ?? 0,
     waterTotal: waterDuration,
     sprinklers: () => sprinkler.list(),
@@ -598,7 +602,7 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
         }
       }
       for (const c of cells) wetNow(c.x, c.y, c.z);
-      lastPour = cells;
+      fb.setPour(cells);
       emit({ type: 'pour', tick, x: target.x, y: sy0, z: target.z, item, tiles: cells.length });
       return cells.length;
     },

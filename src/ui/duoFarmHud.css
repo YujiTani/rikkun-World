@@ -1,0 +1,24 @@
+/*
+ * COOP-1 5a（docs/design/COOP-1.md §3.7 (b)・AC125・AC126）: 2 人の ときの 畑の 合図の チップと 作物の しるし。
+ * 1 人の ときは html[data-duo] が ないので 何も 効かない（今までと 同じ）。
+ * 1P は 左の 半分、2P は 右の 半分の まん中に そろえる。半分の はば（50vw）の 90% を こえない（まん中の 線から 5% あける）。
+ */
+html[data-duo] #farm-hint,
+html[data-duo] #farm-hint-p2 {
+  max-width: calc(45vw - 8px);
+}
+html[data-duo] #farm-hint {
+  left: 25%;
+}
+/* 2P の チップは 半分の 下の 方（照準の 下。ハート・ホットバーの 上。たいきゅうの お知らせ〔上の 方〕と 重ならない） */
+html[data-duo] #farm-hint-p2 {
+  left: 75%;
+  top: 60%;
+}
+html[data-duo] #farm-aim {
+  left: 25%;
+}
+html[data-duo] #farm-aim-p2 {
+  left: 75%;
+  max-width: calc(45vw - 8px);
+}

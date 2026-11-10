@@ -14,9 +14,10 @@ export class FarmHint {
   readonly model = new FarmHintModel();
   private shownKind: string | null = null;
 
-  constructor(parent: HTMLElement) {
+  /** idSuffix: 2P の 半分の 分は '-p2'（`#farm-hint-p2`。COOP-1 5a） */
+  constructor(parent: HTMLElement, idSuffix = '') {
     this.el = document.createElement('div');
-    this.el.id = 'farm-hint';
+    this.el.id = `farm-hint${idSuffix}`;
     this.el.setAttribute('role', 'status');
     this.el.hidden = true;
     parent.append(this.el);

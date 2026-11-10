@@ -19,6 +19,7 @@ import { createDigConfig } from '../../dig';
 import { InventoryImpl } from '../../inventory';
 import { ScreenController } from '../../screen/ScreenController';
 import { createScreenSettings } from '../../screen/config';
+import { routeDropPicked } from '../../duo/p2Feed';
 import type { WiredPlayer } from './player';
 
 export function wireInventory(deps: WiredPlayer) {
@@ -136,9 +137,8 @@ export function wireDrops(deps: WiredInventory) {
       lastFullSignal = game.tick;
       hudSignal.full();
     },
-    onPickup: (item, count, fromYokai, who) => {
-      if (who === 1) shared.onDropPicked(item, count, fromYokai);
-    },
+    // COOP-1 5b（AC132）: 1P の 知らせは shared.onDropPicked・2P の 知らせは shared.p2DropPicked（実績 obtain:*・pickup:*・妖怪の たね）
+    onPickup: routeDropPicked({ p1: (item, count, fromYokai) => shared.onDropPicked(item, count, fromYokai), p2: (item, count, fromYokai) => shared.p2DropPicked(item, count, fromYokai) }),
     partner: () => shared.duoDropMate(),
   });
   /** 置いて たいら に した 足もと の 列（土けむり。次 の ステップ で AnimalFx へ） */

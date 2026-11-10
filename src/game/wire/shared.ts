@@ -6,7 +6,7 @@ import { PlayerCombatImpl } from '../../combat';
 import { StaggerIcons } from '../../fx/parryFx';
 import { SamuraiBook } from '../../craft/SamuraiBook';
 import { LogSystem } from '../../ui/log';
-import { W2_SETTING_DEFAULTS, type ItemId, type ItemStack, type YokaiKind, type CombatEvent, type DigEvent, type SwingAnim, type Inventory, type Vec3, type W2Settings } from '../../contracts';
+import { W2_SETTING_DEFAULTS, type FarmAim, type FarmHintKind, type ItemId, type ItemStack, type YokaiKind, type CombatEvent, type DigEvent, type SwingAnim, type Inventory, type Vec3, type W2Settings } from '../../contracts';
 import type { YokaiPartner } from '../../yokai/ai/target';
 import { AchievementSystem } from '../../achievements';
 import { CelebrateUi } from '../../ui/celebrate';
@@ -27,6 +27,7 @@ import type { P2GashaPort } from './gashaPeople';
 import type { DuoCamFx } from '../../duo/camFx';
 import type { Parry } from '../../combat/parry';
 import type { P2Parry } from '../../duo/p2Parry';
+import type { DigM4Deps } from '../../dig/digPorts';
 import type { ImpactView } from '../../duo/impactRoute';
 import type { ImpactBus } from '../../fx/impact';
 import type { LegendSystem } from '../../legend/LegendSystem';
@@ -74,6 +75,16 @@ interface Shared {
   p2LevelUp: () => void;
   /** COOP-1 3a: 2P の 今の ハート（たおした ときの 実績の hp 用。wireDuo が 差しかえる） */
   p2Hp: () => number;
+  /** COOP-1 5b（AC132）: 2P が 落とし物を ひろった ときの 知らせ（2P の つくる の notifyPickup。createDuoInventory が 差しかえる） */
+  p2DropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
+  /** COOP-1 5b: 2P が 倒れて いる か（場所の 実績・国の 見はりが 見る。wireDuoPlay が 差しかえる） */
+  p2Down: () => boolean;
+  /** COOP-1 5b: セーブを 読んだ とき 2P の 場所の 見はりを 消す（wireFrame が 差しかえる） */
+  p2PlaceReset: () => void;
+  /** COOP-1 5b: 建築中の 家の 守り・みずもり・どうづき の 口（wireFighters が 作って 1P・2P に 同じ 物を 渡す。duoPlay.ts は combat.ts を import しない） */
+  buildPort: DigM4Deps['build'] | null;
+  /** COOP-1 5b: はらぱんみみず の くじ（1 つの くじを 1P・2P が 引く。wireFighters が 作る） */
+  harapanPort: DigM4Deps['harapan'] | null;
   /** COOP-1: 2 人のときの カメラの 距離（null = 1 人。step.ts が rig に 渡す。wireDuo が 毎ステップ 書く） */
   duoCamDistance: number | null;
   /** COOP-1 4d-0（§8）: その人の カメラの 口（止め・ゆれ・きょり）。wirePlayer が 差しかえる */
@@ -92,6 +103,10 @@ interface Shared {
   legendFor: (who: 1 | 2) => LegendSystem | null;
   /** COOP-1 4d-1: 2P の パリィ（参加している あいだ だけ。いなければ null）。wireDuoPlay が 差しかえる */
   p2Parry: () => P2Parry | null;
+  /** COOP-1 5a: 2P の 半分の 合図の チップ（`FarmFx.hintFor(2)` が 読む。参加している あいだ だけ。いなければ null。wireDuoPlay が 差しかえる） */
+  p2FarmHint: () => { show(kind: FarmHintKind): void } | null;
+  /** COOP-1 5a: 2P の 作物の しるしの 中身（`duo.farmAim(2)`。ねらい なし・2P が いない → null。wireDuoPlay が 差しかえる） */
+  p2FarmAim: () => FarmAim | null;
   /** COOP-1 4d-1: 妖怪の 更新の 直前に 毎ステップ 呼ぶ（createStep。1P の parry.update の すぐ あと）。2P の 入力を 妖怪の 当たりより 先に 入れる。wireDuoPlay が 差しかえる */
   preYokai: () => void;
   /** COOP-1: Game に 渡している 時間の 倍率（テストの 口 duo.timeScale() が 読む。wireLoop が 差しかえる） */
@@ -169,9 +184,14 @@ export function createShared(): Shared {
     duoDropMate: () => null,
     duoYokai: () => null,
     p2Delivered: () => {},
+    p2DropPicked: () => {},
     p2LoadReset: () => {},
     p2LevelUp: () => {},
     p2Hp: () => 0,
+    p2Down: () => false,
+    p2PlaceReset: () => {},
+    buildPort: null,
+    harapanPort: null,
     p2Store: { saved: null },
     duoJoined: () => false,
     leaveDuo: () => {},
@@ -180,6 +200,8 @@ export function createShared(): Shared {
     parryFor: () => null,
     legendFor: () => null,
     p2Parry: () => null,
+    p2FarmHint: () => null,
+    p2FarmAim: () => null,
     preYokai: () => {},
     gameTimeScale: () => 1,
     gashaBgmFade: {},

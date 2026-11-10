@@ -22,6 +22,11 @@ export interface FarmFxDeps {
   particles?: { burstHex(block: Vec3, hex: number, cfg: FxSettings, count: number): void };
   /** 合図のチップ（`FarmHint.show` が合う） */
   hint?: { show(kind: FarmHintKind): void };
+  /**
+   * COOP-1 5a: 合図の チップの 行き先を 人ごとに えらぶ（`by: 2` の 合図は `hintFor(2)`、`by` の ない 合図は `hintFor(1)`）。null なら どこにも 出さない。
+   * 渡した ときは `hint` を 見ない。`hint` だけ 渡す と `by: 2` の 合図は 1P の チップに 出さない
+   */
+  hintFor?: (who: 1 | 2) => { show(kind: FarmHintKind): void } | null;
   /** 実績（`AchievementSystem.feedFarm` が合う） */
   achievements?: { feedFarm(events: readonly FarmEvent[]): void };
   /** M7-2: なでた ハート・ゆれ（`FarmSparkle.onPet` が合う） */
@@ -30,6 +35,8 @@ export interface FarmFxDeps {
   say?: (text: string) => void;
   /** MINE-1E: かびた パンを たべて 人形が ぶるっ（`BlockDoll.shiver` が 合う） */
   shiver?: () => void;
+  /** COOP-1 5a: 2P が かびた パンを たべて 2P の 人形が ぶるっ。2P の たべた ときは ひとこと（1P の ログ）も 1P の 人形も 動かさない */
+  shiverP2?: () => void;
   settings?: FxSettings;
 }
 
@@ -56,6 +63,13 @@ export class FarmFx {
     playFarm(this.d.sound, name);
     this.played.push(name);
     if (this.played.length > 64) this.played.shift();
+  }
+
+  /** 合図の チップの 行き先（起こした 人の 半分の 物） */
+  private hintSink(e: FarmEvent): { show(kind: FarmHintKind): void } | null {
+    const who = e.by === 2 ? 2 : 1;
+    if (this.d.hintFor) return this.d.hintFor(who);
+    return who === 1 ? (this.d.hint ?? null) : null;
   }
 
   private burst(e: { x: number; y: number; z: number }, hex: number, n: number): void {
@@ -91,8 +105,11 @@ export class FarmFx {
         this.snd('eat');
         const line = eatLogLine(e.item); // かびた パン
         if (line !== null) {
-          this.d.say?.(line);
-          this.d.shiver?.();
+          if (e.by === 2) this.d.shiverP2?.();
+          else {
+            this.d.say?.(line);
+            this.d.shiver?.();
+          }
         }
         break;
       }
@@ -100,7 +117,7 @@ export class FarmFx {
         this.snd('seedFound');
         break;
       case 'hint':
-        this.d.hint?.show(e.hint);
+        this.hintSink(e)?.show(e.hint);
         if (e.hint === 'fill' || e.hint === 'bucket') this.snd('empty'); // からっぽ の じょうろ（4c）・バケツ（4f）軽い「コン」
         break;
       // ---- M7-2（しずく・しぶき の つぶ は A・B の 担当。音 は ここ から）

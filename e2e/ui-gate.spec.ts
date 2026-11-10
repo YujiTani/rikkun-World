@@ -20,6 +20,7 @@ import { duoInvIssues, duoInvStationIssues, openDuoInv } from './helpers/duoInv'
 import { duoParryEdgeIssues, openDuoParryEdge } from './helpers/duoParry';
 import { duoGashaHpIssues, openDuoGashaHp } from './helpers/duoGasha';
 import { duoFlashIssues, openDuoFlash } from './helpers/duoFlash';
+import { duoFarmIssues, openDuoFarm } from './helpers/duoFarm';
 import { duoArrowPanelIssues, duoBandIssues, duoHudIssues, duoPadLostIssues, duoUsePadIssues, duoViewIssues, openDuoArrowPanel, openDuoBand, openDuoHud, openDuoUsePad, openDuoPadLost, openDuoSplit } from './helpers/duoUi';
 import { PICK_ROOTS, SITE_NEED_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen, siteNeedIssues } from './helpers/houseSite';
 
@@ -622,6 +623,20 @@ SCREENS.push(
     extra: (page: Page) => duoInvStationIssues(page, 'tansu'),
   },
 );
+
+/**
+ * COOP-1 5a（1.14 §3.7 (b)・AC125・AC126）: 2 人とも 畑の 作物を ねらい、合図の チップが 両方に 出ている 画面（1P = バケツの 合図、2P = じょうろの 合図）。
+ * 3 つの 大きさで 2P の チップ（duo-farm-hint-p2）と しるし（duo-farm-aim-p2）が 2P の 半分の 中、1P の チップ（#farm-hint）と しるし（#farm-aim）が 1P の 半分の 中に おさまり、
+ * ホットバー・ハート・レベル表示・たいきゅうの お知らせ・距離メーター・矢印に かからない。検査は e2e/helpers/duoFarm.ts の duoFarmIssues。
+ * 見た目（チップ・しるしの 置き場）は 試作の スクショで オーナー OK（AC127）。チップは 120 ステップで 消える ので ステップを 進めずに 撮る（freeze）。
+ */
+SCREENS.push({
+  id: 'duo-farm',
+  roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-farm-hint-p2"]', '[data-testid="duo-farm-aim-p2"]', '#farm-hint', '#farm-aim'],
+  freeze: true,
+  open: openDuoFarm,
+  extra: (page: Page) => duoFarmIssues(page),
+});
 
 /**
  * COOP-1 4d-2（AC106）: 2 人の とき わざを 出した 人の 半分だけ うすく 光る（`duo-flash-p1`／`-p2`）。1P が 雷を 落とした 画面と、2P が 落とした 画面。
