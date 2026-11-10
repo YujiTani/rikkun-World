@@ -470,6 +470,8 @@
 
 **畑の 中の 1 人分の 状態**（1.14 レビュー）: `FarmSystem` は ① さいごの 合図（`noteHint` → `lastHint`）を 1 つ だけ もち 上書き する → **2P の 合図は 包み（`duo/p2Farm.ts`）を 通し、畑の `lastHint` を 書かない**（`farm.lastHint` は 1P の 物の まま。2P の 物は `duo.farmHint(2)`） ② さいごに まいた マス（`lastPourCells()`）も 1 つ → 2P の しぶきは 2P の 出来事の マスから 出す（§10） ③ かかし の 近さ（`nearKakashi`）も 1 つ → AC124 の 「どちらか」で よい（2 人の どちらかが 中に いる あいだは 出なおさない）。
 
+**畑の 小さい 口 `actAs`**（5a のテスト準備で 決めた。名前と 形は 開発が かえて よい。かえたら 依頼文と ここに 書く）: `FarmSystemImpl.actAs<T>(by: 2, fn: () => T): T`。2P の 畑の 呼び出し（`duo/p2Farm.ts` の 包みが ぜんぶ これで 包む）の あいだ ① `emit` する 出来事に `by: 2` ② `noteHint` は `lastHint` を 書かない（出来事 `hint` は `by: 2` で 出す）③ `pourAt` は 畑の `lastPour` を 書かず 2P の 分を 別に もつ（`farm.lastPourCells(2)`。`farm.lastPourCells()` は 1P の まま）。fn が 例外でも もとに もどる。2P の しぶきは 出来事 `pour` の `by` で マスを えらぶ（`src/fx/farmPourFx.ts` の `feedPourFx`）。
+
 **出来事は だれの 物か**: 畑の 出来事（`FarmEvent`）に 「起こした 人」が ない。2P が 起こした 物は 2P の 物と 分かる ように する（形は 開発。例: 出来事に 省ける `by: 2`。ない ときは 1P。作物が 自分で 育つ `stage`・`wet`・スプリンクラーは 人なし）。
 
 | 出来事 | どちらの 人に 出すか |
@@ -486,7 +488,7 @@
 | 物 | 決まり |
 |---|---|
 | 作物の しるし（`#farm-aim`: まる 4 つ・しずく・くらい ときの 月） | 2P が ねらった 作物・はたけの しるしを **2P の 半分**に 2 つ目（`duo-farm-aim-p2`）。中身は 1P と 同じ（`farm.aim` を 2P の ねらいで）。置く 所は 1P の しるしが 全面で ある 所と 同じ 関係を 2P の 半分の 中で（＋マークの 近く。ホットバー・ハート・矢印に かからない）。1P の しるしは 2 人の とき 1P の 半分の 中 |
-| 合図の チップ | 上の 表（2P の 半分の 下の 方。お知らせ〈そうびの こわれた〉と 重ならない） |
+| 合図の チップ | 上の 表（2P の 半分の 下の 方。お知らせ〈そうびの こわれた〉と 重ならない） 2 人の とき **1P の チップ（`#farm-hint`）も 1P の 半分の 中**に 収める（まん中の 線に またがらない。デザインの 小さい 直し・5a テスト準備のレビュー。版は 1.14 の まま）。 |
 | ホットバー | 今の 2P の ホットバー（じょうろの 水の ゲージ・いしばい・たね の 数も 1P と 同じ 絵）。新しく 作る 物は ない |
 | アクションの ヒント（右クリックの 字） | 2P には 今も ない（§4「HUD」の 行）。**5a では 足さない**。→ **1.16 で 変わった**: オーナーが 「2p画面にアクションヒントを出して」と 決めた ので **5f-1 で 出す**（§3.7 (g)・§11.2-9） |
 
@@ -878,6 +880,7 @@
 
 - **つなぎ目の 約束**（形を ここで 決める。名前は 開発が かえて よいが、かえたら 依頼文と 仕様に 書く）:
   - 5a: 畑の 出来事に 省ける `by?: 2`（ない ときは 1P）。2P の ほる係の `emitFarm`・`farm` の 呼び出しは `by: 2` を つける 包み（`duo/p2Farm.ts`）を 通す。`FarmFx` の チップは `hintFor(who)`（1P は 今の `farmHint`、2P は 2P の 半分の 2 つ目）へ。
+  - 5a: 畑に 小さい 口 `farm.actAs(2, fn)`（fn の あいだ 出来事に `by: 2`・`noteHint` は `lastHint` を 書かない・`pourAt` は 2P の 分を `lastPourCells(2)` に 別に もつ。くわしくは §3.7 (a)）。かかしの 近さの 2P の 足もとは `FarmStepContext.p2Pos?`。
   - 5a: `shared.p2FarmAim(): FarmAim | null`（2P の ねらいの `farm.aim`）。2P の しるしは これを 毎ステップ 読む。
   - 5c（1.15）: `AnimalManager` の 人の ある 口は 最後に 省ける `who: 1 | 2 = 1`: `swingNet(block, who)`・`carrying(who)`・`carryHold(id, heldTicks, who)`・`putDown(spot, who)`・`putDownWhy(who)`・`dropCarried(spot, who)`・`throwSpot(aim, who)`・`startThrow(aim, who)`・`throwTo(x, y, z, who)`・`collectCoop(coopId, who)`・`meat(coopId, id, who)`・`emitHint(h, who)`。1 人の ときの 呼び方（`who` なし）は 今と 同じ 動き。人の 場所は `AnimalManagerOptions.playerOf(who: 1 | 2): { position: Vec3 } | null`（今の `getPlayer`・`partner` を まとめて よい。なかまの ついてくる 先は `playerOf(1)`〈§11.2-14 ①〉）。入れ先は `deps.addItem(item, who)`・`deps.tryAddItem(item, who)`。出来事 `AnimalEvent` に 省ける `by?: 2`。2P の ほる係の `m4.animals` は `duo/p2Animals.ts` の 包み（`AnimalApi` と 同じ 形で `who: 2` を つける）。とりごやの メニューは `shared.openCoopMenu(id, who)`・`shared.coopMenuIsOpen(who: 1 | 2 = 1)`（1P の 錠・たんすの E・案内画面は `who: 1` だけを 見る）。
   - 5d（1.15）: `projectToPane(p: Vec3, camera, pane: { x: number; y: number; w: number; h: number }): { x: number; y: number } | null`（純関数。カメラの 後ろ・半分の 外なら null。2P の ふきだしと 5f の 投影が 使う。ユニットで 見る）。建築士さんの メニューを パッドで 押せる 判定: `HouseUi` の 根に `data-pad-ready` を 付け（メニューが 押せる 形の ときだけ）、`activeMenuRoot` が これを 見る。先に 開いた 人が 勝つ: 建築士さんの ふきだしの 間に もう 1 人が 本を 開いたら、`onOpen` の `claim(who)` が false なら 建築士さんを 閉じる（本が 勝つ）。`shared.modalOwner(): 1 | 2 | null`（本か 建築士さんの メニューが 開いて いる あいだ。ほかは null）。開き口は `book.open(who: 1 | 2 = 1)`・`house.talkTo(id, who: 1 | 2 = 1)`。`HouseSystem` の `player()` は 話して いる あいだ 話した 人の 場所（`talker(): 1 | 2 | null` を 足す）、材料・どうぐは `bagOf(who)`・たんすは その人から。外へ 出すのは `teleport(who, x, y, z)` を 箱の 中の 人ごと。入力: 開いた 人が 2P の あいだ `Book.onAction` と メニューの 十字・決定は 2P の スロットから（1P の スロット・キーは わたさない）。「ちょっと まってね」は `notices.setWait(who: 1 | 2, on)`（開いて いない 人の 半分）。
@@ -1258,6 +1261,7 @@
 | `duo.actionHint(who)` | `(who: 1 \| 2): ActionHintLines & { pad: 'mouse' \| 'pad' } \| null` | 【5f-1】その人の 半分に 出ている アクションヒント（1P は 今の `#action-hint` の 中身と 同じ 形。`pad` は 絵の 種類）。出ていなければ null。2P が いなければ `who: 2` は null。型は **`DuoPlayHook`**。ふつうの URL でも 効く（見るだけ） |
 | 画面の 目印（5d・5e・5f） | `data-testid` | 【5d】`duo-relock-p1`（2P が パッドで とじた あと 1P の 錠が かけなおし待ちの あいだ 1P の 半分に 出る「ゲームに 戻る」。クリック／キーで かかると 消える。出ていない ときは ないか hidden）。【5e】`duo-sleep-ask-p1`・`duo-sleep-ask-p2`（その人の 半分の 「おともだちが いっしょに ねたがっているよ」）。【5f-1】`duo-notice-signal-p1`／`-p2`（おしらせの 印）・`duo-aim-stance-p1`／`-p2`（構えの しるし）・`duo-tech-lock-p1`／`-p2`（技の ロック）・`duo-aim-bow-p1`／`-p2`（弓の 丸）・`[data-hint-pad]`（ヒントの 肩ボタンの 絵。24px 以上。属性に 面の 名前）・`duo-crosshair-p1`／`-p2`（2 人の あいだ `#crosshair` は hidden）。ヒントの 面の 名前は `src/ui/settings/padBadge.ts` の `TEXT` を export して 使う（新しい 表を 作らない）。2P の 割り当ては `hintFaceLabels(router.reader2.getBinds())`。`duo-action-hint-p1`（2 人の あいだの 1P の ヒント。1 人の ときは 今の `#action-hint` のまま）・`duo-action-hint-p2`・`duo-crosshair-p1`・`duo-crosshair-p2`（各半分の ＋マーク）。【5f-2】`duo-clock-p1`・`duo-clock-p2`・`duo-hud-notice-p2`。出ていない ときは ないか hidden |
 | 画面の 目印（5d・5e） | `data-testid` | 【5d】`duo-wait-p1`（上の 行）。【5e】`duo-gadget-note-p2`（2P の 半分の 「よる に ねようね」）。ねむりの 暗さは 今の まま 1 つ（画面ぜんたい） |
+| 畑の 口 `actAs`（5a） | `farm.actAs<T>(by: 2, fn: () => T): T`・`farm.lastPourCells(by?: 2)` | 【5a】2P の 畑の 呼び出しを 包む。ユニットが 出来事の `by`・`lastHint`・しぶきの マスを 見る（§3.7 (a)） |
 | 画面の 目印（4d） | `data-testid` | 【4d-1】`duo-parry-edge-p1`・`duo-parry-edge-p2`（その人の 半分の 青い ふち。出ている あいだ だけ 見える）。【4d-2】`duo-flash-p1`・`duo-flash-p2`（その人の 半分の うすい 光）。【4d-3】`gasha-hp-p1`（2 人の ときの 1P の 半分の ゲージ。1P の `#gashaBigHp` に つける）・`gasha-hp-p2`（2P の 半分の 2 つ目。id なし）。どれも 出ていない ときは ないか hidden |
 
 - 2P の持ち物・ハートなどは、今の口（`inventory`・`combat` など）に「だれの」を足すか `duo` の下に足すかは tester と developer が決める（名前は `duo` の下にそろえるのが望ましい）。→ 作業 3a で `duo` の 下に 決めた（上の `aimAt`〜`hurt`）。
@@ -1458,7 +1462,7 @@ E2E は 2 本まで: AC64（ふつうの URL の ＋ 参加。AC2・AC46 と 同
 | AC122 | なでる: 2P が 作物を なでると 1P と 同じ 結果（`pet`・`by: 2`）。2P が なでた 作物を 1P が なでると 「ごきげんの あいだ」（作物の ごきげんは 1 つ）。逆も 同じ | 5a | ユニット |
 | AC123 | 食べる: 2P の ハートが へって いる とき、2P が やさい・たまご・やいた もも にく・かびた パン を 食べると **2P の ハート** が 1P と 同じ 数 もどり（`duo.hearts(2)`）、2P の 物が 1 へる。1P の ハートは かわらない。2P の ハートが いっぱいなら 食べず、`duo.farmHint(2)` が `full`・1P は null | 5a | ユニット |
 | AC124 | かかし: 2P だけが ふるい はたけの かかし に 近づいても `visitOldFarm` が 出る（入る たびに 1 つ。2 人とも 中に いる あいだは 出なおさない） | 5a | ユニット |
-| AC125 | 合図の 行き先: 2P が 起こした 合図（till・fill・bucket・full）は `duo-farm-hint-p2`（2P の 半分）に 出て 1P の チップは 出ない。1P が 起こした 合図は 今の チップだけ。2 人 同時なら 両方。それぞれ 120 ステップで 消える | 5a | ユニット＋UI 検査（2P の チップが 2P の 半分の 中・ホットバー・ハート・お知らせ・矢印に かからない。3 つの 大きさ） |
+| AC125 | 合図の 行き先: 2P が 起こした 合図（till・fill・bucket・full）は `duo-farm-hint-p2`（2P の 半分）に 出て 1P の チップは 出ない。1P が 起こした 合図は 今の チップだけ。2 人 同時なら 両方。それぞれ 120 ステップで 消える。2 人の とき 1P の チップも 1P の 半分の 中 | 5a | ユニット＋UI 検査（2P の チップが 2P の 半分の 中・ホットバー・ハート・お知らせ・矢印に かからない。3 つの 大きさ） |
 | AC126 | 作物の しるし: 2P が 作物・はたけを ねらうと `duo-farm-aim-p2` が 出て 中身は `duo.farmAim(2)`（1P が 同じ マスを ねらった ときの `farm.hud()` と 同じ）。ねらいを 外すと 消える。2 人の とき 1P の `#farm-aim` は 1P の 半分の 中 | 5a | ユニット＋UI 検査（しるしが その人の 半分の 中。3 つの 大きさ） |
 | AC127 | 見た目の OK: 2P の 作物の しるし・チップを 2P の 半分に 出した 試作の スクショ（1024×700・1280×800・1440×900）を テスト準備の 前に オーナーが OK | 5a | オーナー確認 |
 | AC128 | 音・つぶ: 2P の 畑の 出来事 1 つに 音は 1 回（`audio.sfx()` の 記録で 同じ 名前が 2 回 ならない）・1P と 同じ 名前と 大きさ。つぶは 世界の 同じ 場所に 出る | 5a | ユニット |

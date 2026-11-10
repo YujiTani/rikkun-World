@@ -1,4 +1,4 @@
-import type { ItemId } from '../contracts';
+import type { FarmAim, FarmHintKind, ItemId } from '../contracts';
 import type { ArmorSnapshot } from '../craft/ArmorSystem';
 /**
  * COOP-1（docs/design/COOP-1.md）の 型の 約束。作業 1〜2 で 使う 型を ここに 1 か所で 置く。
@@ -97,6 +97,10 @@ export interface DuoPlayHook {
   addXp(who: 1 | 2, amount: number): void;
   /** COOP-1 4d-2（§12.0・AC103）: その人の わざ（`legend.state()` と 同じ 形。`got` は ない）。1P は 今の 物。2P が いなければ who 2 は null。ふつうの URL でも 効く */
   legend(who: 1 | 2): LegendStateView | null;
+  /** COOP-1 5a（§12.0・AC125）: その人の 半分に 出ている 畑の 合図（`'till' | 'full' | 'fill' | 'bucket'`）。2P が いなければ who 2 は null。ふつうの URL でも 効く */
+  farmHint(who: 1 | 2): FarmHintKind | null;
+  /** COOP-1 5a（§12.0・AC126）: その人の 作物の しるしの 中身（`farm.hud()` と 同じ 形）。ねらって いなければ null。1P は `farm.hud()` と 同じ。2P が いなければ who 2 は null */
+  farmAim(who: 1 | 2): FarmAim | null;
   /** COOP-1 4d-2（§12.0・AC106）: その人の 雷の 絵の 窓口（`thunder` と 同じ 形）。2P の 板は 2P の カメラを 向く。2P が いなければ who 2 は null */
   thunder(who: 1 | 2): ThunderHook | null;
 }

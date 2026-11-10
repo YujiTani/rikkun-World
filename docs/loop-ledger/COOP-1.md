@@ -79,3 +79,9 @@
 | 116-spec | design | tester | 【軽微】5d テストレビュー: AC168 に「別々の 家は 帯 1 つで 1P の 家」 | 5d テストの 読みちがい | 1.16（注記）で 直した | 済 |
 | 116-spec | design | tester | 【軽微】5d テストレビュー: `data-pad-ready`・`activeMenuRoot`・先に 開いた 人が 勝つ（`claim`）を §8 の つなぎ目と §10 に | 5d テストの 読みちがい | 1.16（注記）で 直した | 済 |
 | 116-spec | design | tester | 【軽微】5d テストレビュー: `projectToPane` を §8 の つなぎ目に | 5d テストの 読みちがい | 1.16（注記）で 直した | 済 |
+| 5a-test | dev | code-reviewer (Opus) | 【軽微】約束の 口: 包みだけでは 畑の 中の emit に by: 2 を つけられず、2P の pour が 畑の lastPour を 上書きする → FarmSystem に actAs(2, fn)・lastPourCells(by?) を 約束に 足し、farmTwo.test.ts に ユニット（仕様 §3.7・§8・§12.0 にも 書いた） | 約束の 抜け | | 済 |
+| 5a-test | dev | code-reviewer (Opus) | 【軽微】2P の しぶき: 2P の pour 出来事で waterFx.pour を その人の マスに 出す つなぎが 約束に ない → feedPourFx（src/fx/farmPourFx.ts）と ユニット 1 本 (farmPourFx.test.ts) | 約束の 抜け | | 済 |
+| 5a-test | dev | code-reviewer (Opus) | 【軽微】AC118「くわは 2P の くわが へる」を 見る 行が ない → p2Farm.test.ts で 1P と 2P の m4 に w2 を わたし、くわの たいきゅうの へりが 同じ ことを くらべる | 基準の 抜け | | 済 |
+| 5a-test | dev | code-reviewer (Opus) | 【軽微】AC129 の「とった やさいの はじめて てにいれた」の もと（2P の onPickup）が 見て いない → p2Farm.test.ts に onPickup が とった やさいで 呼ばれる 行（1P と 同じ 品・数） | 基準の 抜け | | 済 |
+| 5a-test | dev | code-reviewer (Opus) | 【軽微】e2e/duoFarm.spec.ts: dots の 4 決め打ち・2P の 合図が 120 ステップ あとに 消える 行が ない → 1P に 同じ マスを ねらわせた farm.hud() と くらべ、合図は FARM_HINT_STEPS で 消える ことを 足した | 決め打ち | | 済 |
+| 5a-test | dev | code-reviewer (Opus) | 【軽微】openDuoFarm の 1P の バケツ: 作物を ねらう 形で bucket の 合図が 出るか 不明 → 1P は はたけの 上を ねらう 形に した（ユニット AC121 と そろえた） | 場面の とり方 | | 済 |

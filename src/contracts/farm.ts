@@ -32,8 +32,9 @@ export type FarmHintKind = 'till' | 'full' | 'fill' | 'bucket';
 
 export type SeedSource = 'grass' | 'yokai' | 'oldfarm';
 
-/** 農業の出来事。`tick` と 場所つき。画面（D）・音・実績・テストの窓口が読む */
-export type FarmEvent =
+/** 農業の出来事。`tick` と 場所つき。画面（D）・音・実績・テストの窓口が読む。`by: 2` は 2P が 起こした 物（COOP-1 5a。1P の 物・作物が 自分で 育つ 物には 書かない） */
+export type FarmEvent = FarmEventBody & { by?: 2 };
+type FarmEventBody =
   | { type: 'till'; tick: number; x: number; y: number; z: number }
   /** すで の 1・2 回目（count = 何回目） */
   | { type: 'tillPress'; tick: number; x: number; y: number; z: number; count: number }
@@ -108,6 +109,8 @@ export interface FarmAim {
 export interface FarmStepContext {
   /** かかし への 近づきの 判定用 */
   playerPos: Vec3;
+  /** COOP-1 5a: 2P の 足もと（かかし の 近さは 2 人の どちらか）。2P が いない ときは 渡さない */
+  p2Pos?: Vec3 | undefined;
 }
 
 /**

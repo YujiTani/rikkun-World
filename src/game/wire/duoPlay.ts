@@ -40,6 +40,7 @@ import { ALL_RECIPES } from '../../craft/recipes';
 import { ITEM_TYPES, itemType } from '../../inventory/items';
 import { pickableMate, pickLegend } from '../../duo/rules';
 import { createDuoLegend, type DuoLegend } from './duoLegend';
+import { wireDuoFarm, type DuoFarm } from './duoFarm';
 import { DUO_TUNING } from '../../duo/tuning';
 import type { DuoPlayHook, DuoVec3 } from '../../duo/types';
 import type { ThunderHook } from '../../fx/thunderFx';
@@ -105,6 +106,8 @@ interface Live {
   gasha: P2GashaPort;
   /** COOP-1 4d-2: 2P の レジェンダリーの わざ（1P と 同じ 部品の 2 つ目）と その 絵 */
   legend: DuoLegend;
+  /** COOP-1 5a: 2P の 畑（m4 の 口・半分の チップとしるし） */
+  farm: DuoFarm;
 }
 
 /** 2P の パリィの 火花を 出す 刀の まん中（毎回 同じ 入れものに 書く） */
@@ -225,6 +228,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       yawDeg: () => ctl.state.yawDeg,
       onSpark: () => parryFx.spark(bladeMidInto(sparkAt2, ctl.state.position, ctl.state.facingDeg), reduced(), ctl.state.facingDeg),
     });
+    const farm = wireDuoFarm({ deps, inventory: p2.inventory, vitals: combat, target: () => dig.target(), playing: () => c.lock.playInputEnabled() });
     const dig = createP2Dig({
       world,
       p2,
@@ -250,6 +254,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         yokai: yokai2,
         parry: parry.parry, // Shift＋ZR の ふりわけ（routeAttackInput）は 1P と 同じ 道
         legend: legend.p2.legend, // ZR だけ → ため（run＋ZR は パリィ）。ふりわけは 1P と 同じ DigSystemImpl
+        ...farm.m4, // COOP-1 5a: 畑・じょうろ・バケツ・なでる・食べる（2P の もちもの・ハートで）
         // かまどを こわした 中身は こわした 人（2P）の もちものへ（4c）。開く 口は onOpenFurnace に つなぐので ここは 空
         craft: { isFurnace: (x, y, z) => craft.isFurnace(x, y, z), openFurnace: () => {}, furnaceBroken: (x, y, z) => c.craft2().furnaceBroken(x, y, z), fixedDrop: (id) => craft.fixedDrop(id) },
         storage,
@@ -309,7 +314,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       shake: (a) => { if (FX_SETTINGS.fxShake) shared.duoCamFx(2).addTrauma(a); },
       shakeTo: (l) => { const fx = shared.duoCamFx(2), d = l - fx.trauma(); if (d > 0 && FX_SETTINGS.fxShake) fx.addTrauma(d); },
     };
-    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, gasha, legend };
+    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, gasha, legend, farm };
   }
 
   /** 2P の 足音。1P の step.ts と 同じ 決まり: 遊び画面が 開いて いない・やられて いない・ひるんで いない ときだけ 歩く */
@@ -344,6 +349,8 @@ export function wireDuoPlay(c: DuoPlayCtx) {
   }
   shared.preYokai = preYokai;
   shared.p2Parry = () => live?.parry ?? null;
+  shared.p2FarmHint = () => live?.farm.hint ?? null; // COOP-1 5a: 畑の 合図〔by: 2〕の 行き先
+  shared.p2FarmAim = () => live?.farm.aim() ?? null;
 
   /** 2P の パリィの 後始末と 見た目（体の 止め・音・火花・青白い 光）。ctl2.update の あとに 呼ぶ */
   function stepParry(l: Live): void {
@@ -363,6 +370,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     // 小太刀の 追い打ちは 先に 1 ステップ すすめ、このステップの 当たりは あとで 入れる（当てた ステップを 0 に する ため。1P と 同じ 順）
     l.kodachi.step();
     l.dig.update();
+    l.farm.step(); // COOP-1 5a: 2P の 半分の 畑の チップ・しるし
     // COOP-1 4d-1: 2P の パリィの 絵・音・火花・青白い 光（1P の step.ts と 同じ 決まり。入力は 妖怪の 更新の 前に preYokai が 入れた）
     stepParry(l);
     l.life.step();
@@ -467,6 +475,13 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       else live?.life.damage(amount, { type: 'yokai' });
     },
     legend: (who) => shared.legendFor(who)?.state() ?? null, // 4d-2（§12.0）: その人の わざ（legend.state() と 同じ 形）。下は 雷の 絵の 窓口
+    // COOP-1 5a（§12.0）: その人の 半分の 畑の 合図・しるしの 中身（1P は 今の チップと farm.hud()。2P が いなければ who 2 は null）
+    farmHint: (who) => (who === 1 ? deps.farmHint.model.current() : (live?.farm.hintKind() ?? null)),
+    farmAim: (who) => {
+      if (who === 2) return shared.p2FarmAim();
+      const t = dig1.target();
+      return t ? deps.farm.aim(t.block.x, t.block.y, t.block.z) : null;
+    },
     thunder: (who) => pickLegend(who, live !== null, thunder1Hook(), live?.legend.thunderHook() ?? null),
   };
 
@@ -487,6 +502,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       live?.legend.dispose();
       live?.fx.dispose();
       live?.parryFx.dispose();
+      live?.farm.dispose();
       live = build();
     },
     onLeave(): void {
@@ -498,6 +514,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         live.parryFx.dispose();
       }
       live?.fx.dispose();
+      live?.farm.dispose();
       live = null;
       gashaNoFall = false;
     },

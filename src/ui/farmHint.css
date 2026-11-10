@@ -1,5 +1,6 @@
 /* たがやす・たべる の合図: 画面の 上の方 まん中。点滅なし */
-#farm-hint {
+#farm-hint,
+#farm-hint-p2 {
   position: fixed;
   left: 50%;
   top: 24%;
@@ -7,6 +8,7 @@
   pointer-events: none;
   z-index: 7;
 }
-#farm-hint[hidden] {
+#farm-hint[hidden],
+#farm-hint-p2[hidden] {
   display: none;
 }
