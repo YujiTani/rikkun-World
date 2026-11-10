@@ -1,7 +1,8 @@
 import type { Vec3 } from '../contracts';
 import type { HouseView } from './book';
 import type { CellInfo } from './cell';
-import { LIGHT_DEFAULT, type Rot, type Size, type Step, type WindowKind, type RoofKind } from './editor/tuning';
+import type { DecoKind, DoorKind, LightKind, RoofKind, Rot, Size, Step, WallKind, WindowKind } from './editor/tuning';
+import type { Part } from './recipes/kinds';
 import { furnitureProblems, originOf, windowCells, type PlaceProblem, type WindowCell } from './editor/model';
 import type { Confirm, Flash } from './editor/controller';
 import type { ArchitectInfo } from './manager';
@@ -23,7 +24,14 @@ import type { HouseMenuState } from './talk';
  *   need(source?)   ひつような もの { item, need, have, short, bonus }[]（have ＝ もちもの ＋ 近くの たんす。1E）
  *   blueprints()    持ち物の せっけいず { slot, number, name, w, d, windows, windowKind, roof, furniture, light }[]
  *   previewDrag(dx, dy) / previewWheel(dx, dy)   見本の 上で ドラッグ／wheel した のと 同じ。今の { angle, pitch }（見本が 出て いなければ null）
- *   hover(id | null)    まどの ボタンに マウスを のせた／はなした のと 同じ（光るのは windowsDown・windowsUp・windowKind）
+ *   hover(id | null)    ボタンに マウスを のせた／はなした のと 同じ（光るのは windowsDown・windowsUp・windowKind と、ポップアップの しゅるいの ボタン〔その ばしょ〕。ばしょ・しゅるいの ボタンは 12 コマで ヘルプ）
+ * 2A（#364）:
+ *   recipes()       { learned, fresh, all }（おぼえた 順の レシピの id・「あたらしい！」が のこる レシピ・表の ぜんぶ）
+ *   recipeKinds(id) そのレシピで 出る ボタンの id の 列（例 roof_kawara → roof-kawara_mura・roof-kawara_shiro・roof-kawara_kozan）
+ *   learn(id)       レシピを おぼえる（まだの 物だけ true。テロップ・音つき）
+ *   found(at)       拾った とき: レシピを 1 まい おぼえる（pick.ts）。ぜんぶ おぼえて いたら null で かみ 3 まい
+ *   recipeBand()    おぼえた テロップ { text, ticksLeft }（なければ null）
+ *   editor() の 2A: popup・popupRows・hoverTip・marks・roof・wall・windowKind・door・deco・light
  * 1D（#341）:
  *   seat()          座って いる／おふろに 入って いる あいだだけ { kind: 'sit' | 'bath', block, position }。立つと null
  * 1C PR-1（#340）:
@@ -61,6 +69,17 @@ interface EditorInfo {
   windowMax: number;
   windowKind: WindowKind;
   roof: RoofKind;
+  wall: WallKind;
+  door: DoorKind;
+  deco: DecoKind[];
+  /** ① の ポップアップ（開いて いる ばしょ。なければ null） */
+  popup: Part | null;
+  /** ポップアップの 行ごとの ボタンの id（上から。開いて いない ときは []） */
+  popupRows: string[][];
+  /** 名前の ヘルプ（のせて 12 コマで 出る。なければ null）。置き場所は 画面が 決める */
+  hoverTip: { id: string; lines: string[] } | null;
+  /** 「あたらしい！」の 印が ついた ボタンの id（しゅるいの ボタン ＋ 印の のこった ばしょの `part-<ばしょ>`） */
+  marks: string[];
   windowCells: WindowCell[];
   /** 置いた 順。x・z ＝ 今の 形の 左上（保存と 同じ）、origin ＝ もとの マス、bad ＝ 赤い わけ（ふつうは null。1E） */
   furniture: Array<{ kind: string; x: number; z: number; rot: Rot; origin: { x: number; z: number }; bad: PlaceProblem | null }>;
@@ -68,7 +87,7 @@ interface EditorInfo {
   selected: { i: number; x: number; z: number } | null;
   /** 赤く 光らせた 家具（まだ 光らせて いなければ null。1E） */
   flash: Flash | null;
-  light: string;
+  light: LightKind;
   name: { front: string; back: string };
   canUndo: boolean;
   canRedo: boolean;
@@ -89,6 +108,11 @@ export interface HouseHook {
   previewDrag(dx: number, dy: number): { angle: number; pitch: number } | null;
   previewWheel(dx: number, dy: number): { angle: number; pitch: number } | null;
   hover(id: string | null): void;
+  recipes(): ReturnType<HouseSystem['recipes']['view']>;
+  recipeKinds(id: string): string[];
+  learn(id: string): boolean;
+  found(at: { x: number; y: number; z: number }): string | null;
+  recipeBand(): { text: string; ticksLeft: number } | null;
   buildNow(number: number, at: Vec3): HouseView | null;
   houses(): HouseView[];
   blockAt(x: number, y: number, z: number): CellInfo;
@@ -103,7 +127,7 @@ export interface HouseHook {
   celebrate(): ReturnType<HouseSystem['celebrate']>;
 }
 
-type HookSystem = Pick<HouseSystem, 'architects' | 'talkTo' | 'menu' | 'press' | 'legacyKura' | 'editor' | 'editing' | 'edit' | 'need' | 'blueprints' | 'preview' | 'previewDrag' | 'previewWheel' | 'hover' | 'buildNow' | 'houses' | 'blockAt' | 'renaming' | 'level' | 'sites' | 'cursor' | 'building' | 'firstBonus' | 'celebrate'>;
+type HookSystem = Pick<HouseSystem, 'architects' | 'talkTo' | 'menu' | 'press' | 'legacyKura' | 'editor' | 'editing' | 'edit' | 'need' | 'blueprints' | 'preview' | 'previewDrag' | 'previewWheel' | 'hover' | 'recipes' | 'recipeKinds' | 'hoverTip' | 'buildNow' | 'houses' | 'blockAt' | 'renaming' | 'level' | 'sites' | 'cursor' | 'building' | 'firstBonus' | 'celebrate'>;
 
 export function createHouseHook(sys: HookSystem, seat: { seat(): SeatInfo | null } = { seat: () => null }): HouseHook {
   const editor = (): EditorInfo | null => {
@@ -122,11 +146,18 @@ export function createHouseHook(sys: HookSystem, seat: { seat(): SeatInfo | null
       windowMax: c.windowMax(),
       windowKind: s.windowKind,
       roof: s.roof,
+      wall: s.wall,
+      door: s.door,
+      deco: [...s.deco],
+      popup: c.popup,
+      popupRows: c.popupRows(),
+      hoverTip: sys.hoverTip(),
+      marks: c.recipes.marks(),
       windowCells: windowCells(s),
       furniture: s.furniture.map((p, i) => ({ kind: p.kind, x: p.x, z: p.z, rot: p.rot, origin: originOf(p), bad: bads[i] ?? null })),
       selected: sel && at !== null ? { i: at, ...originOf(sel) } : null,
       flash: c.flash ? { items: [...c.flash.items], seq: c.flash.seq } : null,
-      light: LIGHT_DEFAULT,
+      light: s.light,
       name: { front: s.name.front, back: s.name.back },
       canUndo: c.canUndo(),
       canRedo: c.canRedo(),
@@ -147,6 +178,11 @@ export function createHouseHook(sys: HookSystem, seat: { seat(): SeatInfo | null
     previewDrag: (dx, dy) => sys.previewDrag(dx, dy),
     previewWheel: (dx, dy) => sys.previewWheel(dx, dy),
     hover: (id) => sys.hover(id),
+    recipes: () => sys.recipes.view(),
+    recipeKinds: (id) => sys.recipeKinds(id),
+    learn: (id) => sys.recipes.learn(id),
+    found: (at) => sys.recipes.found(at),
+    recipeBand: () => sys.recipes.band(),
     buildNow: (number, at) => sys.buildNow(number, at),
     houses: () => sys.houses(),
     blockAt: (x, y, z) => sys.blockAt(x, y, z),

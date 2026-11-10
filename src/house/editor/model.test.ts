@@ -91,7 +91,7 @@ describe('AC56 窓が かわった ようす（openingChange。見本の 光る 
 describe('AC13（2.4）13 しゅるいの 大きさと 向き', () => {
   const SIZE_BY_KIND = {
     furnace: [1, 1], tansu: [1, 1], nukunuku: [2, 2], futon: [1, 2], table: [2, 1], long_table: [3, 1], round_table: [1, 1],
-    chair: [1, 1], stool: [1, 1], andon: [1, 1], shelf: [1, 1], ofuro: [2, 1], haniwa: [1, 1],
+    chair: [1, 1], stool: [1, 1], andon: [1, 1], shelf: [1, 1], ofuro: [2, 1], haniwa: [1, 1], maneki: [1, 1],
   } as const;
 
   it('13 しゅるい ぜんぶ 9×9 の 左上に 置ける。大きさは 表の とおり（ながい テーブルは 3×1、みぎに まわすと 1×3）', () => {

@@ -55,9 +55,10 @@ export class HouseRename {
     say: (text) => {
       this.bubble = text;
     },
+    suffixOk: (i) => this.d.suffixOk?.(i) ?? true,
   });
 
-  constructor(private readonly d: { book: HouseBook; player: () => Vec3 }) {}
+  constructor(private readonly d: { book: HouseBook; player: () => Vec3; /** 後ろの ことば（SUFFIXES の 番号）を えらべる か（レシピ。なければ ぜんぶ。HOUSE-2A） */ suffixOk?: (index: number) => boolean }) {}
 
   /** 押せる か（建てた 家が 1 けん 以上） */
   available(): boolean {
@@ -153,7 +154,7 @@ export class HouseRename {
       { id: 'handakuten', enabled: canMark(front, 'handakuten') },
       { id: 'katakana', enabled: true },
       { id: 'erase', enabled: [...front].length > 0 },
-      ...SUFFIXES.map((_, i) => ({ id: `suffix-${i}`, enabled: true })),
+      ...SUFFIXES.flatMap((_, i) => (this.d.suffixOk?.(i) ?? true ? [{ id: `suffix-${i}`, enabled: true }] : [])),
       { id: 'renameOk', enabled: true },
       { id: 'renameCancel', enabled: true },
     ];

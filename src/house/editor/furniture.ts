@@ -6,12 +6,12 @@ import type { ItemId } from '../../contracts';
 import { FURN_LEN } from '../../world/blocks/houseBlocks';
 
 /**
- * 家具の 並び（= 画面の ボタンの 並び。上の 行から 左→右。13 種は 上 7・下 6。§4.3）。ボタンの testid は `furniture-<id>`。
+ * 家具の 並び（= 画面の ボタンの 並び。上の 行から 左→右。14 種は 上 7・下 7。§4.3）。ボタンの testid は `furniture-<id>`。
  * 1 行の 数は paletteColumns（⌈しゅるい ÷ 2⌉）。足すと 行が ふえる のでは なく 2 行の まま 1 行の 数が ふえる
  */
 export const FURN_ORDER = [
   'furnace', 'tansu', 'nukunuku', 'futon', 'table', 'long_table', 'round_table',
-  'chair', 'stool', 'andon', 'shelf', 'ofuro', 'haniwa',
+  'chair', 'stool', 'andon', 'shelf', 'ofuro', 'haniwa', 'maneki',
 ] as const satisfies readonly ItemId[];
 export type FurnKind = (typeof FURN_ORDER)[number];
 
@@ -38,6 +38,7 @@ export const FURNITURE: Readonly<Record<FurnKind, FurnDef>> = {
   shelf: { name: 'ほんだな', cells: [FURN_LEN.shelf, 1], mats: [['log', 6], ['paper', 3]] },
   ofuro: { name: 'おふろ', cells: [FURN_LEN.ofuro, 1], mats: [['stone', 6], ['log', 4]] },
   haniwa: { name: 'はにわ', cells: [1, 1], mats: [['clay', 2]] }, // 今の はにわの 作り方（かまどで やく）と 同じ
+  maneki: { name: 'まねきねこ', cells: [1, 1], mats: [['clay', 2], ['kin', 1]] }, // 2A（HOUSE-2 §4.1）。レシピ（furniture_maneki）を おぼえて から 置ける
 };
 
 /** 家具の ボタンの 列の 数（1 行の こ数）。2 行に ならべる ので ⌈しゅるい ÷ 2⌉（9 ＝ 5＋4、13 ＝ 7＋6。§4.3） */

@@ -2,7 +2,7 @@
 // はじめから よこ 5・たて 5 を えらんだ 状態。戸は まえ 固定（えらぶ 画面は ない）。
 // しゅるいの 行は ボタンが ふえても ならんで 折りかえす（あとで レシピで ふえる）。
 import type { EditorController } from '../../house/editor/controller';
-import { ROOF_KINDS, ROOF_LABEL, SIZES, WINDOW_KIND_LABEL, WINDOW_KINDS } from '../../house/editor/tuning';
+import { SIZES } from '../../house/editor/tuning';
 import { btn, el, markSel, type BtnOpts } from './dom';
 import { ICONS } from './icons';
 
@@ -14,6 +14,13 @@ export interface StepPanel {
 }
 
 type Press = BtnOpts['onPress'];
+
+// TODO(HOUSE-2A UI): 3 版の ポップアップ（ばしょの ボタン `part-<ばしょ>` → しゅるいの ボタン `<ばしょ>-<kind>`。ctl.popup・ctl.popupRows()・ctl.recipes.marks()）に つくりなおす。
+// それまでの 仮: はじめからの 2 つ（たいら・しょうじ）の ボタンを 今までの 場所に 出す（ポップアップが とじて いる 間は 押せないので 何も おきない）。
+const WINDOW_KINDS = ['shoji'] as const;
+const ROOF_KINDS = ['flat'] as const;
+const WINDOW_KIND_LABEL = { shoji: 'しょうじ' } as const;
+const ROOF_LABEL = { flat: 'たいら' } as const;
 
 export function buildSoto(ctl: EditorController, press: Press): StepPanel {
   const root = el('section', 'ed-stepview ed-stepview--soto');
@@ -72,7 +79,7 @@ export function buildSoto(ctl: EditorController, press: Press): StepPanel {
   // まどの しゅるい・やね: えらぶ ボタン（いまは 1 つずつ。1 つでも えらんで いる ✓）
   const kindOpts = row(gWindow, ICONS.shoji, ['まどの', 'しゅるい']);
   const kindBtns = WINDOW_KINDS.map((k) => {
-    const b = btn({ cls: 'ed-opt ed-opt--text', id: `windowKind-${k}`, html: WINDOW_KIND_LABEL[k], onPress: press });
+    const b = btn({ cls: 'ed-opt ed-opt--text', id: `window-${k}`, html: WINDOW_KIND_LABEL[k], onPress: press });
     kindOpts.append(b);
     return [k, b] as const;
   });

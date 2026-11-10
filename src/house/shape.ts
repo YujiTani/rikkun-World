@@ -48,7 +48,7 @@ function furnitureCells(p: Placed): Array<{ x: number; z: number; id: BlockId }>
     ];
   }
   if (kind === K_KOTATSU) return KOTATSU_CELLS.map((c) => ({ x: p.x + c.dx, z: p.z + c.dz, id: c.block }));
-  // はにわ（1 マス）
+  // はにわ・まねきねこ（1 マス）
   return [{ x: p.x, z: p.z, id: kind }];
 }
 
