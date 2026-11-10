@@ -15,11 +15,15 @@ import type { WiredYokai } from './creatures';
 import { wireHouseSite } from './houseSite';
 import { modalLock } from './modalLock';
 
+/** 持ち物に 入らなかった かみを 落とす 高さ・散らばり（宝箱の 落とし物と 同じ。game/wire/mine.ts） */
+const RECIPE_DROP_RISE = 0.5;
+const RECIPE_SCATTER = { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 } as const;
+
 /** 建築士さんの 頭の 上（足もとから）。ふきだしの しっぽが ここに くる */
 const HEAD_TOP = 1.8;
 
 export function wireHouse(deps: WiredYokai) {
-  const { shared, world, seed, island, game, fxSound, hud, lock, pointerLock, controller, inventory, lighting, combat, dig, screen, blobShadow, storage, craft, w2, yokaiM, animals } = deps;
+  const { shared, world, seed, island, drops, game, fxSound, hud, lock, pointerLock, controller, inventory, lighting, combat, dig, screen, blobShadow, storage, craft, w2, yokaiM, animals } = deps;
   // 家を 建てる 画面まわり（上空の 視点・みずもりの 色・道具を 持った 形・音）。house は あとから つなぐ（attach）
   const { siteView } = wireHouseSite(deps);
 
@@ -43,6 +47,12 @@ export function wireHouse(deps: WiredYokai) {
     gave: (item) => shared.onDropPicked(item, 1, false),
     // 戸を 外から 通って 中に 入った: 名前の 帯を 上の 帯の 列〔実績・テロップと ならぶ〕に 入れる（HOUSE-1 §3.3）
     nameBand: (text) => shared.celebrate.enqueueHouseName(text),
+    // HOUSE-2A: レシピを おぼえた テロップ（上の 帯の 列。「<名前>の レシピを おぼえた！…」）・ぜんぶ おぼえた あとの かみが 持ち物に 入らない 分は 足もとへ
+    recipeBand: (text) => shared.celebrate.enqueueHouseDone(text),
+    drop: (item, count) => {
+      const p = controller.state.position;
+      drops.scatter({ x: p.x, y: p.y + RECIPE_DROP_RISE, z: p.z }, [{ item, count }], RECIPE_SCATTER);
+    },
     // たんすの 中の 道具も「持って いる」（なくした ときだけ「どうぐを もらう」）
     owned: (item) => storage.list().reduce((n, p) => n + storage.countItem(p.x, p.y, p.z, item), 0),
     // メニューが 開く: マウスが 出る。時間と 妖怪の 停止は ゲームの 窓（shared.houseFrozen）が 受けもつ。たんす・とりごやと おなじ 錠の あつかい
@@ -84,7 +94,7 @@ export function wireHouse(deps: WiredYokai) {
     info: (mode) => preview?.info(mode) ?? null,
     drag: (dx, dy) => preview?.drag(dx, dy) ?? false,
     wheel: (dx, dy) => preview?.wheel(dx, dy) ?? false,
-    hover: (on) => preview?.hover(on),
+    hover: (on, part) => preview?.hover(on, part),
   };
   // ブロックを 置く・ほる → 足もとに かかる 建築士さんが 高さを あわせる・家の 戸の 記録が あけしめ・こわれを おぼえる（立って いる 間は 毎ステップ 世界を 読まない ため。farm.onBlockChanged と 同じ 流れ）
   watchBlocks(world, house.watcher);

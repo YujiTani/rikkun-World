@@ -97,6 +97,8 @@ export function wireMine(deps: WiredDuo) {
         fxSound.playTones(CHEST_SOUNDS[`chestOpen${tier}` as keyof typeof CHEST_SOUNDS]); // 案 A。4 段目だけ「大」（BGM が さがる）
         openedTier = tier;
       },
+      // HOUSE-2A: いちばん 下の へやの 宝箱・まきもの: レシピを 1 まい おぼえる（建築士さんの 係。持ち物は 使わない）
+      recipe: (at) => void shared.house?.recipes.found(at),
     },
   });
 
@@ -121,6 +123,10 @@ export function wireMine(deps: WiredDuo) {
     // who ＝ あける 人。今は いつも 1P〔0〕。2P の 右クリックは COOP-1 作業 3 で
     open: (x, y, z, who = 0) => {
       void who;
+      if (world.getBlock(x, y, z) === 'makimono') {
+        mine.open(x, y, z); // HOUSE-2A: まきもの。ブロックが 消えて レシピ（ふたの 動きは ない）
+        return;
+      }
       const at = mine.chestAt(x, y, z);
       if (!at) return;
       const key = `${at.main.x},${at.main.y},${at.main.z}`;
