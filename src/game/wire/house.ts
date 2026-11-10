@@ -13,7 +13,7 @@ import { HouseDoneUi } from '../../ui/houseSite/celebrate';
 import type { WiredYokai } from './creatures';
 import { wireHouseSite } from './houseSite';
 import { createHouseGate, type Who } from './modalOwner';
-import { projectToPane, projectUnclipped } from '../../ui/houseBubble';
+import { insetPane, projectToPane, projectUnclipped } from '../../ui/houseBubble';
 
 /** 建築士さんの 頭の 上（足もとから）。ふきだしの しっぽが ここに くる */
 const HEAD_TOP = 1.8;
@@ -108,6 +108,8 @@ export function wireHouse(deps: WiredYokai) {
   // 話して いる 建築士さんの 頭の 上（画面の ピクセル）。うしろ・画面の 外なら null。2P が 話した ときは 2P の カメラで 2P の 半分の 中（COOP-1 5d・AC164）
   const head = { x: 0, y: 0, z: 0 };
   const fullPane = { x: 0, y: 0, w: 0, h: 0 };
+  const bubblePane = { x: 0, y: 0, w: 0, h: 0 };
+  const clockBox = { l: 0, t: 0, r: 0, b: 0 };
   const paneNow = (): { camera: typeof game.camera; pane: { x: number; y: number; w: number; h: number } } => {
     const p2 = house.talker() === 2 ? shared.p2House.bubble() : null;
     if (p2) return p2;
@@ -137,7 +139,21 @@ export function wireHouse(deps: WiredYokai) {
       new EditorView({ parent, ctl: house.editor, preview: getPreview, release: releasePreview, canvas: game.renderer.domElement, press: (id) => house.press(id), sound: fxSound }),
     tick: () => playCraft(fxSound, 'tab'),
     anchor,
-    pane: () => paneNow().pane,
+    // 2P が 話した ときは 半分の まん中の 線から 5% あけた 区画に おさめ、時計に かからない ように する（UI 検査 'duo-house-bubble-p2'）
+    pane: () => {
+      const v = paneNow().pane;
+      return house.talker() === 2 ? insetPane(v, bubblePane) : v;
+    },
+    avoid: () => {
+      const c = house.talker() === 2 ? document.getElementById('clock') : null;
+      if (!c || c.hidden) return null;
+      const r = c.getBoundingClientRect();
+      clockBox.l = r.left;
+      clockBox.t = r.top;
+      clockBox.r = r.right;
+      clockBox.b = r.bottom;
+      return clockBox;
+    },
     confirming: () => house.cursor()?.confirm === true,
     site: { pickList: () => house.pickList(), needRows: () => house.buildNeedRows(), buildName: () => house.buildName(), pointer: siteView.pointer },
   });

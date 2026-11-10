@@ -214,6 +214,8 @@ export interface Hand {
   putWhy: AnimalHintKind | null;
   /** 今 ねらって いる にわとり */
   targetId: number | null;
+  /** 合図 natsukiWait を 最後 に 出した ステップ（その人の 分。600 に 1 回 まで。人ごと） */
+  waitHintAt: number;
 }
 
 /** あみで とれた むし が 持ち物 へ 入る まで の 待ち（ふった 人の もちものへ） */

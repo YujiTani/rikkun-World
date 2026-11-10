@@ -55,6 +55,10 @@
   box-shadow: var(--rk-shadow-1);
   pointer-events: none;
 }
+/* 2 人の とき: 半分の はば（まん中の 線から 5% あけた 90%）から はみ出さない */
+html[data-duo] .house-bubble {
+  max-width: min(560px, calc(45vw - 32px));
+}
 .house-ui.is-float .house-bubble {
   position: absolute;
   left: 0;

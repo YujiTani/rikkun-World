@@ -10,6 +10,28 @@ export interface Pane {
   h: number;
 }
 
+/** よけたい 四角（CSS px。左・上・右・下） */
+export interface Rect {
+  l: number;
+  t: number;
+  r: number;
+  b: number;
+}
+
+/** 2 人の とき 半分の まん中の 線から あける わりあい（半分の はばに 対して。UI 検査の きまり） */
+export const PANE_GAP = 0.05;
+/** よけた とき 四角の 下と ふきだしの 上の すきま（px） */
+const AVOID_GAP = 8;
+
+/** 区画の 左右を PANE_GAP ずつ せまくした 区画を out に 書いて 返す（2 人の とき 話した 人の 半分の ふきだし用。毎ステップ 新しい 物を 作らない） */
+export function insetPane(pane: Pane, out: Pane): Pane {
+  out.x = pane.x + pane.w * PANE_GAP;
+  out.y = pane.y;
+  out.w = pane.w * (1 - 2 * PANE_GAP);
+  out.h = pane.h;
+  return out;
+}
+
 /** ふきだしの しっぽが 頭に くる ように、ふきだしの 下を 頭の 上 この px に おく */
 const TAIL_GAP = 16;
 /** 点が 見えない とき ふきだしの 下を 区画の 上から この わりあいに おく */
@@ -17,9 +39,16 @@ const HIDDEN_Y = 0.4;
 
 /**
  * ふきだしの 左上を 区画の 中に おさめて 返す（結果は out に 書いて out を 返す。毎ステップ 新しい 物を 作らない）。
- * anchor ＝ 建築士さんの 頭の 上（画面の px。見えなければ null）。null なら 区画の よこの まん中・たては 上から 4 割。
+ * avoid ＝ よけたい 四角（かかる なら ふきだしを その 下へ）。anchor ＝ 建築士さんの 頭の 上（画面の px。見えなければ null）。null なら 区画の よこの まん中・たては 上から 4 割。
  */
-export function placeBubble(anchor: { x: number; y: number } | null, size: { w: number; h: number }, pane: Pane, out: { left: number; top: number }, margin = 16): { left: number; top: number } {
+export function placeBubble(
+  anchor: { x: number; y: number } | null,
+  size: { w: number; h: number },
+  pane: Pane,
+  out: { left: number; top: number },
+  margin = 16,
+  avoid: Rect | null = null,
+): { left: number; top: number } {
   const x = anchor ? anchor.x : pane.x + pane.w / 2;
   const y = anchor ? anchor.y : pane.y + pane.h * HIDDEN_Y;
   const loL = pane.x + margin;
@@ -28,6 +57,10 @@ export function placeBubble(anchor: { x: number; y: number } | null, size: { w: 
   const hiT = pane.y + pane.h - size.h - margin;
   out.left = Math.max(loL, Math.min(hiL, x - size.w / 2));
   out.top = Math.max(loT, Math.min(hiT, y - size.h - TAIL_GAP));
+  // よけたい 四角（時計など）に かかる なら その 下へ ずらす（区画の 下に おさまる 範囲で）
+  if (avoid && out.left < avoid.r && out.left + size.w > avoid.l && out.top < avoid.b && out.top + size.h > avoid.t) {
+    out.top = Math.min(hiT, avoid.b + AVOID_GAP);
+  }
   return out;
 }
 

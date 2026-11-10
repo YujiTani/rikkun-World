@@ -11,7 +11,7 @@ import type { AnimalManagerOptions, BugCatch, Coop, Ent, Hand, Kit, LockKind, Wh
 import { BREED_SALT, EVENT_CAP, GOLD_SALT, NATSUKI_HINT_GAP, NO_FIGHT, RNG_SALT, STOP_KINDS, STOP_STEP, TAU } from './animalConsts';
 
 function newHand(): Hand {
-  return { carriedId: null, wildAnnounced: false, putWhy: null, targetId: null };
+  return { carriedId: null, wildAnnounced: false, putWhy: null, targetId: null, waitHintAt: -NATSUKI_HINT_GAP };
 }
 
 export class AnimalCore {
@@ -45,9 +45,6 @@ export class AnimalCore {
   hint: AnimalHintKind | null = null;
   /** 人ごとの 手（だっこ・ねらい） */
   readonly hands: [Hand, Hand] = [newHand(), newHand()];
-
-  /** 合図 natsukiWait を 最後 に 出した ステップ（600 に 1 回 まで） */
-  waitHintAt = -NATSUKI_HINT_GAP;
 
   /** たまご の くじ（あみ・妖怪 と べつ の 流れ） */
   readonly eggRng: Rng;

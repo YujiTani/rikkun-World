@@ -52,6 +52,10 @@
 .duo-relock-p1 {
   left: 25%;
 }
+/* 1P の 半分の「ちょっと まってね」は 本・メニューの 上に 実際に のる 物（下の 本を 1P の マウスが おさない）。2P の 半分は 本が 1P の 物なので マウスを 通す */
+.duo-wait-p1 {
+  pointer-events: auto;
+}
 /* 本が 開くと #hud は かくれ（book.css）、本の 層は z-index 40。「ちょっと まってね」・「ゲームに 戻る」は 本の 上に 出す（2 人の ときだけ 出る ので 1 人の 本は かわらない） */
 body.book-open .duo-wait {
   visibility: visible;

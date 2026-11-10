@@ -85,7 +85,7 @@ html[data-duo] #itadakimasu-p2 .itadakimasu-text {
   max-height: calc(70vh - var(--duo-coop-bottom));
   margin: 0;
   padding: 8px 12px;
-  gap: 6px;
+  gap: 8px;
   overflow: hidden auto;
 }
 .coop-menu--p2[data-layout='duo'] {
@@ -94,15 +94,15 @@ html[data-duo] #itadakimasu-p2 .itadakimasu-text {
   pointer-events: none;
 }
 .coop-menu[data-layout='duo'] .coop-head {
-  min-height: 44px;
+  min-height: 56px;
   gap: 8px;
 }
 .coop-menu[data-layout='duo'] .coop-title {
   font-size: 24px;
 }
 .coop-menu[data-layout='duo'] .coop-close {
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   font-size: 24px;
 }
 .coop-menu[data-layout='duo'] .coop-btn {
@@ -117,7 +117,7 @@ html[data-duo] #itadakimasu-p2 .itadakimasu-text {
 .coop-menu[data-layout='duo'] .coop-body--top .coop-btn {
   flex: none;
   min-height: 56px;
-  font-size: 22px;
+  font-size: 24px;
 }
 .coop-menu[data-layout='duo'] .coop-body--top .coop-ico,
 .coop-menu[data-layout='duo'] .coop-ico {

@@ -2,7 +2,7 @@ import type { RenameView } from '../house/rename';
 import type { HouseButtonId, HouseMenuState } from '../house/talk';
 import { buildRenameList, buildRenameName, type RenameNamePanel } from './houseEditor/renameView';
 import { houseButtonIcons } from './houseMenuArt';
-import { placeBubble, type Pane } from './houseBubble';
+import { placeBubble, type Pane, type Rect } from './houseBubble';
 import { housePadReady } from './houseMenuPad';
 import { HouseSiteUi, type SiteDeps } from './houseSite';
 import { withRuby } from './text';
@@ -52,6 +52,8 @@ interface HouseUiDeps {
   anchor(): { x: number; y: number } | null;
   /** ふきだしを おさめる 区画（話した 人の 半分。1 人の ときは 画面ぜんたい）。COOP-1 5d */
   pane(): Pane;
+  /** ふきだしが かからない ように したい 四角（2 人の とき 2P の 半分の 時計）。なければ null。毎フレーム 呼ぶ ので 同じ 入れ物を 使いまわす */
+  avoid?(): Rect | null;
   /** 上空の 視点の 確かめの まどが 出て いるか（パッドで 押せる 画面の 判定。housePadReady の confirm） */
   confirming(): boolean;
   /** 「けんちくを はじめる」の 画面（一覧・ひつような もの・上空の 視点）が 読む もの。press・tick は 上と 同じ */
@@ -134,7 +136,7 @@ export class HouseUi {
     if (this.mode !== 'float') return;
     this.bubbleSize.w = this.bubble.offsetWidth;
     this.bubbleSize.h = this.bubble.offsetHeight;
-    const pos = placeBubble(this.d.anchor(), this.bubbleSize, this.d.pane(), this.bubblePos);
+    const pos = placeBubble(this.d.anchor(), this.bubbleSize, this.d.pane(), this.bubblePos, 16, this.d.avoid?.() ?? null);
     this.bubble.style.left = `${Math.round(pos.left)}px`;
     this.bubble.style.top = `${Math.round(pos.top)}px`;
   }

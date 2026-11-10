@@ -47,6 +47,7 @@ import { wireDuoAnimals, type DuoAnimals } from './duoAnimals';
 import { createDuoGadgets, type DuoGadgets } from './duoGadgets';
 import { kiteInfo, seatInfo } from '../../duo/p2Gadgets';
 import { DUO_TUNING } from '../../duo/tuning';
+import { shoulderAimDeg } from '../../duo/shoulderAim';
 import type { DuoPlayHook, DuoVec3 } from '../../duo/types';
 import type { ThunderHook } from '../../fx/thunderFx';
 import type { FlashSrc } from '../../duo/flash';
@@ -502,6 +503,11 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     aimAt(who, cell) {
       const ctl = ctlOf(who);
       if (!dev || !ctl) return;
+      if (who === 1) {
+        // 1P の ねらいの 線は 肩の 点 S から 出る（目から 向けると 右へ ずれて 外れる）ので、S から まとの 中心を 通る 向きに する
+        ctl.set(shoulderAimDeg(deps.rig.getInfo().pivot, cell));
+        return;
+      }
       const p = ctl.state.position;
       const dx = cell.x + 0.5 - p.x;
       const dy = cell.y + 0.5 - (p.y + ctl.settings.eyeHeight);

@@ -15,7 +15,7 @@ import { meatBird, meatTick } from './animalMeat';
 import { behaveAnimal, clear2, friendWarpChecks, kidRespawn, separateFriend, settleOnGround, turnAnimal, unbury, unstraddle, warpToPlayer } from './animalMove';
 
 /** この 係 が 使う ものだけ（`AnimalCore` の 一部） */
-type LifeCtx = Pick<AnimalCore, 'bangBuf' | 'breedRng' | 'breedState' | 'catches' | 'coopAtSpot' | 'coopById' | 'coopCheckT' | 'coopList' | 'd' | 'dropGold' | 'eggRng' | 'ents' | 'everCarried' | 'everGrew' | 'everHatched' | 'fightCands' | 'fighterIds' | 'find' | 'friendCount' | 'getPlayer' | 'goldRng' | 'hands' | 'hintOut' | 'isTargeted' | 'joinSeq' | 'kidCount' | 'kitList' | 'kitScratch' | 'lastDay' | 'lockHintAt' | 'lockState' | 'make' | 'markOut' | 'nextCoopId' | 'nextStopOff' | 'night' | 'partner' | 'playerOf' | 'actor' | 'oneFighter' | 'push' | 'rng' | 'setLock' | 'setState' | 'settings' | 'spawnTimer' | 'tick' | 'tryAdd' | 'waitHintAt' | 'world'>;
+type LifeCtx = Pick<AnimalCore, 'bangBuf' | 'breedRng' | 'breedState' | 'catches' | 'coopAtSpot' | 'coopById' | 'coopCheckT' | 'coopList' | 'd' | 'dropGold' | 'eggRng' | 'ents' | 'everCarried' | 'everGrew' | 'everHatched' | 'fightCands' | 'fighterIds' | 'find' | 'friendCount' | 'getPlayer' | 'goldRng' | 'hands' | 'hintOut' | 'isTargeted' | 'joinSeq' | 'kidCount' | 'kitList' | 'kitScratch' | 'lastDay' | 'lockHintAt' | 'lockState' | 'make' | 'markOut' | 'nextCoopId' | 'nextStopOff' | 'night' | 'partner' | 'playerOf' | 'actor' | 'oneFighter' | 'push' | 'rng' | 'setLock' | 'setState' | 'settings' | 'spawnTimer' | 'tick' | 'tryAdd' | 'world'>;
 
 export function spawnAnimal(core: LifeCtx, x: number, y: number, z: number, opts: AnimalSpawnOpts = {}): number | null {
   // 小屋 の 子 として 置く（`home`）: 小屋 が 無い・6 わ いる → null
