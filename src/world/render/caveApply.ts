@@ -37,6 +37,8 @@ export class CaveView {
   private readonly pose = new Float64Array(16);
   private poseOk = false;
   private poseEpoch = -1;
+  /** いま かくしている セクション（withAll で 一時 見せて、また かくす） */
+  private readonly hid: SecState[] = [];
   private readonly project = (x: number, y: number, z: number, out: Projected): void => {
     this.q.set(x, y, z, 1).applyMatrix4(this.viewProj);
     // カメラは −Z を 向く。映る 側は clip の w が 正
@@ -74,13 +76,17 @@ export class CaveView {
     });
     let shown = 0;
     let hidden = 0;
+    this.hid.length = 0;
     for (const col of cols.values()) {
       for (const st of col.secs) {
         if (!st.voxel && !st.extras && !st.water) continue;
         const show = !stats.complete || this.search.isDrawn(st.cx, st.sy, st.cz);
         this.setShow(st, show);
         if (show) shown++;
-        else hidden++;
+        else {
+          hidden++;
+          this.hid.push(st);
+        }
       }
     }
     stats.shown = shown;
@@ -91,6 +97,20 @@ export class CaveView {
       this.poseEpoch = epoch;
     } else this.poseOk = false;
     return stats;
+  }
+
+  /**
+   * かくした セクションを 一時 ぜんぶ 見せて fn を 呼ぶ。
+   * かくすのは その カメラの 画面の ためだけ。別の カメラで 描く 物（太陽・月の 影の 地図、調べる用の 1 画素）は 全部を 見る。
+   */
+  withAll<T>(fn: () => T): T {
+    const hid = this.hid;
+    for (let i = 0; i < hid.length; i++) this.setShow(hid[i]!, true);
+    try {
+      return fn();
+    } finally {
+      for (let i = 0; i < hid.length; i++) this.setShow(hid[i]!, false);
+    }
   }
 
   private setShow(st: SecState, show: boolean): void {

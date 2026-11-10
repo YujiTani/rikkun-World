@@ -55,6 +55,10 @@ describe('地下の メッシュを かくす', () => {
     expect(r.sectionMeshVisible(0, 0, 0), '穴から 目を そらす').toBe(false);
     expect(r.sectionMeshVisible(0, 1, 1), '前の 地面').toBe(true);
 
+    // 別の カメラで 描く 物（影の 地図・調べる用の 1 画素）は かくした 分も 見る。おわったら また かくす
+    expect(r.withAllSections(() => r.sectionMeshVisible(0, 0, 0)), '一時 ぜんぶ 見せる').toBe(true);
+    expect(r.sectionMeshVisible(0, 0, 0), 'おわったら また かくす').toBe(false);
+
     for (let y = 9; y <= 40; y++) w.setBlock(8, y, 8, 'stone');
     settle(r);
     look(r, [8.5, 40, 8.5], [8.5, 4, 8.5]);

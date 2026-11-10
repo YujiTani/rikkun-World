@@ -659,6 +659,11 @@ export class WorldRenderer {
     return this.caves.apply(this.cols, this.world, cam, this.visEpoch);
   }
 
+  /** applyView で かくした セクションも 一時 見せて fn を 呼ぶ（影の 地図・調べる用の 別の カメラ） */
+  withAllSections<T>(fn: () => T): T {
+    return this.caves.withAll(fn);
+  }
+
   /** 直前の applyView の 回数と、見せた・かくした セクションの 数 */
   caveStats(): CaveStats {
     return this.caves.stats();
