@@ -199,6 +199,80 @@ const BAMBOO_INK: Record<string, Rgba> = {
   '1': hex('#2A5C28'),
 };
 
+/**
+ * もこもこ（?leaf=moko）の 絵。小さな 葉の かたまりを、左上からの 光で 5 色に ぬる（1 すき間の かげ → 5 光の あたる 先）。
+ * 穴は あけない（形は 小ブロックの こぶで 作る）。上下左右に つながる。
+ */
+const MOKO_LEAF = [
+  '4411143321111111',
+  '4431443441111114',
+  '3321434332244434',
+  '3221323322244333',
+  '1111544222143321',
+  '1115454431554344',
+  '3114343321543343',
+  '5431333221433235',
+  '3332111111132554',
+  '3321554311111543',
+  '2111443314443433',
+  '1114433244334132',
+  '3314322213444354',
+  '3213222111443543',
+  '2211144431133233',
+  '1111144331111111',
+];
+
+/** もみじ。とがった 葉が かさなる */
+const MOKO_MOMIJI = [
+  '2441333244114333',
+  '4433432443311332',
+  '4333434433211134',
+  '3331332332111141',
+  '1351121121113433',
+  '2544114111133222',
+  '5443344311332222',
+  '4433443331122242',
+  '3332433314412432',
+  '2225443344434322',
+  '2211433244542222',
+  '2111132145443222',
+  '1111111354433224',
+  '4111153322332144',
+  '3311543222321444',
+  '3215433321111443',
+];
+
+/** まつ。ななめの 細い 針 */
+const MOKO_MATSU = [
+  '3411241231221234',
+  '3113412212211234',
+  '2553122511113421',
+  '3425124411133211',
+  '3144413434331213',
+  '2331423123221112',
+  '1244321224114111',
+  '4342111233133113',
+  '2321111331221122',
+  '2211511455514221',
+  '1514413444123121',
+  '4433123331125111',
+  '3125522211244113',
+  '1124144114131115',
+  '5331341114231114',
+  '1252311134134134',
+];
+
+const tones = (a: string, b: string, c: string, d: string, e: string): Record<string, Rgba> => ({ '1': hex(a), '2': hex(b), '3': hex(c), '4': hex(d), '5': hex(e) });
+const MOKO_GREEN = tones('#2F7837', '#3C9239', '#4AA83D', '#62BB4A', '#8AD05C');
+const MOKO_RED = tones('#B8481F', '#CC5C28', '#DD7733', '#EB963C', '#F6BC52');
+const MOKO_PINE = tones('#235737', '#2B663D', '#347643', '#448C4D', '#63A85D');
+
+const MOKO_ART = {
+  leaves: [MOKO_LEAF, MOKO_GREEN],
+  momiji_leaves: [MOKO_MOMIJI, MOKO_RED],
+  matsu_leaves: [MOKO_MATSU, MOKO_PINE],
+} as const;
+
 const LEAF_ART = {
   leaves: [SHELL_LEAF, CROSS_LEAF, GREEN],
   momiji_leaves: [SHELL_MOMIJI, CROSS_MOMIJI, MOMIJI],
@@ -207,6 +281,7 @@ const LEAF_ART = {
 
 export function protoLeafPixels(which: 'leaves' | 'momiji_leaves' | 'matsu_leaves'): Rgba[] | null {
   const mode = leafMode();
+  if (mode === 'moko') return paint(MOKO_ART[which][0], MOKO_ART[which][1]);
   if (mode !== 'shell' && mode !== 'cross') return null;
   const row = LEAF_ART[which];
   return paint(mode === 'cross' ? row[1] : row[0], row[2]);

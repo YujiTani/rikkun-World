@@ -12,6 +12,7 @@ const BAMBOO = { x: 40.5, z: 79.5 };
 
 const jobs = [
   { name: 'leaf-current', query: 'leaf=current&bamboo=current', at: 'tree' },
+  { name: 'leaf-moko', query: 'leaf=moko&bamboo=current', at: 'tree' },
   { name: 'leaf-shell', query: 'leaf=shell&bamboo=current', at: 'tree' },
   { name: 'leaf-cross', query: 'leaf=cross&bamboo=current', at: 'tree' },
   { name: 'bamboo-current', query: 'leaf=current&bamboo=current', at: 'bamboo' },
@@ -38,6 +39,7 @@ const only = (process.env.SHOTS ?? '').split(',').filter(Boolean);
 const run = only.length ? jobs.filter((j) => only.includes(j.name)) : jobs;
 
 const browser = await chromium.launch({
+  executablePath: process.env.CHROME_PATH || undefined,
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 await mkdir(OUT, { recursive: true });

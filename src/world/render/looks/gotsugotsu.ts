@@ -1,5 +1,6 @@
 import { fillBambooVoxel } from '../leafBambooFill';
-import { bambooMode, leafMode } from '../leafBambooMode';
+import { bambooMode, leafIsVoxel, leafMode } from '../leafBambooMode';
+import { fillLeafPuff, type LeafPuffStyle } from './leafPuff';
 import { blockHash, carved, createPalette, dentable, mix, shapeKind } from './common';
 import { microSoil } from '../../micro/microSurface';
 import { createChestKinds, createKodoWakuKind } from './chestLooks';
@@ -151,17 +152,21 @@ function terrainColor(kind: string, depth: number, fromTop: number, isRock: bool
 }
 
 /** はっぱ: 3×3×3 の かたまり 27 こ。外がわの かたまりは ときどき ない（もこもこ）。上の面ほど明るい */
-function leafKind(c: Layers, saltN: number): KindSpec {
+function leafKind(c: Layers, saltN: number, style: LeafPuffStyle = 'round'): KindSpec {
   return {
     base: c[0],
     occludes: false,
-    fill: (bx, by, bz, _e, out) => {
+    fill: (bx, by, bz, e, out) => {
       // 試し（shell / cross / 計測の none）は 小ブロックを 置かない。面は extras が 描く
-      if (leafMode() !== 'current') {
+      if (!leafIsVoxel()) {
         out.fill(0);
         return;
       }
       const h = blockHash(saltN, bx, by, bz);
+      if (leafMode() === 'moko') {
+        fillLeafPuff(h, e, out, c[0], style);
+        return;
+      }
       let i = 0;
       for (let y = 0; y < N; y++) {
         for (let z = 0; z < N; z++) {
@@ -263,7 +268,7 @@ export const gotsugotsuLook: Look = {
       },
     ),
     leaves: leafKind(LEAF, LEAF_SALT),
-    matsu_leaves: leafKind(MATSU, LEAF_SALT + 1),
+    matsu_leaves: leafKind(MATSU, LEAF_SALT + 1, 'pad'),
     momiji_leaves: leafKind(MOMIJI, LEAF_SALT + 2),
     snow: rock(SNOW, 3, 1, 4),
     bamboo: (() => {

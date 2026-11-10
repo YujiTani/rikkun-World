@@ -12,7 +12,7 @@ import { tileSubUv, type TileName } from '../blocks/textures';
 import type { WorldLight } from '../light/WorldLight';
 import type { ArrayVoxelWorld } from '../VoxelWorld';
 import { BAMBOO_LEAF_PX, BAMBOO_STALK_PX } from './leafBambooArt';
-import { bambooMode, leafMode, type BambooMode } from './leafBambooMode';
+import { bambooMode, leafIsVoxel, leafMode, type BambooMode } from './leafBambooMode';
 import { FACE_SHADE_BY_INDEX } from './config';
 import { FACES, LIGHT_MAX, TILE_UV, pushCross, pushFace, type MeshData } from './meshChunk';
 
@@ -20,7 +20,7 @@ const N = 9;
 
 export function skipBoxProto(kind: number): boolean {
   if (kind === BLOCK_INDEX.bamboo) return bambooMode() !== 'current';
-  if (isLeafIndex(kind)) return leafMode() !== 'current';
+  if (isLeafIndex(kind)) return !leafIsVoxel();
   return false;
 }
 
@@ -148,7 +148,7 @@ export function emitProtoPlant(
 ): boolean {
   if (isLeafIndex(b)) {
     const mode = leafMode();
-    if (mode === 'current') return false;
+    if (leafIsVoxel()) return false;
     if (mode === 'none') return true;
     if (mode === 'cross') {
       const [sky, blk] = lightAt(light, x, y, z);
