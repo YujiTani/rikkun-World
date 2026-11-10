@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { itemType } from '../../inventory/items';
 import { houseRig } from '../houseRig';
 import { allRecipes, rh } from './recipeKit';
 
 /**
- * HOUSE-2A（#364）AC2: どの レシピに なるか（拾った とき に 決まる）。仕様 docs/design/HOUSE-2.md §2.1・§4.2。
+ * HOUSE-2A（#364・仕様 3 版）AC2: どの レシピに なるか（拾った とき に 決まる）。仕様 docs/design/HOUSE-2.md §2.1・§4.2・§5（かみ 3 まい）。
+ * レシピは 20 まいの まま（1 まいで むら・おしろ・こうざんの 3 つが 出る ＝ 数は ここに 書かない。recipes().all から）。
  * 約束: src/house/recipes/pick.ts の `pickRecipe({ seed, at: { x, y, z }, learned })` → レシピの id | null（ぜんぶ おぼえて いたら null）。
  * 表は 数えない: ぜんぶの 数は 窓口 recipes().all から。まだ 無い 間は 窓口と pick.ts が 無くて 赤。
  */
@@ -19,7 +21,7 @@ const AT = (i: number) => ({ x: 100 + i * 211, y: 43, z: -300 + i * 97 });
 
 describe('AC2 どの レシピに なるか', () => {
   it('表が ある（窓口 recipes().all）。id は 重ならない・かわらの やね（roof_kawara）が 入って いる', () => {
-    const all = allRecipes();
+    const all = rh(houseRig()).recipes().all;
     expect(all.length).toBeGreaterThan(0);
     expect(new Set(all).size, 'id は 重ならない').toBe(all.length);
     expect(all).toContain('roof_kawara');
@@ -85,5 +87,53 @@ describe('AC2 found（拾った とき: 窓口 house.found）', () => {
     b.sys.load(saved);
     expect(rh(b).recipes().learned).toEqual(['roof_kawara']);
     expect(rh(b).found(AT(7))).toBe(first);
+  });
+});
+
+describe('AC2 ぜんぶ おぼえた あとの かみ 3 まい: 持ち物に 入らない 分は 足もとに 落とす（仕様 §5）', () => {
+  /** 表の ぜんぶを おぼえた 世界。bag は からっぽ */
+  function done() {
+    const r = houseRig();
+    for (const id of rh(r).recipes().all) rh(r).learn(id);
+    return r;
+  }
+  const paperDropped = (r: ReturnType<typeof done>): number => r.drops.filter((d) => d.item === 'paper').reduce((n, d) => n + d.count, 0);
+
+  it('持ち物に 空きが あれば ぜんぶ 持ち物へ。足もとには 落とさない', () => {
+    const r = done();
+    expect(rh(r).found(AT(1))).toBeNull();
+    expect(r.bag.count('paper')).toBe(3);
+    expect(paperDropped(r)).toBe(0);
+  });
+
+  it('持ち物が いっぱい（かみの 入る 空きも ない）: かみ 3 まいは ぜんぶ 足もとに 落ちる。持ち物は へらない・ふえない', () => {
+    const r = done();
+    let guard = 0;
+    while (r.bag.add('stone', 64) === 0 && guard++ < 1000);
+    expect(r.bag.slots().every((s) => s !== null), '持ち物は いっぱい').toBe(true);
+    const before = JSON.stringify(r.bag.slots());
+    expect(rh(r).found(AT(2))).toBeNull();
+    expect(paperDropped(r), '足もとに かみ 3 まい').toBe(3);
+    expect(JSON.stringify(r.bag.slots()), '持ち物は かわらない').toBe(before);
+    expect(r.drops.filter((d) => d.item !== 'paper'), 'かみ いがいは 落とさない').toEqual([]);
+  });
+
+  it('一部だけ 入る（かみの 山に あと 2 まいぶん 空き）: 2 まいは 持ち物・のこりの 1 まいが 足もとに', () => {
+    const r = done();
+    let guard = 0;
+    while (r.bag.add('stone', 64) === 0 && guard++ < 1000);
+    const max = itemType('paper')!.maxStack;
+    r.bag.setSlot(0, { item: 'paper', count: max - 2 });
+    expect(rh(r).found(AT(3))).toBeNull();
+    expect(r.bag.count('paper'), '山が いっぱいに なる').toBe(max);
+    expect(paperDropped(r), '入らなかった 1 まい').toBe(1);
+  });
+
+  it('レシピを おぼえる ときは 持ち物を 使わない ので、足もとにも 何も 落とさない（いっぱいでも）', () => {
+    const r = houseRig();
+    let guard = 0;
+    while (r.bag.add('stone', 64) === 0 && guard++ < 1000);
+    expect(rh(r).found(AT(0))).toBe('roof_kawara');
+    expect(r.drops).toEqual([]);
   });
 });

@@ -113,19 +113,23 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
       expect(await mark.evaluate((el) => el.tagName.toLowerCase() === 'button' || el.getAttribute('role') === 'button' || (el.getAttribute('data-testid') ?? '').startsWith('house-btn-')), `すすみの 印 ${s} は 押せない`).toBe(false);
     }
     const ids1 = await editorBtnIds(page);
-    for (const id of ['undo', 'redo', 'close', 'new', 'need', 'done', 'next', 'width-5', 'width-7', 'width-9', 'depth-5', 'depth-7', 'depth-9', 'windowsDown', 'windowsUp', 'part-roof', 'part-wall', 'part-window', 'part-door', 'roof-flat']) {
-      expect(ids1, `① には ${TID.btn(id)} が ある（2A: ばしょの ボタン ＋ えらんで いる ばしょ〔やね〕の しゅるい だけ）`).toContain(id);
+    for (const id of ['undo', 'redo', 'close', 'new', 'need', 'done', 'next', 'width-5', 'width-7', 'width-9', 'depth-5', 'depth-7', 'depth-9', 'windowsDown', 'windowsUp', 'part-roof', 'part-wall', 'part-window', 'part-door']) {
+      expect(ids1, `① には ${TID.btn(id)} が ある（2A 3 版: ばしょの ボタン。しゅるいの ボタンは ポップアップを 開くまで 出ない）`).toContain(id);
     }
-    for (const id of ['prev', 'take', 'turnRight', 'turnLeft', 'furniture-futon', 'light-lantern', 'char-あ', 'windowKind-shoji', 'wall-ki']) expect(ids1, `① には ${TID.btn(id)} は 出ない`).not.toContain(id);
+    for (const id of ['prev', 'take', 'turnRight', 'turnLeft', 'furniture-futon', 'light-lantern', 'char-あ', 'part-deco', 'roof-flat', 'window-shoji', 'wall-ki', 'door-ie', 'popupClose']) expect(ids1, `① には ${TID.btn(id)} は 出ない`).not.toContain(id);
     expect((await btnState(page, 'next'))?.enabled, 'はじめから「つぎへ」が 押せる（新 20）').toBe(true);
     for (const id of ['undo', 'redo', 'windowsDown']) expect((await btnState(page, id))?.enabled, `${id} は まだ 押せない`).toBe(false);
     expect((await btnState(page, 'width-5'))?.pressed, 'よこ 5 を えらんで ある').toBe(true);
     expect((await btnState(page, 'depth-5'))?.pressed, 'たて 5 を えらんで ある').toBe(true);
     expect((await btnState(page, 'width-7'))?.pressed, 'よこ 7 は えらんで いない').toBe(false);
-    await clickBtn(page, 'part-window'); // 2A: しゅるいの ボタンは えらんで いる ばしょの 物だけ
-    expect((await btnState(page, 'windowKind-shoji'))?.pressed, 'しょうじ ✓').toBe(true);
+    expect(await editorMismatch(page), '画面と menu() の ちがい（① パネル）').toEqual([]);
+    await clickBtn(page, 'part-window'); // 2A（3 版）: しゅるいの ボタンは ばしょの ポップアップの 中
+    expect((await btnState(page, 'window-shoji'))?.pressed, 'しょうじ ✓').toBe(true);
+    expect(await editorMismatch(page), '画面と menu() の ちがい（① ポップアップ。下の パネルの ボタンは かくれる）').toEqual([]);
+    await clickBtn(page, 'popupClose');
     await clickBtn(page, 'part-roof');
     expect((await btnState(page, 'roof-flat'))?.pressed, 'たいら ✓').toBe(true);
+    await clickBtn(page, 'popupClose');
     expect(await editorMismatch(page), '画面と menu() の ちがい（①）').toEqual([]);
     // AC41: エディターが 開いて いる 間は 時刻が 止まる（step(600) の 前後で 同じ）
     const clock0 = await clockOf(page);
@@ -152,9 +156,11 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     // しょうじ・たいら は 今は 1 つだけ。押しても 形は かわらず、もどす にも 入らない（AC11）
     const beforeKinds = await ed(page);
     await clickBtn(page, 'part-window');
-    await clickBtn(page, 'windowKind-shoji');
+    await clickBtn(page, 'window-shoji');
+    await clickBtn(page, 'popupClose');
     await clickBtn(page, 'part-roof');
     await clickBtn(page, 'roof-flat');
+    await clickBtn(page, 'popupClose');
     const afterKinds = await ed(page);
     expect({ shape: shapeOf(afterKinds), canUndo: afterKinds.canUndo, canRedo: afterKinds.canRedo }, 'しょうじ・たいらを 押しても 形・もどす は かわらない').toEqual({
       shape: shapeOf(beforeKinds),

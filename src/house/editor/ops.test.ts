@@ -15,16 +15,21 @@ describe('ボタンの 一覧（すすみごと）', () => {
     const got = ids(makeController());
     expect(got).toEqual(expect.arrayContaining(['undo', 'redo', 'close', 'new', 'need', 'next', 'done', 'windowsDown', 'windowsUp']));
     for (const n of SIZES) expect(got).toEqual(expect.arrayContaining([`width-${n}`, `depth-${n}`]));
-    // 2A: ばしょの ボタン ＋ えらんで いる ばしょ（はじめは やね）の しゅるい だけ。かざりの ばしょは かざりを 1 つ おぼえる まで ない
+    // 2A（3 版）: ばしょの ボタンだけ（かざりの ばしょは かざりを 1 つ おぼえる まで ない）。しゅるいの ボタンは ポップアップを 開くまで 出ない
     for (const p of ['roof', 'wall', 'window', 'door']) expect(got).toContain(`part-${p}`);
     expect(got).not.toContain('part-deco');
-    // 2A: レシピを 1 まいも おぼえて いない ので、やねは はじめからの たいら だけ（ROOF_KINDS に レシピの やねが 足されても ここは かわらない）
-    expect(got.filter((x) => x.startsWith('roof-'))).toEqual(['roof-flat']);
-    for (const no of ['prev', 'light-lantern', 'take', 'char-あ', 'furniture-futon', 'windowKind-shoji', 'wall-ki', 'door-ie']) expect(got).not.toContain(no);
+    expect(got.filter((x) => /^(roof|wall|window|door|deco)-/.test(x)), 'ポップアップが とじて いる 間は しゅるいの ボタンは ない').toEqual([]);
+    expect(got).not.toContain('popupClose');
+    for (const no of ['prev', 'light-lantern', 'take', 'char-あ', 'furniture-futon', 'windowKind-shoji', 'window-shoji', 'wall-ki', 'door-ie']) expect(got).not.toContain(no);
     const k = makeController();
     pressEditor(k.ctl, 'part-window');
-    expect(ids(k).filter((x) => x.startsWith('windowKind-')), '窓の ばしょを えらぶと 窓の しゅるいが 出る（おぼえて いない ので しょうじ だけ）').toEqual(['windowKind-shoji']);
-    expect(ids(k).filter((x) => x.startsWith('roof-')), 'やねの しゅるいは 引っこむ').toEqual([]);
+    expect(ids(k).filter((x) => /^(roof|wall|window|door|deco)-/.test(x)), '窓の ばしょを 開くと 窓の しゅるいが 出る（おぼえて いない ので なし・しょうじ だけ）').toEqual(['window-none', 'window-shoji']);
+    expect(ids(k), '✕').toContain('popupClose');
+    expect(ids(k).filter((x) => /^(part-|width-|depth-|windows(Up|Down)$)/.test(x)), '① の パネルの ボタンは ポップアップの 下に かくれる').toEqual([]);
+    expect(ids(k), '帯の ボタンは 出る').toEqual(expect.arrayContaining(['undo', 'redo', 'close', 'new', 'need', 'next', 'done']));
+    pressEditor(k.ctl, 'popupClose');
+    expect(ids(k).filter((x) => /^(roof|wall|window|door|deco)-/.test(x)), 'とじると 引っこむ').toEqual([]);
+    expect(ids(k)).toContain('part-roof');
   });
 
   it('② なか: 家具の ボタン（FURN_ORDER ぜんぶ）＋ あかり。置いた 家具を えらぶと そばの 3 つ。prev も next も ある', () => {
@@ -101,11 +106,15 @@ describe('press(id)（ボタンと 同じ 道）', () => {
     expect(pressEditor(k.ctl, 'windowsUp')).toBe(true);
     expect(k.ctl.s.windows).toBe(1);
     expect(pressEditor(k.ctl, 'windowsDown')).toBe(true);
-    expect(pressEditor(k.ctl, 'windowKind-shoji'), 'やねの ばしょでは 窓の しゅるいは 出て いない ＝ 押せない').toBe(false);
-    expect(pressEditor(k.ctl, 'part-window'), 'ばしょを えらぶ').toBe(true);
-    expect(pressEditor(k.ctl, 'windowKind-shoji'), '今と 同じ ＝ かわらない').toBe(false);
-    expect(pressEditor(k.ctl, 'windowKind', 'shoji')).toBe(false);
-    expect(pressEditor(k.ctl, 'part-roof'), 'やねの ばしょへ もどす').toBe(true);
+    expect(pressEditor(k.ctl, 'window-shoji'), 'ポップアップが とじて いる 間は 窓の しゅるいは 出て いない ＝ 押せない').toBe(false);
+    expect(pressEditor(k.ctl, 'part-window'), 'ばしょの ボタンで ポップアップを 開く').toBe(true);
+    expect(pressEditor(k.ctl, 'window-shoji'), '今と 同じ ＝ かわらない').toBe(false);
+    expect(pressEditor(k.ctl, 'window', 'shoji')).toBe(false);
+    expect(pressEditor(k.ctl, 'roof-flat'), '窓の ポップアップが 開いて いる 間は やねの しゅるいは 押せない').toBe(false);
+    expect(pressEditor(k.ctl, 'width-9'), 'ポップアップの 下の パネルの ボタンは 押せない').toBe(false);
+    expect(pressEditor(k.ctl, 'popupClose'), '✕').toBe(true);
+    expect(pressEditor(k.ctl, 'popupClose'), 'とじて いる ときは ✕ は ない').toBe(false);
+    expect(pressEditor(k.ctl, 'part-roof'), 'やねの ポップアップを 開く').toBe(true);
     expect(pressEditor(k.ctl, 'roof', 'flat')).toBe(false);
     expect(pressEditor(k.ctl, 'roof', 'gabled')).toBe(false);
   });

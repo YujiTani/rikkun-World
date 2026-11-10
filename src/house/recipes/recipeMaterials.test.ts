@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { houseRig } from '../houseRig';
+import { MATERIAL_ORDER } from '../editor/tuning';
 import { ENTRY, allRecipes, learnAll, needMap, notFirst, openEd, rh, type Rig } from './recipeKit';
 
 /**
- * HOUSE-2A（#364）AC5: 材料（need）が 仕様 §4.1 どおり。もう 1 けん 建て はじめた 世界（ぬの・いとの おまけは ない）。
+ * HOUSE-2A（#364・仕様 3 版）AC6: 材料（need）が 仕様 §4.1 どおり。**同じ レシピの どの 案（むら・おしろ・こうざん）でも 同じ**。
+ * もう 1 けん 建て はじめた 世界（ぬの・いとの おまけは ない）。
  * 材料は 「できあがりの 物」で 数える（かわら・レンガ・しっくい）。はなは 3 いろ あわせて 1 行（item は 'flower' で はじまる）。
  * P ＝ 外まわり 1 周 ＝ 2×(よこ＋たて)＋4、n ＝ まどの かず。表の 数は 仕様から 写した（レシピの 数は 書かない）。
  */
@@ -34,10 +36,10 @@ const DELTA: Readonly<Record<string, (p: number, n: number) => Record<string, nu
   suffix_toride: () => ({}),
 };
 
-/** 窓 n この 家で、レシピ id を えらぶ（家具は 左上に 置く） */
-function choose(r: Rig, id: string): void {
+/** 窓 n この 家で、レシピ id の しゅるい kind を えらぶ（家具は 左上に 置く） */
+function choose(r: Rig, id: string, kind: string | null): void {
   const e = ENTRY[id]!;
-  if (e.field) expect(r.hook.edit({ op: e.field, kind: e.kind }), `${id} を えらぶ`).toBe(true);
+  if (e.field) expect(r.hook.edit({ op: e.field, kind }), `${id} の ${kind} を えらぶ`).toBe(true);
   else if (id === 'furniture_maneki') expect(r.hook.edit({ op: 'place', kind: 'maneki', x: 0, z: 0 }), 'まねきねこを 置く').toBe(true);
 }
 
@@ -51,39 +53,43 @@ function setup(size: number, windows: number): Rig {
   return r;
 }
 
-describe('AC5 材料: レシピごとの ふえ方（5×5 と 9×9。窓 2）', () => {
+describe('AC6 材料: レシピごとの ふえ方（5×5 と 9×9。窓 2。むら・おしろ・こうざん どれでも 同じ）', () => {
   it('表の ぜんぶの レシピに ふえ方の 約束が ある', () => {
-    const all = allRecipes();
+    const all = rh(houseRig()).recipes().all;
     expect(all.length).toBeGreaterThan(0);
     for (const id of all) expect(DELTA[id], `${id} の ふえ方`).toBeDefined();
   });
 
   for (const id of allRecipes()) {
     for (const size of [5, 9]) {
-      it(`${id}: ${size}×${size}`, () => {
+      it(`${id}: ${size}×${size}（どの 案でも 同じ ふえ方）`, () => {
         const n = 2;
         const r = setup(size, n);
         const base = needMap(r);
-        choose(r, id);
-        const after = needMap(r);
         const want = { ...base };
         for (const [item, d] of Object.entries(DELTA[id]!(P(size, size), n))) want[item] = (want[item] ?? 0) + d;
         for (const k of Object.keys(want)) if (want[k] === 0) delete want[k];
-        expect(after).toEqual(want);
+        // 案ごとに（しゅるいが 1 つの レシピは その 1 つ）。むら・おしろ・こうざんで 材料は かわらない
+        const kinds = ENTRY[id]!.field ? ENTRY[id]!.kinds : [null];
+        for (const kind of kinds) {
+          const q = setup(size, n);
+          choose(q, id, kind);
+          expect(needMap(q), `${kind ?? id}`).toEqual(want);
+        }
       });
     }
   }
 });
 
-describe('AC5 仕様の 2 つの 例', () => {
+describe('AC6 仕様の 2 つの 例', () => {
   it('① 5×5・窓 0・ふとん 1・しっくいの かべ・かわらの やね → き 0・しっくい 24・かわら 24・いし 25・ぬの 3・いと 1', () => {
     const r = houseRig();
     notFirst(r);
     for (const id of ['wall_shikkui', 'roof_kawara']) rh(r).learn(id);
     openEd(r);
     expect(r.hook.edit({ op: 'place', kind: 'futon', x: 0, z: 0 })).toBe(true);
-    expect(r.hook.edit({ op: 'wall', kind: 'shikkui' })).toBe(true);
-    expect(r.hook.edit({ op: 'roof', kind: 'kawara' })).toBe(true);
+    expect(r.hook.edit({ op: 'wall', kind: 'shikkui_kozan' })).toBe(true);
+    expect(r.hook.edit({ op: 'roof', kind: 'kawara_shiro' })).toBe(true);
     expect(needMap(r)).toEqual({ shikkui: 24, kawara: 24, stone: 25, cloth: 3, string: 1 });
   });
 
@@ -94,7 +100,7 @@ describe('AC5 仕様の 2 つの 例', () => {
     openEd(r);
     expect(r.hook.edit({ op: 'size', w: 7 })).toBe(true);
     for (let i = 0; i < 4; i++) expect(r.hook.edit({ op: 'windows', delta: 1 })).toBe(true);
-    for (const [op, kind] of [['windowKind', 'maru'], ['wall', 'ishi'], ['roof', 'kin'], ['door', 'tetsu'], ['light', 'suisho'], ['deco', 'hanadan'], ['deco', 'noren'], ['deco', 'shachi'], ['deco', 'entotsu']] as const) {
+    for (const [op, kind] of [['windowKind', 'maru_mura'], ['wall', 'ishi_shiro'], ['roof', 'kin_kozan'], ['door', 'tetsu_shiro'], ['light', 'suisho'], ['deco', 'hanadan_kozan'], ['deco', 'noren_mura'], ['deco', 'shachi'], ['deco', 'entotsu_shiro']] as const) {
       expect(r.hook.edit({ op, kind }), `${op} ${kind}`).toBe(true);
     }
     expect(r.hook.edit({ op: 'place', kind: 'futon', x: 0, z: 0 })).toBe(true);
@@ -109,7 +115,7 @@ describe('AC5 仕様の 2 つの 例', () => {
     openEd(r);
     r.hook.edit({ op: 'windows', delta: 1 });
     r.hook.edit({ op: 'windows', delta: 1 });
-    r.hook.edit({ op: 'deco', kind: 'hanadan' });
+    r.hook.edit({ op: 'deco', kind: 'hanadan_shiro' });
     r.bag.add('flower_y', 1);
     r.bag.add('flower_o', 1);
     r.bag.add('flower_p', 3);
@@ -126,21 +132,24 @@ describe('AC5 仕様の 2 つの 例', () => {
     expect(needMap(r)).toEqual({ log: 24, stone: 25, cloth: 3, string: 1 });
   });
 
-  it('ひつような ものは いちばん 多くて 17 しゅるい（AC10）: かわら・しっくい・レンガ・すいしょう・ほたるいし・きん・はなが 入っても はなは 1 行', () => {
+  it('ひつような ものは 材料の 表（MATERIAL_ORDER）の ぜんぶが 出る いちばん 多い 形（AC9: かわら・しっくい・レンガ・すいしょう・ほたるいし・きん・はなが 入っても はなは 1 行）', () => {
     const r = houseRig();
     notFirst(r);
     learnAll(r);
     openEd(r);
     r.hook.edit({ op: 'size', w: 9, d: 9 });
     for (let i = 0; i < 3; i++) r.hook.edit({ op: 'windows', delta: 1 });
-    for (const [op, kind] of [['roof', 'kawara'], ['wall', 'shikkui'], ['windowKind', 'maru'], ['light', 'suisho'], ['deco', 'hanadan'], ['deco', 'shachi'], ['deco', 'entotsu']] as const) {
+    for (const [op, kind] of [['roof', 'kawara_shiro'], ['wall', 'shikkui_mura'], ['windowKind', 'maru_kozan'], ['door', 'tetsu_mura'], ['light', 'suisho'], ['deco', 'hanadan_shiro'], ['deco', 'shachi'], ['deco', 'entotsu_kozan']] as const) {
       expect(r.hook.edit({ op, kind }), `${op} ${kind}`).toBe(true);
     }
     const spots: [string, number, number][] = [['futon', 0, 0], ['tansu', 2, 0], ['nukunuku', 5, 0], ['andon', 8, 0], ['haniwa', 0, 4], ['furnace', 2, 4], ['maneki', 6, 6]];
     for (const [kind, x, z] of spots) expect(r.hook.edit({ op: 'place', kind, x, z }), `${kind} を 置く`).toBe(true);
     const items = r.hook.need().map((x) => x.item);
     expect(new Set(items).size, '材料の 行は ぜんぶ ちがう').toBe(items.length);
-    expect(items.filter((i) => i.startsWith('flower'))).toHaveLength(1);
-    expect(items).toHaveLength(17);
+    expect(items.filter((i) => i.startsWith('flower')), 'はなは 1 行').toHaveLength(1);
+    const norm = (i: string): string => (i.startsWith('flower') ? 'flower' : i);
+    expect(sortedSet(items.map(norm)), '材料の 表の ぜんぶ（はなは 3 いろ まとめて 1）').toEqual(sortedSet((MATERIAL_ORDER as readonly string[]).map(norm)));
   });
 });
+
+const sortedSet = (a: readonly string[]): string[] => [...new Set(a)].sort();

@@ -1,10 +1,15 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { ItemId } from '../../contracts';
+import type { ItemId, LockStatus, PlayerState, TargetInfo } from '../../contracts';
+import { createDigConfig } from '../../dig/config';
+import { BlockBreaker } from '../../dig/digBreak';
+import type { DigCore } from '../../dig/digCore';
 import { InventoryImpl } from '../../inventory/Inventory';
 import { BLOCK_TYPES } from '../blocks/blockTypes';
 import { ArrayVoxelWorld } from '../VoxelWorld';
+import { attach } from '../water/waterTestKit';
 import { createMineHook } from './mineHook';
 import { SEEDS_20, genColumn, hook1c, type ChestRoll, type Shaft } from './mineShaftKit';
+import { createRng } from './random';
 import { spawnOf } from './terrain';
 
 /**
@@ -160,4 +165,58 @@ describe('AC1 まきもの: 宝箱の ない 坑道の いちばん 下の へ�
     r.mine.open(shaft.recipe!.x, shaft.recipe!.y, shaft.recipe!.z);
     expect(r.inv.slots().filter((s) => s)).toHaveLength(0);
   });
+});
+
+describe('AC1 まきもの: こわしても 水が 来ても 消えない（仕様 §5。右クリック だけで とれる）', () => {
+  /** こわす 処理を 直接 よぶ ための 道具（src/dig/mineChestReview.test.ts の breakerRig と 同じ つくり。世界は まきものの ある 坑道） */
+  function breakerOf(world: ArrayVoxelWorld, near: { x: number; y: number; z: number }) {
+    const inventory = new InventoryImpl();
+    const core = {
+      world,
+      inventory,
+      m4: {},
+      config: createDigConfig(),
+      lock: { locked: () => true, overlayVisible: () => false, realtimeAllowed: () => true, playInputEnabled: () => true } as LockStatus,
+      gate: null,
+      player: () => ({ position: { x: near.x + 0.5, y: near.y, z: near.z + 0.5 } }) as PlayerState,
+      tgt: () => null,
+      bodyTgt: () => false,
+      tick: () => 0,
+      emit: () => undefined,
+    } as unknown as DigCore;
+    return { inventory, breaker: new BlockBreaker(core, createRng(1)) };
+  }
+
+  it('こわす 処理（BlockBreaker.breakBlock）を 直接 よんでも まきものは のこる。持ち物には 入らない。そのあと 右クリック（open）で ちゃんと とれる', () => {
+    for (const { seed, shaft } of scrolls.slice(0, 2)) {
+      const r = rig(seed, shaft);
+      const at = shaft.recipe!;
+      const id = r.world.getBlock(at.x, at.y, at.z) as string;
+      const { inventory, breaker } = breakerOf(r.world, { x: at.x, y: at.y + 1, z: at.z + 2 });
+      const t: TargetInfo = { block: { x: at.x, y: at.y, z: at.z }, id: id as never, face: { x: 0, y: 1, z: 0 }, place: { x: at.x, y: at.y + 1, z: at.z }, distance: 2 };
+      breaker.breakBlock(t, false);
+      breaker.breakBlock(t, true);
+      expect(r.world.getBlock(at.x, at.y, at.z), `${shaft.id}: こわしても のこる`).toBe(id);
+      expect(inventory.slots().filter((x) => x !== null), `${shaft.id}: 持ち物には 入らない`).toEqual([]);
+      expect(takenOf(r, shaft), `${shaft.id}: まだ 拾って いない`).toBe(false);
+      r.mine.open(at.x, at.y, at.z);
+      expect(r.asked, `${shaft.id}: 右クリックで とれる`).toEqual([{ x: at.x, y: at.y, z: at.z }]);
+    }
+  }, 60_000);
+
+  it('水が 上から 流れこんで 落ち着いても まきものは のこる（水に ながされて 消えない）。そのあと 右クリックで ちゃんと とれる', () => {
+    for (const { seed, shaft } of scrolls.slice(0, 2)) {
+      const r = rig(seed, shaft);
+      const at = shaft.recipe!;
+      const id = r.world.getBlock(at.x, at.y, at.z) as string;
+      const w = attach(r.world, seed);
+      w.sys.set(at.x, at.y + 1, at.z, 8);
+      expect(w.sys.queue(), `${shaft.id}: 水が 動きだす`).toBeGreaterThan(0);
+      w.settle(400);
+      expect(r.world.getBlock(at.x, at.y, at.z), `${shaft.id}: 水が 来ても のこる`).toBe(id);
+      expect(takenOf(r, shaft), `${shaft.id}: まだ 拾って いない`).toBe(false);
+      r.mine.open(at.x, at.y, at.z);
+      expect(r.asked, `${shaft.id}: 右クリックで とれる`).toEqual([{ x: at.x, y: at.y, z: at.z }]);
+    }
+  }, 120_000);
 });

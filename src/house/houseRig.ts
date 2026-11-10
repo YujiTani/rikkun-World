@@ -29,6 +29,8 @@ export function houseRig(opts: RigOpts = {}) {
   const { bag, player } = st;
   const sfx: HouseSfx[] = [];
   const calls: string[] = [];
+  /** 持ち物に 入らず 足もとに 落とした 物（HOUSE-2A: ぜんぶ おぼえた あとの かみ 3 まいの 入りきらない 分。deps の drop(item, count)） */
+  const drops: { item: ItemId; count: number }[] = [];
   // 型の 上で まだ 無い deps（craft・tansu）を まぜる ため、いったん 変数に 入れてから わたす
   const deps = {
     seed: 77,
@@ -38,6 +40,7 @@ export function houseRig(opts: RigOpts = {}) {
     bag,
     voice: () => calls.push('voice'),
     gave: (item: ItemId) => calls.push(`gave:${item}`),
+    drop: (item: ItemId, count: number) => void drops.push({ item, count }),
     onOpen: () => calls.push('open'),
     onClose: () => calls.push('close'),
     isLand: opts.isLand ?? (() => true),
@@ -90,5 +93,5 @@ export function houseRig(opts: RigOpts = {}) {
     sys.skyDecide();
     sys.skyDecide();
   };
-  return { world, bag, player, sys, hook, sfx, calls, st, talk, make, stock, pad, run, startBuild };
+  return { world, bag, player, sys, hook, sfx, calls, drops, st, talk, make, stock, pad, run, startBuild };
 }

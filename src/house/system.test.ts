@@ -318,7 +318,7 @@ describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
         log.push(`wheel ${dx},${dy}`);
         return true;
       },
-      hover: (on) => void log.push(`hover ${on}`),
+      hover: (on: boolean, part?: string) => void log.push(part === undefined ? `hover ${on}` : `hover ${on} ${part}`),
     };
     return log;
   }
@@ -379,15 +379,30 @@ describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
     expect(sys.editor.canUndo()).toBe(undo);
   });
 
-  it('hover: まどの かず・しゅるいの ボタン だけ 光る（① で）。ほかの ボタン・null・② は 消す', () => {
+  it('hover: まどの かず −＋ は 窓が ぜんぶ 光る（hover true）。ポップアップの しゅるいの ボタンは その ばしょが 光る（hover true <ばしょ>。3 版 AC8）。ほかの ボタン・null・② は 消す', () => {
     const { sys, hook } = opened();
     const log = fakePreview(sys);
+    for (const id of ['deco_noren', 'chimney_renga']) (hook as unknown as { learn(id: string): boolean }).learn(id);
     sys.press('editor');
-    sys.press('part-window'); // 2A: しゅるいの ボタンは えらんで いる ばしょの 物だけ 出る
-    for (const id of ['windowsUp', 'windowsDown', 'windowKind', 'windowKind-shoji']) hook.hover(id);
-    // 2A: やねの しゅるい（roof-flat）に のせると やねが 光る ので 窓の 光りの 外へ（やねの 光りは AC9: src/house/preview/glowParts.test.ts）
-    for (const id of ['next', 'width-7', 'depth-9', 'undo', null]) hook.hover(id);
-    expect(log).toEqual(['hover true', 'hover true', 'hover true', 'hover true', 'hover false', 'hover false', 'hover false', 'hover false', 'hover false']);
+    for (const id of ['windowsUp', 'windowsDown', 'windowKind']) hook.hover(id);
+    expect(log, '窓の かず −＋ は ばしょの 名前なしの hover true').toEqual(['hover true', 'hover true', 'hover true']);
+    log.length = 0;
+    // ポップアップの しゅるいの ボタン: その ばしょの 名前つきで 光る
+    sys.press('part-window');
+    hook.hover('window-shoji');
+    sys.press('popupClose');
+    sys.press('part-roof');
+    hook.hover('roof-flat');
+    sys.press('popupClose');
+    sys.press('part-deco');
+    hook.hover('deco-entotsu_shiro');
+    hook.hover('deco-noren_kozan');
+    expect(log).toEqual(['hover true window', 'hover true roof', 'hover true entotsu', 'hover true noren']);
+    log.length = 0;
+    sys.press('popupClose');
+    // ほかの ボタン（とじて いる 間の しゅるいの ボタンも）は 光らない
+    for (const id of ['next', 'width-7', 'depth-9', 'undo', 'part-roof', 'roof-flat', 'deco-entotsu_mura', null]) hook.hover(id);
+    expect(log).toEqual(['hover false', 'hover false', 'hover false', 'hover false', 'hover false', 'hover false', 'hover false', 'hover false']);
     log.length = 0;
     sys.press('next');
     hook.hover('windowsUp');

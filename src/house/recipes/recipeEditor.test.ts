@@ -1,32 +1,60 @@
 import { describe, expect, it } from 'vitest';
 import { houseRig } from '../houseRig';
-import { ENTRY, SUFFIX_NAME, allRecipes, btnIds, btnOn, ed, goStep, openEd, rh } from './recipeKit';
+import {
+  ENTRY, FORMS, PARTS, STYLES, SUFFIX_NAME, NONE_PARTS, ROW_MAX, USUAL, allRecipes, btnIds, btnOn, ed, formOf, goStep, kindBtns, learnAll, openEd, openPopup, popupRowsOf, rh,
+  type Part,
+} from './recipeKit';
 
 /**
- * HOUSE-2A（#364）AC3（おぼえた 物だけ 出る・あたらしい！）・AC4（えらび方・かざり・もどす）。仕様 docs/design/HOUSE-2.md §2.3・§6.2。
- * 約束（ボタンの id・editor() の 項目・edit の op）は e2e/helpers/house.ts の「2A の 約束」。レシピの 数は 書かない（recipes().all から）。
- * 画面を 通す 確かめは e2e/house2.spec.ts（通し）と e2e/ui-gate.spec.ts（AC10）。
+ * HOUSE-2A（#364・仕様 3 版 docs/design/HOUSE-2.md §2.3・§6.2）AC3: おぼえた 物だけ 出る・「あたらしい！」は しゅるいの ボタン ごと。
+ * 約束（ボタンの id・editor() の 項目・edit の op・recipeKinds）は e2e/helpers/house.ts の「2A の 約束」。レシピの 数・しゅるいの 数は 書かない（recipes().all・recipeKinds から）。
+ * ポップアップの 開き閉じ・えらび方・もどす は recipePopup.test.ts（AC4・AC5）。画面を 通す 確かめは e2e/house2.spec.ts と e2e/ui-gate.spec.ts（AC9）。
  */
 
 const ALL = allRecipes();
-const SOTO_KINDS = ALL.filter((id) => ENTRY[id]?.step === 'soto');
+const SOTO = ALL.filter((id) => ENTRY[id]?.step === 'soto');
+const sorted = (a: readonly string[]): string[] => [...a].sort();
 
-describe('AC3 おぼえた 物だけ 出る', () => {
-  it('表の ぜんぶに えらび方の 約束が ある（recipeKit の ENTRY）。ぜんぶ 窓口が ある', () => {
-    expect(ALL.length).toBeGreaterThan(0);
-    for (const id of ALL) expect(ENTRY[id], `${id} の えらび方`).toBeDefined();
+describe('AC3 レシピ 1 まいで 3 つ（むら・おしろ・こうざん）', () => {
+  it('ENTRY ＝ 表: recipeKit の ENTRY の 名前と 窓口 recipes().all が 同じ（レシピを ふやしたら ENTRY も ふやす）', () => {
+    expect(sorted(rh(houseRig()).recipes().all)).toEqual(sorted(Object.keys(ENTRY)));
   });
 
-  it('はじめは: ① ばしょ 4 つ（かざりは なし）・やねは たいら だけ。② ふとん…の 13 しゅるいは まねきねこ なし・あかりは ちょうちん だけ。③ 後ろの 文字は 5 つ。editor() は はじめの 物', () => {
+  it('表の ぜんぶに えらび方の 約束が ある。窓口 recipeKinds(id) ＝ そのレシピの ボタンの id の 列（recipeKit の ENTRY と 同じ）', () => {
+    expect(ALL.length).toBeGreaterThan(0);
+    const r = houseRig();
+    for (const id of ALL) {
+      expect(ENTRY[id], `${id} の えらび方`).toBeDefined();
+      expect(rh(r).recipeKinds(id), `${id} の recipeKinds`).toEqual(ENTRY[id]!.btns);
+    }
+  });
+
+  it('① の 形（やね・かべ・まど・と・えんとつ・のれん・はなだん）は 1 まいで むら・おしろ・こうざんの 3 つ。しゃちほこ・あかり・まねきねこ・後ろの 文字は 1 つ。ボタンの id は どの レシピとも 重ならない', () => {
+    const r = houseRig();
+    const seen = new Set<string>();
+    for (const id of ALL) {
+      const e = ENTRY[id]!;
+      const got = rh(r).recipeKinds(id);
+      if (e.step === 'soto' && id !== 'deco_shachi') {
+        expect(got, `${id}: むら・おしろ・こうざん`).toEqual(STYLES.map((s) => `${e.part}-${formOf(id)}_${s}`));
+      } else expect(got, `${id}: 1 つ`).toHaveLength(1);
+      for (const b of got) {
+        expect(seen.has(b), `${b} は ほかの レシピと 重ならない`).toBe(false);
+        seen.add(b);
+      }
+    }
+  });
+
+  it('はじめは: ばしょの ボタン 4 つ（かざりは なし）・しゅるいの ボタンは ポップアップを 開くまで 出ない。② は ふとん…の 家具と ちょうちん だけ。③ 後ろの 文字は 5 つ。editor() は はじめの 物', () => {
     const r = houseRig();
     openEd(r);
-    expect(ed(r)).toMatchObject({ part: 'roof', roof: 'flat', wall: 'ki', windowKind: 'shoji', door: 'ie', deco: [], light: 'lantern', marks: [] });
+    expect(ed(r)).toMatchObject({ popup: null, roof: 'flat', wall: 'ki', windowKind: 'shoji', door: 'ie', deco: [], light: 'lantern', marks: [] });
     expect(btnIds(r).filter((i) => i.startsWith('part-')).sort()).toEqual(['part-door', 'part-roof', 'part-wall', 'part-window']);
-    expect(btnIds(r).filter((i) => /^(roof|wall|windowKind|door|deco)-/.test(i))).toEqual(['roof-flat']);
-    for (const [part, first] of [['wall', 'wall-ki'], ['window', 'windowKind-shoji'], ['door', 'door-ie']] as const) {
-      r.sys.press(`part-${part}`);
-      expect(ed(r).part).toBe(part);
-      expect(btnIds(r).filter((i) => /^(roof|wall|windowKind|door|deco)-/.test(i)), `${part} の しゅるい`).toEqual([first]);
+    expect(kindBtns(r), 'ポップアップが とじて いる 間は しゅるいの ボタンは ない').toEqual([]);
+    for (const part of PARTS.filter((p) => p !== 'deco')) {
+      openPopup(r, part);
+      expect(kindBtns(r), `${part} の しゅるい（おぼえた 物は なし ＝ いつもの 物だけ）`).toEqual(USUAL[part].map((k) => `${part}-${k}`));
+      r.sys.press('popupClose');
     }
     goStep(r, 'naka');
     expect(btnIds(r).filter((i) => i.startsWith('light-'))).toEqual(['light-lantern']);
@@ -34,219 +62,162 @@ describe('AC3 おぼえた 物だけ 出る', () => {
     goStep(r, 'namae');
     expect(btnIds(r).filter((i) => i.startsWith('suffix-'))).toEqual(['suffix-0', 'suffix-1', 'suffix-2', 'suffix-3', 'suffix-4']);
   });
+});
 
+describe('AC3 おぼえた 物だけ 出る（レシピ 1 まいごと）', () => {
   for (const id of ALL) {
-    it(`${id}: おぼえる まで 出ない → おぼえると 出て「あたらしい！」→ えらぶ・つける と 消える`, () => {
+    it(`${id}: おぼえる まで 出ない → おぼえると 出て ボタンごとに「あたらしい！」→ 1 つずつ えらぶと その ボタンの 印だけ 消える`, () => {
       const e = ENTRY[id]!;
-      // おぼえる 前: 出ない（その すすみ・その ばしょで しらべる）
+      // おぼえる 前: 出ない（その すすみ・その ばしょの ポップアップで しらべる）
       const a = houseRig();
       openEd(a);
       goStep(a, e.step);
-      if (e.part && e.part !== 'deco') a.sys.press(`part-${e.part}`);
-      expect(btnIds(a), `${id}: おぼえる 前は ${e.btn} が 出ない`).not.toContain(e.btn);
       if (e.part === 'deco') expect(btnIds(a), 'かざりの ばしょは かざりを 1 つ おぼえる まで ない').not.toContain('part-deco');
+      else if (e.part) openPopup(a, e.part);
+      for (const b of e.btns) expect(btnIds(a), `${id}: おぼえる 前は ${b} が 出ない`).not.toContain(b);
 
-      // おぼえた あと（エディターを 開く 前に）: 出る・ひとつ だけ「あたらしい！」
+      // おぼえた あと（エディターを 開く 前に）: 出る・ボタンごとに「あたらしい！」・レシピは fresh に 1 つ
       const r = houseRig();
       expect(rh(r).learn(id)).toBe(true);
       expect(rh(r).recipes().fresh).toEqual([id]);
       openEd(r);
       goStep(r, e.step);
+      expect(ed(r).popup, 'エディターを 開いた ときは ポップアップは とじて いる').toBeNull();
       if (e.part) {
         expect(btnIds(r), `${id}: ばしょの ボタン`).toContain(`part-${e.part}`);
-        r.sys.press(`part-${e.part}`);
+        expect(kindBtns(r), 'ポップアップを 開く 前は しゅるいの ボタンは 出ない').toEqual([]);
+        openPopup(r, e.part);
       }
-      expect(btnOn(r, e.btn), `${id}: ${e.btn} が 出て 押せる`).toBe(true);
-      expect(ed(r).marks.sort(), `${id}: 印は しゅるいの ボタンと（① なら）ばしょの ボタン`).toEqual([e.btn, ...(e.part ? [`part-${e.part}`] : [])].sort());
+      for (const b of e.btns) expect(btnOn(r, b), `${id}: ${b} が 出て 押せる`).toBe(true);
+      expect(sorted(ed(r).marks), `${id}: 印は しゅるいの ボタン ごと（① なら ばしょの ボタンにも）`).toEqual(sorted([...e.btns, ...(e.part ? [`part-${e.part}`] : [])]));
 
-      // えらぶ・つける: 印が 消える・fresh から はずれる・learned には のこる
-      r.sys.press(e.btn);
-      expect(ed(r).marks, `${id}: えらぶと 印が 消える（ばしょの 印も）`).toEqual([]);
-      expect(rh(r).recipes()).toMatchObject({ learned: [id], fresh: [] });
-      if (e.field === 'deco') expect(ed(r).deco).toEqual([e.kind]);
-      else if (e.field) expect(ed(r)[e.field]).toBe(e.kind);
+      // 1 つずつ えらぶ・つける: その ボタンの 印だけ 消える。ほかの 案の 印は のこる
+      e.btns.forEach((b, i) => {
+        r.sys.press(b);
+        const left = e.btns.slice(i + 1);
+        expect(sorted(ed(r).marks), `${id}: ${b} を えらぶと その 印だけ 消える`).toEqual(sorted(left.length > 0 && e.part ? [...left, `part-${e.part}`] : left));
+        expect(rh(r).recipes(), `${id}: のこりの 印が ある 間は fresh に のこる`).toMatchObject({ learned: [id], fresh: left.length > 0 ? [id] : [] });
+        if (e.field === 'deco') expect(ed(r).deco, `${id}: ${b}`).toEqual([e.kinds[i]]);
+        else if (e.field) expect(ed(r)[e.field], `${id}: ${b}`).toBe(e.kinds[i]);
+        if (e.part) expect(ed(r).popup, '1 つ えらんでも ポップアップは 開いた まま').toBe(e.part);
+      });
+      expect(ed(r).marks, `${id}: ぜんぶ えらんだ あとは 印は ひとつも ない（ばしょの 印も）`).toEqual([]);
       if (id in SUFFIX_NAME) expect(ed(r).name.back).toBe(SUFFIX_NAME[id]);
     });
   }
 
-  it('ばしょの ボタンの 印は、その ばしょに 印の のこった 物が ある 間 だけ。かざりの ばしょは かざりを 1 つ おぼえたら 出る', () => {
+  it('ばしょの ボタンの 印は、その ばしょに 印の のこった しゅるいが ある 間 だけ。ポップアップを 開いた だけでは 消えない。かざりの ばしょは かざりを 1 つ おぼえたら 出る', () => {
     const r = houseRig();
-    rh(r).learn('roof_kawara');
-    rh(r).learn('roof_sankaku');
-    rh(r).learn('deco_noren');
+    for (const id of ['roof_kawara', 'roof_sankaku', 'deco_noren']) rh(r).learn(id);
     openEd(r);
-    expect(ed(r).marks.sort()).toEqual(['part-deco', 'part-roof', 'roof-kawara', 'roof-sankaku'].sort());
-    r.sys.press('roof-kawara');
-    expect(ed(r).marks, 'まだ さんかくが のこる ので ばしょの 印は のこる').toContain('part-roof');
-    expect(ed(r).marks).not.toContain('roof-kawara');
-    r.sys.press('roof-sankaku');
-    expect(ed(r).marks, 'やねの 印は ぜんぶ 消えた').toEqual(['part-deco']);
-    r.sys.press('part-deco');
-    expect([...ed(r).marks].sort(), 'ばしょを えらぶ だけでは 消えない').toEqual(['part-deco', 'deco-noren'].sort());
-    r.sys.press('deco-noren');
-    expect(ed(r).marks).toEqual([]);
-    r.sys.press('deco-noren'); // はずす
-    expect(ed(r).marks, '一度 えらんだ 物は はずしても 印は 出ない').toEqual([]);
+    expect(btnIds(r), 'かざりを おぼえたので かざりの ばしょが 出る').toContain('part-deco');
+    const roofBtns = [...ENTRY.roof_kawara!.btns, ...ENTRY.roof_sankaku!.btns];
+    expect(sorted(ed(r).marks)).toEqual(sorted(['part-roof', 'part-deco', ...roofBtns, ...ENTRY.deco_noren!.btns]));
+    openPopup(r, 'roof');
+    expect(ed(r).marks, '開いた だけでは 消えない').toContain('part-roof');
+    // やねの しゅるいを 1 つ のこして ぜんぶ えらぶ: ばしょの 印は のこる
+    for (const b of roofBtns.slice(0, -1)) r.sys.press(b);
+    expect(ed(r).marks, 'まだ 1 つ のこる ので ばしょの 印は のこる').toContain('part-roof');
+    r.sys.press(roofBtns.at(-1)!);
+    expect(ed(r).marks, 'やねの 印は ぜんぶ 消えた').not.toContain('part-roof');
+    expect(sorted(ed(r).marks.filter((m) => m.startsWith('roof-') || m === 'part-roof'))).toEqual([]);
+    r.sys.press('popupClose');
+    expect(sorted(ed(r).marks), 'かざりの 印は まだ').toEqual(sorted(['part-deco', ...ENTRY.deco_noren!.btns]));
+    openPopup(r, 'deco');
+    r.sys.press(ENTRY.deco_noren!.btns[0]!); // つける
+    r.sys.press(ENTRY.deco_noren!.btns[0]!); // はずす
+    expect(sorted(ed(r).marks), '一度 えらんだ 物は はずしても 印は もどらない').toEqual(sorted(['part-deco', ...ENTRY.deco_noren!.btns.slice(1)]));
   });
 
-  it('エディターを 開いた ときの ばしょ: 印の ある ばしょが あれば その いちばん 左（やね・かべ・まど・と・かざり の 順）。なければ やね。② ③ から もどった ときは 前の ばしょの まま', () => {
-    const r = houseRig();
-    rh(r).learn('door_tetsu');
-    rh(r).learn('deco_noren');
-    openEd(r);
-    expect(ed(r).part, 'と が かざりより 左').toBe('door');
-    r.sys.press('part-wall');
-    goStep(r, 'naka');
-    goStep(r, 'soto');
-    expect(ed(r).part, '② から もどっても かべの まま').toBe('wall');
-    const q = houseRig();
-    openEd(q);
-    expect(ed(q).part, '印が なければ やね').toBe('roof');
-  });
-
-  it('おぼえて いない 物は edit でも えらべない（false・何も かわらない）', () => {
+  it('おぼえて いない 物は edit でも 押しても えらべない（false・何も かわらない）。おぼえた レシピの 3 つだけ えらべて、ほかの レシピの 物は まだ', () => {
     const r = houseRig();
     openEd(r);
-    for (const id of SOTO_KINDS) {
+    for (const id of SOTO) {
       const e = ENTRY[id]!;
-      expect(r.hook.edit({ op: e.field, kind: e.kind }), `${id}: おぼえる 前は false`).toBe(false);
+      for (const k of e.kinds) expect(r.hook.edit({ op: e.field, kind: k }), `${id} の ${k}: おぼえる 前は false`).toBe(false);
     }
     expect(ed(r).canUndo, '何も かわらない').toBe(false);
+    expect(ed(r)).toMatchObject({ roof: 'flat', wall: 'ki', windowKind: 'shoji', door: 'ie', deco: [] });
+    rh(r).learn('roof_kawara');
+    for (const k of ENTRY.roof_kawara!.kinds) expect(r.hook.edit({ op: 'roof', kind: k }), `${k}`).toBe(true);
+    for (const k of ENTRY.roof_sankaku!.kinds) expect(r.hook.edit({ op: 'roof', kind: k }), `${k}: まだ`).toBe(false);
+    openPopup(r, 'roof');
+    const was = JSON.stringify(ed(r));
+    for (const b of ENTRY.roof_sankaku!.btns) {
+      expect(btnIds(r), `${b} は 出て いない`).not.toContain(b);
+      r.sys.press(b);
+      expect(JSON.stringify(ed(r)), `${b} を 押しても 何も おきない`).toBe(was);
+    }
   });
 });
 
-describe('AC4 えらび方（1 つだけ・かざりは いくつでも・もどす）', () => {
-  for (const id of ALL) {
-    const e = ENTRY[id]!;
-    if (!e.field || e.field === 'deco') continue;
-    it(`${id}: 1 つ だけ。今と 同じ 物は false・canUndo 不変。もどす 1 回で もとに もどり、出て いない ばしょなら その ばしょ（すすみ）へ 切りかわる。すすむ で また 同じ`, () => {
-      const r = houseRig();
-      rh(r).learn(id);
-      openEd(r);
-      const was = ed(r)[e.field!];
-      expect(r.hook.edit({ op: e.field, kind: e.kind }), '変える').toBe(true);
-      expect(ed(r)[e.field!]).toBe(e.kind);
-      expect(ed(r).canUndo).toBe(true);
-      const keep = JSON.stringify({ u: ed(r).canUndo, r: ed(r).canRedo, v: ed(r)[e.field!] });
-      expect(r.hook.edit({ op: e.field, kind: e.kind }), '今と 同じ 物').toBe(false);
-      expect(JSON.stringify({ u: ed(r).canUndo, r: ed(r).canRedo, v: ed(r)[e.field!] }), '同じ 物を えらんでも もどす・すすむ は かわらない').toBe(keep);
-      // 出て いない ところへ 移ってから もどす
-      if (e.step === 'soto') r.hook.edit({ op: 'part', part: e.part === 'wall' ? 'roof' : 'wall' });
-      else goStep(r, 'soto');
-      expect(r.hook.edit({ op: 'undo' })).toBe(true);
-      expect(ed(r)[e.field!], 'もどす 1 回で もとの 物').toBe(was);
-      if (e.step === 'soto') expect(ed(r).part, 'もどした 物が ある ばしょへ').toBe(e.part);
-      else expect(ed(r).step, 'もどした 物が ある すすみへ').toBe(e.step);
-      expect(ed(r).canUndo, 'もどす 記録は それだけ').toBe(false);
-      expect(r.hook.edit({ op: 'redo' })).toBe(true);
-      expect(ed(r)[e.field!]).toBe(e.kind);
-    });
+describe('AC3 ポップアップの ならび（popupRows。いつもの → むら → おしろ → こうざん・1 行に 1 つの なかま・1 行 5 こ まで・左 つめ・空の 行 なし）', () => {
+  /** popupRows の きまり（表を 見ずに 守る べき 物）。rows ＝ editor().popupRows */
+  function rowRules(rows: string[][], part: Part, label: string): void {
+    const styleOf = (id: string): number => {
+      const m = /_(mura|shiro|kozan)$/.exec(id);
+      return m ? 1 + STYLES.indexOf(m[1] as (typeof STYLES)[number]) : id === 'deco-shachi' ? 2 : 0; // しゃちほこ は おしろの 行
+    };
+    expect(rows.every((r) => r.length > 0), `${label}: 空の 行は ない`).toBe(true);
+    expect(rows.every((r) => r.length <= ROW_MAX), `${label}: 1 行 ${ROW_MAX} こ まで`).toBe(true);
+    rows.forEach((r, i) => expect(new Set(r.map(styleOf)).size, `${label}: ${i + 1} 行目は 1 つの なかま だけ`).toBe(1));
+    const order = rows.map((r) => styleOf(r[0]!));
+    expect(order, `${label}: いつもの → むら → おしろ → こうざん の 順`).toEqual([...order].sort((a, b) => a - b));
+    expect(rows.flat().every((id) => id.startsWith(`${part}-`)), `${label}: その ばしょの ボタンだけ`).toBe(true);
   }
 
-  it('たいら・き・しょうじ・いえの と・ちょうちんは いつでも えらべる（今と 同じ 物なので false）。ちがう しゅるいから もどす のは true で 1 回の 操作', () => {
-    const r = houseRig();
-    rh(r).learn('roof_kawara');
-    rh(r).learn('light_hotaru');
-    openEd(r);
-    expect(r.hook.edit({ op: 'roof', kind: 'flat' }), '今と 同じ').toBe(false);
-    expect(r.hook.edit({ op: 'roof', kind: 'kawara' })).toBe(true);
-    expect(r.hook.edit({ op: 'roof', kind: 'flat' }), 'たいらへ もどす').toBe(true);
-    expect(ed(r).roof).toBe('flat');
-    expect(r.hook.edit({ op: 'light', kind: 'hotaru' })).toBe(true);
-    expect(r.hook.edit({ op: 'light', kind: 'lantern' }), 'ちょうちんへ もどす').toBe(true);
-    expect(ed(r).light).toBe('lantern');
-    r.hook.edit({ op: 'undo' });
-    r.hook.edit({ op: 'undo' });
-    r.hook.edit({ op: 'undo' });
-    r.hook.edit({ op: 'undo' });
-    expect(ed(r)).toMatchObject({ roof: 'flat', light: 'lantern', canUndo: false });
-  });
-
-  it('あかりが ちょうちんの とき ちょうちんを 押す: 何も かわらず ふきだし「あかりは ひとつ ひつようだよ」（press light-lantern）', () => {
-    const r = houseRig();
-    rh(r).learn('light_suisho');
-    openEd(r);
-    goStep(r, 'naka');
-    r.sys.press('light-lantern');
-    expect(ed(r)).toMatchObject({ light: 'lantern', canUndo: false });
-    expect(r.hook.menu().bubble.replace(/\s+/g, '')).toBe('あかりはひとつひつようだよ');
-    r.sys.press('light', 'suisho'); // 2 引数の 形も 同じ ボタン
-    expect(ed(r).light).toBe('suisho');
-  });
-
-  it('press の 2 引数の 形は 1 引数と 同じ（part・roof・wall・windowKind・door・deco）', () => {
-    const r = houseRig();
-    for (const id of ['roof_kawara', 'wall_ishi', 'window_maru', 'door_tetsu', 'deco_noren']) rh(r).learn(id);
-    openEd(r);
-    r.sys.press('part', 'wall');
-    expect(ed(r).part).toBe('wall');
-    r.sys.press('wall', 'ishi');
-    r.sys.press('part', 'window');
-    r.sys.press('windowKind', 'maru');
-    r.sys.press('part', 'door');
-    r.sys.press('door', 'tetsu');
-    r.sys.press('part', 'roof');
-    r.sys.press('roof', 'kawara');
-    r.sys.press('part', 'deco');
-    r.sys.press('deco', 'noren');
-    expect(ed(r)).toMatchObject({ roof: 'kawara', wall: 'ishi', windowKind: 'maru', door: 'tetsu', deco: ['noren'] });
-  });
-
-  it('かざり: いくつでも。同じ 物を もう 1 回 押すと はずれる。つける・はずす は どちらも もどす 1 回。おぼえて いない かざりは false', () => {
-    const r = houseRig();
-    rh(r).learn('chimney_renga');
-    rh(r).learn('deco_noren');
-    openEd(r);
-    expect(r.hook.edit({ op: 'deco', kind: 'shachi' }), 'おぼえて いない').toBe(false);
-    expect(r.hook.edit({ op: 'deco', kind: 'entotsu' })).toBe(true);
-    expect(r.hook.edit({ op: 'deco', kind: 'noren' })).toBe(true);
-    expect([...ed(r).deco].sort()).toEqual(['entotsu', 'noren']);
-    expect(r.hook.edit({ op: 'deco', kind: 'entotsu' }), 'はずす').toBe(true);
-    expect(ed(r).deco).toEqual(['noren']);
-    r.hook.edit({ op: 'undo' });
-    expect([...ed(r).deco].sort(), 'はずした のを もどす 1 回').toEqual(['entotsu', 'noren']);
-    r.hook.edit({ op: 'undo' });
-    expect(ed(r).deco, 'つけた のを もどす 1 回').toEqual(['entotsu']);
-    r.hook.edit({ op: 'undo' });
-    expect(ed(r)).toMatchObject({ deco: [], canUndo: false });
-    r.hook.edit({ op: 'redo' });
-    expect(ed(r).deco).toEqual(['entotsu']);
-  });
-
-  it('はなだんを まどが 0 の 家に つける: つけた ことには なり ふきだし「まどが ないと はなだんは つかないよ」。材料も 0', () => {
-    const r = houseRig();
-    rh(r).learn('deco_hanadan');
-    openEd(r);
-    expect(ed(r).windows).toBe(0);
-    expect(r.hook.edit({ op: 'deco', kind: 'hanadan' })).toBe(true);
-    expect(ed(r).deco).toEqual(['hanadan']);
-    expect(r.hook.menu().bubble.replace(/\s+/g, '')).toBe('まどがないとはなだんはつかないよ');
-    expect(r.hook.need().some((x) => x.item.startsWith('flower')), 'はなの 材料は 0').toBe(false);
-  });
-
-  it('ばしょ（part）の えらびは もどす・オートセーブに 入らない。出て いない ばしょ（かざりを おぼえる 前の deco）は えらべない', () => {
+  it('はじめ: いつもの 行だけ。やね・かべ・まどは「なし」が いちばん 左（<ばしょ>-none）、と・かざりに なしは ない', () => {
     const r = houseRig();
     openEd(r);
-    const draft = JSON.stringify(r.sys.state.serialize().draft);
-    expect(r.hook.edit({ op: 'part', part: 'wall' })).toBe(true);
-    r.sys.press('part-window');
-    expect(ed(r)).toMatchObject({ part: 'window', canUndo: false, canRedo: false });
-    expect(JSON.stringify(r.sys.state.serialize().draft), 'セーブする 作りかけは かわらない').toBe(draft);
-    expect(r.hook.edit({ op: 'part', part: 'deco' }), 'かざりは まだ 出て いない').toBe(false);
-    expect(ed(r).part).toBe('window');
-    expect(r.hook.edit({ op: 'part', part: 'bogus' })).toBe(false);
-  });
-
-  it('あたらしい せっけいず（まっさら）: たいら・き・しょうじ・いえの と・かざり なし・ちょうちん。おぼえた レシピは のこる', () => {
-    const r = houseRig();
-    for (const id of ['roof_kin', 'wall_ishi', 'window_maru', 'door_tetsu', 'deco_noren', 'light_suisho']) rh(r).learn(id);
-    openEd(r);
-    for (const [op, kind] of [['roof', 'kin'], ['wall', 'ishi'], ['windowKind', 'maru'], ['door', 'tetsu'], ['deco', 'noren'], ['light', 'suisho']] as const) {
-      expect(r.hook.edit({ op, kind }), op).toBe(true);
+    for (const part of PARTS.filter((p) => p !== 'deco')) {
+      openPopup(r, part);
+      expect(ed(r).popupRows, `${part}`).toEqual(popupRowsOf(part, []));
+      expect(ed(r).popupRows.length, `${part}: いつもの 行 1 つ`).toBe(1);
+      const first = ed(r).popupRows[0]![0];
+      if (NONE_PARTS.includes(part)) expect(first, `${part} の いちばん 左`).toBe(`${part}-none`);
+      else expect(ed(r).popupRows.flat().some((id) => id.endsWith('-none')), `${part} に なしは ない`).toBe(false);
+      r.sys.press('popupClose');
+      expect(ed(r).popupRows, 'とじると 行は ない').toEqual([]);
     }
-    r.sys.press('new');
-    r.sys.press('yes');
-    expect(ed(r)).toMatchObject({ roof: 'flat', wall: 'ki', windowKind: 'shoji', door: 'ie', deco: [], light: 'lantern' });
-    expect(rh(r).recipes().learned).toHaveLength(6);
+  });
+
+  it('ぜんぶ おぼえた とき: ばしょごとに 並びが §2.3 の 表の とおり（しゃちほこ は おしろの 行だけ）。menu().buttons の 並びも 同じ。形は 表から（recipeKit の FORMS）', () => {
+    const r = houseRig();
+    learnAll(r);
+    openEd(r);
+    for (const part of PARTS) {
+      openPopup(r, part);
+      expect(ed(r).popupRows, `${part} の 行`).toEqual(popupRowsOf(part, FORMS[part]));
+      rowRules(ed(r).popupRows, part, part);
+      expect(kindBtns(r), `${part} の ならび（menu の 並び ＝ 行を 上から 左から）`).toEqual(ed(r).popupRows.flat());
+      r.sys.press('popupClose');
+    }
+  });
+
+  it('一部だけ おぼえた とき: おぼえた 形だけが 左から つまる。レシピ 1 まいで 3 つの なかま（むら・おしろ・こうざん）の 行が ぜんぶ そろって 出る', () => {
+    const r = houseRig();
+    for (const id of ['roof_kin', 'roof_sankaku', 'wall_ishi']) rh(r).learn(id);
+    openEd(r);
+    for (const [part, forms] of [['roof', ['sankaku', 'kin']], ['wall', ['ishi']]] as [Part, string[]][]) {
+      openPopup(r, part);
+      expect(ed(r).popupRows).toEqual(popupRowsOf(part, forms));
+      rowRules(ed(r).popupRows, part, part);
+      expect(ed(r).popupRows.length, `${part}: いつもの 行 ＋ 3 つの なかま`).toBe(1 + STYLES.length);
+      for (const [i, s] of STYLES.entries()) expect(ed(r).popupRows[1 + i], `${part} の ${s} の 行`).toEqual(forms.length > 0 ? popupRowsOf(part, forms)[1 + i] : []);
+      r.sys.press('popupClose');
+    }
+  });
+
+  it('かざり: おぼえた 形だけ。むら・おしろ・こうざん の 行（いつもの 行は ない ＝ 空の 行を 出さない）。しゃちほこ だけ おぼえた とき は おしろの 行 1 つ', () => {
+    const r = houseRig();
+    rh(r).learn('deco_shachi');
+    openEd(r);
+    openPopup(r, 'deco');
+    expect(ed(r).popupRows, 'しゃちほこ だけ').toEqual([['deco-shachi']]);
+    rh(r).learn('deco_noren');
+    r.sys.press('popupClose');
+    openPopup(r, 'deco');
+    expect(ed(r).popupRows).toEqual(popupRowsOf('deco', ['noren', 'shachi']));
+    rowRules(ed(r).popupRows, 'deco', 'deco');
   });
 });

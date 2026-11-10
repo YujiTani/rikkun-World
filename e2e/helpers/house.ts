@@ -252,53 +252,83 @@ import { installAimHelpers } from './aim';
  *   ユニットの つなぎ目: HouseSystem・createSheetPort の deps に `craft`〔CraftSystemImpl の total(item)・tansuInRange()〕と `tansu`〔StorageSystem の countItem・takeItem・get・set〕。
  *          どちらも 無ければ もちものだけ。ユニットの 道具は src/house/stockKit.ts・src/house/houseRig.ts。
  *
- * ---- 2A の 約束（#364 HOUSE-2A「レシピを 見つけて えらぶ」。docs/tickets/HOUSE-2A.md・仕様 docs/design/HOUSE-2.md §2・§4・§6）----
+ * ---- 2A の 約束（#364 HOUSE-2A「レシピを 見つけて えらぶ」。仕様 3.2 版 docs/design/HOUSE-2.md §2・§3.2・§4・§6・チケット docs/tickets/HOUSE-2A.md）----
  * 仕様 §6.1 の 名前の とおり。仕様に 名前が 無い 所を テストが 決めた（開発は これに そろえる。変えるなら この 書き出しと テストを 同時に 直す）。
- * レシピの 数（20）は どこにも 書かない。数える ときは `house.recipes().all` から。
+ * レシピの 数（20）も しゅるいの 数（1 まいで 3）も どこにも 書かない。数える ときは `house.recipes().all`・`house.recipeKinds(id)` から。
  *
- * レシピの id（仕様 §4.1）: roof_kawara・roof_sankaku・roof_wara・roof_kin ／ wall_shikkui・wall_renga・wall_ishi ／ window_suisho・window_maru ／ door_tetsu ／
+ * レシピの id（仕様 §4.1。20 まい。3 版でも 同じ）: roof_kawara・roof_sankaku・roof_wara・roof_kin ／ wall_shikkui・wall_renga・wall_ishi ／ window_suisho・window_maru ／ door_tetsu ／
  *   chimney_renga・deco_noren・deco_hanadan・deco_shachi ／ light_hotaru・light_suisho ／ furniture_maneki ／ suffix_shiro・suffix_goten・suffix_toride。
- * えらぶ 物の id（ばしょごとの 型。まどの suisho と あかりの suisho は ぶつからない）:
- *   roof   ＝ flat・sankaku・kawara・wara・kin             wall   ＝ ki・shikkui・renga・ishi
- *   window ＝ shoji・suisho・maru（フックの 名前は windowKind）  door   ＝ ie・tetsu
- *   deco   ＝ entotsu・noren・hanadan・shachi（いくつでも）  light  ＝ lantern・hotaru・suisho
- *   家具   ＝ maneki（アイテムの id。13 しゅるいに 足す）   後ろの 文字 ＝ SUFFIXES の 6〜8 つ目（のしろ・ごてん・のとりで）
- *   ばしょ(part) ＝ roof・wall・window・door・deco（この 順が 左から。かざりは 1 つ おぼえる まで 出ない）
+ * えらぶ 物（しゅるい）の id（3.2 版）: いつもの 物 ＝ roof none・flat ／ wall none・ki ／ window none・shoji ／ door ie（かざりは なし。`none` ＝「なし」〔AC9c〕は やね・かべ・まど だけ。と・かざりに なしは ない）、ほかは `${形}_${案}`（案 ＝ mura・shiro・kozan。仕様 §4.1）。
+ *   形 ＝ roof: sankaku・kawara・wara・kin ／ wall: shikkui・renga・ishi ／ window: suisho・maru ／ door: tetsu ／ deco: entotsu・noren・hanadan（この 3 つは 案つき）・shachi（案なし・1 つ）。
+ *   例 `kawara_shiro`・`maru_kozan`・`entotsu_mura`・`shachi`。あかり ＝ lantern・hotaru・suisho（② の ボタンは light-<kind>。ポップアップに しない）。家具 ＝ maneki（アイテムの id）。
+ *   後ろの 文字 ＝ SUFFIXES の 6〜8 つ目（のしろ・ごてん・のとりで）。ばしょ(Part) ＝ roof・wall・window・door・deco（この 順が 左から。かざりは 1 つ おぼえる まで 出ない）。
  *
  * 窓口 `window.__rikkun.house` に 足す:
- *   recipes()          → { learned: id[], fresh: id[], all: id[] }   learned ＝ おぼえた 順、fresh ＝「あたらしい！」の 物（おぼえた 順）、all ＝ 表の ぜんぶ（仕様 §6.1 の 2 こに 足した。数を 書かない ため）
+ *   recipes()          → { learned: id[], fresh: id[], all: id[] }   learned ＝ おぼえた 順、fresh ＝ 印の のこった しゅるいが 1 つでも ある レシピ（おぼえた 順）、all ＝ 表の ぜんぶ（仕様 §6.1 の 2 こに 足した。数を 書かない ため）
+ *   recipeKinds(id)    → string[]   そのレシピで 出る ボタンの id の 列（例 roof_kawara → ['roof-kawara_mura', 'roof-kawara_shiro', 'roof-kawara_kozan']。しゃちほこ・あかり・まねきねこ・後ろの 文字は 1 つ:
+ *                        'deco-shachi'・'light-hotaru'・'furniture-maneki'・'suffix-5'）。並びは むら・おしろ・こうざん。テストは この 長さを 書かずに 使う。知らない id は []
  *   learn(id)          → boolean   テスト用。まだの 物を おぼえる（本物と 同じ 道: 上の 帯の テロップ・音・紙ふぶき）。もう おぼえた・知らない id は false
  *   found(at)          → id | null  坑道の 宝箱の わく／まきものを 拾った のと 同じ。at ＝ { x, y, z }（坑道の 場所）。まだの 物から 1 まい おぼえて id を 返す
- *                        （1 まい目は roof_kawara。シード・場所・おぼえた 物で 決まる）。ぜんぶ おぼえて いたら かみ 3 まいを もちものへ 入れて null
- *   recipeBand()       → { text, ticksLeft } | null   おぼえた テロップ。text ＝「<名前>の レシピを おぼえた！ けんちくしさんの せっけいずで えらべるよ」。
+ *                        （1 まい目は roof_kawara。シード・場所・おぼえた 物で 決まる）。ぜんぶ おぼえて いたら かみ 3 まいを もちものへ 入れて null。入りきらない 分は 足もとに 落とす（仕様 §5。
+ *                        ユニットの 道具 houseRig は HouseSystem の deps drop(item, count) を 受けて rig.drops に ためる）
+ *   recipeBand()       → { text, ticksLeft } | null   おぼえた テロップ。text ＝「<名前>の レシピを おぼえた！ けんちくしさんの せっけいずで えらべるよ」（名前 ＝ 形の 名前「かわらの やね」。案の 名前は つけない）。
  *                        ぜんぶ おぼえた とき（さいごの 1 まい）は「レシピを ぜんぶ おぼえた！」。上の 帯の 列に ならぶ（houseNameBand と 同じ 出し方）
  *   celebrate().confetti  ぜんぶ おぼえた とき ちょうど +1（ほかの レシピでは ふえない）
  *   音（ユニットの HouseSfx）: おぼえた ＝ { k: 'recipe' }、ぜんぶ おぼえた ＝ { k: 'recipeAll' }（ほかの 音は 鳴らさない）
  * 坑道（`window.__rikkun.mine`）:
  *   shafts()[i].recipe ＝ { kind: 'chest' | 'scroll', x, y, z, taken: boolean }（どの 坑道にも 1 つ）。宝箱の ある 坑道は kind 'chest'・x,y,z ＝ 宝箱の 本体の マス（`chest.x/y/z`）。
- *     ない 坑道は kind 'scroll'・x,z は いちばん 下の へや（`room`）の 中・y ＝ `room.y`（まきものは そこに 置く 1 マスの ブロック。固く ない）。taken ＝ もう 拾った
+ *     ない 坑道は kind 'scroll'・x,z は いちばん 下の へや（`room`）の ふちの まん中・y ＝ `room.y`（まきものは そこに 置く 1 マスの ブロック。固く ない）。taken ＝ もう 拾った
  *   open(x, y, z)  宝箱（どちらの マスでも）・まきもの（右クリックと 同じ）。宝箱は 中身（今まで どおり）に くわえて 1 回だけ レシピ。まきものは 拾うと 消える
+ *   まきものは こわす 処理（BlockBreaker.breakBlock）を よんでも・水が 流れこんでも のこる（右クリック だけで とれる。仕様 §5）
  *   createMineHook の chest ポートに `recipe(at: { x, y, z })`（はじめて あいた／拾った ときに 1 回だけ。2 回目の 宝箱・拾った あとの まきものでは 呼ばない）。本番の つなぎ込みは house.found(at) を 呼ぶ
- * エディター:
- *   editor() に 足す: part・roof・wall・windowKind・door・deco（つけて いる かざりの 一覧。つけた 順）・light（'lantern'|'hotaru'|'suisho'）・marks（「あたらしい！」の 印が 出て いる ボタンの id 一覧。ばしょの ボタン〔part-*〕も 入る）
+ * エディター（3.2 版: ① は ばしょの ボタン〔絵 ＋ 字〕＋ ポップアップ ＋ 名前の ヘルプ）:
+ *   editor() に 足す: popup（'roof'|'wall'|'window'|'door'|'deco'|null。開いて いる ポップアップ。2A の 準備の `part` は やめた）・
+ *                     popupRows（string[][]。ポップアップの 行ごとの ボタンの id。上から いつもの → むら → おしろ → こうざん。1 行に 1 つの なかま・1 行 5 こ まで〔こえたら 同じ なかまの 次の 行〕・
+ *                     空の 行は 出さない・行の 中は 仕様 §2.3 の 表の 順・しゃちほこ は おしろの 行。いつもの 行は「なし」〔やね・かべ・まど〕が いちばん 左。開いて いない ときは []）・
+ *                     hoverTip（{ id, lines: string[] } | null。名前の ヘルプ。下の「名前の ヘルプ」）・roof・wall・windowKind・door（しゅるいの id。`none` あり）・deco（つけて いる かざりの 一覧。つけた 順）・
+ *                     light（'lantern'|'hotaru'|'suisho'）・marks（「あたらしい！」の 印が 出る ボタンの id 一覧。状態から 決まる: 印の のこった しゅるいの ボタン〔roof-kawara_mura …〕と、
+ *                     印の のこった しゅるいが ある ばしょの ボタン〔part-roof …〕。② の light-*・furniture-maneki・③ の suffix-5〜7 も 同じ。ポップアップが 開いて いるか どうかには よらない）
  *   blueprints() の 1 まいに wall・door・deco を 足す（roof・windowKind・light は 今まで どおり）
- *   edit(op) に 足す: { op: 'part', part }（もどす・オートセーブに 入らない。出て いない ばしょは false）・{ op: 'wall'|'door'|'light', kind }・{ op: 'deco', kind }（つける・はずす。どちらも 1 回の 操作）
- *                    { op: 'roof'|'windowKind', kind } は 今まで どおり（おぼえた 物だけ。今と 同じ 物は false）。おぼえて いない 物は false
+ *   edit(op) に 足す: { op: 'popup', part }（part ＝ ばしょ か null。開く・とじる。もどす・オートセーブに 入らない。出て いない ばしょ〔おぼえる 前の deco〕・知らない ばしょ・② ③ では false）
+ *                    { op: 'wall'|'door'|'light', kind }・{ op: 'roof'|'windowKind', kind }（おぼえた 物だけ。今と 同じ 物は false・おぼえて いない 物は false。ポップアップが 開いて いなくても 効く。
+ *                      kind 'none' は roof・wall・windowKind だけ〔と・かざり・あかりに なしは ない → false〕で いつも えらべる〔1 回の 操作・もどす で もどる・印は つかない〕）
+ *                    { op: 'deco', kind }（つける・はずす・同じ 形の ちがう 案は 入れかえ。どれも 1 回の 操作。形が ちがえば いくつでも。しゃちほこ は 1 つ）
  *                    { op: 'light', kind: 'lantern' } は 今まで どおり あかりが ちょうちんの とき false ＋ ふきだし「あかりは ひとつ ひつようだよ」。ほかの あかりの とき ちょうちんへ もどす のは true
+ *                    { op: 'undo' | 'redo' }: ポップアップが 開いて いる とき、もどした 物が ① の ばしょの しゅるい なら popup が その ばしょに 切りかわる（開いた まま）。
+ *                    まどの かず・大きさ なら null（とじる）。② ③ の 物なら すすみが かわって null。とじて いる ときは null の まま（もどす・すすむで 開かない）
  *   ボタンの id（menu().buttons[].id・press(id)・DOM の data-testid ＝ "house-btn-" ＋ id）:
- *     ① ばしょ: part-roof・part-wall・part-window・part-door・part-deco（aria-pressed が えらんで いる ばしょ。aria-label は 読み上げ 用の 名前 やね・かべ・まど・と・かざり）
- *        しゅるい（えらんで いる ばしょの 物 だけ 出る。おぼえた 物だけ）: roof-<kind>・wall-<kind>・windowKind-<kind>・door-<kind>・deco-<kind>（aria-pressed が ✓。かざりは つけて いる 物 ぜんぶ ✓）
+ *     ① ばしょ: part-roof・part-wall・part-window・part-door・part-deco（押すと ポップアップが 開く。**絵 ＋ 字**〔やね・かべ・まど・と・かざり。ひらがな 24px・1 行〕。正方形では ない:
+ *        高さ 72・80・80、はば 60・60・60・56・84〔1024〕／64・64・64・64・84〔1280・1440〕、あき 8・12・16。aria-label は 読み上げ 用の 名前。かざりは 1 つ おぼえる まで 出ない）
+ *     ポップアップ（開いて いる 間だけ）: <ばしょ>-<kind>（roof-none・roof-kawara_shiro・wall-ki・window-shoji・door-tetsu_mura・deco-shachi。aria-pressed が ✓。かざりは つけて いる 物 ぜんぶ ✓。
+ *        その ばしょで 開いて いる 時だけ 押せる）・popupClose（✕）。windowKind-<kind> は window-<kind> に かわった。
+ *        開いて いる 間 ① の パネルの ボタン〔part-*・width-*・depth-*・windowsUp・windowsDown〕は ポップアップの 下に かくれて menu().buttons にも 出ない。上の 帯・下の 帯の ボタンは 出る
+ *        menu().buttons の 並びは 画面の 並び（`popupRows` を 1 列に した 物）
  *     ② あかり: light-<kind>（おぼえた 物だけ。aria-pressed）。1 まいも 拾って いなくても light-lantern は ある（家具は furniture-<アイテムの id>。まねきねこは furniture-maneki・おぼえるまで 出ない）
  *     ③ 後ろの 文字: suffix-0〜4 は 今まで どおり、のしろ・ごてん・のとりで は suffix-5・suffix-6・suffix-7（おぼえた 物だけ 出る）
- *     press('part', 'wall') ＝ press('part-wall')（roof／wall／windowKind／door／deco／light も 同じ 2 引数の 形）。1 引数の 形が 本体
+ *     press(part, x) ＝ press('part-' + x)（ポップアップを 開く）。press(ばしょ, kind) ＝ press(`${ばしょ}-${kind}`)（roof／wall／window／door／deco／light。例 press('roof', 'kawara_shiro')）。1 引数の 形が 本体
+ *     ポップアップを 閉じる もの: ✕（popupClose）・Esc〔ポップアップだけ とじる。エディターは 開いた まま〕・上の 帯・下の 帯の ボタン〔undo・redo を のぞく。押した ボタンの はたらきも する〕。
+ *        エディターを 開いた とき・② ③ から もどった とき・あたらしい せっけいず の あと・保存の 読みこみ の あとは 閉じて いる（popup は 保存に 入らない）
  *     今の 'light' ボタン（id 'light'）は なくなった（light-<kind> に かわった）
- *   「あたらしい！」の 印: 印を 持つ ボタンの 中に data-testid="editor-new-mark" が 1 こ。印は ボタンの 外へ はみ出さない
+ *   「あたらしい！」の 印: 印を 持つ ボタンの 中に data-testid="editor-new-mark" が 1 こ（しゅるいの ボタン ごと ＋ ばしょの ボタン）。印は ボタンの 外へ はみ出さない
  *   上の 帯の テロップ: data-testid="recipe-band"（recipeBand().text と 同じ 字）
- *   名前の 行: data-testid="editor-kind-name"（① の しゅるいの 下。1 行）。マウスを のせて いる ボタンの 名前、のせて いない ときは そのばしょで 最後に 押した しゅるい
- *   見本の こたえ: editor().preview.glow に parts: string[] を 足す。中身は えらぶ 物の ばしょの 名前: 'window'（窓の しゅるい）・'hanadan'・'door'（戸の しゅるい）・'noren'・
- *     'roof'・'wall'・'entotsu'・'shachi'・'light'（② の あかり）。まど・はなだん → 135／225 の 近い ほうへ 回る、と・のれん → 28° へ 回る、ほかは 回らない（窓口の angle で 見る）
- *   ひつような もの: 材料は 17 しゅるいまで。はなの 行は 1 つ（item は 'flower' で はじまる id）で、3 いろ（flower_y・flower_o・flower_p）の 合計の ある
- *   セーブ: HouseState.serialize() の 中の recipes: { learned: id[], fresh: id[] }（おぼえた 順。v は 2 の まま。読む ときは 知らない id・くりかえしを すてる）。古い セーブは おぼえた レシピ なし・せっけいずは たいら・き・しょうじ・いえの と・かざり なし・ちょうちん
+ *   ポップアップの DOM（house-editor の 中）: editor-popup（外わく。① の パネルと 同じ x・はば）・popup-title（上の だん: ばしょの 絵 ＋ 名前）・popup-row（行。中に その 行の しゅるいの ボタン。空の 行は ない）・
+ *        popup-list（行の かたまり。スクロールが いる ときだけ スクロール）。行の 見出し・印〔popup-row-mark〕・名前の 行〔popup-kind-name・editor-part-name・editor-kind-name〕は **ない**（3.2 版でやめた）
+ *   名前の ヘルプ（AC9b。仕様 §2.3）: data-testid="editor-hover-tip"。ばしょの ボタン・ポップアップの しゅるいの ボタンに のせて **12 コマ** で出る（`editor().hoverTip`。のせて 11 コマ目までは null）。
+ *        しゅるい ＝ 名前 1 行（例 id 'roof-kawara_shiro' → lines ['おしろのかわらのやね']）。ばしょ ＝ 2 行（['やね', 'いま: たいら']。かざりは 'いま: 2 つ'・何も なければ 'いま: なし'）。
+ *        はなすと 次の コマで null。出て いる 間に となりへ うつると 待たずに 切りかわる。押しても 消えない。ポップアップが とじる／すすみが かわると null。音は 鳴らさない。
+ *        置き場所: **マウス〔のせた ボタン〕の 近く**〔マウスから 外わくまで 100px 以内を テストは 見る〕。仕様 §2.3〔ボタンに 固定・上 8〕と チケットの PO の 答え 13〔カーソルの 近く・ついて 動く〕が 食い違う ので 決まるまで 緩く 見る。
+ *        左右は 画面の ふち〔16・24・32〕で 止める。押せない〔pointer-events: none〕・字 24px 以上・画面の 外へ 出ない。
+ *        コマ ＝ HouseSystem.update() の 1 回（ユニット: rig.run(n)、E2E: stepUi(n)）。マウスを のせた とき（hover(id)）から かぞえ、のせた コマは 1 つ目に 数える
+ *   見本の こたえ: editor().preview.glow に parts: string[] を 足す。中身は 光る 物の 名前（長さ 1）: 'window'（窓の しゅるい）・'hanadan'・'door'（戸の しゅるい）・'noren'・
+ *     'roof'・'wall'・'entotsu'・'shachi'・'light'（② の あかり。なかの 見本で 1 回 光る）。まど・はなだん → 135／225 の 近い ほうへ 回る、と・のれん → 28° へ 回る、ほかは 回らない（窓口の angle で 見る）。
+ *     同じ 形の 案の 入れかえ（むら → おしろ）でも 光る。かざりを はずした ときは 光らない。「なし」〔`none`〕を えらんだ ときも 光らない（まど なしは 135／225 の 近い ほうへ 回る だけ）。
+ *     のせた 光り: ポップアップの しゅるいの ボタンに のせて いる 間、その ばしょの 今の 物が 光る（parts ＝ [その ばしょ]・left は null・回らない）。
+ *     ボタン → parts: roof-* → 'roof'、wall-* → 'wall'、window-* → 'window'、door-* → 'door'、deco-entotsu_* → 'entotsu'、deco-noren_* → 'noren'、deco-hanadan_* → 'hanadan'、deco-shachi → 'shachi'。
+ *     ユニット: Preview3D.hover(on, part?) と PreviewPort.hover(on, part?)。まどの かず −＋ は part なし（今まで どおり 窓 ぜんぶ）。HouseSystem.hover(id) が 上の 表で part を 決める
+ *   ひつような もの: 材料は 表 MATERIAL_ORDER の ぜんぶ。はなの 行は 1 つ（item は 'flower' で はじまる id）で、3 いろ（flower_y・flower_o・flower_p）の 合計の ある。むら・おしろ・こうざんで 材料は かわらない
+ *   セーブ: HouseState.serialize() の 中の recipes: { learned: id[], fresh: ... }（learned は おぼえた 順の レシピ id。fresh の 中身〔しゅるいごとの 印の のこり〕の 形は 開発が 決める。v は 2 の まま。
+ *     読む ときは 知らない id・くりかえしを すてる）。古い セーブは おぼえた レシピ なし・せっけいずは たいら・き・しょうじ・いえの と・かざり なし・ちょうちん。
+ *     作りかけの おぼえて いない・知らない しゅるいは いつもの 物に（かざりは はずす）。2 版の 形の id（kawara など 案の ない id）は 案 むら として 読む
  */
 
 export interface Architect {

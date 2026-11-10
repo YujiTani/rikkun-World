@@ -409,7 +409,8 @@ describe('1B エディターの ページ（editor・need）', () => {
     r.talk.press('editor');
     const m = r.talk.menu();
     expect(m).toMatchObject({ open: true, page: 'editor', bubble: '' });
-    expect(m.buttons.map((b) => b.id)).toEqual(expect.arrayContaining(['undo', 'redo', 'close', 'new', 'need', 'next', 'done', 'width-5', 'part-window', 'roof-flat']));
+    expect(m.buttons.map((b) => b.id)).toEqual(expect.arrayContaining(['undo', 'redo', 'close', 'new', 'need', 'next', 'done', 'width-5', 'part-window', 'part-roof']));
+    expect(m.buttons.map((b) => b.id), '3 版: しゅるいの ボタンは ポップアップを 開くまで 出ない').not.toContain('roof-flat');
     expect(m.buttons.map((b) => b.id)).not.toContain('prev');
     expect(r.talk.frozen(), 'エディターの 間も 時間は 止まる').toBe(true);
     r.kit.ctl.say('テスト');

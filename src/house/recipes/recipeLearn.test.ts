@@ -3,7 +3,8 @@ import { houseRig } from '../houseRig';
 import { rh } from './recipeKit';
 
 /**
- * HOUSE-2A（#364）AC1（おぼえる 側）・AC2・仕様 §2.2: おぼえた 記録・「あたらしい！」・テロップ・音・ぜんぶの 紙ふぶき。
+ * HOUSE-2A（#364・仕様 3 版）AC1（おぼえる 側）・仕様 §2.2: おぼえた 記録・「あたらしい！」・テロップ・音・ぜんぶの 紙ふぶき。
+ * 3 版でも レシピは 20 まいの まま（数は 書かない）。テロップの 名前は 形の 名前（「かわらの やね」。むら・おしろ・こうざん は つけない）。
  * 窓口: house.recipes()・learn(id)・recipeBand()・celebrate().confetti、音は rig.sfx（{ k: 'recipe' }・{ k: 'recipeAll' }）。約束は e2e/helpers/house.ts の「2A の 約束」。
  * 坑道の 宝箱・まきものから 拾う 側は src/world/gen/mineRecipe.test.ts、画面を 通した 流れは e2e/house2.spec.ts。
  */
@@ -52,7 +53,8 @@ describe('おぼえた テロップと 音', () => {
     const band = rh(r).recipeBand();
     expect(band, 'テロップ').not.toBeNull();
     expect(squash(band!.text)).toMatch(BAND);
-    expect(squash(band!.text), 'レシピの 名前').toContain('かわらのやね');
+    expect(squash(band!.text), 'レシピの 名前（形の 名前。案の 名前は つかない）').toContain('かわらのやね');
+    for (const style of ['むら', 'おしろ', 'こうざん']) expect(squash(band!.text), `${style}の は つけない`).not.toContain(`${style}の`);
     expect(band!.ticksLeft).toBeGreaterThan(0);
     expect(r.sfx.filter((e) => (e as { k: string }).k === 'recipe')).toHaveLength(1);
     let n = 0;
