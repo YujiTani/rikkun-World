@@ -118,6 +118,8 @@ test('AC35: 2P が ZR で ほって ZL で おく（2P の 色の わく・持�
 });
 
 test('AC43: 2P の ハートが 0 → 3 秒（180 ステップ）後に 1P の 横に 満タンで 戻る。1P は 倒れた 画面に ならない', async ({ page }) => {
+  // 180 ステップを 1 つずつ 進めるので、CI の おそい ランナーでは 60 秒を こえることが ある
+  test.setTimeout(150_000);
   await startDuo(page);
   const before = await hearts(page, 2);
   expect(before.down).toBe(false);
