@@ -39,9 +39,11 @@ describe('家具 13 種の 表', () => {
     for (const k of FURN_ORDER) expect(itemDef(k), k).toBeDefined();
   });
 
-  it('大きさは 1〜3 マス。材料の 並びは 「ひつような もの」の 材料の 表に ある 物だけ（ねんど を ふくむ 10 しゅるい）', () => {
-    expect(MATERIAL_ORDER).toHaveLength(10);
-    expect(MATERIAL_ORDER).toContain('clay');
+  it('大きさは 1〜3 マス。材料の 並びは 「ひつような もの」の 材料の 表に ある 物だけ（1 版の 10 しゅるいは 同じ 並びのまま。2A: かわら・しっくい・レンガ・すいしょう・ほたるいし・きん・はなが 足された）', () => {
+    const OLD = ['log', 'stone', 'paper', 'cloth', 'string', 'iron_ingot', 'grass', 'torch', 'oil', 'clay'];
+    expect((MATERIAL_ORDER as readonly string[]).filter((i) => OLD.includes(i)), '1 版の 10 しゅるいの 並びは かえない').toEqual(OLD);
+    for (const i of ['kawara', 'shikkui', 'brick', 'crystal', 'hotaruishi', 'kin']) expect(MATERIAL_ORDER as readonly string[], `2A の 材料 ${i}`).toContain(i);
+    expect((MATERIAL_ORDER as readonly string[]).some((i) => i.startsWith('flower')), 'はな').toBe(true);
     for (const k of FURN_ORDER) {
       const { cells, mats, name } = FURNITURE[k];
       expect(name, k).toMatch(/^[ぁ-んァ-ヶー ]+$/);

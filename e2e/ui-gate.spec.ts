@@ -15,6 +15,7 @@ import { openLive3 } from './helpers/live3';
 import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid, toNewScreen } from './helpers/start';
 import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house';
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
+import { RECIPE_GATE, openRecipeScreen, recipeGateIssues } from './helpers/houseRecipe';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
 import { duoInvIssues, duoInvStationIssues, openDuoInv } from './helpers/duoInv';
 import { duoParryEdgeIssues, openDuoParryEdge } from './helpers/duoParry';
@@ -1057,6 +1058,22 @@ SCREENS.push(
     roots: g.roots,
     open: (page: Page) => openEditorScreen(page, g.kind),
     extra: (page: Page) => editorGateIssues(page, g),
+  })),
+);
+
+/**
+ * HOUSE-2A AC10（#364。docs/design/HOUSE-2.md §3.2・§6.2）: レシピを ぜんぶ おぼえた 世界の いちばん 多い 形。
+ * 'house-editor-soto-recipes' ＝ ① ばしょ 5・しゅるい 5（やね）・名前の 行 1 行、'house-editor-naka-recipes' ＝ ② 家具 14（上 7・下 7）・あかり 3、
+ * 'house-editor-namae-recipes' ＝ ③ 後ろの 文字 8（2 列 × 4 だん）、'house-need-recipes' ＝ ひつような もの 17 行（3 つの 大きさ ぜんぶで スクロール）。
+ * 3 つの 大きさで はみ出さない・重ならない・ボタン 56px 以上・字 24px 以上は 上の 検査と `editorUiIssues`、数・ならび・大きさ・字が 1 行は `recipeGateIssues`（e2e/helpers/houseRecipe.ts）。
+ * 窓口と 画面の 名前（data-testid）の 約束は e2e/helpers/house.ts の「2A の 約束」。実装の 前は 窓口が 無くて 赤。
+ */
+SCREENS.push(
+  ...RECIPE_GATE.map((g) => ({
+    id: g.id,
+    roots: g.roots,
+    open: (page: Page) => openRecipeScreen(page, g.kind),
+    extra: async (page: Page) => [...(await editorUiIssues(page, g.roots)), ...(await recipeGateIssues(page, g.kind))],
   })),
 );
 

@@ -15,9 +15,15 @@ describe('ボタンの 一覧（すすみごと）', () => {
     const got = ids(makeController());
     expect(got).toEqual(expect.arrayContaining(['undo', 'redo', 'close', 'new', 'need', 'next', 'done', 'windowsDown', 'windowsUp']));
     for (const n of SIZES) expect(got).toEqual(expect.arrayContaining([`width-${n}`, `depth-${n}`]));
-    for (const k of WINDOW_KINDS) expect(got).toContain(`windowKind-${k}`);
+    // 2A: ばしょの ボタン ＋ えらんで いる ばしょ（はじめは やね）の しゅるい だけ。かざりの ばしょは かざりを 1 つ おぼえる まで ない
+    for (const p of ['roof', 'wall', 'window', 'door']) expect(got).toContain(`part-${p}`);
+    expect(got).not.toContain('part-deco');
     for (const k of ROOF_KINDS) expect(got).toContain(`roof-${k}`);
-    for (const no of ['prev', 'light', 'take', 'char-あ', 'furniture-futon']) expect(got).not.toContain(no);
+    for (const no of ['prev', 'light-lantern', 'take', 'char-あ', 'furniture-futon', 'windowKind-shoji', 'wall-ki', 'door-ie']) expect(got).not.toContain(no);
+    const k = makeController();
+    pressEditor(k.ctl, 'part-window');
+    for (const w of WINDOW_KINDS) expect(ids(k), '窓の ばしょを えらぶと 窓の しゅるいが 出る').toContain(`windowKind-${w}`);
+    expect(ids(k).filter((x) => x.startsWith('roof-')), 'やねの しゅるいは 引っこむ').toEqual([]);
   });
 
   it('② なか: 家具の ボタン（FURN_ORDER ぜんぶ）＋ あかり。置いた 家具を えらぶと そばの 3 つ。prev も next も ある', () => {
@@ -25,7 +31,7 @@ describe('ボタンの 一覧（すすみごと）', () => {
     k.ctl.next();
     const got = ids(k);
     for (const f of FURN_ORDER) expect(got).toContain(`furniture-${f}`);
-    expect(got).toEqual(expect.arrayContaining(['light', 'prev', 'next']));
+    expect(got).toEqual(expect.arrayContaining(['light-lantern', 'prev', 'next']));
     expect(got).not.toContain('take');
     k.ctl.place('chair', 0, 0);
     k.ctl.selectPlaced(0);
@@ -91,8 +97,11 @@ describe('press(id)（ボタンと 同じ 道）', () => {
     expect(pressEditor(k.ctl, 'windowsUp')).toBe(true);
     expect(k.ctl.s.windows).toBe(1);
     expect(pressEditor(k.ctl, 'windowsDown')).toBe(true);
+    expect(pressEditor(k.ctl, 'windowKind-shoji'), 'やねの ばしょでは 窓の しゅるいは 出て いない ＝ 押せない').toBe(false);
+    expect(pressEditor(k.ctl, 'part-window'), 'ばしょを えらぶ').toBe(true);
     expect(pressEditor(k.ctl, 'windowKind-shoji'), '今と 同じ ＝ かわらない').toBe(false);
     expect(pressEditor(k.ctl, 'windowKind', 'shoji')).toBe(false);
+    expect(pressEditor(k.ctl, 'part-roof'), 'やねの ばしょへ もどす').toBe(true);
     expect(pressEditor(k.ctl, 'roof', 'flat')).toBe(false);
     expect(pressEditor(k.ctl, 'roof', 'gabled')).toBe(false);
   });
@@ -111,7 +120,7 @@ describe('press(id)（ボタンと 同じ 道）', () => {
     expect(pressEditor(k.ctl, 'turnLeft')).toBe(true);
     expect(pressEditor(k.ctl, 'take')).toBe(true);
     expect(k.ctl.s.furniture).toHaveLength(0);
-    pressEditor(k.ctl, 'light');
+    pressEditor(k.ctl, 'light-lantern');
     expect(k.ctl.bubble?.text).toBe('あかりは ひとつ ひつようだよ');
   });
 

@@ -383,9 +383,11 @@ describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
     const { sys, hook } = opened();
     const log = fakePreview(sys);
     sys.press('editor');
+    sys.press('part-window'); // 2A: しゅるいの ボタンは えらんで いる ばしょの 物だけ 出る
     for (const id of ['windowsUp', 'windowsDown', 'windowKind', 'windowKind-shoji']) hook.hover(id);
-    for (const id of ['next', 'width-7', 'depth-9', 'roof-flat', 'undo', null]) hook.hover(id);
-    expect(log).toEqual(['hover true', 'hover true', 'hover true', 'hover true', 'hover false', 'hover false', 'hover false', 'hover false', 'hover false', 'hover false']);
+    // 2A: やねの しゅるい（roof-flat）に のせると やねが 光る ので 窓の 光りの 外へ（やねの 光りは AC9: src/house/preview/glowParts.test.ts）
+    for (const id of ['next', 'width-7', 'depth-9', 'undo', null]) hook.hover(id);
+    expect(log).toEqual(['hover true', 'hover true', 'hover true', 'hover true', 'hover false', 'hover false', 'hover false', 'hover false', 'hover false']);
     log.length = 0;
     sys.press('next');
     hook.hover('windowsUp');

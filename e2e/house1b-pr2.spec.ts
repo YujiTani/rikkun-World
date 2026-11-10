@@ -683,6 +683,7 @@ test.describe('HOUSE-1B PR-2 窓と 戸の 光り', () => {
     expect((await previewOf(page)).builds, 'はなした あと 600 コマで 作りなおさない').toBe(b2);
 
     // ---- 光る ボタンは windowsDown・windowsUp・windowKind だけ
+    await clickBtn(page, 'part-window'); // 2A: しゅるいの ボタンは えらんで いる ばしょの 物だけ
     for (const id of ['windowsDown', 'windowKind-shoji']) {
       await hover(page, id);
       await stepUi(page, 1);
@@ -693,7 +694,9 @@ test.describe('HOUSE-1B PR-2 窓と 戸の 光り', () => {
       await stepUi(page, 2);
       expect((await previewOf(page)).glow, `${id}: はなすと 消える`).toBeNull();
     }
-    for (const id of ['next', 'width-7', 'depth-9', 'roof-flat', 'undo']) {
+    await clickBtn(page, 'part-roof');
+    // 2A: やねの しゅるい（roof-flat）に のせると やねが 光る ので、窓の 光りが 出ない ボタンから はずした（やねの 光りは e2e/house2.spec.ts）
+    for (const id of ['next', 'width-7', 'depth-9', 'undo']) {
       await hover(page, id);
       await stepUi(page, 2);
       expect((await previewOf(page)).glow, `${id} に のせても 光らない`).toBeNull();
