@@ -73,13 +73,20 @@ describe('AC6 保存', () => {
     expect(b.hook.blueprints()).toEqual(bp);
   });
 
-  it('古い セーブ（おぼえた レシピ・新しい 項目が ない）: おぼえた レシピ なし・作りかけは たいら・き・しょうじ・いえの と・かざり なし・ちょうちん。ほかの 形（大きさ）は そのまま', () => {
+  it('古い セーブ（おぼえた レシピ・新しい 項目が ない）: おぼえた レシピ なし・作りかけと せっけいずは たいら・き・しょうじ・いえの と・かざり なし・ちょうちん。ほかの 形（大きさ）は そのまま', () => {
     const r = houseRig();
     r.sys.load({
-      v: 2, first: null, toolsGiven: true, fudeGiven: true, blueprints: [], next: 1,
+      v: 2, first: null, toolsGiven: true, fudeGiven: true, next: 2,
       draft: { step: 'soto', w: 7, d: 5, windows: 1, windowKind: 'shoji', roof: 'flat', furniture: [], name: { front: 'あ', back: 'のいえ' } },
+      // 1 版の せっけいず（wall・door・deco が ない）
+      blueprints: [{ number: 1, name: { front: 'い', back: 'ハウス' }, w: 5, d: 7, windows: 2, windowKind: 'shoji', roof: 'flat', furniture: [{ kind: 'futon', x: 0, z: 0, rot: 0 }], light: 'lantern' }],
     });
     expect(rh(r).recipes()).toMatchObject({ learned: [], fresh: [] });
+    const bps = (r.sys.state.serialize() as unknown as { blueprints: Record<string, unknown>[] }).blueprints;
+    expect(bps, '古い せっけいずも 読める').toHaveLength(1);
+    expect(bps[0], '古い せっけいずは たいら・き・しょうじ・いえの と・かざり なし・ちょうちん（大きさ・名前は そのまま）').toMatchObject({
+      number: 1, w: 5, d: 7, windows: 2, name: { front: 'い', back: 'ハウス' }, roof: 'flat', wall: 'ki', windowKind: 'shoji', door: 'ie', deco: [], light: 'lantern',
+    });
     openEd(r);
     expect(ed(r)).toMatchObject({ size: { w: 7, d: 5 }, windows: 1, roof: 'flat', wall: 'ki', windowKind: 'shoji', door: 'ie', deco: [], light: 'lantern' });
     r.sys.load(null);

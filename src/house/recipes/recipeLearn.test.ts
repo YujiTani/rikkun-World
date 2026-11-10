@@ -33,8 +33,13 @@ describe('おぼえた 記録', () => {
 
   it('持ち物は 使わない: いっぱいでも おぼえる。持ち物は へらない・ふえない', () => {
     const r = houseRig();
+    // 持ち物を いっぱいに する（入りきらない 分が 出るまで 足す）
+    let guard = 0;
+    while (r.bag.add('stone', 64) === 0 && guard++ < 1000);
+    expect(r.bag.slots().every((s) => s !== null), '持ち物は いっぱい').toBe(true);
     const before = JSON.stringify(r.bag.slots());
     expect(rh(r).learn(rh(r).recipes().all[0]!)).toBe(true);
+    expect(rh(r).recipes().learned, 'いっぱいでも おぼえた').toHaveLength(1);
     expect(JSON.stringify(r.bag.slots())).toBe(before);
   });
 });

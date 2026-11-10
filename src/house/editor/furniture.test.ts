@@ -6,21 +6,23 @@ import { MATERIAL_ORDER } from './tuning';
 
 /** HOUSE-1B 家具 13 種（2.4）の 大きさ・材料は 1 か所の 表（FURNITURE）。足し忘れ・材料の 食いちがいは ここで 落とす */
 
-describe('家具 13 種の 表', () => {
-  it('13 種 そろって いる（ボタンの 並び ＝ 上 7: かまど・たんす・こたつ・ふとん・テーブル・ながい テーブル・まるい テーブル ／ 下 6: いす・まるいす・あんどん・ほんだな・おふろ・はにわ。§4.3）', () => {
-    expect([...FURN_ORDER]).toEqual([
+describe('家具 14 種の 表（1 版の 13 種 ＋ 2A の まねきねこ）', () => {
+  it('14 種 そろって いる（ボタンの 並び ＝ 上 7: かまど・たんす・こたつ・ふとん・テーブル・ながい テーブル・まるい テーブル ／ 下 7: いす・まるいす・あんどん・ほんだな・おふろ・はにわ・まねきねこ。HOUSE-1 §4.3・HOUSE-2 §4.1）', () => {
+    // 2A（#364）: まねきねこは 下の だんの いちばん 右（HOUSE-2 §4.1）。おぼえる まで ボタンは 出ない が、表には いつも ある
+    expect([...FURN_ORDER] as string[]).toEqual([
       'furnace', 'tansu', 'nukunuku', 'futon', 'table', 'long_table', 'round_table',
-      'chair', 'stool', 'andon', 'shelf', 'ofuro', 'haniwa',
+      'chair', 'stool', 'andon', 'shelf', 'ofuro', 'haniwa', 'maneki',
     ]);
     expect(Object.keys(FURNITURE).sort()).toEqual([...FURN_ORDER].sort());
   });
 
-  it('ボタンの 列の 数は ⌈種類 ÷ 2⌉（9 しゅるい ＝ 5、13 しゅるい ＝ 7）。上 7・下 6', () => {
+  it('ボタンの 列の 数は ⌈種類 ÷ 2⌉（9 しゅるい ＝ 5、13・14 しゅるい ＝ 7）。上 7・下 7（2A。おぼえる 前の 13 しゅるいは 上 7・下 6）', () => {
     expect(paletteColumns(9)).toBe(5);
     expect(paletteColumns(13)).toBe(7);
+    expect(paletteColumns(14)).toBe(7);
     expect(paletteColumns(FURN_ORDER.length)).toBe(7);
     const cols = paletteColumns(FURN_ORDER.length);
-    expect([FURN_ORDER.slice(0, cols), FURN_ORDER.slice(cols)].map((r) => r.length)).toEqual([7, 6]);
+    expect([FURN_ORDER.slice(0, cols), FURN_ORDER.slice(cols)].map((r) => r.length)).toEqual([7, 7]);
   });
 
   it('2.4 で 足した 4 つ（ながい テーブル 3×1・まるい テーブル 1×1・まるいす 1×1・はにわ 1×1）の 大きさと 材料（AC10）', () => {
@@ -28,6 +30,8 @@ describe('家具 13 種の 表', () => {
     expect(FURNITURE.round_table).toMatchObject({ name: 'まるい テーブル', cells: [1, 1], mats: [['log', 2]] });
     expect(FURNITURE.stool).toMatchObject({ name: 'まるいす', cells: [1, 1], mats: [['log', 2]] });
     expect(FURNITURE.haniwa).toMatchObject({ name: 'はにわ', cells: [1, 1], mats: [['clay', 2]] });
+    // 2A（#364 HOUSE-2 §4.1）: まねきねこ 1×1・1 こ ねんど 2・きん 1
+    expect((FURNITURE as Record<string, unknown>).maneki).toMatchObject({ name: 'まねきねこ', cells: [1, 1], mats: [['clay', 2], ['kin', 1]] });
   });
 
   it('新しい 8 種（テーブル・いす・あんどん・ほんだな・おふろ・ながい テーブル・まるい テーブル・まるいす）は アイテムとして 登録されて いる。5 種は もとから ある 物', () => {
@@ -35,7 +39,8 @@ describe('家具 13 種の 表', () => {
       expect(FURN_ORDER, id).toContain(id);
       expect(itemDef(id), id).toBeDefined();
     }
-    expect([...HOUSE_FURNITURE_IDS].sort()).toEqual(['andon', 'chair', 'long_table', 'ofuro', 'round_table', 'shelf', 'stool', 'table']);
+    // 2A（#364）: まねきねこは 新しい アイテム（src/content/CLAUDE.md の 家具の 足し方）
+    expect([...HOUSE_FURNITURE_IDS].sort() as string[]).toEqual(['andon', 'chair', 'long_table', 'maneki', 'ofuro', 'round_table', 'shelf', 'stool', 'table']);
     for (const k of FURN_ORDER) expect(itemDef(k), k).toBeDefined();
   });
 

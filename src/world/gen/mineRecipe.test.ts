@@ -90,6 +90,11 @@ describe('AC1 坑道の 計画: どの 坑道にも レシピが 1 つ', () => {
       expect(r.z, `${shaft.id} z`).toBeGreaterThanOrEqual(shaft.room.z0);
       expect(r.z).toBeLessThanOrEqual(shaft.room.z1);
       expect(r.y, `${shaft.id} y`).toBe(shaft.room.y);
+      // 仕様 §2.1「へやの おくの かべに そった まん中の 床（宝箱の ある 坑道なら 宝箱が 置かれる マス）」: へやの ふちの 列の まん中
+      const { x0, x1, z0, z1 } = shaft.room;
+      const onXEdge = (r.x === x0 || r.x === x1) && r.z * 2 === z0 + z1;
+      const onZEdge = (r.z === z0 || r.z === z1) && r.x * 2 === x0 + x1;
+      expect(onXEdge || onZEdge, `${shaft.id}: へやの ふちの まん中（${r.x}, ${r.z} ／ へや x ${x0}〜${x1}・z ${z0}〜${z1}）`).toBe(true);
     }
   });
 });

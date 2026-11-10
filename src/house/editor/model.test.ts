@@ -254,7 +254,10 @@ describe('AC9・AC10 ひつような もの（外装 ＋ 窓 ＋ 家具）', () 
     ];
     const rows = needOf({ w: 5, d: 5, windows: 0, furniture }, () => 0);
     expect(rows.map((r) => [r.item, r.need])).toEqual([['log', 24 + 6 + 2 + 2], ['stone', 25], ['clay', 2]]);
-    const all = needOf({ w: 9, d: 9, windows: 1, furniture: FURN_ORDER.map((kind, i) => ({ kind, x: 0, z: i % 8, rot: 0 })) }, () => 0);
+    // 2A（#364）: まねきねこ（ねんど・きん）は レシピの 家具。1 版の 13 しゅるいの 材料の 並びは かわらない
+    const first13 = FURN_ORDER.filter((kind) => (kind as string) !== 'maneki');
+    expect(first13).toHaveLength(13);
+    const all = needOf({ w: 9, d: 9, windows: 1, furniture: first13.map((kind, i) => ({ kind, x: 0, z: i % 8, rot: 0 })) }, () => 0);
     expect(all.map((r) => r.item), '13 しゅるい ぜんぶ で 10 しゅるい').toEqual(['log', 'stone', 'paper', 'cloth', 'string', 'iron_ingot', 'grass', 'torch', 'oil', 'clay']);
   });
 

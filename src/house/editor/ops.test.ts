@@ -4,7 +4,7 @@ import { FURN_ORDER } from './furniture';
 import { KANA_CHARS, placeProblem } from './model';
 import { editOp, pressEditor } from './ops';
 import { makeController } from './testkit';
-import { ROOF_KINDS, SIZES, SUFFIXES, WINDOW_KINDS } from './tuning';
+import { SIZES, SUFFIXES } from './tuning';
 
 /** HOUSE-1B 窓口 edit(op)・press(id) と ボタンの 一覧（画面の もと）。仕様 §6.1・e2e/helpers/house.ts の 先頭の 約束。HOUSE-1E: place／rotate／remove／select の 赤い 家具・next／done */
 
@@ -18,11 +18,12 @@ describe('ボタンの 一覧（すすみごと）', () => {
     // 2A: ばしょの ボタン ＋ えらんで いる ばしょ（はじめは やね）の しゅるい だけ。かざりの ばしょは かざりを 1 つ おぼえる まで ない
     for (const p of ['roof', 'wall', 'window', 'door']) expect(got).toContain(`part-${p}`);
     expect(got).not.toContain('part-deco');
-    for (const k of ROOF_KINDS) expect(got).toContain(`roof-${k}`);
+    // 2A: レシピを 1 まいも おぼえて いない ので、やねは はじめからの たいら だけ（ROOF_KINDS に レシピの やねが 足されても ここは かわらない）
+    expect(got.filter((x) => x.startsWith('roof-'))).toEqual(['roof-flat']);
     for (const no of ['prev', 'light-lantern', 'take', 'char-あ', 'furniture-futon', 'windowKind-shoji', 'wall-ki', 'door-ie']) expect(got).not.toContain(no);
     const k = makeController();
     pressEditor(k.ctl, 'part-window');
-    for (const w of WINDOW_KINDS) expect(ids(k), '窓の ばしょを えらぶと 窓の しゅるいが 出る').toContain(`windowKind-${w}`);
+    expect(ids(k).filter((x) => x.startsWith('windowKind-')), '窓の ばしょを えらぶと 窓の しゅるいが 出る（おぼえて いない ので しょうじ だけ）').toEqual(['windowKind-shoji']);
     expect(ids(k).filter((x) => x.startsWith('roof-')), 'やねの しゅるいは 引っこむ').toEqual([]);
   });
 
@@ -30,7 +31,9 @@ describe('ボタンの 一覧（すすみごと）', () => {
     const k = makeController();
     k.ctl.next();
     const got = ids(k);
-    for (const f of FURN_ORDER) expect(got).toContain(`furniture-${f}`);
+    // 2A: まねきねこ（レシピ）は おぼえる まで 出ない。1 版の 13 しゅるいは いつも 出る
+    for (const f of (FURN_ORDER as readonly string[]).filter((x) => x !== 'maneki')) expect(got).toContain(`furniture-${f}`);
+    expect(got).not.toContain('furniture-maneki');
     expect(got).toEqual(expect.arrayContaining(['light-lantern', 'prev', 'next']));
     expect(got).not.toContain('take');
     k.ctl.place('chair', 0, 0);
@@ -45,7 +48,8 @@ describe('ボタンの 一覧（すすみごと）', () => {
     const got = ids(k);
     for (const c of KANA_CHARS) expect(got).toContain(`char-${c}`);
     for (const id of ['dakuten', 'handakuten', 'katakana', 'erase', 'prev', 'done']) expect(got).toContain(id);
-    SUFFIXES.forEach((_, i) => expect(got).toContain(`suffix-${i}`));
+    // 2A: 後ろの 文字は はじめからの 5 つ（suffix-0〜4）。のしろ・ごてん・のとりで（suffix-5〜7）は おぼえる まで 出ない
+    expect(got.filter((x) => x.startsWith('suffix-')).sort()).toEqual(SUFFIXES.slice(0, 5).map((_, i) => `suffix-${i}`));
     expect(got).not.toContain('next');
   });
 
