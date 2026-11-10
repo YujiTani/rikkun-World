@@ -63,6 +63,8 @@ html[data-duo] .house-bubble {
   position: absolute;
   left: 0;
   top: 0;
+  /* はばは 中身（max-width まで）で きまり、left に よらない（絶対配置の 「あまった はば」に ひきずられて 毎フレーム かわる のを 止める） */
+  width: max-content;
 }
 .house-ui.is-float .house-bubble::after {
   content: '';

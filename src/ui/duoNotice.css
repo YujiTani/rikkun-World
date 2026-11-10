@@ -61,6 +61,14 @@ body.book-open .duo-wait {
   visibility: visible;
   z-index: 41;
 }
+/*
+ * #hud は position: fixed で 自分の 重なりの 組（スタッキング）を 作り、z-index が auto（0）。中の .duo-wait の z-index 41 は #hud の 中でしか 効かず、
+ * 本の 層（.bk-layer・z-index 40）の 下に かくれて いた。「ちょっと まってね」が 出て いる あいだだけ #hud 自身を 本の 上に 上げる
+ * （#hud は 本が 開くと visibility: hidden ・ほかの 子は 見えない ままで、#hud は pointer-events: none）。
+ */
+body.book-open #hud:has(.duo-wait:not([hidden])) {
+  z-index: 41;
+}
 
 /*
  * COOP-1 5e: ふとん。
@@ -115,7 +123,7 @@ body.book-open .duo-wait {
   bottom: 0;
   left: 50%;
   width: 50%;
-  background: #05060f;
+  background: var(--rk-bg-900); /* 夜の 暗い 板。表の 色（#10141f）の うち いちばん 暗い 物（うすく 重ねる ので #05060f と 見分けが つかない） */
   opacity: 0;
   pointer-events: none;
   z-index: 6;
