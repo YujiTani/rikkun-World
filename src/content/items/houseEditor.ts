@@ -101,6 +101,18 @@ export const HOUSE_FURNITURE = {
     source: FURN_SOURCE,
     wear: 'permanent',
   },
+  // HOUSE-2A（#364）まねきねこ（案 B の 形）。レシピ（まねきねこ）を おぼえると エディターの ② で 置ける。ブロックの 見た目は 仮（HOUSE-2B で 本番の 絵に する）
+  maneki: {
+    placeBlock: 'maneki',
+    name: 'まねきねこ',
+    zukan: '［手｜て］を ふって おきゃくさんを まねく ねこ。［金｜きん］いろの おまもりを かかえた、おうちの かざり。',
+    maxStack: 64,
+    rarity: DIG_DEFAULTS.rarity.maneki,
+    category: 'home',
+    info: { use: 'いえの なかに かざる ねこ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
+    source: FURN_SOURCE,
+    wear: 'permanent',
+  },
 } satisfies Record<HouseFurnitureId, ItemDef>;
 
 /**

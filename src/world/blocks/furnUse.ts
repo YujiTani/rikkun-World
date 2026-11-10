@@ -18,6 +18,7 @@ const FURN_USE = {
   andon: null,
   chair: 'sit',
   stool: 'sit',
+  maneki: null,
   ofuro: 'bath',
   shelf: 'read',
 } as const satisfies Record<FurnBlockKind, FurnUse | null>;

@@ -16,6 +16,7 @@ const EXCLUDED = [
   { item: 'omamori_torn', reason: 'しるし ＝ 記念の 品（やぶれた おまもり）' },
   { item: 'kabita_pan', reason: 'じょうだんの 物。宝箱から 出ると がっかり する（キャンプあとの たんす だけ）' },
   { item: 'sekkeizu', reason: '1 まいずつ 中身〔plan の 番号〕を もつ 物。宝箱から 出ると 読めない せっけいずに なる' },
+  { item: 'maneki', reason: 'レシピ（まねきねこ）を おぼえて 家の エディターで 置く 物（HOUSE-2A。世界に 置く ブロックは HOUSE-2B で できる まで 宝箱には 出さない。今の くじの 当たり方も かえない）' },
 ] as const satisfies readonly { item: ItemId; reason: string }[];
 
 export function chestExcluded(): { item: ItemId; reason: string }[] {

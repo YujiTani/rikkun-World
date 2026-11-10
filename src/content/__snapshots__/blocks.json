@@ -137,6 +137,11 @@
     "magma_7": 182,
     "magma_takitsubo": 185,
     "magma_wakimizu": 168,
+    "makimono": 212,
+    "maneki": 213,
+    "maneki_e": 216,
+    "maneki_n": 215,
+    "maneki_w": 214,
     "matsu_leaves": 33,
     "momiji_leaves": 32,
     "nendo": 60,
@@ -1518,6 +1523,36 @@
       "id": "takibi_ato",
       "name": "たきびの あと",
       "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "makimono",
+      "name": "まきもの",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "maneki",
+      "name": "まねきねこ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "maneki_w",
+      "name": "まねきねこ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "maneki_n",
+      "name": "まねきねこ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "maneki_e",
+      "name": "まねきねこ",
+      "solid": true
     }
   ],
   "DIG_DEFAULTS": {
@@ -1641,6 +1676,11 @@
       "magma_7": null,
       "magma_takitsubo": 0.5,
       "magma_wakimizu": 1.5,
+      "makimono": null,
+      "maneki": 5,
+      "maneki_e": 5,
+      "maneki_n": 5,
+      "maneki_w": 5,
       "matsu_leaves": 0.25,
       "momiji_leaves": 0.25,
       "nendo": 1,
@@ -1855,6 +1895,11 @@
       "magma_7": 0,
       "magma_takitsubo": 0,
       "magma_wakimizu": 0,
+      "makimono": 0,
+      "maneki": 0,
+      "maneki_e": 0,
+      "maneki_n": 0,
+      "maneki_w": 0,
       "matsu_leaves": 0,
       "momiji_leaves": 0,
       "nendo": 0,
@@ -2070,6 +2115,11 @@
       "magma_7": "common",
       "magma_takitsubo": "uncommon",
       "magma_wakimizu": "uncommon",
+      "makimono": "common",
+      "maneki": "rare",
+      "maneki_e": "rare",
+      "maneki_n": "rare",
+      "maneki_w": "rare",
       "matsu_leaves": "common",
       "momiji_leaves": "common",
       "nendo": "uncommon",

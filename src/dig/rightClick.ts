@@ -4,6 +4,7 @@ import { furnUseOf } from '../world/blocks/furnUse';
 import { doorInfo } from '../world/blocks/houseBlocks';
 import type { BucketPreview, BlockId, ItemId, RightClickKind, TargetInfo, WaterPreview, WaterRay } from '../contracts';
 import { isWater } from '../world/blocks/water';
+import { isMakimonoId } from '../world/blocks/blockTypes';
 import { chestBlockInfo } from '../world/blocks/chestBlock';
 export type { RightClickKind };
 
@@ -102,6 +103,8 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   if (coop && coop.eggs >= 1) return { kind: 'coopCollect', item: null };
   if (t && c.isTansu(t.block.x, t.block.y, t.block.z)) return { kind: 'storage', item: null };
   if (t && c.isFurnace(t.block.x, t.block.y, t.block.z)) return { kind: 'furnace', item: null };
+  // HOUSE-2A: まきもの（右クリックで とる。宝箱と 同じ 道〔DigSystem が chestPort.open を 呼ぶ〕。持ち物に よらず、置かない）
+  if (t && isMakimonoId(t.id)) return { kind: 'chest', item: null };
   // MINE-1C: 宝箱（2 マス どちらを ねらっても 同じ。持ち物に よらず、置かない）
   const chest = t ? chestBlockInfo(t.id) : null;
   if (chest) return { kind: chest.open || (t && c.chestPaired?.(t.block.x, t.block.y, t.block.z) === false) ? 'chestDone' : 'chest', item: null };

@@ -10,6 +10,10 @@ import { MAGMA_IDS, MAGMA_M0, MAGMA_RESERVED_IDS } from './magma';
 import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL_INDEX, WATER_PARTIAL_IDS, WATER_W0 } from './water';
 
 /** M1-01 4-2 のブロック 11 種 + M4 の 3 種。配列の順番が内部の番号（air = 0） */
+/** あとから 足した 家具の しゅるい（番号を ずらさない ため BLOCK_TYPES の さいごに ならべる） */
+const LATE_FURN: ReadonlySet<string> = new Set(['maneki']);
+const furnBlockType = (id: BlockId): BlockType => ({ id, name: FURNITURE[furnInfo(id)!.kind].name, solid: true, breakable: true });
+
 export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'air', name: 'くうき', solid: false, breakable: false },
   { id: 'grass', name: 'くさ', solid: true, breakable: true },
@@ -100,7 +104,7 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   // 戸の のこり 3 マス（上の 半分・あけた 下・あけた 上）。あけた 戸は 通れる
   ...HOUSE_DOOR_PART_IDS.map((id): BlockType => ({ id, name: 'いえの と', solid: !id.includes('open'), breakable: true })),
   // 向きの ある 家具（向き × マス。今の `tansu`・`furnace` は 向き 0 の ひとつ め）。動かない 机・いす・たなは 固い。あんどん・まるいすも 固い（ぶつかる）
-  ...NEW_FURN_BLOCK_IDS.map((id): BlockType => ({ id, name: FURNITURE[furnInfo(id)!.kind].name, solid: true, breakable: true })),
+  ...NEW_FURN_BLOCK_IDS.filter((id) => !LATE_FURN.has(furnInfo(id)!.kind)).map(furnBlockType),
   // HOUSE-1C PR-2（#340。番号は 後ろに 足す）: かためた つち（ふつうに ほれる）と 足場 5 つ（建築中の 場所だけ。固い・ほれない・アイテムに ならない）
   { id: KATAME_TSUCHI, name: 'かためた つち', solid: true, breakable: true },
   ...SCAFFOLD_IDS.map((id): BlockType => ({ id, name: 'あしば', solid: true, breakable: false })),
@@ -140,6 +144,10 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'taoreta_hashigo_x', name: 'たおれた はしご', solid: false, breakable: true },
   { id: 'taoreta_hashigo_z', name: 'たおれた はしご', solid: false, breakable: true },
   { id: 'takibi_ato', name: 'たきびの あと', solid: false, breakable: true },
+  // HOUSE-2A（#364。番号は 後ろに 足す。212）: まきもの。固くない（体が 通る）・こわせない（右クリックで とる）・十字の 板で 描く
+  { id: 'makimono', name: 'まきもの', solid: false, breakable: false },
+  // HOUSE-2A（番号は 後ろに 足す。213〜）: まねきねこ（向き × 1 マス。ほかの 家具と 同じ。家具の ならびの まん中に 入れると あとの 番号が ずれる ので ここ）
+  ...NEW_FURN_BLOCK_IDS.filter((id) => LATE_FURN.has(furnInfo(id)!.kind)).map(furnBlockType),
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -200,6 +208,7 @@ const CROSS_IDS: ReadonlySet<string> = new Set([
   'flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana',
   'rope', 'rope_coil', 'rope_stake', 'rope_fence', 'rope_fence_post', // ROPE-1: ロープ（たてに たれる なわ）・ロープだまり（下の まき）
   'tsurara', // MINE-1D: つらら（天井の 下に さがる 十字の 板。ゆれない = swayDriver が のぞく）
+  'makimono', // HOUSE-2A: まきもの（床に 置く 十字の 板。ゆれない）
 ]);
 const CROSS = BLOCK_TYPES.map((t) => CROSS_IDS.has(t.id));
 /** 十字の板で描くブロックか（作物・やせいの やさい・かかし・さく）。固くない・光を通す・まわりの面を隠さない */
@@ -228,10 +237,15 @@ export function isChalkIndex(index: number): boolean {
 }
 
 /** つらら（MINE-1D）か。十字の 板の なかま（isCrossIndex も true）で、ゆれない 所だけ これで 分ける */
-const TSURARA = BLOCK_TYPES.map((t) => t.id === 'tsurara');
+const TSURARA = BLOCK_TYPES.map((t) => t.id === 'tsurara' || t.id === 'makimono'); // 十字の 板で ゆれない 物（つらら・まきもの）
 export function isTsuraraIndex(index: number): boolean {
   return TSURARA[index] === true;
 }
+
+/** まきもの（HOUSE-2A）か。十字の 板の なかま（isCrossIndex も true）。つららと 同じく ゆれない・こわせない */
+export const MAKIMONO = BLOCK_INDEX.makimono;
+/** その ブロックの 名前が まきものか（上の MAKIMONO は 番号。名前で 聞く 側〔掘る・右クリック〕用） */
+export const isMakimonoId = (id: string): boolean => BLOCK_INDEX[id as BlockId] === MAKIMONO;
 
 /** 床の 飾り（MINE-1E。ふるい レール・たおれた はしご・たきびの あと）か。ひくい 小ブロックの 形で 描く。固くない・光を通す・まわりの面を隠さない・遠くでは 描かない */
 const FLOOR_DECO = BLOCK_TYPES.map((t) => isFloorDeco(t.id));

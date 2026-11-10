@@ -6534,6 +6534,26 @@
       "rarity": "common",
       "recipes": []
     },
+    "maneki": {
+      "DIG_DEFAULTS.hardness.maneki": 5,
+      "DIG_DEFAULTS.harvestLevel.maneki": 0,
+      "DIG_DEFAULTS.rarity.maneki": "rare",
+      "ITEM_INFO.maneki": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "いえの なかに かざる ねこ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "まねきねこ",
+      "placeBlock": "maneki",
+      "rarity": "rare",
+      "recipes": []
+    },
     "sekkeizu": {
       "ITEM_INFO.sekkeizu": {
         "buttons": [],

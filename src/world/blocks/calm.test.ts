@@ -230,7 +230,9 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
     const houseNew = (n: string) => isHouseTile(n);
     // ROPE-1: ロープ・ロープだまりの 新しい 絵（画素は ropeTextures.test.ts が 見る）
     const ropeNew = (n: string) => isRopeTile(n) || isWaterfallTile(n); // WATERFALL-1 の 絵も（画素は waterfallTextures.test.ts）
-    expect(TILE_NAMES.filter((n) => !skip.has(n) && !kotatsuNew(n) && !gadgetNew(n) && !mineNew(n) && !houseNew(n) && !ropeNew(n)).sort()).toEqual(Object.keys(HASH).sort());
+    // HOUSE-2A（#364）: まきものの 絵は 仮の 新しい 絵（アトラスの さいごに 足した。HOUSE-2B で 本番の 絵に する）
+    const makimonoNew = (n: string) => n === 'makimono';
+    expect(TILE_NAMES.filter((n) => !skip.has(n) && !makimonoNew(n) && !kotatsuNew(n) && !gadgetNew(n) && !mineNew(n) && !houseNew(n) && !ropeNew(n)).sort()).toEqual(Object.keys(HASH).sort());
   });
   for (const [name, h] of Object.entries(HASH)) {
     it(name, () => expect(fnv(getTilePixels(name as TileName))).toBe(h));

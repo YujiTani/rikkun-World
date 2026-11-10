@@ -1,5 +1,6 @@
 import type { ItemId, TargetInfo, VoxelWorld } from '../contracts';
 import { isFloraBlock } from '../world/blocks/flora';
+import { isMakimonoId } from '../world/blocks/blockTypes';
 import { isFloorDeco } from '../world/blocks/mineBoken';
 import { CHALK_FACES, CHALK_NORMAL, chalkInfo, isChalkMarkId } from '../world/blocks/chalkMark';
 import { chestBlockInfo, chestFrontAt, chestPartner } from '../world/blocks/chestBlock';
@@ -56,6 +57,7 @@ export class BlockBreaker {
   breakBlock(t: TargetInfo, bodyGlass: boolean): BreakEnd {
     const c = this.c;
     if (c.bodyTgt()) return this.breakBodyBlock(t, bodyGlass);
+    if (isMakimonoId(t.id)) return 'abort'; // HOUSE-2A: まきものは こわれない（右クリックで とる。何も 出ない）
     if (COOP_BLOCKS.has(t.id)) return this.breakCoopBlock(t);
     if (isChalkMarkId(t.id)) return this.breakChalkMark(t);
     if (isRopeBlock(t.id)) return this.breakRope(t);

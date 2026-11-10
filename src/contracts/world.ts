@@ -134,7 +134,9 @@ export type BlockId =
   | 'kowareta_waku'
   | 'taoreta_hashigo_x'
   | 'taoreta_hashigo_z'
-  | 'takibi_ato';
+  | 'takibi_ato'
+  // HOUSE-2A（#364。うしろに足す。212）: まきもの（坑道の 宝箱の ない 坑道の いちばん 下の へやに 1 つ。固くない・こわせない・右クリックで とる。レシピを おぼえる）
+  | 'makimono';
 
 export interface BlockType {
   id: BlockId;

@@ -126,7 +126,7 @@ export const MINE_ITEM = Object.fromEntries(MINE_ITEM_IDS.map((id) => [id, id]))
  * 家の 新しい 家具（HOUSE-1B #339。案 A「ごつごつの くりの 木」。2.4 で ながい テーブル・まるい テーブル・まるいす〔stool〕を 足した。
  * 置いて ブロックに なるのは HOUSE-1C、はたらきは HOUSE-1D）。ITEM_TYPES では MINE-1B の 次
  */
-export const HOUSE_FURNITURE_IDS = ['table', 'chair', 'andon', 'shelf', 'ofuro', 'long_table', 'round_table', 'stool'] as const;
+export const HOUSE_FURNITURE_IDS = ['table', 'chair', 'andon', 'shelf', 'ofuro', 'long_table', 'round_table', 'stool', 'maneki'] as const;
 export type HouseFurnitureId = (typeof HOUSE_FURNITURE_IDS)[number];
 
 /** せっけいず（HOUSE-1B #339。1 マスに 1 こ。中身〔形・名前・番号〕は 1 こずつ 持つ）。ITEM_TYPES では 新しい 家具の 次 */
