@@ -1,4 +1,4 @@
-import { Data3DTexture, MeshBasicMaterial, NearestFilter, RedIntegerFormat, UnsignedByteType, Vector3, Vector4, type Texture } from 'three';
+import { Data3DTexture, MeshBasicMaterial, NearestFilter, RedIntegerFormat, UnsignedByteType, Vector2, Vector3, Vector4, type Texture, type WebGLRenderer } from 'three';
 import { TILE_NAMES, ATLAS_COLS } from '../../blocks/textures';
 import { BLOCK_INDEX } from '../../blocks/blockTypes';
 import { skyDarkness } from '../../light/skyDarkness';
@@ -11,6 +11,7 @@ import { GLOW_PERIOD_SEC, glowUniforms } from './glowUniforms';
 import { FADE_FAR, FADE_NEAR, GRAIN_BODY_TILE, GRAIN_NEAR, KINDS, srgbToLinear, tileAverageTable, tileTable } from './projection';
 import { MAX_GRAINS, grainList } from '../looks';
 import { SWIRL_FPS, SWIRL_FRAMES } from '../../blocks/waterfallTextures';
+import { seamAxisGlsl } from './seamGrow';
 
 /**
  * 小ブロック・箱のメッシュ用の材料（TEX-A）。色 = 16×16 の絵（atlas）の画素 × 面の明るさ × 角の暗がり（AO）× 光。
@@ -30,13 +31,20 @@ import { SWIRL_FPS, SWIRL_FRAMES } from '../../blocks/waterfallTextures';
 const SHADE_GLSL = `float[6](${FACE_SHADE_BY_INDEX.map((v) => v.toFixed(2)).join(', ')})`;
 const AO_GLSL = AO_LEVELS.map((v) => v.toFixed(2));
 const N_TILES = TILE_NAMES.length;
-/** 面を ひろげる量（小ブロック。1/9 ブロックの 0.03）。つぎ目の 1 画素の すきまを ふさぐ */
-const GROW = 0.03;
 const DIRT_TILE = TILE_NAMES.indexOf('dirt');
+/** 描画バッファの大きさ（画素）。面を画面で 1 画素広げるときに使う。材料で共有し、描く直前に更新する */
+export const seamViewport = { value: new Vector2(1280, 720) };
+
+function syncSeamViewport(renderer: WebGLRenderer): void {
+  renderer.getDrawingBufferSize(seamViewport.value);
+  if (seamViewport.value.x < 1) seamViewport.value.x = 1;
+  if (seamViewport.value.y < 1) seamViewport.value.y = 1;
+}
 
 const VERT_DECL = `
 attribute vec4 aData;
 attribute vec2 aLight;
+uniform vec2 uViewport;
 uniform float uDarken;
 uniform float uNight;
 uniform vec3 uTileOf[${KINDS}];
@@ -53,15 +61,22 @@ const float SHADE[6] = ${SHADE_GLSL};
 const vec3 NRM[6] = vec3[6](
   vec3(0.0, 1.0, 0.0), vec3(0.0, -1.0, 0.0), vec3(1.0, 0.0, 0.0),
   vec3(-1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), vec3(0.0, 0.0, -1.0));
-${LIGHT_GLSL_FUNCS}`;
+${LIGHT_GLSL_FUNCS}
+${seamAxisGlsl()}`;
 
 const VERT_BODY = `
 {
   int f = int(aData.w + 0.5);
-  // 面を 面の中の向きに ごく少し ひろげる（つぎ目の 1 画素の すきまを ふさぐ）。計算は ひろげる前の位置で
+  // 面を、その場所の画面で約 1 画素だけ外へ出す（T 字の 1 画素の透け。#147）。色と AO は広げる前の位置
   float cb = aData.z + 0.5;
   vec3 corner = vec3(mod(floor(cb), 2.0), mod(floor(cb / 2.0), 2.0), mod(floor(cb / 4.0), 2.0)) * 2.0 - 1.0;
-  voxGrow = corner * (vec3(1.0) - abs(NRM[f])) * ${GROW.toFixed(3)};
+  vec3 tangent = corner * (vec3(1.0) - abs(NRM[f]));
+  vec4 seamC0 = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  vec2 seamNdc = seamC0.xy / seamC0.w;
+  voxGrow = vec3(
+    tangent.x == 0.0 ? 0.0 : tangent.x * seamAxis(vec3(tangent.x, 0.0, 0.0), seamNdc),
+    tangent.y == 0.0 ? 0.0 : tangent.y * seamAxis(vec3(0.0, tangent.y, 0.0), seamNdc),
+    tangent.z == 0.0 ? 0.0 : tangent.z * seamAxis(vec3(0.0, 0.0, tangent.z), seamNdc));
   int kind = int(aData.x + 0.5);
   float tile = uTileOf[kind][f == 0 ? 0 : (f == 1 ? 1 : 2)];
   vShade = SHADE[f];
@@ -236,7 +251,9 @@ export function createVoxelMaterial(shared: VoxelShared, ao: Data3DTexture | nul
   const m = new MeshBasicMaterial({});
   m.userData.noDim = true; // sky/Lighting では暗くしない（ここで明るさを決める）
   const t = tables();
+  m.onBeforeRender = (renderer) => syncSeamViewport(renderer as WebGLRenderer);
   m.onBeforeCompile = (shader) => {
+    shader.uniforms.uViewport = seamViewport;
     shader.uniforms.uDarken = skyDarkness.uniform;
     shader.uniforms.uNight = skyDarkness.nightUniform;
     shader.uniforms.uAtlas = { value: shared.atlas };
