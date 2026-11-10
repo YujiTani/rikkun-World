@@ -175,6 +175,7 @@ describe('AC9c 保存と できた！', () => {
     const bp = b.hook.blueprints().at(-1)!;
     expect(bp).toMatchObject({ roof: 'none', wall: 'none', windowKind: 'none' });
     const c = houseRig();
+    b.bag.slots().forEach((s, i) => c.bag.setSlot(i, s)); // せっけいずは バッグの マスに ある（セーブの 外）。空の バッグに 写して から 読む
     c.sys.load(JSON.parse(JSON.stringify(b.sys.serialize())));
     expect(c.hook.blueprints().at(-1)).toEqual(bp);
   });

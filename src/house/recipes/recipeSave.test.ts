@@ -76,6 +76,7 @@ describe('AC7 保存', () => {
     expect(bp).toHaveLength(1);
     expect(bp[0]).toMatchObject({ roof: 'kin_kozan', wall: 'shikkui_shiro', windowKind: 'maru_mura', door: 'tetsu_kozan', deco: ['noren_shiro'], light: 'suisho', name: { front: 'もも', back: 'ごてん' } });
     const b = houseRig();
+    a.bag.slots().forEach((s, i) => b.bag.setSlot(i, s)); // せっけいずは バッグの マスに ある（セーブの 外）。空の バッグに 写して から 読む
     b.sys.load(roundTrip(a.sys.serialize()));
     expect(b.hook.blueprints()).toEqual(bp);
   });
