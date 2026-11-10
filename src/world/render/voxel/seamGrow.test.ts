@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DataTexture } from 'three';
+import { BLOCK_INDEX } from '../../blocks/blockTypes';
 import { ArrayVoxelWorld } from '../../VoxelWorld';
 import { WorldLight } from '../../light/WorldLight';
 import { SkyDarkness } from '../../light/skyDarkness';
@@ -138,6 +139,23 @@ describe('つぎ目の広げ（#147）', () => {
 
     expect(caveHits, '洞くつの壁の T 字').toBeGreaterThan(1000);
     expect(shoreHits, '水のふちの T 字').toBeGreaterThan(200);
+
+    // 炭鉱の坑道（#350）: 石の中の幅 3・高さ 4 の道、わく（柱と天井のはり）、たいまつ。わくは穴のない箱
+    const mine = new ArrayVoxelWorld({ x: 48, y: 32, z: 32 });
+    mine.fill(0, 0, 0, 47, 0, 31, 'bedrock');
+    mine.fill(0, 1, 0, 47, 16, 31, 'stone');
+    mine.fill(4, 6, 6, 40, 9, 8, 'air');
+    for (const x of [12, 20, 28]) {
+      for (const z of [5, 9]) for (let y = 6; y <= 9; y++) mine.setBlock(x, y, z, 'kodo_waku');
+      for (let z = 5; z <= 9; z++) mine.setBlock(x, 10, z, 'kodo_waku');
+    }
+    mine.setBlock(18, 7, 6, 'torch');
+    const mineMesh = meshOf(mine, 1, 0, 0);
+    const mineHits = tJunctions(quadsOf(mineMesh));
+    let wakuVerts = 0;
+    for (const p of mineMesh.pieces) for (let v = 0; v < p.vertexCount; v++) if (p.data[v * 4] === BLOCK_INDEX.kodo_waku) wakuVerts++;
+    expect(wakuVerts, 'わくの面がある').toBeGreaterThan(0);
+    expect(mineHits, '坑道の T 字').toBeGreaterThan(500);
     // この T 字を、壁を見る距離（8 ブロック・45 度）でふさいでいるか
     const ppm = faceOnPixels(8, 720, Math.SQRT1_2);
     expect(legacyOverlapPx(ppm), '直す前は 1 画素に届かない').toBeLessThan(1);

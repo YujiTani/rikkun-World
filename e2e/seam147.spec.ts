@@ -185,4 +185,39 @@ test.describe('SEAM-147: 小ブロックのつぎ目に空色の点がない（#
     const r = await shot(page, 'water-edge', 0);
     expect(r.groundHoles, `水のふちの地面の中に、まわりが地面の空色の点が ${r.groundHoles} こ`).toBe(0);
   });
+
+  test('E3: 炭鉱の坑道の石のかべに、まわりが石の空色の点がない', async ({ page }) => {
+    await open(page);
+    await prep(page);
+    const spot = await page.evaluate(async () => {
+      const h = (window as any).__rikkun;
+      const shaft = h.mine.startShaft();
+      const ent = shaft.entrance as { x: number; y: number; z: number; dir: number };
+      const path = h.mine.shaftPath(shaft.id) as { x: number; y: number; z: number; part: string }[];
+      const deep = path.filter((p) => (p.part === 'ramp' || p.part === 'landing') && p.y <= ent.y - 6);
+      const cell = deep[Math.min(10, deep.length - 1)] ?? path[Math.floor(path.length / 3)]!;
+      const nxt = path[Math.min(path.indexOf(cell) + 3, path.length - 1)] ?? cell;
+      const dx = nxt.x - cell.x;
+      const dz = nxt.z - cell.z;
+      const yaw = Math.abs(dx) >= Math.abs(dz) ? (dx >= 0 ? 90 : 270) : dz >= 0 ? 180 : 0;
+      await h.world.teleport(cell.x, cell.z);
+      await h.world.settle({});
+      h.player.set({ position: { x: cell.x + 0.5, y: cell.y, z: cell.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: -6 });
+      const sx = Math.floor(cell.x / 16);
+      const sy = Math.floor(cell.y / 16);
+      const sz = Math.floor(cell.z / 16);
+      let tier = '';
+      for (let i = 0; i < 80; i++) {
+        h.step(5);
+        tier = h.world.sectionInfo(sx, sy, sz).tier as string;
+        if (tier === 'micro' && h.world.meshStats().pending === 0 && h.world.lightPending() === 0) break;
+      }
+      for (let i = 0; i < 20 && h.achievements.modal().open; i++) h.step(Math.max(1, h.achievements.modal().leftSteps));
+      return { x: cell.x, y: cell.y, z: cell.z, yaw, part: cell.part, cave: h.mine.caveAt(cell.x, cell.y, cell.z), tier };
+    });
+    expect(spot.cave, `坑道の中に立てなかった ${JSON.stringify(spot)}`).toBe('kodo');
+    expect(spot.tier, '坑道が小ブロックの段').toBe('micro');
+    const r = await shot(page, 'mine-tunnel', 0);
+    expect(r.stoneHoles, `坑道のかべの中に、まわりが石の空色の点が ${r.stoneHoles} こ`).toBe(0);
+  });
 });
