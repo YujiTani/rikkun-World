@@ -138,12 +138,11 @@ test.describe('HOUSE-2A 見つけて えらぶ 通し', () => {
     await expect(page.getByTestId('house-btn-roof-kawara').getByTestId('editor-new-mark'), '印は ボタンの 中').toBeVisible();
     await expect(page.getByTestId('house-btn-part-roof').getByTestId('editor-new-mark'), 'ばしょの ボタンにも 印').toBeVisible();
     const name0 = await plainText(page, 'editor-kind-name');
-    expect(name0, '名前の 行（のせて いない 間は えらんで いる 物）').toBeTruthy();
+    expect(name0, '名前の 行（のせて いない 間は えらんで いる 物 ＝ たいら）').toBe('たいら');
     await page.getByTestId('house-btn-roof-kawara').hover();
     await stepUi(page, 2);
     const nameHover = await plainText(page, 'editor-kind-name');
-    expect(nameHover, 'のせた ボタンの 名前に かわる').toBeTruthy();
-    expect(nameHover).not.toBe(name0);
+    expect(nameHover, 'のせた ボタンの 名前に かわる（レシピの 名前。仕様 §4.1・§3.2）').toBe('かわらのやね');
     await page.screenshot({ path: `${SHOTS}/editor-soto-new.png` });
 
     // ---- 押すと 見本が かわる（AC9）
