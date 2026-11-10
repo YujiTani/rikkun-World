@@ -1,4 +1,5 @@
 import type { Data3DTexture, Mesh, MeshBasicMaterial } from 'three';
+import type { FaceGraph } from './caveCull';
 import type { Tier } from './voxel/tier';
 
 /** WorldRenderer が 1 セクション・1 列ごとに持つ状態（WorldRenderer.ts から分けた。4-7） */
@@ -38,6 +39,12 @@ export interface SecState {
   occ: Uint8Array | null;
   bytes: number;
   tris: number;
+  /**
+   * 面どうしの つながり（#405）。null = まだ。
+   * 使うのは visGen === gen のときだけ（中身が 変わったあとは 作り直すまで あいていると みなす）。
+   */
+  vis: FaceGraph | null;
+  visGen: number;
 }
 
 export interface ColState {
@@ -99,6 +106,8 @@ export function newColState(cx: number, cz: number, nSections: number): ColState
       occ: null,
       bytes: 0,
       tris: 0,
+      vis: null,
+      visGen: -1,
     });
   }
   return col;

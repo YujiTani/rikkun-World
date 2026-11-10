@@ -1,5 +1,7 @@
-import { Group, type MeshBasicMaterial, type Scene } from 'three';
+import { Group, type MeshBasicMaterial, type PerspectiveCamera, type Scene } from 'three';
 import type { CropStageSource } from '../../contracts';
+import { CaveView, refreshSectionVis } from './caveApply';
+import type { CaveStats } from './caveCull';
 import { COUNT_MESH_MAX, COUNT_MESH_TOTAL_MAX, type FrameClock } from '../frameClock';
 import { WorldLight } from '../light/WorldLight';
 import { columnKey, type ArrayVoxelWorld } from '../VoxelWorld';
@@ -73,6 +75,9 @@ export class WorldRenderer {
   private readonly queue = new Set<SecState>();
   private evictedCount = 0;
   private stats: RebuildStats = { lastMs: 0, count: 0 };
+  /** 地下の 見え方（#405）。中身が 変わるたびに 1 増える */
+  private visEpoch = 0;
+  private readonly caves = new CaveView();
   /** 光（置く・こわすと近くだけ計算し直す）。Sky・妖怪の出現・テストが読む */
   readonly light: WorldLight;
   /** メッシュを足す・捨てる・見せ方を変えるたびに 1 増える（#144 影の試作: 影の地図を描き直す合図） */
@@ -262,6 +267,7 @@ export class WorldRenderer {
     st.gen++;
     st.byChange = true;
     if (player) st.player = true;
+    this.visEpoch++;
     st.col.lodStale = true;
     if (st.col.tier !== 'lod') this.enqueue(st);
   }
@@ -414,6 +420,8 @@ export class WorldRenderer {
     const want = col.tier as 'micro' | 'box';
     const cls = this.classify(st);
     st.cls = cls;
+    refreshSectionVis(this.world, st, cls);
+    this.visEpoch++;
     if (cls !== CLS_NORMAL) {
       // 全部空気・見えない: メッシュは作らない
       if (this.job?.st === st) this.cancelJob();
@@ -641,6 +649,31 @@ export class WorldRenderer {
   /** 視点（水平）。まだ無ければ null */
   viewerNow(): { x: number; z: number } | null {
     return this.viewer;
+  }
+
+  /**
+   * この カメラから 見えない 地下セクションを かくす（#405）。描く直前に 呼ぶ。
+   * 2 人の 画面は カメラごとに 呼ぶ（それぞれの 穴だけ 残す）。
+   */
+  applyView(cam: PerspectiveCamera): CaveStats {
+    return this.caves.apply(this.cols, this.world, cam, this.visEpoch);
+  }
+
+  /** applyView で かくした セクションも 一時 見せて fn を 呼ぶ（影の 地図・調べる用の 別の カメラ） */
+  withAllSections<T>(fn: () => T): T {
+    return this.caves.withAll(fn);
+  }
+
+  /** 直前の applyView の 回数と、見せた・かくした セクションの 数 */
+  caveStats(): CaveStats {
+    return this.caves.stats();
+  }
+
+  /** その セクションの メッシュが 今 見えるか。メッシュが 無ければ null（テスト用） */
+  sectionMeshVisible(sx: number, sy: number, sz: number): boolean | null {
+    const st = this.colAt(sx, sz)?.secs[sy];
+    if (!st || (!st.voxel && !st.extras && !st.water)) return null;
+    return !!(st.voxel?.visible || st.extras?.visible || st.water?.visible);
   }
 
   /** 全部のセクションを 作り直しに出す（テスト用: 小ブロック地形の入り切りのあと） */

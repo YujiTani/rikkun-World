@@ -74,6 +74,8 @@ export interface WorldHook {
   wall(): number;
   /** LIVE-2.1 §6.2: そのマスの 描きかた の 種類。'panel' = とりごや の さく・もん（板）、'cross' = 草花・作物 など（十字の板）、'box' = ブロックの 箱、'none' = 空気・読みこんで いない */
   renderKind(x: number, y: number, z: number): 'panel' | 'cross' | 'box' | 'none';
+  /** #405: 直前に 描いた ときの 地下の 見え方（たどった 回数・たどりきったか・見せた数・かくした数） */
+  caveCull(): { steps: number; complete: boolean; shown: number; hidden: number };
 }
 
 const PANEL_IDS: ReadonlySet<string> = new Set(['toriya_fence', 'toriya_gate']);
@@ -134,6 +136,7 @@ export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer,
     startTorch: () => island.startTorch(),
     startFeatures: () => island.startFeatures(),
     caveMouths: () => island.caveMouths(),
+    caveCull: () => renderer.caveStats(),
     genStats: () => island.genStats(),
   };
 }
