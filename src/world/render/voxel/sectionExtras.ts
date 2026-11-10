@@ -9,6 +9,7 @@ import { isKotatsuBlock } from '../../blocks/kotatsu';
 import { pushChalk } from '../chalkMesh';
 import { pushHouseProp, shojiAxisAt } from '../houseProp';
 import { pushKotatsuCell } from '../kotatsuMesh';
+import { emitProtoPlant } from '../leafBambooProto';
 import { FACES, FACE_UV, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, isCoopLineIndex, pushCoopPanels, pushCross, pushFace, pushProp, pushTorch, type MeshData } from '../meshChunk';
 import { isLiquidIndex } from '../../blocks/liquids';
 import { WATER_SPAN, waterFaceSpan } from '../waterFaces';
@@ -48,6 +49,8 @@ export function meshSectionExtras(
       for (let x = x0; x < x0 + 16; x++) {
         const b = world.getIndex(x, y, z);
         if (b <= AIR) continue;
+        // はっぱ・たけの 試し（既定は false ですぐ 戻る）。ao は 小ブロックの 段の とき true
+        if (emitProtoPlant(opaque, world, x, y, z, b, light, ao)) continue;
         if (isTorchIndex(b)) {
           pushTorch(opaque, x, y, z, BLOCK_TYPES[b].id as TileName, light ? light.skyAt(x, y, z) / LIGHT_MAX : 1);
           continue;

@@ -5,6 +5,7 @@ import { DigSystemImpl } from '../dig/DigSystem';
 import type { DigM4Deps } from '../dig/digPorts';
 import type { ActionState } from '../input/actions';
 import type { Rng } from '../world/gen/random';
+import type { ArmorSystemImpl } from '../craft/ArmorSystem';
 import type { P2State } from './p2State';
 
 /** 2P 用の ほる・おく係に 渡す もの（COOP-1 3a。名前と 形の 約束は p2Dig.test.ts の 頭） */
@@ -25,6 +26,16 @@ export interface P2DigDeps {
   onOpenFurnace?: (x: number, y: number, z: number) => void;
   /** COOP-1 4c（AC95）: 2P が たんすを ねらって ZL か Y。「たんす」の ページを 開く 合図（1 回）。渡さない 2P は 何も 開かない */
   onOpenTansu?: (x: number, y: number, z: number) => void;
+  /** COOP-1 5b（AC132）: 2P が ほって もちものに 入った。m4.onPickup に つなぐ（配線は 2P の つくる の notifyPickup → 実績 obtain:*） */
+  onPickup?: DigM4Deps['onPickup'];
+  /** COOP-1 5b（AC133）: はらぱんみみず の くじ。1P と 同じ くじ（1 つの createHarapanRoll の block を 2 人に わたす） */
+  harapan?: DigM4Deps['harapan'];
+  /** COOP-1 5b（AC134）: ZL で 着る。2P の そうび（p2.armor。1P の armor ではない） */
+  armor?: Pick<ArmorSystemImpl, 'tryEquip' | 'slotFor'>;
+  /** COOP-1 5b（AC135）: 建築中の 家の 守り・みずもり・どうづき。1P と 同じ 守り（combat.ts の createBuildPort を 2 人に わたす） */
+  build?: DigM4Deps['build'];
+  /** COOP-1 5b（AC148）: ダンジョンの 宝箱の 窓口（who = 2 で 呼ぶ）。渡さない 2P の ZL は 何も 起きない */
+  chestPort?: NonNullable<DigSystemImpl['chestPort']>;
   config?: DigConfig;
   rng?: Rng;
 }
@@ -51,6 +62,10 @@ export function createP2Dig(d: P2DigDeps): DigSystemImpl {
       furnaceBroken: (x, y, z) => craft?.furnaceBroken(x, y, z),
       fixedDrop: (id) => craft?.fixedDrop(id) ?? null,
     },
+    ...(d.onPickup ? { onPickup: d.onPickup } : {}),
+    ...(d.harapan ? { harapan: d.harapan } : {}),
+    ...(d.build ? { build: d.build } : {}),
+    ...(d.armor ? { armor: playerArmor(d.armor) } : {}),
     storage: {
       isTansu: (x, y, z) => w.getBlock(x, y, z) === TANSU,
       open: (x, y, z) => {
@@ -61,5 +76,13 @@ export function createP2Dig(d: P2DigDeps): DigSystemImpl {
       broken: (x, y, z) => given.storage?.broken(x, y, z) ?? 0,
     },
   };
-  return new DigSystemImpl(w, d.position, d.actions, d.lock, d.p2.inventory, d.eyeHeight, d.config, d.rng, d.gate ?? null, m4);
+  const dig = new DigSystemImpl(w, d.position, d.actions, d.lock, d.p2.inventory, d.eyeHeight, d.config, d.rng, d.gate ?? null, m4);
+  dig.chestWho = 2;
+  dig.chestPort = d.chestPort ?? null;
+  return dig;
+}
+
+/** ZL で 着る 口（着られる か は slotFor で 1P の 右クリックと 同じ 判定） */
+function playerArmor(armor: Pick<ArmorSystemImpl, 'tryEquip' | 'slotFor'>): NonNullable<DigM4Deps['armor']> {
+  return { tryEquip: (i) => armor.tryEquip(i), canEquip: (i) => armor.slotFor(i) !== null };
 }

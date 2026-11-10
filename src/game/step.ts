@@ -14,8 +14,9 @@ import { shiningBodyPose, lightningPoseFrame } from '../legend/pose';
 import { handleCraftEvents, playSwing, handleGuardEvents } from '../ui/craftUi';
 import { applyUiAlpha } from '../ui/theme';
 import { isBowItem } from '../content/items/ids';
-import { type ItemId, cropKindOfBlock, VEG_ITEM } from '../contracts';
+import { type FarmStepContext, type ItemId, cropKindOfBlock, VEG_ITEM } from '../contracts';
 import { FARM_HINT_VIEW } from '../ui/farmHintModel';
+import { feedPourFx } from '../fx/farmPourFx';
 import { actionHintLines } from '../ui/actionHintModel';
 import { impactOf } from '../fx/impact';
 import { feedLegendImpact, newLegendImpactState } from '../legend/legendImpact';
@@ -26,6 +27,7 @@ import { waterSettings, waterWaveUniforms } from '../world/render/waterWave';
 import { NO_DIG, NO_SWINGS, IDLE_THUNDER_LOOK, NO_PLATES } from './wire/shared';
 import type { WiredFrame } from './wire/save';
 import { createFootsteps } from '../fx/footsteps';
+import { feedArrowEvents } from '../duo/p2Feed';
 
 export function createStep(deps: WiredFrame): (dt: number) => void {
   const footsteps = createFootsteps(deps.fxSound);
@@ -49,6 +51,8 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
   const legendImpact = newLegendImpactState();
   /** シャイニング中は 手の 物を かえさせない（1P も 2P も 同じ 部品〔selectLock.ts〕） */
   const selLock = createSelectLock();
+  /** 畑の 毎ステップの 入力（使いまわす。2P が いる ときだけ 足もとを 入れる。COOP-1 5a） */
+  const farmCtx: FarmStepContext = { playerPos: controller.state.position };
   return (dt: number): void => {
     streamFrame();
     audioStep();
@@ -205,7 +209,11 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     // 農業: あそんでいるあいだは 毎ステップ、もちもの画面は 4 ステップに 1 回、止まっているあいだは進めない
     {
       const m = screen.mode();
-      if (m === 'play' || (m === 'inventory' && screen.timeScale() > 0 && game.tick % 4 === 0)) farm.update({ playerPos: controller.state.position });
+      if (m === 'play' || (m === 'inventory' && screen.timeScale() > 0 && game.tick % 4 === 0)) {
+        farmCtx.playerPos = controller.state.position;
+        farmCtx.p2Pos = shared.duoMate()?.position; // かかし の 近さは 2 人の どちらか
+        farm.update(farmCtx);
+      }
       if (m === 'play' || (m === 'inventory' && screen.timeScale() > 0)) water.update(); // WATER-1: 水の 流れ(15 ステップごとに 1 パス)
       renderer.setRipeMinBrightness(m7.farmRipeMinBrightness);
       trackOldFarmSeeds();
@@ -236,9 +244,9 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     {
       const fe = farm.drainEvents();
       if (fe.length > 0) {
+        feedPourFx(fe, farm, waterFx); // しぶき: 2P の まいた マスも 2P の 出来事で
         for (const e of fe) {
-          if (e.type === 'pour') waterFx.pour(farm.lastPourCells());
-          else if (e.type === 'bucketPlace') {
+          if (e.type === 'bucketPlace') {
             // BUCKET-2: 置いた 音（水・マグマ）。しずくは 水だけ
             water.noteSound(e.liquid === 'magma' ? 'placeMagma' : 'placeWater', e.x, e.y, e.z);
             if (e.liquid !== 'magma') waterFx.pour([{ x: e.x, y: e.y - 1, z: e.z }]); // 置いた マスの 上から しずく
@@ -272,9 +280,9 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       else if (e.type === 'arrowHit') {
         impactBus.hit(impactOf({ kind: 'arrow', title: titleOfYokai(e.yokaiId) }));
         playCombat(fxSound, 'hit');
-        achievements.feedArrow('hit');
-      } else if (e.type === 'arrowShot') achievements.feedArrow('shot');
+      }
     }
+    feedArrowEvents(achievements, arrowEvents); // 矢を うった／当てた（2P も 同じ 関数。COOP-1 5b）
     // NINJA-1: 追い打ちの 出来事（kodachiHit）は テストの 窓口 `combat.events()` へ
     { const ke = kodachi.drainEvents(); if (ke.length > 0) kodachiHookBuf.push(...ke); }
     const combatEvents = combat.drainEvents();

@@ -1,5 +1,6 @@
 /* ねらった作物の しるし: 照準の すぐ上。まる 4 つ（直径 12px・間 4px） */
-#farm-aim {
+#farm-aim,
+#farm-aim-p2 {
   position: fixed;
   left: 50%;
   bottom: calc(50% + var(--rk-sp-5));
@@ -19,7 +20,9 @@
   z-index: 4;
 }
 #farm-aim[hidden],
-#farm-aim [hidden] {
+#farm-aim [hidden],
+#farm-aim-p2[hidden],
+#farm-aim-p2 [hidden] {
   display: none;
 }
 .farm-aim__dots {
@@ -42,7 +45,8 @@
   background: var(--rk-accent);
   border-color: var(--rk-accent);
 }
-#farm-aim[data-dim='true'] .farm-aim__dots {
+#farm-aim[data-dim='true'] .farm-aim__dots,
+#farm-aim-p2[data-dim='true'] .farm-aim__dots {
   opacity: 0.4;
 }
 .farm-aim__art {

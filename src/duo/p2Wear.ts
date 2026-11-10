@@ -20,6 +20,8 @@ export interface P2WearDeps {
   handPos(): Vec3;
   /** こわれた ときの かけらの つぶ（1P の WeaponFx.breakShards を 2P の 手もとで） */
   burst?(at: Vec3, item: ItemId): void;
+  /** COOP-1 5b: 1 つ以上 あった ステップに 1 回、もちもの → そうびの 出来事を まとめて わたす（実績 `toolBroken`・`armorBroken` へ。1P の WeaponFx の onWear と 同じ 形）。空なら 呼ばない */
+  onEvents?: (events: WearEvent[]) => void;
 }
 
 /** 毎ステップ 1 回 `step()`。もちもの → そうびの 順に 取り出して、かならず 両方 空に する */
@@ -36,8 +38,11 @@ export function createP2Wear(d: P2WearDeps): { step(): void } {
   };
   return {
     step() {
-      for (const e of d.inventory.drainWearEvents()) one(e);
-      for (const e of d.armor.drainWearEvents()) one(e);
+      const events = d.inventory.drainWearEvents();
+      const armorEvents = d.armor.drainWearEvents();
+      for (const e of events) one(e);
+      for (const e of armorEvents) one(e);
+      if (d.onEvents && (events.length > 0 || armorEvents.length > 0)) d.onEvents(events.length === 0 ? armorEvents : armorEvents.length === 0 ? events : events.concat(armorEvents));
     },
   };
 }

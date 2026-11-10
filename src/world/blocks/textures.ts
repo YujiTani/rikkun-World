@@ -15,6 +15,7 @@ import { ROPE_TILE_NAMES, isRopeTile, paintRopeTile, type RopeTileName } from '.
 import { BOIL_NAMES, WATERFALL_BLOCK_TILES, WATERFALL_TILE_NAMES, isWaterfallTile, paintWaterfallTile, type WaterfallTileName } from './waterfallTextures';
 import { paintLeafTile } from './leafTextures';
 import { HOUSE_ATLAS_TILE_NAMES, HOUSE_BLOCK_TILES, isHouseTile, paintHouseTile, type HouseAtlasTile } from './houseTextures';
+import { protoBambooPixels, protoLeafPixels } from '../render/leafBambooArt';
 
 /** 16x16 ドット絵をコードで描く（M1-01 4-2 の色）。 */
 export const TILE_SIZE = 16;
@@ -398,7 +399,7 @@ function paintTile(name: TileName): Tile {
       return calm(t, '#8A5A2E');
     }
     case 'leaves':
-      return paintLeafTile('leaves');
+      return protoLeafPixels('leaves') ?? paintLeafTile('leaves');
     case 'coal_ore':
       // 鉱石の つぶ は さがす目じるしなので そのまま（地の石だけ おさえる）
       return blobs(calm(speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33), '#8E8E8E'), '#222222', 66, 5);
@@ -443,9 +444,9 @@ function paintTile(name: TileName): Tile {
     case 'snow':
       return speckle('#D2E8F5', ['#C2DBEC', '#DDEFF9'], 91, 14);
     case 'momiji_leaves':
-      return paintLeafTile('momiji_leaves');
+      return protoLeafPixels('momiji_leaves') ?? paintLeafTile('momiji_leaves');
     case 'matsu_leaves':
-      return paintLeafTile('matsu_leaves');
+      return protoLeafPixels('matsu_leaves') ?? paintLeafTile('matsu_leaves');
     case 'flower_y':
       return flowerTile('#F5D63A');
     case 'flower_o':
@@ -453,7 +454,7 @@ function paintTile(name: TileName): Tile {
     case 'flower_p':
       return flowerTile('#B79AE0');
     case 'bamboo':
-      return bambooTile();
+      return protoBambooPixels() ?? bambooTile();
     case 'susuki':
       return susukiTile();
     case 'kusa':
