@@ -1,3 +1,5 @@
+import { fillBambooVoxel } from '../leafBambooFill';
+import { bambooMode, leafMode } from '../leafBambooMode';
 import { blockHash, carved, createPalette, dentable, mix, shapeKind } from './common';
 import { microSoil } from '../../micro/microSurface';
 import { createChestKinds, createKodoWakuKind } from './chestLooks';
@@ -154,6 +156,11 @@ function leafKind(c: Layers, saltN: number): KindSpec {
     base: c[0],
     occludes: false,
     fill: (bx, by, bz, _e, out) => {
+      // 試し（shell / cross / 計測の none）は 小ブロックを 置かない。面は extras が 描く
+      if (leafMode() !== 'current') {
+        out.fill(0);
+        return;
+      }
       const h = blockHash(saltN, bx, by, bz);
       let i = 0;
       for (let y = 0; y < N; y++) {
@@ -259,7 +266,19 @@ export const gotsugotsuLook: Look = {
     matsu_leaves: leafKind(MATSU, LEAF_SALT + 1),
     momiji_leaves: leafKind(MOMIJI, LEAF_SALT + 2),
     snow: rock(SNOW, 3, 1, 4),
-    bamboo: rock(BAMBOO, 2, 1, 3),
+    bamboo: (() => {
+      const spec = rock(BAMBOO, 2, 1, 3);
+      const fill = spec.fill;
+      return {
+        ...spec,
+        fill: (bx: number, by: number, bz: number, e: number, out: Uint8Array) => {
+          const m = bambooMode();
+          if (m === 'voxel') fillBambooVoxel(e, out, 3);
+          else if (m === 'sprite') out.fill(0);
+          else fill(bx, by, bz, e, out);
+        },
+      };
+    })(),
     bedrock: rock(BEDROCK, 6, 3, 7),
     ...CHEST, // MINE-1C: 宝箱 16 こ
     ...BOKEN, // MINE-1E: 坑道の 冒険の 8 こ

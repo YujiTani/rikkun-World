@@ -1,5 +1,6 @@
 import { scanColumn, type ColumnInfo } from '../../micro/worldColumns';
 import type { ArrayVoxelWorld } from '../../VoxelWorld';
+import { skipBoxProto } from '../leafBambooProto';
 import { hasLook } from '../looks';
 import { isFloorDecoIndex } from '../../blocks/blockTypes';
 import type { BlockCube } from './sectionCube';
@@ -52,7 +53,7 @@ export class BoxMesher {
             const byi = bY + 1;
             const bzi = bZ + 1;
             const kind = bk[(byi * BL + bzi) * BL + bxi];
-            if (kind <= 0 || !hasLook(kind) || isFloorDecoIndex(kind)) continue; // 床の 飾り（MINE-1E）は 遠くでは 描かない
+            if (kind <= 0 || !hasLook(kind) || isFloorDecoIndex(kind) || skipBoxProto(kind)) continue; // 床の 飾り（MINE-1E）は 遠くでは 描かない。はっぱ・たけの 試しは 別の 面
             const n = cube.kindNear(bxi, byi, bzi, f);
             // となりが 不透明な表面ブロックで 描く面（#143）は、前のマスの光が 0 なので 1 段上（空気）から光を取る
             const edge = OCC[n] === 1;
