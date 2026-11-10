@@ -67,3 +67,5 @@
 | 5b-test | test | code-reviewer | 【軽微】PlaceWatch: 今の save.ts は 最下の へやの ふるいを st.position.y（+0.1 なし）で する。bottom に y+0.1 を 渡す なら bottom の 中で y-0.1 基準に もどす と 約束に 書いた | 判定の ずれ | | 済 |
 | 5b-test | test | code-reviewer | 【軽微】createBuildPort/createHarapanPort（combat.ts）を duoPlay.ts から import すると 輪の おそれ。shared か 引数で わたす と 約束に 書いた | import の 輪 | | 済 |
 | 5b-test | test | code-reviewer | 【PO 決め】2P が「からっぽ」「いっぱい」の 宝箱を あけた ときの chest.say は 1P の ログ・画面に 出さない（仕様 §3.7 に 1 行。createChestRouter.say が who 2 では 呼ばない ユニット） | 2P の ログは 出さない | | 済 |
+| 5b-impl | dev | code-reviewer | 【軽微】mine.ts の show() は who を 見ない ため、2P が あけた 宝箱の 「◯◯ を てにいれた」の 行（shared.log.chestGot）が 1P の ログに 出る（中身は 2P の もちもの）。§13「2P の ログは 出さない」と ずれる 余地。PO 決め（このまま／who 2 では chestGot と hotbar.popSlots を とばす） | 2P の ログ | | 済 |
+| 5b-impl | dev | code-reviewer | 【軽微】DigSystem.ts が 722→724 行（chestWho の 2 行。テストの 約束どおり・800 未満）。これ以上 ふやさない | 行数 | | 済 |

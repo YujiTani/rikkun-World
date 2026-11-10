@@ -62,3 +62,8 @@ export function createChestRouter(d: { hands: (who: 1 | 2) => ChestHands; say(te
     busy,
   };
 }
+
+/** 宝箱の「◯◯ を てにいれた」の 行と ホットバーの ぽんを 1P の 画面に 出して よいか（2P が あけた ときは 出さない。2P の ログは 出さない。§13） */
+export function chestShowsToP1(who: 1 | 2): boolean {
+  return who === 1;
+}

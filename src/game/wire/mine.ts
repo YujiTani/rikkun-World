@@ -6,7 +6,7 @@ import { RARITY_ORDER } from '../../drops/rarity';
 import { ChestLidFx } from '../../fx/chestLidFx';
 import { CHEST_SOUNDS } from '../../fx/chestSounds';
 import { itemType } from '../../inventory/items';
-import { createChestHands, createChestRouter } from '../../duo/p2Chest';
+import { chestShowsToP1, createChestHands, createChestRouter } from '../../duo/p2Chest';
 import { BOKEN_GEN, KODO_GEN } from '../../save/SaveManager';
 import { maxDurability } from '../../tools/durability';
 import { setChestLidless } from '../../world/render/looks/chestLooks';
@@ -47,15 +47,16 @@ export function wireMine(deps: WiredDuo) {
   let gots: Got[] | null = null;
   let telopItem: ItemId | null = null;
   let openedTier: 1 | 2 | 3 | 4 | null = null;
-  const show = (g: readonly Got[], telop: ItemId | null, tier: 1 | 2 | 3 | 4 | null, gains: readonly HotbarGain[]): void => {
-    const line = chestLogLine(g, nameOf, rarityOf);
+  const show = (g: readonly Got[], telop: ItemId | null, tier: 1 | 2 | 3 | 4 | null, gains: readonly HotbarGain[], who: 1 | 2): void => {
+    const toP1 = chestShowsToP1(who); // 2P が あけた ときの ログ・ホットバーは 1P に 出さない〔テロップ・実績は 世界に 1 つ〕
+    const line = toP1 ? chestLogLine(g, nameOf, rarityOf) : null;
     if (line) {
       let top = g[0]!.item;
       for (const x of g) if (rarityOf(x.item) > rarityOf(top)) top = x.item;
       shared.log.chestGot(line, top); // 履歴と 左の ログに 1 行〔絵は いちばん めずらしい 中身〕
     }
     // ホットバーの「ぽん」と「+N」: ふえた マスは あけた コマで 取って ある〔いまは もう 描きなおし ずみ〕
-    hotbar.popSlots(gains, (item) => g.reduce((n, x) => (x.item === item ? n + x.put : n), 0));
+    if (toP1) hotbar.popSlots(gains, (item) => g.reduce((n, x) => (x.item === item ? n + x.put : n), 0));
     for (const x of g) {
       if (x.put <= 0) continue;
       achievements.feedCraft([{ type: 'pickup', tick: game.tick, item: x.item, count: x.put }]); // 「はじめて ◯◯ を てにいれた！」
@@ -152,7 +153,7 @@ export function wireMine(deps: WiredDuo) {
       if (reducedMotionMq?.matches) {
         // 「うごきを へらす」: ふたは すぐ あいた 形。光の 柱だけ 出す
         lidFx.startStill(at.main, at.tier, at.front, rarity);
-        show(got, telop, tier, gains);
+        show(got, telop, tier, gains, who);
         return;
       }
       for (const c of at.cells) setChestLidless(c.x, c.y, c.z, true);
@@ -169,7 +170,7 @@ export function wireMine(deps: WiredDuo) {
           world.setBlock(c.x, c.y, c.z, 'air'); // 同じ ブロックでは 作りなおしに ならない ので 1 回 空気を はさむ
           world.setBlock(c.x, c.y, c.z, id);
         }
-        show(got, telop, tier, gains); // ふたが あいた あと〔0.46 秒〕に ログ・テロップ・実績
+        show(got, telop, tier, gains, who); // ふたが あいた あと〔0.46 秒〕に ログ・テロップ・実績
       };
       lidFx.start(at.main, at.tier, at.front, rarity, finish);
     },
