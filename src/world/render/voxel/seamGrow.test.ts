@@ -100,7 +100,7 @@ function meshOf(w: ArrayVoxelWorld, sx: number, sy: number, sz: number): Section
 
 describe('つぎ目の広げ（#147）', () => {
   it('画面 1 画素ぶん出す。固定の 0.03 小ブロックは、洞くつの壁の距離では 1 画素に届かない', () => {
-    expect(SEAM_PX).toBe(1);
+    expect(SEAM_PX).toBe(0.5);
     expect(seamGrowLocal(0)).toBe(SEAM_CLAMP);
     const near = faceOnPixels(2, 720);
     expect(seamGrowLocal(near)).toBeCloseTo(SEAM_PX / near, 6);
@@ -117,7 +117,7 @@ describe('つぎ目の広げ（#147）', () => {
       for (const viewH of [720, 1080, 1440]) {
         for (const foreshorten of [1, Math.SQRT1_2]) {
           const ppm = faceOnPixels(distance, viewH, foreshorten);
-          expect(seamOverlapPx(ppm), `d=${distance} H=${viewH} f=${foreshorten.toFixed(2)} ppm=${ppm.toFixed(2)}`).toBeGreaterThanOrEqual(1);
+          expect(seamOverlapPx(ppm) + 1e-9, `d=${distance} H=${viewH} f=${foreshorten.toFixed(2)} ppm=${ppm.toFixed(2)}`).toBeGreaterThanOrEqual(1);
         }
       }
     }

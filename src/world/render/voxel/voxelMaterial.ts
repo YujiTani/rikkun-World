@@ -67,7 +67,7 @@ ${seamAxisGlsl()}`;
 const VERT_BODY = `
 {
   int f = int(aData.w + 0.5);
-  // 面を、その場所の画面で約 1 画素だけ外へ出す（T 字の 1 画素の透け。#147）。色と AO は広げる前の位置
+  // 面を、その場所の画面で片面 0.5 画素外へ出す（T 字の透け。両側で 1 画素。#147）。色と AO は広げる前の位置
   float cb = aData.z + 0.5;
   vec3 corner = vec3(mod(floor(cb), 2.0), mod(floor(cb / 2.0), 2.0), mod(floor(cb / 4.0), 2.0)) * 2.0 - 1.0;
   vec3 tangent = corner * (vec3(1.0) - abs(NRM[f]));
