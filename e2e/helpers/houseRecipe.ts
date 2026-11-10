@@ -93,8 +93,8 @@ const PLACE = {
 } as const;
 /** ポップアップの 1 行に ならぶ 数の 上限（仕様 §2.3） */
 const ROW_MAX = 5;
-/** 名前の ヘルプの 外わく（仕様 §3.2）: しゅるい 1 行 44・ばしょ 2 行 76（漢字の ふりがな こみで ＋12 まで）。画面の ふちの あき */
-const TIP = { h1: 44, h2: 76, ruby: 12, margin: [16, 24, 32], near: 100 } as const;
+/** 名前の ヘルプの 外わく（仕様 §3.2）: しゅるい 1 行 44・ばしょ 2 行 76（漢字の ふりがな こみで ＋12 まで）。画面の ふちの あき。near ＝ カーソルから ふきだしの 外わくまで この px 以内（カーソルの 近く。ずらし 幅は developer） */
+const TIP = { h1: 44, h2: 76, ruby: 12, margin: [16, 24, 32], near: 48 } as const;
 
 /** ぜんぶ おぼえた 世界で、いちばん 多い 形の 画面を 出す（AC9）。popup ＝ やねの ポップアップ（4 行）、popupDeco ＝ かざりの ポップアップ（名前が いちばん 長い） */
 export async function openRecipeScreen(page: Page, kind: RecipeScreen): Promise<void> {
@@ -196,7 +196,8 @@ async function wrapped(page: Page, ids: string[]): Promise<string[]> {
 }
 
 /**
- * 名前の ヘルプ（AC9）: ボタン anchorId に 実際の マウスを のせて 14 コマ 進め、画面の 外へ 出ない・マウス〔ボタン〕の 近く・字 24px 以上・押せない・行の 数が 合う、を 見る。
+ * 名前の ヘルプ（AC9）: ボタン anchorId に 実際の マウスを のせて〔ボタンの まん中〕14 コマ 進め、画面の 外へ 出ない・カーソルの 近く・カーソルの 先を かくさない・字 24px 以上・押せない・行の 数が 合う、を 見る。
+ * マウスに ついて うごく ことは e2e/house2.spec.ts（AC9b）で 見る。
  * 左右は 画面の ふち（16・24・32）で 止める
  */
 async function tipIssues(page: Page, anchorId: string, place: boolean, c: 0 | 1 | 2): Promise<{ target: string; detail: string }[]> {
@@ -242,14 +243,14 @@ async function tipIssues(page: Page, anchorId: string, place: boolean, c: 0 | 1 
   if (r.pe !== 'none') out.push({ target: label, detail: `pointer-events が ${r.pe}（押せない 物。マウスを 通す）` });
   const m = TIP.margin[c];
   if (t.l < m - 1.5 || t.r > r.W - m + 1.5 || t.t < -0.5 || t.b > r.H + 0.5) out.push({ target: label, detail: `画面の 外に 近すぎる／出る（x ${t.l.toFixed(1)}〜${t.r.toFixed(1)}・y ${t.t.toFixed(1)}〜${t.b.toFixed(1)}、画面 ${r.W}×${r.H}、ふち ${m}px）` });
-  // 置き場所: マウス〔ボタンの まん中〕の 近く。仕様 §2.3 は「ボタンに 合わせて 固定・上 8」、チケットの PO の 答え 13 は「カーソルの 近く〔ついて 動く〕」で 食い違う
-  // ので、どちらでも 通る 形（マウスから ふきだしの 外わくまで NEAR px 以内。ボタンの 上に かぶっても 押せない ので よい）だけを 見る。決まったら ここを きびしく する
+  // 置き場所: カーソルの 近く（マウスに ついて うごく。仕様 3.2.1 §2.3・§3.2・PO の 答え その 2 の 13）。マウスは ボタンの まん中
   const cx = (a.l + a.r) / 2;
   const cy = (a.t + a.b) / 2;
   const dx = Math.max(t.l - cx, 0, cx - t.r);
   const dy = Math.max(t.t - cy, 0, cy - t.b);
   const dist = Math.hypot(dx, dy);
-  if (dist > TIP.near) out.push({ target: label, detail: `マウスから ${dist.toFixed(1)}px 離れて いる（${TIP.near}px 以内。カーソル〔のせた ボタン〕の 近く）` });
+  if (cx > t.l + 0.5 && cx < t.r - 0.5 && cy > t.t + 0.5 && cy < t.b - 0.5) out.push({ target: label, detail: `カーソルの 先（${cx.toFixed(1)},${cy.toFixed(1)}）を ふきだしが かくして いる` });
+  if (dist > TIP.near) out.push({ target: label, detail: `マウスから ${dist.toFixed(1)}px 離れて いる（${TIP.near}px 以内。カーソルの 近く）` });
   if (r.text && tip && r.text !== tip.lines.join('').replace(/\s+/g, '')) out.push({ target: label, detail: `画面の 字「${r.text}」が hoverTip の 字「${tip.lines.join('')}」と ちがう` });
   return out;
 }

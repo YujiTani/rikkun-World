@@ -36,9 +36,10 @@ interface ShaftInfo {
 
 const squash = (s: string): string => s.replace(/\s+/g, '');
 
-/** 名前の ヘルプ（editor-hover-tip）が マウスの 近くに 出て、画面の 外へ 出ない・マウスを じゃましない（仕様 §2.3・§3.2。数の 細部は UI 検査〔AC9〕） */
-async function expectTipNear(page: Page, id: string): Promise<void> {
-  const r = await page.evaluate((id) => {
+type Box = { l: number; t: number; r: number; b: number };
+/** 見えて いる 名前の ヘルプ（editor-hover-tip）の 外わく・pointer-events と、ボタン id の 外わく */
+async function tipBoxes(page: Page, id: string): Promise<{ tip: Box | null; pe: string; btn: Box | null; W: number; H: number }> {
+  return page.evaluate((id) => {
     const rect = (el: Element | null) => {
       if (!el) return null;
       const b = el.getBoundingClientRect();
@@ -47,17 +48,44 @@ async function expectTipNear(page: Page, id: string): Promise<void> {
     const tip = Array.from(document.querySelectorAll('[data-testid="editor-hover-tip"]')).find((e) => e.getBoundingClientRect().width > 0) ?? null;
     return { tip: rect(tip), pe: tip ? getComputedStyle(tip).pointerEvents : '', btn: rect(document.querySelector(`[data-testid="house-btn-${id}"]`)), W: innerWidth, H: innerHeight };
   }, id);
+}
+/** マウスの 点（mx, my）から ふきだしの 外わくまでの きょり（中に あれば 0） */
+const distTo = (t: Box, mx: number, my: number): number => Math.hypot(Math.max(t.l - mx, 0, mx - t.r), Math.max(t.t - my, 0, my - t.b));
+/** カーソルの 先（mx, my）が ふきだしの 中に かくれて いない */
+const covers = (t: Box, mx: number, my: number): boolean => mx > t.l + 0.5 && mx < t.r - 0.5 && my > t.t + 0.5 && my < t.b - 0.5;
+/** カーソルの 近く: ふきだしの 外わくまで この px 以内（ずらし 幅は developer。共通の ツールチップ placeNear は 18・12） */
+const TIP_NEAR = 48;
+
+/**
+ * 名前の ヘルプ（editor-hover-tip）が カーソルの 近くに 出て、マウスに ついて うごく（仕様 3.2.1 §2.3・§3.2・PO の 答え その 2 の 13）。
+ * 画面の 外へ 出ない・押せない・カーソルの 先を かくさない。同じ ボタンの 上で マウスを 下へ うごかすと、ヘルプは 待ちなおさず 同じだけ 下へ うごく。
+ * マウスは ボタンの まん中に のって いる こと（Playwright の hover() の あと）。おわると マウスは ボタンの まん中に もどす。数の 細部は UI 検査（AC9）。
+ */
+async function expectTipNear(page: Page, id: string): Promise<void> {
+  const r = await tipBoxes(page, id);
   expect(r.tip, 'editor-hover-tip が 見える').not.toBeNull();
   expect(r.btn, 'のせた ボタンが 見える').not.toBeNull();
   const t = r.tip!;
   const b = r.btn!;
   expect(r.pe, '押せない 物（マウスを 通す）').toBe('none');
   expect(t.l >= -0.5 && t.t >= -0.5 && t.r <= r.W + 0.5 && t.b <= r.H + 0.5, `画面の 外へ 出ない（${JSON.stringify(t)}）`).toBe(true);
-  // 仕様 §2.3（ボタンに 固定・上 8）と PO の 答え 13（カーソルの 近く）が 食い違う ので、マウス〔ボタンの まん中〕から 100px 以内、だけを 見る
   const cx = (b.l + b.r) / 2;
   const cy = (b.t + b.b) / 2;
-  const dist = Math.hypot(Math.max(t.l - cx, 0, cx - t.r), Math.max(t.t - cy, 0, cy - t.b));
-  expect(dist, `マウスの 近く（${dist.toFixed(1)}px）`).toBeLessThanOrEqual(100);
+  const d0 = distTo(t, cx, cy);
+  expect(d0, `カーソルの 近く（${d0.toFixed(1)}px）`).toBeLessThanOrEqual(TIP_NEAR);
+  expect(covers(t, cx, cy), `カーソルの 先を かくさない（${JSON.stringify(t)}・マウス ${cx.toFixed(1)},${cy.toFixed(1)}）`).toBe(false);
+  // マウスに ついて うごく: 同じ ボタンの 中で 下へ dy うごかす（ボタンは 56px 以上 ＝ まん中から 10px は ボタンの 中）
+  const dy = 10;
+  await page.mouse.move(cx, cy + dy);
+  await stepUi(page, 1);
+  expect((await recipeEd(page)).hoverTip?.id, '同じ ボタンの 中で うごかしても ヘルプは 出た まま（待ちなおさない）').toBe(id);
+  const t1 = (await tipBoxes(page, id)).tip;
+  expect(t1, 'うごかした あとも 見える').not.toBeNull();
+  expect(t1!.t - t.t, `マウスに ついて 下へ ${dy}px うごく（固定 では ない）`).toBeCloseTo(dy, 0);
+  expect(t1!.l - t.l, 'よこには うごかない').toBeCloseTo(0, 0);
+  expect(covers(t1!, cx, cy + dy), 'うごかした あとも カーソルの 先を かくさない').toBe(false);
+  await page.mouse.move(cx, cy);
+  await stepUi(page, 1);
 }
 const SHOTS = 'test-shots/HOUSE-2A';
 
