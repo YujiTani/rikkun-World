@@ -20,7 +20,7 @@ import { parryGlowLevel } from '../../combat/parry';
 import { FX_SETTINGS } from '../../fx/config';
 import { createRng } from '../../world/gen/random';
 import type { DuoHud } from '../../ui/duoHud';
-import type { LockStatus, Inventory, Vec3 } from '../../contracts';
+import type { LockStatus, Inventory, ItemId, Vec3 } from '../../contracts';
 import type { GetaPlayer } from '../../craft/geta';
 import type { BladeSystem, CraftSystem } from '../../contracts';
 import { bindWho } from '../../duo/credit';
@@ -33,6 +33,7 @@ import { createP2Partner } from '../../duo/p2Partner';
 import { p2SpeedMul } from '../../duo/p2Legend';
 import { createP2Parry, type P2Parry } from '../../duo/p2Parry';
 import { createP2Wear } from '../../duo/p2Wear';
+import { createP2Feed, type P2Feed } from '../../duo/p2Feed';
 import { createP2Sounds, type P2Sounds } from '../../duo/p2Sounds';
 import { P2Life } from '../../duo/p2Life';
 import { sampleStacks } from '../../duo/sample';
@@ -74,7 +75,7 @@ export interface DuoPlayCtx {
   openFurnace: (x: number, y: number, z: number) => void;
   openTansu: (x: number, y: number, z: number) => void;
   /** COOP-1 4c: 2P の つくる（2P が かまどを こわした とき 中身は こわした 人 = 2P の もちものへ。参加している あいだだけ 呼ぶ） */
-  craft2: () => Pick<CraftSystem, 'furnaceBroken'>;
+  craft2: () => Pick<CraftSystem, 'furnaceBroken'> & { notifyPickup(item: ItemId, count: number): void };
 }
 
 /** 参加の あいだ だけ ある 一式 */
@@ -105,6 +106,8 @@ interface Live {
   gasha: P2GashaPort;
   /** COOP-1 4d-2: 2P の レジェンダリーの わざ（1P と 同じ 部品の 2 つ目）と その 絵 */
   legend: DuoLegend;
+  /** COOP-1 5b: 2P の 出来事を 実績へ（共有） */
+  feed: P2Feed;
 }
 
 /** 2P の パリィの 火花を 出す 刀の まん中（毎回 同じ 入れものに 書く） */
@@ -121,7 +124,7 @@ function handAt(p: Vec3): Vec3 {
 
 export function wireDuoPlay(c: DuoPlayCtx) {
   const { deps, ui } = c;
-  const { shared, game, world, controller, w2, seed, toolConfig, digCfg, drops, fxSound, craft, storage, dig: dig1, combat: combat1, weaponFx, kodachiFx } = deps;
+  const { shared, game, world, controller, w2, seed, toolConfig, digCfg, drops, fxSound, craft, storage, dig: dig1, combat: combat1, weaponFx, kodachiFx, achievements } = deps;
   const p2 = shared.p2;
   // 2P の そうびの たいきゅうの 設定と 時計を 本物に（1P の armor と 同じ。COOP-1 4b）
   shared.p2Wear.settings = () => w2;
@@ -140,6 +143,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
   shared.p2LoadReset = () => live?.kodachi.clear(); // セーブを 読んだ とき 前の 世界の 妖怪 id に 追い打ちが 当たらない ように
   shared.p2LevelUp = () => live?.life.fill();
   shared.p2Hp = () => live?.life.hp ?? 0;
+  shared.p2Down = () => live?.life.down ?? false;
   shared.p2Gasha = () => live?.gasha ?? null;
   // COOP-1 4d-2: その人の わざ（1P は 今の legend。2P が いなければ who 2 は null）
   shared.legendFor = (who) => pickLegend(who, live !== null, deps.legend, live?.legend.p2.legend ?? null);
@@ -149,6 +153,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
 
   function build(): Live {
     const ctl = c.ctl2();
+    const feed = createP2Feed(achievements); // COOP-1 5b: 2P の 出来事を 実績へ（実績は 2 人で 共有）
     let y2: ReturnType<typeof bindWho> | null = null;
     const yokai2 = () => (y2 ??= bindWho(shared.yokaiManager!, 2));
     const tools = new ToolSystemImpl({ inventory: p2.inventory, world, player: () => ctl.state, yokai: yokai2, base: { dig: digCfg, combat: createCombatConfig() }, config: toolConfig, settings: w2 });
@@ -240,6 +245,12 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       onOpenTansu: (x, y, z) => {
         if (mayOpenInv()) c.openTansu(x, y, z);
       },
+      // COOP-1 5b: 1P と 同じ 口を 2P にも（実績 obtain:*・はらぱんみみず・ZL で 着る・建築中の 家の 守り・宝箱）。守りと くじは 1 つを 2 人で
+      onPickup: (item, count) => c.craft2().notifyPickup(item, count),
+      armor: p2.armor,
+      chestPort: { open: (x, y, z, who) => dig1.chestPort?.open(x, y, z, who) },
+      ...(shared.harapanPort ? { harapan: shared.harapanPort } : {}),
+      ...(shared.buildPort ? { build: shared.buildPort } : {}),
       gate: combat,
       config: digCfg,
       rng: createRng(20240602),
@@ -259,7 +270,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         nowTick: () => game.tick,
       },
     });
-    const fx = createP2DigFx({ scene: game.scene as THREE.Scene, dig, sound: fxSound, hideBlockFocus: () => dig.aimedYokaiId() !== null });
+    const fx = createP2DigFx({ scene: game.scene as THREE.Scene, dig, sound: fxSound, hideBlockFocus: () => dig.aimedYokaiId() !== null, events: feed.tapDig(() => dig.drainEvents()) });
     const mate = {
       get position() {
         return ctl.state.position;
@@ -281,6 +292,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       nameOf: (item) => itemType(item)?.name ?? item,
       handPos: () => handAt(ctl.state.position),
       burst: (at, item) => weaponFx.breakShards(at, item),
+      onEvents: feed.wear,
     });
     const kodachi = createP2Kodachi({
       armor: p2.armor,
@@ -309,7 +321,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       shake: (a) => { if (FX_SETTINGS.fxShake) shared.duoCamFx(2).addTrauma(a); },
       shakeTo: (l) => { const fx = shared.duoCamFx(2), d = l - fx.trauma(); if (d > 0 && FX_SETTINGS.fxShake) fx.addTrauma(d); },
     };
-    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, gasha, legend };
+    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, gasha, legend, feed };
   }
 
   /** 2P の 足音。1P の step.ts と 同じ 決まり: 遊び画面が 開いて いない・やられて いない・ひるんで いない ときだけ 歩く */
@@ -369,13 +381,16 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     // 2P の 音（1P と 同じ 音・同じ 大きさ。距離で 小さく しない。COOP-1 3c）。出来事は 毎ステップ 取り出す（たまり続けない ように）
     const combatEvents = l.combat.drainEvents();
     l.sounds.combat(combatEvents);
+    l.feed.combat(combatEvents);
     l.kodachi.combat(combatEvents);
     l.combat.takeHookEvents();
     l.sounds.swings(l.tools.drainSwings(), p2.inventory.held()?.item ?? null);
     const arrowEvents = l.tools.drainArrowEvents();
     l.sounds.arrows(arrowEvents);
+    l.feed.arrows(arrowEvents);
     const bladeEvents = l.blade.drainEvents();
     l.sounds.blade(bladeEvents);
+    l.feed.blade(bladeEvents);
     l.kodachi.blade(bladeEvents);
     l.legend.slash(bladeEvents); // 虹の 刀の 斬撃は 2P 用の 絵へ（1P の 絵には 入れない）
     // 2P の 当たりの 手ごたえ（止め・ゆれ）は 2P の 半分の カメラだけ（COOP-1 4d-0。出す のは wire/duo.ts が この あと flush）

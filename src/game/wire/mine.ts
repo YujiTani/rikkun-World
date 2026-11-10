@@ -6,6 +6,7 @@ import { RARITY_ORDER } from '../../drops/rarity';
 import { ChestLidFx } from '../../fx/chestLidFx';
 import { CHEST_SOUNDS } from '../../fx/chestSounds';
 import { itemType } from '../../inventory/items';
+import { createChestHands, createChestRouter } from '../../duo/p2Chest';
 import { BOKEN_GEN, KODO_GEN } from '../../save/SaveManager';
 import { maxDurability } from '../../tools/durability';
 import { setChestLidless } from '../../world/render/looks/chestLooks';
@@ -63,6 +64,22 @@ export function wireMine(deps: WiredDuo) {
     if (tier) achievements.feedMine([{ type: 'chestOpen', tick: game.tick, tier }]);
   };
 
+  // COOP-1 5b: 宝箱の 中身・あふれた 分・ひとことは あけた 人（1 = 1P・2 = 2P）に 合わせて 切りかえる
+  const router = createChestRouter({
+    hands: createChestHands({
+      inventory: (who) => (who === 1 ? inventory : (shared.duoMate()?.inventory ?? null)),
+      feet: (who) => (who === 1 ? controller.state.position : (shared.duoMate()?.position ?? null)),
+      scatter: (at, item, count) => {
+        drops.scatter({ x: at.x, y: at.y + CHEST_DROP_RISE, z: at.z }, [{ item, count }], CHEST_SCATTER);
+      },
+    }),
+    say: (text) => {
+      shared.log.chestSay(text); // 履歴
+      shared.skipSignalLog = true; // 履歴は 上で 入れた ので 合図の 履歴は 足さない
+      notice.showSignal('chestEmpty'); // 画面にも 字で〔「もちものが いっぱい！」と 同じ 出し方〕
+      shared.skipSignalLog = false;
+    },
+  });
   const mine = createMineHook({
     seed,
     shafts,
@@ -76,20 +93,12 @@ export function wireMine(deps: WiredDuo) {
     tansuHas: (x, y, z) => storage.has(x, y, z), // MINE-1E: 記録が ある たんすは キャンプの 予告を 出さない
     chest: {
       add: (item, count) => {
-        const rest = inventory.add(item, count);
+        const rest = router.add(item, count);
         gots?.push({ item, count, put: count - rest });
         return rest;
       },
-      drop: (item, count) => {
-        const p = controller.state.position;
-        drops.scatter({ x: p.x, y: p.y + CHEST_DROP_RISE, z: p.z }, [{ item, count }], CHEST_SCATTER);
-      },
-      say: (text) => {
-        shared.log.chestSay(text); // 履歴
-        shared.skipSignalLog = true; // 履歴は 上で 入れた ので 合図の 履歴は 足さない
-        notice.showSignal('chestEmpty'); // 画面にも 字で〔「もちものが いっぱい！」と 同じ 出し方〕
-        shared.skipSignalLog = false;
-      },
+      drop: (item, count) => router.drop(item, count),
+      say: (text) => router.say(text),
       telop: (item) => {
         telopItem = item;
       },
@@ -114,25 +123,24 @@ export function wireMine(deps: WiredDuo) {
 
   const lidFx = new ChestLidFx(game.scene, (x, y, z) => renderer.light.brightness(x, y, z));
   game.onUpdate(() => lidFx.step());
-  /** ふたが 動いて いる 宝箱の 本体の マス〔もう 1 回 右クリックしても 何も しない〕 */
-  const busy = new Set<string>();
+  /** ふたが 動いて いる 宝箱の 本体の マス〔もう 1 回 右クリックしても 何も しない。2 人で 1 つ〕 */
+  const busy = router.busy;
   // 動きの 途中で ページを 閉じると「見せる」物と 実績は 出ない〔中身は もう 持ち物に ある〕
   dig.chestPort = {
-    // who ＝ あける 人。今は いつも 1P〔0〕。2P の 右クリックは COOP-1 作業 3 で
-    open: (x, y, z, who = 0) => {
-      void who;
+    // who ＝ あける 人（1 = 1P・2 = 2P）。中身・あふれ・ひとことだけ 人に 合わせる。ふた・実績・見せる 物は 世界に 1 つ
+    open: (x, y, z, who) => {
       const at = mine.chestAt(x, y, z);
       if (!at) return;
       const key = `${at.main.x},${at.main.y},${at.main.z}`;
       if (busy.has(key)) return; // ふたが 動いて いる 間は 何も しない
       if (at.opened) {
-        mine.open(x, y, z); // ログ「からっぽ だよ」
+        router.run(who, () => mine.open(x, y, z)); // ログ「からっぽ だよ」〔2P が あけた ときは 出さない〕
         return;
       }
       gots = [];
       telopItem = null;
       openedTier = null;
-      mine.open(x, y, z); // ブロックは すぐ あいた 形。中身は ここで 持ち物へ
+      router.run(who, () => mine.open(x, y, z)); // ブロックは すぐ あいた 形。中身は ここで あけた 人の 持ち物へ
       const got = gots;
       const telop = telopItem;
       const tier = openedTier;

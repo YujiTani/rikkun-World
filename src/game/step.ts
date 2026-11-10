@@ -26,6 +26,7 @@ import { waterSettings, waterWaveUniforms } from '../world/render/waterWave';
 import { NO_DIG, NO_SWINGS, IDLE_THUNDER_LOOK, NO_PLATES } from './wire/shared';
 import type { WiredFrame } from './wire/save';
 import { createFootsteps } from '../fx/footsteps';
+import { feedArrowEvents } from '../duo/p2Feed';
 
 export function createStep(deps: WiredFrame): (dt: number) => void {
   const footsteps = createFootsteps(deps.fxSound);
@@ -272,9 +273,9 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       else if (e.type === 'arrowHit') {
         impactBus.hit(impactOf({ kind: 'arrow', title: titleOfYokai(e.yokaiId) }));
         playCombat(fxSound, 'hit');
-        achievements.feedArrow('hit');
-      } else if (e.type === 'arrowShot') achievements.feedArrow('shot');
+      }
     }
+    feedArrowEvents(achievements, arrowEvents); // 矢を うった／当てた（2P も 同じ 関数。COOP-1 5b）
     // NINJA-1: 追い打ちの 出来事（kodachiHit）は テストの 窓口 `combat.events()` へ
     { const ke = kodachi.drainEvents(); if (ke.length > 0) kodachiHookBuf.push(...ke); }
     const combatEvents = combat.drainEvents();
