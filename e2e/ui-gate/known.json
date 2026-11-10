@@ -25,6 +25,8 @@
     "craft-detail | parts | button.rk-tab「じっせき」",
     "craft-detail | parts | div.wear-gauge",
     "craft-detail | parts | div.wear-gauge__fill",
+    "duo-farm | color | div.water-gauge",
+    "duo-farm | parts | i.farm-aim__dot",
     "duo-flash-p1 | color | div.aim-stance__line",
     "duo-flash-p1 | color | div.aim-stance__line.on",
     "duo-flash-p1 | parts | div#aim-stance",
