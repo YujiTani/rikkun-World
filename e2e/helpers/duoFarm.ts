@@ -41,6 +41,30 @@ export async function startDuoFarm(page: Page): Promise<void> {
 }
 
 /**
+ * 1P を、マス cell の 高さ top（0〜1。0.5 = 横の まんなか）に ねらわせる。
+ * 1P の ねらいの 線は 目では なく 肩の 点 S（`camera.get().shoulder`。右へ ずれ、向きで うごく）から 出る ので、
+ * `duo.aimAt(1, …)`（目から 計算）では ずれて 当たらない。2P は 目から なので `duo.aimAt(2, …)` で よい。
+ * S から 向きを 求め、ステップを 進めて S を 取りなおす のを くりかえす（数回で そろう）。
+ */
+async function aimFromShoulder1(page: Page, cell: DuoVec3, top: number): Promise<void> {
+  await page.evaluate(
+    ({ cell, top }) => {
+      const h = (window as any).__rikkun;
+      for (let i = 0; i < 6; i++) {
+        const s = h.camera.get().shoulder as DuoVec3;
+        const dx = cell.x + 0.5 - s.x;
+        const dy = cell.y + top - s.y;
+        const dz = cell.z + 0.5 - s.z;
+        h.player.set({ yaw: (Math.atan2(dx, -dz) * 180) / Math.PI, pitch: (Math.atan2(dy, Math.hypot(dx, dz)) * 180) / Math.PI });
+        h.step(1);
+      }
+      h.step(1);
+    },
+    { cell, top },
+  );
+}
+
+/**
  * その人の 前（+x に 2 マス）に はたけと 作物を 1 つ 作り、その人が ねらう。作物の マスを 返す。
  * 作物の マスは 目の 高さ（足もとの 1 つ 上）。はたけは その 下。まわりは 空気（ねらいが 作物に 当たる ように）。
  */
@@ -55,12 +79,15 @@ export async function placeCrop(page: Page, who: 1 | 2, o: { kind?: CropKind; st
       if (!h.farm.till(c.x, c.y - 1, c.z)) throw new Error('はたけに できなかった');
       if (!h.farm.plant(c.x, c.y - 1, c.z, kind)) throw new Error('作物を まけなかった');
       if (!h.farm.setStage(c.x, c.y, c.z, stage)) throw new Error('段を かえられなかった');
-      h.duo.aimAt(who, c);
-      h.step(2);
+      if (who === 2) {
+        h.duo.aimAt(2, c);
+        h.step(2);
+      }
       return c;
     },
     { who, kind: o.kind ?? 'tomato', stage: o.stage ?? 3 },
   );
+  if (who === 1) await aimFromShoulder1(page, cell, 0.5);
   const t = await page.evaluate((who) => (window as any).__rikkun.duo.target(who) as { block: DuoVec3; id: string } | null, who);
   if (!t || JSON.stringify(t.block) !== JSON.stringify(cell)) throw new Error(`${who}P が 作物を ねらえて いない（${JSON.stringify(t)}・${JSON.stringify(cell)}）`);
   return cell;
@@ -113,16 +140,17 @@ export async function openDuoFarm(page: Page): Promise<void> {
   await installFakePads(page, 2);
   const c1 = await placeCrop(page, 1);
   await placeCrop(page, 2);
-  await page.evaluate((c) => {
+  await aimFromShoulder1(page, { x: c1.x, y: c1.y - 1, z: c1.z }, 0.5); // 1P は はたけ（作物の した）を ねらう（バケツの 合図は 畑の 上で 出る。ユニットの AC121 と そろえる）
+  const soil = await page.evaluate(() => (window as any).__rikkun.duo.target(1)?.block ?? null);
+  if (JSON.stringify(soil) !== JSON.stringify({ x: c1.x, y: c1.y - 1, z: c1.z })) throw new Error(`1P が はたけを ねらえて いない（${JSON.stringify(soil)}・${JSON.stringify(c1)}）`);
+  await page.evaluate(() => {
     const h = (window as any).__rikkun;
-    h.duo.aimAt(1, { x: c.x, y: c.y - 1, z: c.z }); // 1P は はたけの 上を ねらう（バケツの 合図は 畑の 上で 出る。ユニットの AC121 と そろえる）
-    h.step(2);
     h.duo.give(1, 'bucket', 1);
     h.duo.give(2, 'watering_can', 1);
     h.input.press('secondary');
     h.input.release('secondary');
     h.step(3);
-  }, c1);
+  });
   await tapPad(page, PAD_ZL);
   await stepN(page, 3);
 }
