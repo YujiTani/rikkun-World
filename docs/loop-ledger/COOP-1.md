@@ -85,3 +85,16 @@
 | 5a-test | dev | code-reviewer (Opus) | 【軽微】AC129 の「とった やさいの はじめて てにいれた」の もと（2P の onPickup）が 見て いない → p2Farm.test.ts に onPickup が とった やさいで 呼ばれる 行（1P と 同じ 品・数） | 基準の 抜け | | 済 |
 | 5a-test | dev | code-reviewer (Opus) | 【軽微】e2e/duoFarm.spec.ts: dots の 4 決め打ち・2P の 合図が 120 ステップ あとに 消える 行が ない → 1P に 同じ マスを ねらわせた farm.hud() と くらべ、合図は FARM_HINT_STEPS で 消える ことを 足した | 決め打ち | | 済 |
 | 5a-test | dev | code-reviewer (Opus) | 【軽微】openDuoFarm の 1P の バケツ: 作物を ねらう 形で bucket の 合図が 出るか 不明 → 1P は はたけの 上を ねらう 形に した（ユニット AC121 と そろえた） | 場面の とり方 | | 済 |
+| 5b-test | test | code-reviewer | 【重大】宝箱の who の 数え方が 0|1 で ほかの who（1|2）と ちがう（chestPort.open・DigSystemImpl.chestWho・createChestHands）。1|2 に そろえ、既定なし、chestWho は 1P が 1・createP2Dig が 2。「知らない who」は 型で 通さない | 型の そろえ | | 済 |
+| 5b-test | test | code-reviewer | 【軽微】AchievementSystem.feedBlade の comboHit が 1 つ で 1P と 2P の 3 段コンボが まざる。人ごとに もつ（feedBlade(events, who: 1|2 = 1)）。まざって 打つ テストを 足した | 1 人分の 状態 | | 済 |
+| 5b-test | test | code-reviewer | 【軽微】p2Feed.test.ts「2P の つくる の pickup 出来事を feedCraft へ」が 同じ feedCraft を 2 回 呼ぶ だけ。2P の notifyPickup → p2Craft.step → feedCraft の 道に 直した | 確かめが 空 | | 済 |
+| 5b-test | test | code-reviewer | 【軽微】AC148 の 宝箱の 配線（mine.ts の open）が ユニットに ない。createChestRouter（run・add・drop・say・busy）を 約束にして ユニット 4 本 | 配線の 抜け | | 済 |
+| 5b-test | test | code-reviewer | 【軽微】createDropPicked の 順番が 今の 1P（ui.ts:181）と ちがう。妖怪のたね → notifyPickup → ホットバー に そろえた | 順番 | | 済 |
+| 5b-test | test | code-reviewer | 【軽微】PlaceWatch: 今の save.ts は 最下の へやの ふるいを st.position.y（+0.1 なし）で する。bottom に y+0.1 を 渡す なら bottom の 中で y-0.1 基準に もどす と 約束に 書いた | 判定の ずれ | | 済 |
+| 5b-test | test | code-reviewer | 【軽微】createBuildPort/createHarapanPort（combat.ts）を duoPlay.ts から import すると 輪の おそれ。shared か 引数で わたす と 約束に 書いた | import の 輪 | | 済 |
+| 5b-test | test | code-reviewer | 【PO 決め】2P が「からっぽ」「いっぱい」の 宝箱を あけた ときの chest.say は 1P の ログ・画面に 出さない（仕様 §3.7 に 1 行。createChestRouter.say が who 2 では 呼ばない ユニット） | 2P の ログは 出さない | | 済 |
+| 5b-impl | dev | code-reviewer | 【軽微】mine.ts の show() は who を 見ない ため、2P が あけた 宝箱の 「◯◯ を てにいれた」の 行（shared.log.chestGot）が 1P の ログに 出る（中身は 2P の もちもの）。§13「2P の ログは 出さない」と ずれる 余地。PO 決め（このまま／who 2 では chestGot と hotbar.popSlots を とばす） | 2P の ログ | | 済 |
+| 5b-impl | dev | code-reviewer | 【軽微】DigSystem.ts が 722→724 行（chestWho の 2 行。テストの 約束どおり・800 未満）。これ以上 ふやさない | 行数 | | 済 |
+| 5a-impl | dev | code-reviewer (Opus) | 【軽微】src/fx/farmFx.ts の shiverP2 が src/game/wire/ui.ts で つながっていない（§3.7 (a) 食べるの 行「かびた パンの ぶるっ は 2P の 人形」）。DuoBody（src/duo/body.ts）に ぶるっが ない ので 足すと 5a の 外に ひろがる → AC に ない ので 別 issue（5f-2 か 5b の ついで）に 送り、仕様 §13 に 「5a では まだ」と 書く | 部品の 抜け（2P の 人形） | | 済 |
+| 5a-impl | dev | code-reviewer (Opus) | 【軽微】src/ui/duoFarmHud.css・farmAim.css: チップ・しるしの max-width 45vw と 置き場（25%・75%）で、文が 折りかえす ほど 長い とき ちょうど 半分の 5% の 線に 接する（UI 検査の ゆとり 0.5px）。check:ui（CI）で 3 つの 大きさの 結果を 見て、落ちたら max-width を 少し 小さく（例 calc(45vw - 8px)） | ゆとり なし | | 済 |
+| 5a-impl | dev | code-reviewer (Opus) | 【軽微】src/game/wire/duoPlay.ts 522 行（500 目安 こえ）・src/farm/FarmSystem.ts 743 行。5b〜5f で 足す 行は 新しい ファイルへ（duoFarm.ts の 形）。あとに 入る 方が 必要なら 外に 出す | 行数 | | 済 |

@@ -27,6 +27,7 @@ import type { P2GashaPort } from './gashaPeople';
 import type { DuoCamFx } from '../../duo/camFx';
 import type { Parry } from '../../combat/parry';
 import type { P2Parry } from '../../duo/p2Parry';
+import type { DigM4Deps } from '../../dig/digPorts';
 import type { ImpactView } from '../../duo/impactRoute';
 import type { ImpactBus } from '../../fx/impact';
 import type { LegendSystem } from '../../legend/LegendSystem';
@@ -74,6 +75,16 @@ interface Shared {
   p2LevelUp: () => void;
   /** COOP-1 3a: 2P の 今の ハート（たおした ときの 実績の hp 用。wireDuo が 差しかえる） */
   p2Hp: () => number;
+  /** COOP-1 5b（AC132）: 2P が 落とし物を ひろった ときの 知らせ（2P の つくる の notifyPickup。createDuoInventory が 差しかえる） */
+  p2DropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
+  /** COOP-1 5b: 2P が 倒れて いる か（場所の 実績・国の 見はりが 見る。wireDuoPlay が 差しかえる） */
+  p2Down: () => boolean;
+  /** COOP-1 5b: セーブを 読んだ とき 2P の 場所の 見はりを 消す（wireFrame が 差しかえる） */
+  p2PlaceReset: () => void;
+  /** COOP-1 5b: 建築中の 家の 守り・みずもり・どうづき の 口（wireFighters が 作って 1P・2P に 同じ 物を 渡す。duoPlay.ts は combat.ts を import しない） */
+  buildPort: DigM4Deps['build'] | null;
+  /** COOP-1 5b: はらぱんみみず の くじ（1 つの くじを 1P・2P が 引く。wireFighters が 作る） */
+  harapanPort: DigM4Deps['harapan'] | null;
   /** COOP-1: 2 人のときの カメラの 距離（null = 1 人。step.ts が rig に 渡す。wireDuo が 毎ステップ 書く） */
   duoCamDistance: number | null;
   /** COOP-1 4d-0（§8）: その人の カメラの 口（止め・ゆれ・きょり）。wirePlayer が 差しかえる */
@@ -173,9 +184,14 @@ export function createShared(): Shared {
     duoDropMate: () => null,
     duoYokai: () => null,
     p2Delivered: () => {},
+    p2DropPicked: () => {},
     p2LoadReset: () => {},
     p2LevelUp: () => {},
     p2Hp: () => 0,
+    p2Down: () => false,
+    p2PlaceReset: () => {},
+    buildPort: null,
+    harapanPort: null,
     p2Store: { saved: null },
     duoJoined: () => false,
     leaveDuo: () => {},

@@ -5,7 +5,7 @@
  */
 html[data-duo] #farm-hint,
 html[data-duo] #farm-hint-p2 {
-  max-width: 45vw;
+  max-width: calc(45vw - 8px);
 }
 html[data-duo] #farm-hint {
   left: 25%;
@@ -20,5 +20,5 @@ html[data-duo] #farm-aim {
 }
 html[data-duo] #farm-aim-p2 {
   left: 75%;
-  max-width: 45vw;
+  max-width: calc(45vw - 8px);
 }

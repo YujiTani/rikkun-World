@@ -38,6 +38,8 @@ import { ItemDropper, DropController } from '../../storage/ItemDropper';
 import { playStorage } from '../../fx/storageSounds';
 import { LevelSystem } from '../../level';
 import { createRng } from '../../world/gen/random';
+import type { DigM4Deps } from '../../dig/digPorts';
+import type { HarapanRoll } from '../../drops/harapan';
 import { DigSystemImpl } from '../../dig';
 import { createFarmSystem } from '../../farm';
 import { setWaterCapacity } from '../../ui/waterGauge';
@@ -57,6 +59,32 @@ import type { WiredDrops } from './inventory';
 
 const KOGETA = BLOCK_INDEX.kogeta;
 const SIDES: readonly (readonly [number, number])[] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
+/** 家の 守りに 必要な 口（`HouseSystem` が 合う） */
+interface HouseLike {
+  build: { builder: { locked(x: number, y: number, z: number): boolean }; useLevel(x: number, y: number, z: number): unknown; useTamp(x: number, y: number, z: number): unknown };
+}
+
+/**
+ * HOUSE-1C PR-2: 建築中の 場所の 守りと みずもり・どうづき（1P・2P で 同じ 物。COOP-1 5b・AC135）。
+ * 家は あとから 作る ので 関数で 包む。まだ ない（null）ときは 守らず、何も しない
+ */
+export function createBuildPort(house: () => HouseLike | null | undefined): NonNullable<DigM4Deps['build']> {
+  return {
+    locked: (x, y, z) => house()?.build.builder.locked(x, y, z) ?? false,
+    level: (x, y, z) => {
+      house()?.build.useLevel(x, y, z);
+    },
+    tamp: (x, y, z) => {
+      house()?.build.useTamp(x, y, z);
+    },
+  };
+}
+
+/** GOLD-1 §4.7: はらぱんみみず の くじ。1 つの くじを 1P と 2P が 引く（COOP-1 5b・AC133） */
+export function createHarapanPort(roll: Pick<HarapanRoll, 'block'>): NonNullable<DigM4Deps['harapan']> {
+  return (id, y) => roll.block(id, y);
+}
 
 export function wireWeapons(deps: WiredDrops) {
   const {
@@ -375,6 +403,9 @@ export function wireFighters(deps: WiredWeapons) {
   }
   // HOUSE-1D: 家具の はたらき（いす・おふろ・ほんだな）
   const furniture = wireSeat({ game, world, controller, combat, rig, book: deps.book, lock, pointerLock: deps.pointerLock });
+  // COOP-1 5b: 守り・くじは 1P と 2P で 同じ 物（2P の ほる係には shared 経由で わたす。duoPlay.ts は このファイルを import しない）
+  const buildPort = (shared.buildPort = createBuildPort(() => shared.house));
+  const harapanPort = (shared.harapanPort = createHarapanPort(harapanRoll));
   // #293 試作: 体の 上に ブロックを 置く 口（?proto=gashaBig の ときだけ 後から 入る）
   const dig = new DigSystemImpl(
     world,
@@ -413,7 +444,7 @@ export function wireFighters(deps: WiredWeapons) {
       scatterItem: (pos, item, count) => {
         drops.scatter(pos, [{ item, count }]);
       },
-      harapan: (id, y) => harapanRoll.block(id, y),
+      harapan: harapanPort,
       farm,
       water: createWatering({ farm, inventory, settings: m7, tick: () => game.tick }),
       bucket: createBucket({ inventory, emit: (e) => farm.emit(e), tick: () => game.tick, world }),
@@ -429,11 +460,7 @@ export function wireFighters(deps: WiredWeapons) {
         hit: (id) => shared.house?.hit(id),
       },
       // HOUSE-1C PR-2: 建築中の 場所の 守りと みずもり・どうづき（wireHouse で あとから 作る ので 関数で 包む）
-      build: {
-        locked: (x, y, z) => shared.house?.build.builder.locked(x, y, z) ?? false,
-        level: (x, y, z) => shared.house?.build.useLevel(x, y, z),
-        tamp: (x, y, z) => shared.house?.build.useTamp(x, y, z),
-      },
+      build: buildPort,
       live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks, coopCountMax: live.coopCountMax, coopMax: live.coopMax, kitEggMax: live.kitEggMax }),
       emitFarm: (e) => farm.emit(e),
       nowTick: () => game.tick,
