@@ -1,0 +1,17 @@
+{
+  "seed": 20261012,
+  "spawn": { "x": 64, "z": 64, "h": 151 },
+  "note": "スタートから 水平 28 まで小ブロック、28〜48 は箱。列 40。はっぱ 1146、たけ 234。三角形は 決定的。作る時間は 1 回だけ（この環境では ゆれる）。",
+  "sample": {
+    "leaves8": { "current": 436, "shell": 48, "cross": 64 },
+    "bamboo4": { "current": 578, "voxel": 500, "sprite": 132 }
+  },
+  "passes": [
+    { "leaf": "current", "bamboo": "current", "microTris": 1902018, "boxTris": 41698, "microDraws": 135, "boxDraws": 227, "microMs": 3808, "boxMs": 437 },
+    { "leaf": "shell", "bamboo": "current", "microTris": 1870952, "boxTris": 42066, "microDraws": 136, "boxDraws": 228, "microMs": 3657, "boxMs": 395 },
+    { "leaf": "cross", "bamboo": "current", "microTris": 1873410, "boxTris": 44318, "microDraws": 136, "boxDraws": 228, "microMs": 3634, "boxMs": 397 },
+    { "leaf": "none", "bamboo": "current", "microTris": 1868610, "boxTris": 39950, "microDraws": 135, "boxDraws": 227, "microMs": 3668, "boxMs": 398 },
+    { "leaf": "current", "bamboo": "voxel", "microTris": 1901414, "boxTris": 46328, "microDraws": 135, "boxDraws": 227, "microMs": 3792, "boxMs": 413 },
+    { "leaf": "current", "bamboo": "sprite", "microTris": 1895198, "boxTris": 46328, "microDraws": 135, "boxDraws": 227, "microMs": 3778, "boxMs": 405 }
+  ]
+}
