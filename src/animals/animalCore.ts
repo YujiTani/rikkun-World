@@ -7,8 +7,12 @@ import { createRng, type Rng } from '../world/gen/random';
 import { BugNet, EGG_SALT } from './lottery';
 import type { AnimalWorld } from './terrain';
 import { inInterior } from './coop';
-import type { AnimalManagerOptions, Coop, Ent, Kit, LockKind } from './animalTypes';
+import type { AnimalManagerOptions, BugCatch, Coop, Ent, Hand, Kit, LockKind, Who } from './animalTypes';
 import { BREED_SALT, EVENT_CAP, GOLD_SALT, NATSUKI_HINT_GAP, NO_FIGHT, RNG_SALT, STOP_KINDS, STOP_STEP, TAU } from './animalConsts';
+
+function newHand(): Hand {
+  return { carriedId: null, wildAnnounced: false, putWhy: null, targetId: null };
+}
 
 export class AnimalCore {
   readonly settings: LiveSettings;
@@ -17,6 +21,10 @@ export class AnimalCore {
   readonly getPlayer: () => { position: Vec3 };
   /** COOP-1 3a: 仲間（2P）の 足もと（なければ null を 返す） */
   readonly partner: () => { position: Vec3 } | null;
+  /** COOP-1 5c: その人の 足もと（2P が いなければ who 2 は null）。1P は いつも ある */
+  readonly playerOf: (who: Who) => { position: Vec3 } | null;
+  /** いま 口を 呼んで いる 人。出来事に `by: 2` を つけ、入れ先・合図の 行き先を 決める。口の 外では いつも 1 */
+  actor: Who = 1;
   readonly rng: Rng;
   readonly ents: Ent[] = [];
   queue: AnimalEvent[] = [];
@@ -35,7 +43,8 @@ export class AnimalCore {
   readonly fightCands: { id: number; joinNo: number }[] = [];
   spawnTimer = 0;
   hint: AnimalHintKind | null = null;
-  targetId: number | null = null;
+  /** 人ごとの 手（だっこ・ねらい） */
+  readonly hands: [Hand, Hand] = [newHand(), newHand()];
 
   /** 合図 natsukiWait を 最後 に 出した ステップ（600 に 1 回 まで） */
   waitHintAt = -NATSUKI_HINT_GAP;
@@ -46,13 +55,8 @@ export class AnimalCore {
   readonly net: BugNet;
   tick = 0;
 
-  /** とれた むし が 持ち物 に 入る まで の のこり update 回数 */
-  catches: number[] = [];
-
-  carriedId: number | null = null;
-
-  /** やせい を 長おし した とき の carryWild を 1 回 の 押し で 1 回 に する */
-  wildAnnounced = false;
+  /** とれた むし が 持ち物 に 入る まで の のこり update 回数（ふった 人つき） */
+  catches: BugCatch[] = [];
 
   /** 深い 所 で だっこ した ことが ある（`carriedBefore` が 無い とき の かわり） */
   everCarried = false;
@@ -80,9 +84,6 @@ export class AnimalCore {
 
   night = false;
 
-  /** 直前 の putDown が 失敗 して、自分 の 合図 を 出した か */
-  putWhy: AnimalHintKind | null = null;
-
   coopCheckT = 0;
   readonly kitScratch: KitInfo & { hatchT: number } = { x: 0, y: 0, z: 0, egg: null, left: 0, wobble: 0, hatchT: 0, eggs: [] };
 
@@ -91,7 +92,10 @@ export class AnimalCore {
     this.d = o.deps;
     this.settings = o.deps.settings ?? createLiveSettings();
     this.getPlayer = o.getPlayer;
-    this.partner = o.partner ?? (() => null);
+    const getP = o.getPlayer;
+    const playerOf = o.playerOf;
+    this.playerOf = playerOf ?? ((who) => (who === 1 ? getP() : (o.partner?.() ?? null)));
+    this.partner = o.partner ?? (playerOf ? () => playerOf(2) : () => null);
     this.rng = createRng((o.deps.seed ^ RNG_SALT) >>> 0);
     this.eggRng = createRng((o.deps.seed ^ EGG_SALT) >>> 0);
     this.breedRng = createRng((o.deps.seed ^ BREED_SALT) >>> 0);
@@ -104,10 +108,13 @@ export class AnimalCore {
     this.joinSeq = 0;
     this.fighterIds = NO_FIGHT;
     this.ents.length = 0;
-    this.targetId = null;
-    this.carriedId = null;
+    for (const h of this.hands) {
+      h.targetId = null;
+      h.carriedId = null;
+      h.wildAnnounced = false;
+      h.putWhy = null;
+    }
     this.catches.length = 0;
-    this.wildAnnounced = false;
     this.net.reset();
   }
 
@@ -122,9 +129,14 @@ export class AnimalCore {
     return (this.friendSeq++ % STOP_KINDS) * STOP_STEP;
   }
 
-  /** 入る なら 持ち物 へ（入らなければ 足もと に 落とさず false）。`tryAddItem` が なければ `addItem` */
+  /** 入る なら 持ち物 へ（入らなければ 足もと に 落とさず false）。`tryAddItem` が なければ `addItem`。入れ先は いま 口を 呼んで いる 人 */
   tryAdd(item: ItemId): boolean {
-    return this.d.tryAddItem ? this.d.tryAddItem(item) : this.d.addItem(item);
+    return this.d.tryAddItem ? this.d.tryAddItem(item, this.actor) : this.d.addItem(item, this.actor);
+  }
+
+  /** その人が 今 ねらって いる 子 か（どちらかが ねらって いれば true） */
+  isTargeted(id: number): boolean {
+    return this.hands[0].targetId === id || this.hands[1].targetId === id;
   }
 
   coopById(id: number): Coop | undefined {
@@ -170,6 +182,7 @@ export class AnimalCore {
       follow,
       fullLeft: 0,
       carried: false,
+      carrier: 1,
       fluttering: false,
       eggMiss: 0,
       homeX: x,
@@ -233,12 +246,14 @@ export class AnimalCore {
   }
 
   push(ev: AnimalEvent): void {
+    if (this.actor === 2) ev.by = 2;
     this.queue.push(ev);
     if (this.queue.length > EVENT_CAP) this.queue.splice(0, this.queue.length - EVENT_CAP);
   }
 
+  /** 合図。1P の 物は `lastHint()` にも 入れる。2P の 物は 出来事（`by: 2`）だけ */
   hintOut(h: AnimalHintKind): void {
-    this.hint = h;
+    if (this.actor === 1) this.hint = h;
     this.push({ type: 'hint', hint: h });
   }
 

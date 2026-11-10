@@ -1,0 +1,40 @@
+/*
+ * COOP-1 5f-1（docs/design/COOP-1.md §3.7 (g)・§9.13）: 2 人の とき、照準まわりの 物は ぜんぶ その人の 半分の ＋に ついていく。
+ * `--aim-x`／`--aim-y`（CSS px）は ui/duoAimHud.ts が 2 人の 間だけ 各部品に 置く（1 人の ときは 置かない → 今までの 位置〔50%〕のまま）。
+ * 1 人の ときの 画面の まん中の ＋（#crosshair）は 2 人の 間 かくし、半分ごとに 1 つずつ（.duo-crosshair）出す。
+ * 1P の 部品は 今までの 要素を そのまま 使う ので、ここで 位置だけ 上書き する（今の 規則より 強く するため !important）。
+ */
+html[data-duo] #crosshair {
+  display: none !important;
+}
+.duo-crosshair[hidden] {
+  display: none;
+}
+html[data-duo] #hud > [data-aim='hint'] {
+  left: var(--aim-x, 50%) !important;
+  top: var(--aim-y, 50%) !important;
+}
+html[data-duo] #hud > [data-aim='notice'] {
+  left: var(--aim-x, 50%) !important;
+  top: var(--aim-y, 50%) !important;
+}
+html[data-duo] #hud > [data-aim='notice-text'] {
+  left: var(--aim-x, 50%) !important;
+  top: calc(var(--aim-y, 50%) + var(--rk-sp-7)) !important;
+}
+html[data-duo] #hud > [data-aim='stance'],
+html[data-duo] #hud > [data-aim='lock'] {
+  left: var(--aim-x, 50%) !important;
+  top: var(--aim-y, 50%) !important;
+}
+html[data-duo] #hud > [data-aim='bow'] {
+  left: var(--aim-x, 50%) !important;
+  top: calc(var(--aim-y, 50%) + 24px) !important; /* aimMarks.css の #aim-bow と 同じ（＋の すぐ 下） */
+}
+/* ヒントが 出ている 間は、合図（絵も 字も）を ヒントの 下に さげる（notice.css の #82 と 同じ 関係を ＋の 位置から） */
+html[data-duo] #hud > [data-aim='notice'][data-below-hint] {
+  top: calc(var(--aim-y, 50%) - var(--rk-sp-3) + var(--rk-sp-5) + var(--rk-icon-chip) + var(--rk-sp-1) * 2 + var(--rk-sp-2)) !important;
+}
+html[data-duo] #hud > [data-aim='notice-text'][data-below-hint] {
+  top: calc(var(--aim-y, 50%) + var(--rk-sp-5) + var(--rk-icon-chip) + var(--rk-sp-1) * 2 + var(--rk-sp-2)) !important;
+}

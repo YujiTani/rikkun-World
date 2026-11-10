@@ -47,3 +47,75 @@
   transform: translate(-50%, -50%);
   max-width: 45vw;
 }
+/* COOP-1 5d: 2P が 本・建築士さんを 開いた とき 1P の 半分（左）の まん中に。かけなおし待ちの「ゲームに 戻る」も 1P の 半分 */
+.duo-wait-p1,
+.duo-relock-p1 {
+  left: 25%;
+}
+/* 本が 開くと #hud は かくれ（book.css）、本の 層は z-index 40。「ちょっと まってね」・「ゲームに 戻る」は 本の 上に 出す（2 人の ときだけ 出る ので 1 人の 本は かわらない） */
+body.book-open .duo-wait {
+  visibility: visible;
+  z-index: 41;
+}
+
+/*
+ * COOP-1 5e: ふとん。
+ *  ・duo-sleep-ask: 先に ねた 人が まっている とき、ねて いない 人の 半分の「おともだちが いっしょに ねたがっているよ」（半分の はばの 80% まで・2 行まで・半分の 下から 28%）
+ *  ・duo-sleep-dim: 待ち中の うすい 暗さ（先に ねた 人の 半分だけ。濃さは 表 sleepWaitDim を style.opacity で）
+ *  ・duo-gadget-note: ひる・あさに 2P が ふとんを 使った 「よる に ねようね」（2P の 半分の 上から 30%）
+ */
+.duo-sleep-ask,
+.duo-gadget-note {
+  position: fixed;
+  left: 75%;
+  transform: translateX(-50%);
+  max-width: 40vw;
+  box-sizing: border-box;
+  padding: var(--rk-sp-2) var(--rk-sp-4);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-m);
+  border: var(--rk-bw) solid var(--rk-rarity-3);
+  color: var(--rk-text);
+  font-size: var(--rk-fs-body);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+  text-align: center;
+  text-shadow: var(--rk-text-outline);
+  pointer-events: none;
+  z-index: 7;
+}
+.duo-sleep-ask {
+  bottom: 28%;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.duo-sleep-ask-p1 {
+  left: 25%;
+}
+.duo-gadget-note {
+  top: 30%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: var(--rk-fs-head);
+}
+.duo-sleep-ask[hidden],
+.duo-gadget-note[hidden],
+.duo-sleep-dim[hidden] {
+  display: none;
+}
+.duo-sleep-dim {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 50%;
+  background: #05060f;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+.duo-sleep-dim-p1 {
+  left: 0;
+}

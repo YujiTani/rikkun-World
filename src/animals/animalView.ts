@@ -8,7 +8,7 @@ import { dist2d, slab } from './animalMath';
 import { meatDraw } from './animalMeat';
 
 /** この 係 が 使う ものだけ（`AnimalCore` の 一部） */
-type ViewCtx = Pick<AnimalCore, 'coopById' | 'coopList' | 'd' | 'ents' | 'find' | 'getPlayer' | 'push' | 'setState' | 'settings' | 'targetId' | 'tryAdd' | 'view' | 'world'>;
+type ViewCtx = Pick<AnimalCore, 'coopById' | 'coopList' | 'd' | 'ents' | 'find' | 'getPlayer' | 'push' | 'isTargeted' | 'setState' | 'settings' | 'tryAdd' | 'view' | 'world'>;
 
 export function listAnimals(core: ViewCtx): AnimalInfo[] {
   const p = core.getPlayer().position;
@@ -81,7 +81,7 @@ export function forEachVisibleAnimal(core: ViewCtx, fn: (v: AnimalView) => void)
     v.stateTicks = e.stateTicks;
     v.friend = e.friend;
     v.hearts = e.hearts;
-    v.targeted = e.id === core.targetId;
+    v.targeted = core.isTargeted(e.id);
     v.follow = e.home !== null ? 0 : e.follow;
     v.fullLeft = e.fullLeft;
     v.carried = e.carried;

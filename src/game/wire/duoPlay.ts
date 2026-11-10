@@ -7,7 +7,7 @@ import { PlayerCombatImpl } from '../../combat';
 import { createCombatConfig } from '../../combat/config';
 import type { DigSystemImpl } from '../../dig/DigSystem';
 import type { DigFx } from '../../fx/DigFx';
-import type { ActionState } from '../../input/actions';
+import type { Action, ActionState } from '../../input/actions';
 import type { PlayerController } from '../../player/PlayerController';
 import { ToolSystemImpl } from '../../tools';
 import { createBladeSystem, isBladeItem } from '../../tools/blade/BladeSystem';
@@ -20,6 +20,7 @@ import { parryGlowLevel } from '../../combat/parry';
 import { FX_SETTINGS } from '../../fx/config';
 import { createRng } from '../../world/gen/random';
 import type { DuoHud } from '../../ui/duoHud';
+import { actionHintView, fillHintCtx, type DuoAimStep2, type DuoHintInput, type DuoAimHud } from '../../ui/duoAimHud';
 import type { LockStatus, Inventory, ItemId, Vec3 } from '../../contracts';
 import type { GetaPlayer } from '../../craft/geta';
 import type { BladeSystem, CraftSystem } from '../../contracts';
@@ -42,6 +43,9 @@ import { ITEM_TYPES, itemType } from '../../inventory/items';
 import { pickableMate, pickLegend } from '../../duo/rules';
 import { createDuoLegend, type DuoLegend } from './duoLegend';
 import { wireDuoFarm, type DuoFarm } from './duoFarm';
+import { wireDuoAnimals, type DuoAnimals } from './duoAnimals';
+import { createDuoGadgets, type DuoGadgets } from './duoGadgets';
+import { kiteInfo, seatInfo } from '../../duo/p2Gadgets';
 import { DUO_TUNING } from '../../duo/tuning';
 import type { DuoPlayHook, DuoVec3 } from '../../duo/types';
 import type { ThunderHook } from '../../fx/thunderFx';
@@ -54,6 +58,8 @@ const DEG = Math.PI / 180;
 export interface DuoPlayCtx {
   deps: WiredLoop;
   ui: DuoHud;
+  /** COOP-1 5f-1: 照準まわり（＋・ヒント・おしらせの 印・構え・ロック・弓の 丸）を 各半分に */
+  aim: DuoAimHud;
   /** 2P の 入力 */
   actions: ActionState;
   /** 2P の 入力が 通る か（もちもの画面が 開いていない・倒れていない） */
@@ -61,6 +67,8 @@ export interface DuoPlayCtx {
   /** 参加している あいだの 2P の 体（参加前は 呼ばない） */
   ctl2: () => PlayerController;
   joined: () => boolean;
+  /** 2P の もちもの画面が 開いているか（とりごやの メニューを ひらかない・とじる） */
+  invOpen: () => boolean;
   /** 2P の パッドが ささっているか */
   padPresent: () => boolean;
   /** 2P の カメラ（小太刀の 斬撃の 向き・2P の パリィの 火花の 向きに 使う。1P の game.camera ではない） */
@@ -111,6 +119,10 @@ interface Live {
   farm: DuoFarm;
   /** COOP-1 5b: 2P の 出来事を 実績へ（共有） */
   feed: P2Feed;
+  /** COOP-1 5c: 2P の にわとり・とりごや（m4 の 口・メニュー・半分の チップ／パネル／わ／一言） */
+  animals: DuoAnimals;
+  /** COOP-1 5e: 2P の いす・おふろ・たこ・わらじ・ふとんの 待ちを 起こす 入力 */
+  gadgets: DuoGadgets;
 }
 
 /** 2P の パリィの 火花を 出す 刀の まん中（毎回 同じ 入れものに 書く） */
@@ -127,7 +139,7 @@ function handAt(p: Vec3): Vec3 {
 
 export function wireDuoPlay(c: DuoPlayCtx) {
   const { deps, ui } = c;
-  const { shared, game, world, controller, w2, seed, toolConfig, digCfg, drops, fxSound, craft, storage, dig: dig1, combat: combat1, weaponFx, kodachiFx, achievements } = deps;
+  const { shared, game, world, controller, w2, seed, toolConfig, digCfg, drops, fxSound, craft, storage, dig: dig1, combat: combat1, weaponFx, kodachiFx, achievements, animals, coopMenu: coopMenu1 } = deps;
   const p2 = shared.p2;
   // 2P の そうびの たいきゅうの 設定と 時計を 本物に（1P の armor と 同じ。COOP-1 4b）
   shared.p2Wear.settings = () => w2;
@@ -218,6 +230,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       p1Down: () => combat1.dead(),
       onDown: () => {
         downPos = { ...ctl.state.position };
+        ani.down(); // COOP-1 5c: だっこ中の 羽を 足もとに おろし、メニューを とじる
       },
       onWait: () => {
         if (downPos) ctl.set({ position: { ...downPos }, velocity: { x: 0, y: 0, z: 0 } });
@@ -232,6 +245,21 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       armor: p2.armor,
       yawDeg: () => ctl.state.yawDeg,
       onSpark: () => parryFx.spark(bladeMidInto(sparkAt2, ctl.state.position, ctl.state.facingDeg), reduced(), ctl.state.facingDeg),
+    });
+    const ani = wireDuoAnimals({ deps, position: () => ctl.state.position, dig: () => dig, down: () => life.down, padOn: c.padPresent, playing: () => c.lock.playInputEnabled(), invOpen: c.invOpen, craft2: c.craft2 });
+    // COOP-1 5e: 2P の いす・おふろ・たこ・わらじ・ふとんの 待ち（1P と 同じ 部品を 2P の 体・もちもので）
+    const gadgets = createDuoGadgets({
+      sleep: deps.gadgets.sleep,
+      attachSeat: deps.attachSeat2,
+      detachSeat: deps.detachSeat2,
+      scene: game.scene,
+      tick: () => game.tick,
+      ctl,
+      actions: c.actions,
+      combat,
+      p2,
+      padPresent: c.padPresent,
+      panelOpen: () => shared.p2House.panelOpen(),
     });
     const farm = wireDuoFarm({ deps, inventory: p2.inventory, vitals: combat, target: () => dig.target(), playing: () => c.lock.playInputEnabled() });
     const dig = createP2Dig({
@@ -265,7 +293,16 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         yokai: yokai2,
         parry: parry.parry, // Shift＋ZR の ふりわけ（routeAttackInput）は 1P と 同じ 道
         legend: legend.p2.legend, // ZR だけ → ため（run＋ZR は パリィ）。ふりわけは 1P と 同じ DigSystemImpl
+        // COOP-1 5d: ほんだな（ZL）と 建築士さん（ZL で 話す・ほるで おっとっと）。who 2 で 呼ぶ。いす・おふろは 2P 自身の SeatSystem（5e。wireSeat の seatFor(2)）
+        furniture: { use: (kind, x, y, z) => deps.furniture.use(kind, x, y, z, 2) },
+        gadgets: { sleep: () => void deps.gadgets.port.sleep(2), kite: gadgets.useKite }, // COOP-1 5e: ふとん（1P と 同じ 1 つ）・たこ（2P の）
+        architects: {
+          rayHit: (origin, dir, reach) => shared.house?.manager.rayHit(origin, dir, reach) ?? null,
+          talk: (id) => shared.house?.talkTo(id, 2) ?? false,
+          hit: (id) => shared.house?.hit(id, 2),
+        },
         ...farm.m4, // COOP-1 5a: 畑・じょうろ・バケツ・なでる・食べる（2P の もちもの・ハートで）
+        ...ani.m4, // COOP-1 5c: にわとり（包み〈who: 2〉）・設定・とりごやの メニュー（2P の 半分）
         // かまどを こわした 中身は こわした 人（2P）の もちものへ（4c）。開く 口は onOpenFurnace に つなぐので ここは 空
         craft: { isFurnace: (x, y, z) => craft.isFurnace(x, y, z), openFurnace: () => {}, furnaceBroken: (x, y, z) => c.craft2().furnaceBroken(x, y, z), fixedDrop: (id) => craft.fixedDrop(id) },
         storage,
@@ -275,7 +312,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         nowTick: () => game.tick,
       },
     });
-    const fx = createP2DigFx({ scene: game.scene as THREE.Scene, dig, sound: fxSound, hideBlockFocus: () => dig.aimedYokaiId() !== null, events: feed.tapDig(() => dig.drainEvents()) });
+    const fx = createP2DigFx({ scene: game.scene as THREE.Scene, dig, sound: fxSound, hideBlockFocus: () => dig.aimedYokaiId() !== null, events: feed.tapDig(() => dig.drainEvents()), notice: c.aim.notice2 });
     const mate = {
       get position() {
         return ctl.state.position;
@@ -326,7 +363,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       shake: (a) => { if (FX_SETTINGS.fxShake) shared.duoCamFx(2).addTrauma(a); },
       shakeTo: (l) => { const fx = shared.duoCamFx(2), d = l - fx.trauma(); if (d > 0 && FX_SETTINGS.fxShake) fx.addTrauma(d); },
     };
-    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, gasha, legend, farm, feed };
+    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, gasha, legend, farm, feed, animals: ani, gadgets };
   }
 
   /** 2P の 足音。1P の step.ts と 同じ 決まり: 遊び画面が 開いて いない・やられて いない・ひるんで いない ときだけ 歩く */
@@ -363,6 +400,10 @@ export function wireDuoPlay(c: DuoPlayCtx) {
   shared.p2Parry = () => live?.parry ?? null;
   shared.p2FarmHint = () => live?.farm.hint ?? null; // COOP-1 5a: 畑の 合図〔by: 2〕の 行き先
   shared.p2FarmAim = () => live?.farm.aim() ?? null;
+  shared.p2Animals = () => live?.animals.port ?? null; // COOP-1 5c: 出来事〔by: 2〕の 配り・こたつの わく・着地点の 丸
+  // COOP-1 5e: ふとんの 「2 人」の 数（参加していて 倒れておらず 2P は パッドが ある 人。1 人の ときは 1）と、2P の 待ちを 起こす 入力
+  shared.sleepReady = () => (live ? (combat1.dead() ? 0 : 1) + (!live.life.down && c.padPresent() ? 1 : 0) : 1);
+  shared.p2SleepWake = () => live?.gadgets.wakeStep();
 
   /** 2P の パリィの 後始末と 見た目（体の 止め・音・火花・青白い 光）。ctl2.update の あとに 呼ぶ */
   function stepParry(l: Live): void {
@@ -375,6 +416,33 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     l.parryFx.update();
   }
 
+  // COOP-1 5f-1: 2P の 照準まわり（毎ステップ 使いまわす 入れもの）
+  const hintIn: DuoHintInput = {
+    who: 2, duo: true, hintOn: true, playing: false, crosshairVisible: true, down: false,
+    open: { inventory: false, coopMenu: false, book: false }, right: null, left: null,
+    ctx: { held: null, heldIsPickaxe: false, heldIsBlade: false }, padIndex: null, lastInput: 'gamepad',
+  };
+  const aimStep: DuoAimStep2 = { hint: null, crossVisible: false, blade: null, stance: null, bowStage: 0, dt: 0 };
+  /** 2P の 半分の ヒント・＋・構え・弓の 丸（1P の step.ts と 同じ 部品の 同じ 答え）。もちもの画面・倒れた・本の あいだは `playInputEnabled` が false で 出ない */
+  function stepAim(l: Live, dt: number): void {
+    const playing = c.lock.playInputEnabled();
+    const tool = l.tools.current();
+    fillHintCtx(hintIn.ctx, tool, l.dig.carryProgress(), animals.carrying(2) !== null); // だっこの わ・だっこ中（1P の step.ts と 同じ 形。5f-1 × 5c）
+    hintIn.hintOn = deps.hintSettings.actionHint;
+    hintIn.playing = playing;
+    hintIn.down = l.life.down;
+    hintIn.right = l.dig.previewRightClick();
+    hintIn.left = l.dig.previewLeftClick();
+    const bs = l.blade.state();
+    aimStep.hint = actionHintView(hintIn);
+    aimStep.crossVisible = playing;
+    aimStep.blade = bs;
+    aimStep.stance = playing && bs.item !== null ? bs.stance : null;
+    aimStep.bowStage = playing ? l.tools.bow().pose().stage : 0;
+    aimStep.dt = dt;
+    c.aim.step2(aimStep);
+  }
+
   /** 毎ステップ（2P の 体を 動かした あと） */
   function step(dt: number): void {
     const l = live;
@@ -382,7 +450,9 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     // 小太刀の 追い打ちは 先に 1 ステップ すすめ、このステップの 当たりは あとで 入れる（当てた ステップを 0 に する ため。1P と 同じ 順）
     l.kodachi.step();
     l.dig.update();
+    l.gadgets.step(); // COOP-1 5e: 2P の たこ・わらじ
     l.farm.step(); // COOP-1 5a: 2P の 半分の 畑の チップ・しるし
+    l.animals.step(); // COOP-1 5c: 2P の ねらい・メニュー・チップ・パネル・わ・一言
     // COOP-1 4d-1: 2P の パリィの 絵・音・火花・青白い 光（1P の step.ts と 同じ 決まり。入力は 妖怪の 更新の 前に preYokai が 入れた）
     stepParry(l);
     l.life.step();
@@ -419,6 +489,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     ui.updateArmor(p2.armor.snapshot().hudIcons); // ハートの 右の 防具の 絵（1P の step.ts と 同じ）
     ui.stepWear();
     ui.updateLevel(dt, p2.levels.get(), up);
+    stepAim(l, dt);
   }
 
   let thunder1: ThunderHook | null = null;
@@ -471,6 +542,8 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       if (who === 1) deps.armor.set(head, body, arms, legs);
       else if (live) p2.armor.set(head, body, arms, legs);
     },
+    // COOP-1 5f-1（§12.0・AC174）: その人の 半分に 出ている ヒント。1P は 今の `#action-hint` の 中身 ＋ pad。2P が いなければ who 2 は null
+    actionHint: (who) => c.aim.hint(who),
     hearts(who) {
       if (who === 1) return { hp: combat1.hp(), maxHp: combat1.maxHp(), down: combat1.dead() };
       return live ? { hp: live.life.hp, maxHp: live.life.maxHp, down: live.life.down } : { hp: 0, maxHp: 0, down: false };
@@ -497,7 +570,18 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       const t = dig1.target();
       return t ? deps.farm.aim(t.block.x, t.block.y, t.block.z) : null;
     },
+    // COOP-1 5e（§12.0）: その人の すわって いる 物・たこ（1P は 今の seat・kite と 同じ 中身。2P が いなければ who 2 は null）
+    seat: (who) => seatInfo(who === 1 ? deps.seat : (live?.gadgets.seat ?? null)),
+    kite: (who) => kiteInfo(who === 1 ? deps.gadgets.kite : (live?.gadgets.kite ?? null)),
     thunder: (who) => pickLegend(who, live !== null, thunder1Hook(), live?.legend.thunderHook() ?? null),
+    // COOP-1 5c（§12.0）: だっこ・とりごやの メニュー（1P は 今の 物。2P が いなければ who 2 は null）
+    carrying: (who) => (who === 1 || live ? animals.carrying(who) : null),
+    coopMenu: (who) => (who === 1 ? coopMenu1.model.info() : (live?.animals.menuInfo() ?? null)),
+    coopMenuPress(who, button, id) {
+      if (!dev) return;
+      if (who === 1) coopMenu1.press(button, id);
+      else live?.animals.menuPress(button, id);
+    },
   };
 
   return {
@@ -511,13 +595,25 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     stepLegendFx: (): void => live?.legend.stepFx(), // 2P の わざの 絵と うすい 光の もと: 2P の カメラを 決めた あとに 1 回
     flashSrc: (): FlashSrc | null => live?.legend.flashSrc() ?? null, // うすい 光の もと（2P が いなければ null）
     renderInPane: (r: THREE.WebGLRenderer, cam: THREE.Camera): void => live?.legend.renderInPane(r, cam), // 2P の 雷の 板を 区画に 重ねる（afterPane）
+    /** COOP-1 5e: 2P の いす・おふろ。体を 動かす 前後に 1 回ずつ（ctl2.update の まわり）。目の さがりは 2P の カメラへ */
+    seatBefore: (): void => live?.gadgets.seatBefore(),
+    seatAfter: (): void => live?.gadgets.seatAfter(),
+    eyeDrop2: (): number => live?.gadgets.eyeDrop() ?? 0,
     /** 2P が たんすを ねらって Y（1P の E と 同じ）。開いたら true（かまどを ねらった Y は false＝「もちもの」の ページ） */
+    /** 2P の とりごやの メニューが 開いている（2P の 遊びの 入力を 止め、パッドを メニューの わりあてに する） */
+    coopMenuOpen: (): boolean => live?.animals.menuOpen() ?? false,
+    /** 2P の パッド（十字・A・B）を とりごやの メニューへ（ひらいて いる ときだけ きく） */
+    coopPad: (a: Action): void => live?.animals.pad(a),
+    /** 2P が やめる 直前（保存の 前）: だっこ・むし・おにくの かたづけ（COOP-1 5c） */
+    beforeLeave: (): void => live?.animals.leave(),
     tryOpenTansu: (): boolean => (mayOpenInv() ? (live?.dig.tryOpenAimedStorage() ?? false) : false),
     onJoin(): void {
       live?.legend.dispose();
       live?.fx.dispose();
       live?.parryFx.dispose();
       live?.farm.dispose();
+      live?.animals.dispose();
+      live?.gadgets.dispose();
       live = build();
     },
     onLeave(): void {
@@ -530,7 +626,10 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       }
       live?.fx.dispose();
       live?.farm.dispose();
+      live?.animals.dispose();
+      live?.gadgets.dispose(); // COOP-1 5e: 待ちを 消し・たこを おろし・立たせる
       live = null;
+      deps.gadgets.sleep.settle(); // 待って いた 1P は この ステップから 1 人の ときと 同じ ねむり（sleepReady が 1 に なった）
       gashaNoFall = false;
     },
   };

@@ -102,7 +102,7 @@ export function createDuoInventory(deps: WiredLoop, position: () => Vec3, onClos
     tansu: storage,
     position,
     closeDist: () => m6.tansuCloseDist,
-    onFull: () => deps.shared.showSignalRaw('full'),
+    onFull: () => deps.shared.p2ShowSignal('full'), // 2P の たんすが いっぱい: 2P の 半分に（5f-1）
     onClose: () => api.setOpen(false),
   });
   const tansuScreen = new StorageScreen(screen, tansuView, m6.tansuSlots);

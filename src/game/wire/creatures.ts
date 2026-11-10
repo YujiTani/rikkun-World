@@ -20,6 +20,7 @@ import { queueKodachiSlash } from '../../fx/kodachiSlash';
 import { playKodachi } from '../../fx/weaponSounds';
 import type { WiredFighters } from './combat';
 import type { WiredHouse } from './house';
+import { emptyKitSize } from './coopMenuView';
 
 export function wireYokai(deps: WiredFighters) {
   const {
@@ -153,9 +154,14 @@ export function wireAnimalView(deps: WiredHouse) {
     animalFx.onEvents(ev);
     shared.animalHint.feed(ev);
     shared.natsukiPanel.onEvents(ev, dig.animalTarget());
+    shared.p2Animals()?.feed(ev); // COOP-1 5c: 2P の 合図・パネルの 動き（by: 2 の 物だけ。出来事は 1 回だけ 取り出して 配る）
     shared.achievements.feedAnimals(ev);
-    // LIVE-3: 持ち物 に 入った なま もも にく を 拾った ログ に（足もと に おちた 分 は おとしもの として 拾った とき に）
-    for (const e of ev) if (e.type === 'meat' && e.count - e.dropped > 0) shared.onDropPicked('momo_nama', e.count - e.dropped, false);
+    // LIVE-3: 持ち物 に 入った なま もも にく を 拾った ログ に（足もと に おちた 分 は おとしもの として 拾った とき に）。2P の 分は 2P の 知らせへ
+    for (const e of ev) {
+      if (e.type !== 'meat' || e.count - e.dropped <= 0) continue;
+      if (e.by === 2) shared.p2DropPicked('momo_nama', e.count - e.dropped, false);
+      else shared.onDropPicked('momo_nama', e.count - e.dropped, false);
+    }
     for (const e of ev) animalEvents.push(e);
     if (animalEvents.length > 512) animalEvents.splice(0, animalEvents.length - 512);
   }
@@ -163,25 +169,27 @@ export function wireAnimalView(deps: WiredHouse) {
   function currentKitRows(): KitIconRow[] {
     const aim = dig.aimedKit();
     const rows = animals.kits() as unknown as Array<{ x: number; y: number; z: number; size?: 1 | 2; eggs: Array<{ egg: 'egg' | 'gold'; left: number }> }>;
-    if (aim.kit && aim.holdingEgg && !rows.some((k) => k.x === aim.kit!.x && k.y === aim.kit!.y && k.z === aim.kit!.z) && String(world.getBlock(aim.kit.x, aim.kit.y, aim.kit.z)) === 'nukunuku') {
-      rows.push({ x: aim.kit.x, y: aim.kit.y, z: aim.kit.z, size: world.getBlock(aim.kit.x + 1, aim.kit.y, aim.kit.z) === 'nukunuku_e' ? 2 : 1, eggs: [] });
-    }
+    const emptySize = aim.kit && aim.holdingEgg && !rows.some((k) => k.x === aim.kit!.x && k.y === aim.kit!.y && k.z === aim.kit!.z) ? emptyKitSize(world, aim.kit) : null;
+    if (aim.kit && emptySize !== null) rows.push({ x: aim.kit.x, y: aim.kit.y, z: aim.kit.z, size: emptySize, eggs: [] });
     const p = controller.state.position;
-    return kitIconsFor(rows, { eye: { x: p.x, z: p.z }, total: live.kitHatchTicks, aim: aim.kit ? { x: aim.kit.x, z: aim.kit.z, holdingEgg: aim.holdingEgg } : null });
+    const k2 = shared.p2Animals()?.kitAim(); // COOP-1 5c: 2P の 目と ねらい（2P が いなければ 1 人の ときと 同じ）
+    return kitIconsFor(rows, { eye: { x: p.x, z: p.z }, total: live.kitHatchTicks, aim: aim.kit ? { x: aim.kit.x, z: aim.kit.z, holdingEgg: aim.holdingEgg } : null, eye2: k2?.eye ?? null, aim2: k2?.aim ?? null });
   }
+  const throwSpots: (ReturnType<typeof animals.throwSpot>)[] = [null, null];
   game.onBeforeRender(() => {
     animalRenderer.setKitIcons(currentKitRows());
     const throwAim = dig.throwAim();
     const throwSpot = animals.throwSpot(throwAim);
     // 丸 は さく・もん の 板 ごし でも 見せる（目 から 丸 への 線 が 地形 に ふさがれて いない とき だけ）
-    animalRenderer.setThrowSpot(
-      throwSpot,
-      throwSpot !== null &&
-        ringSeen((x, y, z) => {
-          const id = String(world.getBlock(x, y, z));
-          return world.isSolid(x, y, z) && id !== 'toriya_fence' && id !== 'toriya_gate';
-        }, throwAim.eye, throwSpot),
-    );
+    const clear = (x: number, y: number, z: number): boolean => {
+      const id = String(world.getBlock(x, y, z));
+      return world.isSolid(x, y, z) && id !== 'toriya_fence' && id !== 'toriya_gate';
+    };
+    const aim2 = shared.p2Animals()?.throwAim();
+    const spot2 = aim2 ? animals.throwSpot(aim2, 2) : null;
+    throwSpots[0] = throwSpot;
+    throwSpots[1] = spot2;
+    animalRenderer.setThrowSpots(throwSpots, (throwSpot !== null && ringSeen(clear, throwAim.eye, throwSpot)) || (spot2 !== null && aim2 !== undefined && ringSeen(clear, aim2.eye, spot2)));
     animalRenderer.setCoopGhost(dig.coopGhost());
     animalRenderer.setKitGhost(dig.kotatsuGhost());
     animalRenderer.update(animalViews.fill(animals), game.camera);
@@ -189,7 +197,7 @@ export function wireAnimalView(deps: WiredHouse) {
   rig.setHeldProvider(() => inventory.held()?.item ?? null);
   rig.setWeaponSource({ blade: () => blade.state(), bowPose: () => tools.bow().pose() });
   return {
-    animalFx, animalViews, machoMarks, machoMarkIn, animalEvents, deliverAnimalEvents, currentKitRows,
+    animalRenderer, animalFx, animalViews, machoMarks, machoMarkIn, animalEvents, deliverAnimalEvents, currentKitRows,
   };
 }
 

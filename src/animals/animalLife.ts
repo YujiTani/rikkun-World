@@ -7,7 +7,7 @@ import type { Coop, Ent } from './animalTypes';
 import { APPEAR_TICKS, COOP_CHECK_EVERY, HEART_REMOVE_DIST, POP_TICKS, TAU } from './animalConsts';
 import { dist2d, inFootprintAny } from './animalMath';
 import { natsukiTick } from './animalCare';
-import { finishSoftPut, flightStep, glideStep, releaseThrow } from './animalCarry';
+import { dropCarried, finishSoftPut, flightStep, glideStep, releaseThrow } from './animalCarry';
 import { checkCoopBlocks, checkMorning, enterCheck, growCheck, kidKeepInside, layEgg, makeKid, sleepKid } from './animalCoops';
 import { fightStep, fightStop, pickFightersNow } from './animalFight';
 import { updateKits } from './animalKits';
@@ -15,7 +15,7 @@ import { meatBird, meatTick } from './animalMeat';
 import { behaveAnimal, clear2, friendWarpChecks, kidRespawn, separateFriend, settleOnGround, turnAnimal, unbury, unstraddle, warpToPlayer } from './animalMove';
 
 /** この 係 が 使う ものだけ（`AnimalCore` の 一部） */
-type LifeCtx = Pick<AnimalCore, 'bangBuf' | 'breedRng' | 'breedState' | 'carriedId' | 'catches' | 'coopAtSpot' | 'coopById' | 'coopCheckT' | 'coopList' | 'd' | 'dropGold' | 'eggRng' | 'ents' | 'everCarried' | 'everGrew' | 'everHatched' | 'fightCands' | 'fighterIds' | 'find' | 'friendCount' | 'getPlayer' | 'goldRng' | 'hintOut' | 'joinSeq' | 'kidCount' | 'kitList' | 'kitScratch' | 'lastDay' | 'lockHintAt' | 'lockState' | 'make' | 'markOut' | 'nextCoopId' | 'nextStopOff' | 'night' | 'partner' | 'oneFighter' | 'push' | 'putWhy' | 'rng' | 'setLock' | 'setState' | 'settings' | 'spawnTimer' | 'targetId' | 'tick' | 'tryAdd' | 'waitHintAt' | 'wildAnnounced' | 'world'>;
+type LifeCtx = Pick<AnimalCore, 'bangBuf' | 'breedRng' | 'breedState' | 'catches' | 'coopAtSpot' | 'coopById' | 'coopCheckT' | 'coopList' | 'd' | 'dropGold' | 'eggRng' | 'ents' | 'everCarried' | 'everGrew' | 'everHatched' | 'fightCands' | 'fighterIds' | 'find' | 'friendCount' | 'getPlayer' | 'goldRng' | 'hands' | 'hintOut' | 'isTargeted' | 'joinSeq' | 'kidCount' | 'kitList' | 'kitScratch' | 'lastDay' | 'lockHintAt' | 'lockState' | 'make' | 'markOut' | 'nextCoopId' | 'nextStopOff' | 'night' | 'partner' | 'playerOf' | 'actor' | 'oneFighter' | 'push' | 'rng' | 'setLock' | 'setState' | 'settings' | 'spawnTimer' | 'tick' | 'tryAdd' | 'waitHintAt' | 'world'>;
 
 export function spawnAnimal(core: LifeCtx, x: number, y: number, z: number, opts: AnimalSpawnOpts = {}): number | null {
   // 小屋 の 子 として 置く（`home`）: 小屋 が 無い・6 わ いる → null
@@ -102,9 +102,13 @@ export function updateAnimals(core: LifeCtx): void {
   const s = core.settings;
   core.tick++;
   for (let i = core.catches.length - 1; i >= 0; i--) {
-    if (--core.catches[i]! > 0) continue;
+    const c = core.catches[i]!;
+    if (--c.left > 0) continue;
     core.catches.splice(i, 1);
-    core.push({ type: 'bugCatch', toInventory: core.d.addItem('mushi') });
+    // むし は ふった 人の もちものへ（2P が いなく なって いたら 1P）
+    core.actor = c.who === 2 && core.playerOf(2) === null ? 1 : c.who;
+    core.push({ type: 'bugCatch', toInventory: core.d.addItem('mushi', core.actor) });
+    core.actor = 1;
   }
   if (s.animalAutoSpawn) {
     core.spawnTimer++;
@@ -125,7 +129,7 @@ export function updateAnimals(core: LifeCtx): void {
   }
   // かさならない: すわっている なかま を はなす（小屋 の 子 は 中 3×3 だけ なので はなさない）
   for (const e of core.ents) if (e.friend && e.home === null && !e.following && !e.carried && !e.flight && !e.glide && e.lock === 0 && e.fs === 'none') separateFriend(core, e, p);
-  if (core.kitList.length > 0) updateKits(core, p);
+  if (core.kitList.length > 0) updateKits(core, p, core.partner()?.position ?? null);
   if (core.coopList.length > 0 && ++core.coopCheckT >= COOP_CHECK_EVERY) {
     core.coopCheckT = 0;
     checkCoopBlocks(core);
@@ -146,30 +150,46 @@ function stepAnimal(core: LifeCtx, e: Ent, p: Vec3): boolean {
     return true;
   }
   if (e.carried) {
-    // だっこ 中: プレイヤー の 足もと に いる。follow は へらない
-    e.x = p.x;
-    e.y = p.y;
-    e.z = p.z;
+    // だっこ 中: だっこ した 人 の 足もと に いる。follow は へらない（その人が いなく なったら その場に おろす）
+    const cp = core.playerOf(e.carrier)?.position;
+    if (!cp) {
+      core.actor = e.carrier;
+      dropCarried(core, { x: e.x, y: e.y, z: e.z }, e.carrier);
+      core.actor = 1;
+      return true;
+    }
+    e.x = cp.x;
+    e.y = cp.y;
+    e.z = cp.z;
     e.vy = 0;
     e.fluttering = false;
     e.inWater = false;
     e.enterT = 0;
     e.airFrom = -1;
     core.setState(e, 'carried');
-    // LIVE-2.1: もちあげ 10 ステップ で 手 から はなれる／そっと おろす 20 ステップ
-    if (e.liftLeft > 0 && --e.liftLeft === 0) releaseThrow(core, e, p);
+    // LIVE-2.1: もちあげ 10 ステップ で 手 から はなれる／そっと おろす 20 ステップ（出来事・合図は だっこ した 人の 物）
+    core.actor = e.carrier;
+    if (e.liftLeft > 0 && --e.liftLeft === 0) releaseThrow(core, e, cp);
     else if (e.putLeft > 0 && --e.putLeft === 0) finishSoftPut(core, e);
+    core.actor = 1;
     return true;
   }
   if (e.flight) {
-    flightStep(core, e, p);
+    // なげて いる とちゅう: 着地の 出来事・小屋の 子 は なげた 人の 物。ついてくる 先に もどす ときも なげた 人の そば
+    core.actor = e.carrier;
+    flightStep(core, e, core.playerOf(e.carrier)?.position ?? p);
+    core.actor = 1;
     return true;
   }
   if (e.glide) {
+    core.actor = e.carrier;
     glideStep(core, e);
+    core.actor = 1;
     return true;
   }
   if (e.rollLeft > 0) e.rollLeft--;
+  // なかまが ついてくる・ワープする 相手は 近い 方の 人（2 人が 近い ふだんは 1P と 同じ。2P が おろした 子は その場に いる）
+  if (e.friend) p = nearerPlayer(core, e, p);
   const d = dist2d(e.x, e.z, p.x, p.z);
 
   if (!e.friend) {
@@ -217,6 +237,12 @@ function stepAnimal(core: LifeCtx, e: Ent, p: Vec3): boolean {
   settleOnGround(core, e);
   turnAnimal(core, e, p, d);
   return true;
+}
+
+/** 2 人 いる とき、なかま に 近い 方の 人の 足もと（同じ なら 1P）。2P が いなければ 1P */
+function nearerPlayer(core: LifeCtx, e: Ent, p1: Vec3): Vec3 {
+  const p2 = core.partner()?.position;
+  return p2 && dist2d(e.x, e.z, p2.x, p2.z) < dist2d(e.x, e.z, p1.x, p1.z) ? p2 : p1;
 }
 
 /** ついてくる 時間 が 0 に なった（§2.7）: その場 に とまり、そこ を 中心 に のんびり */

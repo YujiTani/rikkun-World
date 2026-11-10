@@ -1,7 +1,8 @@
 /** 札の右がわの、ボタンの小さな印。ローマ字（ZR・L・A・B など）はそのまま */
 import type { PadFace } from '../../input/gamepad/mapping';
 
-const TEXT: Partial<Record<PadFace, string>> = {
+/** 面の 名前 → ボタンの 字（札の 絵と、アクションヒントの 肩ボタンの 絵〔ui/duoAimHud.ts〕が 使う 1 か所の 表） */
+export const TEXT: Partial<Record<PadFace, string>> = {
   faceTop: 'X',
   faceLeft: 'Y',
   faceRight: 'A',

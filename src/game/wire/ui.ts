@@ -43,7 +43,8 @@ import { NatsukiPanel } from '../../ui/natsukiPanel';
 import { AnimalHint } from '../../ui/animalHint';
 import { Itadakimasu } from '../../ui/itadakimasu';
 import { CoopMenu } from '../../ui/coopMenu';
-import { coopMenuReach } from '../../ui/coopMenuModel';
+import { coopMenuBase, coopMenuView, pickMux } from './coopMenuView';
+import { COOP_MENU_REACH, CoopMenuModel, coopMenuReach } from '../../ui/coopMenuModel';
 import { countryAt } from '../../world/gen/biome';
 import { YOKAI_NAME } from '../../yokai';
 import { LevelHud } from '../../ui/levelHud';
@@ -211,33 +212,20 @@ export function wireHud(deps: WiredAnimalView) {
   // LIVE-3: いのち を いただきます の 一言 と、とりごや の メニュー（3 ページ）
   const itadakimasu = new Itadakimasu(hud);
   const coopModal = modalLock({ game, lock, pointerLock });
-  const coopMenu = new CoopMenu(hud, {
-    meatList: (c) => animals.meatList(c),
-    eggs: (c) => {
-      const r = animals.coops().find((x) => x.id === c);
-      return r ? r.nest.egg + r.nest.gold : 0;
-    },
-    busy: (c) => animals.coops().find((x) => x.id === c)?.meatBusy ?? null,
-    exists: (c) => animals.coops().some((x) => x.id === c),
-    // M2 の とどく きょり 5.0（小屋 の ふち から）
+  shared.pickMux = pickMux(animalFx); // ▼ は 世界に 1 つ（2P の メニューも ここを 通る）
+  const coopModel = new CoopMenuModel({
+    ...coopMenuBase(animals, 1, (item, n) => craft.notifyPickup(item, n)),
+    // M2 の とどく きょり（小屋 の ふち から）
     inReach: (c) => {
       const r = animals.coops().find((x) => x.id === c);
       const p = controller.state.position;
-      return !!r && coopMenuReach(r, p.x, p.z, 5.0);
+      return !!r && coopMenuReach(r, p.x, p.z, COOP_MENU_REACH);
     },
-    collect: (c) => {
-      const r = animals.collectCoop(c);
-      if (r.egg > 0) craft.notifyPickup('egg', r.egg);
-      if (r.gold > 0) craft.notifyPickup('kin_tamago', r.gold);
-    },
-    startMeat: (c, id) => animals.meat(c, id).ok,
     // たんす と おなじ あつかい: マウス が 出る・時計 は 止めない。とじる と ロック を かけ直す
     onOpen: () => coopModal.open(),
     onClose: () => coopModal.close(),
-    kidInfo: (id) => ({ id, macho: animals.list().find((a) => a.id === id)?.breed === 'macho' }),
-    tick: () => playCraft(fxSound, 'tab'),
-    onPick: (id) => animalFx.setPick(id),
   });
+  const coopMenu = new CoopMenu(hud, coopMenuView(animals, shared.pickMux(1), fxSound), coopModel);
   shared.coopMenuIsOpen = () => coopMenu.model.info().open;
   shared.openCoopMenu = (id) => void coopMenu.open(id);
   // Esc・E でも とじる（もちもの画面 は 開かない: ScreenController は ロック中 でない と 開かない）

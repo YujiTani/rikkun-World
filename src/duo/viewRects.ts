@@ -49,6 +49,14 @@ export function newViewRectsScratch(): ViewRectsScratch {
   return { out: { main, second: null }, main, second, a: { main: r(), second: r() }, b: { main: r(), second: r() } };
 }
 
+/**
+ * COOP-1 5f-1: その人の 半分（1P＝ main、2P＝ second）。1 人の 全面なら 1P＝ 全面・2P＝ null。新しい 物は 作らず rects の 中の 矩形を そのまま 返す。
+ * 5f の 部品（ui/duoAimHud.ts）は これで その 人の 半分を 引く。
+ */
+export function halfOf(rects: ViewRects, who: 1 | 2): Rect | null {
+  return who === 1 ? rects.main : rects.second;
+}
+
 /** ようす view の 落ちついた 範囲。1 人の 全面の 2P の 区画は まん中の 線の 上の 大きさ 0 */
 function settled(into: { main: Rect; second: Rect }, view: DuoView, w: number, h: number): void {
   const half = Math.floor(w / 2);

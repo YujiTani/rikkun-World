@@ -38,6 +38,8 @@ export const GADGET_TUNING = {
     wakeDayTick: 0,
     /** 秒。「よる に ねようね」が 出ている 長さ */
     noticeSeconds: 2,
+    /** 0〜1（COOP-1 5e）。2 人の とき 先に ねて まっている 人の 半分だけの うすい 暗さ（画面の 黒の 濃さ。ねむりの 暗さ 1 より ずっと うすい。調整は 試作の スクショで） */
+    sleepWaitDim: 0.35,
   },
   omamori: {
     /** こ。持ち物 全体で 持てる 数 */

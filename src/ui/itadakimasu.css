@@ -1,5 +1,6 @@
 /* いのち を いただきます（LIVE-3 仮）: 世界 の 上 に しずか に ならべる。点滅 なし */
-#itadakimasu {
+#itadakimasu,
+#itadakimasu-p2 {
   position: fixed;
   inset: 0;
   display: flex;
@@ -11,10 +12,12 @@
   pointer-events: none;
   z-index: 8;
 }
-#itadakimasu[hidden] {
+#itadakimasu[hidden],
+#itadakimasu-p2[hidden] {
   display: none;
 }
-#itadakimasu .itadakimasu-glow {
+#itadakimasu .itadakimasu-glow,
+#itadakimasu-p2 .itadakimasu-glow {
   position: relative;
   display: flex;
   align-items: center;
@@ -23,12 +26,14 @@
   height: 300px;
   background: radial-gradient(circle, rgb(255 242 196 / 90%) 0%, rgb(255 242 196 / 55%) 35%, rgb(255 242 196 / 0%) 70%);
 }
-#itadakimasu .itadakimasu-hands {
+#itadakimasu .itadakimasu-hands,
+#itadakimasu-p2 .itadakimasu-hands {
   width: 132px;
   height: 138px;
   image-rendering: pixelated;
 }
-#itadakimasu .itadakimasu-text {
+#itadakimasu .itadakimasu-text,
+#itadakimasu-p2 .itadakimasu-text {
   font-size: 52px;
   font-weight: 800;
   line-height: 1.3;

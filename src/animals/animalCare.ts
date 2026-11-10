@@ -6,7 +6,7 @@ import type { Ent } from './animalTypes';
 import { FULL_REACT_TICKS, NATSUKI_HINT_GAP } from './animalConsts';
 
 /** この 係 が 使う ものだけ（`AnimalCore` の 一部） */
-type CareCtx = Pick<AnimalCore, 'eggRng' | 'ents' | 'find' | 'friendCount' | 'hintOut' | 'push' | 'setLock' | 'settings' | 'targetId' | 'tick' | 'waitHintAt'>;
+type CareCtx = Pick<AnimalCore, 'eggRng' | 'ents' | 'find' | 'friendCount' | 'hintOut' | 'isTargeted' | 'push' | 'setLock' | 'settings' | 'tick' | 'waitHintAt'>;
 
 /** GOLD-1: なつき度 を もつ 子（なかま の 大人。ふつう・マッチョ どちら も。小屋 の 子 も） */
 function hasNatsuki(e: Ent): boolean {
@@ -206,6 +206,6 @@ export function natsukiTick(core: CareCtx, e: Ent): void {
     e.natsuki = Math.max(0, e.natsuki - s.natsukiDecay);
     e.natsukiDecayLeft = s.natsukiDecayTicks;
   }
-  if (e.natsukiBugWait > 0 && --e.natsukiBugWait === 0 && e.id === core.targetId) core.push({ type: 'natsukiReady', id: e.id, which: 'bug' });
-  if (e.natsukiPetWait > 0 && --e.natsukiPetWait === 0 && e.id === core.targetId) core.push({ type: 'natsukiReady', id: e.id, which: 'pet' });
+  if (e.natsukiBugWait > 0 && --e.natsukiBugWait === 0 && core.isTargeted(e.id)) core.push({ type: 'natsukiReady', id: e.id, which: 'bug' });
+  if (e.natsukiPetWait > 0 && --e.natsukiPetWait === 0 && core.isTargeted(e.id)) core.push({ type: 'natsukiReady', id: e.id, which: 'pet' });
 }

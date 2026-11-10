@@ -24,7 +24,10 @@ type BuildWorld = HouseWorld & { setBlock(x: number, y: number, z: number, id: B
 
 export interface GlueDeps {
   world: BuildWorld;
+  /** いま 中で「プレイヤー」と 呼ぶ 場所（話して いる 人の 足もと） */
   player(): Vec3;
+  /** その 人の 足もと（2P が いなければ null） */
+  playerOf(who: 1 | 2): Vec3 | null;
   held(): ItemId | null;
   /** 持ち物の せっけいず（マスの 番号つき） */
   plans(): Array<Blueprint & { slot: number }>;
@@ -41,7 +44,7 @@ export interface GlueDeps {
   /** いちばん はじめの 建築士さんの id（話して いない ときの 代わり） */
   fallbackArchitect(): string | null;
   play(e: HouseSfx): void;
-  teleport(x: number, y: number, z: number): void;
+  teleport(who: 1 | 2, x: number, y: number, z: number): void;
   /** 箱の 中の 動物・妖怪を 外の 立てる 場所（spots。近い 順。足りなければ くりかえす）へ */
   evict(box: { x0: number; z0: number; x1: number; z1: number; y0: number; y1: number }, spots: readonly Vec3[]): void;
 }
@@ -124,9 +127,13 @@ export class BuildGlue {
     // 中に いる 物を 外（戸の 前の、しらべた 列から 近い 立てる 所）へ
     const box = { x0: site.x, z0: site.z, x1: site.x + outW, z1: site.z + outD, y0: site.y + 1, y1: site.y + KEEP_OUT.levels + 1 };
     const spots = this.outSpots(box, doorX, site.z + outD, site.y + 1);
-    const out = spots[0]!;
-    const p = this.d.player();
-    if (p.x >= box.x0 && p.x < box.x1 && p.z >= box.z0 && p.z < box.z1 && p.y >= box.y0 - 1.2 && p.y < box.y1) this.d.teleport(out.x, out.y, out.z);
+    // 箱の 中に いる 人は 1P も 2P も 外へ（1P は 一覧の 1 番目、2P は 2 番目。1 つしか なければ 同じ 所）
+    for (const who of [1, 2] as const) {
+      const p = this.d.playerOf(who);
+      if (!p || !(p.x >= box.x0 && p.x < box.x1 && p.z >= box.z0 && p.z < box.z1 && p.y >= box.y0 - 1.2 && p.y < box.y1)) continue;
+      const out = spots[who - 1] ?? spots[0]!;
+      this.d.teleport(who, out.x, out.y, out.z);
+    }
     this.d.evict(box, spots);
     // 建築士さんを 戸の 前へ
     const id = this.d.speaker() ?? this.d.fallbackArchitect() ?? 'first';

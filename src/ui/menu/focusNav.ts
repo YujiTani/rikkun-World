@@ -191,6 +191,9 @@ export function activeMenuRoot(): HTMLElement | null {
   if (inv && !inv.hidden) return inv;
   const book = pick('.bk-layer');
   if (book && book.offsetParent !== null) return book;
+  // COOP-1 5d: 建築士さんの メニュー（パッドで 押せる 形の とき だけ HouseUi の 根に data-pad-ready が つく。1P の パッドも）
+  const house = pick('.house-ui[data-pad-ready]');
+  if (house && !house.hidden) return house;
   const overlay = pick('.play-overlay');
   if (overlay && !overlay.hidden) return overlay;
   return null;

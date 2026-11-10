@@ -1,6 +1,6 @@
 import type { AnimalApi, AnimalDeps, AnimalEvent, AnimalHintKind, AnimalInfo, AnimalSaveV4, AnimalSpawnOpts, AnimalView, CoopBreakResult, CoopInfo, CoopPlacePreview, CoopPlaceResult, FightCues, ItemId, ItemStack, KitIcon, KitInfo, KitUseResult, LiveSettings, NatsukiView, SwingResult, ThrowAim, ThrowSpot, Vec3 } from '../contracts';
 import type { CoopDir } from './coop';
-import type { AnimalManagerOptions, Coop } from './animalTypes';
+import type { AnimalManagerOptions, Coop, Who } from './animalTypes';
 import { BUG_CATCH_UPDATES, POP_TICKS } from './animalConsts';
 import { AnimalCore } from './animalCore';
 import { finishMeat, meatList, meatSay, startMeat } from './animalMeat';
@@ -38,21 +38,38 @@ export class AnimalManager implements AnimalApi {
     this.settings = this.core.settings;
   }
 
-  /** あみ を ふる（§2.4）。とれる か は ふった ステップ に きまり、むし は 30 ステップ 目 に 持ち物 へ */
-  swingNet(block: Vec3): SwingResult {
-    const r = this.core.net.swing(block, this.core.tick, this.core.settings);
-    this.core.push({ type: 'swing', x: block.x, y: block.y, z: block.z, caught: r.caught, reason: r.reason });
-    if (r.caught) this.core.catches.push(BUG_CATCH_UPDATES);
-    return r;
+  /**
+   * 人ごとの 口の 作り（COOP-1 5c）: `who` を 省くと 1P（今までと 同じ 動き）。口を 呼んで いる あいだ だけ `core.actor` を その人に する。
+   * 出来事に `by: 2`、合図は 2P なら 出来事だけ（`lastHint()` を 書かない）、入れ先は その人の もちもの
+   */
+  private act<T>(who: Who, fn: () => T): T {
+    const prev = this.core.actor;
+    this.core.actor = who;
+    try {
+      return fn();
+    } finally {
+      this.core.actor = prev;
+    }
   }
 
-  carrying(): number | null {
-    return this.core.carriedId;
+  /** あみ を ふる（§2.4）。とれる か は ふった ステップ に きまり、むし は 30 ステップ 目 に ふった 人の 持ち物 へ。くじ は 世界に 1 つ */
+  swingNet(block: Vec3, who: Who = 1): SwingResult {
+    return this.act(who, () => {
+      const r = this.core.net.swing(block, this.core.tick, this.core.settings);
+      this.core.push({ type: 'swing', x: block.x, y: block.y, z: block.z, caught: r.caught, reason: r.reason });
+      if (r.caught) this.core.catches.push({ left: BUG_CATCH_UPDATES, who });
+      return r;
+    });
+  }
+
+  /** その人が だっこ して いる にわとり の id（省くと 1P） */
+  carrying(who: Who = 1): number | null {
+    return this.core.hands[who - 1]!.carriedId;
   }
 
   /** 直前 の `putDown` が 失敗 した わけ（`coopFull`・`friendFull`）。A が その 合図 を 出して いる。ほか は null（C は null の とき だけ `cantPutHere`） */
-  putDownWhy(): AnimalHintKind | null {
-    return this.core.putWhy;
+  putDownWhy(who: Who = 1): AnimalHintKind | null {
+    return this.core.hands[who - 1]!.putWhy;
   }
 
   /** 小屋 の 子 に なった しゅんかん の 大きな しるし の 段（いちばん あたらしい 子。1 → 40 ステップ で 0） */
@@ -72,18 +89,40 @@ export class AnimalManager implements AnimalApi {
     return !!this.core.find(id)?.friend;
   }
 
-  /** つなぎ込み から の 合図（あみ の ヒント など）。出来事 と lastHint に 出す */
-  emitHint(h: AnimalHintKind): void {
-    this.core.hintOut(h);
+  /** つなぎ込み から の 合図（あみ の ヒント など）。出来事 と lastHint に 出す（2P の 物は 出来事 `by: 2` だけ） */
+  emitHint(h: AnimalHintKind, who: Who = 1): void {
+    this.act(who, () => this.core.hintOut(h));
   }
 
   lastHint(): AnimalHintKind | null {
     return this.core.hint;
   }
 
-  /** 今 ねらわれている にわとり（しるし を 出す。つなぎ込みが 毎ステップ 入れる） */
-  setTargeted(id: number | null): void {
-    this.core.targetId = id;
+  /** 今 ねらわれている にわとり（しるし を 出す。つなぎ込みが 毎ステップ 入れる）。人ごとに 1 つ（しるしは どちらかが ねらって いれば 出る） */
+  setTargeted(id: number | null, who: Who = 1): void {
+    this.core.hands[who - 1]!.targetId = id;
+  }
+
+  /**
+   * 2P が やめた（保存 の 前）: だっこを `at`（2P の 足もと）に おろし、まだ 届いて いない むし は そこに 落とし、
+   * えらんで いた いただきます は 1P の 物に し、ねらいを はずす。1P の だっこ・むしは そのまま
+   */
+  leave(who: Who, at: Vec3): void {
+    this.act(who, () => {
+      const core = this.core;
+      dropCarried(core, at, who);
+      for (let i = core.catches.length - 1; i >= 0; i--) {
+        const c = core.catches[i]!;
+        if (c.who !== who) continue;
+        core.catches.splice(i, 1);
+        core.d.dropItem?.({ x: at.x, y: at.y + 0.5, z: at.z }, 'mushi');
+        core.push({ type: 'bugCatch', toInventory: false });
+      }
+      for (const k of core.coopList) if (k.meat && k.meat.who === who) k.meat.who = 1;
+      const h = core.hands[who - 1]!;
+      h.targetId = null;
+      h.wildAnnounced = false;
+    });
   }
 
   count(): number {
@@ -136,8 +175,8 @@ export class AnimalManager implements AnimalApi {
     return previewAnimal(this.core, id, held);
   }
 
-  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | 'wait' | 'harapan' | 'harapanNo' | null {
-    return feedAnimal(this.core, id, item);
+  feed(id: number, item: ItemId, who: Who = 1): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | 'wait' | 'harapan' | 'harapanNo' | null {
+    return this.act(who, () => feedAnimal(this.core, id, item));
   }
 
   /** パネル の 状態（§3.2・§6）。なかま の 大人 だけ shown（だっこ 中 は 出ない） */
@@ -145,8 +184,8 @@ export class AnimalManager implements AnimalApi {
     return natsukiViewOf(this.core, id);
   }
 
-  pet(id: number): 'wild' | 'friend' | 'wait' | null {
-    return petAnimal(this.core, id);
+  pet(id: number, who: Who = 1): 'wild' | 'friend' | 'wait' | null {
+    return this.act(who, () => petAnimal(this.core, id));
   }
 
   forEachVisible(fn: (v: AnimalView) => void): void {
@@ -162,34 +201,34 @@ export class AnimalManager implements AnimalApi {
     updateAnimals(this.core);
   }
 
-  /** 右クリック の 押しつづけ（§2.8）。`heldTicks` = 押してから の ステップ 数 */
-  carryHold(id: number, heldTicks: number): 'lifted' | 'wait' | 'wild' | null {
-    return carryHold(this.core, id, heldTicks);
+  /** 右クリック の 押しつづけ（§2.8）。`heldTicks` = 押してから の ステップ 数。だっこ は 人ごと に 1 羽 */
+  carryHold(id: number, heldTicks: number, who: Who = 1): 'lifted' | 'wait' | 'wild' | null {
+    return this.act(who, () => carryHold(this.core, id, heldTicks, who));
   }
 
   /** おろす（§2.8）。`spot` = 足もと の 位置。固い マス・読みこんで いない 所 は false */
-  putDown(spot: Vec3): boolean {
-    return putDownAnimal(this.core, spot);
+  putDown(spot: Vec3, who: Who = 1): boolean {
+    return this.act(who, () => putDownAnimal(this.core, spot, who));
   }
 
   /** やられた とき: だっこ中 を その場に おろす（地面 の 検査 は しない。出来事 putDown は 出す） */
-  dropCarried(spot: Vec3): void {
-    dropCarried(this.core, spot);
+  dropCarried(spot: Vec3, who: Who = 1): void {
+    this.act(who, () => dropCarried(this.core, spot, who));
   }
 
-  /** だっこ 中 の 着地点（照準 の 下 の 語・丸）。だっこ して いなければ null */
-  throwSpot(aim: ThrowAim): ThrowSpot | null {
-    return throwSpot(this.core, aim);
+  /** だっこ 中 の 着地点（照準 の 下 の 語・丸）。だっこ して いなければ null。出来事は 出さない ので 毎フレーム 呼んで よい */
+  throwSpot(aim: ThrowAim, who: Who = 1): ThrowSpot | null {
+    return throwSpot(this.core, aim, who);
   }
 
   /** 右クリック（だっこ 中）: なげる（d＜1 は 20 ステップ で そっと おろす）。なげられない 所 は 合図 を 出して false */
-  startThrow(aim: ThrowAim): boolean {
-    return startThrow(this.core, aim);
+  startThrow(aim: ThrowAim, who: Who = 1): boolean {
+    return this.act(who, () => startThrow(this.core, aim, who));
   }
 
   /** テスト 用: その 足もと の 点 へ なげる */
-  throwTo(x: number, y: number, z: number): boolean {
-    return throwTo(this.core, x, y, z);
+  throwTo(x: number, y: number, z: number, who: Who = 1): boolean {
+    return this.act(who, () => throwTo(this.core, x, y, z, who));
   }
 
   /** 小屋 を 置く（ゲーム の 置く と 同じ 判定。ねらった 所 が だめ なら まわり 8 か所）。x・z は 5×5 の まん中、y は いちばん 下 の 空気 の 高さ */
@@ -225,8 +264,8 @@ export class AnimalManager implements AnimalApi {
    * あたためる たまご が 世界 ぜんぶ で 6 こ → 'max'（kitMax）。どれ も 合図 は ここ で 出す。
    * 置ける 物 を 持って いる とき の「となり に 置く」は C が 決めて、この 口 は 呼ばない。
    */
-  useKit(x: number, y: number, z: number, held: ItemId | null): KitUseResult {
-    return useKit(this.core, x, y, z, held);
+  useKit(x: number, y: number, z: number, held: ItemId | null, who: Who = 1): KitUseResult {
+    return this.act(who, () => useKit(this.core, x, y, z, held));
   }
 
   /**
@@ -238,13 +277,13 @@ export class AnimalManager implements AnimalApi {
   }
 
   /** 右クリック: 小屋 の すばこ の たまご を ぜんぶ 持ち物 へ（入らない 分 は のこる）。あつめた 数 */
-  collectCoop(coopId: number): { egg: number; gold: number } {
-    return collectCoop(this.core, coopId);
+  collectCoop(coopId: number, who: Who = 1): { egg: number; gold: number } {
+    return this.act(who, () => collectCoop(this.core, coopId));
   }
 
   /** 左クリック を 押した: 中 に 子 が いれば 'locked'（押した ステップ だけ 合図 と 出来事。だっこ 中 の 子 も 数える） */
-  breakCoop(coopId: number, firstPress: boolean): CoopBreakResult {
-    return breakCoop(this.core, coopId, firstPress);
+  breakCoop(coopId: number, firstPress: boolean, who: Who = 1): CoopBreakResult {
+    return this.act(who, () => breakCoop(this.core, coopId, firstPress));
   }
 
   /** 小屋 を 消す（子 0 の とき だけ。いれば false）。すばこ の たまご を おとし、ブロック は `removeCoopBlocks` で ぜんぶ 消す */
@@ -276,13 +315,13 @@ export class AnimalManager implements AnimalApi {
    * いただきます を はじめる（メニュー の 「いただきます」と 同じ）。えらべない 子 は `notEligible`（演出 中 の 小屋 でも 先 に 見る）、
    * その 小屋 で すでに 演出 中 なら `busy`
    */
-  meat(coopId: number, id: number): { ok: boolean; reason: null | 'notEligible' | 'busy' } {
-    return startMeat(this.core, coopId, id);
+  meat(coopId: number, id: number, who: Who = 1): { ok: boolean; reason: null | 'notEligible' | 'busy' } {
+    return this.act(who, () => startMeat(this.core, coopId, id, who));
   }
 
-  /** 演出 の 一言 の ふわっと 度（0〜1。出て いなければ null）。複数 の 小屋 なら いちばん 濃い もの */
-  meatSay(): number | null {
-    return meatSay(this.core);
+  /** 演出 の 一言 の ふわっと 度（0〜1。出て いなければ null）。複数 の 小屋 なら いちばん 濃い もの。`who` の 半分に 出す 物（えらんだ 人だけ） */
+  meatSay(who: Who = 1): number | null {
+    return meatSay(this.core, who);
   }
 
   /** 保存 の 前: 演出 中 の 子 を その場 で おわらせる（にく は 持ち物 か 足もと。読み直し に 演出 の 続き は 出ない） */

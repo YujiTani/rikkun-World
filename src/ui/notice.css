@@ -1,5 +1,6 @@
 /* 合図のチップ・ほる/えらんだ名前（M6 §3.6）。どれも かたまりの外に出す一時的なもの */
-#notice-signal {
+#notice-signal,
+.notice-signal--p2 {
   position: fixed;
   left: calc(50% + var(--rk-sp-3));
   top: calc(50% + var(--rk-sp-3));
@@ -19,6 +20,8 @@
 }
 #notice-signal[hidden],
 #notice-signal-text[hidden],
+.notice-signal--p2[hidden],
+.notice-signal-text--p2[hidden],
 #notice-name[hidden] {
   display: none;
 }
@@ -40,7 +43,8 @@
   z-index: 6;
 }
 /* 合図のチップ: 照準の下 48px。左に 色の帯 4px（できない = 赤）。「もちものが いっぱい！」は 見出し 24px・800 */
-#notice-signal-text {
+#notice-signal-text,
+.notice-signal-text--p2 {
   position: fixed;
   left: 50%;
   top: calc(50% + var(--rk-sp-7));

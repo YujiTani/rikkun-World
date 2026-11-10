@@ -169,7 +169,7 @@
 
 /* 開いている 間は 遊びの HUD（ハート・ホットバー・合図 など）を 消す（もちもの画面と おなじ） */
 #hud:has(.house-ui.is-menu)
-  > :is(#crosshair, #hud-self, #clock, #hotbar, #action-hint, #hud-notice, #farm-hint, #farm-aim, #pickup-log, #home-notice) {
+  > :is(#crosshair, .duo-crosshair-p1, #hud-self, #clock, #hotbar, #action-hint, #hud-notice, #farm-hint, #farm-aim, #pickup-log, #home-notice) {
   opacity: 0;
 }
 

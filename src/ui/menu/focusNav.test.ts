@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { pickNext, type FocusBox } from './focusNav';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { activeMenuRoot, clickFocused, handleMenuDir, pickNext, type FocusBox } from './focusNav';
 
 const boxes: FocusBox[] = [
   { id: 'a', l: 0, t: 0, w: 100, h: 40 },
@@ -81,5 +81,54 @@ describe('メニューのフォーカス', () => {
     it('一覧の 右はしの タイルから 右へ せつめいの ボタンへ', () => {
       expect(pickNext(full, 'tileY4', 'right')).toBe('next');
     });
+  });
+});
+
+
+/**
+ * COOP-1 5d（AC165・AC146 の 例外）: 建築士さんの メニューの ボタンを パッドの 十字＋A で 押せる（1 人の ときの 1P の パッドも）。実装の 前に 書いた 赤の テスト。
+ * 約束: HouseUi の 根（class house-ui）に、押せる 形の とき だけ `data-pad-ready`（housePadReady が true の とき。src/ui/houseMenuPad.ts）を 付け、
+ *   activeMenuRoot() は `[data-pad-ready]` を 見て その 根を 返す（優先は ダイアログ・せってい・もちもの画面・本・建築士さんの 画面・案内画面 の 順）。
+ *   ここでは document を 小さい 偽物に して、根の さがし方〔セレクタに data-pad-ready を ふくむ〕と、十字で 動き A で 押す ところを 見る。
+ */
+describe('AC165 建築士さんの メニューを パッドで（1P も）', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function fakeDoc(readyRoot: boolean) {
+    const clicked: string[] = [];
+    const doc: { activeElement: unknown; querySelector: (sel: string) => unknown; getElementById: () => null } = { activeElement: null, querySelector: () => null, getElementById: () => null };
+    const mk = (id: string, top: number) => {
+      const el: Record<string, unknown> = {
+        id,
+        hidden: false,
+        getAttribute: () => null,
+        closest: () => null,
+        contains: (o: unknown) => o === el,
+        getBoundingClientRect: () => ({ left: 100, top, width: 200, height: 40 }),
+        focus: () => void (doc.activeElement = el),
+        click: () => void clicked.push(id),
+      };
+      return el;
+    };
+    const buttons = [mk('editor', 100), mk('build', 160), mk('close', 220)];
+    const root = { id: 'house-ui', hidden: false, contains: (o: unknown) => buttons.includes(o as never), closest: () => null, querySelectorAll: () => buttons };
+    doc.querySelector = (sel: string) => (readyRoot && sel.includes('data-pad-ready') ? root : null);
+    vi.stubGlobal('document', doc);
+    return { root, buttons, clicked, doc };
+  }
+
+  it('押せる 形の とき（data-pad-ready が ある）: activeMenuRoot は 建築士さんの 根。十字の 下で 次の ボタンへ、A〔けってい〕で 押せる', () => {
+    const { root, buttons, clicked } = fakeDoc(true);
+    expect(activeMenuRoot()).toBe(root);
+    handleMenuDir(root as never, 'down'); // はじめ: 先頭
+    handleMenuDir(root as never, 'down');
+    expect((globalThis.document as unknown as { activeElement: unknown }).activeElement).toBe(buttons[1]);
+    clickFocused(root as never);
+    expect(clicked).toEqual(['build']);
+  });
+
+  it('押せる 形で ない とき（エディター・場所えらび）: activeMenuRoot は 建築士さんの 根を 返さない', () => {
+    fakeDoc(false);
+    expect(activeMenuRoot()).toBeNull();
   });
 });
