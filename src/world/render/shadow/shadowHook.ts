@@ -27,6 +27,8 @@ export interface ShadowHookDeps {
   renderNow(): void;
   /** 設定の「かげ」を変える（画面のボタンと同じ道すじ） */
   setEnabled(on: boolean): void;
+  /** 画面の ために かくした 地下の セクション（#405）も 見せて fn を 呼ぶ（真上からの 1 画素は ゲームの カメラと 別の 向き） */
+  showAll<T>(fn: () => T): T;
 }
 
 const ZERO_STATS: ShadowStatsHook = {
@@ -135,10 +137,10 @@ export function createShadowHook(d: ShadowHookDeps) {
       cam.rotation.x = -Math.PI / 2;
       cam.updateMatrixWorld(true);
       const rt = ensureShot();
-      const render = () => withTarget(rt, () => {
+      const render = () => withTarget(rt, () => d.showAll(() => {
         d.renderer.render(d.scene, cam);
         return readShade(rt);
-      });
+      }));
       return sys ? sys.withShadow(opt.shadow !== false, render) : render();
     },
     /** キャラの体の中心を ゲームのカメラで 1 画素 描いた色 */

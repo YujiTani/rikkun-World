@@ -1,6 +1,5 @@
-import { bambooMode } from '../leafBambooMode';
 import { LOOK_N, grainMapOf, hasLook, initLooks, occludes } from '../looks';
-import { BLOCK_INDEX, BLOCK_TYPES, isLeafIndex, isOpaqueIndex } from '../../blocks/blockTypes';
+import { BLOCK_TYPES, isLeafIndex, isOpaqueIndex } from '../../blocks/blockTypes';
 import { OPACITY } from '../../light/opacity';
 
 /** sectionMesher の定数と表（SectionMesher・BlockCube・BoxMesher が共有する。4-7） */
@@ -41,27 +40,12 @@ export const NEIGHBOR_OFF = [SS, -SS, 1, -1, S, -S];
 export const GSTRIDE = [1, SS, S];
 
 /** この種類は となりの面をかくすか（形のある種類は look、形のない固いブロック（絵のブロック）は かくす） */
-function bambooOcc(i: number): number | null {
-  if (i !== BLOCK_INDEX.bamboo || bambooMode() === 'current') return null;
-  // 細い 稈は マスを ふさがない。となり（草の 上面）を 描かせる
-  return 0;
-}
-
 function buildOcc(): Uint8Array {
   const t = new Uint8Array(NB);
-  for (let i = 0; i < NB; i++) t[i] = bambooOcc(i) ?? (hasLook(i) ? (occludes(i) ? 1 : 0) : isOpaqueIndex(i) ? 1 : 0);
+  for (let i = 0; i < NB; i++) t[i] = hasLook(i) ? (occludes(i) ? 1 : 0) : isOpaqueIndex(i) ? 1 : 0;
   return t;
 }
 export const OCC = buildOcc();
-
-/** 試しの たけに 切りかえたあとに 呼ぶ（計測）。既定の 起動では buildOcc が すでに 合わせてある */
-export function syncProtoOcc(): void {
-  for (let i = 0; i < NB; i++) {
-    const b = bambooOcc(i);
-    if (b !== null) OCC[i] = b;
-    else if (i === BLOCK_INDEX.bamboo) OCC[i] = hasLook(i) && occludes(i) ? 1 : 0;
-  }
-}
 /** つぶ〔B「とびだす つぶ」。MINE-1B〕の ある 種類か（格子の 値 2 = 地の 石、3 以上 = つぶ）と、色番号 → 格子の 値の 表 */
 export const GRAIN_MAPS: readonly (Uint8Array | undefined)[] = Array.from({ length: NB }, (_t, i) => grainMapOf(i));
 export const GRAIN_KIND = Uint8Array.from(GRAIN_MAPS, (m) => (m ? 1 : 0));
