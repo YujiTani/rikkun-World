@@ -85,7 +85,6 @@ export function allRecipes(): string[] {
 
 /** 案（むら ＝ A・おしろ ＝ B・こうざん ＝ C）。ポップアップの 行の 順 */
 export const STYLES = ['mura', 'shiro', 'kozan'] as const;
-export type Style = (typeof STYLES)[number];
 export type Part = 'roof' | 'wall' | 'window' | 'door' | 'deco';
 /** ばしょの ならび（左から。かざりは かざりを 1 つ おぼえる まで 出ない） */
 export const PARTS: readonly Part[] = ['roof', 'wall', 'window', 'door', 'deco'];
