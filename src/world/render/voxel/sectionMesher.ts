@@ -1,5 +1,6 @@
 import type { CropStageSource } from '../../../contracts';
 import { LOOK_VOLUME, fillBlockLookKata, hasLook, kataOf } from '../looks';
+import { leafOpen } from './leafOpen';
 import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from '../../micro/microSurface';
 import { scanColumn, type ColumnInfo } from '../../micro/worldColumns';
 import { OCC_BYTES, OCC_NY, packOccupancy } from './ao';
@@ -546,7 +547,7 @@ export class SectionMesher {
       const wx = this.ox + bxi - 1;
       const wy = this.oy + byi - 1;
       const wz = this.oz + bzi - 1;
-      fillBlockLookKata(k, wx, wy, wz, e, this.uniq[i] !== 0, scratch, this.uniq[i] === 2);
+      fillBlockLookKata(k, wx, wy, wz, leafOpen(cube, k, bxi, byi, bzi, e), this.uniq[i] !== 0, scratch, this.uniq[i] === 2);
       const gm = GRAIN_MAPS[k];
       if (gm) for (let j = 0; j < LOOK_VOLUME; j++) scratch[j] = gm[scratch[j]]; // つぶの ある 種類: 色番号 → 地の 石・つぶの 番号（格子の 値）
       this.copyBlock(scratch, gx, gy, gz);

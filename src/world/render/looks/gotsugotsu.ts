@@ -5,6 +5,7 @@ import { microSoil } from '../../micro/microSurface';
 import { createChestKinds, createKodoWakuKind } from './chestLooks';
 import { createBokenKinds } from './mineBokenLooks';
 import { createMineKinds } from './mineLooks';
+import { fillLeafPuff, type LeafPuffStyle } from './leafPuff';
 import { LOOK_N, type KindSpec, type Look } from './types';
 
 /**
@@ -12,7 +13,7 @@ import { LOOK_N, type KindSpec, type Look } from './types';
  * - 形（2026-10-16 オーナーの決定で強めた。きまりは docs/art/DESIGN.md）: 1 マスの つぶ ではなく、3×3 の「かけら」単位で
  *   1〜3 マス へこませる。見える面が出会う へり・かどは 3×3×3 ごとに けずる。くさ は 3×3 ごとに 4 つの高さ（くぼみ・草の芽・
  *   1 段ひくい・つまった）。崖では しばふ の くちびる を けずり、下のはしを ギザギザ、下の土を引っこめて ひさし を作る。
- *   木の皮は 2 マスの たての みぞ。鉱石の かたまり は けずらない（少し とび出す）。はっぱ は 3×3×3 の かたまり。
+ *   木の皮は 2 マスの たての みぞ。鉱石の かたまり は けずらない（少し とび出す）。はっぱ は 外がわを まるめた もこもこ（leafPuff.ts）。
  * - 色: ブロックの外がわほど明るく、中ほど暗い（外 → 1 段内 → 2 段内）。へこみの底が かってに 暗くなり、かげ（光の代わり）になる。
  * - 空気: すんだ 青空。遠くは 青く かすむ（遠近感）。
  * 色はブロックの中の位置だけで決める（3D テクスチャは位置しか見ないため）。
@@ -150,37 +151,18 @@ function terrainColor(kind: string, depth: number, fromTop: number, isRock: bool
   }
 }
 
-/** はっぱ: 3×3×3 の かたまり 27 こ。外がわの かたまりは ときどき ない（もこもこ）。上の面ほど明るい */
-function leafKind(c: Layers, saltN: number): KindSpec {
+/** はっぱ: 外がわを まるめた もこもこ（形は leafPuff.ts）。色番号は 外がわの 色 1 つ（見える 色は 絵の 投影） */
+function leafKind(c: Layers, saltN: number, style: LeafPuffStyle = 'round'): KindSpec {
   return {
     base: c[0],
     occludes: false,
-    fill: (bx, by, bz, _e, out) => {
-      // 試し（shell / cross / 計測の none）は 小ブロックを 置かない。面は extras が 描く
+    fill: (bx, by, bz, e, out) => {
+      // 試し（?leaf=shell / cross / 計測の none）は 小ブロックを 置かない。面は extras が 描く
       if (leafMode() !== 'current') {
         out.fill(0);
         return;
       }
-      const h = blockHash(saltN, bx, by, bz);
-      let i = 0;
-      for (let y = 0; y < N; y++) {
-        for (let z = 0; z < N; z++) {
-          for (let x = 0; x < N; x++, i++) {
-            const cx = (x / 3) | 0;
-            const cy = (y / 3) | 0;
-            const cz = (z / 3) | 0;
-            const outer = cx !== 1 || cy !== 1 || cz !== 1;
-            const r = mix(h, (cy * 3 + cz) * 3 + cx);
-            const corners = (cx !== 1 ? 1 : 0) + (cy !== 1 ? 1 : 0) + (cz !== 1 ? 1 : 0);
-            if (outer && r % 10 < (corners >= 2 ? 5 : 2)) {
-              out[i] = 0;
-              continue;
-            }
-            const ly = y % 3;
-            out[i] = ly === 2 ? (r % 3 === 0 ? c[1] : c[0]) : ly === 1 ? c[2] : c[3];
-          }
-        }
-      }
+      fillLeafPuff(blockHash(saltN, bx, by, bz), e, out, c[0], style);
     },
   };
 }
@@ -263,7 +245,7 @@ export const gotsugotsuLook: Look = {
       },
     ),
     leaves: leafKind(LEAF, LEAF_SALT),
-    matsu_leaves: leafKind(MATSU, LEAF_SALT + 1),
+    matsu_leaves: leafKind(MATSU, LEAF_SALT + 1, 'pad'),
     momiji_leaves: leafKind(MOMIJI, LEAF_SALT + 2),
     snow: rock(SNOW, 3, 1, 4),
     bamboo: (() => {
