@@ -157,7 +157,7 @@ export class YokaiManager implements YokaiWorld {
 
   /** 生きて いる 妖怪の id か〔作らない。やかたの 挑戦が 毎ステップ 見る〕 */
   has(id: number): boolean {
-    for (const e of this.ents) if (e.id === id) return true;
+    for (const e of this.ents) if (e.id === id) return e.state !== 'dying' && e.state !== 'leaving' && !e.remove; // たおれる 演出の 間は 数えない
     return false;
   }
 
