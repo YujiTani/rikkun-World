@@ -53,19 +53,20 @@ export function wireGamepad(opts: {
   let pumpUi: (active: boolean, dt: number) => boolean = () => false;
   /**
    * COOP-1: 参加の 求め（2 本目の ＋）と 2P の もちもの画面は wireDuo が つなぐ。
+   * p2Owns = 2P が 本・建築士さんを 開いている（COOP-1 5d）: 2P の パッドも 世界が 止まって いる あいだ 読み、1P の 十字・けってい は メニューを 動かさない（2P の 動かす 係は wireDuoModal）。
    * submit1 = 1P の パッドの けってい（けってい で たんす・かまどの 中身が かわる）を 預ける 口（4c。2 人の とき PanelOrder へ。1 人の ときは すぐ 実行）
    */
-  const duo = { onJoinRequested: (): void => undefined, menuOpen2: (): boolean => false, joined: (): boolean => false, submit1: (op: () => void, _active: boolean, _rootId: string): void => op() };
+  const duo = { onJoinRequested: (): void => undefined, menuOpen2: (): boolean => false, joined: (): boolean => false, p2Owns: (): boolean => false, submit1: (op: () => void, _active: boolean, _rootId: string): void => op() };
   const sliderRepeat = new SliderRepeat();
   const step = (active: boolean, dt: number): void => {
     reader.setMenuOpen(opts.menuOpen());
     reader.setHanging(opts.hanging());
     router.setMenuOpen2(duo.menuOpen2());
-    if (router.poll(performance.now(), active).joinRequested) duo.onJoinRequested();
+    if (router.poll(performance.now(), active || duo.p2Owns()).joinRequested) duo.onJoinRequested();
     const padEnded = pumpUi(active, dt); // 1P の パッドで 待ちを やめた 回は フォーカスを 動かさない
     const on = reader.hasPad();
     if (on !== opts.lock.isPadActive()) opts.lock.setPadActive(on);
-    if (padEnded || !opts.menuOpen() || reader.isCapturing()) {
+    if (padEnded || !opts.menuOpen() || reader.isCapturing() || duo.p2Owns()) {
       sliderRepeat.reset();
       return;
     }
@@ -84,7 +85,7 @@ export function wireGamepad(opts: {
   };
   // 案内中（realtime オフ）でもパッドを読んで padActive にできるように idle でも回す
   opts.game.onUpdate(() => step(true, 1 / 60));
-  // 実時間の コマは modal の あいだも idle が 毎コマ 1 回 読む。modal.tick は 0〜N 回 回る ので、そこでは 読まない
+  // 実時間の コマは modal の あいだも idle が 毎コマ 1 回 読む。modal.tick は 0〜N 回 回る ので、そこでは 読まない（例外: 2P が 本・建築士さんを 開いて いる あいだは duoModalTick〔wire/duoModal.ts〕が 2P の パッドだけ 1 コマごとに 読む）
   opts.game.onIdle((dt) => step(false, dt));
   // COOP-1 4d-1（AC101）: パリィの ゆっくりの あいだは 固定ステップが 0 回の コマが ある。ステップの あいだに 押して はなした ボタンを 取りこぼさない ように、
   // 2 人が 参加している あいだ だけ ボタンを 実時間の 毎コマ 読む（1 人の ときは 今までの poll だけ。AC113）。スティック・look は 1 ステップ 1 回の まま

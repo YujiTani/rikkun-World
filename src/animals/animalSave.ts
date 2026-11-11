@@ -9,7 +9,7 @@ import { round2 } from './animalMath';
 import { makeKid } from './animalCoops';
 
 /** この 係 が 使う ものだけ（`AnimalCore` の 一部） */
-type SaveCtx = Pick<AnimalCore, 'breedState' | 'clear' | 'coopAtSpot' | 'coopById' | 'coopList' | 'd' | 'dropGold' | 'ents' | 'find' | 'getPlayer' | 'goldRng' | 'hintOut' | 'kidCount' | 'kitList' | 'lastDay' | 'lockHintAt' | 'make' | 'nextCoopId' | 'push' | 'rng' | 'setLock' | 'setState' | 'settings' | 'targetId' | 'tick' | 'tryAdd' | 'world'>;
+type SaveCtx = Pick<AnimalCore, 'breedState' | 'clear' | 'coopAtSpot' | 'coopById' | 'coopList' | 'd' | 'dropGold' | 'ents' | 'find' | 'getPlayer' | 'goldRng' | 'hintOut' | 'kidCount' | 'kitList' | 'lastDay' | 'lockHintAt' | 'make' | 'nextCoopId' | 'push' | 'rng' | 'setLock' | 'setState' | 'settings' | 'tick' | 'tryAdd' | 'world'>;
 
 /**
  * 保存（LIVE-2.1 §4.3・v 4）。だっこ 中 は プレイヤー の 足もと の 位置 が そのまま 入る。なげて いる とちゅう は 着地点 に いる もの と して 書く

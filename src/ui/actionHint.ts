@@ -6,34 +6,77 @@ import { paintKodoTile } from '../world/blocks/mineTexturesWaku';
 import { drawPixels, itemIconUrl } from './itemIcon';
 import './actionHint.css';
 
+/** ボタンの 絵の 種類（マウス か パッドの 肩ボタン。COOP-1 5f-1） */
+export type HintPadKind = 'mouse' | 'pad';
+
+/** パッドの 札に 書く 面（`data-hint-pad` の 値＝ 面の 名前・字＝ ZR など）。ついて いない ときは null */
+export interface HintPadFace {
+  face: string;
+  label: string;
+}
+
 /**
  * 照準（＋）の すぐ下の ヒント（FIX-action-hint）。左 = 左クリック、右 = 右クリック を横にならべる。
- * 1 つ = マウスの絵（L か R が光る）＋ すること の絵 ＋ 小さな 1 語。毎ステップ update(lines) を呼ぶ。DOM: `#action-hint`
+ * 1 つ = ボタンの絵（マウスの L か R が光る／パッドの 肩ボタン）＋ すること の絵 ＋ 小さな 1 語。毎ステップ update(lines) を呼ぶ。DOM: `#action-hint`
+ * 2 人の ときの 2P の 分は `new ActionHint(hud, 2)`（`#action-hint-p2`。パッドの 絵だけ。マウスの 絵は 作らない）。
  */
 export class ActionHint {
   readonly el: HTMLDivElement;
   private readonly cells: { left: HTMLDivElement; right: HTMLDivElement };
   private shown: ActionHintLines = {};
+  private padKind: HintPadKind;
+  private readonly padKey = { left: '', right: '' };
 
-  constructor(parent: HTMLElement) {
+  constructor(parent: HTMLElement, who: 1 | 2 = 1) {
     this.el = document.createElement('div');
-    this.el.id = 'action-hint';
+    this.el.id = who === 1 ? 'action-hint' : `action-hint-p${who}`;
+    this.el.className = who === 1 ? 'action-hint' : `action-hint action-hint--p${who}`;
     this.el.setAttribute('aria-hidden', 'true');
+    this.el.setAttribute('data-testid', `duo-action-hint-p${who}`);
+    this.el.setAttribute('data-aim', 'hint');
+    this.padKind = who === 1 ? 'mouse' : 'pad';
+    this.el.dataset.pad = this.padKind;
     this.el.hidden = true;
-    this.cells = { left: this.makeCell('left'), right: this.makeCell('right') };
+    this.cells = { left: this.makeCell('left', who === 1), right: this.makeCell('right', who === 1) };
     this.el.append(this.cells.left, this.cells.right);
     parent.append(this.el);
   }
 
-  private makeCell(side: 'left' | 'right'): HTMLDivElement {
+  private makeCell(side: 'left' | 'right', withMouse: boolean): HTMLDivElement {
     const c = document.createElement('div');
     c.className = `action-hint__cell action-hint__cell--${side}`;
     c.hidden = true;
     c.innerHTML =
-      `<span class="action-hint__mouse"><i class="action-hint__btn action-hint__btn--l"></i><i class="action-hint__btn action-hint__btn--r"></i></span>` +
+      (withMouse ? `<span class="action-hint__mouse action-hint__mouse--${side}"><i class="action-hint__btn action-hint__btn--l"></i><i class="action-hint__btn action-hint__btn--r"></i></span>` : '') +
+      `<span class="action-hint__pad" data-hint-pad=""></span>` +
       `<img class="action-hint__art" alt=""><span class="action-hint__word"></span>`;
-    c.querySelector('.action-hint__mouse')!.classList.add(`action-hint__mouse--${side}`);
     return c;
+  }
+
+  /** ボタンの 絵を マウスか パッドに（変わった ときだけ 書く。2P の 札は いつも パッド） */
+  setPad(kind: HintPadKind): void {
+    if (kind === this.padKind) return;
+    this.padKind = kind;
+    this.el.dataset.pad = kind;
+  }
+
+  pad(): HintPadKind {
+    return this.padKind;
+  }
+
+  /** パッドの 札の 面の 名前（左の 札＝ primary、右の 札＝ secondary）。変わった ときだけ 書く */
+  setFaces(left: HintPadFace | null, right: HintPadFace | null): void {
+    this.setFace('left', left);
+    this.setFace('right', right);
+  }
+
+  private setFace(side: 'left' | 'right', f: HintPadFace | null): void {
+    const key = f ? `${f.face}|${f.label}` : '';
+    if (key === this.padKey[side]) return;
+    this.padKey[side] = key;
+    const pad = this.cells[side].querySelector('.action-hint__pad') as HTMLElement;
+    pad.setAttribute('data-hint-pad', f?.face ?? 'none');
+    pad.textContent = f?.label ?? '';
   }
 
   update(lines: ActionHintLines): void {

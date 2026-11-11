@@ -6,7 +6,7 @@ import type { Ent } from './animalTypes';
 import { FULL_REACT_TICKS, NATSUKI_HINT_GAP } from './animalConsts';
 
 /** この 係 が 使う ものだけ（`AnimalCore` の 一部） */
-type CareCtx = Pick<AnimalCore, 'eggRng' | 'ents' | 'find' | 'friendCount' | 'hintOut' | 'push' | 'setLock' | 'settings' | 'targetId' | 'tick' | 'waitHintAt'>;
+type CareCtx = Pick<AnimalCore, 'eggRng' | 'ents' | 'find' | 'friendCount' | 'hintOut' | 'isTargeted' | 'push' | 'setLock' | 'settings' | 'tick' | 'hands' | 'actor'>;
 
 /** GOLD-1: なつき度 を もつ 子（なかま の 大人。ふつう・マッチョ どちら も。小屋 の 子 も） */
 function hasNatsuki(e: Ent): boolean {
@@ -18,7 +18,8 @@ export function previewAnimal(core: CareCtx, id: number, held: ItemStack | null)
   if (!e || e.carried || e.meat) return null;
   // まち中 の むし は ロック中 でも「まってね」を 返す（feed と おなじ）
   if (e.lock > 0 && held && held.item === 'harapan_mimizu' && hasNatsuki(e) && e.state !== 'sleep') return 'feed';
-  if (e.lock > 0) return held && held.item === 'mushi' && e.state !== 'sleep' && hasNatsuki(e) && e.natsukiBugWait > 0 ? 'animalFull' : null;
+  // たまごを うむ 動きの 最中（60 ステップ）に むし を もう 1 回 あげたら「おなかいっぱい」を 見せる（まち中の なかま も）
+  if (e.lock > 0) return held && held.item === 'mushi' && e.state !== 'sleep' && ((hasNatsuki(e) && e.natsukiBugWait > 0) || (e.egg && e.fullLeft > 0)) ? 'animalFull' : null;
   const nat = hasNatsuki(e);
   if (held && held.item === 'mushi') {
     if (e.state === 'sleep') return 'animalPet';
@@ -32,13 +33,18 @@ export function previewAnimal(core: CareCtx, id: number, held: ItemStack | null)
   return 'animalPet';
 }
 
+/** 合図 natsukiWait を 出す。600 ステップ に 1 回 まで（人ごと。1P が 出した 少しあとでも 2P の 合図は 出る） */
+function waitHint(core: CareCtx): void {
+  const h = core.hands[core.actor - 1]!;
+  if (core.tick - h.waitHintAt < NATSUKI_HINT_GAP) return;
+  h.waitHintAt = core.tick;
+  core.hintOut('natsukiWait');
+}
+
 /** 合図 natsukiWait は 600 ステップ に 1 回 まで。出来事 natsukiWait と こっち を 見て くび を かしげる は 毎回 */
 function waitReact(core: CareCtx, e: Ent, which: 'bug' | 'pet'): void {
   core.push({ type: 'natsukiWait', id: e.id, which });
-  if (core.tick - core.waitHintAt >= NATSUKI_HINT_GAP) {
-    core.waitHintAt = core.tick;
-    core.hintOut('natsukiWait');
-  }
+  waitHint(core);
   core.setLock(e, 'full', FULL_REACT_TICKS);
 }
 
@@ -56,14 +62,14 @@ export function feedAnimal(core: CareCtx, id: number, item: ItemId): 'ate' | 'fu
   // まち中 の 合図 は 動きの 最中（ロック中）でも 返す（くび を かしげる は つづけて 出さない）
   if (e.lock > 0 && item === 'mushi' && e.state !== 'sleep' && hasNatsuki(e) && e.natsukiBugWait > 0) {
     core.push({ type: 'natsukiWait', id: e.id, which: 'bug' });
-    if (core.tick - core.waitHintAt >= NATSUKI_HINT_GAP) {
-      core.waitHintAt = core.tick;
-      core.hintOut('natsukiWait');
-    }
+    waitHint(core);
     return 'wait';
   }
   // はらぱんみみず は 前 の 動き の 最中 でも あげられる（なかま の 大人 だけ）
-  if (e.lock > 0 && !(item === 'harapan_mimizu' && hasNatsuki(e))) return null;
+  if (e.lock > 0 && !(item === 'harapan_mimizu' && hasNatsuki(e))) {
+    // たまごを うむ 最中に むし を もう 1 回: おなかいっぱい（合図だけ。動き・ロックは そのまま。むし は へらない）。ついばむ だけの 最中は 今までどおり 何も しない
+    return item === 'mushi' && e.state !== 'sleep' && e.egg && e.fullLeft > 0 ? 'full' : null;
+  }
   if (item === 'harapan_mimizu') return feedHarapan(core, e);
   if (item !== 'mushi') return null;
   const s = core.settings;
@@ -206,6 +212,6 @@ export function natsukiTick(core: CareCtx, e: Ent): void {
     e.natsuki = Math.max(0, e.natsuki - s.natsukiDecay);
     e.natsukiDecayLeft = s.natsukiDecayTicks;
   }
-  if (e.natsukiBugWait > 0 && --e.natsukiBugWait === 0 && e.id === core.targetId) core.push({ type: 'natsukiReady', id: e.id, which: 'bug' });
-  if (e.natsukiPetWait > 0 && --e.natsukiPetWait === 0 && e.id === core.targetId) core.push({ type: 'natsukiReady', id: e.id, which: 'pet' });
+  if (e.natsukiBugWait > 0 && --e.natsukiBugWait === 0 && core.isTargeted(e.id)) core.push({ type: 'natsukiReady', id: e.id, which: 'bug' });
+  if (e.natsukiPetWait > 0 && --e.natsukiPetWait === 0 && core.isTargeted(e.id)) core.push({ type: 'natsukiReady', id: e.id, which: 'pet' });
 }

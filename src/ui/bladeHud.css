@@ -1,5 +1,6 @@
 /* いま 動けない: 照準の まわりの うすい 灰色の わ */
-#tech-lock {
+#tech-lock,
+.tech-lock--p2 {
   position: fixed;
   left: 50%;
   top: 50%;
@@ -12,6 +13,7 @@
   pointer-events: none;
   z-index: 6;
 }
-#tech-lock[hidden] {
+#tech-lock[hidden],
+.tech-lock--p2[hidden] {
   display: none;
 }

@@ -27,7 +27,12 @@ import type { P2GashaPort } from './gashaPeople';
 import type { DuoCamFx } from '../../duo/camFx';
 import type { Parry } from '../../combat/parry';
 import type { P2Parry } from '../../duo/p2Parry';
+import type { P2AnimalsPort } from '../../duo/p2AnimalsPort';
 import type { DigM4Deps } from '../../dig/digPorts';
+import type { PerspectiveCamera } from 'three';
+import type { CraftCount } from '../../house/materials';
+import type { Pane } from '../../ui/houseBubble';
+import { createModalOwner, type ModalOwner, type Who } from './modalOwner';
 import type { ImpactView } from '../../duo/impactRoute';
 import type { ImpactBus } from '../../fx/impact';
 import type { LegendSystem } from '../../legend/LegendSystem';
@@ -107,8 +112,20 @@ interface Shared {
   p2FarmHint: () => { show(kind: FarmHintKind): void } | null;
   /** COOP-1 5a: 2P の 作物の しるしの 中身（`duo.farmAim(2)`。ねらい なし・2P が いない → null。wireDuoPlay が 差しかえる） */
   p2FarmAim: () => FarmAim | null;
+  /** COOP-1 5c: 2P の にわとり（出来事の 配り・こたつの わく・着地点の 丸が 読む。参加している あいだ だけ。いなければ null。wireDuoPlay が 差しかえる） */
+  p2Animals: () => P2AnimalsPort | null;
+  /** COOP-1 5c: 頭の 上の ▼ は 世界に 1 つ。人ごとの 口を 返す（1P の メニューも 2P の メニューも ここを 通る。wireHud が 差しかえる） */
+  pickMux: (who: 1 | 2) => (id: number | null) => void;
+  /** COOP-1 5f-1: 2P の おしらせの 印（2P の 半分の ＋の 右下）。2P が いなければ 何も しない */
+  p2ShowSignal: Notice['showSignal'];
   /** COOP-1 4d-1: 妖怪の 更新の 直前に 毎ステップ 呼ぶ（createStep。1P の parry.update の すぐ あと）。2P の 入力を 妖怪の 当たりより 先に 入れる。wireDuoPlay が 差しかえる */
   preYokai: () => void;
+  /** COOP-1 5e: ふとんで 「2 人」に 数えられる 人の 数（参加していて 倒れておらず 2P は パッドが ある 人。2 人とも 倒れて いれば 0。2P が いなければ 1。wireDuoPlay が 差しかえる） */
+  sleepReady: () => number;
+  /** COOP-1 5e: 2P の 待ちを 起こす 入力と 倒れた・パッドぬけの wake（毎ステップ、sleep.update の 前に gadgets.step が 呼ぶ。wireDuoPlay が 差しかえる） */
+  p2SleepWake: () => void;
+  /** COOP-1 5e: ふとんの 文（「よる に ねようね」）を who の 半分に 出す（2P の 分。wireDuo が 差しかえる。DuoNotices.showGadgetNote） */
+  duoGadgetNote: (who: Who, text: string) => void;
   /** COOP-1: Game に 渡している 時間の 倍率（テストの 口 duo.timeScale() が 読む。wireLoop が 差しかえる） */
   gameTimeScale: () => number;
   // #293 試作: ふだんの BGM の フェード（gashaBgm.ts が きめる）
@@ -127,6 +144,19 @@ interface Shared {
   houseFrozen: () => boolean;
   /** HOUSE-1B: エディターが 開いて いる 間の 1 コマ（見本の 向き・ふきだしの 時間）と 描画（見本）。player.ts の 窓が 呼ぶ。開いて いなければ 何も しない */
   houseModal: { tick: () => void; render: () => void };
+  /** COOP-1 5d: 2P の 建築士さん まわり（wireDuo・wireDuoPlay が 差しかえる）。craft ＝ 2P から craftTansuRange の たんすを 数える 係、teleport ＝ 2P を 足もとへ、panelOpen ＝ 2P の もちもの画面、bubble ＝ 2P が 話した ふきだしを おさめる 区画と カメラ */
+  p2House: {
+    craft: () => CraftCount | undefined;
+    teleport: (x: number, y: number, z: number) => void;
+    panelOpen: () => boolean;
+    bubble: () => { camera: PerspectiveCamera; pane: Pane } | null;
+  };
+  /** COOP-1 5d: 本・建築士さんの メニューを 開いた 人（開いた 人。docs/design/COOP-1.md 1.16 §8）。本の ほんだな・建築士さんの 門・「ちょっと まってね」が 同じ 1 つを 使う */
+  modalOwner: ModalOwner;
+  /** COOP-1 5d: 「ちょっと まってね」を who の 半分に 出す／消す（wireDuo が 差しかえる。DuoNotices.setWait） */
+  duoSetWait: (who: Who, on: boolean) => void;
+  /** COOP-1 5d: 開いて いる 本か 建築士さんの メニューを その ステップで しまう（2P が やめた／パッドが ぬけた。wireInput が 差しかえる） */
+  modalCloseNow: () => void;
   /** COOP-1 作業 3d: modal（本・建築士さん）が active の あいだ 1 コマごとに 呼ぶ（2P の「ちょっと まってね」・「＋で さんか」の 出し入れ。wireDuo が 差しかえる） */
   duoModalTick: () => void;
   requestSave: () => void;
@@ -202,7 +232,13 @@ export function createShared(): Shared {
     p2Parry: () => null,
     p2FarmHint: () => null,
     p2FarmAim: () => null,
+    p2Animals: () => null,
+    pickMux: () => () => {},
+    p2ShowSignal: () => {},
     preYokai: () => {},
+    sleepReady: () => 1,
+    p2SleepWake: () => {},
+    duoGadgetNote: () => {},
     gameTimeScale: () => 1,
     gashaBgmFade: {},
     girlBgmOn: false,
@@ -214,6 +250,9 @@ export function createShared(): Shared {
     houseFrozen: () => false,
     houseModal: { tick: () => undefined, render: () => undefined },
     duoModalTick: () => {},
+    duoSetWait: () => {},
+    p2House: { craft: () => undefined, teleport: () => {}, panelOpen: () => false, bubble: () => null },
+    modalCloseNow: () => {},
     requestSave: () => {},
     campFill: () => null,
     skipSignalLog: false,
@@ -239,5 +278,6 @@ export function createShared(): Shared {
     shadowSystem: null,
     achMuted: false,
   } as unknown as Shared;
+  s.modalOwner = createModalOwner({ joined: () => s.duoJoined(), setWait: (who, on) => s.duoSetWait(who, on), closeNow: () => s.modalCloseNow() });
   return s;
 }

@@ -1,6 +1,9 @@
-import type { AnimalBreed, AnimalDeps, AnimalStage, AnimalState, KitEgg, ThrowSpot, Vec3, VoxelWorld } from '../contracts';
+import type { AnimalBreed, AnimalDeps, AnimalHintKind, AnimalStage, AnimalState, KitEgg, ThrowSpot, Vec3, VoxelWorld } from '../contracts';
 import type { CoopDir } from './coop';
 import type { AnimalWorld } from './terrain';
+
+/** 人（1P / 2P）。にわとり・小屋は 世界に 1 つで、だっこ・あみの むし・お にくの 入れ先・ねらいが 人ごと（COOP-1 5c） */
+export type Who = 1 | 2;
 
 export type LockKind = 'appear' | 'eat' | 'pet' | 'cheer' | 'full' | 'putDown' | 'hatch' | 'grow';
 
@@ -68,6 +71,8 @@ export interface Coop {
 /** いただきます の 演出 1 つ（`t` = 押してから の ステップ） */
 interface MeatJob {
   id: number;
+  /** えらんだ 人（にくの 入れ先・一言を 出す 半分。やめたら 1P） */
+  who: Who;
   t: number;
   /** はじめ の 位置（ねぐら へ 歩く 出だし） */
   sx: number;
@@ -94,6 +99,8 @@ export interface Ent {
   /** おなかいっぱい の 残り ステップ */
   fullLeft: number;
   carried: boolean;
+  /** だっこ した 人（なげて いる とちゅうも のこす。足もと・着地点の もと。COOP-1 5c） */
+  carrier: Who;
   fluttering: boolean;
   /** たまご の くじ の「つづけて うまなかった 数」（保存 しない） */
   eggMiss: number;
@@ -192,6 +199,27 @@ export interface AnimalManagerOptions {
   deps: AnimalDeps;
   /** 足もと の 中央 */
   getPlayer: () => { position: Vec3 };
+  /** COOP-1 5c: その人の 足もと（2P が いなければ who 2 は null）。なければ `getPlayer`・`partner` から 作る */
+  playerOf?: (who: Who) => { position: Vec3 } | null;
   /** COOP-1 3a: 仲間（2P）の 足もと。野生の 数は 近い方で 数え、消すのは 2 人とも 遠いとき。なし / null = 1 人。ついてくる・だっこ・小屋は 1P のまま */
   partner?: () => { position: Vec3 } | null;
+}
+
+/** 人ごとの 手（だっこ・やせいの 合図の 印・おろせない わけ・ねらって いる 子。COOP-1 5c。[0] = 1P・[1] = 2P） */
+export interface Hand {
+  carriedId: number | null;
+  /** やせい を 長おし した とき の carryWild を 1 回 の 押し で 1 回 に する */
+  wildAnnounced: boolean;
+  /** 直前 の putDown が 失敗 して、自分 の 合図 を 出した か */
+  putWhy: AnimalHintKind | null;
+  /** 今 ねらって いる にわとり */
+  targetId: number | null;
+  /** 合図 natsukiWait を 最後 に 出した ステップ（その人の 分。600 に 1 回 まで。人ごと） */
+  waitHintAt: number;
+}
+
+/** あみで とれた むし が 持ち物 へ 入る まで の 待ち（ふった 人の もちものへ） */
+export interface BugCatch {
+  left: number;
+  who: Who;
 }

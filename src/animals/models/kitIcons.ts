@@ -80,10 +80,14 @@ export function kitIconState(eggs: readonly KitEggLike[], total: number): KitIco
 export interface KitIconCtx {
   /** 見て いる 目 の 水平 の 位置 */
   eye: { x: number; z: number };
+  /** COOP-1 5c: 2P の 目（水平）。なければ（null も）1 人の ときと 同じ。2 人の どちらかから 近ければ 出る */
+  eye2?: { x: number; z: number } | null;
   /** `kitHatchTicks`（初期値 7,200） */
   total: number;
   /** ねらって いる こたつ の 本体 の マス と、`egg`・`kin_tamago` を 持って いる か。ねらって いなければ null */
   aim: { x: number; z: number; holdingEgg: boolean } | null;
+  /** COOP-1 5c: 2P の ねらい（`aim` と 同じ 形）。たまごを もって ねらった こたつは とおくても 出る（`kits` に 無ければ `y`・`size` で 作る） */
+  aim2?: { x: number; z: number; holdingEgg: boolean; y?: number; size?: 1 | 2 } | null;
 }
 
 /**
@@ -97,11 +101,14 @@ export function kitIconsFor(kits: readonly KitLike[], c: KitIconCtx): KitIconRow
     const size = k.size ?? 1;
     const cx = k.x + (size === 2 ? 1 : 0.5);
     const cz = k.z + (size === 2 ? 1 : 0.5);
-    const aimed = !!c.aim && c.aim.holdingEgg && c.aim.x === k.x && c.aim.z === k.z;
-    const near = k.eggs.length > 0 && Math.hypot(cx - c.eye.x, cz - c.eye.z) <= KIT_ICON_RANGE;
+    const aimed = (!!c.aim && c.aim.holdingEgg && c.aim.x === k.x && c.aim.z === k.z) || (!!c.aim2 && c.aim2.holdingEgg && c.aim2.x === k.x && c.aim2.z === k.z);
+    const near = k.eggs.length > 0 && (Math.hypot(cx - c.eye.x, cz - c.eye.z) <= KIT_ICON_RANGE || (!!c.eye2 && Math.hypot(cx - c.eye2.x, cz - c.eye2.z) <= KIT_ICON_RANGE));
     if (!aimed && !near) continue;
     out.push({ x: k.x, y: k.y, z: k.z, size, slots: aimed && k.eggs.length === 0 ? kitIconState([], c.total) : kitIconState(k.eggs, c.total) });
   }
+  // 2P が たまごを もって ねらった こたつが `kits` に 無い（から の こたつ）なら その マスの から の 3 わくを 出す
+  const a2 = c.aim2;
+  if (a2 && a2.holdingEgg && !out.some((r) => r.x === a2.x && r.z === a2.z)) out.push({ x: a2.x, y: a2.y ?? 0, z: a2.z, size: a2.size ?? 1, slots: kitIconState([], c.total) });
   return out;
 }
 

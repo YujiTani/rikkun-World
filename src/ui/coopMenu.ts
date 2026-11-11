@@ -1,7 +1,7 @@
 import { animalIconUrl } from './animalArt';
 import { itemIconUrl } from './itemIcon';
 import { handsUrl } from './itemArtLive3';
-import { CoopMenuModel, type CoopMenuButton, type CoopMenuDeps, type CoopMenuPage } from './coopMenuModel';
+import type { CoopMenuModel, CoopMenuButton, CoopMenuPage } from './coopMenuModel';
 import './coopMenu.css';
 
 /**
@@ -13,7 +13,7 @@ export interface CoopMenuKid {
   macho: boolean;
 }
 
-export interface CoopMenuOptions extends CoopMenuDeps {
+export interface CoopMenuOptions {
   /** カード に 出す 子 の しゅるい（ふつう／マッチョ） */
   kidInfo(id: number): CoopMenuKid;
   /** ページ を かえた・ひらいた 音 */
@@ -40,21 +40,39 @@ function img(src: string, cls: string): HTMLImageElement {
   return i;
 }
 
+/** 置き場（COOP-1 5c）: 1P の メニューは 今の まま。2P の メニューは `testid` と `p2` を 渡す（マウスは きかない） */
+export interface CoopMenuLook {
+  testid?: string;
+  p2?: boolean;
+}
+
 export class CoopMenu {
   readonly el: HTMLDivElement;
-  readonly model: CoopMenuModel;
   private shownVersion = -1;
   private shownOpen = false;
 
+  /** `model` は 呼ぶ 側が 作る（1P は ui.ts、2P は duo/p2CoopMenu.ts の 核）。ひらく・とじるの 判定は モデルの もの */
   constructor(
     parent: HTMLElement,
     private readonly o: CoopMenuOptions,
+    readonly model: CoopMenuModel,
+    look: CoopMenuLook = {},
   ) {
-    this.model = new CoopMenuModel(o);
-    this.el = el('div', 'coop-menu');
-    this.el.dataset.testid = 'coop-menu';
+    this.el = el('div', look.p2 ? 'coop-menu coop-menu--p2' : 'coop-menu');
+    this.el.dataset.testid = look.testid ?? 'coop-menu';
+    this.el.inert = look.p2 === true; // 2P の メニューは 2P の パッドだけ（1P の キー〔Tab・Enter〕・マウスは きかない）
     this.el.hidden = true;
     parent.append(this.el);
+  }
+
+  /** 2P の メニュー用: 核で ひらいた／すすめた あとに 画面を 合わせる（音と ▼ も） */
+  sync(): void {
+    this.render();
+    this.o.onPick(this.model.pick());
+  }
+
+  dispose(): void {
+    this.el.remove();
   }
 
   open(coop: number): boolean {
@@ -86,6 +104,9 @@ export class CoopMenu {
 
   private render(): void {
     const info = this.model.info();
+    // 2 人の あいだは 半分の 中に 出す（css は coopMenu.css の [data-layout='duo']）
+    const layout = document.documentElement.hasAttribute('data-duo') ? 'duo' : 'full';
+    if (this.el.dataset.layout !== layout) this.el.dataset.layout = layout;
     if (!info.open) {
       if (this.shownOpen) {
         this.el.hidden = true;
@@ -102,11 +123,12 @@ export class CoopMenu {
     this.el.dataset.page = info.page;
     this.el.replaceChildren();
     const head = el('div', 'coop-head');
-    if (info.page === 'pick') head.append(this.button('もどる', 'coop-back', () => this.press('back')));
+    if (info.page === 'pick') head.append(this.button('もどる', 'coop-back', () => this.press('back'), false, 'back'));
     head.append(el('h2', 'coop-title', TITLES[info.page]));
     const close = el('button', 'coop-close', '×');
     close.type = 'button';
     close.dataset.testid = 'coop-close';
+    close.dataset.pad = 'close';
     close.setAttribute('aria-label', 'とじる');
     close.addEventListener('click', () => this.press('close'));
     head.append(close);
@@ -117,8 +139,9 @@ export class CoopMenu {
     this.el.append(head, body);
   }
 
-  private button(text: string, cls: string, fn: () => void, disabled = false): HTMLButtonElement {
+  private button(text: string, cls: string, fn: () => void, disabled = false, pad?: string): HTMLButtonElement {
     const b = el('button', `coop-btn ${cls}`);
+    if (pad) b.dataset.pad = pad; // パッドの えらびの 名前（coopMenuPad.ts の coopPadNames）
     b.type = 'button';
     const t = el('span', 'coop-btn__text', text);
     b.append(t);
@@ -129,10 +152,10 @@ export class CoopMenu {
   }
 
   private renderTop(body: HTMLElement, eggs: number, meatDisabled: boolean): void {
-    const collect = this.button('たまご を あつめる', 'coop-collect', () => this.press('collect'), eggs <= 0);
+    const collect = this.button('たまご を あつめる', 'coop-collect', () => this.press('collect'), eggs <= 0, 'collect');
     collect.prepend(img(itemIconUrl('egg'), 'coop-ico'));
     collect.append(el('span', 'coop-count', `× ${eggs}`));
-    const meat = this.button('おにく に する', 'coop-meat', () => this.press('meat'), meatDisabled);
+    const meat = this.button('おにく に する', 'coop-meat', () => this.press('meat'), meatDisabled, 'meat');
     meat.prepend(img(itemIconUrl('momo_nama'), 'coop-ico'));
     body.append(collect, meat);
   }
@@ -145,6 +168,7 @@ export class CoopMenu {
       b.type = 'button';
       b.dataset.testid = 'coop-card';
       b.dataset.kid = String(id);
+      b.dataset.pad = `card:${id}`;
       b.dataset.breed = k.macho ? 'macho' : 'normal';
       b.setAttribute('aria-label', k.macho ? 'マッチョ' : 'にわとり');
       b.append(img(animalIconUrl('chickenRibbon'), 'coop-kid'));
@@ -164,8 +188,8 @@ export class CoopMenu {
     bird.dataset.breed = k.macho ? 'macho' : 'normal';
     who.append(bird, el('p', 'coop-sentence', 'この こ の いのち を いただきます。いい？'));
     const row = el('div', 'coop-row');
-    const cancel = this.button('やめる', 'coop-cancel', () => this.press('cancel'));
-    const ok = this.button('いただきます', 'coop-ok', () => this.press('ok'));
+    const cancel = this.button('やめる', 'coop-cancel', () => this.press('cancel'), false, 'cancel');
+    const ok = this.button('いただきます', 'coop-ok', () => this.press('ok'), false, 'ok');
     ok.prepend(img(handsUrl(), 'coop-ico coop-ico--hands'));
     row.append(cancel, ok);
     body.append(who, row);

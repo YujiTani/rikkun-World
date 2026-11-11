@@ -50,6 +50,11 @@ interface SeatDeps {
   actions: { isHeld(a: Action): boolean; wasPressed(a: Action): boolean };
   /** 本物の PlayerCombatImpl */
   combat: { flinching(): boolean; heal(amount: number): number; dead?(): boolean };
+  /**
+   * COOP-1 5e: もう 1 人が その マス（ブロック）に すわって いる／入って いる か。true の マスには すわらず `use` は false を 返す（1 マスに 1 人）。
+   * 渡さなければ 今の 動き（1 人の とき）
+   */
+  occupied?: (x: number, y: number, z: number) => boolean;
 }
 
 interface Sitting {
@@ -80,6 +85,7 @@ export class SeatSystem {
     if (use !== 'sit' && use !== 'bath') return false;
     const cur = this.cur;
     if (cur && cur.block.x === x && cur.block.y === y && cur.block.z === z) return true; // もう 座って いる
+    if (this.d.occupied?.(x, y, z)) return false; // もう 1 人が 座って いる マス（何も かえない・音も 出さない）
     const rot = furnInfo(id)!.rot;
     let held = 0;
     for (let i = 0; i < STAND_ACTIONS.length; i++) if (this.d.actions.isHeld(STAND_ACTIONS[i]!)) held |= 1 << i;
@@ -87,6 +93,17 @@ export class SeatSystem {
     this.cur = { kind: use, block: { x, y, z }, position, face: (rot * 90 + 180) % 360, steps: 0, held };
     this.place(this.cur);
     return true;
+  }
+
+  /** 今 座って いる／入って いる マスが (x, y, z) なら true（もう 1 人の `occupied` が 呼ぶ） */
+  holds(x: number, y: number, z: number): boolean {
+    const b = this.cur?.block;
+    return b !== undefined && b.x === x && b.y === y && b.z === z;
+  }
+
+  /** 外から 立たせる（2P が やめた とき）。その場で 座りを 消し、自分が 書いた motion の 欄だけ もどす。座って いなければ 何も しない */
+  dismiss(): void {
+    if (this.cur) this.stand();
   }
 
   /** 座って いる あいだだけ 値。立つと null（毎回 新しく 作る：テスト・窓口用） */

@@ -12,7 +12,6 @@ import { DuoJoinHint, type DuoJoinHintInput } from '../../duo/joinHint';
 import { createSelectLock } from '../../legend/selectLock';
 import { pressEquip } from '../../duo/p2Equip';
 import { createParryViews, parryDollOf } from '../../duo/p2ParryView';
-import { duoWaitNotice } from '../../duo/rules';
 import { DuoSession } from '../../duo/session';
 import { createSplitSound } from '../../duo/splitSound';
 import { DUO_TUNING } from '../../duo/tuning';
@@ -21,12 +20,16 @@ import type { LockStatus } from '../../contracts';
 import { PlayerController } from '../../player/PlayerController';
 import { isBodyPlaceable } from '../../save';
 import { DuoHud } from '../../ui/duoHud';
+import { DuoAimHud } from '../../ui/duoAimHud';
 import { DuoNotices } from '../../ui/duoNotice';
 import { charBasePath } from './player';
 import type { WiredLoop } from './save';
 import { DuoViews, type DuoViewsInput } from './duoView';
+import { blockInputWhileSleeping, sleepInfo, sleepNotice } from '../../duo/p2Gadgets';
+import { canSleepAt } from '../../time/sleep';
 import { wireDuoPlay } from './duoPlay';
 import { createDuoInventory, type DuoInventory } from './duoInventory';
+import { wireDuoModal } from './duoModal';
 
 const DEG = Math.PI / 180;
 /** 1P・2P（毎ステップ 配列を 作らない） */
@@ -68,15 +71,72 @@ export function wireDuo(deps: WiredLoop) {
   const splitSound = createSplitSound(deps.fxSound);
   const ui = new DuoHud({ hud, p2Inventory: p2.inventory, hotbar1: hotbar.el, hearts1: combatUi.hearts.el, levelbar1: deps.levelHud.barEl });
   const notices = new DuoNotices(hud);
+  // COOP-1 5f-1: 照準まわり（＋・ヒント・おしらせの 印・構え・ロック・弓の 丸）を 各半分に（2P の 分は 参加して はじめて 作る）
+  const aim = new DuoAimHud({
+    hud,
+    hint1: deps.actionHint,
+    notice1: deps.notice,
+    aimMarks1: deps.aimMarks,
+    bladeHud1: deps.bladeHud,
+    crosshair1: deps.crosshair,
+    w2: () => w2,
+    binds1: () => router.reader1.getBinds(),
+    binds2: () => router.reader2.getBinds(),
+  });
+  shared.p2ShowSignal = (kind) => aim.notice2.showSignal(kind);
   const joinHint = new DuoJoinHint();
   /**
    * 「＋で さんか」(AC46・AC64)と 2P の 側の「ちょっと まってね」(AC84)の 出し入れ。active = 世界が 動いている。
    * 世界が 止まっている あいだは updaters が 動かない ので、modal の tick (shared.duoModalTick) と onIdle からも 呼ぶ
    */
   const hintIn: DuoJoinHintInput = { candidate: false, joined: false, active: false, anyButton: false };
-  const waitIn = { joined: false, modal: false };
+  // COOP-1 5d: 本・建築士さんの 開いた 人・「ちょっと まってね」・2P が 開いた ときの パッド・1P の 錠の かけなおし待ち（duoModal.ts）
+  const modal = wireDuoModal({
+    owner: shared.modalOwner,
+    lock: deps.modalLock,
+    router,
+    notices,
+    p1Actions: game.input,
+    p2Actions,
+    joined: () => session.joined,
+    padLost: () => session.padLost(),
+    panelOpen: () => panelOpen(),
+    openBook: (who) => {
+      deps.furniture.use('read', 0, 0, 0, who);
+      return deps.book.active();
+    },
+    dev,
+  });
+  shared.duoSetWait = (who, on) => notices.setWait(who, on);
+  shared.duoGadgetNote = (_who, text) => notices.showGadgetNote(text); // COOP-1 5e: 2P が 使った 「よる に ねようね」（1P の 文は #sleep-notice）
+  // COOP-1 5e: ふとんの 待ち。「ねたがっているよ」の 札と 待ち中の 暗さ（変わった ときだけ 書く）
+  const sleepOf = deps.gadgets.sleep;
+  const isNight = (): boolean => canSleepAt(deps.time.phase());
+  const sleepSeen = { key: -1 };
+  function sleepNoticeStep(): void {
+    const waiting = sleepOf.waiting();
+    const sleeping = sleepOf.sleeping();
+    const ready = shared.sleepReady();
+    const night = isNight();
+    const key = (waiting ?? 0) + (sleeping ? 4 : 0) + (night ? 8 : 0) + Math.min(ready, 2) * 16;
+    if (key === sleepSeen.key) return;
+    sleepSeen.key = key;
+    const n = sleepNotice({ waiting, ready, night, sleeping });
+    for (const who of BOTH) {
+      notices.setSleepAsk(who, n.ask.includes(who));
+      notices.setSleepDim(who, n.dim.find((m) => m.who === who)?.value ?? 0);
+    }
+  }
+  // 1P の マウスの 錠が かけなおし待ちの とき、次の クリック・キーの 中で かける（2P が パッドで とじた あと。AC171）
+  for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, () => modal.onGesture(), true);
+  // 2P が 建築士さんに 話した とき: 2P の 足もと・もちもの画面・たんすを 数える 係・ふきだしを おさめる 半分（system の playerOf・craftOf・interrupted・teleport が 読む）
+  shared.p2House.craft = () => inv2?.p2Craft.craft;
+  shared.p2House.panelOpen = () => panelOpen();
+  shared.p2House.teleport = (x, y, z) => ctl2?.set({ position: { x, y, z }, velocity: { x: 0, y: 0, z: 0 } });
+  shared.p2House.bubble = () => (session.joined ? { camera: views.camera2(), pane: views.pane2() } : null);
   // 毎ステップ 使いまわす 入力（新しい {…} を 作らない）
   const close2In = { down: false, padLost: false, left: false };
+  const aimSize = { w: 0, h: 0 };
   const quitIn = { open: false, focus: null as string | null, confirmHeld: false };
   const stepIn = { padPresent: true, quitHeld: false };
   function noticeStep(active: boolean): void {
@@ -89,11 +149,15 @@ export function wireDuo(deps: WiredLoop) {
     hintIn.anyButton = poll.candidatePressed;
     joinHint.step(hintIn);
     notices.setJoinHint(joinHint.visible());
-    waitIn.joined = joined;
-    waitIn.modal = deps.book.active() || shared.houseFrozen();
-    notices.setWait(duoWaitNotice(waitIn));
+    sleepNoticeStep();
+    modal.noticeStep();
   }
-  shared.duoModalTick = () => noticeStep(false);
+  // 世界が 止まって いる 1 コマごと: 2P が 開いた メニューの パッドも ここで 読む（E2E の step でも 決まった 回数で すすむ ように）
+  shared.duoModalTick = () => {
+    noticeStep(false);
+    modal.tick();
+  };
+  gamepadApi.duo.p2Owns = () => session.joined && shared.modalOwner.get() === 2;
   game.onIdle(() => noticeStep(false));
 
   /** 参加のとき 1P の 今の キャラを 読む（1P が キャラを かえたら 2P も ついてくる） */
@@ -149,6 +213,7 @@ export function wireDuo(deps: WiredLoop) {
       renderer.applyView(c as THREE.PerspectiveCamera);
       sprite?.render(c);
       body.faceCamera(c);
+      deps.animalRenderer.placeCarriedFor(c); // COOP-1 5c: だっこ中の 羽を この 区画の カメラで 置きなおす
     },
     // COOP-1 4d-2: 2 人の ときは 全面の 光の 道を 通らない ので、雷の 板（1P の 分と 2P の 分）は 各区画の 世界の すぐ あとに 重ねる
     afterPane: (c) => {
@@ -158,7 +223,7 @@ export function wireDuo(deps: WiredLoop) {
   });
   const view = views.hud;
   /** views.update に 毎ステップ 渡す 入力（使いまわす） */
-  const viewIn: DuoViewsInput = { p1: controller.state.position, p2: controller.state.position, p1YawDeg: 0, p2PitchDeg: 0, distance: 0, padLost: false, panelOpen: false, panel1Open: false };
+  const viewIn: DuoViewsInput = { p1: controller.state.position, p2: controller.state.position, p1YawDeg: 0, p2PitchDeg: 0, p2EyeDrop: 0, distance: 0, padLost: false, panelOpen: false, panel1Open: false };
 
   const session = new DuoSession({
     p2,
@@ -180,13 +245,17 @@ export function wireDuo(deps: WiredLoop) {
       splitSound.onLeft();
       body.hide();
       ui.setJoined(false);
+      aim.setJoined(false);
       shared.duoCamDistance = session.cameraDistance() === DUO_TUNING.cameraSolo ? null : session.cameraDistance();
       // 2P の パネルは 消える。1P の パネルは そのまま（開いている あいだは 半分の まま。AC79）
       inv2?.update();
       syncLayout1();
     },
     // 手に もっている 物は 2P の もちものへ もどしてから 保存（いっぱいなら 足もとへ。§3.3「とじる とき」）
-    beforeLeave: () => inv2?.setOpen(false),
+    beforeLeave: () => {
+      inv2?.setOpen(false);
+      play.beforeLeave(); // COOP-1 5c: 2P の だっこ・むし・おにくを かたづける（保存の 前）
+    },
   });
   shared.duoJoined = () => session.joined;
   shared.leaveDuo = (reason) => session.leave(reason);
@@ -197,8 +266,12 @@ export function wireDuo(deps: WiredLoop) {
     realtimeAllowed: () => lock.realtimeAllowed(),
     // 倒れている あいだは 2P の 入力を ぜんぶ はなす（歩く・ほる・おく・こうげき）
     // もちもの画面は 世界を 止めない: 1P が 画面を 開いていても 2P は 遊べる（lock.playInputEnabled は 1P の 画面で false になる）
-    playInputEnabled: () => lock.realtimeAllowed() && !panelOpen() && !play.down(),
+    // とりごやの メニューが 開いている 間も 止める（開いている 人は 歩けない・ほれない。COOP-1 5c）
+    playInputEnabled: () => lock.realtimeAllowed() && !panelOpen() && !play.coopMenuOpen() && !play.down(),
   };
+
+  // COOP-1 5e: ふとんで ねている 間は 2P も 歩けない・押せない（待ち中は 止めない）
+  blockInputWhileSleeping(lock2, deps.gadgets.sleep);
 
   /** 2P が 出る 所: 1P の 右 2 マス。ふさがっていたら 左・うしろ・前。どこも だめなら 1P の 真上 */
   function joinSpot(): DuoVec3 {
@@ -219,6 +292,7 @@ export function wireDuo(deps: WiredLoop) {
   const play = wireDuoPlay({
     deps,
     ui,
+    aim,
     actions: p2Actions,
     lock: lock2,
     ctl2: () => controller2(),
@@ -226,6 +300,7 @@ export function wireDuo(deps: WiredLoop) {
       pendingLook += deg;
     },
     joined: () => session.joined,
+    invOpen: panelOpen,
     padPresent: () => !router.padLost(),
     camera2: () => views.camera2(),
     preloadParry: () => body.preloadParry(),
@@ -251,6 +326,7 @@ export function wireDuo(deps: WiredLoop) {
     c.set({ position: spot, velocity: { x: 0, y: 0, z: 0 }, yawDeg: controller.state.yawDeg, pitchDeg: 0, facingDeg: controller.state.facingDeg });
     router.setJoined(true);
     ui.setJoined(true);
+    aim.setJoined(true);
     body.show();
     body.step(c.state);
     play.onJoin();
@@ -262,7 +338,8 @@ export function wireDuo(deps: WiredLoop) {
   gamepadApi.duo.onJoinRequested = () => {
     join();
   };
-  gamepadApi.duo.menuOpen2 = () => session.joined && panelOpen();
+  // 2P の パッドを メニューの わりあてに する 画面: もちもの画面・2P が 開いた 本／建築士さん（5d の modal）・2P の とりごやの メニュー（5c）
+  gamepadApi.duo.menuOpen2 = () => modal.menuOpen2() || (session.joined && play.coopMenuOpen());
   gamepadApi.duo.joined = () => session.joined; // 参加している あいだ だけ ボタンを 実時間の 毎コマ 読む（AC101）
   // たんす・かまどの 中身に かける 操作は ぜんぶ ここへ あずけ、1 ステップに 1 回 1P → 2P の 順に やる（同じ ステップは 1P が 先。COOP-1 4c）。
   // 1 人の ときは あずけず すぐ 実行（今の まま）。1P の マウスは ステップの あいだに 来る ので すぐ 実行で よい
@@ -312,6 +389,7 @@ export function wireDuo(deps: WiredLoop) {
   /** 毎ステップ（固定）。1P の 更新（createStep）の あとに 呼ばれる */
   function step(dt: number): void {
     noticeStep(true);
+    notices.step(dt);
     if (session.joined && inv2) {
       const down2 = play.down();
       // 2P の もちもの画面（Y で ひらく / B で とじる）。開いている Y は 何も しない（とじるのは B だけ）。
@@ -325,6 +403,8 @@ export function wireDuo(deps: WiredLoop) {
         if (invCloseReason(2, close2In) !== null) inv2.setOpen(false);
         else padInv2(inv2.screen);
       }
+      // COOP-1 5c: 2P の とりごやの メニュー（十字・A・B）。もちもの画面が 開いて いる あいだは そちらが 受ける
+      if (!inv2.isOpen()) for (const a of INV_PAD_ACTIONS) if (p2Actions.wasPressed(a)) play.coopPad(a);
       order.flush(); // 預かった パネルの 操作を 1P → 2P の 順に（FurnaceWorld・たんすの update の 前。1 ステップに 1 回）
       if (!inv2.isOpen() && !down2) {
         const inv = p2.inventory;
@@ -352,7 +432,9 @@ export function wireDuo(deps: WiredLoop) {
       const cam = views.camStep(controller.state.yawDeg, pendingLook);
       const yaw0 = cam.camYawDeg;
       ctl2.state.yawDeg = yaw0;
+      play.seatBefore(); // COOP-1 5e: 2P が すわって いる 間は 位置・向きを 固定
       if (worldReady()) ctl2.update(dt);
+      play.seatAfter();
       pendingLook = wrapDeg(ctl2.state.yawDeg - yaw0);
       const a = controller.state.position;
       const b = ctl2.state.position;
@@ -377,6 +459,7 @@ export function wireDuo(deps: WiredLoop) {
       vi.p2 = b;
       vi.p1YawDeg = controller.state.yawDeg;
       vi.p2PitchDeg = ctl2.state.pitchDeg;
+      vi.p2EyeDrop = play.eyeDrop2();
       vi.distance = distance;
       vi.padLost = session.padLost();
       vi.panelOpen = panelOpen();
@@ -391,6 +474,9 @@ export function wireDuo(deps: WiredLoop) {
       flashIn[2].rainbow = f2?.rainbow ?? false;
       flash.step(flashIn);
       for (const who of BOTH) ui.setFlash(who, flash.alpha(who));
+      const avs = game.viewSize(aimSize);
+      aim.layout(avs.w, avs.h);
+      aim.step1(router.padIndex(1), router.reader1.getLastInput());
       view.meter = distanceMeter(distance);
       view.distance = distance;
       view.padLost = session.padLost();
@@ -451,7 +537,9 @@ export function wireDuo(deps: WiredLoop) {
       return session.joined && ctl2 ? { ...ctl2.state.position } : null;
     },
     leave: () => leave('quit'),
-    timeScale: () => shared.gameTimeScale(),
+    // 本・建築士さんの 間は 世界が 止まる（0）。それ以外は 時間の 倍率（COOP-1 5d・AC141）
+    timeScale: () => (deps.book.active() || shared.houseFrozen() ? 0 : shared.gameTimeScale()),
+    ...modal.hook,
     // 4d-0（§12.0）: 手ごたえと カメラの きょり
     impact: (who) => shared.impactView(who),
     // 4d-1（§12.0）: その人の パリィ（1P は 今の parry。2P が いなければ who 2 は null）
@@ -473,6 +561,8 @@ export function wireDuo(deps: WiredLoop) {
         return w === 1 || w === 2 ? w : null;
       },
     },
+    // COOP-1 5e（§12.0・AC170）: ふとんの ようす（見るだけ）
+    sleep: () => sleepInfo({ sleep: sleepOf, ready: shared.sleepReady, night: isNight }),
     hearFrom: (pos) => hearFrom(controller.state.position, session.joined && ctl2 ? ctl2.state.position : null, pos),
   };
   return { duo: hook, duoSession: session, leaveDuo: leave };

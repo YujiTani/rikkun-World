@@ -11,9 +11,10 @@ export const ITADAKIMASU_TEXT = 'いのち を いただきます';
 export class Itadakimasu {
   readonly el: HTMLDivElement;
 
-  constructor(parent: HTMLElement) {
+  /** idSuffix: 2P の 半分の 分は '-p2'（`#itadakimasu-p2`。COOP-1 5c） */
+  constructor(parent: HTMLElement, idSuffix = '') {
     this.el = document.createElement('div');
-    this.el.id = 'itadakimasu';
+    this.el.id = `itadakimasu${idSuffix}`;
     this.el.hidden = true;
     const img = document.createElement('img');
     img.className = 'itadakimasu-hands';
