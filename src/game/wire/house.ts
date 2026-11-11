@@ -48,7 +48,7 @@ export function wireHouse(deps: WiredYokai) {
     // 戸を 外から 通って 中に 入った: 名前の 帯を 上の 帯の 列〔実績・テロップと ならぶ〕に 入れる（HOUSE-1 §3.3）
     nameBand: (text) => shared.celebrate.enqueueHouseName(text),
     // HOUSE-2A: レシピを おぼえた テロップ（上の 帯の 列。「<名前>の レシピを おぼえた！…」）・ぜんぶ おぼえた あとの かみが 持ち物に 入らない 分は 足もとへ
-    recipeBand: (text) => shared.celebrate.enqueueHouseDone(text),
+    recipeBand: (text) => shared.celebrate.enqueueHouseDone(text, 'recipe-band'),
     drop: (item, count) => {
       const p = controller.state.position;
       drops.scatter({ x: p.x, y: p.y + RECIPE_DROP_RISE, z: p.z }, [{ item, count }], RECIPE_SCATTER);
@@ -117,7 +117,7 @@ export function wireHouse(deps: WiredYokai) {
     press: (id) => house.press(id),
     rename: () => house.renameView(),
     makeEditor: (parent) =>
-      new EditorView({ parent, ctl: house.editor, preview: getPreview, release: releasePreview, canvas: game.renderer.domElement, press: (id) => house.press(id), sound: fxSound }),
+      new EditorView({ parent, ctl: house.editor, preview: getPreview, release: releasePreview, canvas: game.renderer.domElement, press: (id) => house.press(id), sound: fxSound, hover: (id) => house.hover(id), tip: () => house.hoverTip() }),
     tick: () => playCraft(fxSound, 'tab'),
     anchor,
     site: { pickList: () => house.pickList(), needRows: () => house.buildNeedRows(), buildName: () => house.buildName(), pointer: siteView.pointer },
