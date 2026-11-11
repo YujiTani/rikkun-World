@@ -21,7 +21,7 @@ export const YAKATA_BLOCK_IDS = [
 ] as const;
 
 /** あやしい たいまつ 2 つ（固くない・光 9・細い 棒で 描く） */
-export const YAKATA_TORCH_IDS = [YAKATA_BLOCKS.maou.taimatsu, YAKATA_BLOCKS.otera.taimatsu] as const;
+const YAKATA_TORCH_IDS = [YAKATA_BLOCKS.maou.taimatsu, YAKATA_BLOCKS.otera.taimatsu] as const;
 const TORCH_SET: ReadonlySet<string> = new Set(YAKATA_TORCH_IDS);
 /** あやしい たいまつか（ブロックの id で） */
 export const isYakataTorch = (id: string): boolean => TORCH_SET.has(id);
