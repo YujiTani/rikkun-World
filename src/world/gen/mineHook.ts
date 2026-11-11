@@ -74,7 +74,7 @@ const ROW = CHUNK_SIZE;
 const IS_ORE = BLOCK_TYPES.map((t) => MINE_CONFIG.ores.some((r) => r.block === t.id));
 
 /** 隣の 列の、この 列と 面を あわせる 1 まい（y × 16）。0 ＝ 西〔x−〕・1 ＝ 東・2 ＝ 北〔z−〕・3 ＝ 南 */
-type Faces = [Uint8Array, Uint8Array, Uint8Array, Uint8Array];
+type Faces = [BlockArray, BlockArray, BlockArray, BlockArray];
 
 interface Col {
   blocks: BlockArray;
@@ -107,7 +107,7 @@ function exposed(c: Col, lx: number, y: number, lz: number): boolean {
 
 /** 隣の 4 列を 作って、この 列に 面する 1 まいずつを 写す（作業用の 入れものを 使い回す 生成なので 写しながら） */
 function neighborFaces(seed: number, cx: number, cz: number, oldCols?: OldCols): Faces {
-  const faces: Faces = [new Uint8Array(WORLD_HEIGHT * ROW), new Uint8Array(WORLD_HEIGHT * ROW), new Uint8Array(WORLD_HEIGHT * ROW), new Uint8Array(WORLD_HEIGHT * ROW)];
+  const faces: Faces = [new Uint16Array(WORLD_HEIGHT * ROW), new Uint16Array(WORLD_HEIGHT * ROW), new Uint16Array(WORLD_HEIGHT * ROW), new Uint16Array(WORLD_HEIGHT * ROW)];
   const take = (face: number, dx: number, dz: number): void => {
     const b = buildBlocks(seed, cx + dx, cz + dz, undefined, oldCols).blocks;
     for (let y = 0; y < WORLD_HEIGHT; y++) {
