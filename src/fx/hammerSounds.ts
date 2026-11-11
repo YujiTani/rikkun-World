@@ -1,5 +1,6 @@
 import type { SoundFx, Tone } from './sound';
-import { noise, sine, swish, tri } from './sfxVoices';
+import { LEGEND4_SOUNDS } from './legend4Sounds';
+import { noise, sine, swish } from './sfxVoices';
 import { logSound } from './soundLog';
 
 /**
@@ -9,14 +10,15 @@ import { logSound } from './soundLog';
 const HAMMER_SOUNDS = {
   /** 重い 風きり（ふりかぶり） */
   hammerSwing: [swish(300, 160, 0, 0.35, 0.14, 1.2)],
-  /** ドゴン: 低い ドン ＋ 土の くずれる 音（こわれた ブロックの 音は これ 1 つに まとめる） */
-  hammerSlam: [sine(90, 40, 0, 0.45, 0.42, 0.01), tri(150, 70, 0, 0.2, 0.2, 0.01), noise(0.02, 0.4, 0.22, { type: 'lowpass', freq: 900, freq1: 250, q: 0.8 }, 0.01)],
+  /** ゴォン: 大きな 鉄の 玉が 落ちた 音（`legend4Sounds.ts`。こわれた ブロックの 音は これ 1 つに まとめる） */
+  hammerSlam: LEGEND4_SOUNDS.hammerSlam,
   /** 失敗の ゴン（明るい 軽い 音） */
   hammerBonk: [sine(220, 150, 0, 0.14, 0.22, 0.005), noise(0, 0.08, 0.08, { type: 'lowpass', freq: 1500, q: 0.7 }, 0.004)],
-  /** 急降下の ヒュー（短く） */
-  hammerDive: [swish(1400, 500, 0, 0.3, 0.12, 1.3)],
+  /** 急降下の ヒュゴォー: 重い ものが 空気を さく 風きり（`legend4Sounds.ts`） */
+  hammerDive: LEGEND4_SOUNDS.hammerDive,
 } as const satisfies Record<string, readonly Tone[]>;
 
+export { HAMMER_SOUNDS };
 export type HammerSoundName = keyof typeof HAMMER_SOUNDS;
 
 export function playHammer(sound: Pick<SoundFx, 'playTones'>, name: HammerSoundName): void {

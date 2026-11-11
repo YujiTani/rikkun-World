@@ -24,7 +24,7 @@ import { feet, holdLegend, stepCollect, yokaiHp } from './helpers/legend4';
 test.describe.configure({ timeout: 180_000 });
 
 test.describe('LEGEND-4 PR4 ノームの斧（G6）', () => {
-  test('G6 通し: 木の 根もとを きる → 下 2 つが 空気、つづけて 妖怪に よこなぎ → 46 ステップ 以内に へる・gnomeSwing', async ({ page }) => {
+  test('G6 通し: 木の 根もとを きる → 下 2 つが 空気、つづけて 妖怪に よこなぎ → 46 ステップ 以内に へる・専用の 音なし', async ({ page }) => {
     await openBladeWorld(page);
     const { floorY } = await stage(page);
     await holdLegend(page, 'gnome_axe');
@@ -74,6 +74,6 @@ test.describe('LEGEND-4 PR4 ノームの斧（G6）', () => {
     const hp = await yokaiHp(page);
     expect(hp[id]!, '46 ステップ 以内に へる').toBeLessThan(99);
     expect(99 - hp[id]!, 'よこなぎ 1 回ぶん（同じ 妖怪に 1 回）').toBe(7);
-    expect(sounds, 'gnomeSwing の 音').toContain('gnomeSwing');
+    expect(sounds, 'ノームの斧は 専用の 音なし（オーナー 2026-11-12）').not.toContain('gnomeSwing');
   });
 });
