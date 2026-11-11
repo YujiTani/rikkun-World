@@ -184,6 +184,8 @@ export interface YokaiWorldLike {
 export interface HitSources {
   /** 刀の いまの 当たりの 形（当たりの コマ だけ。ほかは null）。damage は その わざの ダメージ（武器の 強さ × わざの 倍率）、swing は 1 振りを 見分ける 名前、frame は わざの 何コマ目 */
   blade?(): { shape: BladeShapeInfo; damage: number; swing: string; frame: number } | null;
+  /** 八咫烏の ほのお（球。出た ステップに 1 回だけ。center・radius・damage は 矢の ほのおの 数）。strikes と 同じ 当たり方 */
+  bursts?(): readonly { center: Vec3; radius: number; damage: number }[];
   /** 飛んで いる 真空波・らせん（id で 見分ける） */
   waves?(): readonly { id: number; position: Vec3; radius: number; damage: number }[];
   /** 今の ステップに 落ちた 雷（球） */
@@ -527,6 +529,7 @@ export class BigHit {
     this.stepBlade(s, m, who);
     this.stepWaves(s, m, who);
     this.stepStrikes(s, who);
+    this.stepBursts(s, who);
     this.stepDome(s, m, who);
   }
 
@@ -593,6 +596,15 @@ export class BigHit {
     for (const k of ks) {
       const i = this.pick((n) => boxTouchesSphere(this.boxes[n]!, k.center, k.radius), k.center);
       if (i >= 0) this.strike(i, k.damage, k.center, 'strike', who);
+    }
+  }
+
+  private stepBursts(s: HitSources, who: 1 | 2): void {
+    const bs = s.bursts?.();
+    if (!bs) return;
+    for (const k of bs) {
+      const i = this.pick((n) => boxTouchesSphere(this.boxes[n]!, k.center, k.radius), k.center);
+      if (i >= 0) this.strike(i, k.damage, k.center, 'burst', who);
     }
   }
 

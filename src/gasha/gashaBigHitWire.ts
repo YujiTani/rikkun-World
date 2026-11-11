@@ -10,6 +10,7 @@
 import type { BladeShapeInfo, BladeTech, ItemId, Vec3, W2Settings } from '../contracts';
 import { chargeOf, legendPowerOf } from '../legend/defs';
 import { techDamage } from '../tools/blade/BladeSystem';
+import { LEGEND4_TUNING } from '../content/items/legend4Tuning';
 import type { HitSources, YokaiWorldLike } from './gashaBigHit';
 
 export interface WireRefs {
@@ -30,6 +31,8 @@ export interface WireRefs {
   weaponDamage(item: ItemId): number;
   /** SAMURAI-1: 明珍手甲の 刀の 強さの 倍率（雷・ドームの 強さに かける。なければ 1。刀の ふつうの わざは weaponDamage に、波は 波が もつ 数に もう 入っている） */
   powerMul?(item: ItemId): number;
+  /** 八咫烏の ほのお（その人の 弓の 出来事の 窓口。yataBurst の 位置・damage を 読む） */
+  bow?: { peekEvents(): readonly { type: string; tick: number; position?: Vec3; damage?: number }[] };
   yokai(): YokaiWorldLike | null;
   sound?(): void;
 }
@@ -37,6 +40,9 @@ export interface WireRefs {
 export function makeHitSources(r: WireRefs): HitSources {
   let seenTick = -Infinity;
   let primed = false;
+  let burstSeen = -Infinity;
+  let burstPrimed = false;
+  const burstOut: { center: Vec3; radius: number; damage: number }[] = [];
   /** SAMURAI-1 §4.5: ドームの 手甲の 倍率は 始めた（球が 出た）ときの 値を ドームの 間 つかう（途中で 手甲を ぬいでも 強さは かわらない） */
   let domeMul: number | null = null;
   return {
@@ -66,6 +72,20 @@ export function makeHitSources(r: WireRefs): HitSources {
       for (const e of evs) if (e.type === 'lightningStrike' && e.tick > seenTick) seenTick = e.tick;
       primed = true; // 最初の 1 回は 前から ある 出来事を 読みとばす
       return out;
+    },
+    bursts: () => {
+      burstOut.length = 0;
+      const evs = r.bow?.peekEvents();
+      if (!evs) return burstOut;
+      let top = burstSeen;
+      for (const e of evs) {
+        if (e.type !== 'yataBurst' || e.tick <= burstSeen) continue;
+        if (e.tick > top) top = e.tick;
+        if (burstPrimed && e.position && e.damage !== undefined) burstOut.push({ center: { ...e.position }, radius: LEGEND4_TUNING.yatagarasu.burstRadius, damage: e.damage });
+      }
+      burstSeen = top;
+      burstPrimed = true; // 最初の 1 回は 前から ある 出来事を 読みとばす
+      return burstOut;
     },
     dome: () => {
       const d = r.legend.dome();

@@ -72,4 +72,9 @@ describe('黒龍 × がしゃどくろ', () => {
     expect(r.yokai.dmg.map((d) => d.id)).toEqual([5]);
     expect(r.bh.hp).toBeLessThan(r.bh.maxHp);
   });
+  it('がしゃどくろの 箱は 何個も 通りぬけて も、1 本の 矢は 1 回しか 当たらない（箱ごとの 仮の id でも 1 体あつかい）', () => {
+    const r = rig();
+    r.fire();
+    expect(r.bh.hits).toBe(1);
+  });
 });

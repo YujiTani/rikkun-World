@@ -400,6 +400,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       // 4d-2: 2P の 波・雷・ドームが がしゃどくろに 当たる（AC110）。4d-1: 少女の 弾を 2P の パリィで うける（AC111）
       legend: legend.p2.legend,
       waves: () => legend.p2.waves.list(),
+      bow: { peekEvents: () => tools.bow().peekEvents() },
       parry: (h) => parry.hit({ dirDeg: h.dirDeg, by: h.by, yokaiId: null, amount: h.amount }),
       camera: c.camera2(),
       // 4d-0: 2P に 当たった/当てた 止め・ゆれは 2P の 半分の カメラだけ（世界は 止めない）

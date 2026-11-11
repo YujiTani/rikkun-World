@@ -230,7 +230,7 @@ export type BowEvent =
   | { type: 'noArrow'; tick: number }
   | { type: 'pickup'; tick: number }
   /** LEGEND-4 八咫烏: 当たった 点で ほのおが はじけた（hits = ほのおが 当たった 体と ダメージ） */
-  | { type: 'yataBurst'; tick: number; position: Vec3; hits: { id: number; damage: number }[] }
+  | { type: 'yataBurst'; tick: number; position: Vec3; /** ほのおの ダメージ（その 矢の ダメージと 同じ）。がしゃどくろの 当たりが 読む */ damage: number; hits: { id: number; damage: number }[] }
   /** LEGEND-4 八咫烏: 矢が へらなかった（うった ステップ） */
   | { type: 'arrowSaved'; tick: number };
 

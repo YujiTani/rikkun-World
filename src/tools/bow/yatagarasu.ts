@@ -73,5 +73,5 @@ export function fireBurst(world: VoxelWorld, yokai: YokaiWorld, at: Vec3, seeFro
     yokai.damage(h.id, h.damage, at, burstKnock);
     hits.push({ id: h.id, damage: h.damage });
   }
-  return { type: 'yataBurst', tick, position: { x: at.x, y: at.y, z: at.z }, hits };
+  return { type: 'yataBurst', tick, position: { x: at.x, y: at.y, z: at.z }, damage, hits };
 }

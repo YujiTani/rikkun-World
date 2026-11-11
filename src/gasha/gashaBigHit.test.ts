@@ -250,6 +250,20 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     hpIs(r, 90);
   });
 
+  it('八咫烏の ほのお（bursts）: 球に 触れた 箱の うち いちばん 倍率が 高い 所に 1 回だけ。遠い 球は 当たらない', () => {
+    let balls: { center: Vec3; radius: number; damage: number }[] = [];
+    const r = rig({ bursts: () => balls });
+    const h = r.find('handL');
+    balls = [{ center: v(h.c[0]!, h.c[1]!, h.c[2]! + h.half[2]! + 1), radius: 2, damage: 7 }];
+    r.bh.step(1 / 60);
+    expect(r.bh.last?.source).toBe('burst');
+    hpIs(r, 7 * mulOf(r.bh.last!.part));
+    balls = [{ center: v(500, 500, 500), radius: 2, damage: 7 }];
+    const hp = r.bh.hp;
+    r.bh.step(1 / 60);
+    expect(r.bh.hp).toBe(hp);
+  });
+
   it('矢・パンチ: YokaiManager の 線の 当たりと ダメージに 割りこむ。本物の 妖怪は そのまま', () => {
     const dmg: [number, number][] = [];
     const real: YokaiWorldLike = {

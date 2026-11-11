@@ -16,6 +16,7 @@ import type {
 import { isTenshi } from '../../player/tenshiMove';
 import { raycastBlocks } from '../../dig/raycast';
 import { cellInWall } from '../../world/wall';
+import { hitOnceKey } from '../../combat/ghostIds';
 import { arrowSaved, createSaveRoll, fireBurst, BURST_BACKOFF } from './yatagarasu';
 
 /** WEAPON-2 §4.4（弓）。段・放物線・当たり・ささった や と 拾う。更新は固定ステップ（1/60 秒）。乱数は使わない */
@@ -187,8 +188,9 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
     for (let k = 0; k < hits.length; k++) {
       const yh = hits[k]!;
       if (blockDist !== null && yh.distance >= blockDist) break; // ブロックの 向こうの 体は 当たらない（近い 順）
-      if (hitIds.includes(yh.id)) continue;
-      hitIds.push(yh.id);
+      const once = hitOnceKey(yh.id); // がしゃどくろは 箱ごとに id が ちがう。体 1 つで 1 回
+      if (hitIds.includes(once)) continue;
+      hitIds.push(once);
       const hit = { x: p.x + rayDir.x * yh.distance, y: p.y + rayDir.y * yh.distance, z: p.z + rayDir.z * yh.distance };
       yokai.damage(yh.id, a.damage, { ...lastPos }, { dist: s.bowKnock[a.stage - 1]!, up: 0 });
       emit({ type: 'arrowHit', tick: deps.tick(), yokaiId: yh.id, damage: a.damage, position: hit });
