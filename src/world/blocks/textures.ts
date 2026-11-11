@@ -15,6 +15,7 @@ import { ROPE_TILE_NAMES, isRopeTile, paintRopeTile, type RopeTileName } from '.
 import { BOIL_NAMES, WATERFALL_BLOCK_TILES, WATERFALL_TILE_NAMES, isWaterfallTile, paintWaterfallTile, type WaterfallTileName } from './waterfallTextures';
 import { paintLeafTile } from './leafTextures';
 import { HOUSE_ATLAS_TILE_NAMES, HOUSE_BLOCK_TILES, isHouseTile, paintHouseTile, type HouseAtlasTile } from './houseTextures';
+import { VOX_I4A_GRIDS, paintGrid } from './voxI4aTiles';
 import { protoBambooPixels, protoLeafPixels } from '../render/leafBambooArt';
 
 /** 16x16 ドット絵をコードで描く（M1-01 4-2 の色）。 */
@@ -56,8 +57,10 @@ export type TileName =
   | WaterfallTileName;
 
 /** VOX-I-1（12 の国）のふつうの絵（一ひねりの絵は #185） */
-export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y' | 'flower_o' | 'flower_p' | 'bamboo' | 'susuki' | 'kusa' | 'nobana';
-const VOX_I_TILES: readonly VoxITileName[] = ['snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'susuki', 'kusa', 'nobana'];
+export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y' | 'flower_o' | 'flower_p' | 'bamboo' | 'susuki' | 'kusa' | 'nobana'
+  // VOX-I-4a（#187。国だけの物 その 1 の 1 コマめ。絵は voxI4aTiles.ts）
+  | 'kinoko' | 'himawari_ue' | 'himawari_shita' | 'kaigara' | 'takenoko';
+const VOX_I_TILES: readonly VoxITileName[] = ['snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'susuki', 'kusa', 'nobana', 'kinoko', 'himawari_ue', 'himawari_shita', 'kaigara', 'takenoko'];
 
 /** M7 農業の絵の名前（`farm.texture` の name と同じ） */
 export type FarmTileName =
@@ -360,6 +363,8 @@ function paintTile(name: TileName): Tile {
   if (isBokenTile(name)) return paintBokenTile(name).slice(); // MINE-1E: 坑道の 冒険
   if (isRopeTile(name)) return paintRopeTile(name).slice(); // ROPE-1
   if (isWaterfallTile(name)) return paintWaterfallTile(name).slice(); // WATERFALL-1
+  const grid = (VOX_I4A_GRIDS as Readonly<Record<string, Parameters<typeof paintGrid>[0]>>)[name]; // VOX-I-4a: すきまの ある 十字の 板は calm() を かけない（はな・すすきと 同じ）
+  if (grid !== undefined) return paintGrid(grid);
   if (isHouseTile(name)) return paintHouseTile(name).map((c): Rgba => [(c >> 16) & 255, (c >> 8) & 255, c & 255, 255]); // HOUSE-1C: 家の ブロック・家具
   switch (name) {
     case 'grass_top':
@@ -548,6 +553,12 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   susuki: ['susuki', 'susuki', 'susuki'],
   kusa: ['kusa', 'kusa', 'kusa'],
   nobana: ['nobana', 'nobana', 'nobana'],
+  // VOX-I-4a: ひまわり は 2 ブロック（上 = 花、下 = くき）
+  kinoko: ['kinoko', 'kinoko', 'kinoko'],
+  himawari: ['himawari_shita', 'himawari_shita', 'himawari_shita'],
+  himawari_top: ['himawari_ue', 'himawari_ue', 'himawari_ue'],
+  kaigara: ['kaigara', 'kaigara', 'kaigara'],
+  takenoko: ['takenoko', 'takenoko', 'takenoko'],
   // #293 試作
   geyser_dirt: ['geyser_dirt_top', 'geyser_dirt_side', 'geyser_dirt_side'],
   // ITEM-FX-1: 置き物 3 つ（形は meshChunk の pushProp。ここは ひび・かけらの 色用）

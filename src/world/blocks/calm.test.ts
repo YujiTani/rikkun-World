@@ -203,7 +203,10 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
     kakashi: '4f4901a7', kakashi_head: '4a0dda11', saku: '4424eef9',
     sprinkler_top: '443e0c11', sprinkler_side: 'cb9ab32d', sprinkler_bottom: '6c49f3c5',
     // VOX-I-1（#184・PR #197）で足した 12 の国の絵。CALM のあとにできたので、ここでは今の絵を守るだけ（おさえるかは #185 で決める）
-    bamboo: 'ef3e0bda', flower_o: '2fbe135', flower_p: '7f48c5f5', flower_y: 'e647bd15',
+    // たけは 細い 小ブロックの 形が 既定に なった（VOX-I-4a。leafBambooMode.ts）ので 絵（proto の 画素）が かわった: 前の 太い 形の 値は ef3e0bda（?bamboo=current）
+    bamboo: 'bcd51113', flower_o: '2fbe135', flower_p: '7f48c5f5', flower_y: 'e647bd15',
+    // VOX-I-4a（#187）: 国だけの物 その 1 の 4 ブロック（5 まい）の 1 コマめ。絵は voxI4aTiles.ts（calm は かけない）。今の 絵を 守るだけ
+    kinoko: '4b272997', himawari_ue: 'e8750110', himawari_shita: 'f33d35c1', kaigara: '9c8336c1', takenoko: 'd37c2893',
     // はっぱ 3 まい: もこもこの 新しい 絵（2026-11-10 オーナー OK。leafTextures.ts）。今の 絵を 守るだけ
     leaves: 'ef89d522', matsu_leaves: '55235a61', momiji_leaves: '6d479be2', snow: 'b5d0ee8f', susuki: '58e578b5',
     // LIVE-2（こたつ・とりごや。ふつうの 絵。今の 絵を 守るだけ）

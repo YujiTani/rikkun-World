@@ -134,7 +134,13 @@ export type BlockId =
   | 'kowareta_waku'
   | 'taoreta_hashigo_x'
   | 'taoreta_hashigo_z'
-  | 'takibi_ato';
+  | 'takibi_ato'
+  // VOX-I-4a（#187。うしろに足す。212〜216）: 国だけの物 その 1（十字の 板。固くない・こわせる）
+  | 'kinoko' // きのこ（もり。ひろえる）
+  | 'himawari' // ひまわり（はなばたけ。2 段の 下の 段 = くき。ほると himawari 1 こ）
+  | 'himawari_top' // ひまわり の 上の 段（花）。持ち物に 入らない（ほると himawari）
+  | 'kaigara' // かいがら（すなはま。すなの 上の 小さな 板）
+  | 'takenoko'; // たけのこ（たけやぶ）
 
 export interface BlockType {
   id: BlockId;

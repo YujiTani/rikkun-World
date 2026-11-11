@@ -930,7 +930,12 @@
         "leaves",
         "momiji_leaves",
         "matsu_leaves",
-        "bamboo"
+        "bamboo",
+        "kinoko",
+        "himawari",
+        "himawari_top",
+        "kaigara",
+        "takenoko"
       ],
       "plumeSize": 5.5,
       "rainSec": 5.5,

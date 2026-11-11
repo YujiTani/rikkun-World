@@ -247,6 +247,39 @@ export const VOX_I = {
     rarity: blockRarity('nobana'),
     category: 'plant',
   },
+  // VOX-I-4a（#187）: 国だけの物 その 1 の ひろえる 小物 4 つ（ひまわり の 上の 段 himawari_top は アイテムに ならない。ほると himawari）
+  kinoko: {
+    name: blockName('kinoko'),
+    zukan: 'もりの おくで にっこり わらって いる きのこ。まるく ならんで いたら、そこは ふしぎな ばしょ かも しれない。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'kinoko',
+    rarity: blockRarity('kinoko'),
+    category: 'plant',
+  },
+  himawari: {
+    name: blockName('himawari'),
+    zukan: 'おひさまに むかって ［大｜おお］きく さく ひまわり。せが ［高｜たか］いので、とおくからでも すぐ みつかる。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'himawari',
+    rarity: blockRarity('himawari'),
+    category: 'plant',
+  },
+  kaigara: {
+    name: blockName('kaigara'),
+    zukan: 'すなはまで ［見｜み］つかる かいがら。ちいさな やどかりが ひょっこり ［顔｜かお］を だして いる ことも あるよ。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'kaigara',
+    rarity: blockRarity('kaigara'),
+    category: 'plant',
+  },
+  takenoko: {
+    name: blockName('takenoko'),
+    zukan: 'たけやぶの おくで ひっそり ［顔｜かお］を だす たけのこ。ごほうびみたいで、みつけると うれしく なる。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'takenoko',
+    rarity: blockRarity('takenoko'),
+    category: 'plant',
+  },
 } satisfies Partial<Record<BlockId, ItemDef>>;
 
 /**

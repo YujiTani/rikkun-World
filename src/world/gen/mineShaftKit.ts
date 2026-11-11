@@ -10,6 +10,7 @@ import { createMineHook } from './mineHook';
 import { legacyOld } from './mineLegacyKit';
 import { colKey } from '../stream/ring';
 import { heightAt, spawnOf } from './terrain';
+import { COUNTRY_PLANT_IDS } from '../blocks/countryPlants';
 
 /**
  * MINE-1C（docs/design/MINE-1.md §4.5・§6.1・受け入れ基準 C1〜C16）の テスト用の 道具。ゲームの 外〔テスト〕だけで 使う。
@@ -301,7 +302,7 @@ const boxAround = (s: Shaft, margin = 8): Box3 => ({ x0: s.box.x0 - margin, x1: 
 
 // ------------------------------------------------------------------ 坑道の 形・安全〔C3・C4・C5〕。直した ほうが よい 所を 文で 返す〔空なら 合格〕
 
-const PLANT_IDS: readonly string[] = ['log', 'leaves', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'kusa', 'nobana', 'bamboo', 'susuki'];
+const PLANT_IDS: readonly string[] = ['log', 'leaves', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'kusa', 'nobana', 'bamboo', 'susuki', ...COUNTRY_PLANT_IDS];
 export const isPlantId = (id: string): boolean => PLANT_IDS.includes(id);
 
 /** 道の 足の マスの 集まり〔部分ごと〕 */
