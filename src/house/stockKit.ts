@@ -41,6 +41,10 @@ export interface Stock {
   putTansu(dx: number, dz: number, items: Partial<Record<ItemId, number>>): Vec3;
   /** たんすの 中の その アイテムの 数 */
   inTansu(at: Vec3, item: ItemId): number;
+  /** たんすを 置く 世界（addPerson が 2 人目の 数える 係に 同じ 世界を わたす） */
+  world: TansuWorld;
+  /** (at) に たんすを 1 つ 置いて 中身を 入れる（putTansu は プレイヤーからの 相対。こちらは 世界の 絶対の 場所。5d で 足した） */
+  putTansuAt(at: Vec3, items: Partial<Record<ItemId, number>>): Vec3;
 }
 
 export function makeStock(opts: { player?: Vec3; range?: number } = {}): Stock {
@@ -58,8 +62,7 @@ export function makeStock(opts: { player?: Vec3; range?: number } = {}): Stock {
     closeScreen: () => undefined,
   });
   const craft = new CraftSystemImpl({ world, inventory: bag, tansu: storage, player: () => player, tansuRange: () => range.v });
-  const putTansu = (dx: number, dz: number, items: Partial<Record<ItemId, number>>): Vec3 => {
-    const at: Vec3 = { x: Math.floor(player.x) + dx, y: player.y, z: Math.floor(player.z) + dz };
+  const putTansuAt = (at: Vec3, items: Partial<Record<ItemId, number>>): Vec3 => {
     world.setBlock(at.x, at.y, at.z, 'tansu');
     let slot = 0;
     for (const [item, total] of Object.entries(items) as Array<[ItemId, number]>) {
@@ -68,8 +71,10 @@ export function makeStock(opts: { player?: Vec3; range?: number } = {}): Stock {
     }
     return at;
   };
+  const putTansu = (dx: number, dz: number, items: Partial<Record<ItemId, number>>): Vec3 =>
+    putTansuAt({ x: Math.floor(player.x) + dx, y: player.y, z: Math.floor(player.z) + dz }, items);
   const inTansu = (at: Vec3, item: ItemId): number => storage.countItem(at.x, at.y, at.z, item);
-  return { bag, player, range, storage, craft, putTansu, inTansu };
+  return { bag, player, range, storage, craft, putTansu, inTansu, world, putTansuAt };
 }
 
 /**
@@ -80,4 +85,21 @@ export function makeStock(opts: { player?: Vec3; range?: number } = {}): Stock {
  */
 export function stockDeps(stock: Stock): { craft: Stock['craft']; tansu: Stock['storage'] } {
   return { craft: stock.craft, tansu: stock.storage };
+}
+
+/**
+ * 2 人目（2P）の もちもの・足もと・数える 係（5d で 足した）。たんすの 世界・たんすの 中身（storage）は 1 人目と 同じ 物を 共有する
+ * （たんすは 世界の 物）。数える 係は 2 人目の もちもの・2 人目の 足もとから 設定 craftTansuRange の 中の たんすを 数える。
+ */
+export interface Person {
+  bag: InventoryImpl;
+  /** 2 人目の 足もと（動かすと きょりが かわる） */
+  player: Vec3;
+  craft: CraftSystemImpl;
+}
+
+export function addPerson(stock: Stock, player: Vec3): Person {
+  const bag = new InventoryImpl();
+  const craft = new CraftSystemImpl({ world: stock.world, inventory: bag, tansu: stock.storage, player: () => player, tansuRange: () => stock.range.v });
+  return { bag, player, craft };
 }

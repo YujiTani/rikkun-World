@@ -45,6 +45,9 @@ async function waitDoll(page: Page): Promise<void> {
     .catch(() => undefined);
 }
 
+// 1500 コマの読みこみは、シャードが忙しいと 60 秒の既定をこえる（中身の合否はコマ数で見る）
+test.describe.configure({ timeout: 180_000 });
+
 test.describe('#179 テストの時計', () => {
   test('AC1: E2E のサーバーでは clock() は count。?clock=time を付けると time', async ({ page }) => {
     await openRaw(page, '?nosave=1');

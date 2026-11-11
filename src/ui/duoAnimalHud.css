@@ -1,0 +1,160 @@
+/*
+ * COOP-1 5c（docs/design/COOP-1.md §3.7 (d)・AC138・AC156）: 2 人の ときの にわとりの 画面（合図の チップ・なつきの パネル・
+ * だっこの わ・いただきますの 一言・とりごやの メニュー）。1 人の ときは html[data-duo] が ないので 何も 効かない（今までと 同じ）。
+ * 1P は 左の 半分、2P は 右の 半分の まん中に そろえる。半分の はば（50vw）の 90% を こえない（まん中の 線から 5% あける）。
+ */
+
+/* ---- 合図の チップ（上の 方。2P の 畑の チップ〔60%〕と かさならない）---- */
+html[data-duo] #animal-hint,
+html[data-duo] #animal-hint-p2 {
+  max-width: calc(45vw - 8px);
+}
+html[data-duo] #animal-hint {
+  left: 25%;
+}
+html[data-duo] #animal-hint-p2 {
+  left: 75%;
+}
+/* 半分の はばでは 長い 文は 折り返す */
+html[data-duo] #animal-hint .rk-chip__text,
+html[data-duo] #animal-hint-p2 .rk-chip__text {
+  white-space: normal;
+}
+
+/* ---- なつきの パネル（照準の 下。ホットバー・ハートの 上）---- */
+html[data-duo] #natsuki-panel,
+html[data-duo] #natsuki-panel-p2 {
+  max-width: 45vw;
+}
+html[data-duo] #natsuki-panel {
+  left: 25%;
+}
+html[data-duo] #natsuki-panel-p2 {
+  left: 75%;
+}
+
+/* ---- だっこの わ（2P。照準を かこむ。押しつづけた ぶんだけ 時計回りに うまる）---- */
+#duo-carry-ring-p2 {
+  --p: 0;
+  position: fixed;
+  left: 75%;
+  top: 50%;
+  width: calc(var(--rk-icon-chip) * 2);
+  height: calc(var(--rk-icon-chip) * 2);
+  transform: translate(-50%, -50%);
+  border-radius: var(--rk-r-pill);
+  background: conic-gradient(var(--duo-p2, var(--rk-accent)) calc(var(--p) * 360deg), rgb(255 255 255 / 0.18) 0);
+  -webkit-mask: radial-gradient(circle, transparent 62%, #000 65%);
+  mask: radial-gradient(circle, transparent 62%, #000 65%);
+  pointer-events: none;
+  z-index: 6;
+}
+#duo-carry-ring-p2[hidden] {
+  display: none;
+}
+
+/* ---- いただきます の 一言: 起こした 人の 半分に（世界は 止めない）---- */
+html[data-duo] #itadakimasu {
+  right: 50%;
+}
+html[data-duo] #itadakimasu-p2 {
+  left: 50%;
+}
+html[data-duo] #itadakimasu .itadakimasu-glow,
+html[data-duo] #itadakimasu-p2 .itadakimasu-glow {
+  width: 200px;
+  height: 200px;
+}
+html[data-duo] #itadakimasu .itadakimasu-hands,
+html[data-duo] #itadakimasu-p2 .itadakimasu-hands {
+  width: 88px;
+  height: 92px;
+}
+html[data-duo] #itadakimasu .itadakimasu-text,
+html[data-duo] #itadakimasu-p2 .itadakimasu-text {
+  font-size: 32px;
+}
+
+/* ---- とりごやの メニュー: 開いた 人の 半分の 下がわ（ホットバー・ハート・レベルの 上。画面の 上 30% には のびない）---- */
+.coop-menu[data-layout='duo'] {
+  --duo-coop-bottom: calc(var(--hb-bottom) + var(--rk-slot-hotbar) + var(--rk-sp-7) * 2 + var(--rk-sp-2));
+  bottom: var(--duo-coop-bottom);
+  left: calc(25% - 22.5vw);
+  right: auto;
+  width: 45vw;
+  max-height: calc(70vh - var(--duo-coop-bottom));
+  margin: 0;
+  padding: 8px 12px;
+  gap: 8px;
+  overflow: hidden auto;
+}
+.coop-menu--p2[data-layout='duo'] {
+  left: calc(75% - 22.5vw);
+  /* 2P の メニューは 2P の パッドだけ（1P の マウスは きかない） */
+  pointer-events: none;
+}
+.coop-menu[data-layout='duo'] .coop-head {
+  min-height: 56px;
+  gap: 8px;
+}
+.coop-menu[data-layout='duo'] .coop-title {
+  font-size: 24px;
+}
+.coop-menu[data-layout='duo'] .coop-close {
+  width: 56px;
+  height: 56px;
+  font-size: 24px;
+}
+.coop-menu[data-layout='duo'] .coop-btn {
+  min-height: 48px;
+  padding: 4px 12px;
+  font-size: 20px;
+}
+.coop-menu[data-layout='duo'] .coop-body--top {
+  flex-direction: column;
+  gap: 8px;
+}
+.coop-menu[data-layout='duo'] .coop-body--top .coop-btn {
+  flex: none;
+  min-height: 56px;
+  font-size: 24px;
+}
+.coop-menu[data-layout='duo'] .coop-body--top .coop-ico,
+.coop-menu[data-layout='duo'] .coop-ico {
+  width: 36px;
+  height: 36px;
+}
+.coop-menu[data-layout='duo'] .coop-ico--hands {
+  width: 33px;
+  height: 35px;
+}
+.coop-menu[data-layout='duo'] .coop-count {
+  font-size: 20px;
+}
+.coop-menu[data-layout='duo'] .coop-card {
+  height: 56px;
+}
+.coop-menu[data-layout='duo'] .coop-kid {
+  width: 40px;
+  height: 40px;
+}
+.coop-menu[data-layout='duo'] .coop-kid--big {
+  width: 64px;
+  height: 64px;
+}
+.coop-menu[data-layout='duo'] .coop-sentence {
+  font-size: 18px;
+}
+.coop-menu[data-layout='duo'] .coop-row {
+  gap: 12px;
+}
+.coop-menu[data-layout='duo'] .coop-row .coop-btn {
+  min-width: 0;
+  flex: 1;
+}
+/* パッドで えらんでいる 物の わく（1P の フォーカスの わくと 同じ 太さ） */
+.coop-menu [data-pad-focus='true'] {
+  outline: 4px solid var(--duo-p2, var(--rk-accent));
+  outline-offset: 2px;
+  filter: brightness(1.15);
+}

@@ -36,6 +36,19 @@ export function ringState(s: ThrowSpotLike | null): RingState | null {
   return { x: s.x, y: s.y + RING_LIFT, z: s.z, diameter: RING_DIAMETER, home: s.home !== null };
 }
 
+/**
+ * 世界に 出す 丸の 一覧（COOP-1 5c）: だっこ中の 人ごとの 着地点（最大 2 つ。1P・2P の 順）。出ない 物（null・ok false）は のぞく。
+ * `out` を 渡せば その 配列を 空にして 入れて 返す（毎フレーム 新しい 配列を 作らない）
+ */
+export function ringStates(spots: readonly (ThrowSpotLike | null)[], out: RingState[] = []): RingState[] {
+  out.length = 0;
+  for (const s of spots) {
+    const r = ringState(s);
+    if (r) out.push(r);
+  }
+  return out;
+}
+
 /** 丸 の 絵（RGBA、`RING_TEX` 四方）。まん中 ほど うすく、ふち が 少し 濃い 輪。`home` なら 中 に いえ の しるし（白 の 家） */
 export function rasterRing(home: boolean): Uint8Array {
   const N = RING_TEX;

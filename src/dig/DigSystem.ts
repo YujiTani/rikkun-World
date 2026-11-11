@@ -113,9 +113,11 @@ export class DigSystemImpl implements DigSystem {
 
   /**
    * MINE-1C: 宝箱を あける（つなぎ込みが 入れる。右クリックの 最初の ステップに 1 回。あいた 宝箱も よぶ〔ログ「からっぽ だよ」〕）。
-   * who ＝ あける 人（1P は 0。2P の 右クリックは まだ ない〔COOP-1 作業 3〕）
+   * who ＝ あける 人（1 = 1P・2 = 2P。`chestWho`）
    */
-  chestPort: { open(x: number, y: number, z: number, who?: number): void } | null = null;
+  chestPort: { open(x: number, y: number, z: number, who: 1 | 2): void } | null = null;
+  /** COOP-1 5b: この ほる係の 持ち主（1 = 1P・2 = 2P）。宝箱の 窓口に わたす。2P の ほる係は 2 に する */
+  chestWho: 1 | 2 = 1;
   /**
    * ねらいの線の出どころ（CHAR-1 §4.5）。つなぎ込みが `aimPivot` を入れる。
    * なければ 今の 目（足もと + eyeHeight）。
@@ -570,7 +572,7 @@ export class DigSystemImpl implements DigSystem {
     if (pv.kind === 'fill') this.farm.doFill();
     else if (pv.kind === 'fillHint') this.m4.farm?.noteHint('fill', this.farm.playerChest());
     else if (pv.kind === 'pet' && t) this.farm.doPet(t);
-    if ((pv.kind === 'chest' || pv.kind === 'chestDone') && t) this.chestPort?.open(t.block.x, t.block.y, t.block.z, 0);
+    if ((pv.kind === 'chest' || pv.kind === 'chestDone') && t) this.chestPort?.open(t.block.x, t.block.y, t.block.z, this.chestWho);
     else if (pv.kind === 'storage' && t) this.m4.storage?.open(t.block.x, t.block.y, t.block.z);
     else if (pv.kind === 'furnace' && t) this.m4.craft?.openFurnace(t.block.x, t.block.y, t.block.z);
     else if ((pv.kind === 'doorOpen' || pv.kind === 'doorClose') && t) this.placer.toggleDoor(t);

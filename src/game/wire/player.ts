@@ -25,6 +25,7 @@ import { isBodyPlaceable } from '../../save';
 import { bindKeyboardAndMouse } from '../../input/actions';
 import { wireGamepad } from './gamepad';
 import { createGameModal } from './modalTick';
+import { createBookInput } from './modalOwner';
 import { LockController, WheelAccumulator, MouseLook, bindPointerLock } from '../../input';
 import { PlayerController } from '../../player/PlayerController';
 import { PlayOverlay } from '../../ui/playOverlay';
@@ -71,8 +72,18 @@ export function wireInput(deps: WiredRender) {
     houseRender: () => shared.houseModal.render(),
     duoModalTick: () => shared.duoModalTick(),
   }));
-  game.input.onPress((action) => book.onAction(action));
-  const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => book.open());
+  // 本の 入力: 動かせるのは 開いた 人の パッドだけ（1P の キー・パッド → p1、2P の パッド → p2。COOP-1 5d）
+  const bookInput = createBookInput(shared.modalOwner, book);
+  game.input.onPress(bookInput.p1);
+  // 2P が やめた・パッドが ぬけた: 開いて いる 本か 建築士さんを その ステップで しまう（modalOwner.step が 呼ぶ）
+  shared.modalCloseNow = () => {
+    if (book.active()) book.closeNow();
+    else shared.house?.close();
+  };
+  // 案内画面の 本の ボタンも 開いた 人の 取り合いを 通す（1P だけ）
+  const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => {
+    if (shared.modalOwner.claim(1)) book.open();
+  });
   startPlan.close(); // スタートメニューを 消す（今の「じゅんびちゅう」→「あそぼう」の 案内画面へ）
   const settingsGate = { open: () => false };
   gamepadApi = wireGamepad({
@@ -92,6 +103,7 @@ export function wireInput(deps: WiredRender) {
     onToggleView: () => { /* rig は wirePlayer で繋ぐ */ },
   });
   look = gamepadApi.look;
+  gamepadApi.slots.get(1).onPress(bookInput.p2);
   const dialogs = createDialogStack();
   let goTitle: () => Promise<'reload' | 'stay'> = async () => 'stay';
   const returnDialog = mountChoiceDialog({

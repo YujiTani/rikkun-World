@@ -83,6 +83,7 @@ export function installGameHook(deps: WiredMine): void {
       step: (n) => game.step(n),
       renderNow: () => game.renderNow(),
       setEnabled: setShadow,
+      showAll: (fn) => renderer.withAllSections(fn),
     }),
     biome: createBiomeHook({
       seed,

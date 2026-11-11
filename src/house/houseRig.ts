@@ -21,6 +21,8 @@ export interface RigOpts {
   stock?: boolean;
   /** 地形だけで 見た 水でない 地面（はじめは ぜんぶ 地面） */
   isLand?: (x: number, z: number) => boolean;
+  /** HouseSystem の deps に まぜる 足し分（COOP-1 5d: playerOf・bagOf・craftOf・interrupted など 2P の 口。1 人の テストは わたさない） */
+  extraDeps?: Record<string, unknown> | ((st: Stock) => Record<string, unknown>);
 }
 
 export function houseRig(opts: RigOpts = {}) {
@@ -47,6 +49,7 @@ export function houseRig(opts: RigOpts = {}) {
     play: (e: HouseSfx) => sfx.push(e),
     ...(opts.held ? { held: opts.held } : {}),
     ...(opts.stock === false ? {} : stockDeps(st)),
+    ...(typeof opts.extraDeps === 'function' ? opts.extraDeps(st) : (opts.extraDeps ?? {})),
   };
   const sys = new HouseSystem(deps);
   sys.state.record.toolsGiven = true;

@@ -9,7 +9,7 @@ import { dist2d } from './animalMath';
 import { doorOf } from './animalMeat';
 
 /** この 係 が 使う ものだけ（`AnimalCore` の 一部） */
-type CoopCtx = Pick<AnimalCore, 'breedState' | 'coopAtSpot' | 'coopById' | 'coopList' | 'd' | 'dropGold' | 'ents' | 'find' | 'getPlayer' | 'goldRng' | 'hintOut' | 'kidCount' | 'lastDay' | 'lockHintAt' | 'nextCoopId' | 'push' | 'rng' | 'setLock' | 'setState' | 'settings' | 'targetId' | 'tick' | 'tryAdd' | 'world'>;
+type CoopCtx = Pick<AnimalCore, 'breedState' | 'coopAtSpot' | 'coopById' | 'coopList' | 'd' | 'dropGold' | 'ents' | 'find' | 'goldRng' | 'hintOut' | 'kidCount' | 'lastDay' | 'lockHintAt' | 'nextCoopId' | 'push' | 'rng' | 'setLock' | 'setState' | 'settings' | 'tick' | 'tryAdd' | 'world'>;
 
 /** 小屋 を 置く（ゲーム の 置く と 同じ 判定。ねらった 所 が だめ なら まわり 8 か所）。x・z は 5×5 の まん中、y は いちばん 下 の 空気 の 高さ */
 export function placeCoop(core: CoopCtx, x: number, y: number, z: number, dir: CoopDir = 0): CoopPlaceResult {

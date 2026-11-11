@@ -12,9 +12,13 @@ export class BladeHud {
   readonly lockEl: HTMLDivElement;
   private lastLock = false;
 
-  constructor(parent: HTMLElement, private readonly settings: () => W2Settings = () => W2_SETTING_DEFAULTS) {
+  /** who = 2: 2 人の ときの 2P の 分（COOP-1 5f-1。`#tech-lock-p2`。2P の 半分の ＋に 重なる） */
+  constructor(parent: HTMLElement, private readonly settings: () => W2Settings = () => W2_SETTING_DEFAULTS, who: 1 | 2 = 1) {
     this.lockEl = document.createElement('div');
-    this.lockEl.id = 'tech-lock';
+    this.lockEl.id = who === 1 ? 'tech-lock' : `tech-lock-p${who}`;
+    this.lockEl.className = `tech-lock tech-lock--p${who}`;
+    this.lockEl.dataset.testid = `duo-tech-lock-p${who}`;
+    this.lockEl.dataset.aim = 'lock';
     this.lockEl.hidden = true;
     parent.append(this.lockEl);
   }

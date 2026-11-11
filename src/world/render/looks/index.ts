@@ -107,6 +107,11 @@ export function kataCacheSize(): number {
   return kataCache.size;
 }
 
+/** はっぱ・たけの 試しを 切りかえたあとに 型を 捨てる（計測）。次の fill で 作りなおす */
+export function clearLookCache(): void {
+  kataCache.clear();
+}
+
 /** blockTypes の id の並び（番号順）を渡して初期化する（Look が blockTypes に依らないように、外から渡す） */
 export function initLooks(blockIds: readonly string[]): void {
   ids = blockIds;

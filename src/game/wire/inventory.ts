@@ -19,6 +19,7 @@ import { createDigConfig } from '../../dig';
 import { InventoryImpl } from '../../inventory';
 import { ScreenController } from '../../screen/ScreenController';
 import { createScreenSettings } from '../../screen/config';
+import { routeDropPicked } from '../../duo/p2Feed';
 import type { WiredPlayer } from './player';
 
 export function wireInventory(deps: WiredPlayer) {
@@ -136,9 +137,8 @@ export function wireDrops(deps: WiredInventory) {
       lastFullSignal = game.tick;
       hudSignal.full();
     },
-    onPickup: (item, count, fromYokai, who) => {
-      if (who === 1) shared.onDropPicked(item, count, fromYokai);
-    },
+    // COOP-1 5b（AC132）: 1P の 知らせは shared.onDropPicked・2P の 知らせは shared.p2DropPicked（実績 obtain:*・pickup:*・妖怪の たね）
+    onPickup: routeDropPicked({ p1: (item, count, fromYokai) => shared.onDropPicked(item, count, fromYokai), p2: (item, count, fromYokai) => shared.p2DropPicked(item, count, fromYokai) }),
     partner: () => shared.duoDropMate(),
   });
   /** 置いて たいら に した 足もと の 列（土けむり。次 の ステップ で AnimalFx へ） */
@@ -159,13 +159,15 @@ export function wireDrops(deps: WiredInventory) {
         drops.scatter(at, [{ item: 'egg', count: 1 }], { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 });
       },
       // 版 3.2: あみで とれた むし。持ち物 が いっぱい なら 足もと に 落として false
-      addItem: (item) => {
-        if (inventory.add(item, 1) === 0) return true;
-        const p = controller.state.position;
+      // COOP-1 5c: `who` 2 は 2P の もちもの・2P の 足もと（2P が いなければ 1P）
+      addItem: (item, who) => {
+        const mate = who === 2 ? shared.duoMate() : null;
+        if ((mate ? shared.p2.inventory : inventory).add(item, 1) === 0) return true;
+        const p = mate ? mate.position : controller.state.position;
         drops.scatter({ x: p.x, y: p.y + 0.5, z: p.z }, [{ item, count: 1 }], { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 });
         return false;
       },
-      tryAddItem: (item) => inventory.add(item, 1) === 0,
+      tryAddItem: (item, who) => (who === 2 && shared.duoMate() ? shared.p2.inventory : inventory).add(item, 1) === 0,
       carriedBefore: () => (shared.achievements.stats()['carry:*'] ?? 0) > 0,
       // LIVE-2: 小屋 の ブロック は A の coopBlocks() の 一覧 どおり 置く／消す。おとしもの・はじめて の 判定
       placeCoopBlocks: (x, y, z, dir) => {

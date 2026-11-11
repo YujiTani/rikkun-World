@@ -16,15 +16,18 @@ export interface P2Pose {
   pitchDeg: number;
 }
 
-/** out に 書いて 返す（毎ステップ 呼んでも 新しい 物を 作らない） */
-export function p2CameraPose(feet: DuoVec3, yawDeg: number, pitchDeg: number, distance: number, isSolid: (x: number, y: number, z: number) => boolean, out: P2Pose): P2Pose {
+/**
+ * out に 書いて 返す（毎ステップ 呼んでも 新しい 物を 作らない）。
+ * eyeDrop（マス。省くと 0）＝ すわって いる 間の `SeatSystem.eyeDrop()`。先に 足もとを その ぶん さげてから 肩の 点・うしろへの 光線を 決める（COOP-1 5e。1P の CameraRig と 同じ 考え方）。
+ */
+export function p2CameraPose(feet: DuoVec3, yawDeg: number, pitchDeg: number, distance: number, isSolid: (x: number, y: number, z: number) => boolean, out: P2Pose, eyeDrop = 0): P2Pose {
   const yaw = yawDeg * DEG;
   const pitch = pitchDeg * DEG;
   const dx = Math.sin(yaw) * Math.cos(pitch);
   const dy = Math.sin(pitch);
   const dz = -Math.cos(yaw) * Math.cos(pitch);
   // 肩の点 S: 目の 高さ + 少し 上 - 肩の 落ち、カメラの 右へ 少し
-  const sy = feet.y + DEFAULT_CAMERA_CONFIG.eyeHeight + DEFAULT_CAMERA_CONFIG.thirdPersonHeight - SHOULDER_DROP;
+  const sy = feet.y - eyeDrop + DEFAULT_CAMERA_CONFIG.eyeHeight + DEFAULT_CAMERA_CONFIG.thirdPersonHeight - SHOULDER_DROP;
   const sx = feet.x + Math.cos(yaw) * SHOULDER_OFFSET * Math.cos(pitch);
   const sz = feet.z + Math.sin(yaw) * SHOULDER_OFFSET * Math.cos(pitch);
   let allowed = distance;

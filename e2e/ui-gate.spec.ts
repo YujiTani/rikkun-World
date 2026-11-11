@@ -21,8 +21,13 @@ import { duoInvIssues, duoInvStationIssues, openDuoInv } from './helpers/duoInv'
 import { duoParryEdgeIssues, openDuoParryEdge } from './helpers/duoParry';
 import { duoGashaHpIssues, openDuoGashaHp } from './helpers/duoGasha';
 import { duoFlashIssues, openDuoFlash } from './helpers/duoFlash';
+import { duoAnimalHudIssues, duoCoopIssues, openDuoAnimalHud, openDuoCoop } from './helpers/duoCoop';
+import { duoAimHudIssues, openDuoAimHud } from './helpers/duoAim';
+import { duoHouseBubbleIssues, duoWaitP1Issues, openDuoHouseBubble, openDuoWaitP1 } from './helpers/duoModal';
+import { duoFarmIssues, openDuoFarm } from './helpers/duoFarm';
 import { duoArrowPanelIssues, duoBandIssues, duoHudIssues, duoPadLostIssues, duoUsePadIssues, duoViewIssues, openDuoArrowPanel, openDuoBand, openDuoHud, openDuoUsePad, openDuoPadLost, openDuoSplit } from './helpers/duoUi';
 import { PICK_ROOTS, SITE_NEED_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen, siteNeedIssues } from './helpers/houseSite';
+import { duoGadgetNoteIssues, duoSleepAskIssues, openDuoGadgetNote, openDuoSleepAsk } from './helpers/duoGadget';
 
 /**
  * UI 検査ゲート（`npm run check:ui`）。
@@ -625,6 +630,69 @@ SCREENS.push(
 );
 
 /**
+ * COOP-1 5c（1.15 §3.7 (d)・AC138）: 2 人とも 小屋を ねらって とりごやの メニューを 開いた 画面（1P = 右クリック、2P = ZL）。
+ * 3 つの 大きさで、2P の メニュー（duo-coop-menu-p2）は 2P の 半分の 下がわ、1P の メニュー（coop-menu）は 1P の 半分の 下がわに おさまり、
+ * ホットバー・ハート・レベル表示・距離メーター・矢印に かからない。検査は e2e/helpers/duoCoop.ts の duoCoopIssues。見た目は 試作の スクショで オーナー OK（AC159）。
+ */
+SCREENS.push({
+  id: 'duo-coop',
+  roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-coop-menu-p2"]', '[data-testid="coop-menu"]'],
+  freeze: true,
+  open: openDuoCoop,
+  extra: (page: Page) => duoCoopIssues(page),
+});
+
+/**
+ * COOP-1 5c（1.15 §3.7 (d)・AC156）: 2 人とも 合図の チップが 出て、2P は なつきの パネルと だっこの わも 出ている 画面。
+ * 3 つの 大きさで それぞれ その 人の 半分の 中に おさまり、ホットバー・ハート・メーター・矢印・畑の チップに かからない。検査は duoAnimalHudIssues。
+ */
+SCREENS.push({
+  id: 'duo-animal-hud',
+  roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-animal-hint-p2"]', '[data-testid="duo-natsuki-p2"]', '[data-testid="duo-carry-ring-p2"]', '#animal-hint'],
+  freeze: true,
+  open: openDuoAnimalHud,
+  extra: (page: Page) => duoAnimalHudIssues(page),
+});
+
+/**
+ * COOP-1 5d（1.15 §3.7 (e)・AC161・AC164）: 2P が 本／建築士さんの メニューを 開いて いる 画面。1P の 半分の まん中に「ちょっと まってね」（duo-wait-p1）。
+ * 3 つの 大きさで 1P の 半分の 中・本と メニューの 上で 読める・duo-wait は 出ない。検査は e2e/helpers/duoModal.ts の duoWaitP1Issues。
+ * 2P が 話した ふきだし（メニューの 前）は 2P の 半分の 中（AC164。'duo-house-bubble-p2'）。どちらも ステップを 進めずに 撮る（freeze）。
+ */
+for (const what of ['book', 'house'] as const) {
+  SCREENS.push({
+    id: `duo-wait-p1-${what}`,
+    roots: ['[data-testid="duo-wait-p1"]', '[data-testid="house-menu"]', '[data-book]', '#hud'],
+    freeze: true,
+    slow: true,
+    open: (page: Page) => openDuoWaitP1(page, what),
+    extra: (page: Page) => duoWaitP1Issues(page),
+  });
+}
+SCREENS.push({
+  id: 'duo-house-bubble-p2',
+  roots: ['[data-testid="house-bubble"]', '#hud'],
+  freeze: true,
+  slow: true,
+  open: openDuoHouseBubble,
+  extra: (page: Page) => duoHouseBubbleIssues(page),
+});
+
+/**
+ * COOP-1 5a（1.14 §3.7 (b)・AC125・AC126）: 2 人とも 畑の 作物を ねらい、合図の チップが 両方に 出ている 画面（1P = バケツの 合図、2P = じょうろの 合図）。
+ * 3 つの 大きさで 2P の チップ（duo-farm-hint-p2）と しるし（duo-farm-aim-p2）が 2P の 半分の 中、1P の チップ（#farm-hint）と しるし（#farm-aim）が 1P の 半分の 中に おさまり、
+ * ホットバー・ハート・レベル表示・たいきゅうの お知らせ・距離メーター・矢印に かからない。検査は e2e/helpers/duoFarm.ts の duoFarmIssues。
+ * 見た目（チップ・しるしの 置き場）は 試作の スクショで オーナー OK（AC127）。チップは 120 ステップで 消える ので ステップを 進めずに 撮る（freeze）。
+ */
+SCREENS.push({
+  id: 'duo-farm',
+  roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-farm-hint-p2"]', '[data-testid="duo-farm-aim-p2"]', '#farm-hint', '#farm-aim'],
+  freeze: true,
+  open: openDuoFarm,
+  extra: (page: Page) => duoFarmIssues(page),
+});
+
+/**
  * COOP-1 4d-2（AC106）: 2 人の とき わざを 出した 人の 半分だけ うすく 光る（`duo-flash-p1`／`-p2`）。1P が 雷を 落とした 画面と、2P が 落とした 画面。
  * 3 つの 大きさで、光は その人の 半分の 中だけ・半分の 9 割 以上を おおう・うすい・じゃましない・もう 1 人の 半分には 出ない・画面は 左右の まま。
  * 検査は e2e/helpers/duoFlash.ts の duoFlashIssues。光の 強さ・色の 見た目は オーナー確認（試作の スクショ）。
@@ -670,6 +738,45 @@ SCREENS.push({
   freeze: true,
   open: openDuoParryEdge,
   extra: (page: Page) => duoParryEdgeIssues(page),
+});
+
+/**
+ * COOP-1 5e（1.15 §3.7 (f)・AC170）: ひるに 2P が ふとんを 使った 直後の 画面。「よる に ねようね」が 2P の 半分（`duo-gadget-note-p2`）に 出る。
+ * 3 つの 大きさで 2P の 半分の 中に おさまり、ホットバー・ハート・レベル表示・たいきゅうの お知らせ・距離メーター・矢印に かからない。1P の 文（#sleep-notice）と ねむりの 暗さは 出ない。
+ * 絵は 今の 小物の 文の まま（試作の スクショは いらない）。文は noticeSeconds で 消える ので ステップを 進めずに 撮る（freeze）。検査は e2e/helpers/duoGadget.ts の duoGadgetNoteIssues。
+ */
+SCREENS.push({
+  id: 'duo-gadget-note',
+  roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-gadget-note-p2"]', '#sleep-notice'],
+  freeze: true,
+  open: openDuoGadgetNote,
+  extra: (page: Page) => duoGadgetNoteIssues(page),
+});
+
+/**
+ * COOP-1 5e（1.16 §3.7 (f)・AC173・AC182）: 2 人で よるに 1P が ふとんで まち、ねて いない 2P の 半分に「おともだちが いっしょに ねたがっているよ」（`duo-sleep-ask-p2`）が 出る 画面。
+ * 3 つの 大きさで 札が 2P の 半分の 中・半分の はばの 80% まで・ハート／ホットバー／矢印／メーター／ちょっと まってね／畑や にわとりの チップに かからない。1P の 半分には 札が 出ない。
+ * 札と 待ち中の うすい 暗さの 見た目は オーナーが 試作の スクショで OK（AC182）。ここは 置き場と 大きさだけ。ステップを 進めずに 撮る（freeze）。検査は e2e/helpers/duoGadget.ts の duoSleepAskIssues。
+ */
+SCREENS.push({
+  id: 'duo-sleep-ask',
+  roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-sleep-ask-p2"]'],
+  freeze: true,
+  open: openDuoSleepAsk,
+  extra: (page: Page) => duoSleepAskIssues(page),
+});
+
+/**
+ * COOP-1 5f-1（1.16 §3.7 (g) ①・§9.13・AC175・AC176・AC177）: 2 人で 1P が 土を 持って ブロックを ねらい、2P が 刀を 持って ブロックを ねらう いちばん 多い とき
+ * （各半分の ＋マーク・アクションヒント〔2P は パッドの 絵 ZR／ZL〕・2P の 構えの しるし）。3 つの 大きさで、どれも その人の 半分の 中（まん中の 線に またがらない）・
+ * ＋マークは 半分の まん中・ヒントは ＋の 下・ホットバー／ハート／レベル／距離メーターに かからない・パッドの 絵は 24px 以上。検査は e2e/helpers/duoAim.ts の duoAimHudIssues。
+ * 見た目の OK は オーナー確認（試作の スクショ。AC180）。
+ */
+SCREENS.push({
+  id: 'duo-aim-hud',
+  roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-crosshair-p1"]', '[data-testid="duo-crosshair-p2"]', '[data-testid="duo-action-hint-p1"]', '[data-testid="duo-action-hint-p2"]', '[data-testid="duo-aim-stance-p2"]'],
+  open: openDuoAimHud,
+  extra: (page: Page) => duoAimHudIssues(page),
 });
 
 /**

@@ -3,12 +3,12 @@ import type { AnimalCore } from './animalCore';
 import type { AnimalView } from '../contracts';
 import { DIR_VEC } from './coop';
 import { meatEligible } from './meat';
-import type { Coop, Ent } from './animalTypes';
+import type { Coop, Ent, Who } from './animalTypes';
 import { MEAT_DOOR_FROM, MEAT_DOOR_TICKS, MEAT_NEST_DIST, MEAT_SAY_AT, MEAT_SAY_FADE, MEAT_WALK } from './animalConsts';
 import { yawTo } from './animalMath';
 
 /** この 係 が 使う ものだけ（`AnimalCore` の 一部） */
-type MeatCtx = Pick<AnimalCore, 'coopById' | 'coopList' | 'd' | 'ents' | 'find' | 'getPlayer' | 'push' | 'setState' | 'settings' | 'targetId' | 'tryAdd' | 'world'>;
+type MeatCtx = Pick<AnimalCore, 'actor' | 'coopById' | 'coopList' | 'd' | 'ents' | 'find' | 'hands' | 'playerOf' | 'push' | 'setState' | 'settings' | 'tryAdd' | 'world'>;
 
 /** その 小屋 の えらべる 子 の id（§2.1）: `meatEligible` で、だっこ 中・演出 中・とんで いる 子 は のぞく */
 export function meatList(core: MeatCtx, coopId: number): number[] {
@@ -25,12 +25,12 @@ function canMeat(e: Ent): boolean {
  * いただきます を はじめる（メニュー の 「いただきます」と 同じ）。えらべない 子 は `notEligible`（演出 中 の 小屋 でも 先 に 見る）、
  * その 小屋 で すでに 演出 中 なら `busy`
  */
-export function startMeat(core: MeatCtx, coopId: number, id: number): { ok: boolean; reason: null | 'notEligible' | 'busy' } {
+export function startMeat(core: MeatCtx, coopId: number, id: number, who: Who = 1): { ok: boolean; reason: null | 'notEligible' | 'busy' } {
   const c = core.coopById(coopId);
   const e = core.find(id);
   if (!c || !e || e.home !== c.id || !canMeat(e)) return { ok: false, reason: 'notEligible' };
   if (c.meat) return { ok: false, reason: 'busy' };
-  c.meat = { id: e.id, t: 0, sx: e.x, sz: e.z };
+  c.meat = { id: e.id, who, t: 0, sx: e.x, sz: e.z };
   e.meat = true;
   e.lock = 0;
   e.egg = false;
@@ -49,7 +49,7 @@ function nestSpot(c: Coop): { x: number; z: number } {
 }
 
 /** とびら の ようす（演出 の ステップ `t` から）。60 まで あいて いる・60〜80 おりる・80〜(meatTicks−20) しまって いる・そのあと あがる */
-export function doorOf(core: MeatCtx, c: Coop): { door: 'open' | 'closed' | 'moving'; t: number } {
+export function doorOf(core: Pick<AnimalCore, 'settings'>, c: Coop): { door: 'open' | 'closed' | 'moving'; t: number } {
   const job = c.meat;
   if (!job) return { door: 'open', t: 0 };
   const t = job.t;
@@ -61,13 +61,18 @@ export function doorOf(core: MeatCtx, c: Coop): { door: 'open' | 'closed' | 'mov
   return { door: 'open', t: 0 };
 }
 
-/** 演出 の 一言 の ふわっと 度（0〜1。出て いなければ null）。複数 の 小屋 なら いちばん 濃い もの */
-export function meatSay(core: MeatCtx): number | null {
+/** 演出 を えらんだ 人（その人が いなく なって いたら 1P） */
+function jobWho(core: MeatCtx, job: { who: Who }): Who {
+  return job.who === 2 && core.playerOf(2) === null ? 1 : job.who;
+}
+
+/** 演出 の 一言 の ふわっと 度（0〜1。出て いなければ null）。複数 の 小屋 なら いちばん 濃い もの。`who` = 見る 半分（えらんだ 人の 物だけ。COOP-1 5c） */
+export function meatSay(core: MeatCtx, who: Who = 1): number | null {
   let best: number | null = null;
   const give = core.settings.meatTicks - MEAT_DOOR_TICKS;
   for (const c of core.coopList) {
     const job = c.meat;
-    if (!job || job.t < MEAT_SAY_AT) continue;
+    if (!job || job.t < MEAT_SAY_AT || jobWho(core, job) !== who) continue;
     const t = job.t;
     const a = t < MEAT_SAY_AT + MEAT_SAY_FADE ? (t - MEAT_SAY_AT) / MEAT_SAY_FADE : t < give ? 1 : 1 - (t - give) / MEAT_SAY_FADE;
     const v = Math.max(0, Math.min(1, a));
@@ -95,7 +100,7 @@ export function meatTick(core: MeatCtx, c: Coop): void {
   const t = job.t;
   if (t === MEAT_DOOR_FROM + MEAT_DOOR_TICKS) core.push({ type: 'meatDoor', coop: c.id, closed: true });
   if (t === MEAT_SAY_AT && e) core.push({ type: 'meatSay', id: e.id, coop: c.id });
-  if (t === give && e) giveMeat(core, c, e);
+  if (t === give && e) giveMeat(core, c, e, jobWho(core, job));
   if (t >= core.settings.meatTicks) {
     core.push({ type: 'meatDoor', coop: c.id, closed: false });
     c.meat = null;
@@ -108,25 +113,27 @@ function finishJob(core: MeatCtx, c: Coop): void {
   if (!job) return;
   const e = core.find(job.id);
   c.meat = null;
-  if (e) giveMeat(core, c, e);
+  if (e) giveMeat(core, c, e, jobWho(core, job));
 }
 
 /** 子 を 消して、にく を 持ち物 へ（入らない 分 は プレイヤー の 足もと に おとしもの） */
-function giveMeat(core: MeatCtx, c: Coop, e: Ent): void {
+function giveMeat(core: MeatCtx, c: Coop, e: Ent, who: Who): void {
   const n = Math.max(0, Math.round(core.settings.meatPerBird));
   let dropped = 0;
-  const p = core.getPlayer().position;
+  const p = (core.playerOf(who) ?? core.playerOf(1))!.position;
+  core.actor = who; // えらんだ 人の もちものへ（出来事 meat も その人の 物）
   for (let i = 0; i < n; i++) {
     if (core.tryAdd('momo_nama')) continue;
     dropped++;
     const at = { x: p.x, y: p.y + 0.5, z: p.z };
     if (core.d.dropItem) core.d.dropItem(at, 'momo_nama');
-    else core.d.addItem('momo_nama');
+    else core.d.addItem('momo_nama', who);
   }
   const i = core.ents.indexOf(e);
   if (i >= 0) core.ents.splice(i, 1);
-  if (core.targetId === e.id) core.targetId = null;
+  for (const h of core.hands) if (h.targetId === e.id) h.targetId = null;
   core.push({ type: 'meat', id: e.id, coop: c.id, count: n, dropped });
+  core.actor = 1;
 }
 
 /** 演出 中 の 子 の 1 ステップ: ねぐら の 中 へ とことこ 歩き、そのあと は ねぐら の 中 で じっと */
@@ -158,7 +165,7 @@ export function meatBird(core: MeatCtx, e: Ent): void {
 }
 
 /** 描く 側 に わたす 場所: ねぐら に 着く ころ、ねぐら の ゆか（とびら の うしろ）へ そっと のぼる */
-export function meatDraw(core: MeatCtx, e: Ent, v: AnimalView): void {
+export function meatDraw(core: Pick<AnimalCore, 'coopById'>, e: Ent, v: AnimalView): void {
   const c = e.home === null ? undefined : core.coopById(e.home);
   const job = c?.meat;
   if (!c || !job) return;

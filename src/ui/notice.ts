@@ -21,19 +21,30 @@ export class Notice {
    */
   onSignalStart?: (kind: SignalKind) => void;
 
-  constructor(parent: HTMLElement, cfg?: FxSettings) {
+  /**
+   * who = 2: 2 人の ときの 2P の 分（COOP-1 5f-1。`#notice-signal-p2`・`#notice-signal-text-p2`）。2P の 半分の ＋の 右下に 出る。
+   * 選んだ 名前〔`#notice-name`〕は 2P の 分を 作らない（5f-2）。
+   */
+  constructor(parent: HTMLElement, cfg?: FxSettings, who: 1 | 2 = 1) {
     this.model = new NoticeModel(cfg);
+    const suffix = who === 1 ? '' : `-p${who}`;
     this.signalEl = document.createElement('canvas');
-    this.signalEl.id = 'notice-signal';
+    this.signalEl.id = `notice-signal${suffix}`;
+    this.signalEl.className = `notice-signal notice-signal--p${who}`;
     this.signalEl.setAttribute('aria-hidden', 'true');
+    this.signalEl.dataset.testid = `duo-notice-signal-p${who}`;
+    this.signalEl.dataset.aim = 'notice';
     this.signalEl.hidden = true;
     this.textEl = document.createElement('div');
-    this.textEl.id = 'notice-signal-text';
+    this.textEl.id = `notice-signal-text${suffix}`;
+    this.textEl.className = `notice-signal-text notice-signal-text--p${who}`;
+    this.textEl.dataset.aim = 'notice-text';
     this.textEl.hidden = true;
     this.nameEl = document.createElement('div');
     this.nameEl.id = 'notice-name';
     this.nameEl.hidden = true;
-    parent.append(this.signalEl, this.textEl, this.nameEl);
+    parent.append(this.signalEl, this.textEl);
+    if (who === 1) parent.append(this.nameEl);
   }
 
   showSignal(kind: SignalKind): void {
@@ -49,6 +60,13 @@ export class Notice {
 
   update(dt: number): void {
     this.model.update(dt);
+    this.sync();
+  }
+
+  /** 出ている 合図と 名前を すぐ 消す（2P が やめた とき） */
+  clear(): void {
+    this.model.signal = null;
+    this.model.name = null;
     this.sync();
   }
 

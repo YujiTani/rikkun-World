@@ -1,5 +1,6 @@
 /* なかよし パネル: 照準 の 下 の 案内 の すぐ 下（ホットバー・体力 に 重ならない）。はば は 画面 の 60% 以下 */
-#natsuki-panel {
+#natsuki-panel,
+#natsuki-panel-p2 {
   position: fixed;
   left: 50%;
   top: calc(50% + var(--rk-sp-5) + var(--rk-icon-chip) + var(--rk-sp-5));
@@ -24,7 +25,8 @@
   --np-ring: var(--rk-text-sub);
   --np-ready: var(--rk-ok);
 }
-#natsuki-panel[hidden] {
+#natsuki-panel[hidden],
+#natsuki-panel-p2[hidden] {
   display: none;
 }
 .np-title {
@@ -54,7 +56,8 @@
   fill: var(--np-pink);
   stroke: var(--np-pink-edge);
 }
-#natsuki-panel[data-tone='gold'] .np-heart--full {
+#natsuki-panel[data-tone='gold'] .np-heart--full,
+#natsuki-panel-p2[data-tone='gold'] .np-heart--full {
   fill: var(--np-gold);
   stroke: var(--np-gold-edge);
 }
@@ -147,7 +150,8 @@
     transform: scale(1);
   }
 }
-#natsuki-panel.np-flash {
+#natsuki-panel.np-flash,
+#natsuki-panel-p2.np-flash {
   animation: np-flash 0.8s ease-out 1;
 }
 @keyframes np-flash {
@@ -162,7 +166,8 @@
   .np-egg[data-state='lit'],
   .np-shake,
   .np-pop,
-  #natsuki-panel.np-flash {
+  #natsuki-panel.np-flash,
+  #natsuki-panel-p2.np-flash {
     animation: none;
   }
 }

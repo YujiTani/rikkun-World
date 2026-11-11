@@ -15,9 +15,14 @@ export class AnimalHint {
   readonly model = new AnimalHintModel();
   private shownKind: string | null = null;
 
-  constructor(parent: HTMLElement) {
+  /** idSuffix: 2P の 半分の 分は '-p2'（`#animal-hint-p2`）。`who` = どちらの 人の 合図を 拾うか（COOP-1 5c。出来事の `by`） */
+  constructor(
+    parent: HTMLElement,
+    idSuffix = '',
+    private readonly who: 1 | 2 = 1,
+  ) {
     this.el = document.createElement('div');
-    this.el.id = 'animal-hint';
+    this.el.id = `animal-hint${idSuffix}`;
     this.el.setAttribute('role', 'status');
     this.el.hidden = true;
     parent.append(this.el);
@@ -30,7 +35,7 @@ export class AnimalHint {
 
   /** 出来事の列から 合図を 拾って 出す */
   feed(events: readonly AnimalEvent[]): void {
-    this.model.feed(events);
+    this.model.feed(events, this.who);
     this.sync();
   }
 

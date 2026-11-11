@@ -18,9 +18,10 @@ export class NatsukiPanel {
   private readonly clocks: { bug: HTMLElement; pet: HTMLElement };
   private shown: NatsukiLook | null = null;
 
-  constructor(parent: HTMLElement) {
+  /** idSuffix: 2P の 半分の 分は '-p2'（`#natsuki-panel-p2`。COOP-1 5c） */
+  constructor(parent: HTMLElement, idSuffix = '') {
     this.el = document.createElement('div');
-    this.el.id = 'natsuki-panel';
+    this.el.id = `natsuki-panel${idSuffix}`;
     this.el.setAttribute('aria-hidden', 'true');
     this.el.hidden = true;
     const title = document.createElement('span');

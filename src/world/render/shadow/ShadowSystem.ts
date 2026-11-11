@@ -360,6 +360,11 @@ void main() {
 
   /** 世界（ブロックのメッシュ）を 深さだけで描く。水は描かない */
   private renderWorldDepth(target: THREE.WebGLRenderTarget, cam: THREE.Camera): { calls: number; triangles: number } {
+    // 画面から 見えなくて かくした セクション（#405）も 影は 落とす（うしろの 木・画面の 外の 柱）
+    return this.d.worldRenderer.withAllSections(() => this.renderWorldDepthAll(target, cam));
+  }
+
+  private renderWorldDepthAll(target: THREE.WebGLRenderTarget, cam: THREE.Camera): { calls: number; triangles: number } {
     const r = this.d.renderer;
     const wr = this.d.worldRenderer;
     const [, opaque, water, lodOpaque, lodWater] = wr.materials();

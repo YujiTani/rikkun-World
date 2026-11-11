@@ -1,4 +1,4 @@
-import type { ItemId } from '../contracts';
+import type { FarmAim, FarmHintKind, ItemId } from '../contracts';
 import type { ArmorSnapshot } from '../craft/ArmorSystem';
 /**
  * COOP-1（docs/design/COOP-1.md）の 型の 約束。作業 1〜2 で 使う 型を ここに 1 か所で 置く。
@@ -10,6 +10,8 @@ import type { PadChoice } from '../input/gamepad/padChoice';
 import type { ImpactView } from './impactRoute';
 import type { ThunderHook } from '../fx/thunderFx';
 import type { LegendStateView } from '../legend/LegendSystem';
+import type { CoopMenuButton, CoopMenuInfo } from '../ui/coopMenuModel';
+import type { ActionHintView } from '../ui/duoAimHud';
 
 /** 画面の ようす（§2.3。1.8）。2P が いなければ 'one'（1 人の 全面）、いれば いつも 'split'（左右） */
 export type DuoView = 'one' | 'split';
@@ -97,8 +99,24 @@ export interface DuoPlayHook {
   addXp(who: 1 | 2, amount: number): void;
   /** COOP-1 4d-2（§12.0・AC103）: その人の わざ（`legend.state()` と 同じ 形。`got` は ない）。1P は 今の 物。2P が いなければ who 2 は null。ふつうの URL でも 効く */
   legend(who: 1 | 2): LegendStateView | null;
+  /** COOP-1 5a（§12.0・AC125）: その人の 半分に 出ている 畑の 合図（`'till' | 'full' | 'fill' | 'bucket'`）。2P が いなければ who 2 は null。ふつうの URL でも 効く */
+  farmHint(who: 1 | 2): FarmHintKind | null;
+  /** COOP-1 5a（§12.0・AC126）: その人の 作物の しるしの 中身（`farm.hud()` と 同じ 形）。ねらって いなければ null。1P は `farm.hud()` と 同じ。2P が いなければ who 2 は null */
+  farmAim(who: 1 | 2): FarmAim | null;
+  /** COOP-1 5c（§12.0・AC137）: その人が だっこ して いる にわとりの id（`animals.carrying(who)`）。2P が いなければ who 2 は null。ふつうの URL でも 効く */
+  carrying(who: 1 | 2): number | null;
+  /** COOP-1 5c（§12.0・AC138）: その人の とりごやの メニュー（`ui.coopMenu()` と 同じ 形）。2P が いなければ who 2 は null。ふつうの URL でも 効く */
+  coopMenu(who: 1 | 2): CoopMenuInfo | null;
+  /** COOP-1 5c（§12.0）: その人の メニューの ボタンを 押す（`ui.coopMenuPress()` と 同じ）。`?duo=dev` の ときだけ */
+  coopMenuPress(who: 1 | 2, button: CoopMenuButton, id?: number): void;
+  /** COOP-1 5f-1（§12.0・AC174）: その人の 半分に 出ている アクションヒント（`ActionHintLines & { pad: 'mouse' | 'pad' }`）。出ていない・2P が いなければ who 2 は null。ふつうの URL でも 効く */
+  actionHint(who: 1 | 2): ActionHintView | null;
   /** COOP-1 4d-2（§12.0・AC106）: その人の 雷の 絵の 窓口（`thunder` と 同じ 形）。2P の 板は 2P の カメラを 向く。2P が いなければ who 2 は null */
   thunder(who: 1 | 2): ThunderHook | null;
+  /** COOP-1 5e（§12.0・AC143）: その人が すわって いる・入って いる 物（いなければ null。`position` は 出さない）。2P が いなければ who 2 は null。ふつうの URL でも 効く */
+  seat(who: 1 | 2): { kind: 'sit' | 'bath'; block: DuoVec3 } | null;
+  /** COOP-1 5e（§12.0・AC169）: その人の たこ（1P は `kite.get()` の up・position と 同じ）。2P が いなければ who 2 は null。ふつうの URL でも 効く */
+  kite(who: 1 | 2): { up: boolean; position: DuoVec3 | null } | null;
 }
 
 export interface DuoHook extends DuoPlayHook {
@@ -120,6 +138,10 @@ export interface DuoHook extends DuoPlayHook {
   parry(who: 1 | 2): ParryStateView | null;
   /** 1.8（§12.0）: その 人の 半分に 出ている 相手の 向きの 矢印。出ていない・2P が いない → null */
   arrow(who: 1 | 2): DuoArrow | null;
+  /** COOP-1 5d（§12.0・AC161）: 本か 建築士さんの メニューを 開いた 人（1 | 2 | null）。ふつうの URL でも 効く */
+  modalOwner(): 1 | 2 | null;
+  /** COOP-1 5d（§12.0）: その人が ほんだなで 本を 開いたのと 同じ（開けたら true）。`?duo=dev` の ときだけ */
+  openBook(who: 1 | 2): boolean;
   /** 作業 2.5（#401。§12.0）: 決めて 保存してある えらび。なし・こわれた・つかえない → null(はじめの動き) */
   padChoice(): PadChoice | null;
   /** 作業 2.5: タブで 決めたのと 同じ(＋ の 確認は とばす)。変な 値 → false で 何もかえない（作業 3d から ふつうの URL でも 効く） */
@@ -132,6 +154,8 @@ export interface DuoHook extends DuoPlayHook {
   hearFrom(pos: DuoVec3): { who: 1 | 2; distance: number };
   /** COOP-1 4d-3（§12.0）: がしゃどくろ・少女が 今 ねらっている 人。いない・だれも ねらって いない ときは null（1 人の ときは 1 か null） */
   gasha: { target(): 1 | 2 | null; girlTarget(): 1 | 2 | null };
+  /** COOP-1 5e（§12.0・AC170・AC173）: ふとんの ようす（世界で 1 つ）。ready ＝ 「2 人」に 数えられる 人の 数、waiting ＝ 先に ねて まっている 人、ask ＝「ねたがっているよ」を 出す 人、dim ＝ 待ち中の うすい 暗さ。見るだけ */
+  sleep(): { ready: number; waiting: 1 | 2 | null; sleeping: boolean; stepsLeft: number; ask: Array<1 | 2>; dim: Array<{ who: 1 | 2; value: number }> };
 }
 
 /** 2P の セーブ（`meta.p2`。§6）。場所・向き・ハートは 入れない */

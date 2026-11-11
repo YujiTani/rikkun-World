@@ -21,11 +21,13 @@ import { playCraft } from '../../fx/craftSounds';
 import { CraftUiHud } from '../../ui/craftUi';
 import { PickupLog } from '../../ui/pickupLog';
 import { LogSystem, LogPage } from '../../ui/log';
-import { type Inventory, type ItemId, CROP_KINDS, SEED_ITEM, cropKindOfBlock, type AchievementId, type DefeatWith } from '../../contracts';
+import { type Inventory, type ItemId, cropKindOfBlock, type AchievementId, type DefeatWith } from '../../contracts';
 import { itemRarity, rarityIndex } from '../../drops/rarity';
 import { itemType } from '../../inventory/items';
 import { AchievementSystem, AchievementsPageModel, ACHIEVEMENT_DEFS } from '../../achievements';
 import { CountryWatch } from '../../achievements/countryWatch';
+import { createInvAdded } from '../../achievements/invAdded';
+import { createDropPicked } from '../../duo/p2Feed';
 import { CelebrateUi } from '../../ui/celebrate';
 import { AchievementsPage, achievementArtUrl } from '../../ui/achievementsPage';
 import { StorageScreen } from '../../ui/storageScreen';
@@ -41,7 +43,8 @@ import { NatsukiPanel } from '../../ui/natsukiPanel';
 import { AnimalHint } from '../../ui/animalHint';
 import { Itadakimasu } from '../../ui/itadakimasu';
 import { CoopMenu } from '../../ui/coopMenu';
-import { coopMenuReach } from '../../ui/coopMenuModel';
+import { coopMenuBase, coopMenuView, pickMux } from './coopMenuView';
+import { COOP_MENU_REACH, CoopMenuModel, coopMenuReach } from '../../ui/coopMenuModel';
 import { countryAt } from '../../world/gen/biome';
 import { YOKAI_NAME } from '../../yokai';
 import { LevelHud } from '../../ui/levelHud';
@@ -178,12 +181,13 @@ export function wireHud(deps: WiredAnimalView) {
   }
   const craftHud = new CraftUiHud({ hud, craft, inv: inventory, nameOf, rarityOf: itemRarity }, pickupLog);
   const furnaceFx = new FurnaceFx(game.scene, fxSound, craftUi);
-  shared.onDropPicked = (item, count, fromYokai) => {
-    // からかさ・ろくろくび の おとしもの から たね を拾った
-    if (fromYokai && CROP_KINDS.some((k) => SEED_ITEM[k] === item)) farm.noteSeedFound('yokai', item, controller.state.position);
-    craft.notifyPickup(item, count);
-    hotbar.pickup(item, count);
-  };
+  // 落とし物を ひろった 知らせ（からかさ・ろくろくび の おとしもの から たね を拾った → ひろった 実績 → ホットバーの ぽん）。2P も 同じ 中身（duo/p2Feed.ts）
+  shared.onDropPicked = createDropPicked({
+    notifyPickup: (item, count) => craft.notifyPickup(item, count),
+    noteSeedFound: (item, at) => farm.noteSeedFound('yokai', item, at),
+    position: () => controller.state.position,
+    extra: (item, count) => hotbar.pickup(item, count),
+  });
   const fx = new DigFx({
     scene: game.scene,
     dig,
@@ -208,33 +212,20 @@ export function wireHud(deps: WiredAnimalView) {
   // LIVE-3: いのち を いただきます の 一言 と、とりごや の メニュー（3 ページ）
   const itadakimasu = new Itadakimasu(hud);
   const coopModal = modalLock({ game, lock, pointerLock });
-  const coopMenu = new CoopMenu(hud, {
-    meatList: (c) => animals.meatList(c),
-    eggs: (c) => {
-      const r = animals.coops().find((x) => x.id === c);
-      return r ? r.nest.egg + r.nest.gold : 0;
-    },
-    busy: (c) => animals.coops().find((x) => x.id === c)?.meatBusy ?? null,
-    exists: (c) => animals.coops().some((x) => x.id === c),
-    // M2 の とどく きょり 5.0（小屋 の ふち から）
+  shared.pickMux = pickMux(animalFx); // ▼ は 世界に 1 つ（2P の メニューも ここを 通る）
+  const coopModel = new CoopMenuModel({
+    ...coopMenuBase(animals, 1, (item, n) => craft.notifyPickup(item, n)),
+    // M2 の とどく きょり（小屋 の ふち から）
     inReach: (c) => {
       const r = animals.coops().find((x) => x.id === c);
       const p = controller.state.position;
-      return !!r && coopMenuReach(r, p.x, p.z, 5.0);
+      return !!r && coopMenuReach(r, p.x, p.z, COOP_MENU_REACH);
     },
-    collect: (c) => {
-      const r = animals.collectCoop(c);
-      if (r.egg > 0) craft.notifyPickup('egg', r.egg);
-      if (r.gold > 0) craft.notifyPickup('kin_tamago', r.gold);
-    },
-    startMeat: (c, id) => animals.meat(c, id).ok,
     // たんす と おなじ あつかい: マウス が 出る・時計 は 止めない。とじる と ロック を かけ直す
     onOpen: () => coopModal.open(),
     onClose: () => coopModal.close(),
-    kidInfo: (id) => ({ id, macho: animals.list().find((a) => a.id === id)?.breed === 'macho' }),
-    tick: () => playCraft(fxSound, 'tab'),
-    onPick: (id) => animalFx.setPick(id),
   });
+  const coopMenu = new CoopMenu(hud, coopMenuView(animals, shared.pickMux(1), fxSound), coopModel);
   shared.coopMenuIsOpen = () => coopMenu.model.info().open;
   shared.openCoopMenu = (id) => void coopMenu.open(id);
   // Esc・E でも とじる（もちもの画面 は 開かない: ScreenController は ロック中 でない と 開かない）
@@ -374,14 +365,17 @@ export function wireAchievements(deps: WiredWeaponFx) {
   shared.achievements = achievements;
   shared.achievementsRef = achievements;
   // COUNTRY-1 §4.1: 「国に入った」の 判定（まん中寄りに 180 コマ・地下は 数えない）。入ったら 実績の係へ
-  const countryWatch = new CountryWatch({
-    at: (x, z) => countryAt(seed, x, z),
-    heightAt: (x, z) => genHeightAt(seed, x, z),
-    blend: GEN_CONFIG.biome.blend,
-    onEnter: (kind) => {
-      achievements.enterCountry(kind, false);
-    },
-  });
+  // 見はりは 人ごとに 1 つ（1P 用は ここ・2P 用は newCountryWatch。入った 実績は どちらも 同じ 実績へ。COOP-1 5b）
+  const newCountryWatch = (): CountryWatch =>
+    new CountryWatch({
+      at: (x, z) => countryAt(seed, x, z),
+      heightAt: (x, z) => genHeightAt(seed, x, z),
+      blend: GEN_CONFIG.biome.blend,
+      onEnter: (kind) => {
+        achievements.enterCountry(kind, false);
+      },
+    });
+  const countryWatch = newCountryWatch();
   // WEAPON-7: 手に 入れた ことの ある レジェンダリー（もちものに 入った とき。袋を ひろう・テストの add も）。実績 get.* と legend.kinds へ
   const legendBook = new LegendBook((item) => w2.legendary.some((d) => d.item === item));
   // NINJA-1 §4.2: 手に 入れた ことの ある 忍者装備（忍者帳。世界ごとに 保存）。実績 ninja.* へ。legend.kinds・get.* には 数えない
@@ -414,15 +408,10 @@ export function wireAchievements(deps: WiredWeaponFx) {
     return out;
   };
   shared.samuraiHave = samuraiHave;
-  inventory.onAdded = (item) => {
-    const r = legendBook.add(item);
-    if (r) achievements.feedLegend(item, r.kinds);
-    const n = ninjaBook.add(item);
-    if (n) achievements.feedNinja(item, n.kinds);
-    const sm = samuraiBook.add(item);
-    if (sm) achievements.feedSamurai(item, sm.kinds);
-    achievements.feedRarity(itemRarity(item));
-  };
+  // もちものに 入った 物 → 図鑑・めずらしさの 実績。2P の もちものにも 同じ 関数を 入れる（図鑑・実績は 2 人で 共有。COOP-1 5b・AC149）
+  const onAdded = createInvAdded({ legendBook, ninjaBook, samuraiBook, achievements, rarityOf: itemRarity });
+  inventory.onAdded = onAdded;
+  shared.p2.inventory.onAdded = onAdded;
   // M7-2: キラキラ・ハート（C）・しずく（A）・しぶき（B）
   const eyePos = { x: 0, y: 0, z: 0 };
   const sparkle = new FarmSparkle({
@@ -475,7 +464,7 @@ export function wireAchievements(deps: WiredWeaponFx) {
   const farmFx = new FarmFx({
     sound: fxSound,
     particles: fx.particles,
-    hint: farmHint,
+    hintFor: (who) => (who === 1 ? farmHint : shared.p2FarmHint()), // 合図の チップは 起こした 人の 半分へ（COOP-1 5a）
     achievements,
     sparkle,
     say: (text) => deps.log.chestSay(text), // MINE-1E: かびた パンの「うぇ〜 かびてる…」
@@ -625,7 +614,7 @@ export function wireAchievements(deps: WiredWeaponFx) {
     achievements.feedDefeat({ kind, tick: game.tick, with: defeatWith(who === 2 ? shared.p2.inventory : inventory), hp: who === 2 ? shared.p2Hp() : combat.hp() });
   };
   return {
-    achievements, countryWatch, legendBook, ninjaBook, ninjaHave, samuraiBook, samuraiHave, eyePos,
+    achievements, countryWatch, newCountryWatch, legendBook, ninjaBook, ninjaHave, samuraiBook, samuraiHave, eyePos,
     sparkle, sparkleView, waterFx, sprayFx, farmFx, pageModel, achievementsPage, toItemsTab, syncPages,
     craftPanel, celebrate, madeTracker, inventoryTabs, storageScreen,
   };

@@ -3,32 +3,37 @@ import type { AnimalCore } from './animalCore';
 import type { AnimalHintKind, ThrowAim, ThrowSpot, Vec3 } from '../contracts';
 import { bodyFree } from './terrain';
 import { inFootprint } from './coop';
-import type { Coop, Ent } from './animalTypes';
+import type { Coop, Ent, Who } from './animalTypes';
 import { GLIDE_STEP, PUT_DOWN_TICKS, THROW_APEX_UP, THROW_BASE_TICKS, THROW_FRONT, THROW_HAND_Y, THROW_LAND_Y, THROW_LIFT_TICKS, THROW_SCAN_DOWN, THROW_SOFT_DIST, THROW_THROUGH, THROW_TICKS_PER_M } from './animalConsts';
 import { angleDiff, dist2d, yawTo } from './animalMath';
 import { joinCoop } from './animalCoops';
 import { settleOnGround, warpToPlayer } from './animalMove';
 
 /** この 係 が 使う ものだけ（`AnimalCore` の 一部） */
-type CarryCtx = Pick<AnimalCore, 'breedState' | 'carriedId' | 'coopAtSpot' | 'coopById' | 'coopList' | 'd' | 'dropGold' | 'ents' | 'everCarried' | 'find' | 'friendCount' | 'getPlayer' | 'goldRng' | 'hintOut' | 'kidCount' | 'lastDay' | 'lockHintAt' | 'nextCoopId' | 'push' | 'putWhy' | 'rng' | 'setLock' | 'setState' | 'settings' | 'targetId' | 'tick' | 'tryAdd' | 'wildAnnounced' | 'world'>;
+type CarryCtx = Pick<AnimalCore, 'breedState' | 'coopAtSpot' | 'coopById' | 'coopList' | 'd' | 'dropGold' | 'ents' | 'everCarried' | 'find' | 'friendCount' | 'goldRng' | 'hands' | 'hintOut' | 'kidCount' | 'lastDay' | 'lockHintAt' | 'nextCoopId' | 'playerOf' | 'push' | 'rng' | 'setLock' | 'setState' | 'settings' | 'tick' | 'tryAdd' | 'world'>;
 
-/** 右クリック の 押しつづけ（§2.8）。`heldTicks` = 押してから の ステップ 数 */
-export function carryHold(core: CarryCtx, id: number, heldTicks: number): 'lifted' | 'wait' | 'wild' | null {
+/**
+ * 右クリック の 押しつづけ（§2.8）。`heldTicks` = 押してから の ステップ 数。だっこ は 人ごと に 1 羽（`who`。COOP-1 5c）。
+ * もう 1 人 が だっこ中・とんで いる 羽は だっこ できない（何も 起きない）
+ */
+export function carryHold(core: CarryCtx, id: number, heldTicks: number, who: Who = 1): 'lifted' | 'wait' | 'wild' | null {
+  const p = core.playerOf(who)?.position;
+  const hand = core.hands[who - 1]!;
   const e = core.find(id);
-  if (!e || e.carried || e.meat || core.carriedId !== null) return null;
+  if (!p || !e || e.carried || (e.flight && e.carrier !== who) || e.meat || hand.carriedId !== null) return null;
   const hold = core.settings.carryHoldTicks;
   if (!e.friend) {
     if (heldTicks < hold) {
-      core.wildAnnounced = false;
+      hand.wildAnnounced = false;
       return 'wait';
     }
-    if (core.wildAnnounced) return null;
-    core.wildAnnounced = true;
+    if (hand.wildAnnounced) return null;
+    hand.wildAnnounced = true;
     return 'wild';
   }
   if (heldTicks < hold || e.lock > 0) return 'wait';
-  const p = core.getPlayer().position;
   e.carried = true;
+  e.carrier = who;
   e.following = false;
   e.walking = false;
   e.stuck = 0;
@@ -37,7 +42,7 @@ export function carryHold(core: CarryCtx, id: number, heldTicks: number): 'lifte
   e.x = p.x;
   e.y = p.y;
   e.z = p.z;
-  core.carriedId = id;
+  hand.carriedId = id;
   core.everCarried = true;
   core.setState(e, 'carried');
   core.push({ type: 'carry', id });
@@ -45,14 +50,15 @@ export function carryHold(core: CarryCtx, id: number, heldTicks: number): 'lifte
 }
 
 /** おろす（§2.8）。`spot` = 足もと の 位置。固い マス・読みこんで いない 所 は false */
-export function putDownAnimal(core: CarryCtx, spot: Vec3): boolean {
-  const e = core.carriedId === null ? undefined : core.find(core.carriedId);
+export function putDownAnimal(core: CarryCtx, spot: Vec3, who: Who = 1): boolean {
+  const hand = core.hands[who - 1]!;
+  const e = carriedEnt(core, who);
   if (!e) return false;
   const w = core.world;
   const ix = Math.floor(spot.x);
   const iz = Math.floor(spot.z);
   const iy = Math.floor(spot.y + 1e-6);
-  core.putWhy = null;
+  hand.putWhy = null;
   if (!w.isLoaded(ix, iz) || iy < 0 || iy >= w.size.y) return false;
   if (!bodyFree(w, spot.x, spot.z, spot.y)) return false;
   // 小屋 の 中 に おろす → 小屋 の 子（6 わ なら おろさない）。小屋 の 子 を 外 に おろす → なかま（8 わ なら おろさない）
@@ -60,19 +66,19 @@ export function putDownAnimal(core: CarryCtx, spot: Vec3): boolean {
   if (into) {
     if (core.kidCount(into.id, e) >= core.settings.coopMax) {
       core.hintOut('coopFull');
-      core.putWhy = 'coopFull';
+      hand.putWhy = 'coopFull';
       return false;
     }
   } else if (e.home !== null && core.friendCount() >= core.settings.animalFriendMax) {
     core.hintOut('friendFull');
-    core.putWhy = 'friendFull';
+    hand.putWhy = 'friendFull';
     return false;
   }
   e.carried = false;
   e.liftLeft = 0;
   e.putLeft = 0;
   e.plan = null;
-  core.carriedId = null;
+  hand.carriedId = null;
   e.x = spot.x;
   e.y = spot.y;
   e.z = spot.z;
@@ -97,15 +103,15 @@ export function putDownAnimal(core: CarryCtx, spot: Vec3): boolean {
 }
 
 /** やられた とき: だっこ中 を その場に おろす（地面 の 検査 は しない。出来事 putDown は 出す） */
-export function dropCarried(core: CarryCtx, spot: Vec3): void {
-  if (putDownAnimal(core, spot)) return;
-  const e = core.carriedId === null ? undefined : core.find(core.carriedId);
+export function dropCarried(core: CarryCtx, spot: Vec3, who: Who = 1): void {
+  if (putDownAnimal(core, spot, who)) return;
+  const e = carriedEnt(core, who);
   if (!e) return;
   e.carried = false;
   e.liftLeft = 0;
   e.putLeft = 0;
   e.plan = null;
-  core.carriedId = null;
+  core.hands[who - 1]!.carriedId = null;
   e.x = spot.x;
   e.y = spot.y;
   e.z = spot.z;
@@ -118,8 +124,9 @@ export function dropCarried(core: CarryCtx, spot: Vec3): void {
   core.setLock(e, 'putDown', PUT_DOWN_TICKS);
 }
 
-function carriedEnt(core: CarryCtx): Ent | undefined {
-  return core.carriedId === null ? undefined : core.find(core.carriedId);
+function carriedEnt(core: CarryCtx, who: Who): Ent | undefined {
+  const id = core.hands[who - 1]!.carriedId;
+  return id === null ? undefined : core.find(id);
 }
 
 /** 立てる マス（上 が 固く ない・下 が 固い・体 が ぶつからない） */
@@ -159,9 +166,10 @@ function throughFence(core: CarryCtx, aim: ThrowAim): Vec3 | null {
 }
 
 /** 着地点 の 答え。`pt` = テスト 用（足もと の 点 を そのまま 使う） */
-function planThrow(core: CarryCtx, e: Ent, aim: ThrowAim | null, pt?: Vec3): ThrowSpot {
+function planThrow(core: CarryCtx, e: Ent, aim: ThrowAim | null, who: Who, pt?: Vec3): ThrowSpot {
   const w = core.world;
-  const p = core.getPlayer().position;
+  const p = core.playerOf(who)?.position;
+  if (!p) return { x: e.x, y: e.y, z: e.z, ok: false, home: null, toss: true, why: 'cantPutHere' };
   const range = core.settings.throwRange;
   const bad = (x: number, y: number, z: number, why: AnimalHintKind | null = 'cantPutHere'): ThrowSpot => ({ x, y, z, ok: false, home: null, toss: true, why });
   let x: number;
@@ -228,29 +236,30 @@ function planThrow(core: CarryCtx, e: Ent, aim: ThrowAim | null, pt?: Vec3): Thr
 }
 
 /** だっこ 中 の 着地点（照準 の 下 の 語・丸）。だっこ して いなければ null */
-export function throwSpot(core: CarryCtx, aim: ThrowAim): ThrowSpot | null {
-  const e = carriedEnt(core);
-  return e ? planThrow(core, e, aim) : null;
+export function throwSpot(core: CarryCtx, aim: ThrowAim, who: Who = 1): ThrowSpot | null {
+  const e = carriedEnt(core, who);
+  return e ? planThrow(core, e, aim, who) : null;
 }
 
 /** 右クリック（だっこ 中）: なげる（d＜1 は 20 ステップ で そっと おろす）。なげられない 所 は 合図 を 出して false */
-export function startThrow(core: CarryCtx, aim: ThrowAim): boolean {
-  const e = carriedEnt(core);
+export function startThrow(core: CarryCtx, aim: ThrowAim, who: Who = 1): boolean {
+  const e = carriedEnt(core, who);
   if (!e || e.liftLeft > 0 || e.putLeft > 0) return false;
-  return beginThrow(core, e, planThrow(core, e, aim));
+  return beginThrow(core, e, planThrow(core, e, aim, who), who);
 }
 
 /** テスト 用: その 足もと の 点 へ なげる */
-export function throwTo(core: CarryCtx, x: number, y: number, z: number): boolean {
-  const e = carriedEnt(core);
+export function throwTo(core: CarryCtx, x: number, y: number, z: number, who: Who = 1): boolean {
+  const e = carriedEnt(core, who);
   if (!e || e.liftLeft > 0 || e.putLeft > 0) return false;
-  return beginThrow(core, e, planThrow(core, e, null, { x, y, z }));
+  return beginThrow(core, e, planThrow(core, e, null, who, { x, y, z }), who);
 }
 
-function beginThrow(core: CarryCtx, e: Ent, sp: ThrowSpot): boolean {
-  core.putWhy = null;
+function beginThrow(core: CarryCtx, e: Ent, sp: ThrowSpot, who: Who): boolean {
+  const hand = core.hands[who - 1]!;
+  hand.putWhy = null;
   if (!sp.ok) {
-    core.putWhy = sp.why;
+    hand.putWhy = sp.why;
     core.hintOut(sp.why ?? 'cantPutHere');
     return false;
   }
@@ -265,9 +274,10 @@ export function finishSoftPut(core: CarryCtx, e: Ent): void {
   const plan = e.plan;
   e.plan = null;
   if (!plan) return;
-  if (!putDownAnimal(core, { x: plan.x, y: plan.y, z: plan.z })) {
-    const why = core.putWhy ?? 'cantPutHere';
-    if (core.putWhy === null) core.hintOut(why);
+  const hand = core.hands[e.carrier - 1]!;
+  if (!putDownAnimal(core, { x: plan.x, y: plan.y, z: plan.z }, e.carrier)) {
+    const why = hand.putWhy ?? 'cantPutHere';
+    if (hand.putWhy === null) core.hintOut(why);
   }
 }
 
@@ -276,7 +286,7 @@ export function releaseThrow(core: CarryCtx, e: Ent, p: Vec3): void {
   const plan = e.plan!;
   e.plan = null;
   e.carried = false;
-  core.carriedId = null;
+  core.hands[e.carrier - 1]!.carriedId = null;
   e.following = false;
   e.walking = false;
   e.stuck = 0;

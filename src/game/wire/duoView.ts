@@ -39,6 +39,8 @@ export interface DuoViewsInput {
   p2: DuoVec3;
   p1YawDeg: number;
   p2PitchDeg: number;
+  /** 2P が すわって いる 間の 目の さがり（マス。立って いれば 0。COOP-1 5e） */
+  p2EyeDrop: number;
   distance: number;
   padLost: boolean;
   /** 2P の もちもの パネルが 開いている（2P の 半分の 矢印を 出さない。AC87） */
@@ -173,7 +175,7 @@ export class DuoViews {
     cam2.near = cam.near;
     cam2.far = cam.far;
     // COOP-1 4d-0: きょりは 2P の カメラの 口から（よせ・引き）。止めの ステップは 止まる 直前の ポーズ、ゆれは 向きに 足す
-    p2CameraPose(inp.p2, this.lastCamYaw, inp.p2PitchDeg, this.d.fx2.distance(), this.d.isSolid, this.pose);
+    p2CameraPose(inp.p2, this.lastCamYaw, inp.p2PitchDeg, this.d.fx2.distance(), this.d.isSolid, this.pose, inp.p2EyeDrop);
     const pv = this.d.fx2.apply(this.pose, this.view2);
     cam2.position.set(pv.x, pv.y, pv.z);
     cam2.rotation.order = 'YXZ';
@@ -297,6 +299,12 @@ export class DuoViews {
   /** 2P の カメラ（小太刀の 斬撃の 向き・2P の パリィの 火花の 向きを 2P の 画面で 決める ため。いつも 同じ 1 つ） */
   camera2(): THREE.PerspectiveCamera {
     return this.vr.camera2;
+  }
+
+  /** 2P の 半分の 区画（CSS px。ふきだしを おさめる 所。COOP-1 5d）。落ちついた 左右の 2 つ目。使いまわしの 入れ物を 返す（毎回 作らない） */
+  pane2(): { x: number; y: number; w: number; h: number } {
+    const vs = this.d.game.viewSize(this.vs);
+    return viewRects('split', 'split', 1, vs.w, vs.h, this.settledScratch).second ?? this.settledScratch.second;
   }
 
   /** 2P が いる あいだの 区画（`duo.viewports()`。CSS px）: 参加した ステップから いつも 落ちついた 左右（見せ方の とちゅうの 四角ではなく） */

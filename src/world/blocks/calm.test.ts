@@ -88,7 +88,6 @@ const CALMED: Record<string, { old: () => Tile; base: (y: number) => Rgba; dot?:
   sand: { old: () => speckle('#E8D9A0', ['#D6C487'], 44, 30), base: BASE_OF('#E8D9A0') },
   log_side: { old: oldLogSide, base: BASE_OF('#8A5A2E') },
   log_top: { old: oldLogTop, base: BASE_OF('#8A5A2E') },
-  leaves: { old: () => speckle('#3E9B2F', ['#2E7D22'], 55, 60), base: BASE_OF('#3E9B2F') },
   bedrock: { old: () => speckle('#3A3A3A', ['#555555'], 88, 50), base: BASE_OF('#3A3A3A') },
   coal_ore: { old: oldCoal, base: BASE_OF(STONE), dot: COAL },
   iron_ore: { old: oldIron, base: BASE_OF(STONE), dot: IRON },
@@ -205,7 +204,8 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
     sprinkler_top: '443e0c11', sprinkler_side: 'cb9ab32d', sprinkler_bottom: '6c49f3c5',
     // VOX-I-1（#184・PR #197）で足した 12 の国の絵。CALM のあとにできたので、ここでは今の絵を守るだけ（おさえるかは #185 で決める）
     bamboo: 'ef3e0bda', flower_o: '2fbe135', flower_p: '7f48c5f5', flower_y: 'e647bd15',
-    matsu_leaves: '999c00a4', momiji_leaves: '2d272416', snow: 'b5d0ee8f', susuki: '58e578b5',
+    // はっぱ 3 まい: もこもこの 新しい 絵（2026-11-10 オーナー OK。leafTextures.ts）。今の 絵を 守るだけ
+    leaves: 'ef89d522', matsu_leaves: '55235a61', momiji_leaves: '6d479be2', snow: 'b5d0ee8f', susuki: '58e578b5',
     // LIVE-2（こたつ・とりごや。ふつうの 絵。今の 絵を 守るだけ）
     kotatsu_top: '578c39f9', kotatsu_side: '35a80286', toriya_fence_top: 'cf2081e5', toriya_fence_side: 'fb229365', toriya_gate: '211cc5d6',
     toriya_nest_roof: '640edfc5', toriya_nest_side: 'dd4aaae5', toriya_box_top: 'ff2119f1', toriya_box_side: '435e773b',

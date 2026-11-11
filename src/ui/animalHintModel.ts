@@ -53,9 +53,12 @@ export class AnimalHintModel {
     this.shown++;
   }
 
-  /** 出来事の列から 合図だけ拾う（つなぎ込みが `animals.events()` の列を わたす） */
-  feed(events: readonly AnimalEvent[]): void {
-    for (const e of events) if (e.type === 'hint') this.show(e.hint);
+  /**
+   * 出来事の列から 合図だけ拾う（つなぎ込みが `animals.events()` の列を わたす）。
+   * `who` の 半分の 物だけ（COOP-1 5c）: 1P は `by` の ない 合図、2P は `by` が 2 の 合図。省くと 1P
+   */
+  feed(events: readonly AnimalEvent[], who: 1 | 2 = 1): void {
+    for (const e of events) if (e.type === 'hint' && (e.by === 2 ? 2 : 1) === who) this.show(e.hint);
   }
 
   step(): void {
