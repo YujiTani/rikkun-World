@@ -16,14 +16,6 @@ type Rect = readonly [number, number, number, number];
 /** 置く 物の まわり これだけ 先の チャンクまで 影響する（みきの きょり 4 ＋ はっぱ 4 ＋ 足もとの 半分 3 ＋ よゆう）。物の 基準の マスを この はばで さがす */
 const NEAR = FEATURE_TUNE.treeMargin + 4 + 3 + 3;
 
-export interface ChunkFeatures {
-  sites: readonly FeatureSite[];
-  /** 木を どける 四角（足もと ＋ まわり treeMargin。みきの 位置で 見る） */
-  trees: readonly Rect[];
-  /** 草花（はな・すすき・たけ・くさ・のばな）を どける 四角（足もと） */
-  plants: readonly Rect[];
-}
-
 /** 列 (x, z) の 数字ひとつの 名前（x × 100003 + z） */
 export const columnKey = (x: number, z: number): number => x * 100003 + z;
 
