@@ -214,7 +214,7 @@ describe('基準 3: 型の出力は 位置で決まり、ふつうの形の 1 �
 describe('基準 4: 型の出力も 見えない面の外がわは つまっている', () => {
   it('はっぱ以外の 表の種類（地下の型も）で、見えない面の外がわに すきまが無い', () => {
     const out = new Uint8Array(LOOK_VOLUME);
-    const kinds = Object.keys(EXPECTED).filter((id) => id !== KATA_UNDER && !id.includes('leaves'));
+    const kinds = Object.keys(EXPECTED).filter((id) => id !== KATA_UNDER && !id.includes('leaves') && id !== 'bamboo'); // たけは 既定が 細い 形に なった（VOX-I-4a）ので マスを ふさがない
     for (const under of [false, true]) for (const id of kinds) for (let h = 0; h < 12; h++) for (let face = 0; face < 6; face++) {
       fillBlockLookKata(indexOf(id), h * 7, 3, h * 3, ALL_FACES & ~FACE_BIT[face], false, out, under);
       expect(boundaryEmpty(out, face), `${id} under=${under} face ${face}`).toBe(0);
