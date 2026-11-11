@@ -908,6 +908,7 @@
       "coal_ore": "uncommon",
       "crystal": "superRare",
       "crystal_katana": "superRare",
+      "daichi_hammer": "legendary",
       "diamond": "mythic",
       "dirt": "common",
       "dotsuki": "common",
@@ -1853,6 +1854,13 @@
           }
         ],
         "power": 10
+      },
+      {
+        "charge": null,
+        "item": "daichi_hammer",
+        "onAttack": [],
+        "passive": [],
+        "power": 20
       }
     ],
     "legendaryChargeWalk": 0.5,
@@ -1871,6 +1879,10 @@
       },
       {
         "item": "kokuryu",
+        "weight": 1
+      },
+      {
+        "item": "daichi_hammer",
         "weight": 1
       },
       {
@@ -1922,6 +1934,7 @@
     "toolDurability": {
       "bokuto": 59,
       "crystal_katana": 400,
+      "daichi_hammer": 10000,
       "fude": 5,
       "fujin_ken": 10000,
       "iron_axe": 250,

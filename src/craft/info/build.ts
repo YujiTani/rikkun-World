@@ -1,5 +1,6 @@
 import type { DamageKind, ItemClass, ItemId, Rarity, Recipe, YokaiKind } from '../../contracts';
 import { M6_SETTING_DEFAULTS, M7_SETTING_DEFAULTS, W2_SETTING_DEFAULTS, seedKindOfItem, vegKindOfItem, type CropKind } from '../../contracts';
+import { LEGEND4_TUNING } from '../../content/items/legend4Tuning';
 import { itemDef } from '../../content/items/registry';
 import { DIG_DEFAULTS } from '../../dig/config';
 import { itemRarity, rarityTier } from '../../drops/rarity';
@@ -236,6 +237,9 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
           ...durRow(item, n),
           { key: 'draw', label: 'ながく ひくほど', value: 'とおくへ とぶ' },
         ];
+      case 'hammer':
+        // LEGEND-4 大地のハンマー: 1 回の 当たりの つよさ（急降下で もっと 強く なる ことは 説明の 文に）
+        return [{ key: 'damage', label: 'たたく つよさ', value: LEGEND4_TUNING.daichi.damage, max: STAT_MAX.damage, compare: `すで は ${numText(n.punchDamage)}` }, ...durRow(item, n)];
       case 'arrow':
         return [{ key: 'damage', label: 'つよさ', value: n.arrowDamage, max: STAT_MAX.damage }];
       case 'armor': {

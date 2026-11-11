@@ -14,7 +14,7 @@ import type {
   YokaiWorld,
 } from '../contracts';
 import { createW2Settings } from '../contracts';
-import { isBowItem } from '../content/items/ids';
+import { isBowItem, LEGEND4_ID } from '../content/items/ids';
 import { createBowSystem } from './bow/BowSystem';
 import { BLADE_LIKE_ITEMS } from './bladeSets';
 import { createToolConfig, type ToolConfig } from './config';
@@ -266,6 +266,7 @@ const NO_YOKAI = {
 function kindOf(item: ItemId | null, c: ToolConfig): ToolKind {
   if (item === null) return 'hand';
   if (isBowItem(item)) return 'bow';
+  if (item === LEGEND4_ID.daichi_hammer) return 'hammer'; // LEGEND-4
   if (BLADE_LIKE_ITEMS.has(item as ItemId)) return 'blade';
   // おの・つるはし は 「ほる道具」。くわ は toolPower を 持つが たがやす 道具なので 今までどおり 'other'
   // （GOLD-1: きんの つるはし・おの は たたく つよさ 5 を もつ ので、weaponDamage より 先 に 見る）

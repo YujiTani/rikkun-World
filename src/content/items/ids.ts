@@ -58,8 +58,10 @@ export type LegendId = (typeof LEGEND_IDS)[number];
  * LEGEND-4: レジェンダリー武器 5 つ（黒龍・八咫烏・天使の弓・ノームの斧・大地のハンマー）。PR ごとに ここへ 足す（PR1 = 黒龍）。
  * ヌシ・宝箱は 登録表の めずらしさから 自動で 入る（LEGEND_IDS の 3 つの すぐ あとに ならぶ）
  */
-export const LEGEND4_IDS = ['kokuryu'] as const;
+export const LEGEND4_IDS = ['kokuryu', 'daichi_hammer'] as const;
 export type Legend4Id = (typeof LEGEND4_IDS)[number];
+/** LEGEND-4: コードで 比べる ときの 名前（id の 文字を 直書きしない） */
+export const LEGEND4_ID = { daichi_hammer: 'daichi_hammer' } as const satisfies Partial<Record<Legend4Id, Legend4Id>>;
 
 /** 道具（M4・BAL-D）: つるはし 3 本・おの 3 本・ふで（TAKO-1。せっけいずを かく どうぐ）（この順が ITEM_TYPES・作業台のカード・色分けの 並び） */
 export const TOOL_ITEM_IDS = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'fude'] as const;

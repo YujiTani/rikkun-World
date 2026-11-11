@@ -2,6 +2,11 @@
 
 既存の 出どころ（pixelfx の 燃える 物の つぶ）は `NOTICE.md` に ある。ここには LEGEND-4 以降に 足す 物を 書く。
 
+## pixelfx — 大地のハンマーの 地面の われ・光（LEGEND-4 PR5）
+
+- 使った 物: `public/models/fx/hammer_slam.png`（H1 ground-slam を 33 コマの 板に したもの。色は Earth/Gold 自作 7 色 ＋ 岩 #6b5a3c）。
+- 出どころ: https://github.com/patch-gg/pixelfx の `src/fx/impacts/ground-slam.js`（MIT。ライセンスの 全文は 下の 黒龍の 項と 同じ）。`fx/tools/dump.mjs` で 97 コマを 書き出し、3 コマに 1 つを 6 × 6 の 板に した。
+
 ## pixelfx — 黒龍の 墨の すじ（LEGEND-4 PR1）
 
 - 使った 場所: `src/fx/kokuryuInkPaint.ts`（墨の すじの 絵を 起動の とき 1 回 つくる）。ほかに `src/fx/kokuryuInkModel.ts`・`src/fx/kokuryuInkFx.ts`（ゲームの 十字の 板の 組み立て。これらは この リポジトリの 作り）。

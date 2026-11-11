@@ -36,4 +36,28 @@ export const LEGEND4 = {
       passive: [{ kind: 'moveMul', mul: LEGEND4_TUNING.kokuryu.moveMul }],
     },
   },
+  // 大地のハンマー: ゆっくり おもく ふりおろして 前の 土や 石を いっぺんに くだく。空中で 押すと まっすぐ 急降下
+  daichi_hammer: {
+    name: '［大地｜だいち］のハンマー',
+    zukan:
+      '［大地｜だいち］の ［力｜ちから］が ぎゅっと つまった、おもい おもい ハンマー。ふりおろすと じめんが われて、［前｜まえ］の ［土｜つち］や ［石｜いし］が いっぺんに くだける。［空｜そら］から とびおりて たたきつけると、［高｜たか］い ところから ほど ［強｜つよ］く なる。ふるのは ゆっくり。けれど その いちげきは、どんな ようかいも ふきとばす。',
+    maxStack: 1,
+    rarity: 'legendary', // 7 段目
+    category: 'weapon',
+    info: {
+      use: 'ようかい を つよく たたく。まえ の つち や いし も こわす',
+      special: 'だいち を くだく いちげき！ ジャンプ こうげき は はかいりょく ばつぐん',
+      how: 'えらんで、ようかい に むけて ひだりクリック。そら で ふると まっすぐ おちて たたきつける',
+      buttons: ['1-9', 'left'],
+      stats: 'hammer',
+    },
+    wear: 10000,
+    // 歩けない（moveMul 0）のは 振って いる 間だけ。手に 持って いる 間の 速さは ふつう。power は 刀の 表の 形を そろえる ための 値（使われない）
+    legend: {
+      power: LEGEND4_TUNING.daichi.damage,
+      charge: null,
+      onAttack: [],
+      passive: [],
+    },
+  },
 } satisfies Record<Legend4Id, ItemDef>;

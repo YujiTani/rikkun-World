@@ -32,7 +32,7 @@ export interface DigState {
 
 export type DigEvent =
   /** count: 手に入った数（ドロップ数はランダム。入りきらなかった分はふくまない） */
-  | { type: 'break'; tick: number; block: Vec3; id: BlockId; gotItem: boolean; count: number }
+  | { type: 'break'; tick: number; block: Vec3; id: BlockId; gotItem: boolean; count: number; /** LEGEND-4: ハンマーの 一括（音・ゆれは ハンマーが 1 つに まとめる） */ silent?: true }
   /** LIVE-2: 小屋 を 置いた とき は `id` が `toriya_fence`（C が 出す。実績 `place:toriya` に なる） */
   | { type: 'place'; tick: number; block: Vec3; id: BlockId }
   /** ひびが MAX になった（あとひと押しでこわれる。オーナー決定 B） */

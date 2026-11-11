@@ -35,9 +35,31 @@ const KOKURYU = [
   'LdK.............',
 ];
 
+/** 大地のハンマー: 青みの ある 鉄の 頭と こはく色の 柄。K ふち・d/S/L/W 鉄（くらい → つや）・h/H 柄・G こはく色の 輪 */
+const PAL_DAICHI = { K: 0x262a38, d: 0x4a5266, S: 0x7c879a, L: 0xb4bfcc, W: 0xeef2f6, h: 0x7a4a18, H: 0xc88a28, G: 0xf0c050 };
+const DAICHI = [
+  '................',
+  '...KKKKKKKKKK...',
+  '..KLWWWLLSSSdK..',
+  '..KLWLLLSSSddK..',
+  '..KLLLSSSSdddK..',
+  '..KSSSSSSddddK..',
+  '...KKKKKGKKKK...',
+  '........KhK.....',
+  '.......KhHK.....',
+  '......KhHK......',
+  '.....KhHK.......',
+  '....KhHK........',
+  '...KhHK.........',
+  '..KGhK..........',
+  '..KGGK..........',
+  '...KK...........',
+];
+
 /** id ごとの 絵（`Record` なので 足し忘れは 型エラー。PR ごとに 1 つずつ 足す） */
 const ART = {
   kokuryu: { rows: KOKURYU, pal: PAL_KOKURYU },
+  daichi_hammer: { rows: DAICHI, pal: PAL_DAICHI },
 } as const satisfies Record<L4ItemId, { rows: readonly string[]; pal: Readonly<Record<string, number>> }>;
 
 export function l4ItemPixels(item: L4ItemId): Rgba[] {

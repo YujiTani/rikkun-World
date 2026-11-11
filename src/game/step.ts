@@ -14,7 +14,7 @@ import { legendMoveMulOf, chargeOf } from '../legend/defs';
 import { shiningBodyPose, lightningPoseFrame } from '../legend/pose';
 import { handleCraftEvents, playSwing, handleGuardEvents } from '../ui/craftUi';
 import { applyUiAlpha } from '../ui/theme';
-import { isBowItem } from '../content/items/ids';
+import { isBowItem, LEGEND4_ID } from '../content/items/ids';
 import { type FarmStepContext, type ItemId, cropKindOfBlock, VEG_ITEM } from '../contracts';
 import { FARM_HINT_VIEW } from '../ui/farmHintModel';
 import { feedPourFx } from '../fx/farmPourFx';
@@ -40,14 +40,14 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     screen, kodachi, geta, craft, furnaceWorld, storage, dropController, farm, renderer, m7, trackOldFarmSeeds,
     madeTracker, fxSound, pickupLog, log, celebrate, achievements, waterFx, farmFx, eyePos, sparkle,
     sparkleView, sprayFx, sprinklers, dropper, notice, impactBus, camFx1, camFx2, titleOfYokai, kodachiHookBuf,
-    arrowVisuals, stuckVisuals, kokuryuInkFx, wearNotice, weaponFx, thunderFx, windWaveFx, reducedMotionMq, spiralFx,
+    arrowVisuals, stuckVisuals, kokuryuInkFx, hammerSlamFx, wearNotice, weaponFx, thunderFx, windWaveFx, reducedMotionMq, spiralFx,
     spiralDebris, chargeLight, handNow, chargeLightFx, handInfo, chargeChest, domeGrains, nijiCenter,
     nijiFx, slashFx, kodachiFx, fujinFx, raijinFx, rainbowFx, buffIcons, buffModel, parryFx, combatUi,
     craftHud, fx, combatFx, level, levelHud, updateFurnaceFx, blockDollOnly, aimMarks, sky, crosshair,
     yokaiFocus, hintVisible, titleAnnounce, machoMarkIn, machoMarks, yokaiNameplates, plateBuf,
     staggerIcons, stagIconBuf, natsukiPanel, actionHint, farmHint, plainReading, farmAimHud, nameOf,
     hotbar, shiningCooldownOf, inventoryScreen, storageScreen, achievementsPage, logPage, inventoryTabs,
-    updateAchievements, save, gadgets, seat,
+    updateAchievements, save, gadgets, seat, hammer,
   } = deps;
   /** シャイニングの ドーム: 始めてから まだ 当たって いない（最初の 当たりだけ 大）。1P も 2P も 同じ 部品（legendImpact.ts） */
   const legendImpact = newLegendImpactState();
@@ -89,18 +89,19 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       // 始めた ステップは まだ 走れる（刀のわざと 同じ）。そのあと 速さを 0 に して すべらせない
       const pmOn = !parry.startedNow();
       const lm = legend.motion();
-      controller.motion.speedMul = bm.speedMul * wm.speedMul * (pmOn ? pm.speedMul : 1) * lm.speedMul * legendMoveMulOf(w2, inventory.held()?.item ?? null);
-      controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked || pm.jumpLocked || lm.jumpLocked;
-      controller.motion.noRun = lm.noRun;
+      const hm = hammer.motion(); // LEGEND-4: 大地のハンマー（振る間は 歩けない・急降下は その場で 止まって まっすぐ 落ちる）
+      controller.motion.speedMul = bm.speedMul * wm.speedMul * (pmOn ? pm.speedMul : 1) * lm.speedMul * hm.speedMul * legendMoveMulOf(w2, inventory.held()?.item ?? null);
+      controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked || pm.jumpLocked || lm.jumpLocked || hm.jumpLocked;
+      controller.motion.noRun = lm.noRun || hm.noRun;
       // WEAPON-9: シャイニングの うかぶ（重力を 使わず 目標の 高さへ）と カメラを 引く
-      controller.motion.hoverY = lm.hoverY ?? null;
+      controller.motion.hoverY = lm.hoverY ?? hm.hoverY;
       rig.distanceOverride = legend.camDistance() ?? camFx1.override() ?? shared.duoCamDistance; // COOP-1: 2 人のときは 引く（4d-0: 1P の よせ・引きの 口 camFx1 が 次）
       // CHAR-2: わざのあいだは 向きを わざの向きに 固定（わざを始めたステップは あとで その場で）
       // WEAPON-3: 刀の わざ・パンチの あいだは 攻撃の向き u。攻撃・空ぶりは ＋マークへ 回らない（leftAims）
       // WEAPON-5: パリィの あいだは 今 向いている 方（カメラの 向き）を向く。始めた ステップは すべらず 止まる
-      controller.motion.faceDeg = pm.jumpLocked ? controller.state.yawDeg : (lm.faceDeg ?? dig.attackFaceDeg());
+      controller.motion.faceDeg = pm.jumpLocked || hm.jumpLocked ? controller.state.yawDeg : (lm.faceDeg ?? dig.attackFaceDeg());
       controller.motion.leftAims = !['attack', 'whiff'].includes(dig.attackPreview().use);
-      controller.motion.stopNow = false;
+      controller.motion.stopNow = hm.stopNow;
       // HURT-1: 怯み中は 歩く・走る・ジャンプが きかない
       controller.motion.noMoveInput = combat.flinchTicks() > 0;
       // HOUSE-1D: 座って いる 間は 位置・向きを 固定（motion を 書くので 上の 行より あと、controller.update より 前）
@@ -119,6 +120,17 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     // WEAPON-9: シャイニング F1〜240 は 持ちかえ・もちもの画面を 出せない
     selLock.step(legend.locked(), inventory);
     dig.update();
+    // LEGEND-4: 大地のハンマー（体が 動いた あと。押した ステップ = F1。ふるのは 遊べる あいだだけ）
+    hammer.update({
+      item: inventory.held()?.item ?? null,
+      active: screen.mode() === 'play' && deps.lock.playInputEnabled() && !combat.dead() && !combat.flinching(),
+      pressed: game.input.wasPressed('primary'),
+      held: game.input.isHeld('primary'),
+      position: controller.state.position,
+      yawDeg: controller.state.yawDeg,
+      onGround: controller.state.onGround,
+      inWater: controller.state.inWater,
+    });
     // WEAPON-7 PR2: 真空波（刀が きまった あと。体は ふみこんだ あとの 位置）
     {
       const bs = blade.state();
@@ -180,7 +192,9 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       if ((bs.move !== null && bs.frame === 1) || parry.startedNow() || lstrike?.F === 1) st.velocity.x = st.velocity.z = 0;
       const bowPose = tools.bow().state();
       const held = inventory.held()?.item ?? null;
-      const weapon = bs.item !== null ? 'katana' : isBowItem(held) ? 'bow' : 'none';
+      const hv = hammer.view();
+      const hammerHeld = held === LEGEND4_ID.daichi_hammer; // LEGEND-4: 手に 持つ 絵は 刀の組の 板に ハンマーの 絵（skin 'hammer'）を 入れて 使う
+      const weapon = bs.item !== null || hammerHeld ? 'katana' : isBowItem(held) ? 'bow' : 'none';
       sprite?.step({
         position: st.position,
         velocity: st.velocity,
@@ -192,10 +206,13 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
         // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
         bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
         // WEAPON-9: 手に 持つ 絵は 虹・雷神剣・風神剣が 専用（女の子）。シャイニング F1〜240 は ため の 形（おおげさぎり コマ 5）を 止める
-        weaponSkin: held === 'niji' ? 'niji' : held === 'raijin_ken' ? 'raijin' : held === 'fujin_ken' ? 'fujin' : null,
-        legendCharge: weapon === 'katana' && (legend.view().charging || shiningBody),
+        weaponSkin: hammerHeld ? 'hammer' : held === 'niji' ? 'niji' : held === 'raijin_ken' ? 'raijin' : held === 'fujin_ken' ? 'fujin' : null,
+        legendCharge: weapon === 'katana' && !hammerHeld && (legend.view().charging || shiningBody),
+        hammer: hammerHeld && hv.phase !== 'idle' ? { phase: hv.phase, f: hv.f } : null,
         blade:
-          weapon === 'katana'
+          hammerHeld
+            ? { stance: 'jodan' as const, tech: null, phase: 'idle' as const, frame: 0, lengths: null } // かついで あるく（上段）
+            : weapon === 'katana'
             ? lstrike && !shiningNow
               ? { stance: bs.stance, tech: 'kesa' as const, ...lightningPoseFrame(lstrike.F, lstrike.total), lengths: null }
               : { stance: bs.stance, tech: bs.tech, phase: bs.phase, frame: bs.frame, lengths: bs.tech ? (bs.lengths ?? w2.bladeTech[bs.tech]) : null }
@@ -316,6 +333,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     }
     arrowVisuals.syncFlying(tools.bow().arrows());
     kokuryuInkFx.step(tools.bow().arrows(), reducedMotionMq?.matches ?? false); // LEGEND-4: 黒龍の 墨の すじ
+    hammerSlamFx.step(hammer.drainEvents(), reducedMotionMq?.matches ?? false); // LEGEND-4: 大地のハンマーの われ・光
     stuckVisuals.syncStuck(tools.bow().stuck());
     wearNotice.step();
     weaponFx.step();

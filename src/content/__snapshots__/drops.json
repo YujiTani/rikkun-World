@@ -214,6 +214,7 @@
     "coal_ore": "uncommon",
     "crystal": "superRare",
     "crystal_katana": "superRare",
+    "daichi_hammer": "legendary",
     "diamond": "mythic",
     "dirt": "common",
     "dotsuki": "common",
@@ -361,6 +362,10 @@
     },
     {
       "item": "kokuryu",
+      "weight": 1
+    },
+    {
+      "item": "daichi_hammer",
       "weight": 1
     },
     {

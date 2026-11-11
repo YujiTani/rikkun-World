@@ -7,7 +7,8 @@ import type { PlayerMotionMod } from './player';
 import type { Vec3, VoxelWorld } from './world';
 import type { YokaiWorld } from './yokai';
 
-export type ToolKind = 'hand' | 'pickaxe' | 'blade' | 'bow' | 'other';
+/** `hammer` = 大地のハンマー（LEGEND-4）。左クリックで ほる・パンチは せず、ハンマーの 係が 振る */
+export type ToolKind = 'hand' | 'pickaxe' | 'blade' | 'bow' | 'hammer' | 'other';
 
 export interface ToolInfo {
   item: ItemId | null;

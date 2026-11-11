@@ -22,6 +22,8 @@ import { createRng } from '../../world/gen/random';
 import type { DuoHud } from '../../ui/duoHud';
 import { halvesCoveredBy, hudNoticeShow, type DuoHalves, type Who } from '../../ui/duoHalves';
 import { KokuryuInkFx } from '../../fx/kokuryuInkFx';
+import { HammerSlamFx } from '../../fx/hammerSlamFx';
+import { createP2Hammer, type P2Hammer } from '../../duo/p2Hammer';
 import { buffsOf } from '../../ui/buffIconsModel';
 import { createBuffSources } from '../../ui/buffSources';
 import { anyCraftNow } from '../../ui/craftModel';
@@ -123,6 +125,8 @@ interface Live {
   parryFx: ParryFx;
   /** LEGEND-4: 2P の 黒龍の 墨の すじ（1P の KokuryuInkFx と 別の 2 つ目。矢の id が 1P と ぶつからない ように）。やめる ときに 片づける */
   ink: KokuryuInkFx;
+  /** LEGEND-4: 2P の 大地のハンマー（1P と 同じ 部品の 2 つ目。やめる ときに 片づける） */
+  hammer: P2Hammer;
   /** COOP-1 4d-3: がしゃどくろ・少女が 見る 2P の 口（参加ごとに 1 つ） */
   gasha: P2GashaPort;
   /** COOP-1 4d-2: 2P の レジェンダリーの わざ（1P と 同じ 部品の 2 つ目）と その 絵 */
@@ -188,6 +192,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     const feed = createP2Feed(achievements); // COOP-1 5b: 2P の 出来事を 実績へ（実績は 2 人で 共有）
     let y2: ReturnType<typeof bindWho> | null = null;
     const yokai2 = () => (y2 ??= bindWho(shared.yokaiManager!, 2));
+    let hammer2: P2Hammer | null = null; // LEGEND-4: 2P の ハンマー（dig を 作った あとで 入れる。落下ダメージの 口が 先に 読む）
     const tools = new ToolSystemImpl({ inventory: p2.inventory, world, player: () => ctl.state, yokai: yokai2, base: { dig: digCfg, combat: createCombatConfig() }, config: toolConfig, settings: w2 });
     const weaponDamage = createWeaponDamage({ settings: w2, base: toolConfig.weaponDamage, held: () => p2.inventory.held(), armor: p2.armor });
     const blade = createBladeSystem({
@@ -237,7 +242,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       rng: createRng(seed ^ 0x2b2b),
       // シャイニング中は 受ける ダメージ 1/3・落下ダメージなし（1P と 同じ 部品の 口）。がしゃどくろの 間欠泉も 落ちない
       takenMul: () => legend.p2.combat.takenMul(),
-      noFall: () => gashaNoFall || legend.p2.combat.noFall(),
+      noFall: () => gashaNoFall || legend.p2.combat.noFall() || (hammer2?.noFall() ?? false),
       requestSave: () => shared.requestSave(),
     });
     // 倒れた 場所(AC44 の 待ちで ずれないように とめる)
@@ -330,6 +335,18 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         nowTick: () => game.tick,
       },
     });
+    hammer2 = createP2Hammer({
+      world,
+      yokai: yokai2,
+      breakAt: (x, y, z) => dig.breakExternal(x, y, z),
+      inventory: p2.inventory,
+      body: () => ctl.state,
+      actions: c.actions,
+      active: () => !life.down && c.lock.playInputEnabled() && !combat.flinching(),
+      sound: fxSound,
+      fx: new HammerSlamFx(game.scene),
+      reduced: () => deps.reducedMotionMq?.matches ?? false,
+    });
     const fx = createP2DigFx({ scene: game.scene as THREE.Scene, dig, sound: fxSound, hideBlockFocus: () => dig.aimedYokaiId() !== null, events: feed.tapDig(() => dig.drainEvents()), notice: c.aim.notice2 });
     const mate = {
       get position() {
@@ -381,7 +398,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       shake: (a) => { if (FX_SETTINGS.fxShake) shared.duoCamFx(2).addTrauma(a); },
       shakeTo: (l) => { const fx = shared.duoCamFx(2), d = l - fx.trauma(); if (d > 0 && FX_SETTINGS.fxShake) fx.addTrauma(d); },
     };
-    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, ink: new KokuryuInkFx(game.scene), gasha, legend, farm, feed, animals: ani, gadgets };
+    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, ink: new KokuryuInkFx(game.scene), hammer: hammer2, gasha, legend, farm, feed, animals: ani, gadgets };
   }
 
   /** 2P の 足音。1P の step.ts と 同じ 決まり: 遊び画面が 開いて いない・やられて いない・ひるんで いない ときだけ 歩く */
@@ -409,10 +426,11 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     const pm = l.parry.motion();
     const lm = l.legend.p2.legend.motion(); // 4d-2: ため中の 歩き・わざの 間の 足どめ・シャイニングの うかぶ（1P の step.ts と 同じ かけ合わせ）
     const m = c.ctl2().motion;
-    m.speedMul = p2SpeedMul(pm.speedMul, lm.speedMul, w2, p2.inventory.held()?.item ?? null); // 風神剣の 走る 1.2 倍も（1P の step.ts:73 と 同じ）
-    m.jumpLocked = pm.jumpLocked || lm.jumpLocked;
-    m.noRun = lm.noRun; m.hoverY = lm.hoverY ?? null;
-    m.faceDeg = pm.jumpLocked ? c.ctl2().state.yawDeg : (lm.faceDeg ?? null); // パリィの あいだは 今 向いている 方を向く。わざの あいだは わざの 向き
+    const hm = l.hammer.motion(); // LEGEND-4: 大地のハンマー（1P の step.ts と 同じ かけ合わせ）
+    m.speedMul = p2SpeedMul(pm.speedMul, lm.speedMul, w2, p2.inventory.held()?.item ?? null) * hm.speedMul; // 風神剣の 走る 1.2 倍も（1P の step.ts:73 と 同じ）
+    m.jumpLocked = pm.jumpLocked || lm.jumpLocked || hm.jumpLocked;
+    m.noRun = lm.noRun || hm.noRun; m.hoverY = lm.hoverY ?? hm.hoverY; m.stopNow = hm.stopNow;
+    m.faceDeg = pm.jumpLocked || hm.jumpLocked ? c.ctl2().state.yawDeg : (lm.faceDeg ?? null); // パリィの あいだは 今 向いている 方を向く。わざの あいだは わざの 向き
   }
   shared.preYokai = preYokai;
   shared.p2Parry = () => live?.parry ?? null;
@@ -468,6 +486,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     // 小太刀の 追い打ちは 先に 1 ステップ すすめ、このステップの 当たりは あとで 入れる（当てた ステップを 0 に する ため。1P と 同じ 順）
     l.kodachi.step();
     l.dig.update();
+    l.hammer.step(); // LEGEND-4: 2P の 大地のハンマー（体が 動いた あと）
     l.gadgets.step(); // COOP-1 5e: 2P の たこ・わらじ
     l.farm.step(); // COOP-1 5a: 2P の 半分の 畑の チップ・しるし
     l.animals.step(); // COOP-1 5c: 2P の ねらい・メニュー・チップ・パネル・わ・一言
@@ -666,6 +685,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       live?.fx.dispose();
       live?.parryFx.dispose();
       live?.ink.dispose();
+      live?.hammer.dispose();
       live?.farm.dispose();
       live?.animals.dispose();
       live?.gadgets.dispose();
@@ -674,11 +694,12 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     onLeave(): void {
       if (live) {
         // 2P の パリィの 体の 止めを もどす（2P の 体は 次の 参加でも 使いまわす）
-        Object.assign(c.ctl2().motion, { speedMul: 1, jumpLocked: false, faceDeg: null, noRun: false, hoverY: null });
+        Object.assign(c.ctl2().motion, { speedMul: 1, jumpLocked: false, faceDeg: null, noRun: false, hoverY: null, stopNow: false });
         live.legend.dispose(); // ためている・シャイニング中でも すぐ 消す（カメラの 口も 手ばなす）
         live.parry.cancel(game.tick);
         live.parryFx.dispose();
         live.ink.dispose();
+        live.hammer.dispose();
       }
       live?.fx.dispose();
       live?.farm.dispose();

@@ -44,7 +44,7 @@ import type { WiredMine } from '../game/wire/mine';
 export function installGameHook(deps: WiredMine): void {
   const {
     shared, game, overlay, host, startBoot, world, charCtl, controller, setShadow, seed, achievements,
-    countryWatch, renderer, island, save, blobShadow, sky, parry, thunderFx, legend, legendBook, waveSys,
+    countryWatch, renderer, island, save, blobShadow, sky, parry, thunderFx, legend, legendBook, waveSys, hammer,
     spiralDebris, chargeLight, handNow, chargeChest, slashFx, kodachiFx, nijiFx, fujinFx, windWaveFx,
     raijinFx, rainbowFx, domeGrains, w2, cameraHook, sprite, rig, dig, hudHook, inventory, screen, craft,
     craftUiHook, storage, dropper, restored, time, combatHook, toolHook, kodachiHookBuf, ninjaBook,
@@ -139,6 +139,8 @@ export function installGameHook(deps: WiredMine): void {
     legend: {
       state: () => ({ ...legend.state(), got: legendBook.got() }),
       events: () => legend.peekEvents(),
+      /** LEGEND-4 大地のハンマー: いまの 状態（phase・f・diveFrom・last）。1P */
+      hammer: () => ({ ...hammer.view(), last: hammer.view().last && { ...hammer.view().last! } }),
       waves: () => waveSys.list().map((w) => ({ id: w.id, kind: w.kind, position: { ...w.position }, dir: { ...w.dir }, traveled: w.traveled, age: w.age, spin: w.spin, drawPos: { ...w.drawPos }, face: w.face, bodyAlpha: w.bodyAlpha, backAlpha: w.backAlpha })),
       debris: () => ({ ...spiralDebris.view() }),
       chargeFx: () => {
