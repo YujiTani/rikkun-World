@@ -86,7 +86,7 @@ export function yakataShape(c: ShapeIn): YakataShape {
   const ring = new Set<number>();
   const path: PathCell[] = [];
   const stand = (p: Pt): void => {
-    if (roles.get(keyOf(p.x, p.y, p.z)) !== 'taimatsu') path.push({ ...p, part: 'yakata' });
+    path.push({ ...p, part: 'yakata' }); // たいまつの マスも 歩いて 通れる〔ぶつからない〕
   };
 
   // --- 横穴
@@ -217,7 +217,6 @@ export function yakataShape(c: ShapeIn): YakataShape {
 
   // --- 出る 場所の 候補〔宝箱から 6〜10・おたがい 3 マス いじょう・左右の 区分 4 か所ずつ〕
   const cc = { x: cells.reduce((s, p) => s + p.x, 0) / 2, z: cells.reduce((s, p) => s + p.z, 0) / 2 };
-  const sc = (cc.x - px(bs, 0)) * t.x + (cc.z - pz(bs, 0)) * t.z; // 宝箱の s
   const torchKeys = new Set([...roles].filter(([, r]) => r === 'taimatsu').map(([k]) => k));
   const eligible: { at: Pt; zone: Zone }[] = [];
   for (let s = 0; s < T.hall.size; s++) {
@@ -226,9 +225,10 @@ export function yakataShape(c: ShapeIn): YakataShape {
       const at = cell(bs + s, a);
       const d = Math.hypot(at.x - cc.x, at.z - cc.z);
       if (d < T.spawn.fromChest[0] || d > T.spawn.fromChest[1]) continue;
-      const side = Math.sign((at.x - cc.x) * w.x + (at.z - cc.z) * w.z);
-      if (Math.abs(a) >= 3 && side !== 0) eligible.push({ at, zone: side < 0 ? 'left' : 'right' });
-      else if (s < sc - 0.5 && Math.abs(a) <= 2) eligible.push({ at, zone: 'front' });
+      const lat = (at.x - cc.x) * w.x + (at.z - cc.z) * w.z; // 宝箱から 横〔w の むき〕
+      const fw = -((at.x - cc.x) * t.x + (at.z - cc.z) * t.z); // 宝箱から 門の ほう
+      if (fw > 0.5 && fw >= 1.5 * Math.abs(lat)) eligible.push({ at, zone: 'front' }); // 門の ほうへ 約 34 度の はんい
+      else if (lat !== 0) eligible.push({ at, zone: lat < 0 ? 'left' : 'right' });
     }
   }
   // 区分ごとに 4 か所〔おたがい apart マス いじょう〕。くじで ならべて 足りなければ 何回か ひきなおす

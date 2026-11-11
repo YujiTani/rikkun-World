@@ -86,10 +86,16 @@ export function createShaftHook(o: ShaftHookOptions) {
   });
 
   function chestAt(x: number, y: number, z: number): ChestAtInfo | null {
-    if (!o.world) return null;
     const bx = Math.floor(x);
     const by = Math.floor(y);
     const bz = Math.floor(z);
+    if (!o.world) {
+      // 生きている 世界が ない〔計画だけ 読む テストなど〕: やかたの 宝箱は 計画から 答える〔まだ あいていない〕
+      const yk = world().yakataBuilt(bx, by, bz)?.yakata;
+      const c = yk?.chest;
+      if (!yk || !c || !c.cells.some((p) => p.x === bx && p.y === by && p.z === bz)) return null;
+      return { table: 'yakata', tier: 4, opened: false, main: { x: c.x, y: c.y, z: c.z }, cells: c.cells.map((p) => ({ ...p })), front: c.front };
+    }
     const info = chestBlockInfo(o.world.getBlock(bx, by, bz));
     if (!info) return null;
     const front = chestFrontAt((px, py, pz) => o.world!.getBlock(px, py, pz), bx, by, bz);
