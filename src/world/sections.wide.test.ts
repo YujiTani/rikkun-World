@@ -60,15 +60,15 @@ describe('BLOCK-ID16 AC1: 番号 256〜1023 の往復', () => {
     expect(sectionGet(s, 7)).toBe(1000);
     expect(sectionGet(s, 0)).toBe(0);
     expect(sectionGet(s, 1)).toBe(300);
-    // 16 種類（0, 300 のほか 14）まで入れる → palette のまま
-    for (let k = 0; k < 14; k++) s = sectionSet(s, 100 + k, 400 + k);
+    // 16 種類（0, 300, 1000 のほか 13）まで入れる → palette のまま
+    for (let k = 0; k < 13; k++) s = sectionSet(s, 100 + k, 400 + k);
     expect(s.kind === 'palette' ? s.palette.length : -1).toBe(16);
     // 17 種類目 → full。中身は変わらない
     s = sectionSet(s, 200, 1023);
     expect(s.kind).toBe('full');
     expect(sectionGet(s, 200)).toBe(1023);
     expect(sectionGet(s, 7)).toBe(1000);
-    expect(sectionGet(s, 113)).toBe(413);
+    expect(sectionGet(s, 112)).toBe(412);
     expect(sectionGet(s, 1)).toBe(300);
   });
 
