@@ -39,10 +39,10 @@ describe('AC15 ヌシの 表（侍装備 4 行）', () => {
     expect(isSamuraiGear('ninja_tekko' as ItemId)).toBe(false);
     expect(isSamuraiGear('katana' as ItemId)).toBe(false);
   });
-  it('侍帳が 空で 乱数 0.1 → 雷神剣、0.5 → 陣笠、0.99 → 下駄', () => {
+  it('侍帳が 空で 乱数 0.1 → 雷神剣、0.5 → まんなかの 行、0.99 → 下駄', () => {
     const sel = samuraiSelectable([], []);
     expect(pickNushiDrop(rows(), () => 0.1, sel)).toBe('raijin_ken');
-    expect(pickNushiDrop(rows(), () => 0.5, sel)).toBe('samurai_jingasa');
+    expect(pickNushiDrop(rows(), () => 0.5, sel)).toBe(rows()[Math.floor(0.5 * rows().length)]!.item); // 行の 数に 合わせる（武器が ふえても 直さない）
     expect(pickNushiDrop(rows(), () => 0.99, sel)).toBe('samurai_geta');
   });
   it('帳に 陣笠が ある（持って いる）と 6 行で 0.5 → 羽織', () => {

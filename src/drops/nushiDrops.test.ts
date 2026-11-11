@@ -16,3 +16,11 @@ describe('K-C2 kokuryu: ヌシの 表・宝箱', () => {
     expect(legendary.length).toBeGreaterThanOrEqual(3 + LEGEND4_IDS.length);
   });
 });
+
+/** LEGEND-4 PR2 Y-C2（§3.9）: 八咫烏も 自動で ヌシの 表（weight 1）・宝箱の legendary に 1 回 */
+describe('Y-C2 yatagarasu: ヌシの 表・宝箱', () => {
+  it('nushiDrops に weight 1 で 1 行・宝箱の legendary の 箱に 1 回', () => {
+    expect(createW2Settings().nushiDrops.filter((r) => r.item === 'yatagarasu')).toEqual([{ item: 'yatagarasu', weight: 1 }]);
+    expect(chestPool().legendary.filter((i) => i === 'yatagarasu')).toHaveLength(1);
+  });
+});

@@ -36,7 +36,7 @@ export const KONGO_IDS = [
 export type KongoId = (typeof KONGO_IDS)[number];
 
 /** 名前が「ゆみ」で おわらない レジェンダリーの ゆみ（LEGEND-4: 黒龍・八咫烏。天使の弓は `_yumi` で おわる ので 入れない） */
-export const LEGEND4_BOW_IDS = ['kokuryu'] as const;
+export const LEGEND4_BOW_IDS = ['kokuryu', 'yatagarasu'] as const;
 
 /** ゆみ（や を とばす 物）か。ゆみ・きんの ゆみ・こんごうの ゆみ … 名前が「ゆみ」で おわる ゆみの なかま ＋ 黒龍（手に持つ形・ひく ポーズ・弓の 種類の 見分け） */
 export const isBowItem = (item: string | null | undefined): boolean =>
@@ -58,7 +58,7 @@ export type LegendId = (typeof LEGEND_IDS)[number];
  * LEGEND-4: レジェンダリー武器 5 つ（黒龍・八咫烏・天使の弓・ノームの斧・大地のハンマー）。PR ごとに ここへ 足す（PR1 = 黒龍）。
  * ヌシ・宝箱は 登録表の めずらしさから 自動で 入る（LEGEND_IDS の 3 つの すぐ あとに ならぶ）
  */
-export const LEGEND4_IDS = ['kokuryu'] as const;
+export const LEGEND4_IDS = ['kokuryu', 'yatagarasu'] as const;
 export type Legend4Id = (typeof LEGEND4_IDS)[number];
 
 /** 道具（M4・BAL-D）: つるはし 3 本・おの 3 本・ふで（TAKO-1。せっけいずを かく どうぐ）（この順が ITEM_TYPES・作業台のカード・色分けの 並び） */

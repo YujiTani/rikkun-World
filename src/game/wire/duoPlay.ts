@@ -22,6 +22,7 @@ import { createRng } from '../../world/gen/random';
 import type { DuoHud } from '../../ui/duoHud';
 import { halvesCoveredBy, hudNoticeShow, type DuoHalves, type Who } from '../../ui/duoHalves';
 import { KokuryuInkFx } from '../../fx/kokuryuInkFx';
+import { YatagarasuFx } from '../../fx/yatagarasuFx';
 import { buffsOf } from '../../ui/buffIconsModel';
 import { createBuffSources } from '../../ui/buffSources';
 import { anyCraftNow } from '../../ui/craftModel';
@@ -123,6 +124,8 @@ interface Live {
   parryFx: ParryFx;
   /** LEGEND-4: 2P の 黒龍の 墨の すじ（1P の KokuryuInkFx と 別の 2 つ目。矢の id が 1P と ぶつからない ように）。やめる ときに 片づける */
   ink: KokuryuInkFx;
+  /** LEGEND-4: 2P の 八咫烏の 金の 光・ほのお（1P の YatagarasuFx と 別の 2 つ目）。やめる ときに 片づける */
+  yata: YatagarasuFx;
   /** COOP-1 4d-3: がしゃどくろ・少女が 見る 2P の 口（参加ごとに 1 つ） */
   gasha: P2GashaPort;
   /** COOP-1 4d-2: 2P の レジェンダリーの わざ（1P と 同じ 部品の 2 つ目）と その 絵 */
@@ -188,7 +191,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     const feed = createP2Feed(achievements); // COOP-1 5b: 2P の 出来事を 実績へ（実績は 2 人で 共有）
     let y2: ReturnType<typeof bindWho> | null = null;
     const yokai2 = () => (y2 ??= bindWho(shared.yokaiManager!, 2));
-    const tools = new ToolSystemImpl({ inventory: p2.inventory, world, player: () => ctl.state, yokai: yokai2, base: { dig: digCfg, combat: createCombatConfig() }, config: toolConfig, settings: w2 });
+    const tools = new ToolSystemImpl({ inventory: p2.inventory, world, player: () => ctl.state, yokai: yokai2, base: { dig: digCfg, combat: createCombatConfig() }, config: toolConfig, settings: w2, who: 2 });
     const weaponDamage = createWeaponDamage({ settings: w2, base: toolConfig.weaponDamage, held: () => p2.inventory.held(), armor: p2.armor });
     const blade = createBladeSystem({
       world,
@@ -381,7 +384,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       shake: (a) => { if (FX_SETTINGS.fxShake) shared.duoCamFx(2).addTrauma(a); },
       shakeTo: (l) => { const fx = shared.duoCamFx(2), d = l - fx.trauma(); if (d > 0 && FX_SETTINGS.fxShake) fx.addTrauma(d); },
     };
-    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, ink: new KokuryuInkFx(game.scene), gasha, legend, farm, feed, animals: ani, gadgets };
+    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, ink: new KokuryuInkFx(game.scene), yata: new YatagarasuFx(game.scene), gasha, legend, farm, feed, animals: ani, gadgets };
   }
 
   /** 2P の 足音。1P の step.ts と 同じ 決まり: 遊び画面が 開いて いない・やられて いない・ひるんで いない ときだけ 歩く */
@@ -488,6 +491,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     l.sounds.swings(l.tools.drainSwings(), p2.inventory.held()?.item ?? null);
     l.ink.step(l.tools.bow().arrows(), deps.reducedMotionMq?.matches ?? false); // LEGEND-4: 2P の 黒龍の 墨の すじ
     const arrowEvents = l.tools.drainArrowEvents();
+    l.yata.step(l.tools.bow().arrows(), arrowEvents, deps.reducedMotionMq?.matches ?? false); // LEGEND-4: 2P の 八咫烏
     l.sounds.arrows(arrowEvents);
     l.feed.arrows(arrowEvents);
     const bladeEvents = l.blade.drainEvents();
@@ -666,6 +670,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       live?.fx.dispose();
       live?.parryFx.dispose();
       live?.ink.dispose();
+      live?.yata.dispose();
       live?.farm.dispose();
       live?.animals.dispose();
       live?.gadgets.dispose();
@@ -679,6 +684,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         live.parry.cancel(game.tick);
         live.parryFx.dispose();
         live.ink.dispose();
+        live.yata.dispose();
       }
       live?.fx.dispose();
       live?.farm.dispose();

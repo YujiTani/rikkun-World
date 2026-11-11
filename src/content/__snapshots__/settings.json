@@ -1036,6 +1036,7 @@
       "wood_axe": "common",
       "wood_pickaxe": "common",
       "ya": "common",
+      "yatagarasu": "legendary",
       "yokai_orb": "uncommon",
       "yoroi": "rare",
       "yumi": "uncommon"
@@ -1704,6 +1705,9 @@
         1
       ]
     },
+    "bowBurstByItem": {
+      "yatagarasu": true
+    },
     "bowDamage": [
       1,
       2,
@@ -1724,6 +1728,11 @@
         3,
         4,
         7
+      ],
+      "yatagarasu": [
+        4,
+        6,
+        10
       ]
     },
     "bowKnock": [
@@ -1853,6 +1862,13 @@
           }
         ],
         "power": 10
+      },
+      {
+        "charge": null,
+        "item": "yatagarasu",
+        "onAttack": [],
+        "passive": [],
+        "power": 10
       }
     ],
     "legendaryChargeWalk": 0.5,
@@ -1871,6 +1887,10 @@
       },
       {
         "item": "kokuryu",
+        "weight": 1
+      },
+      {
+        "item": "yatagarasu",
         "weight": 1
       },
       {
@@ -1963,6 +1983,7 @@
       "suneate": 195,
       "wood_axe": 59,
       "wood_pickaxe": 59,
+      "yatagarasu": 10000,
       "yoroi": 240,
       "yumi": 384
     },

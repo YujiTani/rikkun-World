@@ -51,6 +51,13 @@ export const WEAPON_SOUNDS = {
   arrowHit: wood(320, 180, 0, 0.06, 0.4),
   /** や が ブロックに ささった「トン」 */
   arrowStick: wood(210, 150, 0, 0.07, 0.45),
+  /** LEGEND-4 八咫烏の ほのお「ボフッ」: まるい ぽわんと 低い ふくらみ ＋ ふわっと した 空気 ＋ 上で きらっと 2 音（やさしい。大きく しない） */
+  yataBurst: [
+    powan(180, 90, 0, 0.22, 0.4, 0.01),
+    noise(0, 0.18, 0.16, { type: 'lowpass', freq: 900, freq1: 300, q: 0.7 }, 0.01),
+    ...box(hz('E6'), hz('E6') * 1.01, 0.03, 0.1, 0.18),
+    ...box(hz('A6'), hz('A6') * 1.01, 0.08, 0.14, 0.16),
+  ],
 } as const satisfies Record<string, readonly Tone[]>;
 
 export type WeaponSoundName = keyof typeof WEAPON_SOUNDS;
@@ -134,8 +141,12 @@ export function playBowSound(sound: Pick<SoundFx, 'play' | 'playTones'>, e: BowE
     case 'pickup':
       sound.play('pickup');
       break;
+    case 'yataBurst':
+      playWeapon(sound, 'yataBurst');
+      break;
     case 'drawStart':
     case 'arrowEnd':
+    case 'arrowSaved': // 弓の 宝石が きらりと する だけ（音なし。2 回に 1 回 くり返すので 足さない）
       break;
   }
 }

@@ -40,7 +40,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     screen, kodachi, geta, craft, furnaceWorld, storage, dropController, farm, renderer, m7, trackOldFarmSeeds,
     madeTracker, fxSound, pickupLog, log, celebrate, achievements, waterFx, farmFx, eyePos, sparkle,
     sparkleView, sprayFx, sprinklers, dropper, notice, impactBus, camFx1, camFx2, titleOfYokai, kodachiHookBuf,
-    arrowVisuals, stuckVisuals, kokuryuInkFx, wearNotice, weaponFx, thunderFx, windWaveFx, reducedMotionMq, spiralFx,
+    arrowVisuals, stuckVisuals, kokuryuInkFx, yatagarasuFx, wearNotice, weaponFx, thunderFx, windWaveFx, reducedMotionMq, spiralFx,
     spiralDebris, chargeLight, handNow, chargeLightFx, handInfo, chargeChest, domeGrains, nijiCenter,
     nijiFx, slashFx, kodachiFx, fujinFx, raijinFx, rainbowFx, buffIcons, buffModel, parryFx, combatUi,
     craftHud, fx, combatFx, level, levelHud, updateFurnaceFx, blockDollOnly, aimMarks, sky, crosshair,
@@ -316,6 +316,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     }
     arrowVisuals.syncFlying(tools.bow().arrows());
     kokuryuInkFx.step(tools.bow().arrows(), reducedMotionMq?.matches ?? false); // LEGEND-4: 黒龍の 墨の すじ
+    yatagarasuFx.step(tools.bow().arrows(), arrowEvents, reducedMotionMq?.matches ?? false); // LEGEND-4: 八咫烏の 金の 光・むらさきの ほのお
     stuckVisuals.syncStuck(tools.bow().stuck());
     wearNotice.step();
     weaponFx.step();

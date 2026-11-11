@@ -16,7 +16,7 @@ export function createToolHook(tool: ToolSystemImpl) {
       /** まだ 読まれていない 出来事（読んでも 空に ならない） */
       events: () => tool.bow().peekEvents().map((e) => ({ ...e })),
       arrows: () =>
-        tool.bow().arrows().map((a) => ({ id: a.id, position: v3(a.position), velocity: v3(a.velocity), age: a.age, straight: a.straight === true, hitIds: [...(a.hitIds ?? [])] })),
+        tool.bow().arrows().map((a) => ({ id: a.id, position: v3(a.position), velocity: v3(a.velocity), age: a.age, straight: a.straight === true, burst: a.burst === true, hitIds: [...(a.hitIds ?? [])] })),
       stuck: () => tool.bow().stuck().map((a) => ({ id: a.id, position: v3(a.position), age: a.age, dir: v3(a.dir) })),
     },
     arrows: () => tool.arrows(),

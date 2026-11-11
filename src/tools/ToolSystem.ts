@@ -56,6 +56,8 @@ export interface ToolDeps {
   settings?: W2Settings;
   /** や を 1 本 うった とき。なければ `inventory.wearHeld(toolWear.bow.shot)` */
   onBowShot?: () => void;
+  /** 1P か 2P（八咫烏の くじの 乱数の 列を 人ごとに 分ける。なければ 1） */
+  who?: 1 | 2;
 }
 
 /** 手に持っているものの働き（M4 §2.4〜§2.6・§4.3）。`DigSystem` が毎ステップ step() を呼ぶ */
@@ -99,6 +101,7 @@ export class ToolSystemImpl implements ToolSystem {
         else d.inventory.wearHeld?.(this.settings.toolWear.bow.shot);
       },
       tick: () => this.tickCount,
+      who: d.who,
       onEvent: (e) => {
         if (e.type === 'drawStart') this.pushSwing('draw');
         else if (e.type === 'arrowShot') this.pushSwing('release');
