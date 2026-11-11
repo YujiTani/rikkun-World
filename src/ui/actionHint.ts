@@ -4,6 +4,7 @@ import { heartPixels } from './heartsModel';
 import { houseTalkIconUrl } from './houseMenuArt';
 import { paintKodoTile } from '../world/blocks/mineTexturesWaku';
 import { drawPixels, itemIconUrl } from './itemIcon';
+import { nickIconPixels } from './itemArtBal';
 import './actionHint.css';
 
 /** ボタンの 絵の 種類（マウス か パッドの 肩ボタン。COOP-1 5f-1） */
@@ -49,7 +50,7 @@ export class ActionHint {
     c.innerHTML =
       (withMouse ? `<span class="action-hint__mouse action-hint__mouse--${side}"><i class="action-hint__btn action-hint__btn--l"></i><i class="action-hint__btn action-hint__btn--r"></i></span>` : '') +
       `<span class="action-hint__pad" data-hint-pad=""></span>` +
-      `<img class="action-hint__art" alt=""><span class="action-hint__word"></span>`;
+      `<img class="action-hint__art" alt=""><img class="action-hint__badge" alt="" hidden><span class="action-hint__word"></span>`;
     return c;
   }
 
@@ -115,6 +116,9 @@ export class ActionHint {
     cell.classList.toggle('action-hint__cell--disabled', !!it?.disabled);
     if (!it) return;
     (cell.querySelector('.action-hint__art') as HTMLImageElement).src = iconUrl(it.icon);
+    const badge = cell.querySelector('.action-hint__badge') as HTMLImageElement;
+    badge.hidden = !it.badge;
+    if (it.badge && !badge.src) badge.src = badgeUrl();
     cell.querySelector('.action-hint__word')!.textContent = it.word;
   }
 }
@@ -149,6 +153,17 @@ function heartUrl(): string {
   return heartCache;
 }
 
+let badgeCache: string | undefined;
+/** MINE-1F: ヒント「あける」の よこの おやぶんの バッジ（今の 二つ名の 絵） */
+function badgeUrl(): string {
+  if (!badgeCache) {
+    const c = document.createElement('canvas');
+    drawPixels(c, nickIconPixels('oyabun'));
+    badgeCache = c.toDataURL();
+  }
+  return badgeCache;
+}
+
 function same(a: ActionHintItem | undefined, b: ActionHintItem | undefined): boolean {
-  return a?.icon === b?.icon && a?.word === b?.word && !!a?.disabled === !!b?.disabled;
+  return a?.icon === b?.icon && a?.word === b?.word && !!a?.badge === !!b?.badge && !!a?.disabled === !!b?.disabled;
 }

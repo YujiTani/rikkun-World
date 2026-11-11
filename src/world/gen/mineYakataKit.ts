@@ -246,7 +246,7 @@ export function tableOf(seed = SEEDS_20[0]!): YakataTable {
 /** シードの 並び〔20 シードの あと もっと 足す〕 */
 export const SEED_POOL_F: readonly number[] = [...SEEDS_20, ...Array.from({ length: 180 }, (_, i) => 90_000 + i * 7919)];
 /** くじを 数える 範囲〔スタートの まわり 横 ± この マス〕 */
-export const ROLL_HALF = 3072;
+const ROLL_HALF = 3072;
 
 export interface RollSample {
   seed: number;

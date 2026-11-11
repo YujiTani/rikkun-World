@@ -260,6 +260,7 @@ export function createVoxelMaterial(shared: VoxelShared, ao: Data3DTexture | nul
     shader.uniforms.uYakataMin = yakataUniforms.min; // MINE-1F: やかたの 中の 見え方の 箱
     shader.uniforms.uYakataMax = yakataUniforms.max;
     shader.uniforms.uYakataN = yakataUniforms.count;
+    shader.uniforms.uYakataSway = yakataUniforms.sway;
     shader.uniforms.uAtlas = { value: shared.atlas };
     shader.uniforms.uTileOf = { value: t.of };
     shader.uniforms.uTileAvg = { value: t.avg };

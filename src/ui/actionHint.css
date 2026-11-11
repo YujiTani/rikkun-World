@@ -99,3 +99,15 @@
 .action-hint[data-pad='pad'] .action-hint__mouse {
   display: none;
 }
+
+/* MINE-1F: 「あける」の 宝箱の 右下に おやぶんの 小さな 顔（ようかいの やかたの 箱） */
+.action-hint__badge {
+  width: calc(var(--rk-icon-chip) * 0.6);
+  height: calc(var(--rk-icon-chip) * 0.6);
+  margin-left: calc(var(--rk-icon-chip) * -0.5);
+  align-self: flex-end;
+  image-rendering: pixelated;
+}
+.action-hint__badge[hidden] {
+  display: none;
+}

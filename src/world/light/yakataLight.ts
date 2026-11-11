@@ -6,6 +6,7 @@
  * 数は ここ 1 か所〔窓口 `yakataTable().dim`・`.lookTint` は これを そのまま かえす〕。箱は 世界の 座標で、見える やかた ぜんぶ。
  */
 import { Vector4 } from 'three';
+import { yakataMotion } from '../../fx/yakataMotion';
 
 export type YakataLookId = 'maou' | 'otera';
 
@@ -60,7 +61,15 @@ export const yakataUniforms = {
   min: { value: Array.from({ length: YAKATA_BOX_MAX }, () => new Vector4()) },
   max: { value: Array.from({ length: YAKATA_BOX_MAX }, () => new Vector4()) },
   count: { value: 0 },
+  /** あやしい たいまつの 明るさの ゆれ（倍率。1 = ゆれなし）。`setYakataSway` が 毎ステップ 書く */
+  sway: { value: 1 },
 };
+
+/** たいまつの ゆれ: 1 回 torchSwaySec 秒・ふれはば ±torchSwayAmp〔ゆっくり・点滅しない。ゲームの ステップで すすむ。動きを へらす では ゆれない〕 */
+export function setYakataSway(step: number, reduce: boolean): void {
+  const m = yakataMotion(reduce);
+  yakataUniforms.sway.value = reduce ? 1 : 1 + m.torchSwayAmp * Math.sin((2 * Math.PI * step) / (m.torchSwaySec * 60));
+}
 
 const LOOK_NO: Record<YakataLookId, number> = { maou: 0, otera: 1 };
 
