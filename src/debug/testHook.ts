@@ -96,6 +96,9 @@ export interface TestHook {
     openPanel(): void;
     closePanel(): void;
     binds(): unknown;
+    /** 最後に さわった 入力。setLastInput('gamepad') で パッドの 見た目（ヘルプ帯・ツールチップ・ヒント）を パッドなしで 見られる（マウスを 動かすと もどる） */
+    lastInput(): 'gamepad' | 'keyboard' | 'mouse';
+    setLastInput(k: 'gamepad' | 'keyboard' | 'mouse'): void;
     settings(): { deadZone: number; lookSensitivity: number };
   } | null;
   lock: ReturnType<typeof createLockHook> & { tab(name: string): void; book(target: string): void; bookStats(): { calls: number; triangles: number } };

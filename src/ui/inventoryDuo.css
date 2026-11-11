@@ -143,13 +143,10 @@
 /* ページごとに 出す 物: もちもの = そうび・もちもの・ホットバー / つくる・やく = レシピ（やく は かまど）・せつめい・ホットバー / たんす = ボタン・たんす・もちもの・ホットバー */
 .inv-root[data-layout='duo'][data-page='items'] :is(.inv-side, .inv-storage),
 .inv-root[data-layout='duo'][data-page='tansu'] :is(.inv-side, .equip-panel, .inv-hints, .inv-duo-quit),
-.inv-root[data-layout='duo']:is([data-page='craft'], [data-page='furnace']) :is(.inv-storage, .equip-panel, .inv-bag, .inv-gap, .inv-hints, .inv-duo-quit) {
+.inv-root[data-layout='duo']:is([data-page='craft'], [data-page='furnace']) :is(.inv-storage, .equip-panel, .inv-bag, .inv-gap, .inv-duo-quit) {
   display: none;
 }
-/* 操作の ひとこと（キー・マウスの 説明）は 1P だけ。2P は パッドだけ なので「やめる」 */
-.inv-root[data-who='2'] .inv-hints {
-  display: none;
-}
+/* 操作の ひとこと（もちもの・つくる・やく）は 1P・2P とも 出す（2P は パッドの 印）。たんす の ページだけ 上で かくす */
 .inv-root[data-layout='duo'] .inv-duo-quit {
   align-self: stretch;
   min-height: max(56px, var(--rk-h-btn));
