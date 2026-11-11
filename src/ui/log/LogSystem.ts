@@ -36,7 +36,7 @@ export interface LogUiState {
   canDown: boolean;
 }
 
-export type LogSignal = 'needTool' | 'needIron' | 'noArrow' | 'full' | 'tansuFull';
+export type LogSignal = 'needTool' | 'needIron' | 'noArrow' | 'full' | 'tansuFull' | 'yakataLocked';
 
 /** 合図ごとの 文と、ログに 絵で 出す アイテム（なければ null）。1 つの 合図に 1 行（足し忘れは 型エラー） */
 const SIGNAL_LOG = {
@@ -45,6 +45,7 @@ const SIGNAL_LOG = {
   noArrow: { text: 'や が いるよ', item: 'ya' },
   full: { text: 'もちもの が いっぱい！', item: null },
   tansuFull: { text: 'たんす が いっぱい！', item: null },
+  yakataLocked: { text: 'いまは ほれない よ', item: null }, // MINE-1F §3.1
 } as const satisfies Record<LogSignal, { text: string; item: ItemId | null }>;
 
 interface Entry {

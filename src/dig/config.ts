@@ -1,3 +1,4 @@
+import { YAKATA_BLOCK_IDS } from '../world/blocks/mineYakata';
 import { defaultDropMax } from '../drops/rarityTable';
 import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
 import { SCAFFOLD_IDS, type ScaffoldId } from '../world/blocks/buildBlocks';
@@ -475,6 +476,8 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   taoreta_hashigo_x: { item: 'log', count: 1 },
   taoreta_hashigo_z: { item: 'log', count: 1 },
   takibi_ato: { item: 'coal_ore', count: 1 },
+  // MINE-1F: やかたの ブロック 8 こ（ほると じぶん いつも 1 こ。仕様 §4.6）
+  ...Object.fromEntries(YAKATA_BLOCK_IDS.map((id) => [id, { item: id, count: 1 }])),
 };
 
 /**

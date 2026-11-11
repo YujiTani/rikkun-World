@@ -75,6 +75,8 @@ export interface YokaiManagerOptions {
   /** 海面の高さ。世界の設定（contracts の SEA_Y）。省くと SEA_Y */
   seaY?: () => number;
   /** ブロックがこわれた・石になった（くだけるつぶ・音用。1 回の出来事ぶんをまとめて渡す） */
+  /** MINE-1F: true の マスは ぬりかべの たおれこみでも こわさない（`hook.yakataLocked`） */
+  protectAt?: (x: number, y: number, z: number) => boolean;
   onBlocks?: (cells: { x: number; y: number; z: number; from: BlockId; to: BlockId }[], why: 'crush' | 'stone') => void;
   /** NINJA-1: 着ている 防具を 聞く 入り口（忍び装束の とき 気づく 距離が 半分）。なければ 何も 着て いない */
   armor?: { equipped(slot: ArmorSlot): ItemId | null };
