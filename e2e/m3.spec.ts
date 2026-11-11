@@ -270,7 +270,7 @@ test.describe('M3 出現と帰る', () => {
 });
 
 test.describe('M3 妖怪の AI（距離だけ）', () => {
-  test('AC7/AC8(読みかえ): 見つける距離の内側は追いかける・外側は気づかない。壁ごしでも見つける', async ({ page }) => {
+  test('AC7/AC8(読みかえ): 見つける距離の内側は追いかける・外側は気づかない。壁ごしでは見つけない（SIGHT-1 #446）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const T = (window as any).T;
@@ -325,9 +325,8 @@ test.describe('M3 妖怪の AI（距離だけ）', () => {
       expect(r[`${kind}1`].chaseAt, `${kind} +1`).toBe(-1);
       expect(r[`${kind}1`].state, `${kind} +1 state`).not.toMatch(/chase|attack/);
     }
-    // 決定: AI は距離だけ → 壁ごしでも 30 ステップ以内に追いかける
-    expect(r.wall.at).toBeGreaterThan(0);
-    expect(r.wall.at).toBeLessThanOrEqual(30);
+    // SIGHT-1（#446 yuzu 2026-11-11）: ブロックで 見えない ときは 追いかけない（前の きまり「距離だけ」は やめた）
+    expect(r.wall.at, `壁ごし: ${r.wall.state}`).toBe(-1);
   });
 
   test('AC14(廃止): おうちは無い。スタート地点の近くにも妖怪は入れる', async ({ page }) => {
