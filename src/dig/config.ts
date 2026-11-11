@@ -181,7 +181,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     taoreta_hashigo_x: 0.5, // MINE-1E: たおれた はしご（すでで 0.5 秒。ほると き 1）
     taoreta_hashigo_z: 0.5,
     takibi_ato: 0.5, // MINE-1E: たきびの あと（すでで 0.5 秒。ほると せきたん 1）
-    makimono: null, // HOUSE-2A: まきものは ほっても こわれない（右クリックで とる。宝箱と 同じ）
+    makimono: 0.5, // HOUSE-2A: まきもの（すでで 0.5 秒。ほると レシピの まきもの 1 こ。右クリックでも とれる）
     ...forChest<number | null>(null), // 宝箱は ほっても こわれない（start_torch と 同じ）
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {

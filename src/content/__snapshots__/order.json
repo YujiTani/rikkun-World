@@ -498,7 +498,8 @@
       "sumi",
       "hemp",
       "kin_tamago",
-      "ishibai"
+      "ishibai",
+      "recipe_scroll"
     ],
     "metal": [
       "iron_ingot",
@@ -896,6 +897,7 @@
     "chalk",
     "ishibai",
     "kabita_pan",
+    "recipe_scroll",
     "table",
     "chair",
     "andon",

@@ -54,6 +54,14 @@ interface DigBuildPort {
   tamp(x: number, y: number, z: number): void;
 }
 
+/** HOUSE-2A（3.3 版）: レシピの まきもの（`house.recipes` が 合う。持ち物を へらして おぼえる のは 家の 係） */
+export interface DigScrollPort {
+  /** 手に もって 右クリック 1 回（押した 最初の ステップに 1 回）。who ＝ 使った 人（1 = 1P・2 = 2P。`chestWho`） */
+  read(who: 1 | 2): void;
+  /** まきものを ほって 手に 入れた（持ち物へ 入った 後・足もとに 落とした 後に 1 回）。「はじめて」の 使い方の テロップ用。持ち主は つなぎ込みが 決める */
+  dug?(): void;
+}
+
 /** M4 の つなぎ目（どれもなくてよい。なければ M2 のとおり） */
 export interface DigM4Deps {
   /** COOP-1 3a: 仲間（もう 1 人）の 足もとの 位置。なければ 仲間は いない。置く とき 仲間の 体と 重なる マスには 置けない */
@@ -116,6 +124,8 @@ export interface DigM4Deps {
   gadgets?: { sleep(): void; kite(): void };
   /** HOUSE-1D: 家具の はたらき（すわる・はいる・ほんだなで ルールブック）。押した 最初の ステップに 1 回。x・y・z は ねらった ブロックの マス */
   furniture?: { use(kind: FurnUse, x: number, y: number, z: number): void };
+  /** HOUSE-2A: レシピの まきもの（右クリックで よむ・ほって 手に 入れた）。なければ 何も しない */
+  scroll?: DigScrollPort;
 }
 
 /** WEAPON-3: さいごに 始めた 攻撃（`attack.last()`） */

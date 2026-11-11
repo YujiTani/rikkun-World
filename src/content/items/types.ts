@@ -56,7 +56,7 @@ export const BLOCK_ONLY_IDS = [
   'taoreta_hashigo_x',
   'taoreta_hashigo_z',
   'takibi_ato',
-  'makimono', // HOUSE-2A: まきもの（持てない。右クリックで レシピを おぼえる）
+  'makimono', // HOUSE-2A: まきもの（持てない。ほると レシピの まきもの `recipe_scroll` 1 こ〔その アイテムの dugFrom〕）
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 

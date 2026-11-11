@@ -144,8 +144,8 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'taoreta_hashigo_x', name: 'たおれた はしご', solid: false, breakable: true },
   { id: 'taoreta_hashigo_z', name: 'たおれた はしご', solid: false, breakable: true },
   { id: 'takibi_ato', name: 'たきびの あと', solid: false, breakable: true },
-  // HOUSE-2A（#364。番号は 後ろに 足す。212）: まきもの。固くない（体が 通る）・こわせない（右クリックで とる）・十字の 板で 描く
-  { id: 'makimono', name: 'まきもの', solid: false, breakable: false },
+  // HOUSE-2A（#364。番号は 後ろに 足す。212）: まきもの。固くない（体が 通る）・右クリックでも ほっても とれる・十字の 板で 描く
+  { id: 'makimono', name: 'まきもの', solid: false, breakable: true },
   // HOUSE-2A（番号は 後ろに 足す。213〜）: まねきねこ（向き × 1 マス。ほかの 家具と 同じ。家具の ならびの まん中に 入れると あとの 番号が ずれる ので ここ）
   ...NEW_FURN_BLOCK_IDS.filter((id) => LATE_FURN.has(furnInfo(id)!.kind)).map(furnBlockType),
 ];

@@ -364,7 +364,7 @@ export interface BucketPort {
 
 /** 右クリックで起きること（`src/dig/rightClick.ts` が 判定。M7-2 で 'fill'・'pour'・'fillHint'・'pet' を 足した） */
 export type RightClickKind =
-  | 'storage' | 'furnace' | 'armor' | 'till' | 'plant' | 'seedHint' | 'eat' | 'place'
+  | 'storage' | 'furnace' | 'armor' | 'till' | 'plant' | 'seedHint' | 'eat' | 'read' | 'place'
   | 'fill' | 'pour' | 'fillHint' | 'pet'
   | 'bucketFill' | 'bucketPlace' | 'bucketHint' | 'bucketNo'
   // LIVE-1

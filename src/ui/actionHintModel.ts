@@ -176,8 +176,9 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
       case 'bath':
         out.right = { icon: 'ofuro', word: 'はいる' };
         break;
+      // HOUSE-2A: レシピの まきもの（もって 右クリック）も 同じ「よむ」。まきものを 持って いる ときは item が まきもの（絵も まきもの）
       case 'read':
-        out.right = { icon: 'shelf', word: 'よむ' };
+        out.right = { icon: right.item ?? 'shelf', word: 'よむ' };
         break;
       // HOUSE-1C PR-2: みずもり（きじゅんを きめる）・どうづき（じがため）。持っている 物の 絵
       case 'level':

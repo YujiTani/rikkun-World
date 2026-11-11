@@ -1525,7 +1525,7 @@
       "solid": false
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "makimono",
       "name": "まきもの",
       "solid": false
@@ -1676,7 +1676,7 @@
       "magma_7": null,
       "magma_takitsubo": 0.5,
       "magma_wakimizu": 1.5,
-      "makimono": null,
+      "makimono": 0.5,
       "maneki": 5,
       "maneki_e": 5,
       "maneki_n": 5,
@@ -2237,6 +2237,7 @@
   ],
   "DUG_ITEM": {
     "diamond_ore": "diamond",
+    "makimono": "recipe_scroll",
     "nendo": "clay",
     "suisho_ore": "crystal"
   },
