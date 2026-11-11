@@ -250,4 +250,11 @@ describe('1 人の とき（AC113）: players が なければ 今の とおり'
     expect(r.bh.last?.who).toBe(1);
     expect(T.hit.hp - r.bh.hp).toBeCloseTo(damageOf('hand', 50, 0), 5);
   });
+
+  it('八咫烏の ほのお（bursts）: 2P の 球は 2P の 当てた ことに なる（last.who = 2）', () => {
+    const { bh, hand } = rig({ players: () => [{ who: 1, sources: {} }, { who: 2, sources: { bursts: () => [{ center: v(hand.c[0]!, hand.c[1]!, hand.c[2]!), radius: 2, damage: 6 }] } }] });
+    bh.step(1 / 60);
+    expect(bh.last?.who).toBe(2);
+    expect(bh.last?.source).toBe('burst');
+  });
 });

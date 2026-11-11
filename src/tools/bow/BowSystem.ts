@@ -16,6 +16,7 @@ import type {
 import { isTenshi } from '../../player/tenshiMove';
 import { raycastBlocks } from '../../dig/raycast';
 import { cellInWall } from '../../world/wall';
+import { hitOnceKey } from '../../combat/ghostIds';
 import { arrowSaved, createSaveRoll, fireBurst, BURST_BACKOFF } from './yatagarasu';
 
 /** WEAPON-2 §4.4（弓）。段・放物線・当たり・ささった や と 拾う。更新は固定ステップ（1/60 秒）。乱数は使わない */
@@ -187,8 +188,9 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
     for (let k = 0; k < hits.length; k++) {
       const yh = hits[k]!;
       if (blockDist !== null && yh.distance >= blockDist) break; // ブロックの 向こうの 体は 当たらない（近い 順）
-      if (hitIds.includes(yh.id)) continue;
-      hitIds.push(yh.id);
+      const once = hitOnceKey(yh.id); // がしゃどくろは 箱ごとに id が ちがう。体 1 つで 1 回
+      if (hitIds.includes(once)) continue;
+      hitIds.push(once);
       const hit = { x: p.x + rayDir.x * yh.distance, y: p.y + rayDir.y * yh.distance, z: p.z + rayDir.z * yh.distance };
       yokai.damage(yh.id, a.damage, { ...lastPos }, { dist: s.bowKnock[a.stage - 1]!, up: 0 });
       emit({ type: 'arrowHit', tick: deps.tick(), yokaiId: yh.id, damage: a.damage, position: hit });
@@ -257,14 +259,14 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
           const dmg = a.damage;
           yokai.damage(yh.id, dmg, { ...lastPos }, { dist: s.bowKnock[st - 1]!, up: 0 });
           emit({ type: 'arrowHit', tick: deps.tick(), yokaiId: yh.id, damage: dmg, position: hit });
-          if (a.burst) emit(fireBurst(deps.world, yokai, hit, hit, yh.id, deps.tick()));
+          if (a.burst) emit(fireBurst(deps.world, yokai, hit, hit, yh.id, deps.tick(), a.damage));
           alive = false;
         } else if (blk && a.burst) {
           // LEGEND-4 八咫烏: ブロックに 当たったら その 点で ほのお。矢は ささらず 消える（ブロックは かえない）
           const hit = { x: p.x + rayDir.x * blk.distance, y: p.y + rayDir.y * blk.distance, z: p.z + rayDir.z * blk.distance };
           const see = { x: hit.x - rayDir.x * BURST_BACKOFF, y: hit.y - rayDir.y * BURST_BACKOFF, z: hit.z - rayDir.z * BURST_BACKOFF };
           emit({ type: 'arrowStick', tick: deps.tick(), position: { ...hit } });
-          emit(fireBurst(deps.world, yokai, hit, see, -1, deps.tick()));
+          emit(fireBurst(deps.world, yokai, hit, see, -1, deps.tick(), a.damage));
           alive = false;
         } else if (blk) {
           const hit = { x: p.x + rayDir.x * blk.distance, y: p.y + rayDir.y * blk.distance, z: p.z + rayDir.z * blk.distance };

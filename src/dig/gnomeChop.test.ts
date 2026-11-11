@@ -9,7 +9,7 @@ import { createDigConfig } from './config';
 import { DigSystemImpl } from './DigSystem';
 import { digTicksWith } from './toolFamily';
 
-/** LEGEND-4 G1・G2・G5（§7.7）: ノームの斧で まるたを 2 マス きる */
+/** LEGEND-4 G1・G2・G5（§7.7・2026-11-12 変更 B）: ノームの斧で 斧が 得意な ブロックを 2 マス きる */
 function rig(held: 'gnome_axe' | 'iron_axe') {
   const world = new ArrayVoxelWorld({ x: 32, y: 32, z: 32 });
   const actions = new ActionState();
@@ -94,5 +94,67 @@ describe('G5 たいきゅう（ほる 分）', () => {
     i.cut();
     expect(g.inv.held()?.wear ?? 0).toBe(i.inv.held()?.wear ?? 0);
     expect(before).toBe(0);
+  });
+});
+
+const at = (r: ReturnType<typeof rig>, x: number, y: number, z: number, id: BlockId) => r.world.setBlock(x, y, z, id);
+
+describe('B 斧が 得意な ブロックは ぜんぶ 2 マス（つながって いる 同じ しゅるい）', () => {
+  it.each(['bamboo', 'kodo_waku', 'saku'] as BlockId[])('%s: 真上が 同じ → 2 つ きれる', (id) => {
+    const g = rig('gnome_axe');
+    column(g, [id, id, id]);
+    g.step(1);
+    g.cut();
+    expect(g.world.getBlock(8, 9, 5)).toBe('air');
+    expect(g.world.getBlock(8, 10, 5)).toBe('air');
+    expect(g.world.getBlock(8, 11, 5)).toBe(id);
+  });
+  it('よこに つながって いても きれる（真上が なければ ねらいの おく）', () => {
+    const g = rig('gnome_axe');
+    at(g, 8, 9, 5, 'kodo_waku');
+    at(g, 9, 9, 5, 'kodo_waku');
+    at(g, 8, 9, 4, 'kodo_waku');
+    g.step(1);
+    g.cut();
+    expect(g.world.getBlock(8, 9, 5)).toBe('air');
+    expect(g.world.getBlock(9, 9, 5)).toBe('air');
+    expect(g.world.getBlock(8, 9, 4)).toBe('kodo_waku');
+  });
+  it('おくが なければ 左右の どちらか 1 つ だけ', () => {
+    const g = rig('gnome_axe');
+    at(g, 8, 9, 5, 'kodo_waku');
+    at(g, 8, 9, 4, 'kodo_waku');
+    at(g, 8, 9, 6, 'kodo_waku');
+    g.step(1);
+    g.cut();
+    const left = [g.world.getBlock(8, 9, 4), g.world.getBlock(8, 9, 6)].filter((b) => b === 'air').length;
+    expect(g.world.getBlock(8, 9, 5)).toBe('air');
+    expect(left).toBe(1);
+  });
+  it('真上が あれば 上が ゆうせん・真下は きらない', () => {
+    const g = rig('gnome_axe');
+    column(g, ['bamboo', 'bamboo']);
+    at(g, 9, 9, 5, 'bamboo');
+    at(g, 8, 8, 5, 'bamboo');
+    g.step(1);
+    g.cut();
+    expect(g.world.getBlock(8, 10, 5)).toBe('air');
+    expect(g.world.getBlock(9, 9, 5)).toBe('bamboo');
+    expect(g.world.getBlock(8, 8, 5)).toBe('bamboo');
+  });
+  it('ちがう しゅるい・つるはしの ブロックは きらない', () => {
+    const g = rig('gnome_axe');
+    column(g, ['stone', 'stone']);
+    at(g, 9, 9, 5, 'stone');
+    g.step(1);
+    g.cut();
+    expect(g.world.getBlock(8, 10, 5)).toBe('stone');
+    expect(g.world.getBlock(9, 9, 5)).toBe('stone');
+    const h = rig('gnome_axe');
+    at(h, 8, 9, 5, 'kodo_waku');
+    at(h, 9, 9, 5, 'log');
+    h.step(1);
+    h.cut();
+    expect(h.world.getBlock(9, 9, 5)).toBe('log');
   });
 });

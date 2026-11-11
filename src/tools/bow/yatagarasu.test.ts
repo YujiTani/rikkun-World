@@ -127,16 +127,16 @@ const STAGE3 = 40;
 const STAGE1 = 10;
 
 describe('Y1 当たった 体は 矢 ＋ ほのお・となりも へる・とおい 体は へらない', () => {
-  it('段 3: A は 矢 10 ＋ 3、B（横 1.5）は 3、C（横 3）は 0', () => {
+  it('段 3: A は 矢 10 ＋ ほのお 10、B（横 1.5）は 10、C（横 3）は 0', () => {
     const r = new Rig();
     r.put(1, 8);
     r.put(2, 8, 1.5);
     r.put(3, 8, 3);
     r.pull(STAGE3);
     r.step(60);
-    expect(r.dmg(1)).toBe(Y.damage[2] + Y.burstDamage);
-    expect(r.dmg(1)).toBe(13);
-    expect(r.dmg(2)).toBe(Y.burstDamage);
+    expect(r.dmg(1)).toBe(Y.damage[2] * 2); // 矢 10 ＋ ほのお 10（ほのおの ダメージ = その 矢の ダメージ）
+    expect(r.dmg(1)).toBe(20);
+    expect(r.dmg(2)).toBe(Y.damage[2]);
     expect(r.dmg(3)).toBe(0);
     expect(r.events('yataBurst')).toHaveLength(1);
     expect(r.events('arrowHit')).toHaveLength(1);
@@ -144,13 +144,13 @@ describe('Y1 当たった 体は 矢 ＋ ほのお・となりも へる・と�
   it.each([
     [1, 4],
     [2, 6],
-  ] as const)('段 %i: 矢の ダメージは 表の %i ＋ ほのお 3', (st, arrow) => {
+  ] as const)('段 %i: 矢の ダメージは 表の %i ＋ ほのお（同じ %i）', (st, arrow) => {
     const r = new Rig();
     r.put(1, 3); // 近い 体（段 1・2 は 矢が 落ちる ので）
     r.pull(st === 1 ? STAGE1 : 25);
     r.step(60);
     expect(Y.damage[st - 1]).toBe(arrow);
-    expect(r.dmg(1)).toBe(arrow + Y.burstDamage);
+    expect(r.dmg(1)).toBe(arrow * 2);
   });
   it('ほのおの ノックバックは [外向き 水平, 上]（ほのおの 点が 押す 元）', () => {
     const r = new Rig();
@@ -172,7 +172,7 @@ describe('Y1 当たった 体は 矢 ＋ ほのお・となりも へる・と�
     r.step(60);
     const ev = r.events('yataBurst')[0]!;
     expect(ev.hits.map((h) => h.id).sort()).toEqual([1, 2]);
-    expect(ev.hits.find((h) => h.id === 1)!.damage).toBe(Y.burstDamage);
+    expect(ev.hits.find((h) => h.id === 1)!.damage).toBe(Y.damage[2]);
   });
 });
 
@@ -201,7 +201,7 @@ describe('Y2 石の かべ: ほのお 1 回・矢は ふえない・ブロック
     r.put(1, 9.5, 1.2); // かべの 手前（矢の 線から はずれて いる 体）
     r.pull(STAGE3);
     r.step(80);
-    expect(r.dmg(1)).toBe(Y.burstDamage);
+    expect(r.dmg(1)).toBe(Y.damage[2]);
   });
 });
 
@@ -223,7 +223,7 @@ describe('Y3 さえぎり・きょり', () => {
       r.put(2, 8, off);
       r.pull(STAGE3);
       r.step(60);
-      expect(r.dmg(2), `横 ${off}`).toBe(Y.burstDamage);
+      expect(r.dmg(2), `横 ${off}`).toBe(Y.damage[2]);
     }
     for (const off of [3.2, 4, 6]) {
       const r = new Rig();

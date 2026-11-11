@@ -5,7 +5,7 @@ import { BURST_FRAMES, createYataModel } from './yatagarasuFxModel';
 
 const Y = LEGEND4_TUNING.yatagarasu;
 const arrow = (id: number, burst = true) => ({ id, position: { x: id, y: 1, z: 0 }, velocity: { x: 10, y: 0, z: 0 }, burst });
-const burstEv = (x: number): BowEvent => ({ type: 'yataBurst', tick: 0, position: { x, y: 1, z: 0 }, hits: [] });
+const burstEv = (x: number): BowEvent => ({ type: 'yataBurst', tick: 0, position: { x, y: 1, z: 0 }, damage: 4, hits: [] });
 
 describe('八咫烏の 見た目の 決まり', () => {
   it('金の 光は 八咫烏の 矢だけ・同時に boltMax 本まで', () => {

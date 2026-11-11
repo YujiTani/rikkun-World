@@ -402,6 +402,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       legend: legend.p2.legend,
       waves: () => legend.p2.waves.list(),
       hammer: () => hammer2?.system.bigHits() ?? [],
+      bow: { peekEvents: () => tools.bow().peekEvents() },
       parry: (h) => parry.hit({ dirDeg: h.dirDeg, by: h.by, yokaiId: null, amount: h.amount }),
       camera: c.camera2(),
       // 4d-0: 2P に 当たった/当てた 止め・ゆれは 2P の 半分の カメラだけ（世界は 止めない）
