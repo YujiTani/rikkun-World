@@ -173,6 +173,9 @@ test.describe('HOUSE-2A 見つけて えらぶ 通し', () => {
     await page.screenshot({ path: `${SHOTS}/found-howto.png` });
     const taken = await page.evaluate(({ id, at }) => ((window as any).__rikkun.mine.shafts(at.x, at.z, at.x, at.z) as ShaftInfo[]).find((q) => q.id === id)?.recipe?.taken, { id: shaft.id, at });
     expect(taken, '拾った').toBe(true);
+    // 拾った まきものは えらんで いる マス（はじめは 左はし）に 入り、そのまま 手に もつ ことに なる。仕様 §2.2 は 手に もって 右クリックで よむ ので、
+    // 「持って いる だけ」を 見る ために 手を 空の マスに うつして から 2 回目を 押す（手に もった まま だと 2 回目で よんで 使われる）
+    await holdNothing(page);
     await rightClick(page);
     await stepUi(page, 40);
     expect(await scrollCount(page), '2 回目は 何も おきない（1 坑道に 1 まい）').toBe(1);

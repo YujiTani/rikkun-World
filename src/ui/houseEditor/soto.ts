@@ -77,7 +77,7 @@ export function buildSoto(ctl: EditorController, press: Press): StepPanel {
   // ばしょの ボタン（絵 ＋ 字）。押すと その ばしょの ポップアップが 開く。かざりは 1 つ おぼえる まで 出ない（出し入れは EditorView が 一覧どおりに）
   const places = el('div', 'ed-places');
   for (const part of PARTS) {
-    const b = btn({ cls: 'ed-place', id: `part-${part}`, html: `<span class="ed-place__art">${placeArt(part)}</span><span class="ed-place__text">${PART_NAME[part]}</span>`, onPress: press });
+    const b = btn({ cls: 'ed-place', id: `part-${part}`, html: `<span class="ed-btn__in ed-place__in"><span class="ed-place__art">${placeArt(part)}</span><span class="ed-place__text">${PART_NAME[part]}</span></span>`, onPress: press });
     b.setAttribute('aria-label', PART_NAME[part]);
     b.style.setProperty('--chars', String([...PART_NAME[part]].length)); // はば ＝ 字の 数 × 24 ＋ 12（字体に よらず 表どおり）
     places.append(b);

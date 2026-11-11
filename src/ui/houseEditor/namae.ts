@@ -65,7 +65,7 @@ export function buildNamae(src: NameSource, press: BtnOpts['onPress']): StepPane
   sufs.append(colShort, colLong);
   side.append(sufs);
   const sufBtns = SUFFIXES.map((suf, i) => {
-    const b = btn({ id: `suffix-${i}`, html: suf, onPress: press });
+    const b = btn({ id: `suffix-${i}`, html: `<span class="ed-btn__in">${suf}</span>`, onPress: press });
     ([...suf].length <= SUFFIX_SHORT ? colShort : colLong).append(b);
     return { b, suf };
   });

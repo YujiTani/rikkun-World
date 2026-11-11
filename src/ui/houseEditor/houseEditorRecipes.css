@@ -15,6 +15,12 @@
 .ed-btn[hidden] {
   display: none !important;
 }
+/* 字を 持つ ボタンの 中身の 箱（dom.ts の btnInner）。1 行・折りかえさない */
+.ed-btn__in {
+  display: block;
+  flex: none;
+  white-space: nowrap;
+}
 /* ボタンの 中の 絵（SVG）。マウスは ボタンに とどく */
 .ed-art {
   display: block;
@@ -29,15 +35,23 @@
   gap: var(--e-fgap);
 }
 .ed-place {
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: 4px;
   height: calc(var(--e-pico) + 40px);
-  /* はば ＝ 字の はば（1 字 24）＋ 左右 4×2 ＋ ふち 2×2 ＝ 字の 数 ×24 ＋ 12、56・64 より 小さく しない。--chars ＝ 字の 数（soto.ts が 入れる） */
-  min-width: max(var(--e-btn), calc(var(--chars, 1) * 24px + 12px));
+  /* はば ＝ 字の はば（1 字 24）＋ 左右 4×2 ＋ ふち 2×2 ＝ 字の 数 ×24 ＋ 12、56・64 より 小さく しない。--chars ＝ 字の 数（soto.ts が 入れる）。
+     字体に よって 字が 25px などに なっても 表の はばの まま（min-width ではなく width で 決める。はみ出す 1〜3px は 左右の あき 4 に おさまる） */
+  width: max(var(--e-btn), calc(var(--chars, 1) * 24px + 12px));
+  min-width: 0;
   padding: 4px;
   font-size: 24px;
   line-height: 24px;
+}
+/* 絵の 下に 字（1 つの 箱に まとめる。印〔✓・あたらしい！〕は ボタンの 右上に 絶対位置） */
+.ed-place__in {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 .ed-place__art {
   display: block;
