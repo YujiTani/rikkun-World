@@ -142,6 +142,17 @@
     "axes | parts | div.wear-gauge__fill",
     "macho-mark | parts | div#hearts",
     "macho-mark-taisho | parts | div#hearts",
-    "natsuki-panel | parts | div#hearts"
+    "natsuki-panel | parts | div#hearts",
+    "duo-* | color | i.pad-badge.*",
+    "duo-* | font | i.pad-badge.*",
+    "duo-* | parts | i.pad-badge.*",
+    "duo-inv-craft | font | b.rk-mouse__letter「L」",
+    "duo-inv-craft | parts | b.rk-mouse__letter「L」",
+    "duo-inv-furnace | font | b.rk-mouse__letter「L」",
+    "duo-inv-furnace | parts | b.rk-mouse__letter「L」"
+  ],
+  "#460 2人の もちもの（つくる・かまど）で 1P の パネルぜんたいが スクロールする（1024×700）": [
+    "duo-inv-craft | scroll | duo-inv-p1",
+    "duo-inv-furnace | scroll | duo-inv-p1"
   ]
 }

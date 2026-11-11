@@ -28,7 +28,7 @@ const {
  * 試作 `src/proto/voxel/meshVoxel.ts`（列ごと）を セクションごとに直したもの:
  * - micro: 小ブロック（9×9×9）の形。greedyShape（同じ種類・同じ光の面を 1 まいにまとめる）と、
  *   小ブロック地形（microSurface の S）。色は 面の向き・ワールドの座標から 16×16 の絵の画素（シェーダー。TEX-A）。
- *   頂点のデータ aData = [ブロックの種類, てっぺんから何小ブロック下か（形の面は 255）, 0, 面の番号]。
+ *   頂点のデータ aData = [種類の 下 8 ビット, てっぺんから何小ブロック下か（形の面は 255）, 角の印 | つぶの 印, 面の番号 | 種類の 上 2 ビット]。
  * - box: 1 マスの箱。絵は 近くと同じ投影。光は面の角のなめらかな平均（今までと同じ）。
  * - 光: micro の面は「面の前のブロックの光」を 1 つ（なめらかにしない）。頂点に aLight（空・ブロック各 1 バイト）として焼く。
  * - 座標は セクションの左下を 0 とした小ブロックの数（Uint16）。mesh.scale = 1/9、mesh.position = セクションの位置で置く。
@@ -77,7 +77,7 @@ export class SectionMesher {
   private readonly scratch = new Uint8Array(LOOK_VOLUME);
   /** 自分のブロックの高さ 0〜16（16 = 地形のとび出し）: 面を作る必要があるか／種類 */
   private readonly active = new Uint8Array(17 * 16 * 16);
-  private readonly kinds = new Uint8Array(17 * 16 * 16);
+  private readonly kinds = new Uint16Array(17 * 16 * 16);
   private readonly mask = new Int32Array(OWN * ROWS_ALL);
   private readonly builder = new QuadBuilder();
   /** まわり 1 ブロックをふくむ 18³ の種類と光 */

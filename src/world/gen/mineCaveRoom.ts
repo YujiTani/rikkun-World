@@ -1,4 +1,5 @@
 import { BLOCK_INDEX, BLOCK_TYPES } from '../blocks/blockTypes';
+import { packOp } from './mineOpPack';
 import { colKey } from '../stream/ring';
 import { CAVE_CONFIG as C, type CaveKind } from './mineCaveConfig';
 import type { LocalShape } from './mineCaveShape';
@@ -68,7 +69,7 @@ export interface BuiltRoom {
   fronts: Set<number>;
 }
 
-const pack = (block: number, y: number, lz: number, lx: number): number => block | (y << 8) | (lz << 17) | (lx << 21);
+const pack = packOp;
 const NAMES = BLOCK_TYPES.map((t) => t.id);
 
 export interface BuildArgs {

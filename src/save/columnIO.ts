@@ -1,6 +1,6 @@
 import type { ChunkColumn } from '../contracts';
 import { NewerFormatError, unpackColumn, type PersistBackend } from './backend';
-import { CHUNK_FORMAT_VERSION, decodeSections, encodeSections, padSections } from './chunkCodec';
+import { decodeSections, encodeSectionsV, padSections } from './chunkCodec';
 import { colKey } from '../world/stream/ring';
 import type { StreamIO } from '../world/stream/ChunkStream';
 
@@ -33,8 +33,8 @@ export interface ColumnIODeps {
 }
 
 export class ColumnIO implements StreamIO {
-  /** ページの中の入れ物: colKey → 縮めた列 */
-  private readonly kept = new Map<number, Uint8Array>();
+  /** ページの中の入れ物: colKey → 縮めた列（バイト列と 書いた 版） */
+  private readonly kept = new Map<number, { raw: Uint8Array; v: number }>();
   /** 数える用 */
   readCalls = 0;
 
@@ -51,10 +51,10 @@ export class ColumnIO implements StreamIO {
 
   read(cx: number, cz: number): ChunkColumn | null | Promise<ChunkColumn | null> {
     const k = colKey(cx, cz);
-    const raw = this.kept.get(k);
-    if (raw !== undefined) {
+    const kept = this.kept.get(k);
+    if (kept !== undefined) {
       try {
-        return { cx, cz, sections: padSections(decodeSections(raw, this.d.nSections, CHUNK_FORMAT_VERSION), this.d.nSections) };
+        return { cx, cz, sections: padSections(decodeSections(kept.raw, this.d.nSections, kept.v), this.d.nSections) };
       } catch {
         this.d.onCorrupt?.(cx, cz);
         return null;
@@ -102,7 +102,7 @@ export class ColumnIO implements StreamIO {
   }
 
   keep(col: ChunkColumn): void {
-    this.kept.set(colKey(col.cx, col.cz), encodeSections(col.sections));
+    this.kept.set(colKey(col.cx, col.cz), encodeSectionsV(col.sections));
   }
 
   canFlush(): boolean {

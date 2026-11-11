@@ -22,8 +22,8 @@ const GROUND = 150;
 const NB6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const;
 
 /** 地面 GROUND の 列: y 0 は そこいし、1〜GROUND−3 は 石、その 上は つち */
-function stoneColumn(): { out: Uint8Array; heights: Int16Array } {
-  const out = new Uint8Array(COL_VOLUME);
+function stoneColumn(): { out: Uint16Array; heights: Int16Array } {
+  const out = new Uint16Array(COL_VOLUME);
   out.fill(BEDROCK, 0, LAYER);
   out.fill(STONE, LAYER, (GROUND - 2) * LAYER);
   out.fill(DIRT, (GROUND - 2) * LAYER, (GROUND + 1) * LAYER);
@@ -35,13 +35,13 @@ const at = (i: number): { x: number; y: number; z: number } => ({ x: i % 16, y: 
 const layerOf = (y: number): string => layerAt(y) ?? 'none';
 /** あさい 層の 下、なかほど 層の 中に ある 低い 地面（マス）。層の 高さを かえたら 下の 見はりが 落ちる */
 const LOW_GROUND = 60;
-const fnv = (a: Uint8Array): number => {
+const fnv = (a: Uint16Array): number => {
   let h = 0x811c9dc5;
   for (let i = 0; i < a.length; i++) h = Math.imul(h ^ a[i]!, 0x01000193);
   return h >>> 0;
 };
 
-function place(seed: number, cx: number, cz: number): { out: Uint8Array; rec: OreCluster[]; before: Uint8Array } {
+function place(seed: number, cx: number, cz: number): { out: Uint16Array; rec: OreCluster[]; before: Uint16Array } {
   const { out, heights } = stoneColumn();
   const before = out.slice();
   const rec: OreCluster[] = [];
@@ -76,7 +76,7 @@ describe('placeMineOres: 置く 場所', () => {
   });
 
   it('石が 少ししか ない 列: 石の 外には 置かない。かたまりは target より 小さく なる', () => {
-    const out = new Uint8Array(COL_VOLUME);
+    const out = new Uint16Array(COL_VOLUME);
     // あさい 層の 中に 2×2×1 の 石の 板だけ（ほかは 空気）
     for (let lz = 5; lz < 7; lz++) for (let lx = 5; lx < 7; lx++) out[(100 * 16 + lz) * 16 + lx] = STONE;
     const before = out.slice();
@@ -93,7 +93,7 @@ describe('placeMineOres: 置く 場所', () => {
   });
 
   it('層の 高さが 地面より 上なら 置かない（地面 60 の 列に あさい 層の せきたんは 出ない）', () => {
-    const out = new Uint8Array(COL_VOLUME);
+    const out = new Uint16Array(COL_VOLUME);
     expect(layerSpan('asai').lo, '地面が あさい 層の 下').toBeGreaterThan(LOW_GROUND);
     expect(layerAt(LOW_GROUND - 1), '地面の 1 つ 下は なかほど 層').toBe('nakahodo');
     out.fill(STONE, LAYER, (LOW_GROUND - 1) * LAYER);
@@ -203,7 +203,7 @@ describe('placeMineOres: 決まった 結果', () => {
   });
 
   it('空気の 列には 何も 置かない', () => {
-    const out = new Uint8Array(COL_VOLUME);
+    const out = new Uint16Array(COL_VOLUME);
     out.fill(AIR);
     placeMineOres(out, 1, 0, 0, new Int16Array(HW * HW).fill(GROUND));
     expect(out.every((b) => b === AIR)).toBe(true);
