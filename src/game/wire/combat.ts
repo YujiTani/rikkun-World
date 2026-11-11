@@ -498,6 +498,7 @@ export function wireFighters(deps: WiredWeapons) {
       partner: () => shared.duoMate()?.position ?? null,
       gadgets: gadgets.port,
       furniture: furniture.port,
+      houseLook: () => shared.house?.book ?? null,
       scroll: createScrollPort(() => shared.house, 1), // HOUSE-2A: レシピの まきもの（もって 右クリックで よむ）
     },
   );

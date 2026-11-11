@@ -1,6 +1,7 @@
 import type { ItemId } from '../contracts';
 import { HOUSE_FURNITURE_IDS, HOUSE_PLAN_IDS, type HouseFurnitureId, type HousePlanId } from '../content/items/ids';
 import type { Rgba } from '../world/blocks/textures';
+import { HOUSE_ITEM_ICONS_16 } from './houseLookItems16.data';
 
 /**
  * HOUSE-1B（#339）新しい 家具（ids.ts の HOUSE_FURNITURE_IDS。テーブル・いす・あんどん・ほんだな・おふろ ほか）と せっけいずの 16x16 アイコン（仮の 絵。
@@ -33,7 +34,7 @@ const PAL: Record<string, number> = {
   r: 0xc0392b, // はんこ
 };
 
-const ROWS: Record<EditorItemId, readonly string[]> = {
+const ROWS: Record<Exclude<EditorItemId, 'maneki'>, readonly string[]> = {
   table: [
     '................',
     '................',
@@ -178,25 +179,6 @@ const ROWS: Record<EditorItemId, readonly string[]> = {
     '................',
     '................',
   ],
-  // 仮の 絵（HOUSE-2A。本番の 絵は HOUSE-2B で かえる）: しろい ねこが 手を あげて いる
-  maneki: [
-    '................',
-    '...OO......OO...',
-    '..OPPO....OPPO..',
-    '..OPPOOOOOOPPO..',
-    '..OPPPPPPPPPPO..',
-    '..OPOPPPPOPPO.O.',
-    '..OPPPPrPPPPOPO.',
-    '..OPPPPPPPPPOPO.',
-    '...OPPQQQQPPOO..',
-    '...OPPQQQQPPO...',
-    '...OPPPPPPPPO...',
-    '...OPPPPPPPPO...',
-    '...OPPPPPPPPO...',
-    '....OOOOOOOO....',
-    '................',
-    '................',
-  ],
   sekkeizu: [
     '................',
     '..OOOOOOOOOOOO..',
@@ -217,12 +199,20 @@ const ROWS: Record<EditorItemId, readonly string[]> = {
   ],
 };
 
+const MANEKI_ITEM: ReadonlySet<string> = new Set(['maneki']);
 const CLEAR: Rgba = [0, 0, 0, 0];
 
 /** 新しい 家具・せっけいずの 16x16（pixels[y * 16 + x]、y = 0 が上） */
 export function houseEditorItemPixels(item: EditorItemId): Rgba[] {
   const out: Rgba[] = [];
-  for (const row of ROWS[item]) {
+  const manekiArt = MANEKI_ITEM.has(item) ? HOUSE_ITEM_ICONS_16.maneki : undefined;
+  if (manekiArt) {
+    // まねきねこ（HOUSE-2B。アートの 案 B の 絵。pal ＋ rows。「.」 ＝ すきま）
+    const art = manekiArt;
+    for (const row of art.rows) for (const ch of row) out.push(art.pal[ch] === undefined ? CLEAR : [parseInt(art.pal[ch]!.slice(1, 3), 16), parseInt(art.pal[ch]!.slice(3, 5), 16), parseInt(art.pal[ch]!.slice(5, 7), 16), 255]);
+    return out;
+  }
+  for (const row of ROWS[item as keyof typeof ROWS]) {
     for (const ch of row) {
       const c = PAL[ch];
       out.push(c === undefined ? CLEAR : [(c >> 16) & 255, (c >> 8) & 255, c & 255, 255]);

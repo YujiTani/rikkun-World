@@ -6,6 +6,7 @@ import { CHALK_FACES, CHALK_NORMAL, chalkInfo, isChalkMarkId } from '../world/bl
 import { chestBlockInfo, chestFrontAt, chestPartner } from '../world/blocks/chestBlock';
 import { futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
+import { isLookBlock } from '../world/blocks/houseLookBlocks';
 import { K_TANSU, doorInfo, furnSiblings, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
 import { ROPE, ROPE_STAKE, isFenceBlock, isRopeBlock, ropeColumn, ropeStakeOf, ropesFor, stakeRope } from '../world/blocks/rope';
 import { tetherOf } from '../world/blocks/ropeTether';
@@ -13,7 +14,7 @@ import { HEMP } from '../craft/recipes';
 import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { hash01, randInt, type Rng } from '../world/gen/random';
 import { DUG_ALWAYS_ONE, FARM_BREAK_DROP, HEMP_DROP, NO_DROP_BLOCKS } from './config';
-import { dropBlockOf, dugItemOf } from './dugItems';
+import { dropBlockOf, dugItemAt, dugItemOf } from './dugItems';
 import { chopAbove } from './gnomeChop';
 import { COOP_BLOCKS, HANGING_SUPPORT, TORCH_NEIGHBORS, type DigCore } from './digCore';
 
@@ -84,9 +85,9 @@ export class BlockBreaker {
     liftFlora(c, x, y + 1, z); // FLORA-75: 下の ブロックを こわすと 上の くさ・のばな も 消える
     liftFloorDeco(c, x, y + 1, z); // MINE-1E: 上の レール・はしご・たきびの あとも 消える（何も 出ない）
     this.dropHangingTsurara(x, y, z); // MINE-1D: 上の ブロックを こわすと 下に さがる つららも こわれる
-    const farmDrop = FARM_BREAK_DROP[t.id] ?? (houseDrop ? { item: houseDrop, count: 1 } : null);
+    const farmDrop = FARM_BREAK_DROP[t.id] ?? (houseDrop || isLookBlock(t.id) ? { item: houseDrop ?? ('log' as ItemId), count: 1 } : null); // 家の ものは いつも 1 こ（しゅるいの アイテムは dropItem で 場所から 引く）
     const fixed = farmDrop ? farmDrop.count : DUG_ALWAYS_ONE.has(dropId) ? 1 : (craft?.fixedDrop(dropId) ?? null);
-    const dropItem: ItemId = dugItemOf(t.id);
+    const dropItem: ItemId = dugItemAt(c.m4.houseLook?.(), t.id, x, y, z); // HOUSE-2B: 家の 記録の しゅるい（なければ いつもの）
     const max = Math.max(1, c.config.dropMax[c.config.rarity[dropId]] ?? 1);
     const n = NO_DROP_BLOCKS.has(dropId) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
     const got = n - c.inventory.add(dropItem, n);

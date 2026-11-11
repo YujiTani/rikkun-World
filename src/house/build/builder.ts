@@ -4,7 +4,8 @@
 import type { BlockId, Vec3 } from '../../contracts';
 import type { Blueprint } from '../editor/blueprint';
 import { makePlan, stageCounts, type BuildPlan, type PlanBlueprint, type PlanCell } from './plan';
-import { KEEP_OUT, NO_SPAWN_RADIUS } from './tuning';
+import { NO_SPAWN_RADIUS } from './tuning';
+import { houseBox } from '../shape';
 import { buildWord } from './words';
 
 interface BuilderWorld {
@@ -68,7 +69,16 @@ function parsePlanBp(raw: unknown): ActiveBuild['bp'] | null {
   const r = raw as Record<string, unknown> | null;
   if (!r || typeof r !== 'object' || !Number.isInteger(r.w) || !Number.isInteger(r.d) || !Number.isInteger(r.windows) || !Array.isArray(r.furniture)) return null;
   const n = r.name as Record<string, unknown> | null;
-  return { w: r.w as Blueprint['w'], d: r.d as Blueprint['d'], windows: r.windows as number, furniture: (r.furniture as Blueprint['furniture']).map((p) => ({ ...p })), name: { front: String(n?.front ?? ''), back: String(n?.back ?? '') } };
+  // HOUSE-2B: やね・かべ・まど・と・かざり・あかりも のこす（古い 保存には ない → いつもの 物）
+  const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
+  const kinds: Partial<Pick<Blueprint, 'roof' | 'wall' | 'windowKind' | 'door' | 'deco' | 'light'>> = {};
+  if (str(r.roof)) kinds.roof = r.roof as Blueprint['roof'];
+  if (str(r.wall)) kinds.wall = r.wall as Blueprint['wall'];
+  if (str(r.windowKind)) kinds.windowKind = r.windowKind as Blueprint['windowKind'];
+  if (str(r.door)) kinds.door = r.door as Blueprint['door'];
+  if (str(r.light)) kinds.light = r.light as Blueprint['light'];
+  if (Array.isArray(r.deco) && r.deco.every((k) => typeof k === 'string')) kinds.deco = [...(r.deco as Blueprint['deco'])];
+  return { w: r.w as Blueprint['w'], d: r.d as Blueprint['d'], windows: r.windows as number, furniture: (r.furniture as Blueprint['furniture']).map((p) => ({ ...p })), name: { front: String(n?.front ?? ''), back: String(n?.back ?? '') }, ...kinds };
 }
 
 export class HouseBuilder {
@@ -152,7 +162,7 @@ export class HouseBuilder {
     const b = this.cur;
     if (!b) return false;
     const a = b.at;
-    return x >= a.x && x < a.x + b.bp.w + 2 && z >= a.z && z < a.z + b.bp.d + 2 && y >= a.y && y <= a.y + KEEP_OUT.levels;
+    return x >= a.x && x < a.x + b.bp.w + 2 && z >= a.z && z < a.z + b.bp.d + 2 && y >= a.y && y <= a.y + houseBox(b.bp).h - 1; // 家の 箱の 高さまで（やね・かざりで かわる）
   }
 
   /** プレイヤーが 歩いて 入れない マス（箱の 中の 床の 上の 段） */

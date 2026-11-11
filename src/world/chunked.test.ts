@@ -127,7 +127,7 @@ describe('セクションの 3 つの形', () => {
     const w = new ChunkedVoxelWorld({ x: 32, y: 40, z: 32 });
     w.fill(2, 1, 3, 30, 35, 20, 'dirt');
     w.setBlock(31, 39, 31, 'log');
-    const out = new Uint8Array(32 * 40 * 32);
+    const out = new Uint16Array(32 * 40 * 32);
     w.fillFlat(out, 32, 32);
     for (let y = 0; y < 40; y += 3) for (let z = 0; z < 32; z++) for (let x = 0; x < 32; x++) expect(out[(y * 32 + z) * 32 + x]).toBe(w.getIndex(x, y, z));
     expect(out[(39 * 32 + 31) * 32 + 31]).toBe(blockIndexOf('log'));

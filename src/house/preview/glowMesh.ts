@@ -23,7 +23,7 @@ export const doorSpot = (s: { w: number; d: number }): GlowSpot => ({ wall: DOOR
 
 /**
  * 光らせる 部分の 名前 → あなの 場所（HOUSE-2A）。まど・はなだん ＝ 窓 ぜんぶ、と・のれん ＝ 戸。
- * やね・かべ・えんとつ・しゃちほこ・あかりは 光る 形（絵）が まだ 無い ので なし（名前だけ glow.parts に 出る。形は HOUSE-2B）
+ * やね・かべ・えんとつ・しゃちほこ・あかりは 光る あなが 無い ので なし（名前だけ glow.parts に 出る。見本の しゅるいの 形は mesh.ts〔HOUSE-2B〕）
  */
 export function partSpots(part: string, cells: readonly WindowCell[], size: { w: number; d: number }): GlowSpot[] {
   if (part === 'window' || part === 'hanadan') return cells.map((c) => windowSpot(c, 1));

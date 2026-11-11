@@ -1,3 +1,4 @@
+import type { LookAt } from './dugItems';
 import type { FurnUse } from '../world/blocks/furnUse';
 import type {
   AnimalApi,
@@ -126,6 +127,8 @@ export interface DigM4Deps {
   furniture?: { use(kind: FurnUse, x: number, y: number, z: number): void };
   /** HOUSE-2A: レシピの まきもの（右クリックで よむ・ほって 手に 入れた）。なければ 何も しない */
   scroll?: DigScrollPort;
+  /** HOUSE-2B: ほった 場所の 家の しゅるいを 引く 家の 記録（ほると その しゅるいの アイテム）。なければ 今までの ほった アイテム */
+  houseLook?: () => LookAt | null;
 }
 
 /** WEAPON-3: さいごに 始めた 攻撃（`attack.last()`） */

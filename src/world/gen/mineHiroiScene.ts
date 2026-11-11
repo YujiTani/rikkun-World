@@ -1,4 +1,5 @@
 import { BLOCK_INDEX } from '../blocks/blockTypes';
+import { packOp } from './mineOpPack';
 import { colKey } from '../stream/ring';
 import type { RoomColOps } from './mineCaveRoom';
 import type { HiroiLayout } from './mineHiroiShape';
@@ -9,7 +10,7 @@ import { HIROI_SHAPE } from './mineHiroiTable';
  * 出口の 両がわの 床に たいまつを 1 本ずつ 置く。くらべ用（plain）は 同じ たまご・天井・出口で 柱・天井の こぶ・床の こぶ・鉱石 なし。
  */
 
-const pack = (block: number, y: number, lz: number, lx: number): number => block | (y << 8) | (lz << 17) | (lx << 21);
+const pack = packOp;
 
 /** くらべ用: 柱・こぶ・床の こぶを けして、天井は たまごの まま */
 export function plainLayout(l: HiroiLayout): HiroiLayout {

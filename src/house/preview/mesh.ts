@@ -13,6 +13,8 @@ import type { FurnRot } from '../../world/blocks/houseBlocks';
 import { doorIndex, footprint, plainFurniture, windowCells, type EditorState, type Placed } from '../editor/model';
 import { K_FUTON, K_KOTATSU } from '../editor/furniture';
 import { DOOR_TOP_Y, DOOR_WALL, HEIGHT, ROOF_Y, WALLS, WINDOW_Y, type Wall } from '../editor/tuning';
+import { houseShape } from '../shape';
+import { lookPieces, type LookCtx } from '../../world/render/houseLookPieces';
 import { OPENING, PREVIEW } from './tuning';
 
 export type PreviewMode = 'outside' | 'inside';
@@ -63,6 +65,35 @@ function appendMain(dst: MeshData, src: MeshData): void {
   dst.faceCount += src.faceCount;
 }
 
+/** 家の しゅるいの ブロック 1 マスを 見本に 足す（世界と 同じ 面。x・y・z ＝ 見本の 座標〔中の 床の 左上が 0・0〕。光は 昼と 同じ、自分で 光る 面は 世界と 同じ） */
+function pushLookAt(m: MeshData, x: number, y: number, z: number, id: string, ctx: LookCtx): void {
+  for (const p of lookPieces(id, ctx)) {
+    const base = m.positions.length / 3;
+    const [r, g, b] = p.rgb ?? [1, 1, 1];
+    for (let i = 0; i < 4; i++) {
+      m.positions.push(x + p.pos[i * 3]!, y + p.pos[i * 3 + 1]!, z + p.pos[i * 3 + 2]!);
+      m.uvs.push(p.uv[i * 2]!, p.uv[i * 2 + 1]!);
+      m.colors.push(p.shade * r, p.shade * g, p.shade * b);
+      m.lights.push(p.sky ?? 1, p.blk ?? 0);
+      m.darks.push(0);
+    }
+    m.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    m.faceCount++;
+  }
+}
+
+/** 建つ 家の しゅるいの ブロック（家の 箱の 外から 2 マス… いつもの 物は のぞく）を 場所ごとに 返す。見本の 座標は 家の 箱から (−1, −1) ずらす */
+function lookCells(s: EditorState): Array<{ x: number; y: number; z: number; id: string; ctx: LookCtx }> {
+  const shape = houseShape({ ...s, furniture: [] });
+  let h = 0;
+  for (const c of shape.cells) h = Math.max(h, c.y + 1);
+  const out: Array<{ x: number; y: number; z: number; id: string; ctx: LookCtx }> = [];
+  for (const c of shape.cells) {
+    if (c.id.startsWith('lk_')) out.push({ x: c.x - 1, y: c.y, z: c.z - 1, id: c.id, ctx: { look: c.look ?? '', rx: c.x, ry: c.y, rz: c.z, ow: shape.outerW, od: shape.outerD, h } });
+  }
+  return out;
+}
+
 // ------------------------------------------------------------ 地面・ゆか
 
 function buildBase(s: EditorState, w: number, d: number, mode: PreviewMode): MeshData {
@@ -94,10 +125,14 @@ function buildBase(s: EditorState, w: number, d: number, mode: PreviewMode): Mes
   }
   if (mode === 'inside') {
     for (const p of plainFurniture(s)) pushFurniture(m, p); // 赤い 家具は 見本に 出さない（建つ 形 だけ。1E）
-    // 天井の まん中の ちょうちん（1 つ。はずせない）
-    const tmp = emptyMesh();
-    pushProp(tmp, (w - 1) / 2, ROOF_Y - 1, (d - 1) / 2, 'lantern', 1, 1);
-    appendMain(m, tmp);
+    // 天井の まん中の あかり（1 つ。はずせない）。ちょうちん ＝ いつもの 形、ほたるいし・すいしょうは 家の しゅるいの 形
+    const lamp = lookCells(s).find((c) => c.id.startsWith('lk_light_'));
+    if (lamp) pushLookAt(m, lamp.x, lamp.y, lamp.z, lamp.id, lamp.ctx);
+    else {
+      const tmp = emptyMesh();
+      pushProp(tmp, (w - 1) / 2, ROOF_Y - 1, (d - 1) / 2, 'lantern', 1, 1);
+      appendMain(m, tmp);
+    }
   }
   return m;
 }
@@ -172,13 +207,28 @@ function pushOpening(m: MeshData, c: WallCell, level: number, kind: OpenKind, mo
   if (mode === 'inside') pushPlate(m, c, level, 'in', OPENING.shojiAt + OPENING.shojiThick / 2, 'house_shoji');
 }
 
+/** かべ なしの とき でも 残る マス（戸は いつもの 戸の ときだけ ここ。てつの とは 家の しゅるいの ブロックで 出る） */
+function kindOpening(s: EditorState, c: WallCell, level: number): boolean {
+  return c.wall === DOOR_WALL && c.i === doorIndex(s) && level <= DOOR_TOP_Y;
+}
+
 function buildWall(s: EditorState, wall: Wall, w: number, d: number, mode: PreviewMode): MeshData {
   const m = emptyMesh();
   const open = openingAt(s);
+  const looks = new Map<string, ReturnType<typeof lookCells>[number]>();
+  for (const l of lookCells(s)) if (l.y < ROOF_Y) looks.set(`${l.x},${l.y},${l.z}`, l);
   const indexOf = (wl: Wall, x: number, z: number): number => (wl === 'front' || wl === 'back' ? x : z);
   for (const c of ringCells(wall, w, d)) {
     for (let level = HEIGHT.floor; level < ROOF_Y; level++) {
+      // HOUSE-2B: 家の しゅるいの ブロック（かべ・まど・と・かざり・柱）は 世界と 同じ 面を 出す。かべ なしの すき間は 何も 出さない
+      const lk = looks.get(`${c.x},${level},${c.z}`);
+      if (lk) {
+        pushLookAt(m, c.x, level, c.z, lk.id, lk.ctx);
+        continue;
+      }
+      if (s.wall === 'none' && !(kindOpening(s, c, level))) continue;
       const kind = open(wall, c.i, level);
+      if (kind === 'window' && s.windowKind === 'none') continue; // まど なし: 窓の マスは あな
       if (kind) {
         pushOpening(m, c, level, kind, mode);
         continue;
@@ -208,8 +258,10 @@ function buildWall(s: EditorState, wall: Wall, w: number, d: number, mode: Previ
   return m;
 }
 
-function buildRoof(w: number, d: number): MeshData {
+function buildRoof(s: EditorState, w: number, d: number): MeshData {
   const m = emptyMesh();
+  for (const l of lookCells(s)) if (l.y >= ROOF_Y) pushLookAt(m, l.x, l.y, l.z, l.id, l.ctx); // ななめの やね・やねの 上の かざり
+  if (s.roof !== 'flat') return m;
   for (let z = -1; z <= d; z++) {
     for (let x = -1; x <= w; x++) {
       pushFaceAt(m, x, ROOF_Y, z, FACES[0]!, 'house_roof_top');
@@ -296,6 +348,13 @@ export function buildPreview(s: EditorState, mode: PreviewMode): PreviewParts {
   const { w, d } = s;
   const walls = {} as Record<Wall, MeshData>;
   for (const wall of WALLS) walls[wall] = buildWall(s, wall, w, d, mode);
-  const roof = mode === 'outside' ? buildRoof(w, d) : emptyMesh();
+  const roof = mode === 'outside' ? buildRoof(s, w, d) : emptyMesh();
   return { base: buildBase(s, w, d, mode), walls, roof, w, d };
+}
+
+/** 見本 1 コマで レンダラーに 出す 描画の 数（光りは のぞく）。かざり・やね・まどは 箱ごとに 描かず 材料の 絵〔ひとつの メッシュ〕に まとめる ので、地面（base）・かべ 4 まい・やねの 6 つが 上限 */
+export function previewDrawCalls(s: EditorState, mode: PreviewMode): number {
+  const p = buildPreview(s, mode);
+  const parts = [p.base, p.roof, ...WALLS.map((wl) => p.walls[wl])];
+  return parts.filter((m) => m.faceCount > 0).length;
 }

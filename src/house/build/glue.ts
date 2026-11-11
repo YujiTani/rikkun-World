@@ -3,7 +3,7 @@
 import type { BlockId, ItemId, Vec3 } from '../../contracts';
 import { isVanishingFlora } from '../../world/blocks/flora';
 import { isLeafId } from '../../world/blocks/blockTypes';
-import { recordHouse, writeShape } from '../shape';
+import { houseBox, recordHouse, writeShape } from '../shape';
 import type { HouseBook } from '../book';
 import type { Blueprint } from '../editor/blueprint';
 import { houseBuildTicks, needBonusOf, type NeedRow } from '../editor/model';
@@ -15,7 +15,7 @@ import { BuildFlow, doorOffset, type FlowPlan } from './flow';
 import { LevelTool } from './level';
 import { findSites, type Site } from './sites';
 import { Dozuki } from './tamp';
-import { EVICT, HAMMER_HEAR_RANGE, KEEP_OUT, SITE, buildingSay, toolKindOf } from './tuning';
+import { EVICT, HAMMER_HEAR_RANGE, SITE, buildingSay, toolKindOf } from './tuning';
 
 /** 音・演出の 知らせ（wire/house.ts が 鳴らす）。hammer は 戸から HAMMER_HEAR_RANGE 以内の ときだけ 来る */
 /** recipe・recipeAll ＝ レシピを おぼえた（HOUSE-2A。最後の 1 まいは recipeAll）。音は 仮に 今ある 音を かりる（本番は HOUSE-2B） */
@@ -102,7 +102,7 @@ export class BuildGlue {
     const p = this.d.player();
     const a = this.builder.active();
     const used = a ? [{ x: a.at.x, y: a.at.y, z: a.at.z, w: a.bp.w + 2, d: a.bp.d + 2 }] : [];
-    return findSites(this.d.world, Math.floor(p.x), this.floorY(), Math.floor(p.z), bp.w + 2, bp.d + 2, doorOffset(bp), used);
+    return findSites(this.d.world, Math.floor(p.x), this.floorY(), Math.floor(p.z), bp.w + 2, bp.d + 2, doorOffset(bp), used, 400, houseBox(bp).h);
   }
 
   // ------------------------------------------------------------ 建築のはじまり
@@ -122,11 +122,12 @@ export class BuildGlue {
     const outD = bp.d + 2;
     const doorX = site.x + doorOffset(bp);
     // 草花は 消える（箱の 中と 戸の 前）
-    for (let h = 1; h <= KEEP_OUT.levels; h++) for (let z = 0; z < outD; z++) for (let x = 0; x < outW; x++) if (isVanishingFlora(w.getBlock(site.x + x, site.y + h, site.z + z))) w.setBlock(site.x + x, site.y + h, site.z + z, 'air');
+    const boxH = houseBox(bp).h; // 家の 箱の 高さ（やね・かざりで かわる）
+    for (let h = 1; h <= boxH - 1; h++) for (let z = 0; z < outD; z++) for (let x = 0; x < outW; x++) if (isVanishingFlora(w.getBlock(site.x + x, site.y + h, site.z + z))) w.setBlock(site.x + x, site.y + h, site.z + z, 'air');
     for (let h = 1; h <= SITE.doorFrontClear; h++) if (isVanishingFlora(w.getBlock(doorX, site.y + h, site.z + outD))) w.setBlock(doorX, site.y + h, site.z + outD, 'air');
     for (const r of rows) if (r.need > 0) this.d.consume(r.item, r.need);
     // 中に いる 物を 外（戸の 前の、しらべた 列から 近い 立てる 所）へ
-    const box = { x0: site.x, z0: site.z, x1: site.x + outW, z1: site.z + outD, y0: site.y + 1, y1: site.y + KEEP_OUT.levels + 1 };
+    const box = { x0: site.x, z0: site.z, x1: site.x + outW, z1: site.z + outD, y0: site.y + 1, y1: site.y + boxH };
     const spots = this.outSpots(box, doorX, site.z + outD, site.y + 1);
     // 箱の 中に いる 人は 1P も 2P も 外へ（1P は 一覧の 1 番目、2P は 2 番目。1 つしか なければ 同じ 所）
     for (const who of [1, 2] as const) {

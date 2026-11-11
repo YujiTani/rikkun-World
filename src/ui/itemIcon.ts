@@ -20,6 +20,7 @@ import { bucketItemPixels, isBucketItem } from './bucketArt';
 import { axeItemPixels, isAxeItem } from './itemArtBal';
 import { isTakoItem, takoItemPixels } from './itemArtTako';
 import { isMineItem, mineItemPixels } from './itemArtMine';
+import { houseLookItemPixels, isHouseLookItem } from './itemArtHouseLooks';
 import { tansuPixels } from '../storage/tansuArt';
 import { atlasIconUrl } from './iconAtlas';
 import { BLOCK_TILES, TILE_SIZE, getTilePixels, type Rgba, type TileName } from '../world/blocks/textures';
@@ -50,6 +51,7 @@ export function itemIconPixels(item: ItemId): Pixels {
   if (isHouseToolItem(item)) return houseToolPixels(item); // HOUSE-1A: 仮の 絵
   if (isHouseEditorItem(item)) return houseEditorItemPixels(item); // HOUSE-1B: 新しい 家具・せっけいず（仮の 絵）
   if (isHouseBlockItem(item)) return houseBlockItemPixels(item); // HOUSE-1C: 家の ブロック 5 つ
+  if (isHouseLookItem(item)) return houseLookItemPixels(item); // HOUSE-2B: 家の しゅるい（アートの ボタンの 絵を 縮める）
   if (isKongoItem(item)) return kongoItemPixels(item);
   if (isLive3Item(item)) return live3ItemPixels(item);
   if (isW7Item(item)) return w7ItemPixels(item);

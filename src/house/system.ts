@@ -500,7 +500,7 @@ export class HouseSystem {
 
   /** マス 1 つの ようす（ほると 手に 入る アイテム・家具の 向き） */
   blockAt(x: number, y: number, z: number): CellInfo {
-    return cellInfo(this.d.world.getBlock(x, y, z));
+    return cellInfo(this.d.world.getBlock(x, y, z), this.book, x, y, z);
   }
 
   // ------------------------------------------------------------ 建築（HOUSE-1C PR-2。窓口 level・sites・cursor・building・firstBonus・celebrate）

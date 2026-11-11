@@ -41,7 +41,7 @@ describe('高さ 352 でも入れ物が動く', () => {
   it('hash は全マスを読み、fillFlat は全高さを写す', () => {
     const w = new ChunkedVoxelWorld({ x: 16, z: 16 });
     w.setBlock(1, 300, 2, 'log');
-    const out = new Uint8Array(16 * 352 * 16);
+    const out = new Uint16Array(16 * 352 * 16);
     w.fillFlat(out, 16, 16);
     expect(out.filter((v) => v !== 0).length).toBe(1);
     expect(w.hash().endsWith(`-${16 * 352 * 16}`)).toBe(true);
