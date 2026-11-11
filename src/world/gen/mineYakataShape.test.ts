@@ -53,7 +53,7 @@ describe('F2: やかたの 標本', () => {
     expect(SEEDS_20.length).toBe(20);
     expect(rows.length, 'やかたが ない').toBeGreaterThan(0);
     for (const l of LOOKS) expect(count(rows, l), `${l} の やかた`).toBeGreaterThanOrEqual(PER_LOOK);
-    expect(new Set(rows.map((r) => r.shaft.id)).size, '同じ 坑道を 2 回 数えて いない').toBe(rows.length);
+    expect(new Set(rows.map((r) => `${r.seed}:${r.shaft.id}`)).size, '同じ 坑道を 2 回 数えて いない').toBe(rows.length);
     for (const r of rows) {
       expect(r.shaft.gen, `${tag(r)} は 1E の 坑道`).toBe('e');
       expect(r.shaft.style?.depth, `${tag(r)} は ふかい 坑道`).toBe('fukai');

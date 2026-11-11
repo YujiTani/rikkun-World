@@ -352,7 +352,10 @@ export function lightProblemsF(g: GenCols, s: YakataShaft, T: YakataTable): stri
     if (isSolidIndex(g.at(c.x, c.y, c.z))) continue;
     need(c, '大広間の 床');
   }
-  for (const c of rectCells(y.altar)) need(c, '祭壇の 下の 段');
+  for (const c of rectCells(y.altar)) {
+    if (isSolidIndex(g.at(c.x, c.y, c.z))) continue; // 祭壇の 上の 段の 固い ブロックは 光 0。立てる マス〔固くない 所〕だけ 見る
+    need(c, '祭壇の 下の 段');
+  }
   for (const c of rectCells(upperRect(y, T))) {
     if (y.chest.cells.some((q) => q.x === c.x && q.z === c.z)) continue;
     need(c, '祭壇の 上の 段');
