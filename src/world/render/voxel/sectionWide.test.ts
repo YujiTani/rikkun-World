@@ -90,8 +90,8 @@ function runBox(cells: [number, number, number, number][]): Call[] {
   const cube = fakeCube(cells);
   const world = { size: { x: 16, y: 16, z: 16 }, getIndex: () => 0 };
   const mask = new Int32Array(K.S * 4);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  new BoxMesher(world as any, cube as any, b, mask).mesh();
+  type Args = ConstructorParameters<typeof BoxMesher>;
+  new BoxMesher(world as unknown as Args[0], cube as unknown as Args[1], b, mask).mesh();
   return calls;
 }
 

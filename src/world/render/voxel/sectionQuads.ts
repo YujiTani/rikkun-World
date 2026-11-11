@@ -6,12 +6,17 @@ const { FACE_VERTS } = K;
 export interface VoxelPiece {
   /** セクションの中の小ブロック座標 */
   positions: Uint16Array;
-  /** aData = [ブロックの種類, 地形の横の面の行の符号（255 = 世界の高さで決める）, 0, 面の番号] */
+  /** aData = [種類の 下 8 ビット, 地形の横の面の行の符号（255 = 世界の高さで決める）, 角の印 | つぶの 印, 面の番号 | 種類の 上 2 ビット（ビット 3〜4）]。種類は pieceKind で読む（10 ビット） */
   data: Uint8Array;
   /** aLight = [空の光, ブロックの光]（0〜255。255 = 15 を 17 倍） */
   light: Uint8Array;
   indices: Uint16Array | Uint32Array;
   vertexCount: number;
+}
+
+/** 頂点 v の ブロックの 種類（0〜1023）。aData.x が 下 8 ビット、aData.w の ビット 3〜4 が 上 2 ビット */
+export function pieceKind(piece: Pick<VoxelPiece, 'data'>, vertex: number): number {
+  return piece.data[vertex * 4] | ((piece.data[vertex * 4 + 3] >> 3) << 8);
 }
 
 /** 四角を貯める入れもの（大きくなったら 倍にひろげる） */
@@ -74,11 +79,11 @@ export class QuadBuilder {
       this.pos[p++] = v[0] ? x1 : x0;
       this.pos[p++] = v[1] ? y1 : y0;
       this.pos[p++] = v[2] ? z1 : z0;
-      this.dat[d++] = d0;
+      this.dat[d++] = d0 & 255;
       this.dat[d++] = d1;
       // 角の印（x, y, z の どちら側か: ビット 0, 1, 2）。シェーダーが 面の中で ごく少し ひろげて 面どうしの つぎ目の 空の色を ふさぐ
       this.dat[d++] = v[0] | (v[1] << 1) | (v[2] << 2) | d2;
-      this.dat[d++] = f | flag;
+      this.dat[d++] = f | flag | ((d0 >> 8) << 3); // 面の番号は 下の 3 ビット（0〜5）。種類の 上 2 ビットは ビット 3〜4
       if (lights) {
         this.lit[l++] = lights[i * 2];
         this.lit[l++] = lights[i * 2 + 1];
