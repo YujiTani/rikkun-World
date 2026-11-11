@@ -108,6 +108,7 @@
   "e2e/seethru.spec.ts": 196,
   "e2e/shadow1.spec.ts": 267,
   "e2e/shadow2.spec.ts": 535,
+  "e2e/sight1.spec.ts": 40,
   "e2e/smoke.spec.ts": 132,
   "e2e/sound1.spec.ts": 121,
   "e2e/start1.spec.ts": 143,
