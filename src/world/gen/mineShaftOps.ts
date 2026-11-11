@@ -1,4 +1,5 @@
 import { BLOCK_INDEX } from '../blocks/blockTypes';
+import { packOp } from './mineOpPack';
 import { colKey } from '../stream/ring';
 import { keyX, keyY, keyZ } from './mineShaftBuild';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
@@ -20,8 +21,8 @@ export interface ColOps {
   put: Int32Array;
 }
 
-/** パック: block | y << 8 | lz << 17 | lx << 21 */
-const pack = (block: number, y: number, lz: number, lx: number): number => block | (y << 8) | (lz << 17) | (lx << 21);
+/** パック（並びは mineOpPack.ts） */
+const pack = packOp;
 
 const AIR_BLOCK = BLOCK_INDEX.air;
 const STONE_BLOCK = BLOCK_INDEX.stone;

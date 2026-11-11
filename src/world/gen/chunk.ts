@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, SEA_Y, SECTION_SIZE, WORLD_HEIGHT, type BlockId, type ChunkColumn, type SectionData } from '../../contracts';
+import { CHUNK_SIZE, SEA_Y, SECTION_SIZE, WORLD_HEIGHT, type BlockArray, type BlockId, type ChunkColumn, type SectionData } from '../../contracts';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { SECTION_VOLUME, compactSection, sectionToArray, uniformSection } from '../sections';
 import { COL_VOLUME, HW, LAYER } from './columnLayout';
@@ -39,11 +39,11 @@ const LEAF_BLOCK = { leaves: BLOCK_INDEX.leaves, momiji_leaves: BLOCK_INDEX.momi
 
 const N_SECTIONS = WORLD_HEIGHT / SECTION_SIZE;
 
-const scratch = new Uint8Array(COL_VOLUME);
+const scratch = new Uint16Array(COL_VOLUME);
 
 export interface BuiltChunk {
   /** ブロックの並び（作業用の入れもの。使いおわるまで次の build をしない） */
-  blocks: Uint8Array;
+  blocks: BlockArray;
   /** 高さの地図（18×18。(lz+1)*18 + (lx+1)） */
   heights: Int16Array;
 }
@@ -58,7 +58,7 @@ function caveLimit(h: number): number {
   return h <= SEA_Y - 1 ? h - C.caves.seaGap : h - C.caves.topGap;
 }
 
-function carveCaves(out: Uint8Array, T: Terrain, x0: number, z0: number, H: Int16Array): void {
+function carveCaves(out: BlockArray, T: Terrain, x0: number, z0: number, H: Int16Array): void {
   const K = C.caves;
   const limit = new Int16Array(LAYER);
   let top = -1;
@@ -164,7 +164,7 @@ function tri(c: number[], fx: number, fy: number, fz: number): number {
 const airFrom = (h: number): number => (h < SEA_Y ? SEA_Y + 1 : h + 1);
 
 /** O4・O5: 空気に面した いし（山・崖の面）の 4% が せきたん、y ≥ SEA_Y+40 では 1.5% が てつ */
-function placeVisibleOres(out: Uint8Array, T: Terrain, x0: number, z0: number, H: Int16Array): void {
+function placeVisibleOres(out: BlockArray, T: Terrain, x0: number, z0: number, H: Int16Array): void {
   const O = C.ores;
   const sV = subSeed(T.seed, 602);
   for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -192,7 +192,7 @@ function placeVisibleOres(out: Uint8Array, T: Terrain, x0: number, z0: number, H
 /** 四角（x0, z0, x1, z1。両はし ふくむ）の どれかに (x, z) が 入るか */
 const inRects = (rs: readonly (readonly [number, number, number, number])[], x: number, z: number): boolean => rs.some((r) => x >= r[0] && x <= r[2] && z >= r[1] && z <= r[3]);
 
-function placeTrees(out: Uint8Array, T: Terrain, x0: number, z0: number, skip?: readonly (readonly [number, number, number, number])[]): void {
+function placeTrees(out: BlockArray, T: Terrain, x0: number, z0: number, skip?: readonly (readonly [number, number, number, number])[]): void {
   // 大木のはっぱは みきから 4 マスまで出る
   let trees = treesInRect(T, x0 - 5, z0 - 5, x0 + CHUNK_SIZE + 4, z0 + CHUNK_SIZE + 4);
   if (skip && skip.length > 0) trees = trees.filter((t) => !inRects(skip, t.x, t.z));
@@ -261,7 +261,7 @@ function placeTrees(out: Uint8Array, T: Terrain, x0: number, z0: number, skip?: 
 }
 
 /** 草の上の はな・すすき・たけ・くさ・のばな（木の後。空気のところだけ） */
-function placePlants(out: Uint8Array, T: Terrain, cx: number, cz: number, H: Int16Array, skip?: readonly (readonly [number, number, number, number])[]): void {
+function placePlants(out: BlockArray, T: Terrain, cx: number, cz: number, H: Int16Array, skip?: readonly (readonly [number, number, number, number])[]): void {
   const x0 = cx * CHUNK_SIZE;
   const z0 = cz * CHUNK_SIZE;
   // はな・すすき・たけ、そのあと くさ・のばな（先にある物が かち: 空気のところだけ）
@@ -389,7 +389,7 @@ export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCl
 }
 
 /** 地層（S2〜S5）。h = 高さ、rock = 岩山の列。y < from の分は もう いしなので書かない。top = 陸の上のブロック（くさ・すな・ゆき・いし） */
-export function writeStrata(out: Uint8Array, lx: number, lz: number, h: number, rock: boolean, from: number, top: BlockId = 'grass'): void {
+export function writeStrata(out: BlockArray, lx: number, lz: number, h: number, rock: boolean, from: number, top: BlockId = 'grass'): void {
   const S = C.strata;
   const base = lz * CHUNK_SIZE + lx;
   const lo = Math.max(1, from);
@@ -415,7 +415,7 @@ export function writeStrata(out: Uint8Array, lx: number, lz: number, h: number, 
 }
 
 /** ブロックの並びを 22 個のセクションにする（1 種類だけのセクションは uniform） */
-export function toSections(blocks: Uint8Array): SectionData[] {
+export function toSections(blocks: BlockArray): SectionData[] {
   const sections: SectionData[] = new Array<SectionData>(N_SECTIONS);
   for (let sy = 0; sy < N_SECTIONS; sy++) {
     const o = sy * SECTION_VOLUME;

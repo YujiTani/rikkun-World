@@ -1,4 +1,5 @@
-import type { SectionData } from '../contracts';
+import type { BlockArray, SectionData } from '../contracts';
+import { MAX_BLOCK_KINDS } from './blocks/maxBlockKinds';
 
 /** セクション 1 つのマス数（16³） */
 export const SECTION_VOLUME = 4096;
@@ -20,10 +21,10 @@ export function sectionGet(s: SectionData, i: number): number {
   return s.palette[(i & 1) === 0 ? byte & 15 : byte >> 4];
 }
 
-/** 全マスを 4,096 B に広げた配列（full ならそのもの。書きかえると中身が変わる） */
-export function sectionToArray(s: SectionData): Uint8Array {
+/** 全マスを 4,096 マス（8,192 B）に広げた配列（full ならそのもの。書きかえると中身が変わる） */
+export function sectionToArray(s: SectionData): BlockArray {
   if (s.kind === 'full') return s.data;
-  const out = new Uint8Array(SECTION_VOLUME);
+  const out = new Uint16Array(SECTION_VOLUME);
   if (s.kind === 'uniform') {
     if (s.block !== 0) out.fill(s.block);
     return out;
@@ -48,7 +49,7 @@ export function sectionSet(s: SectionData, i: number, b: number): SectionData {
   }
   if (s.kind === 'uniform') {
     if (s.block === b) return s;
-    const data = new Uint8Array(SECTION_VOLUME);
+    const data = new Uint16Array(SECTION_VOLUME);
     if (s.block !== 0) data.fill(s.block);
     data[i] = b;
     return { kind: 'full', data };
@@ -56,11 +57,11 @@ export function sectionSet(s: SectionData, i: number, b: number): SectionData {
   let p = s.palette.indexOf(b);
   if (p < 0) {
     if (s.palette.length >= 16) {
-      const full = sectionToFull(s) as { data: Uint8Array };
+      const full = sectionToFull(s) as { data: BlockArray };
       full.data[i] = b;
       return { kind: 'full', data: full.data };
     }
-    const palette = new Uint8Array(s.palette.length + 1);
+    const palette = new Uint16Array(s.palette.length + 1);
     palette.set(s.palette);
     palette[s.palette.length] = b;
     p = s.palette.length;
@@ -75,7 +76,7 @@ export function sectionSet(s: SectionData, i: number, b: number): SectionData {
 export function compactSection(s: SectionData): SectionData {
   if (s.kind === 'uniform') return s;
   const arr = sectionToArray(s);
-  const seen = new Uint8Array(256);
+  const seen = new Uint8Array(MAX_BLOCK_KINDS);
   const kinds: number[] = [];
   for (let i = 0; i < SECTION_VOLUME; i++) {
     const b = arr[i];
@@ -86,16 +87,16 @@ export function compactSection(s: SectionData): SectionData {
     }
   }
   if (kinds.length === 1) return { kind: 'uniform', block: kinds[0] };
-  const pos = new Uint8Array(256);
+  const pos = new Uint8Array(MAX_BLOCK_KINDS);
   kinds.forEach((b, k) => (pos[b] = k));
   const packed = new Uint8Array(SECTION_VOLUME / 2);
   for (let i = 0; i < SECTION_VOLUME; i += 2) packed[i >> 1] = pos[arr[i]] | (pos[arr[i + 1]] << 4);
-  return { kind: 'palette', palette: Uint8Array.from(kinds), packed };
+  return { kind: 'palette', palette: Uint16Array.from(kinds), packed };
 }
 
 /** メモリの目安（バイト） */
 export function sectionBytes(s: SectionData): number {
   if (s.kind === 'uniform') return 1;
-  if (s.kind === 'palette') return s.palette.length + s.packed.length;
-  return s.data.length;
+  if (s.kind === 'palette') return s.palette.length * 2 + s.packed.length;
+  return s.data.length * 2;
 }

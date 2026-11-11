@@ -4,6 +4,7 @@ import {
   WORLD_HEIGHT,
   WORLD_LIMIT,
   WORLD_SIZE,
+  type BlockArray,
   type BlockId,
   type ChunkColumn,
   type LoadedBounds,
@@ -605,7 +606,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
    * 原点から (sx, size.y, sz) の四角の全ブロック番号を、平らな番号 (y * sz + z) * sx + x で out に写す
    * （テスト用。保存は VOX-F から さわった列だけを書くので、これは使わない。読みこんでいない所は書きかえない）
    */
-  fillFlat(out: Uint8Array, sx: number, sz: number): void {
+  fillFlat(out: BlockArray, sx: number, sz: number): void {
     fillFlat(this.columns, this.size.y, out, sx, sz);
   }
 

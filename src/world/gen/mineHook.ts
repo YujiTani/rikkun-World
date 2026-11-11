@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, WORLD_HEIGHT, type BlockId, type VoxelWorld } from '../../contracts';
+import { CHUNK_SIZE, WORLD_HEIGHT, type BlockArray, type BlockId, type VoxelWorld } from '../../contracts';
 import { createYokaiConfig } from '../../yokai/ai/config';
 import { isUnderground } from '../../yokai/ai/terrain';
 import { BLOCK_INDEX, BLOCK_TYPES, blockIdFromIndex } from '../blocks/blockTypes';
@@ -77,7 +77,7 @@ const IS_ORE = BLOCK_TYPES.map((t) => MINE_CONFIG.ores.some((r) => r.block === t
 type Faces = [Uint8Array, Uint8Array, Uint8Array, Uint8Array];
 
 interface Col {
-  blocks: Uint8Array;
+  blocks: BlockArray;
   /** 18×18 の 高さの 地図 */
   heights: Int16Array;
   faces: Faces;
