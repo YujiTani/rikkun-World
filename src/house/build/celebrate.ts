@@ -22,6 +22,11 @@ export class HouseCelebrate {
     this.text = `${name} が できた！`;
   }
 
+  /** 紙ふぶきだけ +1（帯は 出さない。レシピを ぜんぶ おぼえた とき。HOUSE-2A） */
+  bump(): void {
+    this.confetti++;
+  }
+
   /** 1 ステップ（帯の 時間） */
   step(): void {
     if (this.ticks > 0) this.ticks--;

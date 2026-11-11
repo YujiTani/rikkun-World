@@ -2,12 +2,19 @@
 // 画面の ボタンも 窓口も 同じ ここを 通る ので、画面と 窓口が くい違わない。ボタンの 一覧は buttons.ts。
 import type { EditorController } from './controller';
 import { editorButtons } from './buttons';
-import { FURN_ORDER, K_LANTERN, isFurnKind } from './furniture';
+import { PARTS, type Part } from '../recipes/kinds';
+import { FURN_ORDER, isFurnKind } from './furniture';
 import { KANA_CHARS, toKatakana } from './model';
-import { ROOF_KINDS, SIZES, SUFFIXES, WINDOW_KINDS, type Rot } from './tuning';
+import { SIZES, SUFFIXES, type Rot } from './tuning';
 
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
 const isRot = (v: unknown): v is Rot => v === 0 || v === 1 || v === 2 || v === 3;
+const isPart = (v: unknown): v is Part => typeof v === 'string' && (PARTS as readonly string[]).includes(v);
+
+/** edit の op 名 → ① の ばしょ（まどだけ op 名が ばしょの 名前と ちがう） */
+const OP_PART = { roof: 'roof', wall: 'wall', windowKind: 'window', door: 'door', deco: 'deco' } as const satisfies Record<string, Part>;
+/** ボタンの id の 前半 → ① の ばしょ（`<ばしょ>-<kind>`。古い `windowKind-` も まどの ボタン） */
+const ID_PART: Readonly<Record<string, Part>> = { roof: 'roof', wall: 'wall', window: 'window', windowKind: 'window', door: 'door', deco: 'deco' };
 
 /** 窓口 `edit(op)`（仕様 §6.1）。できたら true。形の ちがう op・知らない op は false */
 export function editOp(ctl: EditorController, raw: unknown): boolean {
@@ -22,12 +29,16 @@ export function editOp(ctl: EditorController, raw: unknown): boolean {
     }
     case 'windows':
       return (o.delta === 1 || o.delta === -1) && ctl.windows(o.delta);
-    case 'windowKind':
-      return WINDOW_KINDS.some((k) => k === o.kind) && ctl.setWindowKind(o.kind as (typeof WINDOW_KINDS)[number]);
     case 'roof':
-      return ROOF_KINDS.some((k) => k === o.kind) && ctl.setRoof(o.kind as (typeof ROOF_KINDS)[number]);
+    case 'wall':
+    case 'windowKind':
+    case 'door':
+    case 'deco':
+      return typeof o.kind === 'string' && ctl.setKind(OP_PART[o.op], o.kind);
+    case 'popup':
+      return (o.part === null || isPart(o.part)) && ctl.setPopup(o.part);
     case 'place':
-      return isFurnKind(o.kind) && isInt(o.x) && isInt(o.z) && (o.rot === undefined || isRot(o.rot)) && ctl.place(o.kind, o.x, o.z, (o.rot ?? 0) as Rot);
+      return isFurnKind(o.kind) && ctl.recipes.furnOk(o.kind) && isInt(o.x) && isInt(o.z) && (o.rot === undefined || isRot(o.rot)) && ctl.place(o.kind, o.x, o.z, (o.rot ?? 0) as Rot);
     case 'remove':
       return isInt(o.x) && isInt(o.z) && ctl.remove(ctl.indexAt(o.x, o.z));
     case 'rotate':
@@ -43,10 +54,7 @@ export function editOp(ctl: EditorController, raw: unknown): boolean {
       return true;
     }
     case 'light':
-      // ちょうちんは はずせない（何も かわらない）。ふきだしだけ
-      if (o.kind !== K_LANTERN) return false;
-      ctl.lightTouched();
-      return false;
+      return typeof o.kind === 'string' && ctl.setLight(o.kind);
     case 'char':
       return typeof o.ch === 'string' && ctl.char(o.ch);
     case 'erase':
@@ -62,9 +70,11 @@ export function editOp(ctl: EditorController, raw: unknown): boolean {
   }
 }
 
-/** ボタンの id に 値まで 入れた 形へ（仕様 §6.1 の 2 引数の 形 press('windowKind', 'shoji') も 同じ ボタン） */
+/** ボタンの id に 値まで 入れた 形へ（仕様 §6.1 の 2 引数の 形 press('roof', 'kawara_mura')・press('part', 'roof')・press('light', 'hotaru') も 同じ ボタン。まどは 'windowKind' でも 'window' でも） */
 function normalize(id: string, arg: unknown): string {
-  return (id === 'windowKind' || id === 'roof') && typeof arg === 'string' ? `${id}-${arg}` : id;
+  if (typeof arg !== 'string') return id;
+  if (id === 'windowKind') return `window-${arg}`;
+  return id === 'part' || id === 'light' || id in ID_PART ? `${id}-${arg}` : id;
 }
 
 /** 数字 1 つ を 後ろに 持つ id（width-7 → 7） */
@@ -95,7 +105,7 @@ export function pressEditor(ctl: EditorController, rawId: string, arg?: unknown)
     case 'take': return ctl.takeSelected();
     case 'turnRight': return ctl.turnSelected('right');
     case 'turnLeft': return ctl.turnSelected('left');
-    case 'light': ctl.lightTouched(); return true;
+    case 'popupClose': return ctl.setPopup(null);
     case 'windowsDown': return ctl.windows(-1);
     case 'windowsUp': return ctl.windows(1);
     case 'dakuten': return ctl.mark('dakuten');
@@ -109,10 +119,14 @@ export function pressEditor(ctl: EditorController, rawId: string, arg?: unknown)
     const n = Number(size);
     return SIZES.some((x) => x === n) && ctl.setSize(id.startsWith('width-') ? { w: n } : { d: n });
   }
-  const kind = tail(id, 'windowKind-');
-  if (kind !== null) return WINDOW_KINDS.some((k) => k === kind) && ctl.setWindowKind(kind as (typeof WINDOW_KINDS)[number]);
-  const roof = tail(id, 'roof-');
-  if (roof !== null) return ROOF_KINDS.some((k) => k === roof) && ctl.setRoof(roof as (typeof ROOF_KINDS)[number]);
+  const open = tail(id, 'part-');
+  if (open !== null) return isPart(open) && ctl.setPopup(open);
+  const light = tail(id, 'light-');
+  if (light !== null) return ctl.setLight(light);
+  for (const [head, part] of Object.entries(ID_PART)) {
+    const kind = tail(id, `${head}-`);
+    if (kind !== null) return ctl.setKind(part, kind);
+  }
   const furn = tail(id, 'furniture-');
   if (furn !== null) {
     const k = FURN_ORDER.find((x) => x === furn);

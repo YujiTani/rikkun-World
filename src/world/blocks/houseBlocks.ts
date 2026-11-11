@@ -49,6 +49,7 @@ export const FURN_LEN = {
   table: 2,
   ofuro: 2,
   long_table: 3,
+  maneki: 1, // HOUSE-2A（#364）。いちばん 後ろ（blockTypes.ts の LATE_FURN と 同じ 順に ならべる ため）
 } as const;
 export type FurnBlockKind = keyof typeof FURN_LEN;
 export const FURN_BLOCK_KINDS = Object.keys(FURN_LEN) as readonly FurnBlockKind[];

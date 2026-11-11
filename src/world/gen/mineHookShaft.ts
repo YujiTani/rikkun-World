@@ -3,6 +3,7 @@ import { itemDef } from '../../content/items/registry';
 import { RARITY_ORDER } from '../../drops/rarityTable';
 import { BOKEN_GEN, HEYA_GEN, KODO_GEN, SAVE_GEN } from '../../save/gens';
 import { EMISSION } from '../light/opacity';
+import { isMakimonoId } from '../blocks/blockTypes';
 import { chestBlockId, chestBlockInfo, chestFrontAt, chestPartner, type ChestCompass } from '../blocks/chestBlock';
 import { terrainFor } from './terrain';
 import { colKey } from '../stream/ring';
@@ -32,6 +33,8 @@ export interface ChestPorts {
   telop(item: ItemId): void;
   /** あけた 出来事〔実績〕 */
   opened(tier: Tier): void;
+  /** HOUSE-2A: レシピを 1 まい 見つけた（坑道の いちばん 下の へやの 宝箱を はじめて あけた・まきものを とった とき 1 回だけ。at ＝ shaft.recipe の マス）。持ち物は 使わない */
+  recipe?(at: { x: number; y: number; z: number }): void;
 }
 
 export interface ChestAtInfo {
@@ -43,7 +46,7 @@ export interface ChestAtInfo {
   front: ChestCompass;
 }
 
-type ChestWorld = Pick<VoxelWorld, 'getBlock'> & Partial<Pick<VoxelWorld, 'setBlock'>>;
+type ChestWorld = Pick<VoxelWorld, 'getBlock'> & Partial<Pick<VoxelWorld, 'setBlock' | 'isLoaded'>>;
 
 export interface ShaftHookOptions {
   seed: number;
@@ -116,7 +119,27 @@ export function createShaftHook(o: ShaftHookOptions) {
     return p ? previewOf(p.table, p.tier, p.main) : null;
   }
 
+  /** その 坑道の レシピが もう とられて いるか（いきている 世界を 読む。まきものは 世界の 列が 読みこまれて いて ブロックが 消えて いる とき。読みこまれて いなければ false） */
+  function recipeTaken(r: Shaft['recipe']): boolean {
+    const w = o.world;
+    if (!w) return false;
+    if (r.kind === 'chest') return chestBlockInfo(w.getBlock(r.x, r.y, r.z))?.open === true;
+    return (w.isLoaded?.(r.x, r.z) ?? true) && !isMakimonoId(w.getBlock(r.x, r.y, r.z));
+  }
+
+  /** まきものを とる（右クリック）: ブロックを 消して レシピを 1 まい。持ち物は 使わない。まきものでなければ false */
+  function openScroll(x: number, y: number, z: number): boolean {
+    if (!o.world || !isMakimonoId(o.world.getBlock(x, y, z))) return false;
+    o.world.setBlock?.(x, y, z, 'air');
+    o.chest?.recipe?.({ x, y, z });
+    return true;
+  }
+
   function open(x: number, y: number, z: number): void {
+    const bx = Math.floor(x);
+    const by = Math.floor(y);
+    const bz = Math.floor(z);
+    if (openScroll(bx, by, bz)) return;
     const at = chestAt(x, y, z);
     if (!at || !o.chest) return;
     if (at.opened) {
@@ -137,11 +160,20 @@ export function createShaftHook(o: ShaftHookOptions) {
     }
     if (top && top.r >= SUPER) o.chest.telop(top.item);
     o.chest.opened(at.tier);
+    if (at.table === 'kodo') o.chest.recipe?.({ x: at.main.x, y: at.main.y, z: at.main.z }); // いちばん 下の へやの 宝箱だけ レシピの わくが 1 つ（横穴の 先の 宝箱には ない）
+  }
+
+  /** 坑道の 計画に、いきている 世界から taken を 足して 返す（計画は かえない） */
+  function withTaken(s: Shaft): Shaft {
+    return { ...s, recipe: { ...s.recipe, taken: recipeTaken(s.recipe) } };
   }
 
   return {
-    shafts: (x0: number, z0: number, x1: number, z1: number): Shaft[] => world().shafts(x0, z0, x1, z1),
-    startShaft: (): Shaft | null => world().start()?.plan.shaft ?? null,
+    shafts: (x0: number, z0: number, x1: number, z1: number): Shaft[] => world().shafts(x0, z0, x1, z1).map(withTaken),
+    startShaft: (): Shaft | null => {
+      const s = world().start()?.plan.shaft;
+      return s ? withTaken(s) : null;
+    },
     shaftPath: (id: string): PathCell[] => world().path(id),
     shaftRolls: (x0: number, z0: number, x1: number, z1: number): ShaftRoll[] => world().rolls(x0, z0, x1, z1),
     chestAt,

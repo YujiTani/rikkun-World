@@ -560,7 +560,7 @@ function callHouse<T>(page: Page, name: 'previewDrag' | 'previewWheel' | 'hover'
 export const previewDrag = (page: Page, dx: number, dy: number): Promise<{ angle: number; pitch: number }> => callHouse(page, 'previewDrag', [dx, dy]);
 /** 窓口 previewWheel(dx, dy): 今の 見本の 上で wheel（deltaX・deltaY px）を 1 回 うけた のと 同じ。step は 進めない */
 export const previewWheel = (page: Page, dx: number, dy: number): Promise<{ angle: number; pitch: number }> => callHouse(page, 'previewWheel', [dx, dy]);
-/** 窓口 hover(id | null): その ボタンに マウスを のせた のと 同じ（null で はなす）。id は DOM の ボタンの id（'windowsUp'・'windowsDown'・'windowKind-shoji'）。step は 進めない */
+/** 窓口 hover(id | null): その ボタンに マウスを のせた のと 同じ（null で はなす）。id は DOM の ボタンの id（'windowsUp'・'windowsDown'・2A 以降は ポップアップの しゅるいの ボタン 'window-shoji'・'roof-kawara_shiro' など）。step は 進めない */
 export const hover = (page: Page, id: string | null): Promise<void> => callHouse(page, 'hover', [id]);
 
 /** edit(op) を 呼ぶだけ（step を 進めない）。光り・回る コマ数を ぴったり 数えたい とき（edit は 1 コマ 進める） */
@@ -1262,7 +1262,7 @@ export async function layoutTableIssues(page: Page, kind: EditorScreen): Promise
     }, testid);
 
   if (kind === 'soto' || kind === 'bubbleSoto') {
-    for (const b of bs.filter((x) => /^(width|depth)-\d$|^windows(Up|Down)$|^windowKind-|^roof-/.test(x.id))) {
+    for (const b of bs.filter((x) => /^(width|depth)-\d$|^windows(Up|Down)$|^(window|roof|wall|door|deco)-/.test(x.id))) {
       if (!near(b.rect.h, LAYOUT.mainBtn[col]!)) group('① の ボタン', `${b.id} 高さ ${b.rect.h.toFixed(1)}px（表は ${LAYOUT.mainBtn[col]}px）`);
     }
     const pv = await box('editor-preview');

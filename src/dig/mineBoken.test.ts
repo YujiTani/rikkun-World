@@ -106,7 +106,7 @@ describe('E12: 新しい ブロックの 値', () => {
 
   it('1E で 足した id は 10 こ 以下・合計は 256 以下', () => {
     expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1D, '1E で 足した id').toBeGreaterThanOrEqual(ROWS.length);
-    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1D, '1E で 足した id').toBeLessThanOrEqual(10);
+    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1D, '1E で 足した id').toBeLessThanOrEqual(10 + 5); // 5 ＝ HOUSE-2A（#364）が 後ろに 足した まきもの 1 ＋ まねきねこ 4（向き）
     expect(BLOCK_TYPES.length).toBeLessThanOrEqual(256);
   });
 });

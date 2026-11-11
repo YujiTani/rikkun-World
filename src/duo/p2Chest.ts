@@ -34,6 +34,8 @@ export function createChestHands(d: {
 export interface ChestRouter {
   /** fn の あいだだけ「あける 人」を who にする。おわったら（fn が 例外でも）1 に もどす */
   run(who: 1 | 2, fn: () => void): void;
+  /** いま あけて いる 人（`run` の あいだだけ 1 か 2。それ以外は 1。まきもの〔HOUSE-2A〕の 持ち主を 決める） */
+  who(): 1 | 2;
   add(item: ItemId, count: number): number;
   drop(item: ItemId, count: number): void;
   /** 2P が あけた ときは 1P の ログ・画面に 出さない（2P の ログは 出さない。§13） */
@@ -54,6 +56,7 @@ export function createChestRouter(d: { hands: (who: 1 | 2) => ChestHands; say(te
         who = 1;
       }
     },
+    who: () => who,
     add: (item, count) => d.hands(who).add(item, count),
     drop: (item, count) => d.hands(who).drop(item, count),
     say(text) {

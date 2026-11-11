@@ -115,9 +115,10 @@ export type HouseToolId = (typeof HOUSE_TOOL_IDS)[number];
 /**
  * 新しい 鉱物から 作る 物（MINE-1B #349。置けない アイテム 2 つ）: チョーク（かべ・ゆかに やじるしを かく）・いしばい（作物を すぐ みのらせる）。
  * MINE-1E: かびた パン〔`kabita_pan`。たべもの。キャンプあとの たんす だけ〕も ここ。
+ * HOUSE-2A（#364）: レシピの まきもの〔`recipe_scroll`。坑道の いちばん 下の へやで みつかる。手に もって 右クリックで 家の レシピを 1 つ おぼえる〕も ここ。
  * せっかいせき・しっくい・ほたるいし・きんの いしは 置ける ブロックなので BlockId 側（contracts/world.ts）に ある。ITEM_TYPES では 家づくりの 道具の 次
  */
-const MINE_ITEM_IDS = ['chalk', 'ishibai', 'kabita_pan'] as const;
+const MINE_ITEM_IDS = ['chalk', 'ishibai', 'kabita_pan', 'recipe_scroll'] as const;
 export type MineItemId = (typeof MINE_ITEM_IDS)[number];
 /** 名前で 読む（`MINE_ITEM.chalk`）。コードの 中で id を 文字で 書かずに 済む（id は 上の 表の 1 回だけ） */
 export const MINE_ITEM = Object.fromEntries(MINE_ITEM_IDS.map((id) => [id, id])) as { readonly [K in MineItemId]: K };
@@ -126,7 +127,7 @@ export const MINE_ITEM = Object.fromEntries(MINE_ITEM_IDS.map((id) => [id, id]))
  * 家の 新しい 家具（HOUSE-1B #339。案 A「ごつごつの くりの 木」。2.4 で ながい テーブル・まるい テーブル・まるいす〔stool〕を 足した。
  * 置いて ブロックに なるのは HOUSE-1C、はたらきは HOUSE-1D）。ITEM_TYPES では MINE-1B の 次
  */
-export const HOUSE_FURNITURE_IDS = ['table', 'chair', 'andon', 'shelf', 'ofuro', 'long_table', 'round_table', 'stool'] as const;
+export const HOUSE_FURNITURE_IDS = ['table', 'chair', 'andon', 'shelf', 'ofuro', 'long_table', 'round_table', 'stool', 'maneki'] as const;
 export type HouseFurnitureId = (typeof HOUSE_FURNITURE_IDS)[number];
 
 /** せっけいず（HOUSE-1B #339。1 マスに 1 こ。中身〔形・名前・番号〕は 1 こずつ 持つ）。ITEM_TYPES では 新しい 家具の 次 */

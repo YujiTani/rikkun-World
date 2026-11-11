@@ -18,7 +18,8 @@ import { Dozuki } from './tamp';
 import { EVICT, HAMMER_HEAR_RANGE, KEEP_OUT, SITE, buildingSay, toolKindOf } from './tuning';
 
 /** 音・演出の 知らせ（wire/house.ts が 鳴らす）。hammer は 戸から HAMMER_HEAR_RANGE 以内の ときだけ 来る */
-export type HouseSfx = { k: 'level' } | { k: 'dozuki'; hard: boolean } | { k: 'start' } | { k: 'hammer' } | { k: 'done' };
+/** recipe・recipeAll ＝ レシピを おぼえた（HOUSE-2A。最後の 1 まいは recipeAll）。音は 仮に 今ある 音を かりる（本番は HOUSE-2B） */
+export type HouseSfx = { k: 'level' } | { k: 'dozuki'; hard: boolean } | { k: 'start' } | { k: 'hammer' } | { k: 'done' } | { k: 'recipe' } | { k: 'recipeAll' };
 
 type BuildWorld = HouseWorld & { setBlock(x: number, y: number, z: number, id: BlockId): boolean };
 

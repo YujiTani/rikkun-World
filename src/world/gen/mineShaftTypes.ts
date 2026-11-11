@@ -43,6 +43,17 @@ interface ShaftChest {
   front: Compass;
   tier: Tier;
 }
+/**
+ * HOUSE-2A（#364）レシピ（坑道の いちばん 下の へやに 1 つ。仕様 HOUSE-2 §2.1）。宝箱の ある 坑道は 宝箱の わく 1 つ（kind 'chest'。場所 ＝ 宝箱の 本体の マス）、
+ * ない 坑道は へやの おくの かべに そった まん中の 床の まきもの（kind 'scroll'。宝箱が 置かれる マス）。taken は いきている 世界を 読んで 答える（計画の 時は false）
+ */
+interface ShaftRecipe {
+  kind: 'chest' | 'scroll';
+  x: number;
+  y: number;
+  z: number;
+  taken: boolean;
+}
 export interface Shaft {
   id: string;
   start: boolean;
@@ -50,6 +61,8 @@ export interface Shaft {
   mound: { x: number; z: number; top: number; width: number } | null;
   room: { x0: number; y: number; z0: number; x1: number; z1: number };
   chest: ShaftChest | null;
+  /** HOUSE-2A: どの 坑道にも 1 つ */
+  recipe: ShaftRecipe;
   sides: ShaftSide[];
   box: { x0: number; z0: number; x1: number; z1: number };
   /** 1E: 坑道の 作り〔1C・1D の 坑道は 'c'〕 */

@@ -91,7 +91,7 @@ describe('AC56 窓が かわった ようす（openingChange。見本の 光る 
 describe('AC13（2.4）13 しゅるいの 大きさと 向き', () => {
   const SIZE_BY_KIND = {
     furnace: [1, 1], tansu: [1, 1], nukunuku: [2, 2], futon: [1, 2], table: [2, 1], long_table: [3, 1], round_table: [1, 1],
-    chair: [1, 1], stool: [1, 1], andon: [1, 1], shelf: [1, 1], ofuro: [2, 1], haniwa: [1, 1],
+    chair: [1, 1], stool: [1, 1], andon: [1, 1], shelf: [1, 1], ofuro: [2, 1], haniwa: [1, 1], maneki: [1, 1],
   } as const;
 
   it('13 しゅるい ぜんぶ 9×9 の 左上に 置ける。大きさは 表の とおり（ながい テーブルは 3×1、みぎに まわすと 1×3）', () => {
@@ -254,7 +254,10 @@ describe('AC9・AC10 ひつような もの（外装 ＋ 窓 ＋ 家具）', () 
     ];
     const rows = needOf({ w: 5, d: 5, windows: 0, furniture }, () => 0);
     expect(rows.map((r) => [r.item, r.need])).toEqual([['log', 24 + 6 + 2 + 2], ['stone', 25], ['clay', 2]]);
-    const all = needOf({ w: 9, d: 9, windows: 1, furniture: FURN_ORDER.map((kind, i) => ({ kind, x: 0, z: i % 8, rot: 0 })) }, () => 0);
+    // 2A（#364）: まねきねこ（ねんど・きん）は レシピの 家具。1 版の 13 しゅるいの 材料の 並びは かわらない
+    const first13 = FURN_ORDER.filter((kind) => (kind as string) !== 'maneki');
+    expect(first13).toHaveLength(13);
+    const all = needOf({ w: 9, d: 9, windows: 1, furniture: first13.map((kind, i) => ({ kind, x: 0, z: i % 8, rot: 0 })) }, () => 0);
     expect(all.map((r) => r.item), '13 しゅるい ぜんぶ で 10 しゅるい').toEqual(['log', 'stone', 'paper', 'cloth', 'string', 'iron_ingot', 'grass', 'torch', 'oil', 'clay']);
   });
 

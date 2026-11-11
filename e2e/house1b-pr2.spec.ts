@@ -682,18 +682,27 @@ test.describe('HOUSE-1B PR-2 窓と 戸の 光り', () => {
     await stepUi(page, 600);
     expect((await previewOf(page)).builds, 'はなした あと 600 コマで 作りなおさない').toBe(b2);
 
-    // ---- 光る ボタンは windowsDown・windowsUp・windowKind だけ
-    for (const id of ['windowsDown', 'windowKind-shoji']) {
-      await hover(page, id);
-      await stepUi(page, 1);
-      p = await previewOf(page);
-      expect(p.glow, `${id} に のせると 窓が ぜんぶ 光る`).toMatchObject({ door: false, left: null });
-      expect(cellKeys(p.glow!.cells), `${id}: 光る マス`).toEqual(cells);
-      await hover(page, null);
-      await stepUi(page, 2);
-      expect((await previewOf(page)).glow, `${id}: はなすと 消える`).toBeNull();
-    }
-    for (const id of ['next', 'width-7', 'depth-9', 'roof-flat', 'undo']) {
+    // ---- 光る ボタンは windowsDown・windowsUp と、ポップアップの 窓の しゅるいの ボタン（window-shoji）
+    await hover(page, 'windowsDown');
+    await stepUi(page, 1);
+    p = await previewOf(page);
+    expect(p.glow, 'windowsDown に のせると 窓が ぜんぶ 光る').toMatchObject({ door: false, left: null });
+    expect(cellKeys(p.glow!.cells), 'windowsDown: 光る マス').toEqual(cells);
+    await hover(page, null);
+    await stepUi(page, 2);
+    expect((await previewOf(page)).glow, 'windowsDown: はなすと 消える').toBeNull();
+    await clickBtn(page, 'part-window'); // 2A（3 版）: しゅるいの ボタンは ポップアップの 中
+    await hover(page, 'window-shoji');
+    await stepUi(page, 1);
+    p = await previewOf(page);
+    expect(p.glow, 'window-shoji に のせると 窓が ぜんぶ 光る').toMatchObject({ door: false, left: null });
+    expect(cellKeys(p.glow!.cells), 'window-shoji: 光る マス').toEqual(cells);
+    await hover(page, null);
+    await stepUi(page, 2);
+    expect((await previewOf(page)).glow, 'window-shoji: はなすと 消える').toBeNull();
+    await clickBtn(page, 'popupClose');
+    // 2A: やねの しゅるい（roof-flat）に のせると やねが 光る ので、窓の 光りが 出ない ボタンから はずした（やねの 光りは e2e/house2.spec.ts）
+    for (const id of ['next', 'width-7', 'depth-9', 'undo']) {
       await hover(page, id);
       await stepUi(page, 2);
       expect((await previewOf(page)).glow, `${id} に のせても 光らない`).toBeNull();

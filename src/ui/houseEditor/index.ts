@@ -3,8 +3,10 @@
 // ボタンは どれも 窓口 press(id) と 同じ 道（house/editor/ops.ts）を 通る。見えるか・押せるかは editor/buttons.ts の 一覧が 決める。
 // DOM: house-editor（全体）・editor-title・editor-heading・editor-progress（editor-step-soto/naka/namae）・editor-preview（見本の 穴）・
 //   editor-grid / editor-cell / editor-furniture（② 方眼）・editor-name（③）・house-confirm・house-need・ボタン house-btn-<id>。
+// HOUSE-2A: editor-popup（① ばしょの ポップアップ。placePopup.ts）・editor-hover-tip（名前の ヘルプ。tipView.ts）・editor-new-mark（「あたらしい！」の 印。newMark.ts）。
 import { baseButtons, glowsWindows } from '../../house/editor/buttons';
 import type { EditorController } from '../../house/editor/controller';
+import { isTipButton } from '../../house/recipes/hoverTip';
 import { STEPS, type Step } from '../../house/editor/tuning';
 import { previewModeOf } from '../../house/preview/port';
 import type { Preview3D, PreviewMode, ViewRect } from '../../house/preview/preview';
@@ -14,14 +16,17 @@ import { bindDrag } from './drag';
 import { btn, el, makeTileUrls, setEnabled } from './dom';
 import { PressFx, type PressKind } from './feedback';
 import { ICONS } from './icons';
+import { syncNewMarks } from './newMark';
 import { NakaPanel } from './naka';
 import { buildNamae } from './namae';
 import { ConfirmPop, NeedPop } from './popups';
 import { buildSoto, type StepPanel } from './soto';
+import { TipView, type TipData } from './tipView';
 import { BAND_PX, CELL_MIN_PX } from './tuning';
 import './houseEditor.css';
 import './houseEditorSteps.css';
 import './houseEditorPopups.css';
+import './houseEditorRecipes.css';
 
 export interface EditorViewOpts {
   parent: HTMLElement;
@@ -36,6 +41,10 @@ export interface EditorViewOpts {
   press: (id: string) => void;
   /** ゲームの 効果音（ない ときは ボタンの 音なし） */
   sound?: Pick<SoundFx, 'playTones'> | null;
+  /** ボタン id に マウスを のせた／はなした（null）。見本の 光りと 名前の ヘルプの 時間の もと（窓口 hover と 同じ。HOUSE-2A） */
+  hover: (id: string | null) => void;
+  /** いま 出して よい 名前の ヘルプ（窓口 editor().hoverTip）。出て いなければ null */
+  tip: () => TipData | null;
 }
 
 const STEP_LABEL: Readonly<Record<Step, { label: string; icon: 'soto' | 'naka' | 'namae' }>> = {
@@ -74,6 +83,12 @@ export class EditorView {
   private readonly confirm: ConfirmPop;
   private readonly need: NeedPop;
   private readonly fx: PressFx;
+  /** 名前の ヘルプ（カーソルの 近く） */
+  private readonly tipView = new TipView();
+  /** いま ヘルプの もとに なって いる ボタンの id（hover に 知らせた 物。ポップアップが かわったら はなした ことに する） */
+  private tipId: string | null = null;
+  /** 前に 見た ポップアップ（開く・とじる・ばしょが かわった ときを 見つける） */
+  private lastPopup: string | null = null;
   private readonly buttons = new Map<string, HTMLButtonElement>();
   /** 「あたらしい せっけいず → ぜんぶ けす」を 見た 回数（見本の 向きを はじめに もどす ため） */
   private resets = 0;
@@ -170,6 +185,16 @@ export class EditorView {
       e.preventDefault();
       e.stopPropagation();
     });
+    // 名前の ヘルプ: ばしょ・しゅるいの ボタンに のせた／はなした を 窓口 hover に つたえ、マウスの 場所を ふきだしに わたす（ついて うごく）
+    const track = (e: PointerEvent): void => {
+      const id = (e.target as Element | null)?.closest<HTMLElement>('button[data-btn]')?.dataset.btn ?? null;
+      this.setTipId(id !== null && isTipButton(id) ? id : null); // 名前の ヘルプが 出る ボタン（ばしょ・しゅるい）だけ
+      this.tipView.moveTo(e.clientX, e.clientY);
+    };
+    this.root.addEventListener('pointerover', track);
+    this.root.addEventListener('pointermove', track);
+    this.root.addEventListener('pointerleave', () => this.setTipId(null));
+    this.root.append(this.tipView.el);
     window.addEventListener('resize', () => {
       if (!this.shown) return;
       this.layout();
@@ -203,6 +228,8 @@ export class EditorView {
       this.refresh();
     } else {
       for (const cancel of this.cancelDrags) cancel(); // 見本を 押した まま とじた: 手を はなす
+      this.setTipId(null);
+      this.tipView.sync(null);
       this.o.release();
     }
   }
@@ -241,6 +268,12 @@ export class EditorView {
       preview.restart();
     }
     this.panels[s.step].update();
+    // ポップアップが 開いた・とじた・ばしょが かわった: のせて いた ボタンは もう 見えない ので はなした ことに する（光りと ヘルプを 消す）
+    if (ctl.popup !== this.lastPopup) {
+      this.lastPopup = ctl.popup;
+      this.setTipId(null);
+    }
+    syncNewMarks(this.root, new Set(ctl.recipes.marks())); // 「あたらしい！」の 印
     const mode = previewModeOf(s.step);
     if (mode === null) preview.hide();
     else preview.setShape(s, mode);
@@ -296,5 +329,15 @@ export class EditorView {
     const preview = this.o.preview();
     preview.tick();
     this.syncTouched(preview);
+    // 12 コマで 出る・とじると 消える（窓口が 決める）。のせて いない 間は 窓口を 読まない（毎コマ 新しい 物を 作らない）
+    if (this.tipId !== null || this.tipView.visible) this.tipView.sync(this.o.tip());
+  }
+
+  /** ヘルプの もとの ボタンが かわった（なければ null）。窓口 hover に つたえる */
+  private setTipId(id: string | null): void {
+    if (id === this.tipId) return;
+    this.tipId = id;
+    this.o.hover(id);
+    if (id === null) this.tipView.sync(null); // はなすと すぐ 消える
   }
 }

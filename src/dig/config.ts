@@ -149,6 +149,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
       round_table: WOOD_HARDNESS,
       chair: WOOD_HARDNESS,
       stool: WOOD_HARDNESS,
+      maneki: WOOD_HARDNESS,
       andon: WOOD_HARDNESS,
       shelf: WOOD_HARDNESS,
       ofuro: WOOD_HARDNESS,
@@ -180,6 +181,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     taoreta_hashigo_x: 0.5, // MINE-1E: たおれた はしご（すでで 0.5 秒。ほると き 1）
     taoreta_hashigo_z: 0.5,
     takibi_ato: 0.5, // MINE-1E: たきびの あと（すでで 0.5 秒。ほると せきたん 1）
+    makimono: 0.5, // HOUSE-2A: まきもの（すでで 0.5 秒。ほると レシピの まきもの 1 こ。右クリックでも とれる）
     ...forChest<number | null>(null), // 宝箱は ほっても こわれない（start_torch と 同じ）
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
@@ -254,7 +256,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     diamond_ore: 2, // ダイヤの いしも 2（こんごうの つるはしの レベルは 2 の まま。KONGO-1）
     ...forChalkMarks(0),
     // HOUSE-1C: 家の ブロック・家具は すでで ほれる
-    ...forHouse<number>({ house_floor: 0, house_wall: 0, house_roof: 0, shoji: 0, house_door: 0, tansu: 0, furnace: 0, table: 0, long_table: 0, round_table: 0, chair: 0, stool: 0, andon: 0, shelf: 0, ofuro: 0 }),
+    ...forHouse<number>({ house_floor: 0, house_wall: 0, house_roof: 0, shoji: 0, house_door: 0, tansu: 0, furnace: 0, table: 0, long_table: 0, round_table: 0, chair: 0, stool: 0, maneki: 0, andon: 0, shelf: 0, ofuro: 0 }),
     katame_tsuchi: 0,
     ...forScaffold(0),
     ...forWaterExtra(0),
@@ -272,6 +274,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     magma_takitsubo: 0,
     kodo_waku: 0, // 素手から
     tsurara: 0, // MINE-1D: 素手から
+    makimono: 0, // HOUSE-2A
     hibi_ishi: 0, // MINE-1E: 8 こ とも 素手から
     kuzure_ishi: 0,
     furui_rail_x: 0,
@@ -366,7 +369,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     // HOUSE-1C（家具は アイテムの めずらしさ〔content/items/houseEditor.ts が ここから 読む〕。たんす・かまどの 向き 0 は 上の 表）
     ...forHouse<Rarity>({
       house_floor: 'common', house_wall: 'common', house_roof: 'common', shoji: 'uncommon', house_door: 'uncommon',
-      tansu: OLD_FURN.rarity, furnace: OLD_FURN.rarity, table: 'common', long_table: 'common', round_table: 'common', chair: 'common', stool: 'common', andon: 'uncommon', shelf: 'uncommon', ofuro: 'rare',
+      tansu: OLD_FURN.rarity, furnace: OLD_FURN.rarity, table: 'common', long_table: 'common', round_table: 'common', chair: 'common', stool: 'common', maneki: 'rare', andon: 'uncommon', shelf: 'uncommon', ofuro: 'rare',
     }),
     // HOUSE-1C PR-2: かためた つち・足場（ほると 手に 入る 数の 上限。かためた つちは FARM_BREAK_DROP で いつも 1 こ）
     katame_tsuchi: 'common',
@@ -386,6 +389,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     magma_takitsubo: 'uncommon',
     kodo_waku: 'common',
     tsurara: 'common', // MINE-1D
+    makimono: 'common', // HOUSE-2A
     hibi_ishi: 'common', // MINE-1E: 8 こ とも ノーマル
     kuzure_ishi: 'common',
     furui_rail_x: 'common',

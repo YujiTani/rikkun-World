@@ -15,6 +15,7 @@ import { openLive3 } from './helpers/live3';
 import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid, toNewScreen } from './helpers/start';
 import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house';
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
+import { RECIPE_GATE, openRecipeScreen, recipeGateIssues } from './helpers/houseRecipe';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
 import { duoInvIssues, duoInvStationIssues, openDuoInv } from './helpers/duoInv';
 import { duoParryEdgeIssues, openDuoParryEdge } from './helpers/duoParry';
@@ -1190,6 +1191,26 @@ SCREENS.push(
     roots: g.roots,
     open: (page: Page) => openEditorScreen(page, g.kind),
     extra: (page: Page) => editorGateIssues(page, g),
+  })),
+);
+
+/**
+ * HOUSE-2A AC9（#364。docs/design/HOUSE-2.md 3.2 版 §3.2・§6.2）: レシピを ぜんぶ おぼえた 世界の いちばん 多い 形。
+ * 'house-editor-soto-recipes' ＝ ① パネル（ばしょの ボタン 5〔絵 ＋ 字・高さ 72／80・はば・あきは 表〕。ポップアップは とじて いる。名前の ヘルプ〔ばしょは 2 行〕は 画面の 外へ 出ない）、
+ * 'house-editor-popup-recipes' ＝ ① ポップアップ（やね。いちばん 多い 一覧・1 行 5 こ まで・行の 見出し／印／名前の 行 なし・「なし」が いちばん 左・パネルと 同じ x・はば、見本と 重ならない、スクロール なし。
+ *   名前の ヘルプは いちばん 長い 名前と いちばん 右・上の ボタンで 画面の 外へ 出ない）、
+ * 'house-editor-popup-deco-recipes' ＝ ① ポップアップ（かざり。名前が いちばん 長い）、
+ * 'house-editor-naka-recipes' ＝ ② 家具（上 ⌈n÷2⌉・下 のこり）・あかり、'house-editor-namae-recipes' ＝ ③ 後ろの 文字（2 列 × 4 だん）、
+ * 'house-need-recipes' ＝ ひつような もの（材料の 表の ぜんぶ。3 つの 大きさ ぜんぶで スクロール）。数は 画面の 表から 数える（#311。決め打ちしない）。
+ * 3 つの 大きさで はみ出さない・重ならない・ボタン 56px 以上・字 24px 以上は 上の 検査と `editorUiIssues`、数・ならび・大きさ・字が 1 行・ヘルプは `recipeGateIssues`（e2e/helpers/houseRecipe.ts）。
+ * 窓口と 画面の 名前（data-testid）の 約束は e2e/helpers/house.ts の「2A の 約束」。実装の 前は 窓口が 無くて 赤。
+ */
+SCREENS.push(
+  ...RECIPE_GATE.map((g) => ({
+    id: g.id,
+    roots: g.roots,
+    open: (page: Page) => openRecipeScreen(page, g.kind),
+    extra: async (page: Page) => [...(await editorUiIssues(page, g.roots)), ...(await recipeGateIssues(page, g.kind))],
   })),
 );
 

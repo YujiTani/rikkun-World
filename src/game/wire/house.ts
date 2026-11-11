@@ -15,11 +15,15 @@ import { wireHouseSite } from './houseSite';
 import { createHouseGate, type Who } from './modalOwner';
 import { insetPane, projectToPane, projectUnclipped } from '../../ui/houseBubble';
 
+/** 持ち物に 入らなかった かみを 落とす 高さ・散らばり（宝箱の 落とし物と 同じ。game/wire/mine.ts） */
+const RECIPE_DROP_RISE = 0.5;
+const RECIPE_SCATTER = { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 } as const;
+
 /** 建築士さんの 頭の 上（足もとから）。ふきだしの しっぽが ここに くる */
 const HEAD_TOP = 1.8;
 
 export function wireHouse(deps: WiredYokai) {
-  const { shared, world, seed, island, game, fxSound, hud, controller, inventory, lighting, combat, dig, screen, blobShadow, storage, craft, w2, yokaiM, animals } = deps;
+  const { shared, world, seed, island, drops, game, fxSound, hud, controller, inventory, lighting, combat, dig, screen, blobShadow, storage, craft, w2, yokaiM, animals } = deps;
   // 家を 建てる 画面まわり（上空の 視点・みずもりの 色・道具を 持った 形・音）。house は あとから つなぐ（attach）
   const { siteView } = wireHouseSite(deps);
 
@@ -52,6 +56,13 @@ export function wireHouse(deps: WiredYokai) {
     gave: (item, who) => (who === 2 ? shared.p2DropPicked(item, 1, false) : shared.onDropPicked(item, 1, false)),
     // 戸を 外から 通って 中に 入った: 名前の 帯を 上の 帯の 列〔実績・テロップと ならぶ〕に 入れる（HOUSE-1 §3.3）
     nameBand: (text) => shared.celebrate.enqueueHouseName(text),
+    // HOUSE-2A: まきものの テロップ（上の 帯の 列。「<名前>の レシピを おぼえた！…」・はじめての 使い方）。列は 1 つ。出す 半分は 使った 人
+    recipeBand: (text, who) => shared.celebrate.enqueueHouseDone(text, who ?? 'world', 'recipe-band'), // 使った 人の 半分に 出す（2P は 2P の 半分。仕様 §2.2）
+    // まきものが 持ち物に 入らない 分・ぜんぶ おぼえた あとの かみが 入らない 分は その 人の 足もとへ
+    drop: (item, count, who) => {
+      const p = who === 2 ? (shared.duoMate()?.position ?? controller.state.position) : controller.state.position;
+      drops.scatter({ x: p.x, y: p.y + RECIPE_DROP_RISE, z: p.z }, [{ item, count }], RECIPE_SCATTER);
+    },
     // たんすの 中の 道具も「持って いる」（なくした ときだけ「どうぐを もらう」）
     owned: (item) => storage.list().reduce((n, p) => n + storage.countItem(p.x, p.y, p.z, item), 0),
     // メニューが 開く: マウスが 出る。時間と 妖怪の 停止は ゲームの 窓（shared.houseFrozen）が 受けもつ。たんす・とりごやと おなじ 錠の あつかい
@@ -100,7 +111,7 @@ export function wireHouse(deps: WiredYokai) {
     info: (mode) => preview?.info(mode) ?? null,
     drag: (dx, dy) => preview?.drag(dx, dy) ?? false,
     wheel: (dx, dy) => preview?.wheel(dx, dy) ?? false,
-    hover: (on) => preview?.hover(on),
+    hover: (on, part) => preview?.hover(on, part),
   };
   // ブロックを 置く・ほる → 足もとに かかる 建築士さんが 高さを あわせる・家の 戸の 記録が あけしめ・こわれを おぼえる（立って いる 間は 毎ステップ 世界を 読まない ため。farm.onBlockChanged と 同じ 流れ）
   watchBlocks(world, house.watcher);
@@ -136,7 +147,7 @@ export function wireHouse(deps: WiredYokai) {
     press: (id) => house.press(id),
     rename: () => house.renameView(),
     makeEditor: (parent) =>
-      new EditorView({ parent, ctl: house.editor, preview: getPreview, release: releasePreview, canvas: game.renderer.domElement, press: (id) => house.press(id), sound: fxSound }),
+      new EditorView({ parent, ctl: house.editor, preview: getPreview, release: releasePreview, canvas: game.renderer.domElement, press: (id) => house.press(id), sound: fxSound, hover: (id) => house.hover(id), tip: () => house.hoverTip() }),
     tick: () => playCraft(fxSound, 'tab'),
     anchor,
     // 2P が 話した ときは 半分の まん中の 線から 5% あけた 区画に おさめ、時計に かからない ように する（UI 検査 'duo-house-bubble-p2'）

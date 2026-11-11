@@ -8,6 +8,8 @@ export interface GlowInfo {
   door: boolean;
   cells: WindowCell[];
   left: number | null;
+  /** 光って いる 部分の 名前（2A。やね・かべ・まど・と・えんとつ・のれん・はなだん・しゃちほこ・あかり〔light〕）。窓の かずを かえた 光り・戸の 光り・窓 ぜんぶの hover には 付かない */
+  parts?: string[];
 }
 
 interface Cue {
@@ -16,6 +18,9 @@ interface Cue {
   /** はじまってからの コマ数と、光りはじめを まつ コマ数 */
   t: number;
   delay: number;
+  parts?: readonly string[];
+  /** 見本の 自動の 回りを 止める（見せに 回る 光り） */
+  freeze: boolean;
 }
 
 const smooth = (t: number): number => {
@@ -41,23 +46,30 @@ export function hoverWave(t: number, reduced: boolean): number {
 export class GlowCtl {
   private cue: Cue | null = null;
   private on = false;
+  /** hover の 部分（ポップアップの しゅるいの ボタン。null ＝ 窓 ぜんぶ） */
+  private part: string | null = null;
   /** hover の ふえ・へり 0〜1 と、ゆらぎの コマ数 */
   private k = 0;
   private t = 0;
 
   /** 窓を かえた 光り（cells ＝ かわった 窓。delay ＝ 光りはじめを まつ コマ）。光って いる 間は 見本の 自動の 回りを 止める */
   startWindows(cells: readonly WindowCell[], delay: number): void {
-    this.cue = { door: false, cells: [...cells], t: 0, delay };
+    this.cue = { door: false, cells: [...cells], t: 0, delay, freeze: true };
+  }
+
+  /** しゅるいを かえた・かざりを つけた 光り（2A。parts ＝ 光る 部分の 名前）。freeze ＝ 見せに 回る 間 自動の 回りを 止める */
+  startParts(parts: readonly string[], cells: readonly WindowCell[], delay: number, freeze: boolean): void {
+    this.cue = { door: false, cells: [...cells], t: 0, delay, parts: [...parts], freeze };
   }
 
   /** ① に なった 戸の 光り（回りは 止めない） */
   startDoor(): void {
-    this.cue = { door: true, cells: [], t: 0, delay: 0 };
+    this.cue = { door: true, cells: [], t: 0, delay: 0, freeze: false };
   }
 
   /** 窓を かえた 光りが 出て いる（見本の 自動の 回りを 止める） */
   get freezing(): boolean {
-    return this.cue !== null && !this.cue.door;
+    return this.cue?.freeze === true;
   }
 
   get cueing(): boolean {
@@ -78,10 +90,17 @@ export class GlowCtl {
     return this.on;
   }
 
-  /** ボタンに 手を おいた / はなした。かわったら true */
-  setHover(on: boolean): boolean {
-    if (on === this.on) return false;
+  /** hover の 部分（なければ 窓 ぜんぶ） */
+  get hoverPart(): string | null {
+    return this.part;
+  }
+
+  /** ボタンに 手を おいた / はなした（part ＝ ポップアップの しゅるいの ボタンの ばしょ）。かわったら true */
+  setHover(on: boolean, part: string | null = null): boolean {
+    const p = on ? part : null;
+    if (on === this.on && p === this.part) return false;
     this.on = on;
+    this.part = p;
     return true;
   }
 
@@ -89,6 +108,7 @@ export class GlowCtl {
   clear(): void {
     this.dropCue();
     this.on = false;
+    this.part = null;
     this.k = 0;
     this.t = 0;
   }
@@ -120,8 +140,8 @@ export class GlowCtl {
   /** 窓口 `editor().preview.glow`。all ＝ 今の 窓 ぜんぶ。光って いなければ null（光り 1 回が hover より さき） */
   info(all: readonly WindowCell[]): GlowInfo | null {
     const c = this.cue;
-    if (c) return { door: c.door, cells: [...c.cells], left: PREVIEW.glowFrames - c.t };
-    if (this.on) return { door: false, cells: [...all], left: null };
+    if (c) return { door: c.door, cells: [...c.cells], left: PREVIEW.glowFrames - c.t, ...(c.parts ? { parts: [...c.parts] } : {}) };
+    if (this.on) return this.part === null ? { door: false, cells: [...all], left: null } : { door: false, cells: this.part === 'window' || this.part === 'hanadan' ? [...all] : [], left: null, parts: [this.part] };
     return null;
   }
 }

@@ -66,7 +66,7 @@ export type FaceSide = 'front' | 'back' | 'left' | 'right';
  * エディターの 見本だけで 描く はにわ。足し忘れると Record で 型が 落ちる。
  */
 /** （はにわの 世界の ブロックは meshChunk の 小物の 形。この 表の 形は 見本だけ） */
-export type BoxKind = FurnBlockKind | 'haniwa';
+export type BoxKind = FurnBlockKind | 'haniwa' | 'maneki';
 
 function leg(x: number, z: number, t: number, h: number): FurnBox {
   return { a: [x, 0, z], b: [x + t, h, z + t], top: 'wood_end', side: 'wood_v' };
@@ -172,6 +172,16 @@ export function furnitureBoxes(): Record<BoxKind, FurnBox[]> {
       { ...clay([2, 4.5, 2], [7, 9, 7]), faces: { front: 'haniwa_face' } }, // 顔（前だけ 丸い 目と 口の あな）
       clay([1.5, 8, 1.5], [7.5, 8.5, 7.5], 'haniwa_band'), // はちまき
       clay([3, 9, 3], [6, 10, 6]), // まげ
+    ],
+    // 仮の 形（HOUSE-2A。本番の 形・絵は HOUSE-2B）: すわった ねこ ＋ 上げた 手 ＋ みみ（土の 色）
+    maneki: [
+      clay([1.5, 0, 1.5], [7.5, 4, 7.5]), // 体
+      { ...clay([2, 4, 2], [7, 8, 7]), faces: { front: 'haniwa_face' } }, // 頭
+      clay([2, 8, 2.5], [3.5, 9.5, 4]), // 左みみ
+      clay([5.5, 8, 2.5], [7, 9.5, 4]), // 右みみ
+      clay([7, 3, 3.5], [8.5, 4.5, 5.5]), // 右うで
+      clay([7.5, 4.5, 3.5], [8.5, 7, 5.5]), // 右手（上へ）
+      clay([3, 0.5, 7.5], [6, 1.5, 9]), // しっぽ
     ],
   };
 }
