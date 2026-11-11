@@ -71,7 +71,7 @@ describe('少女の 間の 体・コアの 無敵（bodyGuard）', () => {
     const bh = new BigHit({ scene: new Scene(), angry: () => {}, bodyGuard: () => true, onCoreHit: () => { hits++; return true; } });
     bh.bind(boxes, model);
     bh.setFinish('core');
-    expect(bh.damage('core', 1)).toBe(1);
+    expect(bh.damage('outCore', 1)).toBe(1);
     expect(hits).toBe(1);
     expect(bh.deflects).toBe(0);
   });

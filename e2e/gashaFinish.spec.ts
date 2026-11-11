@@ -57,7 +57,7 @@ test('とどめ: 少女は 座りこみ、大きな 姿が 倒れて 赤い コ�
   // コアを たたく: 3 回で こわれる。実績は こわした とき
   expect(await page.evaluate(() => (window as unknown as W).__rikkun.gasha.info().kills)).toBe(0);
   for (let k = 0; k < 3; k++) {
-    await page.evaluate(() => { const w = window as unknown as W; w.__gashaBig.damage('core', 1e6); w.__rikkun.step(30); });
+    await page.evaluate(() => { const w = window as unknown as W; w.__gashaBig.damage('outCore', 1e6); w.__rikkun.step(30); });
   }
   expect(await page.evaluate(() => (window as unknown as W).__rikkun.gasha.info().state)).toBe('defeated');
   expect(await page.evaluate(() => (window as unknown as W).__rikkun.gasha.info().kills)).toBe(1);

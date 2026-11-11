@@ -296,7 +296,19 @@
   "RELEASE": {
     "core": {
       "dropUp": 0.5,
+      "glow": "legendary",
       "hitScale": 0.4,
+      "pile": {
+        "scatterSpeed": [
+          4,
+          9
+        ],
+        "scatterUp": [
+          8,
+          12
+        ],
+        "upBlocks": 1.5
+      },
       "scatterSpeed": [
         3,
         6
@@ -340,10 +352,11 @@
     "silhouette": {
       "color": 1975347,
       "farBlocks": 150,
-      "hazeMax": 0,
+      "fogMix": 0.75,
+      "hazeMax": 0.75,
       "nearBlocks": 60,
       "on": true,
-      "strength": 0.88
+      "strength": 0.3
     },
     "spawn": {
       "barShowDistance": 100,
@@ -524,7 +537,7 @@
     "bank": {
       "height": 20,
       "innerRad": 0.5,
-      "innerTop": 6,
+      "innerTop": 3.5,
       "jitter": 6,
       "lobes": 4,
       "radiusX": 30,
@@ -610,6 +623,12 @@
       "stopDist": 30,
       "turnDegPerSec": 14,
       "turnStartDeg": 25
+    },
+    "climb": {
+      "geyserMargin": 1,
+      "maxGap": 1.5,
+      "maxStep": 1,
+      "minWidth": 3
     },
     "clips": {
       "crawl": {
@@ -712,16 +731,22 @@
       },
       "pos": [
         4.4,
-        20.4,
+        26.8,
         7.4
       ],
+      "reach": {
+        "eye": 1.6,
+        "jump": 1.3,
+        "minGroundClear": 7,
+        "swordReach": 3
+      },
       "sideHole": {
         "enabled": true,
         "guard": true,
-        "h": 4.2,
+        "h": 4.65,
         "rim": true,
         "w": 3.6,
-        "y": 21.7,
+        "y": 26.675,
         "z": 6.35
       },
       "size": 4.4,
@@ -752,7 +777,7 @@
       },
       "tunnel": {
         "backZ": -9.8,
-        "ceilY": 24,
+        "ceilY": 29,
         "endZ": 9.8,
         "floorThick": 2.4,
         "floorY": 16,
@@ -839,10 +864,11 @@
         "douseSmoke": 3,
         "douseSmokeSize": 0.55,
         "douseSoundEverySec": 0.2,
+        "fadeSec": 2,
         "flameScale": 1.1,
         "max": 900,
         "radius": 1.3,
-        "sec": 300,
+        "sec": 10,
         "yTol": 1.8
       },
       "eruptSec": 2.6,
@@ -938,15 +964,20 @@
         "sparkMul": 4
       },
       "core": {
+        "clearBlocks": 0.5,
         "hitGapSec": 0.3,
         "hits": 8,
+        "maxOutBlocks": 40,
+        "outBlocks": 18,
         "pulseHz": 1.6,
-        "reach": 1.6,
+        "reach": 0.6,
         "redColor": [
           16722458,
           16738880
         ],
-        "redSec": 1.5
+        "redSec": 1.5,
+        "size": 3,
+        "stepBlocks": 2
       },
       "crumble": {
         "chunkLifeSec": 2.4,
@@ -1012,7 +1043,7 @@
       "funnelSlope": 0.9,
       "graceTicks": 12,
       "headHeight": 1.8,
-      "height": 16,
+      "height": 18,
       "holdBelowTop": 1.5,
       "holdMargin": 0.3,
       "holdSec": 9,
@@ -1119,6 +1150,7 @@
         "girl": 5,
         "hand": 1,
         "head": 0.5,
+        "outCore": 1,
         "ribbon": 0,
         "upperArm": 0.6
       },
@@ -1165,7 +1197,7 @@
         3.6,
         4.4
       ],
-      "splitY": 21.3,
+      "splitY": 22,
       "step": 0.62,
       "stepDeg": -25.7,
       "taperFrom": 14,
@@ -1524,17 +1556,31 @@
       "reflectWaitMaxSec": 4,
       "setCooldownSec": 0.5
     },
-    "perch": {
-      "blendSec": 0.4,
-      "hipUp": 0.35,
-      "hitHalf": [
-        0.8,
-        1,
-        0.8
-      ],
-      "hitUp": 0.9,
-      "swayDeg": 8,
-      "swaySec": 3
+    "rest": {
+      "blendSec": 0.5,
+      "breathDeg": 2.5,
+      "breathSec": 2.2,
+      "buttDrop": 0.3,
+      "dist": 4,
+      "hit": {
+        "petan": {
+          "half": [
+            0.8,
+            0.75,
+            0.8
+          ],
+          "up": 0.75
+        },
+        "slump": {
+          "half": [
+            0.6,
+            1.4,
+            0.6
+          ],
+          "up": 1.4
+        }
+      },
+      "pose": "petan"
     },
     "s1": {
       "activeSec": 1.1,

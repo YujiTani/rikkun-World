@@ -311,7 +311,7 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
           const ni = i + dx, nk = k + dz;
           if (Math.abs(ni - Math.floor(actor.pos.x)) > 40 || Math.abs(nk - Math.floor(actor.pos.z)) > 40) continue;
           for (let nj = j + 1; nj >= Math.max(minJ, 0, j - maxDrop); nj--) {
-            if (!stand(ni, nj, nk)) continue;
+            if (!stand(ni, nj, nk)) { if (solid(ni, nj, nk)) break; /* 落ちる 通り道に かたい マスが あれば 通りぬけない */ continue; }
             if (nj === j + 1 && solid(i, j + 2, k)) break;
             const kk = cellKey(ni, nj, nk);
             if (!seen.has(kk)) { seen.add(kk); q.push([ni, nj, nk]); parents?.set(kk, cellKey(i, j, k)); }

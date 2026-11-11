@@ -20,8 +20,9 @@ describe('霧の 外の シルエット（体の 材料の シェーダー）', 
     expect(before).toContain('uHaze');
     const after = silhouetteShader(before);
     expect(after).toContain('uniform vec3 uSilCol;');
-    expect(after).toContain('uniform vec3 uSilRange;');
+    expect(after).toContain('uniform vec4 uSilRange;');
     expect(after).toContain('smoothstep(uSilRange.x, uSilRange.y, vFogDepth) * uSilRange.z');
+    expect(after).toContain('mix(uSilCol, fogColor, uSilRange.w)'); // シルエットの 色は 空（fog）の 色と まぜる（FIX-3）
     // 霞みの 行は のこり、同じ #ifdef USE_FOG の 中に ある
     expect(after.indexOf('uHaze.z);')).toBeLessThan(after.indexOf('uSilCol,'));
     expect(after.indexOf('uSilCol,')).toBeLessThan(after.indexOf('#endif', after.indexOf('uSilCol,')));
@@ -60,11 +61,12 @@ describe('霧の 外の シルエット（体の 材料の シェーダー）', 
     const sh = run(m);
     updateSilhouette();
     const col = sh.uniforms.uSilCol!.value as { x: number; y: number; z: number };
-    const range = sh.uniforms.uSilRange!.value as { x: number; y: number; z: number };
+    const range = sh.uniforms.uSilRange!.value as { x: number; y: number; z: number; w: number };
     expect(col.x).toBeCloseTo(((S.color >> 16) & 255) / 255, 5);
     expect(range.x).toBe(S.nearBlocks);
     expect(range.y).toBe(S.farBlocks);
     expect(range.z).toBe(S.strength);
+    expect(range.w).toBe(S.fogMix);
     expect(BIG.look.hazeMax).toBe(S.hazeMax);
     S.on = false;
     try {
@@ -77,7 +79,18 @@ describe('霧の 外の シルエット（体の 材料の シェーダー）', 
     const S = RELEASE.silhouette;
     expect(S.nearBlocks).toBeLessThan(S.farBlocks);
     expect(S.farBlocks).toBeLessThanOrEqual(RELEASE.spawn.minDistance); // 出る 距離（150〜）では 最大の 濃さ
-    expect(S.strength).toBeGreaterThan(0.5);
     expect(S.strength).toBeLessThanOrEqual(1);
+  });
+
+  it('遠くは 空に とける（FIX-3）: 霞みを 主に（0.75）、シルエットは うすく（0.3）、色は 空の 色に 近い。消えすぎない', () => {
+    const S = RELEASE.silhouette;
+    expect(S.hazeMax).toBe(0.75);
+    expect(S.strength).toBeLessThanOrEqual(0.3);
+    expect(S.fogMix).toBeGreaterThanOrEqual(0.5); // 色の 半分 いじょうが 空の 色
+    expect(S.fogMix).toBeLessThanOrEqual(1);
+    // 150 ブロック（farBlocks）で 体の 色が のこる 割合 = 完全に 空に とけきらない（うっすら 形が わかる）
+    const L = BIG.look;
+    const haze = Math.min(1, Math.max(0, (S.farBlocks - L.hazeNear) / (L.hazeFar - L.hazeNear))) * S.hazeMax;
+    expect(1 - haze).toBeGreaterThan(0.1);
   });
 });
