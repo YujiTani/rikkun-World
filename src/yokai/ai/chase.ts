@@ -40,6 +40,9 @@ export class YokaiChaser {
   private readonly neckTo: P3 = { x: 0, y: 0, z: 0 };
   private neckCorners: P3[] = [];
 
+  /** 見通し用。毎回 新しい 関数を 作らない */
+  private readonly isSolid = (x: number, y: number, z: number): boolean => this.d.world.isSolid(x, y, z);
+
   constructor(private readonly d: ChaseDeps) {}
 
   setMotion(e: Ent, m: 'wait' | 'move'): void {
@@ -109,15 +112,14 @@ export class YokaiChaser {
 
   /** いま ねらっている 人（f.px…）が e から 見えるか（SIGHT-1。あいだに 固いブロックが ない） */
   private sees(e: Ent): boolean {
-    const { f, world } = this.d;
-    return canSee((x, y, z) => world.isSolid(x, y, z), e.x, e.y, e.z, e.dims.height, f.px, f.py, f.pz);
+    const { f } = this.d;
+    return canSee(this.isSolid, e.x, e.y, e.z, e.dims.height, f.px, f.py, f.pz);
   }
 
   /** 人 p に 気づける か（距離・高さ・見通し。忍び装束は 見ない）。2 人の ときの ねらい えらびで 使う */
   noticeable(e: Ent, p: { x: number; y: number; z: number }): boolean {
-    const { world } = this.d;
     if (Math.abs(p.y - e.y) > SENSE.sightDy || Math.hypot(p.x - e.x, p.z - e.z) > SENSE.kinds[e.kind].sight) return false;
-    return canSee((x, y, z) => world.isSolid(x, y, z), e.x, e.y, e.z, e.dims.height, p.x, p.y, p.z);
+    return canSee(this.isSolid, e.x, e.y, e.z, e.dims.height, p.x, p.y, p.z);
   }
 
   /** いま ねらっている 人（f.who）の からだの そうび。2P は 2P の そうび（窓口が なければ はだか。1P の 物に 代えない） */
@@ -314,14 +316,14 @@ export class YokaiChaser {
 
   /** ろくろくびの首が とどく道すじがあるか（あれば neckCorners に入れる）。まっすぐ通れなくても、2 回までの曲がりで行ければ OK */
   planNeck(e: Ent): boolean {
-    const { f, world } = this.d;
+    const { f } = this.d;
     this.neckFrom.x = e.x;
     this.neckFrom.y = e.y + 1.0;
     this.neckFrom.z = e.z;
     this.neckTo.x = f.px;
     this.neckTo.y = f.py + 1.3;
     this.neckTo.z = f.pz;
-    const r = findNeckRoute((x, y, z) => world.isSolid(x, y, z), this.neckFrom, this.neckTo, YOKAI_STATS.rokurokubi.reach);
+    const r = findNeckRoute(this.isSolid, this.neckFrom, this.neckTo, YOKAI_STATS.rokurokubi.reach);
     if (!r) return false;
     this.neckCorners = r;
     return true;
