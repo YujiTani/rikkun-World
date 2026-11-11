@@ -314,7 +314,18 @@ describe('F9: 挑戦の 間の 保存は 挑戦の 前の 形・かった あと
       handlers.get('pagehide')!();
       expect([...store.data.keys()].some((k) => k.includes('pending')), '保険が 置かれた').toBe(true);
       db.failWrites = false;
-      const back = await openRestored(db, store, new ArrayVoxelWorld({ x: 0, z: 0 }));
+      // 書きこみが しっぱいした ので db は 空。保険の マスが 当たる ように、門と 宝箱の 列を 先に 世界に 入れ、挑戦の 間の 形に して おく
+      const w = new ArrayVoxelWorld({ x: 0, z: 0 });
+      const colsDone = new Set<number>();
+      for (const c of cells) {
+        const k = colKey(c.x >> 4, c.z >> 4);
+        if (!colsDone.has(k)) {
+          colsDone.add(k);
+          w.loadColumn(genColumn(r.seed, c.x >> 4, c.z >> 4));
+        }
+      }
+      for (const c of cells) w.setBlock(c.x, c.y, c.z, r.world.getBlock(c.x, c.y, c.z));
+      const back = await openRestored(db, store, w);
       expect(back.restored.fromPending, '保険から もどした').toBe(true);
       cells.forEach((c, i) => expect(String(back.world.getBlock(c.x, c.y, c.z)), `保険 (${c.x}, ${c.y}, ${c.z})`).toBe(before[i]));
     }

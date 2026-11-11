@@ -193,7 +193,7 @@ describe('F7: かち', () => {
     const want = new Map<string, number>();
     for (const it of preview.items) want.set(it.item, (want.get(it.item) ?? 0) + it.count);
     expect([...got].sort(), `${tag(r)} の 中身`).toEqual([...want].sort());
-    expect(r.says.length, '中身の ログ 1 行〔C8 と 同じ 流れ。chest.say〕').toBe(1);
+    expect(r.says, '中身を もらう ときは chest.say を 呼ばない〔C8 と 同じ。mineChestOpen.test.ts〕').toEqual([]);
     expect(r.opened, '宝箱の 「あけた」できごと〔段 4〕').toEqual([4]);
     expect(r.eventsOf('celebrate').map((e) => e.what).sort(), 'お祝い').toEqual(['confetti', 'fireworks']);
     expect(r.eventsOf('win').length, 'win').toBe(1);
