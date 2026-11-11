@@ -3,6 +3,7 @@ import { KATAME_TSUCHI, SCAFFOLD_IDS } from './buildBlocks';
 import { CHALK_MARK_IDS, isChalkMarkId } from './chalkMark';
 import { CHEST_BLOCK_IDS, chestBlockInfo, chestBlockName } from './chestBlock';
 import { FURNITURE } from '../../house/editor/furniture';
+import { LOOK_BLOCK_IDS, LOOK_DOOR_INFO, LOOK_PILLAR_NAME } from './houseLookBlocks';
 import { FLAT_FURN_KINDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from './houseBlocks';
 import { isLiquidIndex } from './liquids';
 import { isFloorDeco } from './mineBoken';
@@ -148,6 +149,8 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'makimono', name: 'まきもの', solid: false, breakable: true },
   // HOUSE-2A（番号は 後ろに 足す。213〜）: まねきねこ（向き × 1 マス。ほかの 家具と 同じ。家具の ならびの まん中に 入れると あとの 番号が ずれる ので ここ）
   ...NEW_FURN_BLOCK_IDS.filter((id) => LATE_FURN.has(furnInfo(id)!.kind)).map(furnBlockType),
+  // HOUSE-2B（#364。番号は 後ろに 足す。217〜236）: 家の しゅるいの ブロック 20 こ（形ごと。あけた 戸だけ 通れる。あかり・のれんも 当たりは 箱）
+  ...LOOK_BLOCK_IDS.map((id): BlockType => ({ id, name: LOOK_PILLAR_NAME[id] ?? 'いえの ブロック', solid: !(id in LOOK_DOOR_INFO && LOOK_DOOR_INFO[id as keyof typeof LOOK_DOOR_INFO].open) && id !== 'lk_deco_noren' && id !== 'lk_deco_hanadan', breakable: true })),
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -167,7 +170,10 @@ if (BLOCK_INDEX.magma_1 !== MAGMA_M0 || BLOCK_INDEX.magma !== MAGMA_M0 + 7 || BL
 export const TORCH = BLOCK_INDEX.torch;
 export const START_TORCH = BLOCK_INDEX.start_torch;
 export const SPRINKLER = BLOCK_INDEX.sprinkler;
-export const LANTERN = BLOCK_INDEX.lantern;
+const LANTERN = BLOCK_INDEX.lantern;
+/** あかり（ちょうちん・ほたるいしの あかり・すいしょう ランプ）の 番号。まわりに 妖怪が 湧かない・光る（ITEM-FX-1・HOUSE-2B）。つりさげる あかりの しくみは 3 つ とも 同じ */
+const LAMP_INDEXES: ReadonlySet<number> = new Set([LANTERN, BLOCK_INDEX.lk_light_hotaru, BLOCK_INDEX.lk_light_suisho]);
+export const isLampIndex = (index: number): boolean => LAMP_INDEXES.has(index);
 export const HOTARUISHI = BLOCK_INDEX.hotaruishi;
 export const SHOJI = BLOCK_INDEX.shoji;
 
@@ -184,6 +190,8 @@ const PROP_IDS: ReadonlySet<string> = new Set([
   ...NEW_FURN_BLOCK_IDS.filter((id) => !FLAT_FURN_KINDS.has(furnInfo(id)!.kind)),
   // HOUSE-1C PR-2: 足場（固いが 光を 通す。細い 箱で 描く）
   ...SCAFFOLD_IDS,
+  // HOUSE-2B: 家の しゅるいの ブロックは ぜんぶ 箱の 形で 描く（案は 家の 記録から 場所で 引く）
+  ...LOOK_BLOCK_IDS,
 ]);
 const PROP = BLOCK_TYPES.map((t) => PROP_IDS.has(t.id));
 export function isPropIndex(index: number): boolean {

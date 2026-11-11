@@ -1,6 +1,7 @@
 import type { BlockId, ItemId } from '../contracts';
 import { ITEM_DEFS, registryToolFamily } from '../content/items/registry';
 import type { ToolConfig } from '../tools/config';
+import { LOOK_BLOCK_IDS } from '../world/blocks/houseLookBlocks';
 import { FURN_BLOCK_IDS, HOUSE_BLOCK_IDS, HOUSE_DOOR_PART_IDS, K_FURNACE, houseDropOf } from '../world/blocks/houseBlocks';
 import type { DigConfig } from './config';
 
@@ -25,7 +26,7 @@ export const IRON_HARVEST_LEVEL: number = (() => {
  * かまどだけ いし〔つるはし〕、あとは き〔おの〕（HOUSE-1 §2.13 ③: き と 同じ）。
  */
 function houseFamilies(): Partial<Record<BlockId, ToolFamily>> {
-  const ids: readonly string[] = [...HOUSE_BLOCK_IDS, ...HOUSE_DOOR_PART_IDS, ...FURN_BLOCK_IDS];
+  const ids: readonly string[] = [...HOUSE_BLOCK_IDS, ...HOUSE_DOOR_PART_IDS, ...FURN_BLOCK_IDS, ...LOOK_BLOCK_IDS]; // HOUSE-2B: 家の しゅるいの ブロックも き と 同じ（おの）
   return Object.fromEntries(ids.map((id) => [id, houseDropOf(id) === K_FURNACE ? 'stone' : 'log']));
 }
 

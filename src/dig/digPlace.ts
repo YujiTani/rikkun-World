@@ -2,7 +2,7 @@ import type { BlockId, TargetInfo } from '../contracts';
 import { itemType } from '../inventory/items';
 import { FUTON_HEAD, futonDirFromYaw, futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS } from '../world/blocks/kotatsu';
-import { K_TANSU, doorId, doorInfo, furnInfo, furnPlaceCells, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
+import { K_TANSU, doorId, doorIdLike, doorInfo, furnInfo, furnPlaceCells, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
 import { applyFlatten, planFlatten, type FlattenPlan } from '../world/flatten';
 import { HANGING_SUPPORT, isReplaceable, overlapsBody, type DigCore } from './digCore';
 import { isWater } from '../world/blocks/water';
@@ -240,8 +240,8 @@ export class BlockPlacer {
     const { x, y, z } = t.block;
     const loY = d.top ? y - 1 : y;
     const open = !d.open;
-    if (doorInfo(w.getBlock(x, loY, z))?.top === false) w.setBlock(x, loY, z, doorId(false, open));
-    if (doorInfo(w.getBlock(x, loY + 1, z))?.top === true) w.setBlock(x, loY + 1, z, doorId(true, open));
+    if (doorInfo(w.getBlock(x, loY, z))?.top === false) w.setBlock(x, loY, z, doorIdLike(t.id, false, open));
+    if (doorInfo(w.getBlock(x, loY + 1, z))?.top === true) w.setBlock(x, loY + 1, z, doorIdLike(t.id, true, open));
   }
 
   tryPlace(): void {

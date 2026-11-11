@@ -6,7 +6,9 @@
  *   （ふとん・チョークの しるしと 同じ 考え。列の 保存だけで のこる）。2〜3 マスの 家具は マスごとに 別の id（`table`〔左から 1 つ目〕・`table_2`〔2 つ目〕…）。
  *   id ＝ しゅるい ＋（2 つ目 以降は `_2`・`_3`）＋（向き 1〜3 は `_w`・`_n`・`_e`）。ブロックの 番号は 1 マス 2 バイト（1024 種類まで。BLOCK-ID16）
  * ・「箱の 形の 左から k 番目」は 家具の 絵の 形（前 ＝ −z）での 順。置いた 向きで 世界の どの マスに なるかは `furnCellOffset`
+ * ・HOUSE-2B: てつの との 4 つの id（houseLookBlocks.ts）も doorInfo が 戸と して 答える（`doorIdLike`）
  */
+import { LOOK_DOOR_INFO, type LookBlockId } from './houseLookBlocks';
 
 /** 家の ブロック 5 つ（持ち物に 入る。順番は ブロックの 番号と アイテムの 並び） */
 export const HOUSE_BLOCK_IDS = ['house_floor', 'house_wall', 'house_roof', 'shoji', 'house_door'] as const;
@@ -23,6 +25,7 @@ const DOOR_INFO: ReadonlyMap<string, { top: boolean; open: boolean }> = new Map<
   ['house_door_top', { top: true, open: false }],
   ['house_door_open', { top: false, open: true }],
   ['house_door_open_top', { top: true, open: true }],
+  ...Object.entries(LOOK_DOOR_INFO),
 ]);
 
 export function doorInfo(id: string): { top: boolean; open: boolean } | null {
@@ -33,6 +36,12 @@ export function doorInfo(id: string): { top: boolean; open: boolean } | null {
 export function doorId(top: boolean, open: boolean): HouseDoorId {
   if (top) return open ? 'house_door_open_top' : 'house_door_top';
   return open ? 'house_door_open' : 'house_door';
+}
+
+/** いま ある 戸 like（いつもの 戸か てつの と）と 同じ なかまの、top・open の 戸の id（あけしめ で なかまが かわらない ように） */
+export function doorIdLike(like: string, top: boolean, open: boolean): HouseDoorId | LookBlockId {
+  if (!like.startsWith('lk_door_tetsu')) return doorId(top, open);
+  return `lk_door_tetsu${open ? '_open' : ''}${top ? '_top' : ''}` as LookBlockId;
 }
 
 export type FurnRot = 0 | 1 | 2 | 3;

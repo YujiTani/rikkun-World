@@ -4,7 +4,7 @@ import { columnKey, type ArrayVoxelWorld, type ChangeBox } from '../VoxelWorld';
 import { sectionToArray } from '../sections';
 import { COUNT_LIGHT_TOTAL_MAX, type FrameClock } from '../frameClock';
 import { GADGET_TUNING } from '../../content/items/gadgetTuning';
-import { LANTERN } from '../blocks/blockTypes';
+import { isLampIndex } from '../blocks/blockTypes';
 import { LIGHT_CONFIG as C } from './config';
 import { combinedBrightness, isDarkForSpawn } from './curve';
 import { EMIT, OPAQ, TRIV, spreadLight } from './lightSpread';
@@ -299,10 +299,10 @@ export class WorldLight implements LightField {
     for (let s = 0; s < col.sections.length; s++) {
       const sec = col.sections[s];
       if (sec.kind === 'uniform') continue;
-      if (sec.kind === 'palette' && !sec.palette.includes(LANTERN)) continue;
+      if (sec.kind === 'palette' && !sec.palette.some(isLampIndex)) continue;
       const arr = sectionToArray(sec);
       for (let i = 0; i < arr.length; i++) {
-        if (arr[i] !== LANTERN) continue;
+        if (!isLampIndex(arr[i]!)) continue;
         const x = cx * 16 + (i & 15);
         const z = cz * 16 + ((i >> 4) & 15);
         const y = s * 16 + (i >> 8);
@@ -316,7 +316,7 @@ export class WorldLight implements LightField {
     for (const [k, l] of this.lanterns) if (l.x >= b.x0 && l.x <= b.x1 && l.y >= b.y0 && l.y <= b.y1 && l.z >= b.z0 && l.z <= b.z1) this.lanterns.delete(k);
     for (let y = Math.max(0, b.y0); y <= Math.min(this.sy - 1, b.y1); y++) {
       for (let z = b.z0; z <= b.z1; z++) {
-        for (let x = b.x0; x <= b.x1; x++) if (this.world.getIndex(x, y, z) === LANTERN) this.lanterns.set(`${x},${y},${z}`, { x, y, z });
+        for (let x = b.x0; x <= b.x1; x++) if (isLampIndex(this.world.getIndex(x, y, z))) this.lanterns.set(`${x},${y},${z}`, { x, y, z });
       }
     }
   }

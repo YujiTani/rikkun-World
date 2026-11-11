@@ -6685,6 +6685,678 @@
       "rarity": "uncommon",
       "recipes": []
     },
+    "roof_sankaku_mura": {
+      "ITEM_INFO.roof_sankaku_mura": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の やね に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらの さんかくの やね",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "roof_sankaku_shiro": {
+      "ITEM_INFO.roof_sankaku_shiro": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の やね に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おしろの さんかくの やね",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "roof_sankaku_kozan": {
+      "ITEM_INFO.roof_sankaku_kozan": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の やね に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こうざんの さんかくの やね",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "roof_kawara_mura": {
+      "ITEM_INFO.roof_kawara_mura": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の やね に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらの かわらの やね",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "roof_kawara_shiro": {
+      "ITEM_INFO.roof_kawara_shiro": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の やね に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おしろの かわらの やね",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "roof_kawara_kozan": {
+      "ITEM_INFO.roof_kawara_kozan": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の やね に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こうざんの かわらの やね",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "roof_wara_mura": {
+      "ITEM_INFO.roof_wara_mura": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の やね に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらの わらぶきの やね",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "roof_wara_shiro": {
+      "ITEM_INFO.roof_wara_shiro": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の やね に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おしろの わらぶきの やね",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "roof_wara_kozan": {
+      "ITEM_INFO.roof_wara_kozan": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の やね に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こうざんの わらぶきの やね",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "roof_kin_mura": {
+      "ITEM_INFO.roof_kin_mura": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の やね に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらの きんの やね",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "roof_kin_shiro": {
+      "ITEM_INFO.roof_kin_shiro": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の やね に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おしろの きんの やね",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "roof_kin_kozan": {
+      "ITEM_INFO.roof_kin_kozan": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の やね に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こうざんの きんの やね",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "wall_shikkui_mura": {
+      "ITEM_INFO.wall_shikkui_mura": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かべ に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらの しっくいの かべ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "wall_shikkui_shiro": {
+      "ITEM_INFO.wall_shikkui_shiro": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かべ に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おしろの しっくいの かべ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "wall_shikkui_kozan": {
+      "ITEM_INFO.wall_shikkui_kozan": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かべ に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こうざんの しっくいの かべ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "wall_renga_mura": {
+      "ITEM_INFO.wall_renga_mura": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かべ に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらの レンガの かべ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "wall_renga_shiro": {
+      "ITEM_INFO.wall_renga_shiro": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かべ に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おしろの レンガの かべ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "wall_renga_kozan": {
+      "ITEM_INFO.wall_renga_kozan": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かべ に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こうざんの レンガの かべ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "wall_ishi_mura": {
+      "ITEM_INFO.wall_ishi_mura": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かべ に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらの いしの かべ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "wall_ishi_shiro": {
+      "ITEM_INFO.wall_ishi_shiro": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かべ に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おしろの いしの かべ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "wall_ishi_kozan": {
+      "ITEM_INFO.wall_ishi_kozan": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かべ に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こうざんの いしの かべ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "window_suisho_mura": {
+      "ITEM_INFO.window_suisho_mura": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の まど に なる ブロック。ひかり が とおる"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらの すいしょうの まど",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "window_suisho_shiro": {
+      "ITEM_INFO.window_suisho_shiro": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の まど に なる ブロック。ひかり が とおる"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おしろの すいしょうの まど",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "window_suisho_kozan": {
+      "ITEM_INFO.window_suisho_kozan": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の まど に なる ブロック。ひかり が とおる"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こうざんの すいしょうの まど",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "window_maru_mura": {
+      "ITEM_INFO.window_maru_mura": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の まど に なる ブロック。ひかり が とおる"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらの まるい しょうじ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "window_maru_shiro": {
+      "ITEM_INFO.window_maru_shiro": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の まど に なる ブロック。ひかり が とおる"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おしろの まるい しょうじ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "window_maru_kozan": {
+      "ITEM_INFO.window_maru_kozan": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の まど に なる ブロック。ひかり が とおる"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こうざんの まるい しょうじ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "door_tetsu_mura": {
+      "ITEM_INFO.door_tetsu_mura": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の と に なる ブロック。ひらいたり しめたり できる"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらの てつの と",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "door_tetsu_shiro": {
+      "ITEM_INFO.door_tetsu_shiro": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の と に なる ブロック。ひらいたり しめたり できる"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おしろの てつの と",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "door_tetsu_kozan": {
+      "ITEM_INFO.door_tetsu_kozan": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の と に なる ブロック。ひらいたり しめたり できる"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こうざんの てつの と",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "deco_entotsu_mura": {
+      "ITEM_INFO.deco_entotsu_mura": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かざり に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらの レンガの えんとつ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "deco_entotsu_shiro": {
+      "ITEM_INFO.deco_entotsu_shiro": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かざり に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おしろの レンガの えんとつ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "deco_entotsu_kozan": {
+      "ITEM_INFO.deco_entotsu_kozan": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かざり に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こうざんの レンガの えんとつ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "deco_noren_mura": {
+      "ITEM_INFO.deco_noren_mura": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かざり に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらの のれん",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "deco_noren_shiro": {
+      "ITEM_INFO.deco_noren_shiro": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かざり に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おしろの のれん",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "deco_noren_kozan": {
+      "ITEM_INFO.deco_noren_kozan": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かざり に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こうざんの のれん",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "deco_hanadan_mura": {
+      "ITEM_INFO.deco_hanadan_mura": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かざり に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらの はなだん",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "deco_hanadan_shiro": {
+      "ITEM_INFO.deco_hanadan_shiro": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かざり に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おしろの はなだん",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "deco_hanadan_kozan": {
+      "ITEM_INFO.deco_hanadan_kozan": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かざり に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こうざんの はなだん",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "deco_shachi": {
+      "ITEM_INFO.deco_shachi": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の かざり に なる ブロック"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "きんの しゃちほこ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "light_hotaru": {
+      "ITEM_INFO.light_hotaru": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の なか を あかるく する あかり"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "ほたるいしの あかり",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "light_suisho": {
+      "ITEM_INFO.light_suisho": {
+        "buttons": [
+          "1-9"
+        ],
+        "how": "たてた いえ を ほる と てに はいる",
+        "use": "いえ の なか を あかるく する あかり"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "すいしょう ランプ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
     "rope": {
       "DIG_DEFAULTS.hardness.rope": 0.05,
       "DIG_DEFAULTS.harvestLevel.rope": 0,
