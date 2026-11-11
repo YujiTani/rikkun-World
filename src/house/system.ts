@@ -416,9 +416,16 @@ export class HouseSystem {
   hover(id: string | null): void {
     const part = id !== null && this.previewMode() === 'outside' ? glowPartOf(id) : null;
     if (id !== null && this.previewMode() === 'outside' && glowsWindows(id)) this.preview.hover(true);
-    else if (id !== null && part !== null && this.visibleButton(id)) this.preview.hover(true, part);
+    else if (id !== null && part !== null && !this.drawsNothing(id, part) && this.visibleButton(id)) this.preview.hover(true, part);
     else this.preview.hover(false);
     this.tip.hover(id, this.visibleButton);
+  }
+
+  /** 「なし」の ボタンに のせた・その ばしょが 今 なし（描いて いない）なら 光らせる 物が ない（やね・かべ・まど。AC9c「なしは 描かず 光らない」） */
+  private drawsNothing(id: string, part: string): boolean {
+    if (id.endsWith('-none')) return true;
+    const e = this.editor.s;
+    return (part === 'roof' && e.roof === 'none') || (part === 'wall' && e.wall === 'none') || (part === 'window' && e.windowKind === 'none');
   }
 
   /** 窓口 `recipes()`・`learn(id)`・`found(at, who)`・`read(who)`・`recipeBand()`・`recipeKinds(id)`（HOUSE-2A。テスト用の 窓口と 手に 入れる・使う 入口） */

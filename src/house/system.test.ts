@@ -379,6 +379,19 @@ describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
     expect(sys.editor.canUndo()).toBe(undo);
   });
 
+  it('hover: 「なし」の ボタンに のせても・今が なし の ばしょの しゅるいに のせても 光らない（AC9c）', () => {
+    const { sys, hook } = opened();
+    const log = fakePreview(sys);
+    sys.press('editor');
+    sys.press('part-roof');
+    hook.hover('roof-flat');
+    hook.hover('roof-none');
+    sys.press('roof-none');
+    hook.hover('roof-none');
+    hook.hover('roof-flat');
+    expect(log).toEqual(['hover true roof', 'hover false', 'hover false', 'hover false']);
+  });
+
   it('hover: まどの かず −＋ は 窓が ぜんぶ 光る（hover true）。ポップアップの しゅるいの ボタンは その ばしょが 光る（hover true <ばしょ>。3 版 AC8）。ほかの ボタン・null・② は 消す', () => {
     const { sys, hook } = opened();
     const log = fakePreview(sys);
