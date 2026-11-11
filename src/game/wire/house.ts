@@ -201,7 +201,11 @@ export function wireHouse(deps: WiredYokai) {
   lighting.register(architectRenderer.bodyMaterial, 'doll');
 
   // 時間が すすんで いる 間だけ（メニューが 開くと ゲームの 窓が 止める）
-  game.onUpdate(() => house.update());
+  // 完成の 帯・紙ふぶきの 合図は 毎ステップ 読む（描画の コマだけで 読むと、step() だけ 進める テストや 重い コマで 次の ステップに 間に あわず 帯が 出ない）
+  game.onUpdate(() => {
+    house.update();
+    doneUi.update(house.build.celebrate.view());
+  });
   game.onBeforeRender(() => {
     architectRenderer.update(house.manager.all(), game.camera, dig.aimedArchitect());
     blobShadow.setExtras(architectRenderer.shadowSpots());
