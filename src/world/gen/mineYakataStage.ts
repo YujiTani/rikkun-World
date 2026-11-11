@@ -1,5 +1,5 @@
 import { SEA_Y } from '../../contracts';
-import { BLOCK_INDEX } from '../blocks/blockTypes';
+import { BLOCK_INDEX, isTorchIndex } from '../blocks/blockTypes';
 import { chestBlockId } from '../blocks/chestBlock';
 import { colKey } from '../stream/ring';
 import { SHAPE_TABLE } from './mineBokenConfig';
@@ -124,7 +124,10 @@ export function* yakataStage(env: StageEnv, planned: Planned): Generator<void, b
     if (!pathClear(plan.path, sh)) continue;
     let hit = false;
     for (const set of [sh.air, sh.ring, sh.roles.keys()]) for (const k of set) if (plan.b.air.has(k)) hit = true;
-    for (const k of sh.air) if (plan.b.put.has(k)) hit = true; // 1E の たいまつ・わくを つぶさない〔口は かべの いしを あける だけ。仕様 §4.1〕
+    for (const k of sh.air) {
+      const v = plan.b.put.get(k);
+      if (v !== undefined && isTorchIndex(v)) hit = true; // 1E の 光る 物〔たいまつ〕だけ さける〔わくなど ほかの 置き物は 上書きして よい。わくも さけると 置ける 割合が 0.573 に 下がり F1 が 赤〕
+    }
     if (hit) continue;
     if (plan.rooms.some((r) => overlaps(r.box, box, ROOM_MARGIN))) continue;
     const caves = yield* env.caveBoxes(box.x0 - 16, box.z0 - 16, box.x1 + 16, box.z1 + 16);

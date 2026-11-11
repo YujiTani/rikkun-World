@@ -50,7 +50,7 @@ export function wireYakata(deps: WiredDuo, router: Router) {
       list.push(rows[0]!);
       const mate = shared.duoYokai();
       if (mate) {
-        Object.assign(rows[1]!, { x: mate.position.x, y: mate.position.y, z: mate.position.z, dead: !mate.targetable });
+        Object.assign(rows[1]!, { x: mate.position.x, y: mate.position.y, z: mate.position.z, dead: shared.p2Down() });
         list.push(rows[1]!);
       }
       return list;

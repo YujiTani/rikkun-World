@@ -30,14 +30,16 @@ const NORMAL: YakataMotion = {
   torchSwayAmp: 0.12, // ±15% まで
 };
 
-export function yakataMotion(reduce: boolean): YakataMotion {
-  if (!reduce) return NORMAL;
-  return {
+/** 動きを へらす 版〔作りおき。毎ステップ 作らない〕 */
+const REDUCED: YakataMotion = {
     ...NORMAL,
     gateClose: { riseTo: 1, stopAt: 0, dustAt: 0, endAt: 0 },
     gateOpenEnd: 0,
     foeAppear: { ...NORMAL.foeAppear, riseBlocks: 0 },
     floatItem: { ...NORMAL.floatItem, spinFrames: 0, bobAmp: 0 }, // spinFrames 0 = 回らない
     labelHop: { ...NORMAL.labelHop, hopPoints: 0 },
-  };
+};
+
+export function yakataMotion(reduce: boolean): YakataMotion {
+  return reduce ? REDUCED : NORMAL;
 }
