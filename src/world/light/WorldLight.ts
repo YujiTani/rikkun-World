@@ -9,6 +9,7 @@ import { LIGHT_CONFIG as C } from './config';
 import { combinedBrightness, isDarkForSpawn } from './curve';
 import { EMIT, OPAQ, TRIV, spreadLight } from './lightSpread';
 import { skyDarkness, type SkyDarkness } from './skyDarkness';
+import { YAKATA_LIGHT, boxAt, liftDim, writeYakataUniforms, type YakataLightBox } from './yakataLight';
 
 /**
  * 世界の光（マイクラと同じ仕組み）を セクション（16³）ごとに持つ（VOX-C。docs/design/VOX-plan.md §4）。
@@ -61,6 +62,8 @@ export class WorldLight implements LightField {
   private manual = false;
   /** ちょうちん（ITEM-FX-1）の場所。妖怪が湧かない はんい（立方体）の中心。collect() が 世界の変化に そろえる */
   private readonly lanterns = new Map<string, { x: number; y: number; z: number }>();
+  /** MINE-1F: やかたの 中の 見え方の 箱 */
+  private yakata: readonly YakataLightBox[] = [];
   /** 最後の update() で計算し直したマスの数（計測・テスト用） */
   lastRecomputeCells = 0;
   /** 最後の update() / flush() で ブロックの光を 書いた マスの 数（光る マス ＋ 広げた マス。空の光は 数えない）。MINE-1B B12「光を 広げた マスの 数」の 窓口 */
@@ -140,9 +143,36 @@ export class WorldLight implements LightField {
     return Math.max(this.skyLight(x, y, z) - this.darkness.value, this.blockLight(x, y, z), 0);
   }
 
-  /** 見た目の明るさ 0〜1（ブロックの光は 3 だんかい）。人形・妖怪・落とし物の明るさに使う */
+  /**
+   * 見た目の明るさ 0〜1（ブロックの光は 3 だんかい）。人形・妖怪・落とし物の明るさに使う。
+   * MINE-1F: やかたの 中〔`setYakataBoxes` の 箱〕では 光 2〜5 の 所を shade より 暗く しない（`yakataLight.ts`）
+   */
   brightness(x: number, y: number, z: number): number {
-    return combinedBrightness(this.skyLight(x, y, z), this.darkness.value, this.blockLight(x, y, z));
+    const bl = this.blockLight(x, y, z);
+    const b = combinedBrightness(this.skyLight(x, y, z), this.darkness.value, bl);
+    return this.yakata.length > 0 && boxAt(this.yakata, x, y, z) ? liftDim(b, bl) : b;
+  }
+
+  /** MINE-1F: やかたの 中の 見え方の 箱〔世界の 座標・見える やかた ぜんぶ〕を 入れる。画面ごとには かえない。シェーダーの 入れ物にも 書く */
+  setYakataBoxes(boxes: readonly YakataLightBox[]): void {
+    this.yakata = boxes;
+    writeYakataUniforms(boxes);
+  }
+
+  /** MINE-1F: いま 入って いる 箱 */
+  yakataBoxes(): readonly YakataLightBox[] {
+    return this.yakata;
+  }
+
+  /** MINE-1F: その マスの 光の 色〔やかたの 中は 表の `lookTint`。外は null〕 */
+  yakataTint(x: number, y: number, z: number): readonly number[] | null {
+    const b = this.yakata.length > 0 ? boxAt(this.yakata, x, y, z) : null;
+    return b ? YAKATA_LIGHT.lookTint[b.look] : null;
+  }
+
+  /** MINE-1F: 妖怪の 体の 明るさの 下限〔やかたの 中は `dim.foe`。外は 0〕 */
+  foeMin(x: number, y: number, z: number): number {
+    return this.yakata.length > 0 && boxAt(this.yakata, x, y, z) ? YAKATA_LIGHT.dim.foe : 0;
   }
 
   /** 妖怪が出てよい暗い所か（空の光 7 以下で、たいまつの 8 マス以内ではない） */

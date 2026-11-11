@@ -28,7 +28,7 @@ export interface WorldHook {
   blockTypes(): BlockType[];
   rebuildStats(): RebuildStats;
   /** M4 光: そのマスの光（空の光・ブロックの光・時刻をふくんだ明るさ 0〜15・見た目の明るさ 0〜1）と、空の光の弱まり（昼 0〜夜 11） */
-  lightAt(x: number, y: number, z: number): { sky: number; block: number; level: number; brightness: number };
+  lightAt(x: number, y: number, z: number): { sky: number; block: number; level: number; brightness: number; yakataTint: readonly number[] | null };
   skyDarkness(): number;
   /** ITEM-FX-1: そのマスは 妖怪が 湧いてよい 暗い所か（`WorldLight.isDarkForSpawn` そのまま。ちょうちんの E2E 用） */
   darkForSpawn(x: number, y: number, z: number): boolean;
@@ -109,6 +109,7 @@ export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer,
       block: renderer.light.blockLight(x, y, z),
       level: renderer.light.level(x, y, z),
       brightness: renderer.light.brightness(x, y, z),
+      yakataTint: renderer.light.yakataTint(x, y, z), // MINE-1F: やかたの 中の 光の 色（外は null）
     }),
     skyDarkness: () => skyDarkness.value,
     darkForSpawn: (x, y, z) => renderer.light.isDarkForSpawn(x, y, z),

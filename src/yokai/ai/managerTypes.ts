@@ -56,6 +56,8 @@ export interface YokaiManagerOptions {
   light?: Pick<LightField, 'level'> & {
     isDarkForSpawn(x: number, y: number, z: number): boolean;
     brightness(x: number, y: number, z: number): number;
+    /** MINE-1F: やかたの 中の 妖怪の 体の 明るさの 下限（なければ 0） */
+    foeMin?(x: number, y: number, z: number): number;
   };
   /** 足もとの光の下限（人形の明るさ）。既定は LIGHT_CONFIG.yokaiMin（#76 で 0。光らせない） */
   lightMin?: number;

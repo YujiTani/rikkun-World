@@ -4,6 +4,9 @@ import type { CaveKind } from '../world/gen/mineCaveConfig';
 import { COUNTRY_TABLE } from '../world/gen/countryTable';
 import { CROP_KINDS, type AchievementCategory, type AchievementDef, type CropKind, type MedalTier, type StatKey } from '../contracts';
 
+/** MINE-1F: ようかいの やかたの 実績の 種類（found = はじめて 大広間に 入った〔小〕・won = はじめて かちぬいた〔大〕） */
+export type YakataAchKind = 'found' | 'won';
+
 /** MINE-1E: 足が はじめて 入った 坑道の 場所（かくしべや・むかしの えだ道・迷路の いちばん おく の 行きどまり〔へやが あれば へや〕・キャンプあと） */
 export type MineAreaKind = 'kakushi' | 'mukashi' | 'meiro' | 'camp';
 
@@ -393,6 +396,16 @@ function build(): AchievementDef[] {
     const { name, small } = AREA_ACH[kind];
     // 「めいろ の いちばん おく に ついた！」だけ 「に」が つく（ほかは「を みつけた！」）
     add({ series: `mine.area.${kind}`, category: 'adventure', stat: `area:${kind}`, tiers: [t(1, small)], name: () => (kind === 'meiro' ? `はじめて ${name} に ${AREA_VERB[kind]}！` : `はじめて ${name} を ${AREA_VERB[kind]}！`) });
+  }
+
+  // MINE-1F §4.8: ようかいの やかた。はじめて 大広間に 入った（小）・はじめて かちぬいた（大。紙ふぶき ＋ 花火）
+  const YAKATA_ACH = {
+    found: { name: 'はじめて ようかいの やかた を みつけた！', small: true },
+    won: { name: 'ようかいの やかた を かちぬいた！', small: false },
+  } satisfies Record<YakataAchKind, { name: string; small: boolean }>; // 種類を 足したら ここも 足す
+  for (const kind of Object.keys(YAKATA_ACH) as YakataAchKind[]) {
+    const { name, small } = YAKATA_ACH[kind];
+    add({ series: `mine.yakata.${kind}`, category: 'adventure', stat: `yakata:${kind}`, tiers: [t(1, small)], name: () => name });
   }
 
   // MINE-1E §4.12: かびた パンを たべた（小さな 実績。じょうだんの 一品）

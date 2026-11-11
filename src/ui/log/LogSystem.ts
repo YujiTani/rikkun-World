@@ -1,3 +1,4 @@
+import { YAKATA_TEXT } from '../yakataText';
 import type { Craft2Settings, ItemId, LogCategory, LogEntry, LogKind, TansuPos } from '../../contracts';
 import { createCraft2Settings } from '../../contracts';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings } from '../../fx/craftConfig';
@@ -45,7 +46,7 @@ const SIGNAL_LOG = {
   noArrow: { text: 'や が いるよ', item: 'ya' },
   full: { text: 'もちもの が いっぱい！', item: null },
   tansuFull: { text: 'たんす が いっぱい！', item: null },
-  yakataLocked: { text: 'いまは ほれない よ', item: null }, // MINE-1F §3.1
+  yakataLocked: { text: YAKATA_TEXT.locked, item: null }, // MINE-1F §3.1
 } as const satisfies Record<LogSignal, { text: string; item: ItemId | null }>;
 
 interface Entry {
