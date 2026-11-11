@@ -175,6 +175,8 @@ export function boxTouchesFan(b: BoxLike, f: Fan, margin = 0): boolean {
 /** 妖怪の 世界の うち、割りこむ 2 つ */
 export interface YokaiWorldLike {
   raycast(origin: Vec3, dir: Vec3, maxDistance: number): YokaiRayHit | null;
+  /** 線に かかる 全部（近い 順。黒龍の や。ない 世界も ある）。割りこみは これにも 重ねる */
+  raycastAll?(origin: Vec3, dir: Vec3, maxDistance: number): readonly YokaiRayHit[];
   /** 6 番目の who = 当てた 人（1P・2P）。割りこみは 引数を ぜんぶ そのまま わたす */
   damage(id: number, amount: number, from: Vec3, knock?: unknown, by?: unknown, who?: 1 | 2): number | void;
 }
@@ -233,6 +235,29 @@ export interface HitEnv {
 export interface LastHit { part: Part; mul: number; dealt: number; source: string; at: Vec3 | null; hp: number; who: 1 | 2 }
 
 const NO_PERSON: Pick<HitPlayer, 'defIgnore' | 'onStrike'> = {};
+
+/**
+ * raycastAll の 答え（近い 順）に 割りこみの 当たり 1 つを 差しこむ。返す 配列と 入れ物は 使いまわす（毎ステップ new しない）。
+ * 割りこみの 当たりは 1 体ぶん（いちばん 近い 箱）だけ なので、1 本の や が 1 つの からだを 何度も 打たない
+ */
+export class RayAllMerge {
+  private pool: YokaiRayHit[] = [];
+  private view: YokaiRayHit[] = [];
+  merge(base: readonly YokaiRayHit[], extra: YokaiRayHit | null): readonly YokaiRayHit[] {
+    if (!extra) return base;
+    const v = this.view;
+    v.length = 0;
+    let at = base.length;
+    for (let i = 0; i < base.length; i++) if (base[i]!.distance > extra.distance) { at = i; break; }
+    for (let i = 0; i < at; i++) v.push(base[i]!);
+    let h = this.pool[0];
+    if (!h) this.pool[0] = h = { id: 0, kind: extra.kind, distance: 0 };
+    h.id = extra.id; h.kind = extra.kind; h.distance = extra.distance;
+    v.push(h);
+    for (let i = at; i < base.length; i++) v.push(base[i]!);
+    return v;
+  }
+}
 
 /** 妖怪の 世界ごとの 割りこみ（何体 出ても 1 重。いちばん あたらしい 持ち主が 受ける） */
 interface Tap { owner: BigHit; rayOrig: YokaiWorldLike['raycast']; dmgOrig: (...a: unknown[]) => number | void }
@@ -442,6 +467,13 @@ export class BigHit {
     const t: Tap = { owner: this, rayOrig: ym.raycast.bind(ym), dmgOrig: ym.damage.bind(ym) as (...a: unknown[]) => number | void };
     TAPS.set(ym, t);
     ym.raycast = (origin: Vec3, dir: Vec3, max: number): YokaiRayHit | null => t.owner.rayThrough(t.rayOrig, origin, dir, max);
+    // 黒龍の や（まっすぐ つらぬく）は raycastAll を 使う。raycast だけ 割りこむと がしゃどくろが 素通りに なる
+    if (ym.raycastAll) {
+      const allOrig = ym.raycastAll.bind(ym);
+      const out = new RayAllMerge();
+      ym.raycastAll = (origin: Vec3, dir: Vec3, max: number): readonly YokaiRayHit[] =>
+        out.merge(allOrig(origin, dir, max), t.owner.rayThrough(() => null, origin, dir, max));
+    }
     // 引数は ぜんぶ そのまま わたす（6 番目の who を 落とさない。少ない 呼び方も 足さない）
     ym.damage = (...a: unknown[]): number | void => {
       const id = a[0] as number;

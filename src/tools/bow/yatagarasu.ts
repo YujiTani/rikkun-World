@@ -40,9 +40,9 @@ const burstKnock: YokaiKnock = { dist: Y.burstKnock[0], up: Y.burstKnock[1] };
 
 /**
  * ほのおを 1 回 はじけさせる。`at` = 当たった 点、`seeFrom` = さえぎりを 見る 線の 始まり（ブロックに 当たった ときは 少し もどした 点）、
- * `directId` = 矢が 直接 当たった 妖怪（必ず ほのおも 当たる。なければ -1）。ダメージを 与えて イベントを 返す
+ * `damage` = ほのおの ダメージ（その 矢の ダメージと 同じ。段で 4・6・10）、`directId` = 矢が 直接 当たった 妖怪（必ず ほのおも 当たる。なければ -1）。ダメージを 与えて イベントを 返す
  */
-export function fireBurst(world: VoxelWorld, yokai: YokaiWorld, at: Vec3, seeFrom: Vec3, directId: number, tick: number): BowEvent {
+export function fireBurst(world: VoxelWorld, yokai: YokaiWorld, at: Vec3, seeFrom: Vec3, directId: number, tick: number, damage: number): BowEvent {
   hitsBuf.length = 0;
   const list = yokai.list();
   const r2 = Y.burstRadius * Y.burstRadius;
@@ -66,7 +66,7 @@ export function fireBurst(world: VoxelWorld, yokai: YokaiWorld, at: Vec3, seeFro
         if (sl > 1e-6 && raycastBlocks(world, seeFrom.x, seeFrom.y, seeFrom.z, sx / sl, sy / sl, sz / sl, sl, true) !== null) continue;
       }
     }
-    hitsBuf.push({ id: y.id, damage: Y.burstDamage });
+    hitsBuf.push({ id: y.id, damage });
   }
   const hits: { id: number; damage: number }[] = [];
   for (const h of hitsBuf) {

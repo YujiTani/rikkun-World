@@ -257,14 +257,14 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
           const dmg = a.damage;
           yokai.damage(yh.id, dmg, { ...lastPos }, { dist: s.bowKnock[st - 1]!, up: 0 });
           emit({ type: 'arrowHit', tick: deps.tick(), yokaiId: yh.id, damage: dmg, position: hit });
-          if (a.burst) emit(fireBurst(deps.world, yokai, hit, hit, yh.id, deps.tick()));
+          if (a.burst) emit(fireBurst(deps.world, yokai, hit, hit, yh.id, deps.tick(), a.damage));
           alive = false;
         } else if (blk && a.burst) {
           // LEGEND-4 八咫烏: ブロックに 当たったら その 点で ほのお。矢は ささらず 消える（ブロックは かえない）
           const hit = { x: p.x + rayDir.x * blk.distance, y: p.y + rayDir.y * blk.distance, z: p.z + rayDir.z * blk.distance };
           const see = { x: hit.x - rayDir.x * BURST_BACKOFF, y: hit.y - rayDir.y * BURST_BACKOFF, z: hit.z - rayDir.z * BURST_BACKOFF };
           emit({ type: 'arrowStick', tick: deps.tick(), position: { ...hit } });
-          emit(fireBurst(deps.world, yokai, hit, see, -1, deps.tick()));
+          emit(fireBurst(deps.world, yokai, hit, see, -1, deps.tick(), a.damage));
           alive = false;
         } else if (blk) {
           const hit = { x: p.x + rayDir.x * blk.distance, y: p.y + rayDir.y * blk.distance, z: p.z + rayDir.z * blk.distance };
