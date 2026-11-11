@@ -1,6 +1,7 @@
 # #444 直しの push では「まえの 回で 落ちた テスト」だけを 先に 回す ci.yml（これで .github/workflows/ci.yml を まるごと 置きかえる。yuzu が 画面で）。
 # 前と ちがう 所: 「変更の 中身」が 同じ ブランチの まえの 回の 落ちた テスト（Playwright の .last-run.json）を 集める /
 # e2e-first の ジョブ（その テストだけ 数分で 回す。落ちたら 6 シャードは 回さず すぐ 赤）/ 各シャードが 落ちた テストの 一覧を e2e-last-run-<n> に 残す。
+# 落ちた テストは 自動で もう 1 回だけ ためす（--retries=1）。
 # まえの 回が 緑・はじめての push・一覧が とれない ときは 今までどおり すぐ 全部を 回す（落ちない）。だれも 何も 操作 しなくて よい。
 name: CI
 
@@ -147,7 +148,7 @@ jobs:
         run: |
           mkdir -p test-results
           printf '%s' "$FIRST" | jq -c '{status: "failed", failedTests: .}' > test-results/.last-run.json
-          npx playwright test --last-failed --pass-with-no-tests --reporter=list,html
+          npx playwright test --last-failed --pass-with-no-tests --retries=1 --reporter=list,html
       - name: 落ちた テストの 一覧を 作る（次の 回が 使う）
         if: ${{ !cancelled() }}
         run: mkdir -p e2e-last-run && cp test-results/.last-run.json e2e-last-run/last-run.json || true
@@ -200,8 +201,9 @@ jobs:
           mkdir -p e2e-times-prev
           if [ -n "$TIMES" ]; then printf '%s' "$TIMES" > e2e-times-prev/main.json; fi
       # 件数でなく 時間で 5 つに 分ける（scripts/e2e-shard.mjs）。前の main の 時間 → e2e/shard-times.json → テストの 本数で 見つもり の 順
+      # 落ちた テストは 自動で もう 1 回だけ ためす（--retries=1。yuzu 2026-11-11）。2 回目で 通った テストは ログに flaky と 出る（ゆれ。issue に する）
       - name: E2E（5 つに分けた ${{ matrix.shard }} つ目）
-        run: npx playwright test $(node scripts/e2e-shard.mjs ${{ matrix.shard }} 6) --reporter=list,html,json
+        run: npx playwright test $(node scripts/e2e-shard.mjs ${{ matrix.shard }} 6) --retries=1 --reporter=list,html,json
         env:
           PLAYWRIGHT_HTML_OPEN: never
           PLAYWRIGHT_JSON_OUTPUT_FILE: e2e-result.json
