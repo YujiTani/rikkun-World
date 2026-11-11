@@ -2,7 +2,7 @@ import type { ItemId, TargetInfo, VoxelWorld } from '../contracts';
 import { LEGEND4_TUNING } from '../content/items/legend4Tuning';
 
 /** LEGEND-4 ノームの斧: 手に 持つ 物の id（ここ 1 か所。数は LEGEND4_TUNING.gnome） */
-export const GNOME_AXE_ID = 'gnome_axe' as const satisfies ItemId;
+const GNOME_AXE_ID = 'gnome_axe' as const satisfies ItemId;
 
 /** ノームの斧か */
 const GNOME_ITEMS: ReadonlySet<string> = new Set([GNOME_AXE_ID]);

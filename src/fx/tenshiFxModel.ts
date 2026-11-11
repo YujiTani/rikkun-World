@@ -23,7 +23,7 @@ export function flapScale(left: number): number {
   return 1 + 0.3 * Math.sin(Math.PI * (1 - left / T.flapSteps));
 }
 
-export interface Feather {
+interface Feather {
   x: number;
   y: number;
   z: number;

@@ -10,13 +10,13 @@ import { LEGEND4_TUNING } from '../content/items/legend4Tuning';
 const Y = LEGEND4_TUNING.yatagarasu;
 /** 金の 光の コマ数と 1 コマの ステップ数（30fps の 絵を 60 ステップで 2 ステップずつ） */
 export const BOLT_FRAMES = 15;
-export const BOLT_STEPS_PER_FRAME = 2;
+const BOLT_STEPS_PER_FRAME = 2;
 /** ほのおの コマ数（52 コマから 1 つ おき） */
 export const BURST_FRAMES = 26;
 /** 「動きを へらす」で 見せる コマ（輪が いちばん ひろがった ころ） */
-export const BURST_REDUCED_FRAME = 12;
+const BURST_REDUCED_FRAME = 12;
 /** 最後の この ステップ数で すうっと うすく なる */
-export const BURST_FADE_STEPS = 6;
+const BURST_FADE_STEPS = 6;
 
 export interface BoltIn {
   id: number;
@@ -24,13 +24,13 @@ export interface BoltIn {
   velocity: Vec3;
   burst?: boolean;
 }
-export interface Bolt {
+interface Bolt {
   id: number;
   position: Vec3;
   dir: Vec3;
   frame: number;
 }
-export interface Flame {
+interface Flame {
   id: number;
   position: Vec3;
   frame: number;
