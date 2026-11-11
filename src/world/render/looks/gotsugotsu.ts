@@ -259,7 +259,7 @@ export const gotsugotsuLook: Look = {
         },
         fill: (bx: number, by: number, bz: number, e: number, out: Uint8Array) => {
           const m = bambooMode();
-          if (m === 'voxel') fillBambooVoxel(e, out, 3);
+          if (m === 'voxel') fillBambooVoxel(e, bx, by, bz, out);
           else if (m === 'sprite') out.fill(0);
           else fill(bx, by, bz, e, out);
         },

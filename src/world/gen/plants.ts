@@ -130,7 +130,7 @@ function plantsRawUncached(T: Terrain, cx: number, cz: number): Plant[] {
       if (kind === 'take' && (T.height(x + 1, z) > h || T.height(x - 1, z) > h || T.height(x, z + 1) > h || T.height(x, z - 1) > h)) continue;
       if (kind === 'flower') found.push({ p: { x, z, id: FLOWERS[Math.floor(hash01(sP, x, z, 2) * 3)]!, height: 1 }, r, kind, cap: def.cap?.flower ?? Infinity });
       else if (kind === 'susuki') found.push({ p: { x, z, id: 'susuki', height: 1 }, r, kind, cap: def.cap?.susuki ?? Infinity });
-      else found.push({ p: { x, z, id: 'bamboo', height: 4 + Math.floor(hash01(sP, x, z, 3) * 4) }, r, kind, cap: def.cap?.take ?? Infinity });
+      else found.push({ p: { x, z, id: 'bamboo', height: C.take.heightMin + Math.floor(hash01(sP, x, z, 3) * C.take.heightSpread) }, r, kind, cap: def.cap?.take ?? Infinity });
     }
   }
   // 上限: 乱数の値が小さい順に 上限まで（列のかたよりが出ない）
