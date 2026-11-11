@@ -42,6 +42,14 @@ interface Rig {
 const rigs: Rig[] = [];
 let rows: YakataSampleRow[] = [];
 
+/** 光の 計算は 1 回の update に 上限が ある ので、からに なるまで まわす */
+function settle(l: WorldLight): void {
+  for (let i = 0; i < 400; i++) {
+    l.update();
+    l.flush();
+  }
+}
+
 function build(row: YakataSampleRow): Rig {
   const T = tableOf();
   const g = new GenCols(row.seed);
@@ -160,16 +168,15 @@ describe('F21: やかたの 中の 見え方', () => {
       const id = T.lookBlocks[r.row.yakata.look].taimatsu;
       expect(r.world.setBlock(spot!.x, spot!.y + 1, spot!.z, id as never), `${id} を 置けた`).toBe(true);
       const restore = (): void => void r.world.setBlock(spot!.x, spot!.y + 1, spot!.z, 'air' as never);
-      r.light.update();
-      r.light.flush();
-      r.plain.update();
-      r.plain.flush();
+      settle(r.light);
+      r.plain = new WorldLight(r.world, new SkyDarkness()); // 変更の 箱は 1 回 読むと 空に なる ので、置いた あとで 作りなおす
+      settle(r.plain);
       for (let x = spot!.x - 10; x <= spot!.x + 10; x++) {
         for (let z = spot!.z - 10; z <= spot!.z + 10; z++) {
           for (let y = spot!.y - 1; y <= spot!.y + 3; y++) {
             if (!r.world.isLoaded(x, z)) continue;
             const l = r.plain.blockLight(x, y, z);
-            if (l < T.dim.from || l > T.dim.to) continue;
+            if (l < T.dim.from) continue; // たいまつの まわりは 光が 急に 落ちて dim.from〜dim.to の マスが ない ことが ある ので、dim.from 以上〔うす暗い マスを ふくむ〕ぜんぶ 見る
             cells++;
             if (r.light.yakataTint(x, y, z) !== null) bad.push(`${tag(r)}: (${x}, ${y}, ${z}) の yakataTint が null でない`);
             if (r.light.brightness(x, y, z) !== r.plain.brightness(x, y, z)) bad.push(`${tag(r)}: (${x}, ${y}, ${z}) の brightness が 今の 式と ちがう`);
@@ -177,10 +184,9 @@ describe('F21: やかたの 中の 見え方', () => {
         }
       }
       restore();
-      r.light.update();
-      r.light.flush();
-      r.plain.update();
-      r.plain.flush();
+      settle(r.light);
+      r.plain = new WorldLight(r.world, new SkyDarkness()); // 変更の 箱は 1 回 読むと 空に なる ので、置いた あとで 作りなおす
+      settle(r.plain);
     }
     expect(cells, '光 dim.from〜dim.to の マス').toBeGreaterThan(0);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
@@ -228,7 +234,11 @@ describe('F21: やかたの 中の 見え方', () => {
 
 // ------------------------------------------------------------------ 妖怪の 体
 
-const PLAYER_FAR: Vec3 = { x: 0, y: 200, z: 0 };
+/** プレイヤーは やかたの 真上〔高さ 200〕: 水平に 遠いと farTick が 妖怪を 消す ので 近くに おく */
+const above = (r: Rig): Vec3 => {
+  const b = yakataBox(r.row.yakata, tableOf());
+  return { x: (b.x0 + b.x1) / 2, y: 200, z: (b.z0 + b.z1) / 2 };
+};
 function makeTime(phase: DayPhase): TimeOfDay {
   const t = { dayTick: () => 0, day: () => 0, phase: () => phase, skyColor: () => '#000000', brightness: () => 1, dollBrightness: () => 1, set: () => {}, update: () => {}, onPhaseChange: () => () => {} };
   return t as unknown as TimeOfDay;
@@ -248,7 +258,7 @@ describe('F21: 妖怪の 体の 明るさ', () => {
         new YokaiManager({
           world: r.world,
           time: makeTime('night'),
-          getPlayer: () => ({ position: PLAYER_FAR }),
+          getPlayer: () => ({ position: above(r) }),
           combat: combat(),
           inventory: { add: () => 0 } as never,
           seed: 1,
