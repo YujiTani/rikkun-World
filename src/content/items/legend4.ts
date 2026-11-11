@@ -36,4 +36,29 @@ export const LEGEND4 = {
       passive: [{ kind: 'moveMul', mul: LEGEND4_TUNING.kokuryu.moveMul }],
     },
   },
+  // 八咫烏: ふつうの 弓と 同じ 放物線。当たった 点で むらさきの ほのおが 半径 2 に はじけ（3 ダメージ）、2 回に 1 回 矢が へらない
+  yatagarasu: {
+    name: '［八咫烏｜やたがらす］',
+    zukan: '［八咫烏｜やたがらす］は ［足｜あし］が ［三｜さん］［本｜ぼん］ ある ［大｜おお］きな からす。むかし、［道｜みち］に まよった ［人｜ひと］たちの ［前｜まえ］を とんで、［光｜ひかり］で ［行｜い］く ［先｜さき］を おしえたと いう。その ［羽｜はね］で ［作｜つく］った この ［弓｜ゆみ］の ［矢｜や］は、［金｜きん］いろに かがやいて とび、あたると むらさきの ほのおが ぱっと ひろがる。ときには うった ［矢｜や］が ［光｜ひかり］と なって もどり、へらない ことも ある。［光｜ひかり］の みちびきは、いまも この ［弓｜ゆみ］に やどって いる。',
+    maxStack: 1,
+    rarity: 'legendary', // 7 段目
+    category: 'weapon',
+    info: {
+      use: 'や を とばして とおく の ようかい を たおす。や が いる',
+      special: 'ひかり の や が あたると むらさき の ほのお が だいばくはつ！ ときどき や が へらない',
+      how: BOW_HOW,
+      buttons: ['1-9', 'left'],
+      stats: 'bow',
+    },
+    wear: 10000,
+    // や の つよさ [4, 6, 10]・ほのお あり（半径・ダメージ・くじは LEGEND4_TUNING.yatagarasu。BowSystem が yatagarasu.ts で 読む）
+    bow: { damage: LEGEND4_TUNING.yatagarasu.damage, burst: true },
+    // ためわざ・passive なし。power は 刀の 表の 形を そろえる ための 値（使われない）
+    legend: {
+      power: LEGEND4_TUNING.yatagarasu.damage[2],
+      charge: null,
+      onAttack: [],
+      passive: [],
+    },
+  },
 } satisfies Record<Legend4Id, ItemDef>;

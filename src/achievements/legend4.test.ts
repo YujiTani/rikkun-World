@@ -39,3 +39,21 @@ describe('K-C3 kokuryu: 実績', () => {
     expect(b.info(null)).toMatchObject({ kind: 'telop', item: 'kokuryu' });
   });
 });
+
+describe('Y-C3 yatagarasu: 実績', () => {
+  it('get.yatagarasu.1 が ある・inventory.add で 取れて 図鑑に のる・テロップ', () => {
+    expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'get.yatagarasu.1')).toBeDefined();
+    const w2 = createW2Settings();
+    const legendBook = new LegendBook((i) => w2.legendary.some((d) => d.item === i));
+    const achievements = mk();
+    const inv = new InventoryImpl();
+    inv.onAdded = createInvAdded({ legendBook, ninjaBook: new NinjaBook(), samuraiBook: new SamuraiBook(), achievements, rarityOf: (i) => itemRarity(i) });
+    inv.add('yatagarasu', 1);
+    expect(achievements.isUnlocked('get.yatagarasu.1')).toBe(true);
+    expect(legendBook.got()).toEqual(['yatagarasu']);
+    const b = new TopBandModel(() => defaultCelebrateSettings());
+    b.enqueueTelop('yatagarasu');
+    b.step(1, false);
+    expect(b.info(null)).toMatchObject({ kind: 'telop', item: 'yatagarasu' });
+  });
+});

@@ -15,6 +15,7 @@ import type {
 } from '../../contracts';
 import { raycastBlocks } from '../../dig/raycast';
 import { cellInWall } from '../../world/wall';
+import { arrowSaved, createSaveRoll, fireBurst, BURST_BACKOFF } from './yatagarasu';
 
 /** WEAPON-2 §4.4（弓）。段・放物線・当たり・ささった や と 拾う。更新は固定ステップ（1/60 秒）。乱数は使わない */
 
@@ -32,6 +33,10 @@ const TREMBLE_PERIOD = 5;
 export interface BowDepsX extends BowDeps {
   /** 出来事が 起きた とき すぐ 呼ぶ（ToolSystemImpl が 人形の 動きと テストの 窓口に 使う） */
   onEvent?: (e: BowEvent) => void;
+  /** LEGEND-4 八咫烏: 「矢が へらない」くじ（0 以上 1 未満）。なければ 人ごとの シード付きの 列（`who`）。テストが 外から 決める */
+  saveRoll?: () => number;
+  /** 1P か 2P（くじの 列を 人ごとに 分ける。なければ 1） */
+  who?: 1 | 2;
 }
 
 /** 飛んでいる や（`stage` は 当たったときの ダメージ用。窓口では 出さない） */
@@ -60,6 +65,7 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
   let stage: BowStage = 0;
   let nockLeft = 0;
 
+  const roll = deps.saveRoll ?? createSaveRoll(deps.who ?? 1);
   const flying: Arrow[] = [];
   const stuck: StuckArrowInfo[] = [];
   let nextId = 1;
@@ -122,7 +128,10 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
   // ---------------------------------------------------------- うつ
 
   function shoot(ctx: BowStepContext, st: 1 | 2 | 3): void {
-    if (deps.inventory.remove('ya', 1) < 1) {
+    const burst = ctx.item !== null && s.bowBurstByItem[ctx.item] === true;
+    // LEGEND-4 八咫烏: うつ たびに くじ 1 回。当たりなら 矢を へらさない（矢が 1 本 以上 ある ことは ひき始めで 見て いる）
+    const saved = burst && arrowSaved(roll());
+    if (!saved && deps.inventory.remove('ya', 1) < 1) {
       emit({ type: 'noArrow', tick: deps.tick() });
       return;
     }
@@ -148,7 +157,9 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
       info.hitIds = [];
       info.range = straightRange;
     }
+    if (burst) info.burst = true;
     flying.push(info);
+    if (saved) emit({ type: 'arrowSaved', tick: deps.tick() });
     nockLeft = s.bowNockTicks;
     emit({
       type: 'arrowShot',
@@ -244,6 +255,14 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
           const dmg = a.damage;
           yokai.damage(yh.id, dmg, { ...lastPos }, { dist: s.bowKnock[st - 1]!, up: 0 });
           emit({ type: 'arrowHit', tick: deps.tick(), yokaiId: yh.id, damage: dmg, position: hit });
+          if (a.burst) emit(fireBurst(deps.world, yokai, hit, hit, yh.id, deps.tick()));
+          alive = false;
+        } else if (blk && a.burst) {
+          // LEGEND-4 八咫烏: ブロックに 当たったら その 点で ほのお。矢は ささらず 消える（ブロックは かえない）
+          const hit = { x: p.x + rayDir.x * blk.distance, y: p.y + rayDir.y * blk.distance, z: p.z + rayDir.z * blk.distance };
+          const see = { x: hit.x - rayDir.x * BURST_BACKOFF, y: hit.y - rayDir.y * BURST_BACKOFF, z: hit.z - rayDir.z * BURST_BACKOFF };
+          emit({ type: 'arrowStick', tick: deps.tick(), position: { ...hit } });
+          emit(fireBurst(deps.world, yokai, hit, see, -1, deps.tick()));
           alive = false;
         } else if (blk) {
           const hit = { x: p.x + rayDir.x * blk.distance, y: p.y + rayDir.y * blk.distance, z: p.z + rayDir.z * blk.distance };

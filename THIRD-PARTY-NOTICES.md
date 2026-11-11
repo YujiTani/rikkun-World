@@ -32,3 +32,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## pixelfx — 八咫烏の 金の 光の 矢・むらさきの ほのお（LEGEND-4 PR2）
+
+- 使った 場所: `public/models/fx/yata_bolt.png`（`src/fx/projectiles/laser-bolt.js`、金 8 色・長さ 56、15 コマ）と `public/models/fx/yata_burst.png`（`src/fx/explosions/plasma-explosion.js`、紫 7 色＋差し色 5 色、52 コマから 1 つ おきの 26 コマ）。https://github.com/patch-gg/pixelfx（MIT License, Copyright (c) 2026 Patch。全文は 上の MIT License）の エフェクトを 色の 表（c2.json の a2・b3）で 書き出した スプライトシート。組み立ては `src/fx/yatagarasuFx*.ts`（この リポジトリの 作り）。

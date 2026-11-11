@@ -35,9 +35,31 @@ const KOKURYU = [
   'LdK.............',
 ];
 
+/** 八咫烏: くろむらさきの 弓が ななめに のびて、金の かざりと むらさきの 宝石が 光る。K ふち・d/B 弓・G 金・V 宝石・L/s つや */
+const PAL_YATAGARASU = { K: 0x120e22, d: 0x241a44, B: 0x3c2c70, G: 0xe8b82a, V: 0xa85cf0, L: 0xf0e6ff, s: 0xffe88a, W: 0xffffff };
+const YATAGARASU = [
+  '..........KKKGGG',
+  '........KKBBGGdd',
+  '......KKBBdGGdsK',
+  '....KKBBdGGKKsK.',
+  '...KWBBVVKKKsK..',
+  '...KBBVLVK.KsK..',
+  '..KBBGVVK.KsK...',
+  '..KBGGK.KsK.....',
+  '.KBdGK.KsK......',
+  '.KBGK.KsK.......',
+  'KBdGKKsK........',
+  'KBGKKsK.........',
+  'KBGKsK..........',
+  'GGdsK...........',
+  'GdsK............',
+  'GdK.............',
+];
+
 /** id ごとの 絵（`Record` なので 足し忘れは 型エラー。PR ごとに 1 つずつ 足す） */
 const ART = {
   kokuryu: { rows: KOKURYU, pal: PAL_KOKURYU },
+  yatagarasu: { rows: YATAGARASU, pal: PAL_YATAGARASU },
 } as const satisfies Record<L4ItemId, { rows: readonly string[]; pal: Readonly<Record<string, number>> }>;
 
 export function l4ItemPixels(item: L4ItemId): Rgba[] {

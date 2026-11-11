@@ -4951,6 +4951,32 @@
       "rarity": "legendary",
       "recipes": []
     },
+    "yatagarasu": {
+      "ITEM_INFO.yatagarasu": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ",
+        "special": "ひかり の や が あたると むらさき の ほのお が だいばくはつ！ ときどき や が へらない",
+        "stats": "bow",
+        "use": "や を とばして とおく の ようかい を たおす。や が いる"
+      },
+      "W2.bowBurstByItem.yatagarasu": true,
+      "W2.bowDamageByItem.yatagarasu": [
+        4,
+        6,
+        10
+      ],
+      "W2.toolDurability.yatagarasu": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［八咫烏｜やたがらす］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
     "harapan_mimizu": {
       "ITEM_INFO.harapan_mimizu": {
         "buttons": [

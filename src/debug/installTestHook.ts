@@ -138,7 +138,8 @@ export function installGameHook(deps: WiredMine): void {
     thunder: thunderFx.hook(game),
     legend: {
       state: () => ({ ...legend.state(), got: legendBook.got() }),
-      events: () => legend.peekEvents(),
+      // LEGEND-4: 八咫烏の ほのお（yataBurst）・矢が へらなかった（arrowSaved）は 弓の 出来事から のせる
+      events: () => [...legend.peekEvents(), ...toolHook.bow.events().filter((e) => e.type === 'yataBurst' || e.type === 'arrowSaved')],
       waves: () => waveSys.list().map((w) => ({ id: w.id, kind: w.kind, position: { ...w.position }, dir: { ...w.dir }, traveled: w.traveled, age: w.age, spin: w.spin, drawPos: { ...w.drawPos }, face: w.face, bodyAlpha: w.bodyAlpha, backAlpha: w.backAlpha })),
       debris: () => ({ ...spiralDebris.view() }),
       chargeFx: () => {

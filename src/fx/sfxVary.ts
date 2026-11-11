@@ -114,7 +114,7 @@ export const LEVEL: Readonly<Record<string, number>> = {
   spawn: 0.41, bell: 0.5, birds: 1.42, dropCommon: 0.82, dropUncommon: 0.95, dropRare: 1.21,
   dropSuperRare: 1.16, stance: 1.68, thrust: 1.42, kesa: 0.84, kesaHit: 0.56, kiriage: 1.47,
   wearLow: 1.23, toolBreak: 1.1, drawStage1: 0.88, drawStage2: 0.88, drawStage3: 0.67, dry: 0.58,
-  shoot1: 1.15, shoot2: 0.79, shoot3: 0.62, arrowHit: 1.15, arrowStick: 0.97, slash: 1.39,
+  shoot1: 1.15, shoot2: 0.79, shoot3: 0.62, arrowHit: 1.15, arrowStick: 0.97, yataBurst: 0.9, slash: 1.39,
   naginata: 1.02, bowDraw: 1.95, bowRelease: 0.79, arrowThud: 1.24, noArrow: 1.48, equip: 0.95,
   guard: 0.85, sparkle: 1.21, craft: 0.62, craftFail: 0.95, bakeStart: 0.57, crackle: 0.7,
   bakeDone: 0.71, banzai: 0.92, tab: 0.96, chime1: 1.14, chime2: 1.14, chime3: 1.14,

@@ -342,6 +342,7 @@
     "wood_axe": "common",
     "wood_pickaxe": "common",
     "ya": "common",
+    "yatagarasu": "legendary",
     "yokai_orb": "uncommon",
     "yoroi": "rare",
     "yumi": "uncommon"
@@ -361,6 +362,10 @@
     },
     {
       "item": "kokuryu",
+      "weight": 1
+    },
+    {
+      "item": "yatagarasu",
       "weight": 1
     },
     {

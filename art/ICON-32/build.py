@@ -34,6 +34,7 @@ LEAF_ = G.LEAF
 ICONS['grass'] = M.grass
 for _i in LG.IDS: ICONS[_i] = getattr(LG, _i)  # でんせつ 11 点は 1 点もの
 ICONS['kokuryu'] = L4.kokuryu  # LEGEND-4 PR1（黒龍）。ほかの 4 点は それぞれの PR で 足す
+ICONS['yatagarasu'] = L4.yatagarasu  # LEGEND-4 PR2（八咫烏）
 import hero as HR, armor_hero as AH
 ICONS.update(HR.IDS); ICONS.update(AH.IDS)  # 2 回目の 描きなおし（英雄っぽい 形・強い 明暗）
 import batch2 as B2

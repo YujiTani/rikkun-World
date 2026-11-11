@@ -268,6 +268,11 @@ export function registryBowStraight(): Partial<Record<ItemId, number>> {
   return pickAll(ITEM_DEFS, (d) => d.bow?.straightRange);
 }
 
+/** ゆみ: 当たった 点で ほのおが はじける ゆみ（W2 bowBurstByItem。LEGEND-4 八咫烏） */
+export function registryBowBurst(): Partial<Record<ItemId, true>> {
+  return pickAll(ITEM_DEFS, (d) => d.bow?.burst);
+}
+
 /** 防具: ふせぐ量（CraftConfig.armorValue） */
 export function registryArmorValue(): Partial<Record<ItemId, Record<DamageKind, number>>> {
   return pickAll(ITEM_DEFS, (d) => (d.armor ? { ...d.armor.value } : undefined));

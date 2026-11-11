@@ -3,7 +3,7 @@
  */
 
 import { SAMURAI_ITEM_IDS } from '../content/items/ids';
-import { registryBladeReach, registryBladeTrail, registryBowDamage, registryBowStraight, registryWear } from '../content/items/registry';
+import { registryBladeReach, registryBladeTrail, registryBowDamage, registryBowBurst, registryBowStraight, registryWear } from '../content/items/registry';
 import type { ItemId } from '../contracts/items';
 import type { BladeComboSettings, LegendaryDef, W2Settings } from '../contracts/weapons';
 import { LEGENDARY_DEFAULTS, cloneLegendary } from './legendaryDefaults';
@@ -47,6 +47,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   bowDamage: [1, 2, 3],
   bowDamageByItem: { ...registryBowDamage() },
   bowStraightByItem: { ...registryBowStraight() }, // LEGEND-4: 黒龍（まっすぐ・つらぬく。きょり 48 マス）
+  bowBurstByItem: { ...registryBowBurst() }, // LEGEND-4: 八咫烏（当たった 点で ほのお）
   bowKnock: [0.5, 1.0, 1.5],
   arrowGravity: 20,
   arrowLifeTicks: 600,
@@ -144,6 +145,7 @@ export function createW2Settings(): W2Settings {
     bowDamage: [...d.bowDamage],
     bowDamageByItem: Object.fromEntries(Object.entries(d.bowDamageByItem).map(([k, v]) => [k, [...v!]])) as W2Settings['bowDamageByItem'],
     bowStraightByItem: { ...d.bowStraightByItem },
+    bowBurstByItem: { ...d.bowBurstByItem },
     bowKnock: [...d.bowKnock],
     arrowGravity: d.arrowGravity,
     arrowLifeTicks: d.arrowLifeTicks,

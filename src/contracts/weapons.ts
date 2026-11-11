@@ -200,6 +200,8 @@ export interface ArrowInfo {
   straight?: boolean;
   /** LEGEND-4（黒龍）: もう 当てた 妖怪の id（1 本の や は 同じ 妖怪に 1 回だけ）。まっすぐな や だけ */
   hitIds?: number[];
+  /** LEGEND-4（八咫烏）: 当たった 点で ほのおが はじける や（金の 光の すじの 目印）。ふつうの や は 書かない */
+  burst?: boolean;
 }
 
 export interface StuckArrowInfo {
@@ -219,7 +221,11 @@ export type BowEvent =
   | { type: 'arrowEnd'; tick: number; position: Vec3 }
   | { type: 'dryRelease'; tick: number }
   | { type: 'noArrow'; tick: number }
-  | { type: 'pickup'; tick: number };
+  | { type: 'pickup'; tick: number }
+  /** LEGEND-4 八咫烏: 当たった 点で ほのおが はじけた（hits = ほのおが 当たった 体と ダメージ） */
+  | { type: 'yataBurst'; tick: number; position: Vec3; hits: { id: number; damage: number }[] }
+  /** LEGEND-4 八咫烏: 矢が へらなかった（うった ステップ） */
+  | { type: 'arrowSaved'; tick: number };
 
 export interface BowStepContext {
   /** 手に 持っているのが ゆみ なら その アイテム、ちがえば null（ひくのを やめる。や は へらない） */
@@ -330,6 +336,8 @@ export interface W2Settings {
   bowDamageByItem: Partial<Record<ItemId, [number, number, number]>>;
   /** LEGEND-4 §4: 重力なしで まっすぐ とび、妖怪を ぜんぶ つらぬく ゆみ（黒龍）。値 = うった 所から 消える きょり（マス）。なければ ふつうの や */
   bowStraightByItem: Partial<Record<ItemId, number>>;
+  /** LEGEND-4 §5: 当たった 点で ほのおが はじける ゆみ（八咫烏）。なければ ふつうの や */
+  bowBurstByItem: Partial<Record<ItemId, true>>;
   bowKnock: [number, number, number];
   arrowGravity: number;
   arrowLifeTicks: number;
