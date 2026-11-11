@@ -152,11 +152,11 @@ function bag(): Pixels {
   return p;
 }
 
-export type SignalKind = 'needTool' | 'needIron' | 'full' | 'noArrow' | 'chestEmpty';
+export type SignalKind = 'needTool' | 'needIron' | 'full' | 'noArrow' | 'chestEmpty' | 'yakataLocked';
 
 /** 合図のアイコン: いしの つるはし＋赤い ✕ / てつの つるはし＋赤い ✕（MINE-1B） / ふくろ＋赤い ✕ / や＋赤い ✕（M4 で つるはし と や を足した） */
 export function signalIconPixels(kind: SignalKind): Pixels {
-  const p = kind === 'needTool' ? m4ItemPixels('stone_pickaxe') : kind === 'needIron' ? m4ItemPixels('iron_pickaxe') : kind === 'noArrow' ? m4ItemPixels('ya') : bag();
+  const p = kind === 'needTool' ? m4ItemPixels('stone_pickaxe') : kind === 'needIron' ? m4ItemPixels('iron_pickaxe') : kind === 'noArrow' ? m4ItemPixels('ya') : kind === 'yakataLocked' ? m4ItemPixels('stone_pickaxe') : bag();
   // ✕ の下に白っぽい下地を引いて見やすくする
   redCross(p);
   return p;

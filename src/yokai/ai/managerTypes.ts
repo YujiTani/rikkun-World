@@ -72,13 +72,13 @@ export interface YokaiManagerOptions {
   noSpawnAt?: (x: number, y: number, z: number) => boolean;
   /** MINE-1F §4.5: true の 人〔1 = 1P・2 = 2P〕の まわりでは 自動の 出現の ためしを しない（やかたの 挑戦の 間）。なければ いつも false */
   quietFor?: (who: 1 | 2) => boolean;
-  /** MINE-1F §4.3: true の マスは ぬりかべの たおれこみで こわさない（やかたの ブロック）。なければ いつも false */
-  protectAt?: (x: number, y: number, z: number) => boolean;
   /** はじまりの場所（水平）。世界の設定から読む。複数なら いちばん近い所から d をはかる。省くと (0, 0) */
   origin?: () => { x: number; z: number } | readonly { x: number; z: number }[];
   /** 海面の高さ。世界の設定（contracts の SEA_Y）。省くと SEA_Y */
   seaY?: () => number;
   /** ブロックがこわれた・石になった（くだけるつぶ・音用。1 回の出来事ぶんをまとめて渡す） */
+  /** MINE-1F: true の マスは ぬりかべの たおれこみでも こわさない（`hook.yakataLocked`） */
+  protectAt?: (x: number, y: number, z: number) => boolean;
   onBlocks?: (cells: { x: number; y: number; z: number; from: BlockId; to: BlockId }[], why: 'crush' | 'stone') => void;
   /** NINJA-1: 着ている 防具を 聞く 入り口（忍び装束の とき 気づく 距離が 半分）。なければ 何も 着て いない */
   armor?: { equipped(slot: ArmorSlot): ItemId | null };

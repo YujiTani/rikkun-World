@@ -5,12 +5,16 @@ import type { SignalKind } from './itemIcon';
 export const FULL_TEXT = 'もちものが いっぱい！';
 /** 宝箱が からっぽ〔MINE-1C。あいた 宝箱を 右クリック〕 */
 const CHEST_EMPTY_TEXT = 'からっぽ だよ';
+/** やかたの ブロックは まだ・挑戦の 間は こわせない（MINE-1F §3.1） */
+const YAKATA_LOCKED_TEXT = 'いまは ほれない よ';
 export function signalText(kind: SignalKind): string | null {
   switch (kind) {
     case 'full':
       return FULL_TEXT;
     case 'chestEmpty':
       return CHEST_EMPTY_TEXT;
+    case 'yakataLocked':
+      return YAKATA_LOCKED_TEXT;
     case 'needTool':
     case 'needIron':
     case 'noArrow':

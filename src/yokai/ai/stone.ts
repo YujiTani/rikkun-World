@@ -63,7 +63,7 @@ export class YokaiStone {
       if (y <= 0) return;
       const b = world.getBlock(x, y, z);
       if (b === 'outside' || !canCrushBlock(b)) return;
-      if (this.d.opts.protectAt?.(x, y, z)) return; // やかたの ブロックは こわさない（MINE-1F §4.3）
+      if (this.d.opts.protectAt?.(x, y, z)) return; // MINE-1F: やかたの ブロック・ふさいだ かべは こわさない
       if (world.setBlock(x, y, z, 'air')) changed.push({ x, y, z, from: b, to: 'air' });
     });
     if (changed.length > 0) this.d.opts.onBlocks?.(changed, 'crush');
