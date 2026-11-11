@@ -158,3 +158,15 @@ describe('上の 帯（家の 名前）', () => {
     expect(b.step(1, false)).toMatchObject({ houseStarted: 'ももの いえ', houseDone: false });
   });
 });
+
+describe('目印つきの 家の 帯（HOUSE-2A: レシピを おぼえた）', () => {
+  it('同じ 目印は 待ちの 中で 新しい 1 つだけ のこる（目印の ない 帯は けさない）', () => {
+    const b = new TopBandModel(cfg);
+    b.enqueueHouseDone('ももの いえ が できた！');
+    b.enqueueHouseDone('かわらの やねの レシピを おぼえた！', 'recipe-band');
+    b.enqueueHouseDone('さんかくの やねの レシピを おぼえた！', 'recipe-band');
+    expect(b.step(1, false)).toMatchObject({ houseStarted: 'ももの いえ が できた！', houseTag: null });
+    for (let i = 0; i < 179; i++) b.step(1, false);
+    expect(b.step(1, false)).toMatchObject({ houseStarted: 'さんかくの やねの レシピを おぼえた！', houseDone: true, houseTag: 'recipe-band' });
+  });
+});

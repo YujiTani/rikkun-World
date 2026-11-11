@@ -274,11 +274,12 @@ export class BandView {
   }
 
   /** 家の 帯を 出し始める（絵と 見出しは なし。字だけ。窓口の 目印は 名前の 帯 `house-name-band`、完成の 帯〔done〕 `house-done-banner`） */
-  showHouse(text: string, done = false): void {
+  showHouse(text: string, done = false, tag: string | null = null): void {
     this.kind = 'house';
-    this.band.className = 'cel-band cel-house';
+    // tag ＝ 窓口の 目印を かえる 帯（「レシピを おぼえた」＝ recipe-band。文が 長い ので 折りかえす）
+    this.band.className = tag === null ? 'cel-band cel-house' : 'cel-band cel-house cel-house--long';
     this.band.dataset.band = 'house';
-    this.band.dataset.testid = done ? 'house-done-banner' : 'house-name-band';
+    this.band.dataset.testid = tag ?? (done ? 'house-done-banner' : 'house-name-band');
     this.medal = null;
     this.plain(true);
     this.name.textContent = text;
