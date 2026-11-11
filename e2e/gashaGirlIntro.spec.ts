@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { TUNE as GT } from '../src/gasha/gashaGirlTuning';
 
 // 体力 1/2 → 噴火して 固まる → BGM ぶつっと → 笑い声 → 少女が ワープで 飛びまわる → 決めポーズ → 戦い → 5 回の あと プレイヤーの 前に 座る（FIX-BRIEF-2 §4）
 test.describe.configure({ timeout: 180_000 });
@@ -63,8 +64,9 @@ test('固まって 笑い、飛びまわり、ポーズを 決め、5 回の あ
   if (process.env.SHOT_DIR) { await page.evaluate(() => { (window as unknown as W).__gashaGirl!.camera('idle'); (window as unknown as W).__rikkun.step(2); }); await page.screenshot({ path: `${process.env.SHOT_DIR}/perch2.png` }); await page.evaluate(() => { (window as unknown as W).__gashaGirl!.camera('idleSide'); (window as unknown as W).__rikkun.step(2); }); }
   await testInfo.attach('perch', { body: await page.screenshot({ path: process.env.SHOT_DIR ? `${process.env.SHOT_DIR}/perch.png` : undefined }), contentType: 'image/png' });
   const gi = await page.evaluate(() => (window as unknown as W).__gashaGirl!.info());
-  const sp = await page.evaluate(() => (window as unknown as W).__gashaBig.perchSpot());
-  expect(Math.hypot(Number(gi.girlX) - sp!.x, Number(gi.girlZ) - sp!.z)).toBeLessThan(0.5);
+  // GASHA-FIX-3: 大きな 姿の かたでは なく、プレイヤーの 前 rest.dist ブロックの 地面に 座る
+  const pp = await page.evaluate(() => (window as any).__rikkun.player.get().position as { x: number; z: number });
+  expect(Math.abs(Math.hypot(Number(gi.girlX) - pp.x, Number(gi.girlZ) - pp.z) - GT.rest.dist), 'プレイヤーの 前 rest.dist ブロック').toBeLessThan(0.6);
   // 休みが おわると また 戦いへ
   let back = false;
   for (let i = 0; i < 1500 && !back; i++) { back = (await seen(10)) === 'girl'; }
