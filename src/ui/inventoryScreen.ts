@@ -345,7 +345,7 @@ export class InventoryScreen {
     if (key === this.hintsKey) return;
     this.hintsKey = key;
     this.hintsEl.hidden = this.tabNow !== 'items';
-    this.hintsEl.replaceChildren(...buildHintChips({ tansu, duo, pad, kind, drop: this.who === 1 }));
+    this.hintsEl.replaceChildren(...buildHintChips({ tansu, duo, pad, kind }));
   }
 
   /** 最後に さわったのが パッドか（2P は いつも パッド） */

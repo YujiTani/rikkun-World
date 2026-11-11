@@ -11,6 +11,8 @@ import { createDuoFlash } from '../../duo/flash';
 import { DuoJoinHint, type DuoJoinHintInput } from '../../duo/joinHint';
 import { createSelectLock } from '../../legend/selectLock';
 import { pressEquip } from '../../duo/p2Equip';
+import { createP2Drop, type P2Drop } from '../../duo/p2Drop';
+import { playStorage } from '../../fx/storageSounds';
 import { createParryViews, parryDollOf } from '../../duo/p2ParryView';
 import { DuoSession } from '../../duo/session';
 import { createSplitSound } from '../../duo/splitSound';
@@ -60,6 +62,8 @@ export function wireDuo(deps: WiredLoop) {
 
   /** 2P の もちもの・クラフト画面（COOP-1 4a。はじめて 参加した とき 作る） */
   let inv2: DuoInventory | null = null;
+  /** 2P の もちもので X・R3 の すてる（もちもの画面と いっしょに 作る） */
+  let drop2: P2Drop | null = null;
   const panelOpen = (): boolean => inv2?.isOpen() === true;
   let distance = 0;
   /** `duo.state().fullPass` の 引き算の もと（参加した 時の `game.worldPassFrames`） */
@@ -351,6 +355,18 @@ export function wireDuo(deps: WiredLoop) {
     const spot = joinSpot();
     const c = controller2();
     inv2 ??= createDuoInventory(deps, () => (ctl2 ?? controller).state.position, () => inv2?.setOpen(false));
+    const screen2 = inv2.screen;
+    drop2 ??= createP2Drop({
+      actions: p2Actions,
+      inventory: p2.inventory,
+      storage: deps.storage,
+      armor: p2.armor,
+      isOpen: () => inv2?.isOpen() === true,
+      focus: () => screen2.focusKey(),
+      throwItem: (st) => deps.drops.throwItem(st, (ctl2 ?? controller).state.yawDeg, controller.settings.eyeHeight),
+      tick: () => game.tick,
+      onThrown: () => playStorage(deps.fxSound, 'throw'),
+    });
     c.set({ position: spot, velocity: { x: 0, y: 0, z: 0 }, yawDeg: controller.state.yawDeg, pitchDeg: 0, facingDeg: controller.state.facingDeg });
     router.setJoined(true);
     ui.setJoined(true);
@@ -430,10 +446,15 @@ export function wireDuo(deps: WiredLoop) {
         close2In.down = down2;
         close2In.padLost = session.padLost();
         if (invCloseReason(2, close2In) !== null) inv2.setOpen(false);
-        else padInv2(inv2.screen);
+        else {
+          padInv2(inv2.screen);
+          drop2?.update();
+        }
       }
       // COOP-1 5c: 2P の とりごやの メニュー（十字・A・B）。もちもの画面が 開いて いる あいだは そちらが 受ける
       if (!inv2.isOpen()) for (const a of INV_PAD_ACTIONS) if (p2Actions.wasPressed(a)) play.coopPad(a);
+      const dropEvents = drop2?.drainEvents();
+      if (dropEvents && dropEvents.length > 0) deps.achievements.feedStorage(dropEvents); // 実績は 2 人で 共有
       order.flush(); // 預かった パネルの 操作を 1P → 2P の 順に（FurnaceWorld・たんすの update の 前。1 ステップに 1 回）
       if (!inv2.isOpen() && !down2) {
         const inv = p2.inventory;

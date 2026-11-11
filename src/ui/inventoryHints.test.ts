@@ -16,8 +16,10 @@ describe('もちもの画面の ヘルプ帯', () => {
     expect(words({ tansu: false, duo: true, pad: true, kind: 'bake' })).toContain('やく');
     expect(words({ tansu: false, duo: true, kind: 'craft' })).toContain('クリック');
   });
-  it('2 人用の パッド: 「ぜんぶ すてる」は 出さない。2P（drop=false）は すてるも 出さない', () => {
-    expect(words({ tansu: false, duo: true, pad: true })).not.toContain('ぜんぶ');
+  it('2 人用の パッド（1P・2P とも）: 「1こ すてる」「ぜんぶ すてる」を 出す。drop=false の ときは 出さない', () => {
+    const duo = words({ tansu: false, duo: true, pad: true });
+    expect(duo).toContain('1こ すてる');
+    expect(duo).toContain('ぜんぶ すてる');
     expect(words({ tansu: false, duo: true, pad: true, drop: false })).not.toContain('すてる');
   });
 });

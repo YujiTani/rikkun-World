@@ -14,14 +14,14 @@ export interface HintOptions {
   pad?: boolean;
   /** どの ページか（ふだんは 'items'） */
   kind?: HintKind;
-  /** パッドで すてられるか（2P は まだ すてる ボタンが ないので false） */
+  /** パッドで すてられるか（ふだんは true。false の ときは すてる ボタンを 出さない） */
   drop?: boolean;
 }
 
 const DPAD = badgeHtml(['dpadUp', 'dpadDown', 'dpadLeft', 'dpadRight']);
 const BTN = (f: 'faceBottom' | 'faceTop' | 'faceLeft' | 'faceRight' | 'r3') => badgeHtml([f]);
 
-/** パッド用の ひとこと（印, ことば）。2 人用は 半分の はばに 入る ように 「ぜんぶ すてる」を 出さない */
+/** パッド用の ひとこと（印, ことば）。2 人用は 半分の はばに 入る ように 短い ことばだけ */
 function padRows(o: HintOptions): [string, string][] {
   const close = `${BTN('faceLeft')}${BTN('faceRight')}`;
   if (o.kind === 'craft' || o.kind === 'bake') {
@@ -31,7 +31,7 @@ function padRows(o: HintOptions): [string, string][] {
     [DPAD, 'えらぶ'],
     [BTN('faceBottom'), 'つかむ・おく'],
     ...(o.drop === false ? [] : ([[BTN('faceTop'), '1こ すてる']] as [string, string][])),
-    ...(o.duo || o.drop === false ? [] : ([[BTN('r3'), 'ぜんぶ すてる']] as [string, string][])),
+    ...(o.drop === false ? [] : ([[BTN('r3'), 'ぜんぶ すてる']] as [string, string][])),
     [close, 'とじる'],
   ];
 }
