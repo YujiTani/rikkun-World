@@ -22,14 +22,18 @@ export interface UsedBox {
   d: number;
 }
 
+/** はじめの 家の 箱の 高さ（床 1 ＋ 中 3 ＋ やね 1）。KEEP_OUT.levels ＋ 1 */
+const DEFAULT_H = KEEP_OUT.levels + 1;
+
 const clear = (id: BlockId | 'outside'): boolean => id === 'air' || isVanishingFlora(id);
 
 /** 北西の すみ (x, y, z)・外の 大きさ outW×outD の 場所に 建てられるか。戸は まえ（南）の かべの 外 doorX（箱の 北西からの ずれ）に ある */
-export function siteOk(world: SiteWorld, x: number, y: number, z: number, outW: number, outD: number, doorX: number): boolean {
+/** h ＝ 家の 箱の 高さ（houseBox の h。はじめは いつもの 5）。しらべる 段は 床の 上 1 〜 h − 1 */
+export function siteOk(world: SiteWorld, x: number, y: number, z: number, outW: number, outD: number, doorX: number, h = DEFAULT_H): boolean {
   for (let dz = 0; dz < outD; dz++) for (let dx = 0; dx < outW; dx++) if (world.getBlock(x + dx, y, z + dz) !== KATAME_TSUCHI) return false;
-  for (let h = 1; h <= KEEP_OUT.levels; h++) for (let dz = 0; dz < outD; dz++) for (let dx = 0; dx < outW; dx++) if (!clear(world.getBlock(x + dx, y + h, z + dz))) return false;
+  for (let up = 1; up <= h - 1; up++) for (let dz = 0; dz < outD; dz++) for (let dx = 0; dx < outW; dx++) if (!clear(world.getBlock(x + dx, y + up, z + dz))) return false;
   // 戸の 前の 外 1 マスの 床の 段の 上 2 段（出られない 家に ならない ように）
-  for (let h = 1; h <= SITE.doorFrontClear; h++) if (!clear(world.getBlock(x + doorX, y + h, z + outD))) return false;
+  for (let up = 1; up <= SITE.doorFrontClear; up++) if (!clear(world.getBlock(x + doorX, y + up, z + outD))) return false;
   return true;
 }
 
@@ -40,7 +44,7 @@ const overlaps = (s: Site, outW: number, outD: number, u: UsedBox): boolean =>
  * プレイヤー（足もとの 列 px・pz・floor 高さ py）の まわり（横 searchHoriz・上下 searchVert）の 場所を ぜんぶ。近い 順。
  * まず かためた つちの 長方形だけ 速く 見つけて（段ごとの 表）から、上の 空気と 戸の 前を しらべる
  */
-export function findSites(world: SiteWorld, px: number, py: number, pz: number, outW: number, outD: number, doorX: number, used: readonly UsedBox[] = [], limit = 400): Site[] {
+export function findSites(world: SiteWorld, px: number, py: number, pz: number, outW: number, outD: number, doorX: number, used: readonly UsedBox[] = [], limit = 400, h = DEFAULT_H): Site[] {
   const H = SITE.searchHoriz;
   const x0 = px - H;
   const z0 = pz - H;
@@ -70,7 +74,7 @@ export function findSites(world: SiteWorld, px: number, py: number, pz: number, 
         if (area !== outW * outD) continue;
         const s: Site = { x: nx, y, z: nz };
         if (used.some((u) => overlaps(s, outW, outD, u))) continue;
-        if (siteOk(world, nx, y, nz, outW, outD, doorX)) found.push(s);
+        if (siteOk(world, nx, y, nz, outW, outD, doorX, h)) found.push(s);
       }
     }
   }

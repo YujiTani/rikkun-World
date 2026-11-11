@@ -1,5 +1,6 @@
 import type { MineItemId } from '../content/items/ids';
 import type { Rgba } from '../world/blocks/textures';
+import { HOUSE_ITEM_ICONS_16 } from './houseLookItems16.data';
 
 /**
  * チョーク・いしばい の 16×16（MINE-1B #349。docs/art/design/07-mine.md 20.11・yuzu 見本 chalk-items-b2.png）。
@@ -83,29 +84,8 @@ const KABITA_PAN = {
   ],
 } as const;
 
-/** レシピの まきもの: よこに ねかせた 巻き（じく 2 本の あいだに かみ・赤い ひも）。仮（HOUSE-2B で かえる。坑道の まきもの〔world/blocks/makimonoTexture.ts〕と 同じ 色） */
-// 仮（HOUSE-2B で かえる）
-const SCROLL = {
-  pal: { K: '#3A3442', R: '#8A5A33', P: '#EFE4CA', S: '#CDBF9C', C: '#B8452E' },
-  rows: [
-    '................',
-    '................',
-    '..KKKKKKKKKKKK..',
-    '.KRRRRRRRRRRRRK.',
-    '..KKKKKKKKKKKK..',
-    '..KPPPPCCPPPPK..',
-    '..KPPPPCCPPPPK..',
-    '..KSPPPCCPPPSK..',
-    '..KPPPPCCPPPPK..',
-    '..KPPPPCCPPPPK..',
-    '..KSSSSCCSSSSK..',
-    '..KKKKKKKKKKKK..',
-    '.KRRRRRRRRRRRRK.',
-    '..KKKKKKKKKKKK..',
-    '................',
-    '................',
-  ],
-} as const;
+/** レシピの まきもの（HOUSE-2B。アートの 絵 16×16。案 C「こうざんの まち」の まきもの。`houseLookItems16.data.ts`） */
+const SCROLL = HOUSE_ITEM_ICONS_16.recipe_scroll!;
 
 /** 絵の 表（1 つの id に 1 つ。足し忘れは 型エラー） */
 const ART = { chalk: CHALK, ishibai: ISHIBAI, kabita_pan: KABITA_PAN, recipe_scroll: SCROLL } as const satisfies Record<MineItemId, { pal: object; rows: readonly string[] }>;

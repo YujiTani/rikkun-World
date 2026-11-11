@@ -11,6 +11,7 @@ import { BUCKETS, FARM_TOOLS, SEEDS, SPRINKLER, VEGGIES } from './farm';
 import { GOLD } from './gold';
 import { HOUSE_TOOLS } from './house';
 import { HOUSE_BLOCKS } from './houseBlocks';
+import { HOUSE_LOOKS } from './houseLooks';
 import { HOUSE_FURNITURE, HOUSE_PLANS } from './houseEditor';
 import { LEGEND } from './legend';
 import { KONGO } from './kongo';
@@ -104,6 +105,8 @@ export const HOUSE_FURNITURE_DEFS: ItemDefs = HOUSE_FURNITURE;
 export const HOUSE_PLAN_DEFS: ItemDefs = HOUSE_PLANS;
 /** 家の ブロック 5 つ（HOUSE-1C PR-1。ITEM_TYPES・色分けでは せっけいずの 次〔いちばん うしろ〕） */
 export const HOUSE_BLOCK_DEFS: ItemDefs = HOUSE_BLOCKS;
+/** 家の しゅるいの アイテム 42 こ（HOUSE-2B。ITEM_TYPES・色分けでは 家の ブロックの 次） */
+export const HOUSE_LOOK_DEFS: ItemDefs = HOUSE_LOOKS;
 /** ロープ（ROPE-1。ITEM_TYPES・色分けでは いちばん うしろ） */
 export const ROPE_DEFS: ItemDefs = ROPE_BLOCKS;
 /** WATERFALL-1: わきどころ・マグマの わきどころ・こくようせき（ITEM_TYPES・色分けでは いちばん うしろ） */
@@ -130,7 +133,7 @@ export const ITEM_DEFS: Readonly<Record<ItemDefId, ItemDef>> = {
   ...TOOLS, ...SWORDS, ...BOWS, ...ARMOR, ...NINJA, ...SAMURAI,
   ...SEEDS, ...VEGGIES, ...FARM_TOOLS, ...SPRINKLER, ...BUCKETS,
   ...ORB, ...MATERIALS, ...INGOT, ...GADGETS, ...LIVE, ...KOTATSU, ...LEGEND, ...GOLD, ...KONGO, ...HOUSE_TOOLS,
-  ...MINE_BLOCKS, ...MINE_ITEMS, ...HOUSE_FURNITURE, ...HOUSE_PLANS, ...HOUSE_BLOCKS,
+  ...MINE_BLOCKS, ...MINE_ITEMS, ...HOUSE_FURNITURE, ...HOUSE_PLANS, ...HOUSE_BLOCKS, ...HOUSE_LOOKS,
   ...ROPE_BLOCKS,
   ...WATERFALL_BLOCKS,
   ...YAKATA_ITEMS,

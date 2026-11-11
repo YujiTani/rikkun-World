@@ -95,7 +95,7 @@ describe('F10: 新しい ブロックの 値〔§4.6 の 表〕', () => {
       expect(BLOCK_TYPES[i!]?.id).toBe(r.id);
     }
     expect(fnv(BLOCK_TYPES.slice(0, BLOCKS_THROUGH_1E).map((b) => b.id).join(',')), '1E の あとまでの 並び').toBe(IDS_THROUGH_1E_FNV);
-    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1E, '1F で 足した id').toBeLessThanOrEqual(8 + 5); // 5 ＝ HOUSE-2A（#364）が やかたの 前に 足した まきもの 1 ＋ まねきねこ 4（向き）
+    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1E, '1F で 足した id').toBeLessThanOrEqual(8 + 5 + 20); // 5 ＝ HOUSE-2A（#364）が やかたの 前に 足した まきもの 1 ＋ まねきねこ 4（向き）、20 ＝ HOUSE-2B の 形ごとの ブロック 20
     expect(BLOCK_TYPES.length).toBeLessThanOrEqual(256);
   });
 });

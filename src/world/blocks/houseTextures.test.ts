@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { FACE_UV } from '../render/meshChunk';
 import { furnitureBoxes } from './furnitureArt';
 import { BLOCK_INDEX, BLOCK_TYPES } from './blockTypes';
-import { FURN_FACE_TILES, HOUSE_ATLAS_TILE_NAMES, furnTileName, isHouseTile, paintHouseTile } from './houseTextures';
+import { FURN_FACE_TILES, HOUSE_LOOK_TILE_NAMES, HOUSE_ATLAS_TILE_NAMES, furnTileName, isHouseTile, paintHouseTile } from './houseTextures';
 import { FURN_BLOCK_IDS, HOUSE_DOOR_PART_IDS, furnInfo, type FurnRot } from './houseBlocks';
 import { BLOCK_TILES, TILE_NAMES, getTilePixels, tileUv, type TileName } from './textures';
 
@@ -14,7 +14,7 @@ import { BLOCK_TILES, TILE_NAMES, getTilePixels, tileUv, type TileName } from '.
 
 describe('世界の 絵の 表に 足した 絵', () => {
   it('家の ブロック 12 まい ＋ 家具 20 まい ＋ 建築 8 まい。名前は ぶつからず、アトラスの さいごに この 順で ならぶ', () => {
-    expect(HOUSE_ATLAS_TILE_NAMES).toHaveLength(12 + 20 + 8); // PR-2 で 建築の ブロック 8 まい（かためた つち 2・足場 5・のぼり 1）を さいごに 足した
+    expect(HOUSE_ATLAS_TILE_NAMES).toHaveLength(12 + 20 + 8 + HOUSE_LOOK_TILE_NAMES.length); // HOUSE-2B で 形ごとの 絵（アートの 絵＋色の ベタ＋そろえの 空き）を さいごに 足した。 PR-2 で 建築の ブロック 8 まい（かためた つち 2・足場 5・のぼり 1）を さいごに 足した
     expect(new Set(TILE_NAMES).size, 'アトラスの 名前は ぜんぶ ちがう').toBe(TILE_NAMES.length);
     // ROPE-1: ロープの 2 まいが 家の 絵の あとに 足された（家の 絵の 位置は かわらない）
     const end = TILE_NAMES.length - ROPE_TILE_NAMES.length - WATERFALL_TILE_NAMES.length - BOKEN_TILE_NAMES.length - 1 - YAKATA_TILE_NAMES.length; // WATERFALL-1 の 7 まいも その あと。まきもの（HOUSE-2A。仮の 絵）1 まい と MINE-1F の 10 まいも その あと

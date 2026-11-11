@@ -6,6 +6,7 @@ import { watchBlocks } from '../../house/blockWatch';
 import { houseKeyGuard } from '../../house/keyGuard';
 import { Preview3D } from '../../house/preview/preview';
 import { HouseSystem } from '../../house/system';
+import { setHouseLookSource } from '../../world/render/houseProp';
 import { setPlanNameSource } from '../../inventory/planName';
 import { EditorView } from '../../ui/houseEditor';
 import { HouseUi } from '../../ui/houseUi';
@@ -96,6 +97,16 @@ export function wireHouse(deps: WiredYokai) {
   const solidBase = world.isSolidForPlayer.bind(world);
   world.isSolidForPlayer = (x, y, z) => solidBase(x, y, z) || house.build.builder.keepOut(x, y, z);
   shared.houseFrozen = () => house.frozen();
+  // HOUSE-2B: 世界の 家の しゅるいの ブロックは 家の 記録から 場所ごとの 案・場所を 引いて 描く。読みこんだ あとは 家の 箱の ある 区を 描きなおす（記録が 先に 無いと むらの かんたんな 形に なる ため）
+  setHouseLookSource((x, y, z) => house.book.cellOf(x, y, z));
+  const loadHouse = house.load.bind(house);
+  house.load = (data) => {
+    loadHouse(data);
+    // 家の 箱の 4 すみの 区を 描きなおす（まんなかの 1 点＋はんいでは 端の 区を とりこぼす）
+    for (const s of house.book.specList()) {
+      for (const x of [s.at.x, s.at.x + s.w + 1]) for (const z of [s.at.z, s.at.z + s.d + 1]) world.markDirty(x, z, 1);
+    }
+  };
   setPlanNameSource((plan) => house.planName(plan));
   // 見本（3D）は エディターを はじめて 開く とき 作る（ふだんの 遊びには 何も 足さない）
   const reduced = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -190,7 +201,11 @@ export function wireHouse(deps: WiredYokai) {
   lighting.register(architectRenderer.bodyMaterial, 'doll');
 
   // 時間が すすんで いる 間だけ（メニューが 開くと ゲームの 窓が 止める）
-  game.onUpdate(() => house.update());
+  // 完成の 帯・紙ふぶきの 合図は 毎ステップ 読む（描画の コマだけで 読むと、step() だけ 進める テストや 重い コマで 次の ステップに 間に あわず 帯が 出ない）
+  game.onUpdate(() => {
+    house.update();
+    doneUi.update(house.build.celebrate.view());
+  });
   game.onBeforeRender(() => {
     architectRenderer.update(house.manager.all(), game.camera, dig.aimedArchitect());
     blobShadow.setExtras(architectRenderer.shadowSpots());
