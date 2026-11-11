@@ -7,7 +7,10 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 60_000, // 重いテストが同じ CPU で並ぶと 30 秒をこえることがある
   fullyParallel: true,
-  workers: 3, // CPU 4 コア。多いと SwiftShader 同士が取りあって、かえって遅くなる
+  // CPU 4 コア。多いと SwiftShader 同士が取りあって、かえって遅くなる。
+  // CI は 2 本（#451）: CI の ランナーが 前より 約 1.5 倍 おそく なり、3 本だと 重い 2 人プレイの テストが 取りあいで 60 秒を こえた。
+  // 手元の 4 コア・2 コアで 測ると、2 本は 合計 +10% ほどで、1 本の いちばん 長い 時間は 3 本の ときの 6〜7 わり。
+  workers: process.env.CI ? 2 : 3,
   reporter: [['list']],
   use: {
     baseURL: 'http://localhost:5173',
