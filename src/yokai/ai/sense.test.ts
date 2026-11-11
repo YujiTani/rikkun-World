@@ -36,7 +36,7 @@ function setup(initial: ItemId | null = null) {
   const spawnAt = (kind: YokaiKind, d: number, dy = 0) => m.spawn(kind, player.position.x, 9 - dy, player.position.z + d);
   const state = () => m.list()[0]!.state;
   const chasing = () => ['chase', 'attack', 'retreat'].includes(state());
-  return { m, player, step, spawnAt, state, chasing, calls: () => calls, wear: (i: ItemId | null) => { worn = i; } };
+  return { m, world, player, step, spawnAt, state, chasing, calls: () => calls, wear: (i: ItemId | null) => { worn = i; } };
 }
 
 describe('AC7 感知の 表（1 か所）', () => {
@@ -92,6 +92,8 @@ describe('AC8 装束 なし で ふるまいが 同じ（からかさ・うろ�
     // 妖怪は 地面に のせたまま、プレイヤーの 高さを ずらして 差を たもつ（妖怪が 落ちて 差が 0 に ならないように）
     for (const [dy, want] of [[6, true], [6.1, false], [-6, true], [-6.1, false]] as const) {
       const c = setup();
+      // SIGHT-1: 足もとの 下の 人は 床ごしに 見えない ので、プレイヤー側（z 0〜10）だけ 床を ぬいて 見通しを あける
+      if (dy < 0) c.world.fill(0, 8, 0, 40, 8, 10, 'air');
       c.spawnAt('karakasa', 5);
       const y0 = c.m.list()[0]!.position.y; // 地面の 上（9）
       c.player.position.y = y0 + dy; // 最初の 1 コマ目から 差を つけて おく

@@ -56,11 +56,17 @@ export function aimAt(f: YokaiField, e: Ent): void {
 
 const dist3 = (p: PlayerPos, e: Ent): number => Math.hypot(p.x - e.x, p.y - e.y, p.z - e.z);
 
-/** ねらう 相手: ねらえる 人のうち 近い方（3 次元。同じなら 1P）。ねらえる 人が いなければ 1P */
-export function pickTarget(f: YokaiField, p1Alive: boolean, e: Ent): 1 | 2 {
+/** ねらう 相手: ねらえる 人のうち 近い方（3 次元。同じなら 1P）。ねらえる 人が いなければ 1P。noticeable = 気づける（距離・高さ・見通し）か */
+export function pickTarget(f: YokaiField, p1Alive: boolean, e: Ent, noticeable?: (e: Ent, p: PlayerPos) => boolean): 1 | 2 {
   if (!f.p2.on) return 1;
   if (!p1Alive) return 2;
-  return dist3(f.p2, e) < dist3(f.p1, e) ? 2 : 1;
+  const near: 1 | 2 = dist3(f.p2, e) < dist3(f.p1, e) ? 2 : 1;
+  if (!noticeable) return near;
+  // SIGHT-1: 近い 人に 気づけず（壁ごしなど）遠い 人に 気づけるなら、気づける 人を ねらう
+  const far: 1 | 2 = near === 1 ? 2 : 1;
+  const pn = near === 1 ? f.p1 : f.p2;
+  const pf = far === 1 ? f.p1 : f.p2;
+  return !noticeable(e, pn) && noticeable(e, pf) ? far : near;
 }
 
 /** いちばん 近い プレイヤー（ねらえる 2P だけ 数える。同じなら 1P） */

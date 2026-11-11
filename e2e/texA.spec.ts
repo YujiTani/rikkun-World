@@ -392,7 +392,9 @@ test.describe('TEX-A', () => {
       const n = Math.hypot(l.x, l.z);
       const p = { x: 40.5 - (l.x / n) * 1.5, z: 40.5 - (l.z / n) * 1.5 };
       const f = (window as any).__FY + 1;
-      h.player.set({ position: { x: p.x, y: f, z: p.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -25 });
+      // 柱の ほうを 向く（カメラは 柱の 反対へ 下がる。SIGHT-1 で カメラが 壁から 0.3 はなれるので、柱を せおうと 近すぎて キャラと 丸い影が かくれる）
+      const yaw = (Math.atan2(l.x / n, -l.z / n) * 180) / Math.PI;
+      h.player.set({ position: { x: p.x, y: f, z: p.z }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: -25 });
       h.step(3);
       const on = h.shadow.shadeAt(p.x, f, p.z, { shadow: true });
       const off = h.shadow.shadeAt(p.x, f, p.z, { shadow: false });
