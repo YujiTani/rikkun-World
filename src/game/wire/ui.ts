@@ -611,7 +611,8 @@ export function wireAchievements(deps: WiredWeaponFx) {
   // COOP-1 3a: なにで・ハートは たおした 人の もの（2P なら 2P の 持ち物の 手と ハート）
   shared.onDefeatAch = (kind, who) => {
     log.defeat(YOKAI_NAME[kind]);
-    achievements.feedDefeat({ kind, tick: game.tick, with: defeatWith(who === 2 ? shared.p2.inventory : inventory), hp: who === 2 ? shared.p2Hp() : combat.hp() });
+    // COOP-1 5f-2: 実績の 持ち主は たおした 人（帯は その 人の 半分に 出る）
+    achievements.withWho(who, () => achievements.feedDefeat({ kind, tick: game.tick, with: defeatWith(who === 2 ? shared.p2.inventory : inventory), hp: who === 2 ? shared.p2Hp() : combat.hp() }));
   };
   return {
     achievements, countryWatch, newCountryWatch, legendBook, ninjaBook, ninjaHave, samuraiBook, samuraiHave, eyePos,

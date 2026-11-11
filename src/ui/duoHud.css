@@ -5,8 +5,11 @@
  */
 html[data-duo] {
   --duo-scale: 0.9; /* ホットバーを 縮める 倍。duoHud.ts が 画面の 幅から 決めなおす */
-  /* 1P の 上の 帯（実績・テロップ）の 上はし = 距離メーターの 下（メーターの 上の すき間 + 上の バッジの ぶん + 棒 + 下の すき間）+ すき間 sp-3 */
-  --duo-band-top: calc(var(--rk-sp-3) + var(--rk-sp-6) + var(--rk-sp-3) + var(--rk-sp-2) + var(--rk-sp-3));
+  /* 1P の 上の 帯（実績・テロップ）の 上はし = 距離メーターの 下（メーターの 上の すき間 + 上の バッジの ぶん + 棒 + 下の すき間）+ すき間 sp-3。左上すみの 時計（--rk-clock-bottom）の 下より 上には 置かない */
+  --duo-band-top: max(
+    calc(var(--rk-sp-3) + var(--rk-sp-6) + var(--rk-sp-3) + var(--rk-sp-2) + var(--rk-sp-3)),
+    calc(var(--rk-clock-bottom) + var(--rk-sp-2))
+  );
   --duo-band-w: 45vw; /* 1P の 帯の いちばん 広い はば = 半分の 90%（ホットバーと 同じ。まん中の 線から 5% あける） */
 }
 

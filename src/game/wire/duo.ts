@@ -22,6 +22,7 @@ import { isBodyPlaceable } from '../../save';
 import { DuoHud } from '../../ui/duoHud';
 import { DuoAimHud } from '../../ui/duoAimHud';
 import { DuoNotices } from '../../ui/duoNotice';
+import { DuoHalves } from '../../ui/duoHalves';
 import { charBasePath } from './player';
 import type { WiredLoop } from './save';
 import { DuoViews, type DuoViewsInput } from './duoView';
@@ -84,6 +85,29 @@ export function wireDuo(deps: WiredLoop) {
     binds2: () => router.reader2.getBinds(),
   });
   shared.p2ShowSignal = (kind) => aim.notice2.showSignal(kind);
+  ui.showName2 = (text) => aim.notice2.showName(text); // 2P の ホットバーの えらんだ 名前（2P の 半分。COOP-1 5f-2 #22a）
+  shared.settingsClosed = () => aim.refreshFaces(); // せっていを 閉じた とき パッドの 面の 名前を 読みなおす（COOP-1 5f-2）
+  // COOP-1 5f-2: 2P の 半分の 部品（時計・おしらせ・ふち・つくれる マーク・バフ・名札・すみ）。1P の 要素は 使い回して 目印を つける
+  const halves = new DuoHalves({
+    hud,
+    clockPhases: deps.clockPhases,
+    p1: {
+      titleAnnounce: deps.titleAnnounce,
+      clock: combatUi.clock,
+      homeNotice: combatUi.homeNotice,
+      edge: combatUi.edge,
+      inkDim: combatUi.inkDim,
+      deathScreen: combatUi.deathScreen,
+      buff: deps.buffIcons,
+      craft: deps.craftHud.hint,
+      nameplates: deps.yokaiNameplates,
+      stagger: deps.staggerIcons,
+      macho: deps.machoMarks,
+    },
+    cluster2: () => ui.selfCluster2(),
+    celebrate: deps.celebrate,
+  });
+  shared.duoPaneFeed = halves.feed;
   const joinHint = new DuoJoinHint();
   /**
    * 「＋で さんか」(AC46・AC64)と 2P の 側の「ちょっと まってね」(AC84)の 出し入れ。active = 世界が 動いている。
@@ -208,18 +232,20 @@ export function wireDuo(deps: WiredLoop) {
     isSolid: (x, y, z) => world.isSolid(x, y, z),
     shadow: () => shared.shadowSystem,
     fx2: camFx2,
-    beforePane: (c) => {
+    beforePane: (c, who, pane) => {
       // 区画ごとに その カメラから 見える 地下だけ 残す（画面が 2 つでも 見えない 坑道は 描かない）
       renderer.applyView(c as THREE.PerspectiveCamera);
       sprite?.render(c);
       body.faceCamera(c);
       deps.animalRenderer.placeCarriedFor(c); // COOP-1 5c: だっこ中の 羽を この 区画の カメラで 置きなおす
+      halves.projectPane(c, who, pane); // COOP-1 5f-2 #21: 名札・ひるみの 印・マッチョの 印を この 区画の カメラ・矩形で 投げる
     },
     // COOP-1 4d-2: 2 人の ときは 全面の 光の 道を 通らない ので、雷の 板（1P の 分と 2P の 分）は 各区画の 世界の すぐ あとに 重ねる
     afterPane: (c) => {
       deps.thunderFx.renderInPane(game.renderer, c);
       play.renderInPane(game.renderer, c);
     },
+    clockSize: (who) => halves.clockSize(who),
   });
   const view = views.hud;
   /** views.update に 毎ステップ 渡す 入力（使いまわす） */
@@ -246,6 +272,7 @@ export function wireDuo(deps: WiredLoop) {
       body.hide();
       ui.setJoined(false);
       aim.setJoined(false);
+      halves.setJoined(false);
       shared.duoCamDistance = session.cameraDistance() === DUO_TUNING.cameraSolo ? null : session.cameraDistance();
       // 2P の パネルは 消える。1P の パネルは そのまま（開いている あいだは 半分の まま。AC79）
       inv2?.update();
@@ -293,6 +320,7 @@ export function wireDuo(deps: WiredLoop) {
     deps,
     ui,
     aim,
+    halves,
     actions: p2Actions,
     lock: lock2,
     ctl2: () => controller2(),
@@ -327,6 +355,7 @@ export function wireDuo(deps: WiredLoop) {
     router.setJoined(true);
     ui.setJoined(true);
     aim.setJoined(true);
+    halves.setJoined(true);
     body.show();
     body.step(c.state);
     play.onJoin();
@@ -476,6 +505,7 @@ export function wireDuo(deps: WiredLoop) {
       for (const who of BOTH) ui.setFlash(who, flash.alpha(who));
       const avs = game.viewSize(aimSize);
       aim.layout(avs.w, avs.h);
+      halves.layout(avs.w, avs.h);
       aim.step1(router.padIndex(1), router.reader1.getLastInput());
       view.meter = distanceMeter(distance);
       view.distance = distance;

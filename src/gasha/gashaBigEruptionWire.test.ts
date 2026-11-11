@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { PerspectiveCamera, Scene } from 'three';
 import { TUNE as T } from './gashaBigTuning';
 import { startGashaBig, type GashaBigDeps } from './gashaBig';
@@ -114,7 +114,7 @@ describe('口から 火山噴火: つなぎ（#293）', () => {
     i = r.h.attackInfo();
     expect(i.eruption.embers).toBe(0);
     expect(r.sounds).toContain('stop:a4_embers');
-  }, 60000); // 燃えかすが 消える まで 300 秒ぶん 進める
+  }, 60000); // 燃えかすが 消える まで 10 秒ぶん 進める
 
   it('植物は 燃える: 隕石・火の 粉が 落ちた 所の 草が 消える。地面（くさブロック。y = 0 は 岩盤の かわりで 穴も あかない）は のこる', () => {
     const r = rig();
@@ -128,6 +128,9 @@ describe('口から 火山噴火: つなぎ（#293）', () => {
   });
 
   it('毎回 ちがう: 1 回目と 2 回目で 隕石の 着地が ちがう。燃えかすは 上限まで たまり、こえた ぶんは 古い 順に 消える', () => {
+    const savedSec = T.eruption.ember.sec;
+    T.eruption.ember.sec = 300; // 上限と 古い 順を 見る テスト なので 寿命は 長く（FIX-3 で 10 秒に なった）
+    onTestFinished(() => { T.eruption.ember.sec = savedSec; });
     const r = rig();
     r.h.attack('eruption');
     r.step(total() + 1);
@@ -295,8 +298,11 @@ describe('口から 火山噴火: つなぎ（#293）', () => {
     } finally { Object.assign(T.eruption.meteor, saved.ash); T.eruption.body.restoreSec = saved.restore; }
   });
 
-  it('燃えかすは 約 5 分（300 秒）燃えつづけて、それから 消える。数が 多くても 描画の 回数は ふえない', () => {
-    expect(T.eruption.ember.sec).toBe(300);
+  it('燃えかすは 10 秒 燃えつづけて、それから 消える。数が 多くても 描画の 回数は ふえない', () => {
+    expect(T.eruption.ember.sec).toBe(10);
+    const savedSec = T.eruption.ember.sec;
+    T.eruption.ember.sec = 300; // 数と 描画の 回数を 見る テスト なので 寿命は 長く。寿命どおり 消える ところは 上の テストと Embers の テスト
+    onTestFinished(() => { T.eruption.ember.sec = savedSec; });
     const r = rig();
     r.h.attack('eruption');
     r.step(T.eruption.inhaleSec + T.eruption.eruptSec + T.eruption.rainSec + 0.3);

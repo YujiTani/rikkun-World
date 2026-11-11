@@ -131,7 +131,7 @@ export class YokaiManager implements YokaiWorld {
     const fireballs = (this.fireballs = new YokaiFireballs({ world, f, combat: target, events, opts, settings: this.S, hurt: this.hurt, reeler, burst: this.burst }));
     const contact = (this.contact = new YokaiContact({ f, combat: target, config: this.config, events, opts, reeler, stone, fireballs }));
     this.chaser = new YokaiChaser({ world, f, combat: target, config: this.config, events, opts, rng, mover, fall });
-    this.swimmer = new YokaiSwimmer({ world, f, combat: target, events, group: this.group, rng });
+    this.swimmer = new YokaiSwimmer({ world, f, combat: target, events, group: this.group, rng, hasPartner: () => this.opts.partner?.() != null });
     const placement = (this.placement = new YokaiPlacement({ world, f, events, opts, titleRng, marks: presenter }));
     this.spawner = new YokaiSpawner({
       world,
@@ -457,9 +457,13 @@ export class YokaiManager implements YokaiWorld {
     return this.presenter.nameplateInfo(id);
   }
 
-  /** 画面に出す名前の一覧（二つ名の妖怪で 16 ブロック以内。バーの上に置く） */
-  nameplates(out: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = []): typeof out {
-    return this.presenter.nameplates(out);
+  /** 画面に出す名前の一覧（二つ名の妖怪で 16 ブロック以内。バーの上に置く）。who = その 人の 足もとから（既定 1P。2P が いなければ who 2 は 空。COOP-1 5f-2） */
+  nameplates(out: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = [], who: 1 | 2 = 1): typeof out {
+    if (who === 2 && !this.opts.partner?.()) {
+      out.length = 0;
+      return out;
+    }
+    return this.presenter.nameplates(out, who);
   }
 
   /** テストの窓口 `yokai.spawnWeights(x, z)`: その場所で 使う 行 × 全体の倍率（ぬりかべ の 同時の数は 入れない） */
@@ -468,8 +472,8 @@ export class YokaiManager implements YokaiWorld {
   }
 
   /** 画面を 暗くする 黒い 板の こさ（0〜1。タコはちまきの すみの けむりの 中に 目が ある とき 0.4。TAKO-1） */
-  inkDim(): number {
-    return this.swimmer.inkDim();
+  inkDim(who: 1 | 2 = 1): number {
+    return this.swimmer.inkDim(who);
   }
 
   /** テスト窓口 `yokai.ink()`: 出ている すみの けむり（中心・半径・はいてからの 秒）と 画面の 暗さ */

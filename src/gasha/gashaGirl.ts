@@ -1,7 +1,7 @@
 /**
  * #293 がしゃどくろ 第二形態（少女）の「ワープ → 詠唱 → 魔法 4 種」。
  * 試作ページ（`?proto=gashaGirl`、開発サーバーだけ）は すぐ はじまる。ふだんの ゲームでは `{ dormant: true }` で 読みこんで ねかせて おき（見えない・動かない・描かない）、
- * 大きな 姿の 体力が 1/2 に なって 固まったら release.ts が summon() で はじめる（笑い声 → ワープで 飛びまわる → 決めポーズ → 5 回の 魔法 → 大きな 姿の かたに 座って 休む（perchSpot・setHitBox）→ また 魔法）。dismiss() で 止める。GLB は public/models/gasha/girl-cast.glb（相対パス。公開版でも 読める。頂点の 使わない 属性を 減らし、テクスチャは JPEG の 圧縮を 強めて 約 4 MB）。
+ * 大きな 姿の 体力が 1/2 に なって 固まったら release.ts が summon() で はじめる（笑い声 → ワープで 飛びまわる → 決めポーズ → 5 回の 魔法 → プレイヤーの 近くで ぺたん座りで 休む（setHitBox）→ また 魔法）。dismiss() で 止める。GLB は public/models/gasha/girl-cast.glb（相対パス。公開版でも 読める。頂点の 使わない 属性を 減らし、テクスチャは JPEG の 圧縮を 強めて 約 4 MB）。
  * 少女は 歩かない・走らない（移動は ワープだけ）。ふだんは ゾンビの ように 右うでを 前に 出して 立つ。
  * すべて Game.onUpdate の 固定ステップで 進める。乱数は シード付き。ダメージは なし（見た目だけ）。
  * 魔法 1: 背面か 左横へ ワープ → プレイヤーの 足もとに 噴き出す / 2: 真後ろ → 周囲攻撃（渦）/
@@ -18,8 +18,8 @@ import { sharedGashaBgm } from './gashaBgm';
 import { createGirlSfx, createWebAudioPlayer } from './gashaGirlSfx';
 import { IntroSeq, introAngleDeg, introPoseSec, introSpot, type IntroEvent } from './gashaGirlIntro';
 import { blendBetween, buildFloatPose, floatEntry } from './gashaGirlFloat';
-import { applyDelta, blendPose, SIT_DELTA, type BaseBone } from './gashaGirlPose';
-import { POSES } from './gashaGirlPoseData';
+import { applyDelta, blendPose, lowestContactY, PETAN_CONTACT, PETAN_DELTA, type BaseBone } from './gashaGirlPose';
+import { POSES, SLUMP_POSE } from './gashaGirlPoseData';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { GashaGirlDeps, GashaGirlOpts, GirlController, GashaGirlHandle } from './gashaGirlTypes';
 import { D2R, clamp01, fwdOf, mulberry } from './gashaGirlMath';
@@ -402,30 +402,39 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     }
   };
   const perchBox: { name: string; c: number[]; ax: number[]; half: number[] } = { name: 'girl', c: [0, 0, 0], ax: [1, 0, 0, 0, 1, 0, 0, 0, 1], half: [1, 1, 1] };
-  const sitNow: Record<string, [number, number, number]> = {};
-  /** とどめの あと: 大きな 姿の かたに 座って いたか(かたの 動きに ついて いく) */
-  let downPerched = false;
+  const spine02 = bn('Spine02');
+  const breathQ = new Quaternion();
+  const AXIS_X = new Vector3(1, 0, 0);
+  const contactBones = PETAN_CONTACT.map((n) => bn(n)).filter((b): b is Bone => !!b);
+  /** お尻・つま先・ひざの いちばん 低い 点を 地面に つける(ぺたん座り。めりこまない・うかない) */
+  const groundPetan = () => {
+    model.position.y = y0; pivot.updateMatrixWorld(true);
+    let hy = 0; if (hipsBone) hy = hipsBone.getWorldPosition(gw).y;
+    const ys = contactBones.map((b) => b.getWorldPosition(tmpV).y);
+    model.position.y = y0 + (pivot.position.y - lowestContactY(ys, hy, T.rest.buttDrop));
+    pivot.updateMatrixWorld(true);
+  };
+  /** 休み・とどめの あとの ポーズ(ぺたん座り / 立った まま うなだれる)。肩で 息を する */
   const updatePerch = (dt: number) => {
     perchT += dt;
-    const P = T.perch;
+    const R = T.rest, petan = R.pose === 'petan';
     const isDown = phase === 'down' || phase === 'crumble';
-    if (isDown && downPerched) { const sp = opts.perchSpot?.() ?? null; if (sp) pivot.position.set(sp.x, sp.y, sp.z); }
     faceTo(aim.player());
-    for (const k of Object.keys(SIT_DELTA)) { const v = SIT_DELTA[k]!; const q = sitNow[k] ?? (sitNow[k] = [0, 0, 0]); q[0] = v[0]; q[1] = v[1]; q[2] = v[2]; }
-    const sw = isDown ? 0 : P.swayDeg * Math.sin((perchT / Math.max(0.1, P.swaySec)) * Math.PI * 2); // とどめの あとは 足も 動かさない
-    sitNow.LeftLeg![0] = SIT_DELTA.LeftLeg![0] + sw; sitNow.RightLeg![0] = SIT_DELTA.RightLeg![0] - sw;
-    applyDelta(bareBase, sitNow, clamp01(perchT / Math.max(0.01, isDown ? T.finish.sitBlendSec : P.blendSec)));
+    const k = clamp01(perchT / Math.max(0.01, isDown ? T.finish.sitBlendSec : R.blendSec));
+    if (petan) applyDelta(bareBase, PETAN_DELTA, k); else blendPose(bareBase, SLUMP_POSE, k);
+    if (spine02 && !isDown) { breathQ.setFromAxisAngle(AXIS_X, R.breathDeg * D2R * Math.sin((perchT / Math.max(0.1, R.breathSec)) * Math.PI * 2)); spine02.quaternion.multiply(breathQ); }
     pivot.updateMatrixWorld(true);
-    // お尻を かたの 上に(足は ぶらさげる)
-    if (hipsBone) { hipsBone.getWorldPosition(gw); model.position.y += (pivot.position.y + T.perch.hipUp - gw.y); pivot.updateMatrixWorld(true); }
+    if (petan) groundPetan(); else groundFeet();
     if (perchOn) {
-      perchBox.c[0] = pivot.position.x; perchBox.c[1] = pivot.position.y + P.hitUp; perchBox.c[2] = pivot.position.z;
-      perchBox.half[0] = P.hitHalf[0]; perchBox.half[1] = P.hitHalf[1]; perchBox.half[2] = P.hitHalf[2];
+      const H2 = R.hit[R.pose];
+      perchBox.c[0] = pivot.position.x; perchBox.c[1] = pivot.position.y + H2.up; perchBox.c[2] = pivot.position.z;
+      perchBox.half[0] = H2.half[0]; perchBox.half[1] = H2.half[1]; perchBox.half[2] = H2.half[2];
     }
   };
   const perchBegin = () => {
-    const sp = opts.perchSpot?.() ?? null;
-    if (sp) pivot.position.set(sp.x, sp.y, sp.z); else pivot.position.y = pivot.position.y; // 場所が なければ その 場に 座る
+    ensureFootBase();
+    const s = introSpot(aim.player(), 0, T.rest.dist); // プレイヤーの 前の 地面に ワープして 出る
+    pivot.position.set(s.x, groundAt(s.x, s.z), s.z);
     pivot.visible = true; perchT = 0; perchOn = true; pt = 0;
     // 座った 直後に 飛んで いた 弾・噴火・うずが 当たらない ように、downBegin と 同じく 消す(休んで いる 少女は 傷つけない)
     clearMagic();
@@ -447,7 +456,6 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   /** とどめ: 魔法・弾・輪・赤面・文字を ぜんぶ 消して、その場に 座りこむ(無敵。当たりの 箱も はずす) */
   const downBegin = () => {
     if (phase === 'dormant' || phase === 'down' || phase === 'crumble') return;
-    const wasPerch = phase === 'perch' || phase === 'perchgo' || phase === 'perchleave';
     action.stop(); mixer.stopAllAction(); mixerLeft = 0; model.rotation.x = 0; model.rotation.y = 0; flinchT = 0;
     setShy(false); showBig(false);
     intro = null; perchOn = false; opts.setHitBox?.(null);
@@ -455,12 +463,9 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     forced = -1; reflectWait = 0; holdStand = false;
     bgm.uncut(); bgm.request('girl', false);
     sfxPlayer.stopAll?.();
-    restorePose(); model.position.y = y0; model.position.x = 0;
+    ensureFootBase(); restorePose(); model.position.y = y0; model.position.x = 0;
     const p = aim.player();
-    const sp = wasPerch ? opts.perchSpot?.() ?? null : null;
-    downPerched = !!sp;
-    if (sp) pivot.position.set(sp.x, sp.y, sp.z);
-    else if (!pivot.visible) { const s = introSpot(p, 0, T.intro.poseDist); pivot.position.set(s.x, groundAt(s.x, s.z), s.z); } // まだ 姿を 見せて いなければ プレイヤーの 前に 座る
+    if (!pivot.visible) { const s = introSpot(p, 0, T.intro.poseDist); pivot.position.set(s.x, groundAt(s.x, s.z), s.z); } // まだ 姿を 見せて いなければ プレイヤーの 前に 出る
     else pivot.position.y = groundAt(pivot.position.x, pivot.position.z);
     pivot.visible = true; fade(0);
     purpleBurst(12);
@@ -659,7 +664,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     clearMagic();
     add.clear(); smoke.clear();
     add.points.visible = smoke.points.visible = false;
-    forced = -1; reflectWait = 0; holdStand = false; downPerched = false; crumbleAcc = 0;
+    forced = -1; reflectWait = 0; holdStand = false; crumbleAcc = 0;
     bgm.request('girl', false);
     sfxPlayer.stopAll?.(); // 遅れて 鳴らす 予約の 効果音(間欠泉の 噴出など)も 止める
   };
@@ -687,7 +692,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       bgmLoops: bgm.info('saiyaku').loops, bgmFade: bgm.info('saiyaku').fade, bgmCtx: bgm.info('saiyaku').ctx, bgmPlaying: bgm.status().playing ?? 'none', bgmGirlLock: bgm.status().girlLock,
       turn, cancels, eyeContact: eyeNow, soundCount, lastSoundT, bigCount, shy: shy.active(), warnRing: warn0(), camMode, camFov: (deps.camera as PerspectiveCamera).fov, parried: st2.parried, parryEarly: st2.parryEarly, reflected: st2.reflected, reflectHits: st2.reflectHits, flinch: flinchT > 0, hitActive: erups.some((e) => e.hitActive()), eruptionR: Math.max(...erups.map((e) => (e.e.t >= 0 ? e.e.rad : 0))), eruptionMaxR: T.s1.radius, aimWho: aim.who() ?? 0, playerHp: aim.hearts().hp, playerMaxHp: aim.hearts().maxHp, phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: Math.max(...erups.map((e) => e.e.t)), vortexT: Math.max(...vortices.map((v) => v.v.t)), vortexCount: vortices.filter((v) => v.v.t >= 0).length,
       fireballs: projs.filter((q) => q.on && q.kind === 0).length, waves: projs.filter((q) => q.on && q.kind === 1).length,
-      ...(stats as unknown as Record<string, number>), girlX: pivot.position.x, girlZ: pivot.position.z, footGap: pivot.visible ? feetLow() : 0, poseName: T.intro.poseName,
+      ...(stats as unknown as Record<string, number>), girlX: pivot.position.x, girlY: pivot.position.y, girlZ: pivot.position.z, footGap: pivot.visible ? feetLow() : 0, poseName: T.intro.poseName,
     }),
   };
   (window as unknown as { __gashaGirl: GashaGirlHandle }).__gashaGirl = handle;

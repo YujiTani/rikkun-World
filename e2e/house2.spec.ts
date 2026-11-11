@@ -125,6 +125,7 @@ async function rightClick(page: Page): Promise<void> {
 
 test.describe('HOUSE-2A 見つけて えらぶ 通し', () => {
   test('坑道の まきもの（か 宝箱）→ おぼえる → ① に 出る → 押すと 見本が かわる', async ({ page }) => {
+    test.setTimeout(180_000); // 1 本に 坑道・エディター・ポップアップ・ヘルプまで 通す ので 60 秒に 入らない（house1b の 通しと 同じ）
     await openHouse(page);
     const r0 = await recipes(page);
     expect(r0.all.length, '表の レシピ').toBeGreaterThan(0);

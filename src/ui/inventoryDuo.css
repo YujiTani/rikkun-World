@@ -190,8 +190,8 @@
   outline-offset: 3px;
 }
 
-/* 開いている 人の ホットバー・ハート・レベルの 棒は かくす。もう 1 人の HUD・メーター・時計・お知らせは そのまま */
-#hud:has(> #inventory-screen[data-layout='duo']:not([hidden])) > :is(#title, #clock, #notice-signal, #notice-signal-text, #notice-name) {
+/* 開いている 人の ホットバー・ハート・レベルの 棒・時計は かくす（1.17: 時計は 各半分に ある。もう 1 人の 半分の 時計は duoHalves.css が のこす）。もう 1 人の HUD・メーター・お知らせは そのまま */
+#hud:has(> #inventory-screen[data-layout='duo']:not([hidden])) > :is(#title, #notice-signal, #notice-signal-text, #notice-name) {
   opacity: 1;
 }
 #hud:has([data-testid='duo-inv-p2']:not([hidden])) :is(#hotbar-p2, #hud-self-p2, #levelbar-p2, #levelup-p2) {

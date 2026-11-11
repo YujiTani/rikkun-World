@@ -18,6 +18,7 @@ import type { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
 import type { StreamHost } from '../../world/stream/StreamHost';
 import type { Game } from '../Game';
 import type { DuoHudView } from '../../ui/duoHud';
+import { clockBoxAt } from '../../ui/duoHalves';
 
 export interface DuoViewsDeps {
   game: Game;
@@ -28,9 +29,11 @@ export interface DuoViewsDeps {
   /** 2P の カメラの 止め・ゆれ・きょり（COOP-1 4d-0） */
   fx2: P2CamFx;
   /** 区画を 描く 前に 呼ぶ（キャラの 板を そのカメラへ 向ける） */
-  beforePane: (cam: THREE.Camera) => void;
+  beforePane: (cam: THREE.Camera, who: 1 | 2, pane: Rect) => void;
   /** 各区画の 世界の 描画の すぐ あとに 呼ぶ（COOP-1 4d-2: 雷の 板を その 区画に 重ねる） */
-  afterPane: (cam: THREE.Camera) => void;
+  afterPane: (cam: THREE.Camera, who: 1 | 2, pane: Rect) => void;
+  /** その 半分の 時計の 実測の 大きさ（矢印が よける 箱。COOP-1 5f-2 1.17）。まだ はかれない・2P が いなければ null */
+  clockSize: (who: 1 | 2) => { w: number; h: number } | null;
 }
 
 /** 毎ステップ 渡す 2 人の 状態 */
@@ -67,6 +70,8 @@ export class DuoViews {
   /** 描く ときの 入れもの(毎コマ 新しく 作らない) */
   private readonly draw: DuoDrawState = { rc: this.scratch.out, fogFar: null };
   private readonly qOut = { x: 0, y: 0 };
+  /** 時計の 箱（矢印が よける。毎ステップ 同じ 入れものに 書く） */
+  private readonly clockBox: Rect = { x: 0, y: 0, w: 0, h: 0 };
   private active = false;
   private readonly pose: P2Pose = { x: 0, y: 0, z: 0, yawDeg: 0, pitchDeg: 0 };
   /** 画面に つかう 2P の カメラ（止め・ゆれ 入り。毎ステップ 同じ 入れものに 書く） */
@@ -103,6 +108,7 @@ export class DuoViews {
       active: () => this.active,
       render: () => {
         const dr = this.draw;
+        this.refreshRects();
         dr.rc = this.rc;
         // 輪が 2 つの あいだは 描く 範囲に かすみを 合わせる（世界の ふちが 見えない ように）
         dr.fogFar = this._rings === 2 ? (getRing().draw + 1) * 16 : null;
@@ -128,6 +134,22 @@ export class DuoViews {
   }
 
   private readonly vs = { w: 0, h: 0 };
+  /** いまの 区画を 出した ときの 見せ方・進み・画面の 大きさ（窓の 大きさが かわった とき 描く 前に 出しなおす） */
+  private rcView: DuoView = 'one';
+  private rcProgress = 1;
+  private rcW = 0;
+  private rcH = 0;
+
+  /** 描く 直前: 画面の 大きさが 区画を 出した ときと ちがえば（ステップが 回る 前に 窓が かわった）、同じ 見せ方で 出しなおす */
+  private refreshRects(): void {
+    if (this.rcW === 0) return;
+    const vs = this.d.game.viewSize(this.vs);
+    if (vs.w === this.rcW && vs.h === this.rcH) return;
+    this.rcW = vs.w;
+    this.rcH = vs.h;
+    this.rc = viewRects(this.from, this.rcView, this.rcProgress, vs.w, vs.h, this.scratch);
+  }
+
   /** 状態機械へ 渡す 入れもの（毎ステップ 新しく 作らない） */
   private readonly machineIn = { joined: false };
 
@@ -166,7 +188,11 @@ export class DuoViews {
 
     // 区画
     const t = this.machine.transition();
-    this.rc = viewRects(this.from, view, t.active ? t.progress : 1, W, H, this.scratch);
+    this.rcView = view;
+    this.rcProgress = t.active ? t.progress : 1;
+    this.rcW = W;
+    this.rcH = H;
+    this.rc = viewRects(this.from, view, this.rcProgress, W, H, this.scratch);
     this.active = view !== 'one' || t.active;
 
     // 2P の カメラ（いつも 自分の カメラ。1P と 同じ 決まり）
@@ -222,6 +248,9 @@ export class DuoViews {
       ai.pane.h = pane.h;
       ai.tanHalfFovY = Math.tan((cam.fov * Math.PI) / 360);
       ai.panelOpen = who === 2 ? inp.panelOpen : inp.panel1Open;
+      // 1.17: 矢印は その 半分の 時計の 箱を よける（時計は 各半分の 外がわの 上すみ）
+      const size = this.d.clockSize(who as 1 | 2);
+      ai.avoid = size ? clockBoxAt(split, who as 1 | 2, size, this.clockBox) : null;
       const tr = this.arrows[who - 1]!;
       tr.step(ai);
       const ha = this.hud.arrows[who - 1]!;

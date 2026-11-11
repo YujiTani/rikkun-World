@@ -1,5 +1,6 @@
 import type { FxSettings } from '../fx/config';
 import { drawPixels, signalIconPixels, type SignalKind } from './itemIcon';
+import { halfId } from './duoHalfIds';
 import { NoticeModel, signalText } from './noticeModel';
 import { withRuby } from './text';
 import './notice.css';
@@ -23,9 +24,9 @@ export class Notice {
 
   /**
    * who = 2: 2 人の ときの 2P の 分（COOP-1 5f-1。`#notice-signal-p2`・`#notice-signal-text-p2`）。2P の 半分の ＋の 右下に 出る。
-   * 選んだ 名前〔`#notice-name`〕は 2P の 分を 作らない（5f-2）。
+   * 選んだ 名前も 2P の 分（`#notice-name-p2`）を 作る（5f-2 #22a。2P の ホットバーの 上）。
    */
-  constructor(parent: HTMLElement, cfg?: FxSettings, who: 1 | 2 = 1) {
+  constructor(parent: HTMLElement, cfg?: FxSettings, private readonly who: 1 | 2 = 1) {
     this.model = new NoticeModel(cfg);
     const suffix = who === 1 ? '' : `-p${who}`;
     this.signalEl = document.createElement('canvas');
@@ -41,10 +42,16 @@ export class Notice {
     this.textEl.dataset.aim = 'notice-text';
     this.textEl.hidden = true;
     this.nameEl = document.createElement('div');
-    this.nameEl.id = 'notice-name';
+    this.nameEl.id = who === 1 ? 'notice-name' : 'notice-name-p2';
+    if (who === 2) this.nameEl.className = 'notice-name--p2';
     this.nameEl.hidden = true;
-    parent.append(this.signalEl, this.textEl);
-    if (who === 1) parent.append(this.nameEl);
+    parent.append(this.signalEl, this.textEl, this.nameEl);
+  }
+
+  /** 2 人の あいだ だけ えらんだ 名前に UI 検査の 目印を つける */
+  mark(on: boolean): void {
+    if (on) this.nameEl.setAttribute('data-testid', halfId('noticeName', this.who));
+    else this.nameEl.removeAttribute('data-testid');
   }
 
   showSignal(kind: SignalKind): void {

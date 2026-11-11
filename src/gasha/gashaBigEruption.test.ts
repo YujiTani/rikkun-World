@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TUNE as T } from './gashaBigTuning';
-import { Embers, Eruption, MeteorRain, burnPlants, craterCells, inBlast, type V3 } from './gashaBigEruption';
+import { Embers, Eruption, emberScale, MeteorRain, burnPlants, craterCells, inBlast, type V3 } from './gashaBigEruption';
 
 const DT = 1 / 60;
 const MOUTH: V3 = { x: 100, y: 170, z: 40 };
@@ -265,18 +265,24 @@ describe('噴火: 燃え残り', () => {
     expect(e.list.length).toBe(T.eruption.ember.max);
     expect(e.list[0]!.x).toBe(10);
   });
-  it('燃えかすは 300 秒（約 5 分）のこる。douse で 当たった ものだけ 消える', () => {
-    expect(T.eruption.ember.sec).toBe(300);
+  it('燃えかすは 10 秒で 消える（FIX-3）。最後の fadeSec で 炎が 小さく なって 消える。douse で 当たった ものだけ 消える', () => {
+    expect(T.eruption.ember.sec).toBe(10);
+    expect(T.eruption.ember.fadeSec).toBe(2);
     const e = new Embers();
     e.add(0, 0, 0, false); e.add(10, 0, 0, false); e.add(20, 0, 0, true);
-    for (let i = 0; i < Math.round(299 / DT); i++) e.update(DT);
+    for (let i = 0; i < Math.round(9 / DT); i++) e.update(DT);
     expect(e.list.length).toBe(3);
     const gone = e.douse((q) => q.x >= 10);
     expect(gone.map((q) => q.x)).toEqual([10, 20]);
-    expect(e.list.map((q) => q.x)).toEqual([0]);
-    expect(e.douse(() => false)).toEqual([]);
-    for (let i = 0; i < Math.round(2 / DT); i++) e.update(DT);
-    expect(e.list.length).toBe(0);
+    expect(e.list.length).toBe(1);
+  });
+  it('emberScale: 生まれて 0.3 秒で 大きく なり、消える 前の fadeSec で 1 → 0 に 小さく なる（急に 消さない）', () => {
+    const K = T.eruption.ember;
+    expect(emberScale(0)).toBe(0);
+    expect(emberScale(1)).toBe(1);
+    expect(emberScale(K.sec - K.fadeSec - 0.01)).toBe(1);
+    expect(emberScale(K.sec - K.fadeSec / 2)).toBeCloseTo(0.5, 2);
+    expect(emberScale(K.sec)).toBe(0);
   });
   it('触れて いる 間 dotEverySec ごとに ダメージ。はなれれば 受けない', () => {
     const e = new Embers(); e.add(0, 0, 0, false);

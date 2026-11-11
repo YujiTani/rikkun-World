@@ -1,8 +1,12 @@
 import type { AchievementId, ItemId } from '../../contracts';
+import type { Owner } from '../duoHalves';
 import type { CelebrateSettings } from './config';
 import { HOUSE_BAND_STEPS, TOP_BAND } from './config';
 import { ModalModel } from './modalModel';
 import type { TelopSource } from './telopText';
+
+const WORLD: readonly Owner[] = ['world'];
+const NO_OWNERS: readonly Owner[] = [];
 
 export type BandKind = 'achieve' | 'telop' | 'appear' | 'house' | null;
 
@@ -15,6 +19,8 @@ export interface TopBandInfo {
   leftSteps: number;
   /** 待っている もの（じゅんばん） */
   queue: string[];
+  /** 今 出ている 帯の 持ち主（COOP-1 5f-2。出す 半分 = halvesOfAll。出ていなければ []。null は 両方の 半分） */
+  owners: readonly (Owner | null)[];
 }
 
 export interface TelopLook {
@@ -42,34 +48,34 @@ export function bandEase(age: number, total: number, inSteps: number, outSteps: 
  */
 export class TopBandModel {
   readonly toast: ModalModel;
-  private telop: { item: ItemId; source: TelopSource; age: number } | null = null;
-  private queue: { item: ItemId; source: TelopSource }[] = [];
+  private telop: { item: ItemId; source: TelopSource; age: number; owner: Owner } | null = null;
+  private queue: { item: ItemId; source: TelopSource; owner: Owner }[] = [];
   /** 家の 帯（名前〔戸を 通った〕か、完成〔done。「<名前> が できた！」〕）。どちらも 同じ 列で 1 つずつ */
-  private house: { text: string; age: number; done: boolean; tag?: string } | null = null;
-  private houseQueue: Array<{ text: string; done: boolean; tag?: string }> = [];
+  private house: { text: string; age: number; done: boolean; owner: Owner; tag?: string } | null = null;
+  private houseQueue: Array<{ text: string; done: boolean; owner: Owner; tag?: string }> = [];
 
   constructor(private readonly cfg: () => CelebrateSettings) {
     this.toast = new ModalModel(cfg);
   }
 
-  /** source = 出どころ（省くと nushi = 今までの「ヌシ が 〜 を おとした！」） */
-  enqueueTelop(item: ItemId, source: TelopSource = 'nushi'): void {
-    this.queue.push({ item, source });
+  /** source = 出どころ（省くと nushi = 今までの「ヌシ が 〜 を おとした！」）。owner = 出す 半分の 持ち主（省くと 世界 = 両方の 半分。宝箱は あけた 人） */
+  enqueueTelop(item: ItemId, source: TelopSource = 'nushi', owner: Owner = 'world'): void {
+    this.queue.push({ item, source, owner });
   }
 
   /** 家の 名前の 帯を 列に 入れる（戸を 外から 通った とき） */
-  enqueueHouseName(text: string): void {
-    this.houseQueue.push({ text, done: false });
+  enqueueHouseName(text: string, owner: Owner = 'world'): void {
+    this.houseQueue.push({ text, done: false, owner });
   }
 
   /**
    * 完成の 帯「<名前> が できた！」を 列に 入れる（HOUSE-1C PR-2。列が 空なら 次の ステップで すぐ 出る）。
-   * tag ＝ 窓口の 目印を かえる（HOUSE-2A の 「レシピを おぼえた」の 帯は 'recipe-band'。省くと 'house-done-banner'）
+   * owner = 出す 半分の 持ち主（省くと 世界）。tag ＝ 窓口の 目印を かえる（HOUSE-2A の 「レシピを おぼえた」の 帯は 'recipe-band'。省くと 'house-done-banner'）
    */
-  enqueueHouseDone(text: string, tag?: string): void {
+  enqueueHouseDone(text: string, owner: Owner = 'world', tag?: string): void {
     // 同じ 目印の 帯は 新しい 1 つだけ のこす（レシピを つづけて おぼえても 古い 帯が ならんで 待たない。窓口 recipeBand() も 新しい 方だけ）
     if (tag !== undefined) this.houseQueue = this.houseQueue.filter((q) => q.tag !== tag);
-    this.houseQueue.push({ text, done: true, tag });
+    this.houseQueue.push({ text, done: true, owner, tag });
   }
 
   /** 実績の おしらせを 出して よいか（テロップが 出ている・待っている・家の 名前が 出ている・あらわれたが 出ている 間は だめ） */
@@ -116,7 +122,7 @@ export class TopBandModel {
     if (appearing || amount <= 0) return { telopStarted, telopSource, toastEnded, houseStarted, houseDone, houseTag };
     if (!this.telop && !this.house && !this.toast.isOpen() && this.queue.length > 0) {
       const q = this.queue.shift()!;
-      this.telop = { item: q.item, source: q.source, age: 0 };
+      this.telop = { item: q.item, source: q.source, age: 0, owner: q.owner };
       telopStarted = q.item;
       telopSource = q.source;
     }
@@ -132,7 +138,7 @@ export class TopBandModel {
         houseStarted = q.text;
         houseDone = q.done;
         houseTag = q.tag ?? null;
-        this.house = { text: q.text, age: 0, done: q.done, tag: q.tag };
+        this.house = { text: q.text, age: 0, done: q.done, owner: q.owner, tag: q.tag };
       }
       if (this.house) {
         this.house.age += amount;
@@ -155,19 +161,19 @@ export class TopBandModel {
       if (this.toast.isOpen()) queue.push('achieve');
       if (this.house) queue.push('house');
       queue.push(...this.houseQueue.map(() => 'house'));
-      return { kind: 'appear', item: null, source: null, age: 0, leftSteps: Math.max(0, appear.ticksLeft), queue };
+      return { kind: 'appear', item: null, source: null, age: 0, leftSteps: Math.max(0, appear.ticksLeft), queue, owners: WORLD };
     }
     const t = this.telopLook();
-    if (t) return { kind: 'telop', item: t.item, source: t.source, age: t.age, leftSteps: t.leftSteps, queue };
+    if (t) return { kind: 'telop', item: t.item, source: t.source, age: t.age, leftSteps: t.leftSteps, queue, owners: [this.telop!.owner] };
     if (this.toast.isOpen()) {
       const v = this.toast.view([]);
-      return { kind: 'achieve', item: null, source: null, age: v.age, leftSteps: v.leftSteps, queue };
+      return { kind: 'achieve', item: null, source: null, age: v.age, leftSteps: v.leftSteps, queue, owners: this.toast.owners() };
     }
     if (this.house) {
       const age = Math.floor(this.house.age + 1e-9);
-      return { kind: 'house', item: null, source: null, age, leftSteps: Math.max(0, HOUSE_BAND_STEPS - age), queue: [...queue, ...this.houseQueue.map(() => 'house')] };
+      return { kind: 'house', item: null, source: null, age, leftSteps: Math.max(0, HOUSE_BAND_STEPS - age), queue: [...queue, ...this.houseQueue.map(() => 'house')], owners: [this.house.owner] };
     }
-    return { kind: null, item: null, source: null, age: 0, leftSteps: 0, queue };
+    return { kind: null, item: null, source: null, age: 0, leftSteps: 0, queue, owners: NO_OWNERS };
   }
 
   /** 見た目: 出る・きえる */

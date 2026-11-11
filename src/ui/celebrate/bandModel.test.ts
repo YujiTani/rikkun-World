@@ -3,7 +3,7 @@ import { TopBandModel, bandEase } from './bandModel';
 import { defaultCelebrateSettings } from './config';
 
 const cfg = () => defaultCelebrateSettings();
-const show = { ids: ['a0'], mainId: 'a0', more: 0 };
+const show = { ids: ['a0'], mainId: 'a0', more: 0, owners: [1] as const };
 
 /** WEAPON-7 §2.6 (2)(3): テロップ 300 ステップ・実績より 先・あらわれたの あとに */
 describe('上の 帯（テロップ）', () => {
@@ -163,8 +163,8 @@ describe('目印つきの 家の 帯（HOUSE-2A: レシピを おぼえた）', 
   it('同じ 目印は 待ちの 中で 新しい 1 つだけ のこる（目印の ない 帯は けさない）', () => {
     const b = new TopBandModel(cfg);
     b.enqueueHouseDone('ももの いえ が できた！');
-    b.enqueueHouseDone('かわらの やねの レシピを おぼえた！', 'recipe-band');
-    b.enqueueHouseDone('さんかくの やねの レシピを おぼえた！', 'recipe-band');
+    b.enqueueHouseDone('かわらの やねの レシピを おぼえた！', 'world', 'recipe-band');
+    b.enqueueHouseDone('さんかくの やねの レシピを おぼえた！', 'world', 'recipe-band');
     expect(b.step(1, false)).toMatchObject({ houseStarted: 'ももの いえ が できた！', houseTag: null });
     for (let i = 0; i < 179; i++) b.step(1, false);
     expect(b.step(1, false)).toMatchObject({ houseStarted: 'さんかくの やねの レシピを おぼえた！', houseDone: true, houseTag: 'recipe-band' });

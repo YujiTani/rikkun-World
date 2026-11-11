@@ -60,10 +60,10 @@ export function wireMine(deps: WiredDuo) {
     if (toP1) hotbar.popSlots(gains, (item) => g.reduce((n, x) => (x.item === item ? n + x.put : n), 0));
     for (const x of g) {
       if (x.put <= 0) continue;
-      achievements.feedCraft([{ type: 'pickup', tick: game.tick, item: x.item, count: x.put }]); // 「はじめて ◯◯ を てにいれた！」
+      achievements.withWho(who, () => achievements.feedCraft([{ type: 'pickup', tick: game.tick, item: x.item, count: x.put }])); // 「はじめて ◯◯ を てにいれた！」。帯は あけた 人の 半分（5f-2）
     }
-    if (telop) celebrate.enqueueTelop(telop, 'chest');
-    if (tier) achievements.feedMine([{ type: 'chestOpen', tick: game.tick, tier }]);
+    if (telop) celebrate.enqueueTelop(telop, 'chest', who);
+    if (tier) achievements.withWho(who, () => achievements.feedMine([{ type: 'chestOpen', tick: game.tick, tier }]));
   };
 
   // COOP-1 5b: 宝箱の 中身・あふれた 分・ひとことは あけた 人（1 = 1P・2 = 2P）に 合わせて 切りかえる

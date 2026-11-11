@@ -1,6 +1,7 @@
 import type { YokaiTitle } from '../contracts';
 import type { Rgba } from '../world/blocks/textures';
 import { drawPixels } from './itemIcon';
+import { halfId } from './duoHalfIds';
 import { nickIconPixels } from './itemArtBal';
 import './titleAnnounce.css';
 
@@ -25,9 +26,11 @@ export class TitleAnnounce {
   private readonly textEl: HTMLSpanElement;
   private shown = '';
 
-  constructor(parent: HTMLElement) {
+  /** who = 2: 2 人の とき 2P の 半分に 出す もう 1 つ（COOP-1 5f-2 #13。世界で 1 つの おしらせを 両方に 同じ 物。音は 部品の 外で 1 回） */
+  constructor(parent: HTMLElement, private readonly who: 1 | 2 = 1) {
     this.el = document.createElement('div');
-    this.el.id = 'title-announce';
+    this.el.id = who === 1 ? 'title-announce' : 'title-announce-p2';
+    if (who === 2) this.el.className = 'title-announce--p2';
     this.el.hidden = true;
     this.iconEl = document.createElement('canvas');
     this.iconEl.style.width = `${ANNOUNCE_ICON_PX}px`;
@@ -37,6 +40,12 @@ export class TitleAnnounce {
     this.textEl = document.createElement('span');
     this.el.append(this.iconEl, this.textEl);
     parent.append(this.el);
+  }
+
+  /** 2 人の あいだ だけ UI 検査の 目印（data-testid）を つける。1 人に もどったら はずす */
+  mark(on: boolean): void {
+    if (on) this.el.setAttribute('data-testid', halfId('titleAnnounce', this.who));
+    else this.el.removeAttribute('data-testid');
   }
 
   sync(s: AnnounceState | null): void {

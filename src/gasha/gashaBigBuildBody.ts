@@ -116,7 +116,7 @@ export function buildTorsoHits(c: Pick<BuildCtx, 'torso' | 'K' | 'KT' | 'SH' | '
       // 穴に 入れない ための 見えない 壁（名前が chest で はじまらない = 矢・刀には 当たらない 'cloud' あつかい。人の 足・体だけ ぶつかる）
       if (SH.guard) th('Spine02').hit('holeGuard', 1.6, SHOLE.y1 - SHOLE.y0, SHOLE.z1 - SHOLE.z0, TX1 + 0.8, (SHOLE.y0 + SHOLE.y1) / 2, (SHOLE.z0 + SHOLE.z1) / 2);
     }
-    slab('chestMid2', -12.4, 12.4, CEIL, 30.5, -8.05, 10.45); // 道の 天井から 胸の 上まで（ぜんぶ ふさぐ）
+    slab('chestMid2', -12.4, 12.4, CEIL, Math.max(30.5, CEIL + 2.2), -8.05, 10.45); // 道の 天井から 胸の 上まで（ぜんぶ ふさぐ）
     slab('chestCoreEnd', TX0, TX1, KT.floorY, CEIL, KT.endZ, 10.45); // コアの 向こうの かべ（道の つきあたり）
     slab('chestCoreFloor', TX0, TX1, KT.floorY - KT.floorThick, KT.floorY, KT.backZ, -7.5); // 背中の 外へ のびる 床（穴の 入り口の だん）
     slab('chestFarFloor', TX0, TX1, KT.floorY - KT.floorThick, KT.floorY, G1, KT.endZ); // 穴の むこうがわの 小さな 床（コアの 下）

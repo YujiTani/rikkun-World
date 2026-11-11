@@ -124,6 +124,12 @@ export interface AchievementDef {
   legacy?: boolean;
 }
 
+/**
+ * COOP-1 5f-2（1.17）: 実績を 達成した 人。1 = 1P・2 = 2P・'world' = 世界が 進めて 取れた 物（昼夜・国・日数）。
+ * null = 持ち主 なし（セーブから 戻した 物）。帯は 持ち主の 半分に 出す（null・'world' は 両方）
+ */
+export type AchievementOwner = 1 | 2 | 'world' | null;
+
 /** C → B: 今 出す おめでとう画面の 1 枚（§2.6 (3)） */
 export interface AchievementShow {
   /** 見せる実績の id（取った順） */
@@ -132,6 +138,8 @@ export interface AchievementShow {
   mainId: AchievementId;
   /** 5 行をこえた分の数（`ほか 3 こ`） */
   more: number;
+  /** ids[i] を 達成した 持ち主（ids と 同じ 長さ・同じ 順番。COOP-1 5f-2） */
+  owners: readonly AchievementOwner[];
 }
 
 /** B が持つ おめでとう画面の口（C が使う） */

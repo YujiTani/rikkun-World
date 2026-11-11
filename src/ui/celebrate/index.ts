@@ -10,6 +10,8 @@ import { TopBandModel, type TopBandInfo } from './bandModel';
 import type { TelopSource } from './telopText';
 import { SparkPool } from './sparkModel';
 import { BandView, BannerView, EffectsView } from './views';
+import { halvesOfAll, type Owner, type Who } from '../duoHalves';
+import type { Rect } from '../../duo/viewRects';
 import './celebrate.css';
 
 export interface SoundEntry {
@@ -71,6 +73,13 @@ export class CelebrateUi {
   private readonly fx: EffectsView;
   private readonly bannerView: BannerView;
   private readonly bandView: BandView;
+  /** 2 人の とき 2P の 半分の 帯（参加して はじめて 作る。COOP-1 5f-2 #18） */
+  private bandView2: BandView | null = null;
+  private duo = false;
+  /** 紙ふぶきを ふらせる 区画（2 人の とき 1P の 半分。1 人は null = 画面ぜんたい） */
+  private half: Rect | null = null;
+  /** 今 出ている 帯を 出している 半分（持ち主から きめる。1 人の ときは 1P だけ） */
+  private bandHalves: readonly Who[] = [1];
   private readonly badgeEl: HTMLElement;
   private readonly badgeNum: HTMLElement;
   private craftSounds: SoundEntry[] = [];
@@ -106,6 +115,23 @@ export class CelebrateUi {
       onClosed: (fn) => void self.closedFns.push(fn),
     };
     this.busy = { bannerShowing: () => self.banner.showing(), levelUpShowing: () => d.levelUpShowing() };
+  }
+
+  /** 2 人の とき true（上の 帯を 2 つに し、横断幕に 目印を つける）。1 人に もどったら false */
+  setDuo(on: boolean): void {
+    if (on === this.duo) return;
+    this.duo = on;
+    if (on) this.bandView2 ??= new BandView(this.d.topLayer ?? this.d.hud, 2);
+    this.bandView.mark(on);
+    this.bandView2?.mark(on);
+    this.bannerView.mark(on);
+    this.bandHalves = halvesOfAll(this.bandModel.info(null).owners, on);
+    if (!on) this.half = null;
+  }
+
+  /** 紙ふぶきの 区画（2 人の とき 1P の 半分の 矩形・1 人の とき null）。ui/duoHalves.ts が 呼ぶ */
+  setHalf(rect: Rect | null): void {
+    this.half = rect;
   }
 
   // ---------------------------------------------------------------- 作る
@@ -179,20 +205,21 @@ export class CelebrateUi {
     if (!this.bandModel.canOpenToast(this.appearing())) return false;
     if (!this.bandModel.toast.open(show)) return false;
     const main = this.d.achievement(show.mainId);
-    this.bandView.showToast(main, Math.max(show.more, show.ids.length - 1));
+    this.bandHalves = halvesOfAll(show.owners, this.duo);
+    for (const v of this.bandViewsOf(this.bandHalves)) v.showToast(main, Math.max(show.more, show.ids.length - 1));
     this.achSound('modal');
     if (MAIN_TIER_GOLD.has(main.tier)) this.achSound('modalSparkle');
     return true;
   }
 
   /** ヌシが 武器を おとした（テロップの 列に 入れる） */
-  enqueueTelop(item: ItemId, source: TelopSource = 'nushi'): void {
-    this.bandModel.enqueueTelop(item, source);
+  enqueueTelop(item: ItemId, source: TelopSource = 'nushi', owner: Owner = 'world'): void {
+    this.bandModel.enqueueTelop(item, source, owner);
   }
 
   /** 家の 名前の 帯を 列に 入れる（戸を 外から 通った とき。HOUSE-1 §3.3。実績・テロップと 重ならず ならぶ） */
-  enqueueHouseName(name: string): void {
-    this.bandModel.enqueueHouseName(name);
+  enqueueHouseName(name: string, owner: Owner = 'world'): void {
+    this.bandModel.enqueueHouseName(name, owner);
   }
 
   /** `ui.houseNameBand()` */
@@ -206,8 +233,8 @@ export class CelebrateUi {
   }
 
   /** 完成の 帯「<名前> が できた！」を 列に 入れる（HOUSE-1C PR-2。実績・テロップ・家の 名前と 重ならず ならぶ） */
-  enqueueHouseDone(text: string, tag?: string): void {
-    this.bandModel.enqueueHouseDone(text, tag);
+  enqueueHouseDone(text: string, owner: Owner = 'world', tag?: string): void {
+    this.bandModel.enqueueHouseDone(text, owner, tag);
   }
 
   /** `ui.topBand()` */
@@ -230,18 +257,34 @@ export class CelebrateUi {
       this.combo.step(amount);
     }
     this.fx.step(amount, this.combo.label());
-    this.bannerView.paint(this.banner.look(), this.bannerInfo());
+    this.bannerView.paint(this.banner.look(), this.bannerInfo(), this.half);
     // 上の 帯: 実績の おしらせ・テロップ（ゲームは 止めない。案内画面の 間だけ 止まる）
     const appearing = this.appearing();
     const r = this.bandModel.step(amount, appearing);
     if (r.telopStarted) {
       const item = r.telopStarted;
-      this.bandView.showTelop(this.d.itemName(item), this.d.itemIconUrl(item), this.d.itemRarity(item) + 1, r.telopSource ?? 'nushi');
+      this.bandHalves = halvesOfAll(this.bandModel.info(null).owners, this.duo);
+      for (const v of this.bandViewsOf(this.bandHalves)) v.showTelop(this.d.itemName(item), this.d.itemIconUrl(item), this.d.itemRarity(item) + 1, r.telopSource ?? 'nushi');
       this.d.onTelopStart?.(item);
     }
-    if (r.houseStarted !== null) this.bandView.showHouse(r.houseStarted, r.houseDone, r.houseTag);
+    if (r.houseStarted !== null) {
+      this.bandHalves = halvesOfAll(this.bandModel.info(null).owners, this.duo);
+      for (const v of this.bandViewsOf(this.bandHalves)) v.showHouse(r.houseStarted, r.houseDone, r.houseTag);
+    }
     if (r.toastEnded) for (const f of this.closedFns) f(r.toastEnded);
-    this.bandView.paint(appearing ? null : this.bandModel.ease(), this.d.reducedMotion?.() ?? false);
+    // 同じ 帯を 同じ 時間で（1 つの モデルを 出す 半分の 絵が 見る。出さない 半分は かくす）
+    const ease = appearing ? null : this.bandModel.ease();
+    const reduced = this.d.reducedMotion?.() ?? false;
+    this.bandView.paint(this.bandHalves.includes(1) ? ease : null, reduced);
+    this.bandView2?.paint(this.bandHalves.includes(2) ? ease : null, reduced);
+  }
+
+  /** 帯を 出す 半分の 絵（2 人の とき 2P の 絵は 作って ある） */
+  private bandViewsOf(halves: readonly Who[]): BandView[] {
+    const out: BandView[] = [];
+    if (halves.includes(1)) out.push(this.bandView);
+    if (halves.includes(2) && this.bandView2) out.push(this.bandView2);
+    return out;
   }
 
   private bannerSound(name: 'fanfare' | 'bannerSpin'): void {
@@ -299,6 +342,7 @@ export class CelebrateUi {
     this.fx.dispose();
     this.bannerView.dispose();
     this.bandView.dispose();
+    this.bandView2?.dispose();
     this.badgeEl.remove();
   }
 }

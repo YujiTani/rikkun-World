@@ -10,7 +10,7 @@ import {
   Mesh, MeshBasicMaterial, PlaneGeometry, Quaternion, Sprite, SpriteMaterial, Texture, Vector3, type Camera, type Scene,
 } from 'three';
 import { TUNE as T } from './gashaBigTuning';
-import { flyerAt, type Flyer, type V3 } from './gashaBigEruption';
+import { emberScale, flyerAt, type Flyer, type V3 } from './gashaBigEruption';
 import { blankTexture, crossGeometry, flameTexture, glowTexture, hasDom } from './gashaBigBeamFx';
 
 /** 予告の 丸の 絵（まんなかが こい 丸） */
@@ -246,7 +246,7 @@ export class EruptFx {
     const fa = this.flameMesh.instanceMatrix.array as Float32Array, ca = this.charMesh.instanceMatrix.array as Float32Array;
     for (let i = 0; i < n; i++) {
       const e = list[i]!;
-      const fadeIn = Math.min(1, e.age / 0.3), fadeOut = Math.min(1, (K.sec - e.age) / 3), k = fadeIn * fadeOut;
+      const k = emberScale(e.age);
       const ph = i * 1.7;
       const flick = 1 + 0.25 * Math.sin(this.clock * 17 + ph) + 0.1 * Math.sin(this.clock * 41 + ph * 2);
       // 炎の 板: y 軸で 回して 大きさ を かける（数百 あるので 行列を じかに 書く）

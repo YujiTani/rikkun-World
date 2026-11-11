@@ -5,7 +5,15 @@ import type { AchievementSystem } from '../achievements/AchievementSystem';
 import { CROP_KINDS, SEED_ITEM } from '../contracts';
 import type { BladeEvent, BowEvent, CombatEvent, DigEvent, ItemId, Vec3, WearEvent } from '../contracts';
 
-export type P2FeedSink = Pick<AchievementSystem, 'feedDig' | 'feedCombat' | 'feedBlade' | 'feedArrow' | 'feedWear'>;
+export type P2FeedSink = Pick<AchievementSystem, 'withWho' | 'feedDig' | 'feedCombat' | 'feedBlade' | 'feedArrow' | 'feedWear'>;
+
+/**
+ * COOP-1 5f-2（1.17 #18）: 2P の 出来事を 実績へ わたす 関数を 包む（呼ぶ あいだ 実績の 持ち主 = 2P）。
+ * 実績の 帯は 達成した 人の 半分に 出す ため。数えかたは 2 人で 共有の まま。2P の 道は ぜんぶ これで 包む
+ */
+export function owned2<A extends unknown[]>(sink: Pick<AchievementSystem, 'withWho'>, fn: (...a: A) => void): (...a: A) => void {
+  return (...a) => sink.withWho(2, () => fn(...a));
+}
 
 export interface P2Feed {
   /** 2P の ほる係の 出来事の とり出し口を 包む。呼ばれる たびに、とり出した 出来事を feedDig に 1 回わたして 同じ 配列を 返す（空なら feedDig は 呼ばない） */
@@ -25,25 +33,30 @@ export function feedArrowEvents(sink: Pick<AchievementSystem, 'feedArrow'>, even
 }
 
 export function createP2Feed(sink: P2FeedSink): P2Feed {
+  const dig = owned2(sink, (ev: DigEvent[]) => sink.feedDig(ev));
+  const combat = owned2(sink, (events: readonly CombatEvent[]) => sink.feedCombat(events));
+  const blade = owned2(sink, (events: readonly BladeEvent[]) => sink.feedBlade(events, 2));
+  const arrows = owned2(sink, (events: readonly BowEvent[]) => feedArrowEvents(sink, events));
+  const wear = owned2(sink, (events: readonly WearEvent[]) => sink.feedWear(events));
   return {
     tapDig(drain) {
       return () => {
         const ev = drain();
-        if (ev.length > 0) sink.feedDig(ev);
+        if (ev.length > 0) dig(ev);
         return ev;
       };
     },
     combat(events) {
-      if (events.length > 0) sink.feedCombat(events);
+      if (events.length > 0) combat(events);
     },
     blade(events) {
-      if (events.length > 0) sink.feedBlade(events, 2);
+      if (events.length > 0) blade(events);
     },
     arrows(events) {
-      feedArrowEvents(sink, events);
+      arrows(events);
     },
     wear(events) {
-      if (events.length > 0) sink.feedWear(events);
+      if (events.length > 0) wear(events);
     },
   };
 }

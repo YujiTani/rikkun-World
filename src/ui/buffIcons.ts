@@ -1,5 +1,6 @@
 import './buffIcons.css';
 import { selfCluster } from './levelHud';
+import { halfId } from './duoHalfIds';
 import type { BuffRow } from './buffIconsModel';
 
 const ICON_URL: Record<BuffRow['id'], string> = { speed: './models/fx/buff_speed.png' };
@@ -12,12 +13,20 @@ export class BuffIcons {
   private readonly plate: HTMLDivElement;
   private readonly icons = new Map<string, HTMLSpanElement>();
 
-  constructor(parent: HTMLElement) {
+  /** who = 2: 2 人の とき 2P の かたまり（`#hud-self-p2`。cluster で 渡す）に 入れる もう 1 つ（COOP-1 5f-2 #22） */
+  constructor(parent: HTMLElement, private readonly who: 1 | 2 = 1, cluster?: HTMLElement) {
     this.plate = document.createElement('div');
-    this.plate.id = 'buff-plate';
+    this.plate.id = who === 1 ? 'buff-plate' : 'buff-plate-p2';
+    if (who === 2) this.plate.className = 'buff-plate--p2';
     this.plate.hidden = true;
     this.plate.setAttribute('aria-hidden', 'true');
-    selfCluster(parent).append(this.plate);
+    (cluster ?? selfCluster(parent)).append(this.plate);
+  }
+
+  /** 2 人の あいだ だけ UI 検査の 目印を つける */
+  mark(on: boolean): void {
+    if (on) this.plate.setAttribute('data-testid', halfId('buffPlate', this.who));
+    else this.plate.removeAttribute('data-testid');
   }
 
   sync(rows: readonly BuffRow[]): void {

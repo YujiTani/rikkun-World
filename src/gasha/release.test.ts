@@ -394,8 +394,9 @@ describe('とどめ → 赤い コア → ごほうび（宝箱は ない）', (
       expect(s.stacks[0]!.item).toBe(row.item);
       expect(s.stacks[0]!.count).toBeGreaterThanOrEqual(1);
       expect(s.stacks[0]!.count).toBeLessThanOrEqual(Math.max(1, Math.round(row.max * RELEASE.core.hitScale)));
-      expect(s.opts).toEqual({ speedMin: RELEASE.core.scatterSpeed[0], speedMax: RELEASE.core.scatterSpeed[1], upMin: RELEASE.core.scatterUp[0], upMax: RELEASE.core.scatterUp[1] });
-      expect(s.at.y).toBeCloseTo(r.boss().pos.y + 5 + RELEASE.core.dropUp, 3);
+      expect(s.opts).toEqual({ speedMin: RELEASE.core.scatterSpeed[0], speedMax: RELEASE.core.scatterSpeed[1], upMin: RELEASE.core.scatterUp[0], upMax: RELEASE.core.scatterUp[1], glow: 'legendary' });
+      // コア(体の 外。中心 = y + 5)の 上の 面から（地面より 下に ならない）
+      expect(s.at.y).toBeCloseTo(r.boss().pos.y + 5 + BIG.finish.core.size / 2 + RELEASE.core.dropUp, 3);
     }
     expect(r.log.record).toEqual([]);
     expect(r.rel.state()).toBe('present');
@@ -426,6 +427,13 @@ describe('とどめ → 赤い コア → ごほうび（宝箱は ない）', (
     const items = r.log.scatter.slice(before).flatMap((x) => x.stacks.map((s) => s.item));
     expect(items.filter((i) => NINJA_IDS.includes(i))).toHaveLength(1);
     for (const row of RELEASE.reward.rare) expect(items).toContain(row.item);
+    // 大きな 一山は 虹色の 柱・勢い よく（pile の 数）・コアの 上の 面から
+    const P = RELEASE.core.pile;
+    for (const x of r.log.scatter.slice(before)) {
+      expect(x.opts).toEqual({ speedMin: P.scatterSpeed[0], speedMax: P.scatterSpeed[1], upMin: P.scatterUp[0], upMax: P.scatterUp[1], glow: 'legendary' });
+      expect(x.at.y).toBeCloseTo(r.boss().pos.y + 5 + BIG.finish.core.size / 2 + P.upBlocks, 3);
+    }
+    expect(P.scatterSpeed[1]).toBeGreaterThan(RELEASE.core.scatterSpeed[1]); // 一山の ほうが いきおいよく
     expect(r.rel.info().kills).toBe(1);
     // 二重に 数えない
     r.boss().coreBroken();
