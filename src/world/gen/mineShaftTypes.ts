@@ -47,7 +47,7 @@ interface ShaftChest {
  * HOUSE-2A（#364）レシピ（坑道の いちばん 下の へやに 1 つ。仕様 HOUSE-2 §2.1）。宝箱の ある 坑道は 宝箱の わく 1 つ（kind 'chest'。場所 ＝ 宝箱の 本体の マス）、
  * ない 坑道は へやの おくの かべに そった まん中の 床の まきもの（kind 'scroll'。宝箱が 置かれる マス）。taken は いきている 世界を 読んで 答える（計画の 時は false）
  */
-export interface ShaftRecipe {
+interface ShaftRecipe {
   kind: 'chest' | 'scroll';
   x: number;
   y: number;

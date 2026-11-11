@@ -10,6 +10,7 @@ import { chestShowsToP1, createChestHands, createChestRouter } from '../../duo/p
 import { BOKEN_GEN, KODO_GEN } from '../../save/SaveManager';
 import { maxDurability } from '../../tools/durability';
 import { setChestLidless } from '../../world/render/looks/chestLooks';
+import { isMakimonoId } from '../../world/blocks/blockTypes';
 import { createMineHook } from '../../world/gen/mineHook';
 import type { HotbarGain } from '../../ui/hotbarModel';
 import type { WiredDuo } from './duo';
@@ -132,7 +133,7 @@ export function wireMine(deps: WiredDuo) {
   dig.chestPort = {
     // who ＝ あける 人（1 = 1P・2 = 2P）。中身・あふれ・ひとことだけ 人に 合わせる。ふた・実績・見せる 物は 世界に 1 つ
     open: (x, y, z, who) => {
-      if (world.getBlock(x, y, z) === 'makimono') {
+      if (isMakimonoId(world.getBlock(x, y, z))) {
         router.run(who, () => mine.open(x, y, z)); // HOUSE-2A: まきもの。ブロックが 消えて レシピ（ふたの 動きは ない）
         return;
       }

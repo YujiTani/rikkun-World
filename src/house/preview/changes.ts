@@ -9,7 +9,7 @@ export type ShapeSnap = Pick<EditorState, 'w' | 'd' | 'windows' | 'windowKind' |
 
 export const snapOf = (s: ShapeSnap): ShapeSnap => ({ w: s.w, d: s.d, windows: s.windows, windowKind: s.windowKind, roof: s.roof, wall: s.wall, door: s.door, deco: [...s.deco] });
 
-export type Turn = 'back' | 'front' | null;
+type Turn = 'back' | 'front' | null;
 export interface PartChange {
   /** 光る 部分（なければ 空 ＝ 光らない） */
   parts: string[];

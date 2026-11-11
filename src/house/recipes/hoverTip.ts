@@ -11,8 +11,8 @@ const TIP = {
 
 const TIP_BTN = /^(part|roof|wall|window|door|deco)-(.+)$/;
 
-/** ヘルプが 出る ボタンか（ばしょ・しゅるいの ボタン。窓口の 画面に 見えて いるかは 呼ぶ 側が 見る） */
-const isTipButton = (id: string): boolean => TIP_BTN.test(id);
+/** ヘルプが 出る ボタンか（ばしょ・しゅるいの ボタン。窓口の 画面に 見えて いるかは 呼ぶ 側が 見る。画面〔ui/houseEditor/index.ts〕も これを 使う） */
+export const isTipButton = (id: string): boolean => TIP_BTN.test(id);
 
 export class HoverTip {
   private id: string | null = null;

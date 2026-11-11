@@ -243,7 +243,7 @@ export function isTsuraraIndex(index: number): boolean {
 }
 
 /** まきもの（HOUSE-2A）か。十字の 板の なかま（isCrossIndex も true）。つららと 同じく ゆれない・こわせない */
-export const MAKIMONO = BLOCK_INDEX.makimono;
+const MAKIMONO = BLOCK_INDEX.makimono;
 /** その ブロックの 名前が まきものか（上の MAKIMONO は 番号。名前で 聞く 側〔掘る・右クリック〕用） */
 export const isMakimonoId = (id: string): boolean => BLOCK_INDEX[id as BlockId] === MAKIMONO;
 

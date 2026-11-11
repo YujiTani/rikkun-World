@@ -4,7 +4,7 @@
 import { FORM_NAME, LIGHT_NAME, kindsOfForm, type LightKind, type Part } from './kinds';
 
 /** 1 まいで 出る 物 */
-export type Gives =
+type Gives =
   | { t: 'form'; part: Part; form: string }
   | { t: 'light'; kind: Exclude<LightKind, 'lantern'> }
   | { t: 'furniture'; kind: 'maneki' }

@@ -3,6 +3,7 @@ import { itemDef } from '../../content/items/registry';
 import { RARITY_ORDER } from '../../drops/rarityTable';
 import { BOKEN_GEN, HEYA_GEN, KODO_GEN, SAVE_GEN } from '../../save/gens';
 import { EMISSION } from '../light/opacity';
+import { isMakimonoId } from '../blocks/blockTypes';
 import { chestBlockId, chestBlockInfo, chestFrontAt, chestPartner, type ChestCompass } from '../blocks/chestBlock';
 import { terrainFor } from './terrain';
 import { colKey } from '../stream/ring';
@@ -123,12 +124,12 @@ export function createShaftHook(o: ShaftHookOptions) {
     const w = o.world;
     if (!w) return false;
     if (r.kind === 'chest') return chestBlockInfo(w.getBlock(r.x, r.y, r.z))?.open === true;
-    return (w.isLoaded?.(r.x, r.z) ?? true) && w.getBlock(r.x, r.y, r.z) !== 'makimono';
+    return (w.isLoaded?.(r.x, r.z) ?? true) && !isMakimonoId(w.getBlock(r.x, r.y, r.z));
   }
 
   /** まきものを とる（右クリック）: ブロックを 消して レシピを 1 まい。持ち物は 使わない。まきものでなければ false */
   function openScroll(x: number, y: number, z: number): boolean {
-    if (!o.world || o.world.getBlock(x, y, z) !== 'makimono') return false;
+    if (!o.world || !isMakimonoId(o.world.getBlock(x, y, z))) return false;
     o.world.setBlock?.(x, y, z, 'air');
     o.chest?.recipe?.({ x, y, z });
     return true;

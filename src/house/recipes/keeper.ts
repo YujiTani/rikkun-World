@@ -9,7 +9,7 @@ import { pickRecipe } from './pick';
 import { RECIPE_IDS, isRecipeId, recipeName, type RecipeId } from './table';
 
 /** レシピの 音（wire/houseSite.ts が 鳴らす。HouseSfx の 一部） */
-export type RecipeSfx = { k: 'recipe' } | { k: 'recipeAll' };
+type RecipeSfx = { k: 'recipe' } | { k: 'recipeAll' };
 
 /** 数（1 か所） */
 const KEEP = {

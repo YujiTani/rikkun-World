@@ -6,6 +6,7 @@
 // HOUSE-2A: editor-popup（① ばしょの ポップアップ。placePopup.ts）・editor-hover-tip（名前の ヘルプ。tipView.ts）・editor-new-mark（「あたらしい！」の 印。newMark.ts）。
 import { baseButtons, glowsWindows } from '../../house/editor/buttons';
 import type { EditorController } from '../../house/editor/controller';
+import { isTipButton } from '../../house/recipes/hoverTip';
 import { STEPS, type Step } from '../../house/editor/tuning';
 import { previewModeOf } from '../../house/preview/port';
 import type { Preview3D, PreviewMode, ViewRect } from '../../house/preview/preview';
@@ -45,9 +46,6 @@ export interface EditorViewOpts {
   /** いま 出して よい 名前の ヘルプ（窓口 editor().hoverTip）。出て いなければ null */
   tip: () => TipData | null;
 }
-
-/** 名前の ヘルプが 出る ボタン（ばしょ・しゅるいの ボタン）。`windowsUp` などは 当たらない（house/recipes/hoverTip.ts の TIP_BTN と 同じ） */
-const TIP_BTN = /^(part|roof|wall|window|door|deco)-/;
 
 const STEP_LABEL: Readonly<Record<Step, { label: string; icon: 'soto' | 'naka' | 'namae' }>> = {
   soto: { label: 'そと', icon: 'soto' },
@@ -190,7 +188,7 @@ export class EditorView {
     // 名前の ヘルプ: ばしょ・しゅるいの ボタンに のせた／はなした を 窓口 hover に つたえ、マウスの 場所を ふきだしに わたす（ついて うごく）
     const track = (e: PointerEvent): void => {
       const id = (e.target as Element | null)?.closest<HTMLElement>('button[data-btn]')?.dataset.btn ?? null;
-      this.setTipId(id !== null && TIP_BTN.test(id) ? id : null);
+      this.setTipId(id !== null && isTipButton(id) ? id : null); // 名前の ヘルプが 出る ボタン（ばしょ・しゅるい）だけ
       this.tipView.moveTo(e.clientX, e.clientY);
     };
     this.root.addEventListener('pointerover', track);
