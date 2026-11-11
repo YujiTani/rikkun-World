@@ -2,24 +2,28 @@ import { expect, test, type Page } from '@playwright/test';
 import { openHouse, spawnPoint, stepUi, waitArchitects } from './helpers/house';
 import { aimAtBlock } from './helpers/aim';
 import { btnState, clickBtn, ed, editorBtnIds, editorMismatch, firstArchitect, needOf, openEditor, plainText, readButtons } from './helpers/houseEditor';
-import { learn, recipeBand, recipeEd, recipeKinds, recipes, waitBandGone } from './helpers/houseRecipe';
+import { holdNothing, holdRightClick, holdScroll, recipeBand, recipeEd, recipeKinds, recipes, scrollCount, waitBandGone } from './helpers/houseRecipe';
 import { settleWorld } from './helpers/stream';
 
 /**
- * HOUSE-2A（#364 レシピを 見つけて えらぶ。docs/tickets/HOUSE-2A.md・仕様 3.2 版 docs/design/HOUSE-2.md §2・§6.2）の E2E。1 本だけ（#311）。
+ * HOUSE-2A（#364 レシピを 見つけて えらぶ。docs/tickets/HOUSE-2A.md・仕様 3.3 版 docs/design/HOUSE-2.md §2・§6.2）の E2E。1 本だけ（#311）。
  * 約束（窓口・ボタンの id・data-testid）は e2e/helpers/house.ts の「2A の 約束」。関数は e2e/helpers/houseRecipe.ts。時間では 待たず step の 数で 進める（#255）。
  *
- * 見つけて えらぶ 通し（AC1 → AC2 → AC3 → AC4 → AC5 → 見本の こたえ〔AC8〕）:
+ * 見つけて えらぶ 通し（AC1 → AC1b → AC2 → AC3 → AC4 → AC5 → 見本の こたえ〔AC8〕）:
  *   新しい 世界で 坑道を さがし（まきものの ある 坑道を 先に。なければ はじまりの 坑道）→ いちばん 下の へやで レシピの マスを 右クリック（宝箱なら 宝箱。まきものなら まきもの）→
- *   1 まい目 roof_kawara を おぼえる（上の 帯の テロップ「…の レシピを おぼえた！ けんちくしさんの せっけいずで えらべるよ」・taken・2 回目は 何も おきない）→
+ *   【3.3 版】持ち物に recipe_scroll が 1 まい 入る・**まだ おぼえない**（learned は 空のまま・時間が たっても）・上の 帯に はじめての 使い方の テロップ・taken・2 回目は 何も おきない →
+ *   手に 何も もたずに 右クリック → 何も おきない → **まきものを 手に もって 本物の 右クリック（おして 長く）→ 1 まい へって 1 つ おぼえる（長押しでも 1 まい）**・
+ *   上の 帯の テロップ「…の レシピを おぼえた！ けんちくしさんの せっけいずで えらべるよ」・おぼえた のは 使う 直前の nextPick（1 まい目 roof_kawara）。のこりの まきものは 持った まま では おぼえない →
  *   建築士さんの エディターを 開く → ① に ばしょの ボタン（やね・かべ・まど・と）。しゅるいの ボタンは まだ 出ない。やねの ボタンに「あたらしい！」→
  *   やねの ボタンに のせて 12 コマで 名前の ヘルプ（2 行: やね・いま: たいら。11 コマ目までは 出ない）→
  *   やねの ボタンを 押す ＝ ポップアップが 開く（見本は 見えた まま・下の パネルの ボタンは かくれる）→ いつもの 行（なし・たいら）＋ むら・おしろ・こうざんの 3 行（かわらの やね）。行の 見出し・印は ない。それぞれに 印 →
  *   マウスを のせて 12 コマで ヘルプ（1 行・マウスの 近く）が 出て、見本の やねが 光る（回らない）→ 押すと editor().roof が kawara_shiro・その ボタンの 印だけ 消える・ポップアップは 開いた まま・ヘルプも 消えない・見本の やねが 90 コマ 光る →
  *   ほかの 案も 押して くらべる → 「なし」を 押す（光らない）→ ✕・Esc で とじる（Esc は ポップアップだけ）。
- * 数・持ち物・選びの きまり・材料・保存・音の 細かい 基準は ユニット（src/house/recipes/*.test.ts・src/world/gen/mineRecipe.test.ts・src/house/preview/glowParts.test.ts）。
+ * `house.learn(id)`（テスト用の 近道）は この 通しでは 使わない（AC1b。おぼえる 道は まきものを 使う こと だけ）。
+ * 数・持ち物・選びの きまり・材料・保存・音・2P・右クリックの はたらきが ある ブロックが 先・持ち物の 画面などの 細かい 基準は ユニット（src/house/recipes/*.test.ts・src/dig/rightClickScroll.test.ts・
+ * src/world/gen/mineRecipe.test.ts・src/content/items/recipeScroll.test.ts・src/house/preview/glowParts.test.ts）。
  * 画面の 数・大きさ（AC9）は e2e/ui-gate.spec.ts。見た目・音の 好みは オーナー確認（AC14）。
- * 赤の 確かめ（テストの 準備）: 実装の 前は shaft.recipe／house.recipes が 無くて 落ちる。
+ * 赤の 確かめ（テストの 準備）: 実装の 前は shaft.recipe／house.recipes／recipe_scroll が 無くて 落ちる。
  */
 
 interface Pt {
@@ -124,9 +128,10 @@ test.describe('HOUSE-2A 見つけて えらぶ 通し', () => {
     await openHouse(page);
     const r0 = await recipes(page);
     expect(r0.all.length, '表の レシピ').toBeGreaterThan(0);
-    expect(r0, 'はじめは 何も おぼえて いない').toMatchObject({ learned: [], fresh: [] });
+    expect(r0, 'はじめは 何も おぼえて いない').toMatchObject({ learned: [], fresh: [], nextPick: 'roof_kawara' });
+    expect(await scrollCount(page), 'はじめは まきものを 持って いない').toBe(0);
 
-    // ---- AC1: 坑道の いちばん 下の へやで レシピの マスを 右クリック
+    // ---- AC1: 坑道の いちばん 下の へやで レシピの マスを 右クリック（3.3 版: 持ち物に まきものが 入る だけ）
     const sp = await spawnPoint(page);
     const shaft = await pickShaft(page, sp);
     const at = shaft.recipe!;
@@ -159,20 +164,55 @@ test.describe('HOUSE-2A 見つけて えらぶ 通し', () => {
 
     await rightClick(page);
     await stepUi(page, 40); // 宝箱の ふたが 動く 間
-    const after = await recipes(page);
-    expect(after.learned, 'かわらの やねを おぼえた（1 まい目）').toEqual(['roof_kawara']);
-    expect(after.fresh).toEqual(['roof_kawara']);
-    const band = await recipeBand(page);
-    expect(band, '上の 帯の テロップ').not.toBeNull();
-    expect(squash(band!.text)).toMatch(/^.+のレシピをおぼえた！けんちくしさんのせっけいずでえらべるよ$/);
-    expect(squash(band!.text)).toContain('かわらのやね');
+    expect(await scrollCount(page), '持ち物に レシピの まきもの 1 まい').toBe(1);
+    expect(await recipes(page), '拾った だけでは おぼえない').toMatchObject({ learned: [], fresh: [], nextPick: 'roof_kawara' });
+    const howto = await recipeBand(page);
+    expect(howto, 'はじめて 手に 入れた ときの 使い方の テロップ').not.toBeNull();
+    expect(squash(howto!.text)).toBe('レシピのまきものをてにいれた！てにもってみぎクリックでよもう');
     await expect(page.getByTestId('recipe-band').filter({ visible: true }), '画面の 上の 帯').toBeVisible();
-    await page.screenshot({ path: `${SHOTS}/found-band.png` });
+    await page.screenshot({ path: `${SHOTS}/found-howto.png` });
     const taken = await page.evaluate(({ id, at }) => ((window as any).__rikkun.mine.shafts(at.x, at.z, at.x, at.z) as ShaftInfo[]).find((q) => q.id === id)?.recipe?.taken, { id: shaft.id, at });
     expect(taken, '拾った').toBe(true);
     await rightClick(page);
     await stepUi(page, 40);
-    expect((await recipes(page)).learned, '2 回目は 何も おきない（1 坑道に 1 まい）').toEqual(['roof_kawara']);
+    expect(await scrollCount(page), '2 回目は 何も おきない（1 坑道に 1 まい）').toBe(1);
+    await stepUi(page, 300);
+    expect((await recipes(page)).learned, '持って いる だけ では 時間が たっても おぼえない').toEqual([]);
+    await waitBandGone(page);
+
+    // ---- AC1b: 手に もって いない ときの 右クリックでは 何も おきない（ほかの 物・何も もたない）
+    await holdNothing(page);
+    await rightClick(page);
+    await stepUi(page, 10);
+    expect(await scrollCount(page), '手に もって いない: まきものは へらない').toBe(1);
+    expect((await recipes(page)).learned, '手に もって いない: おぼえない').toEqual([]);
+    expect(await recipeBand(page), 'テロップも 出ない').toBeNull();
+
+    // ---- AC1b: まきものを 手に もって 右クリック（本物の 入力。おして 長く）→ 1 まい へって 1 つ おぼえる。長押しでも 1 まい
+    await page.evaluate(() => (window as any).__rikkun.inventory.add('recipe_scroll', 1)); // 準備: 2 まい 目（長押しで 2 まい 使わない ことを 見る。おぼえるのは 1 つ だけ）
+    expect(await scrollCount(page)).toBe(2);
+    await holdScroll(page);
+    const hint = await page.evaluate(() => (window as any).__rikkun.hud.actionHint()?.right ?? null);
+    expect(hint, '右の 案内は「よむ」').toEqual({ icon: 'recipe_scroll', word: 'よむ' });
+    const before = await recipes(page);
+    expect(before.nextPick, '使う 直前の nextPick（1 まい目）').toBe('roof_kawara');
+    await holdRightClick(page, 60);
+    await stepUi(page, 10);
+    const after = await recipes(page);
+    expect(await scrollCount(page), '長押しでも 1 まい だけ へる').toBe(1);
+    expect(after.learned, '1 つ おぼえた（使う 直前の nextPick）').toEqual(['roof_kawara']);
+    expect(after.fresh).toEqual(['roof_kawara']);
+    expect(after.nextPick, 'つぎは ちがう 物').not.toBe('roof_kawara');
+    expect(after.nextPick, 'つぎは まだの 物').not.toBeNull();
+    const band = await recipeBand(page);
+    expect(band, '使った その場の 上の 帯の テロップ').not.toBeNull();
+    expect(squash(band!.text)).toMatch(/^.+のレシピをおぼえた！けんちくしさんのせっけいずでえらべるよ$/);
+    expect(squash(band!.text)).toContain('かわらのやね');
+    await expect(page.getByTestId('recipe-band').filter({ visible: true }), '画面の 上の 帯').toBeVisible();
+    await page.screenshot({ path: `${SHOTS}/read-band.png` });
+    await stepUi(page, 300);
+    expect(await scrollCount(page), 'のこりの まきものは 持った まま では 使われない').toBe(1);
+    expect((await recipes(page)).learned, 'おぼえた 物は ふえない').toEqual(['roof_kawara']);
     await waitBandGone(page);
 
     // ---- AC3: 建築士さんの エディター ① に 出る（ばしょの ボタンだけ。しゅるいは ポップアップの 中）
@@ -314,6 +354,7 @@ test.describe('HOUSE-2A 見つけて えらぶ 通し', () => {
     await stepUi(page, 2);
     expect((await recipeEd(page)).popup, 'Esc で ポップアップだけ とじる').toBeNull();
     await expect(page.getByTestId('house-editor'), 'エディターは 開いた まま').toBeVisible();
-    expect(await learn(page, 'roof_kawara'), 'もう おぼえた').toBe(false);
+    expect(await scrollCount(page), '通しの おわりまで のこりの まきものは 使われない').toBe(1);
+    expect((await recipes(page)).learned, 'おぼえたのは かわらの やね だけ').toEqual(['roof_kawara']);
   });
 });

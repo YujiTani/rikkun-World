@@ -31,8 +31,10 @@ export function houseRig(opts: RigOpts = {}) {
   const { bag, player } = st;
   const sfx: HouseSfx[] = [];
   const calls: string[] = [];
-  /** 持ち物に 入らず 足もとに 落とした 物（HOUSE-2A: ぜんぶ おぼえた あとの かみ 3 まいの 入りきらない 分。deps の drop(item, count)） */
-  const drops: { item: ItemId; count: number }[] = [];
+  /** 持ち物に 入らず 足もとに 落とした 物（HOUSE-2A: まきものが 入りきらない 分・ぜんぶ おぼえた あとの かみ 3 まいの 入りきらない 分。deps の drop(item, count, who)。who ＝ 落とす 人〔1P・2P。わたさなければ 1〕） */
+  const drops: { item: ItemId; count: number; who: 1 | 2 }[] = [];
+  /** 上の 帯に 入れた レシピの テロップ（HOUSE-2A 3.3 版: deps の recipeBand(text, who)。who ＝ 使った・拾った 人。2P は 半分に 出る） */
+  const bands: { text: string; who: 1 | 2 }[] = [];
   // 型の 上で まだ 無い deps（craft・tansu）を まぜる ため、いったん 変数に 入れてから わたす
   const deps = {
     seed: 77,
@@ -42,7 +44,8 @@ export function houseRig(opts: RigOpts = {}) {
     bag,
     voice: () => calls.push('voice'),
     gave: (item: ItemId) => calls.push(`gave:${item}`),
-    drop: (item: ItemId, count: number) => void drops.push({ item, count }),
+    drop: (item: ItemId, count: number, who: 1 | 2 = 1) => void drops.push({ item, count, who }),
+    recipeBand: (text: string, who: 1 | 2 = 1) => void bands.push({ text, who }),
     onOpen: () => calls.push('open'),
     onClose: () => calls.push('close'),
     isLand: opts.isLand ?? (() => true),
@@ -96,5 +99,5 @@ export function houseRig(opts: RigOpts = {}) {
     sys.skyDecide();
     sys.skyDecide();
   };
-  return { world, bag, player, sys, hook, sfx, calls, drops, st, talk, make, stock, pad, run, startBuild };
+  return { world, bag, player, sys, hook, sfx, calls, drops, bands, st, talk, make, stock, pad, run, startBuild };
 }

@@ -13,12 +13,15 @@ import { createRng } from './random';
 import { spawnOf } from './terrain';
 
 /**
- * HOUSE-2A（#364）AC1（坑道 側）: 坑道の いちばん 下の へやで レシピを 1 まい 見つける（仕様 docs/design/HOUSE-2.md §2.1・§6.1）。
- *   宝箱の ある 坑道: 宝箱を あけると ふつうの わくに くわえて レシピの わくが 1 つ。宝箱の ない 坑道: 宝箱が 置かれる マスに まきもの（固く ない 1 マス）。右クリックで とる。
+ * HOUSE-2A（#364・仕様 3.3 版）AC1（坑道 側）: 坑道の いちばん 下の へやで レシピの まきもの（アイテム recipe_scroll）を 1 まい 見つける（仕様 docs/design/HOUSE-2.md §2.1・§5・§6.1）。
+ *   宝箱の ある 坑道: 宝箱を あけると ふつうの わくに くわえて「レシピの まきもの」の わくが 1 つ。宝箱の ない 坑道: 宝箱が 置かれる マスに まきもの（固く ない 1 マス）。
+ *   3.3 版で かわった こと: 拾っても おぼえない（持ち物に recipe_scroll が 入る だけ。おぼえるのは 手に もって 右クリックした とき）。
+ *   まきものは **右クリック でも ほって も** ブロックが 消えて recipe_scroll 1 まい（2 版の「こわしても 消えない・右クリックだけ」は やめた）。水が 流れこんでも 消えない のは そのまま。
  * 約束（e2e/helpers/house.ts の「2A の 約束」）:
- *   shaft.recipe ＝ { kind: 'chest' | 'scroll', x, y, z, taken }（どの 坑道にも 1 つ。taken は いきている 世界を 読む）
- *   createMineHook の chest ポートに recipe(at: { x, y, z })（はじめて あけた／とった ときに 1 回だけ）。open(x, y, z) が まきものも 受ける。
- * どの レシピに なるかは src/house/recipes/recipes.test.ts（pick）と src/house/recipes/recipeLearn.test.ts。
+ *   shaft.recipe ＝ { kind: 'chest' | 'scroll', x, y, z, taken }（どの 坑道にも 1 つ。taken は いきている 世界を 読む。ブロックが 消えて いれば true）
+ *   createMineHook の chest ポートに recipe(at: { x, y, z })（はじめて あけた／右クリックで とった ときに 1 回だけ。呼び先は house.found〔まきものを 持ち物へ。おぼえない〕）。open(x, y, z) が まきものも 受ける。
+ *   まきものを ほる（BlockBreaker.breakBlock）: ブロックが 消え、持ち物に recipe_scroll 1 こ（`dugItemOf('makimono')`）。ほる 固さは 数（null では ない）。
+ * どの レシピに なるかは src/house/recipes/recipes.test.ts（pick・nextPick）、使う ところは src/house/recipes/recipeLearn.test.ts と src/dig/rightClickScroll.test.ts。
  */
 
 interface Recipe {
@@ -159,22 +162,24 @@ describe('AC1 まきもの: 宝箱の ない 坑道の いちばん 下の へ�
     }
   }, 60_000);
 
-  it('まきものを 持ち物の マスに かえない（レシピは 持ち物を 使わない）', () => {
+  it('坑道の 係は まきものを 持ち物へ 直接 入れない（recipe(at) を よぶ だけ。持ち物へ 入れる のは 家の 係 house.found。おぼえる のは 使った とき）', () => {
     const { seed, shaft } = scrolls[0]!;
     const r = rig(seed, shaft);
     r.mine.open(shaft.recipe!.x, shaft.recipe!.y, shaft.recipe!.z);
+    expect(r.asked).toHaveLength(1);
     expect(r.inv.slots().filter((s) => s)).toHaveLength(0);
   });
 });
 
-describe('AC1 まきもの: こわしても 水が 来ても 消えない（仕様 §5。右クリック だけで とれる）', () => {
+describe('AC1 まきもの: ほっても とれる（3.3 版）・水が 来ても 消えない（仕様 §5）', () => {
   /** こわす 処理を 直接 よぶ ための 道具（src/dig/mineChestReview.test.ts の breakerRig と 同じ つくり。世界は まきものの ある 坑道） */
   function breakerOf(world: ArrayVoxelWorld, near: { x: number; y: number; z: number }) {
     const inventory = new InventoryImpl();
+    const scattered: { item: string; count: number }[] = [];
     const core = {
       world,
       inventory,
-      m4: {},
+      m4: { scatterItem: (_at: unknown, item: string, count: number) => void scattered.push({ item, count }) },
       config: createDigConfig(),
       lock: { locked: () => true, overlayVisible: () => false, realtimeAllowed: () => true, playInputEnabled: () => true } as LockStatus,
       gate: null,
@@ -184,24 +189,44 @@ describe('AC1 まきもの: こわしても 水が 来ても 消えない（仕�
       tick: () => 0,
       emit: () => undefined,
     } as unknown as DigCore;
-    return { inventory, breaker: new BlockBreaker(core, createRng(1)) };
+    return { inventory, scattered, breaker: new BlockBreaker(core, createRng(1)) };
   }
+  const targetOf = (at: { x: number; y: number; z: number }, id: string): TargetInfo => ({ block: { x: at.x, y: at.y, z: at.z }, id: id as never, face: { x: 0, y: 1, z: 0 }, place: { x: at.x, y: at.y + 1, z: at.z }, distance: 2 });
 
-  it('こわす 処理（BlockBreaker.breakBlock）を 直接 よんでも まきものは のこる。持ち物には 入らない。そのあと 右クリック（open）で ちゃんと とれる', () => {
+  it('ほる 固さが ある（null では ない＝ 左クリックで ほれる）・ブロックの きまりも こわせる', () => {
+    expect(createDigConfig().hardness['makimono' as never], 'ほる 固さ').toBeTypeOf('number');
+    expect(BLOCK_TYPES.find((t) => t.id === 'makimono')?.breakable, 'こわせる').toBe(true);
+  });
+
+  it('こわす 処理（BlockBreaker.breakBlock）で ブロックが 消えて、持ち物に recipe_scroll が ちょうど 1 こ。taken が true。', () => {
     for (const { seed, shaft } of scrolls.slice(0, 2)) {
       const r = rig(seed, shaft);
       const at = shaft.recipe!;
       const id = r.world.getBlock(at.x, at.y, at.z) as string;
-      const { inventory, breaker } = breakerOf(r.world, { x: at.x, y: at.y + 1, z: at.z + 2 });
-      const t: TargetInfo = { block: { x: at.x, y: at.y, z: at.z }, id: id as never, face: { x: 0, y: 1, z: 0 }, place: { x: at.x, y: at.y + 1, z: at.z }, distance: 2 };
-      breaker.breakBlock(t, false);
-      breaker.breakBlock(t, true);
-      expect(r.world.getBlock(at.x, at.y, at.z), `${shaft.id}: こわしても のこる`).toBe(id);
-      expect(inventory.slots().filter((x) => x !== null), `${shaft.id}: 持ち物には 入らない`).toEqual([]);
-      expect(takenOf(r, shaft), `${shaft.id}: まだ 拾って いない`).toBe(false);
-      r.mine.open(at.x, at.y, at.z);
-      expect(r.asked, `${shaft.id}: 右クリックで とれる`).toEqual([{ x: at.x, y: at.y, z: at.z }]);
+      const { inventory, scattered, breaker } = breakerOf(r.world, { x: at.x, y: at.y + 1, z: at.z + 2 });
+      expect(takenOf(r, shaft), `${shaft.id}: ほる 前`).toBe(false);
+      breaker.breakBlock(targetOf(at, id), false);
+      expect(r.world.getBlock(at.x, at.y, at.z), `${shaft.id}: ほると 消える`).toBe('air');
+      expect(inventory.count('recipe_scroll' as ItemId), `${shaft.id}: 持ち物に まきもの 1 こ`).toBe(1);
+      expect(inventory.slots().filter((x) => x !== null), `${shaft.id}: ほかの 物は 出ない`).toHaveLength(1);
+      expect(scattered, `${shaft.id}: 空きが あるので 落とさない`).toEqual([]);
+      expect(takenOf(r, shaft), `${shaft.id}: ほった あと`).toBe(true);
     }
+  }, 60_000);
+
+  it('ほる とき 持ち物が いっぱいなら 足もとに 落ちる（recipe_scroll 1 こ。仕様 §5）。持ち物は かわらない。ブロックは 消える', () => {
+    const { seed, shaft } = scrolls[0]!;
+    const r = rig(seed, shaft);
+    const at = shaft.recipe!;
+    const id = r.world.getBlock(at.x, at.y, at.z) as string;
+    const { inventory, scattered, breaker } = breakerOf(r.world, { x: at.x, y: at.y + 1, z: at.z + 2 });
+    let guard = 0;
+    while (inventory.add('stone', 64) === 0 && guard++ < 1000);
+    const before = JSON.stringify(inventory.slots());
+    breaker.breakBlock(targetOf(at, id), false);
+    expect(r.world.getBlock(at.x, at.y, at.z)).toBe('air');
+    expect(JSON.stringify(inventory.slots()), 'いっぱいの 持ち物は かわらない').toBe(before);
+    expect(scattered, '足もとに 落ちた まきもの').toEqual([{ item: 'recipe_scroll', count: 1 }]);
   }, 60_000);
 
   it('水が 上から 流れこんで 落ち着いても まきものは のこる（水に ながされて 消えない）。そのあと 右クリックで ちゃんと とれる', () => {

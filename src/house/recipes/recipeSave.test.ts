@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { houseRig } from '../houseRig';
-import { ENTRY, ed, goStep, learnAll, openEd, openPopup, rh } from './recipeKit';
+import { InventoryImpl } from '../../inventory/Inventory';
+import { StorageSystem } from '../../storage/StorageSystem';
+import { ENTRY, SCROLL, bandOut, ed, goStep, learnAll, openEd, openPopup, rh, scrolls, squash } from './recipeKit';
 
 /**
  * HOUSE-2A（#364・仕様 3 版）AC7: 保存。おぼえた レシピ・しゅるいごとの「あたらしい！」・作りかけと せっけいずの 中身（やね・かべ・まど・と・かざり・あかり・家具・後ろの 文字。案 こみの id）が
  * 開きなおしても 同じ。popup は のこらない（null）。古い セーブは おぼえた レシピ なし・せっけいず・作りかけは たいら・き・しょうじ・いえの と・かざり なし・ちょうちん。
  * おぼえて いない・知らない しゅるいは 作りかけでは いつもの 物に（§5）。2 版の 形の id（案の ない kawara など）は 案 むら として 読む。
  * 保存は HouseSystem.serialize() → JSON → load()（ゲームの セーブと 同じ 道）。
+ * 3.3 版（仕様 §6.2 AC7）: 持ち物・たんすの レシピの まきものの 数（ふつうの アイテムとして）と「はじめて 手に 入れた」の 記録も 同じ。まきものは 持って いる だけでは おぼえない ので、
+ *   保存・読みこみで learned が ふえない・へらない（読みこみで まきものを 使った ことに ならない）。
  */
 
 const roundTrip = (data: unknown): unknown => JSON.parse(JSON.stringify(data));
@@ -143,5 +147,52 @@ describe('AC7 保存', () => {
     const broken = JSON.parse(text.replace(/"roof_kawara"/g, '"roof_kawara","bogus_id","roof_kawara"'));
     expect(() => b.sys.load(broken)).not.toThrow();
     expect(rh(b).recipes().learned).toEqual(['roof_kawara']);
+  });
+});
+
+describe('AC7 保存（3.3 版）: まきものの 数・「はじめて 手に 入れた」', () => {
+  it('持ち物の まきものの 数は ふつうの アイテムと して 保存される（開きなおしても 同じ・おぼえた 物は ふえない）', () => {
+    const inv = new InventoryImpl();
+    inv.add(SCROLL, 5);
+    const saved = roundTrip(inv.serialize());
+    const back = new InventoryImpl();
+    back.deserialize(saved);
+    expect(back.count(SCROLL), 'まきもの 5 まい').toBe(5);
+    // 読みこんだ だけでは おぼえない（家の 記録と べつ）
+    const r = houseRig();
+    r.sys.load(roundTrip(r.sys.serialize()));
+    expect(rh(r).recipes().learned).toEqual([]);
+  });
+
+  it('たんすの 中の まきものの 数も 保存される', () => {
+    const r = houseRig();
+    const at = r.st.putTansu(2, 0, { [SCROLL]: 4 });
+    const saved = roundTrip(r.st.storage.serialize());
+    const st2 = new StorageSystem({ world: r.st.world, inventory: new InventoryImpl(), player: () => r.st.player, scatter: () => undefined, inventoryOpen: () => false, openScreen: () => undefined, closeScreen: () => undefined });
+    st2.deserialize(saved);
+    expect(st2.countItem(at.x, at.y, at.z, SCROLL), 'たんすの まきもの').toBe(4);
+  });
+
+  it('「はじめて 手に 入れた」の 記録が 開きなおしても 同じ: 手に 入れて 保存 → 開きなおして また 手に 入れても テロップは 出ない', () => {
+    const a = houseRig();
+    rh(a).found({ x: 1, y: 2, z: 3 });
+    expect(squash(rh(a).recipeBand()!.text)).toContain('てにいれた');
+    bandOut(a);
+    const b = houseRig();
+    b.sys.load(roundTrip(a.sys.serialize()));
+    rh(b).found({ x: 9, y: 2, z: 9 });
+    expect(rh(b).recipeBand(), '開きなおした 世界では 2 まい目').toBeNull();
+    expect(scrolls(b), 'まきもの 1 まい（持ち物は 家の 記録の 外）').toBe(1);
+  });
+
+  it('「はじめて」の 記録が ない 古い セーブ（3.3 版の 前）: 読みこめる。つぎに 手に 入れた とき 1 回だけ 出る。おぼえた レシピは そのまま', () => {
+    const base = houseRig();
+    rh(base).learn('roof_kawara');
+    const old = roundTrip(base.sys.serialize()); // まきものを 手に 入れた ことが 1 回も ない 記録（3.3 版の 前の セーブと 同じ。形は 開発が 決める ので 手で 書きかえない）
+    const r = houseRig();
+    expect(() => r.sys.load(old)).not.toThrow();
+    expect(rh(r).recipes().learned).toEqual(['roof_kawara']);
+    rh(r).found({ x: 1, y: 2, z: 3 });
+    expect(squash(rh(r).recipeBand()!.text), '古い セーブでは はじめて').toContain('てにいれた');
   });
 });

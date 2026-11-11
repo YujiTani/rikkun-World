@@ -252,7 +252,7 @@ import { installAimHelpers } from './aim';
  *   ユニットの つなぎ目: HouseSystem・createSheetPort の deps に `craft`〔CraftSystemImpl の total(item)・tansuInRange()〕と `tansu`〔StorageSystem の countItem・takeItem・get・set〕。
  *          どちらも 無ければ もちものだけ。ユニットの 道具は src/house/stockKit.ts・src/house/houseRig.ts。
  *
- * ---- 2A の 約束（#364 HOUSE-2A「レシピを 見つけて えらぶ」。仕様 3.2 版 docs/design/HOUSE-2.md §2・§3.2・§4・§6・チケット docs/tickets/HOUSE-2A.md）----
+ * ---- 2A の 約束（#364 HOUSE-2A「レシピを 見つけて えらぶ」。仕様 3.3 版 docs/design/HOUSE-2.md §2・§3.2・§4・§6・チケット docs/tickets/HOUSE-2A.md）----
  * 仕様 §6.1 の 名前の とおり。仕様に 名前が 無い 所を テストが 決めた（開発は これに そろえる。変えるなら この 書き出しと テストを 同時に 直す）。
  * レシピの 数（20）も しゅるいの 数（1 まいで 3）も どこにも 書かない。数える ときは `house.recipes().all`・`house.recipeKinds(id)` から。
  *
@@ -264,23 +264,34 @@ import { installAimHelpers } from './aim';
  *   後ろの 文字 ＝ SUFFIXES の 6〜8 つ目（のしろ・ごてん・のとりで）。ばしょ(Part) ＝ roof・wall・window・door・deco（この 順が 左から。かざりは 1 つ おぼえる まで 出ない）。
  *
  * 窓口 `window.__rikkun.house` に 足す:
- *   recipes()          → { learned: id[], fresh: id[], all: id[] }   learned ＝ おぼえた 順、fresh ＝ 印の のこった しゅるいが 1 つでも ある レシピ（おぼえた 順）、all ＝ 表の ぜんぶ（仕様 §6.1 の 2 こに 足した。数を 書かない ため）
+ *   recipes()          → { learned: id[], fresh: id[], all: id[], nextPick: id | null }   learned ＝ おぼえた 順、fresh ＝ 印の のこった しゅるいが 1 つでも ある レシピ（おぼえた 順）、all ＝ 表の ぜんぶ（仕様 §6.1 の 2 こに 足した。数を 書かない ため）、
+ *                        **nextPick ＝ 今 まきものを 使ったら おぼえる 物**（3.3 版。はじめは roof_kawara。ぜんぶ おぼえて いれば null。世界の シード と おぼえた 物 だけで 決まる。坑道の 場所には よらない）
  *   recipeKinds(id)    → string[]   そのレシピで 出る ボタンの id の 列（例 roof_kawara → ['roof-kawara_mura', 'roof-kawara_shiro', 'roof-kawara_kozan']。しゃちほこ・あかり・まねきねこ・後ろの 文字は 1 つ:
  *                        'deco-shachi'・'light-hotaru'・'furniture-maneki'・'suffix-5'）。並びは むら・おしろ・こうざん。テストは この 長さを 書かずに 使う。知らない id は []
- *   learn(id)          → boolean   テスト用。まだの 物を おぼえる（本物と 同じ 道: 上の 帯の テロップ・音・紙ふぶき）。もう おぼえた・知らない id は false
- *   found(at)          → id | null  坑道の 宝箱の わく／まきものを 拾った のと 同じ。at ＝ { x, y, z }（坑道の 場所）。まだの 物から 1 まい おぼえて id を 返す
- *                        （1 まい目は roof_kawara。シード・場所・おぼえた 物で 決まる）。ぜんぶ おぼえて いたら かみ 3 まいを もちものへ 入れて null。入りきらない 分は 足もとに 落とす（仕様 §5。
- *                        ユニットの 道具 houseRig は HouseSystem の deps drop(item, count) を 受けて rig.drops に ためる）
- *   recipeBand()       → { text, ticksLeft } | null   おぼえた テロップ。text ＝「<名前>の レシピを おぼえた！ けんちくしさんの せっけいずで えらべるよ」（名前 ＝ 形の 名前「かわらの やね」。案の 名前は つけない）。
+ *   learn(id)          → boolean   **テスト用の 近道**（3.3 版）。まきものを 使わずに まだの 物を おぼえる（本物と 同じ 道: 上の 帯の テロップ・音・紙ふぶき）。もう おぼえた・知らない id は false。
+ *                        ゲームの 中で おぼえる 道は まきものを 使う こと だけ。AC1b の テスト（見つけて おぼえる 通し・recipeLearn.test.ts）では 使わない
+ *   found(at, who?)    → void   坑道の 宝箱の わく／まきものを **手に 入れた**（3.3 版。2 版の「拾った 場で おぼえる」は やめた）。at ＝ { x, y, z }（坑道の 場所。使わなくて よい）、who ＝ 1 | 2（わたさなければ 1）。
+ *                        who の 持ち物に アイテム recipe_scroll を 1 まい 入れる（入らなければ 足もとに 落とす: HouseSystem の deps drop(item, count, who)。ユニットの 道具 houseRig が rig.drops に ためる）。
+ *                        **おぼえない**（learned・fresh・nextPick は かわらない。音・紙ふぶきも ない）。**世界で はじめての 1 回だけ** 上の 帯に 使い方の テロップ（recipeBand().text ＝
+ *                        「レシピの まきもの を てに いれた！ てに もって みぎクリック で よもう」。足もとに 落ちた ときも 1 回。2 まい目から・保存して 開きなおした あとは 出ない。記録は 保存に 入る）。
+ *                        つなぎ込み: mine の chest ポート recipe(at) → house.found(at, 手に 入れた 人)
+ *   read(who?)         → boolean   **手に もって 右クリック（よむ）した ときの 本体**（3.3 版）。who の 持ち物の recipe_scroll を 1 まい へらして、まだ おぼえて いない 物から 1 つ おぼえる
+ *                        （直前の nextPick。テロップ・音 { k: 'recipe' }・おぼえた 記録の「あたらしい！」は その 場）。持って いなければ false で 何も おきない。
+ *                        ぜんぶ おぼえて いたら まきもの 1 まい へって かみ 3 まいを who の 持ち物へ（入らない 分は 足もとへ。まきものを へらして から 入れる ので 使った マスが あく）・テロップ
+ *                        「もう ぜんぶ おぼえて いるよ。まきものは かみに なった」・おぼえた 音も 紙ふぶきも 出さない。さいごの 1 まいを おぼえた ときだけ「ぜんぶ」の テロップ・紙ふぶき +1・音 recipeAll。
+ *                        つなぎ込み: DigSystem の m4 の 口 scroll.read(who) → house.read(who)。2P は 2P の 持ち物・テロップは 2P の 半分（deps recipeBand(text, who)）
+ *   まきもの（アイテム recipe_scroll「レシピの まきもの」）: 重ねられる（64）・置けない・作れない・ずかんに のる。右クリックの 種類 'read'（右の 案内「よむ」）は たべもの（'eat'）と 同じ 道で、
+ *                        右クリックの はたらきが ある ブロック（たんす・かまど・戸・家具・ふとん・まきものの ブロック）が 先。1 回の 右クリックで 1 まい（長押しで 続けない）。持ち物の 画面などでは 使えない
+ *   recipeBand()       → { text, ticksLeft } | null   レシピの テロップ（おぼえた とき・はじめて 手に 入れた とき・もう ぜんぶ おぼえて いた とき）。おぼえた とき の text ＝「<名前>の レシピを おぼえた！ けんちくしさんの せっけいずで えらべるよ」（名前 ＝ 形の 名前「かわらの やね」。案の 名前は つけない）。
  *                        ぜんぶ おぼえた とき（さいごの 1 まい）は「レシピを ぜんぶ おぼえた！」。上の 帯の 列に ならぶ（houseNameBand と 同じ 出し方）
- *   celebrate().confetti  ぜんぶ おぼえた とき ちょうど +1（ほかの レシピでは ふえない）
- *   音（ユニットの HouseSfx）: おぼえた ＝ { k: 'recipe' }、ぜんぶ おぼえた ＝ { k: 'recipeAll' }（ほかの 音は 鳴らさない）
+ *   celebrate().confetti  ぜんぶ おぼえた とき（さいごの 1 まいを 使った とき）ちょうど +1（ほかの レシピでは ふえない）
+ *   音（ユニットの HouseSfx）: おぼえた ＝ { k: 'recipe' }、ぜんぶ おぼえた ＝ { k: 'recipeAll' }（ほかの 音は 鳴らさない。手に 入れた とき・もう ぜんぶ おぼえて いた とき も 鳴らさない）
  * 坑道（`window.__rikkun.mine`）:
  *   shafts()[i].recipe ＝ { kind: 'chest' | 'scroll', x, y, z, taken: boolean }（どの 坑道にも 1 つ）。宝箱の ある 坑道は kind 'chest'・x,y,z ＝ 宝箱の 本体の マス（`chest.x/y/z`）。
  *     ない 坑道は kind 'scroll'・x,z は いちばん 下の へや（`room`）の ふちの まん中・y ＝ `room.y`（まきものは そこに 置く 1 マスの ブロック。固く ない）。taken ＝ もう 拾った
- *   open(x, y, z)  宝箱（どちらの マスでも）・まきもの（右クリックと 同じ）。宝箱は 中身（今まで どおり）に くわえて 1 回だけ レシピ。まきものは 拾うと 消える
- *   まきものは こわす 処理（BlockBreaker.breakBlock）を よんでも・水が 流れこんでも のこる（右クリック だけで とれる。仕様 §5）
- *   createMineHook の chest ポートに `recipe(at: { x, y, z })`（はじめて あいた／拾った ときに 1 回だけ。2 回目の 宝箱・拾った あとの まきものでは 呼ばない）。本番の つなぎ込みは house.found(at) を 呼ぶ
+ *   open(x, y, z)  宝箱（どちらの マスでも）・まきもの（右クリックと 同じ）。宝箱は 中身（今まで どおり）に くわえて 1 回だけ レシピの まきもの。まきものは とると 消える
+ *   まきものは **こわす 処理（BlockBreaker.breakBlock）でも ブロックが 消えて 持ち物に recipe_scroll 1 こ**（`dugItemOf('makimono')`。いっぱいなら 足もとに scatterItem。3.3 版。2 版の「こわしても 消えない」は やめた）。水が 流れこんでも のこる（仕様 §5）
+ *   createMineHook の chest ポートに `recipe(at: { x, y, z })`（はじめて あいた／右クリックで とった ときに 1 回だけ。2 回目の 宝箱・とった あとの まきものでは 呼ばない）。本番の つなぎ込みは house.found(at, 手に 入れた 人) を 呼ぶ
  * エディター（3.2 版: ① は ばしょの ボタン〔絵 ＋ 字〕＋ ポップアップ ＋ 名前の ヘルプ）:
  *   editor() に 足す: popup（'roof'|'wall'|'window'|'door'|'deco'|null。開いて いる ポップアップ。2A の 準備の `part` は やめた）・
  *                     popupRows（string[][]。ポップアップの 行ごとの ボタンの id。上から いつもの → むら → おしろ → こうざん。1 行に 1 つの なかま・1 行 5 こ まで〔こえたら 同じ なかまの 次の 行〕・

@@ -1,19 +1,46 @@
-// HOUSE-2A（#364・仕様 3.2 版）ユニットテスト用の 道具（テスト専用。本番の コードからは 使わない）。
-// 窓口 `house.recipes()`・`learn()`・`found()`・`recipeBand()`・`recipeKinds()` と、エディターの 新しい 項目は 型の 上で まだ 無い ので、ここで 形を 約束する
+// HOUSE-2A（#364・仕様 3.3 版）ユニットテスト用の 道具（テスト専用。本番の コードからは 使わない）。
+// 窓口 `house.recipes()`・`learn()`・`found()`・`read()`・`recipeBand()`・`recipeKinds()` と、エディターの 新しい 項目は 型の 上で まだ 無い ので、ここで 形を 約束する
 // （約束の 本文は e2e/helpers/house.ts の「2A の 約束」。レシピの 数は どこにも 書かない: 数える ときは recipes().all から）。
+import type { ItemId } from '../../contracts';
 import { houseRig } from '../houseRig';
 
 export type Rig = ReturnType<typeof houseRig>;
 
+/** 3.3 版: レシピの まきもの（アイテム）。まだ 登録表に 無い 間は 型に 無い ので ここで 書く */
+export const SCROLL = 'recipe_scroll' as ItemId;
+export type Who = 1 | 2;
+
 export interface RecipeHook {
-  recipes(): { learned: string[]; fresh: string[]; all: string[] };
+  /** nextPick ＝ 今 まきものを 使ったら おぼえる 物（ぜんぶ おぼえて いれば null）。3.3 版 */
+  recipes(): { learned: string[]; fresh: string[]; all: string[]; nextPick: string | null };
   /** そのレシピで 出る ボタンの id の 列（例 roof_kawara → ['roof-kawara_mura', 'roof-kawara_shiro', 'roof-kawara_kozan']）。数は 書かずに 使う */
   recipeKinds(id: string): string[];
+  /** テスト用の 近道（まきものを 使わずに おぼえる）。AC1b の テストでは 使わない */
   learn(id: string): boolean;
-  found(at: { x: number; y: number; z: number }): string | null;
+  /** 坑道の 宝箱の わく・まきものを 手に 入れた（3.3 版）: who の 持ち物に recipe_scroll 1 まい（いっぱいなら 足もとへ）。おぼえない。返り値は ない */
+  found(at: { x: number; y: number; z: number }, who?: Who): void;
+  /** 手に もって 右クリックした ときの 本体（3.3 版）: who の 持ち物の まきものを 1 まい へらして 1 つ おぼえる。持って いなければ false で 何も おきない */
+  read(who?: Who): boolean;
   recipeBand(): { text: string; ticksLeft: number } | null;
 }
 export const rh = (r: Rig): RecipeHook => r.hook as unknown as RecipeHook;
+
+/** 文字から 空白を 取る */
+export const squash = (s: string): string => s.replace(/\s+/g, '');
+/** 持ち物の まきもの の 数 */
+export const scrolls = (r: Rig, bag: { count(item: ItemId): number } = r.bag): number => bag.count(SCROLL);
+/** 持ち物を いっぱいに する（石の 山で 空きが なくなるまで） */
+export function fillBag(r: Rig, bag: { add(item: ItemId, n: number): number; slots(): readonly unknown[] } = r.bag): void {
+  let guard = 0;
+  while (bag.add('stone', 64) === 0 && guard++ < 1000);
+  if (!bag.slots().every((s) => s !== null)) throw new Error('持ち物が いっぱいに ならない');
+}
+/** おぼえた／手に 入れた テロップが 消えるまで 進める */
+export function bandOut(r: Rig): void {
+  let n = 0;
+  while (rh(r).recipeBand() && n++ < 5000) r.run(1);
+  if (rh(r).recipeBand()) throw new Error('テロップが 消えない');
+}
 
 /** 窓口 editor() の 2A で 足される 部分（3 版: part は やめて popup） */
 export interface Ed {

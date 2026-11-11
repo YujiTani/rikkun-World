@@ -11,6 +11,8 @@ export interface Recipes {
   learned: string[];
   fresh: string[];
   all: string[];
+  /** 今 まきものを 使ったら おぼえる 物（ぜんぶ おぼえて いれば null）。3.3 版 */
+  nextPick: string | null;
 }
 export interface RecipeBand {
   text: string;
@@ -38,7 +40,60 @@ export const recipeEd = async (page: Page): Promise<RecipeEd> => (await ed(page)
 const edit = (page: Page, op: Record<string, unknown>): Promise<boolean> => editRaw(page, op as never);
 
 export const recipes = (page: Page): Promise<Recipes> => page.evaluate(() => (window as any).__rikkun.house.recipes());
+/** テスト用の 近道（まきものを 使わずに おぼえる）。見つけて おぼえる 通し（AC1b）では 使わない。エディターなどの 準備 だけ */
 export const learn = (page: Page, id: string): Promise<boolean> => page.evaluate((id) => (window as any).__rikkun.house.learn(id), id);
+/** 持ち物の レシピの まきもの（recipe_scroll）の 数（3.3 版） */
+export const scrollCount = (page: Page): Promise<number> => page.evaluate(() => (window as any).__rikkun.inventory.count('recipe_scroll'));
+
+/** まきものを 手に もつ（ホットバーに なければ マス 8 に うつして えらぶ）。持って いなければ 落ちる */
+export async function holdScroll(page: Page): Promise<void> {
+  const ok = await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    const slots = h.inventory.get().slots as ({ item: string; count: number } | null)[];
+    const i = slots.findIndex((s) => s?.item === 'recipe_scroll');
+    if (i < 0) return false;
+    let at = i;
+    if (i >= 9) {
+      const keep = slots[8];
+      h.inventory.setSlot(8, slots[i]);
+      h.inventory.setSlot(i, keep);
+      at = 8;
+    }
+    h.inventory.select(at);
+    h.step(1);
+    return true;
+  });
+  expect(ok, '持ち物に まきものが ある').toBe(true);
+}
+
+/** 手に 何も もたない（ホットバーの あいた マスを えらぶ。なければ 先頭の 物を 持ち物の おくへ しまう） */
+export async function holdNothing(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    const slots = h.inventory.get().slots as ({ item: string; count: number } | null)[];
+    let at = slots.slice(0, 9).findIndex((s) => s === null);
+    if (at < 0) {
+      const back = slots.findIndex((s, i) => i >= 9 && s === null);
+      h.inventory.setSlot(back, slots[0]);
+      h.inventory.setSlot(0, null);
+      at = 0;
+    }
+    h.inventory.select(at);
+    h.step(1);
+  });
+}
+
+/** 右クリックを おして steps コマ ながく おさえてから はなす（本物の 入力。長押しで 続けて 使わない ことを 見る） */
+export async function holdRightClick(page: Page, steps: number): Promise<void> {
+  await page.evaluate((n) => {
+    const h = (window as any).__rikkun;
+    h.input.press('secondary');
+    h.step(n);
+    h.input.release('secondary');
+    h.step(1);
+  }, steps);
+}
+
 /** そのレシピで 出る ボタンの id の 列（窓口 recipeKinds） */
 export const recipeKinds = (page: Page, id: string): Promise<string[]> => page.evaluate((id) => (window as any).__rikkun.house.recipeKinds(id), id);
 export const recipeBand = (page: Page): Promise<RecipeBand | null> => page.evaluate(() => (window as any).__rikkun.house.recipeBand());
