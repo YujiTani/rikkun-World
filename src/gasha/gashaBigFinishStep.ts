@@ -11,6 +11,7 @@ import type { BigSfx } from './gashaBigSfx';
 import type { CoreThrow } from './gashaBigCoreThrow';
 import { FinishSeq, type FinishEvent, type FinishPhase } from './gashaBigFinish';
 import { CoreOut, coreSpot } from './gashaBigCoreOut';
+import { distToBox } from './gashaBigHit';
 import { CRUMBLE_ORDER, CrumbleFx, crumbleSchedule } from './gashaBigCrumbleFx';
 import { TUNE as T } from './gashaBigTuning';
 
@@ -69,7 +70,9 @@ export function createFinishStep(env: FinishEnv): FinishStep {
       const K = T.finish.core, pos = env.pos(), p = deps.player();
       env.model()?.setCoreShown(false);
       if (!coreOut) coreOut = new CoreOut(deps.scene);
-      coreOut.place(coreSpot(pos, p, (x, z) => deps.groundY(Math.floor(x), Math.floor(z)), K.outBlocks, K.size), K.size);
+      const boxes = env.actor()?.boxList ?? [], reach = K.size / 2 + K.clearBlocks;
+      const overlaps = (x: number, y: number, z: number): boolean => boxes.some((b) => distToBox(b, x, y, z) <= reach);
+      coreOut.place(coreSpot(pos, env.actor()?.yaw ?? 0, p, (x, z) => deps.groundY(Math.floor(x), Math.floor(z)), overlaps, K), K.size);
       coreOut.setRed(0, 0);
       bh.setExtra(coreOut.box());
       bh.setFinish('core'); bh.setCoreReach(K.reach);

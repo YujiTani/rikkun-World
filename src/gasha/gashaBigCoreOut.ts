@@ -17,13 +17,24 @@ const GLOW = { scale: 1.45, alpha: 0.3 } as const;
 /** 脈うつ ときの ふくらみ(割合) */
 const PULSE_SCALE = 0.08;
 
-/** 外へ 出た コアの 中心。boss = 体の 中心の 水平の 位置、player = プレイヤーの 足もと、groundTop(x, z) = その 列の いちばん 上の ブロックの 高さ */
-export function coreSpot(boss: { x: number; z: number }, player: { x: number; z: number }, groundTop: (x: number, z: number) => number, outBlocks: number, size: number): { x: number; y: number; z: number } {
+/** 置き場所の 数（調整表 finish.core の 一部） */
+export interface CoreSpotTune { outBlocks: number; size: number; stepBlocks: number; maxOutBlocks: number }
+
+/**
+ * 外へ 出た コアの 中心。boss = 体の 中心の 水平の 位置、yaw = 体の 向き（ラジアン。前 = (sin, cos)。プレイヤーが 真上で 方向が とれない とき だけ 使う）、
+ * groundTop(x, z) = その 列の いちばん 上の ブロックの 高さ、overlaps(x, y, z) = その 中心に コアを 置くと 体の 箱と かさなるか。
+ * 体の 中心から プレイヤーの 方向へ outBlocks から はじめ、かさなる あいだ stepBlocks ずつ 外へ ずらす（maxOutBlocks まで。見つからなければ 最後の 場所）。
+ */
+export function coreSpot(boss: { x: number; z: number }, yaw: number, player: { x: number; z: number }, groundTop: (x: number, z: number) => number, overlaps: (x: number, y: number, z: number) => boolean, K: CoreSpotTune): { x: number; y: number; z: number } {
   const dx = player.x - boss.x, dz = player.z - boss.z, d = Math.hypot(dx, dz);
-  const near = d <= outBlocks;
-  const x = near ? player.x : boss.x + (dx / d) * outBlocks;
-  const z = near ? player.z : boss.z + (dz / d) * outBlocks;
-  return { x, y: groundTop(x, z) + SURFACE_ABOVE_TOP + size / 2, z };
+  const ux = d > 1e-3 ? dx / d : Math.sin(yaw), uz = d > 1e-3 ? dz / d : Math.cos(yaw);
+  const at = (r: number): { x: number; y: number; z: number } => {
+    const x = boss.x + ux * r, z = boss.z + uz * r;
+    return { x, y: groundTop(x, z) + SURFACE_ABOVE_TOP + K.size / 2, z };
+  };
+  let r = K.outBlocks, p = at(r);
+  while (overlaps(p.x, p.y, p.z) && r + K.stepBlocks <= K.maxOutBlocks) { r += K.stepBlocks; p = at(r); }
+  return p;
 }
 
 export class CoreOut {

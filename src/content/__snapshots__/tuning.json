@@ -964,8 +964,10 @@
         "sparkMul": 4
       },
       "core": {
+        "clearBlocks": 0.5,
         "hitGapSec": 0.3,
         "hits": 8,
+        "maxOutBlocks": 40,
         "outBlocks": 18,
         "pulseHz": 1.6,
         "reach": 0.6,
@@ -974,7 +976,8 @@
           16738880
         ],
         "redSec": 1.5,
-        "size": 3
+        "size": 3,
+        "stepBlocks": 2
       },
       "crumble": {
         "chunkLifeSec": 2.4,
