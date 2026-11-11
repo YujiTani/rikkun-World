@@ -85,7 +85,7 @@ export function scanLook(page: Page, at: Pt, w: number, d: number, h: number): P
   );
 }
 
-/** 建った 世界と 期待の 形（houseShape）の ちがう マス（空 ＝ 同じ）。箱の 外の すき間（まわり 1 マス・箱の 1 段 上まで。床の 段より 上）は 空気 */
+/** 建った 世界と 期待の 形（houseShape）の ちがう マス（空 ＝ 同じ。家具の 場所〔中の 1 段目の 空気〕は のぞく。やね・かべ・まど・と・あかり・箱の 外は きびしく 見る）。箱の 外の すき間（まわり 1 マス・箱の 1 段 上まで。床の 段より 上）は 空気 */
 export function lookMismatches(shape: ReturnType<typeof houseShape>, h: number, at: Pt, got: Record<string, CellInfo>): string[] {
   const bad: string[] = [];
   const inBox = new Set<string>();
@@ -93,6 +93,9 @@ export function lookMismatches(shape: ReturnType<typeof houseShape>, h: number, 
     const k = `${at.x + c.x},${at.y + c.y},${at.z + c.z}`;
     inBox.add(k);
     const g = got[k];
+    // 家具（ふとんが 1 つは 要る・作りかけに 前の 家の いすが のこる）は この 確かめの 対象では ない: 中の 床の 上の 1 段目の 空気の マスは 見ない
+    const interior = c.x > 0 && c.z > 0 && c.x < shape.outerW - 1 && c.z < shape.outerD - 1;
+    if (c.id === 'air' && interior && c.y === 1) continue;
     if (!g) bad.push(`${k}: 読めない`);
     else if (g.id !== c.id) bad.push(`${k}: ${c.id} の はず → ${g.id}`);
   }
