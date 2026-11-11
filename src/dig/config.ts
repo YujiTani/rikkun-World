@@ -180,6 +180,14 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     taoreta_hashigo_x: 0.5, // MINE-1E: たおれた はしご（すでで 0.5 秒。ほると き 1）
     taoreta_hashigo_z: 0.5,
     takibi_ato: 0.5, // MINE-1E: たきびの あと（すでで 0.5 秒。ほると せきたん 1）
+    maou_kabe: 3, // MINE-1F: やかたの かべ・ゆか・だん 6 こ（すでの 秒数 3。いしの つるはし〔強さ 4〕で 0.75 秒。仕様 §4.6）
+    maou_yuka: 3,
+    maou_dan: 3,
+    maou_taimatsu: 0, // MINE-1F: あやしい たいまつ 2 つ（すぐ。仕様 §4.6）
+    otera_ishigaki: 3,
+    otera_ishidatami: 3,
+    otera_dan: 3,
+    onibi_taimatsu: 0,
     ...forChest<number | null>(null), // 宝箱は ほっても こわれない（start_torch と 同じ）
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
@@ -280,6 +288,14 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     taoreta_hashigo_x: 0,
     taoreta_hashigo_z: 0,
     takibi_ato: 0,
+    maou_kabe: 1, // MINE-1F: かべ・ゆか・だんは いしの つるはしから（段階 1）。たいまつは すでから（0）
+    maou_yuka: 1,
+    maou_dan: 1,
+    maou_taimatsu: 0,
+    otera_ishigaki: 1,
+    otera_ishidatami: 1,
+    otera_dan: 1,
+    onibi_taimatsu: 0,
     ...forChest(0),
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
@@ -394,6 +410,14 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     taoreta_hashigo_x: 'common',
     taoreta_hashigo_z: 'common',
     takibi_ato: 'common',
+    maou_kabe: 'uncommon', // MINE-1F: かべ・ゆか・だんは レア、たいまつは スーパーレア
+    maou_yuka: 'uncommon',
+    maou_dan: 'uncommon',
+    maou_taimatsu: 'rare',
+    otera_ishigaki: 'uncommon',
+    otera_ishidatami: 'uncommon',
+    otera_dan: 'uncommon',
+    onibi_taimatsu: 'rare',
     ...forChest<Rarity>('common'),
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),

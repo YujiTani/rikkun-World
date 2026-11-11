@@ -1,6 +1,7 @@
 import type { ItemId, Rarity } from '../../contracts';
 import { ITEM_DEFS } from '../../content/items/registry';
 import { RARITY_ORDER, rarityTier } from '../../drops/rarityTable';
+import { YAKATA_BLOCK_IDS } from '../blocks/mineYakata';
 import { chestTableOf, pickTier } from './mineChestTable';
 import type { ChestRoll, ChestTable, Tier } from './mineShaftTypes';
 import { createRng, hash01, hashInts } from './random';
@@ -15,6 +16,7 @@ const EXCLUDED = [
   { item: 'yokai_orb', reason: 'いまは 手に 入らない（ようかいだま）' },
   { item: 'omamori_torn', reason: 'しるし ＝ 記念の 品（やぶれた おまもり）' },
   { item: 'kabita_pan', reason: 'じょうだんの 物。宝箱から 出ると がっかり する（キャンプあとの たんす だけ）' },
+  ...YAKATA_BLOCK_IDS.map((item) => ({ item, reason: 'やかたを かちぬいた しるし。宝箱から 出ない' })), // MINE-1F: やかたの ブロック 8 こ
   { item: 'sekkeizu', reason: '1 まいずつ 中身〔plan の 番号〕を もつ 物。宝箱から 出ると 読めない せっけいずに なる' },
 ] as const satisfies readonly { item: ItemId; reason: string }[];
 

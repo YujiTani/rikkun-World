@@ -38,6 +38,7 @@ import { ITEM_DEFS, itemDef, registryHeal } from './registry';
 import { HOUSE_BLOCKS } from './houseBlocks';
 import { ROPE_BLOCKS } from './rope';
 import { WATERFALL_BLOCKS } from './waterfall';
+import { YAKATA_BLOCK_IDS } from '../../world/blocks/mineYakata';
 import { HOUSE_BLOCK_IDS } from '../../world/blocks/houseBlocks';
 import { toolFamily } from '../../dig/toolFamily';
 import { isM4Item, m4ItemPixels } from '../../ui/itemArtM4';
@@ -103,7 +104,8 @@ const FARM_IDS = [...SEED_ITEM_IDS, ...VEG_ITEM_IDS, ...FARM_TOOL_IDS, 'sprinkle
  * 下の「シリーズの 一覧」とは 別に 数える（登録された ことと 値は src/content/items/mine1b.test.ts）
  */
 // MINE-1E の かびた パン（kabita_pan）も 同じ 扱い（別シリーズのファイル mine.ts）
-const MINE_1B_IDS: readonly string[] = ['sekkaiseki', 'shikkui', 'hotaruishi', 'kin_ore', 'chalk', 'ishibai', 'kabita_pan'];
+// MINE-1F の やかたの ブロック 8 つ（yakata.ts）も 同じ 扱い
+const MINE_1B_IDS: readonly string[] = ['sekkaiseki', 'shikkui', 'hotaruishi', 'kin_ore', 'chalk', 'ishibai', 'kabita_pan', ...YAKATA_BLOCK_IDS];
 const strip1B = (ids: readonly string[]): string[] => ids.filter((id) => !MINE_1B_IDS.includes(id));
 
 describe('登録表（金シリーズ）', () => {

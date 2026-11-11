@@ -1,5 +1,6 @@
 import { GADGET_TUNING } from '../../content/items/gadgetTuning';
 import { FURN_BLOCK_IDS, K_ANDON, isFurnKind } from '../blocks/houseBlocks';
+import { isYakataTorch } from '../blocks/mineYakata';
 import { AIR, BLOCK_INDEX, BLOCK_TYPES, HOTARUISHI, LANTERN, SPRINKLER, isChalkIndex, isCrossIndex, isFloorDecoIndex, isLeafIndex, isPropIndex, isTorchIndex } from '../blocks/blockTypes';
 import { isWaterIndex } from '../blocks/water';
 import { isMagmaIndex } from '../blocks/magma';
@@ -21,4 +22,4 @@ const ANDON_INDEX: ReadonlySet<number> = new Set(FURN_BLOCK_IDS.filter((id) => i
 const MAGMA_GLOW: ReadonlySet<number> = new Set(BLOCK_TYPES.map((_, i) => i).filter((i) => isMagmaIndex(i)));
 
 /** ブロックが出す光（0 = 光らない） */
-export const EMISSION: Uint8Array = Uint8Array.from(BLOCK_TYPES, (_, i) => (isTorchIndex(i) || ANDON_INDEX.has(i) ? C.torchLevel : i === LANTERN ? GADGET_TUNING.lantern.light : i === HOTARUISHI ? C.hotaruishiLevel : MAGMA_GLOW.has(i) ? MAGMA_TUNING.light : 0)); // ちょうちんは 表の 強さ（ITEM-FX-1）。ほたるいしは 光る 固い ブロック（MINE-1B。光は となりの 空気へ 広がる）
+export const EMISSION: Uint8Array = Uint8Array.from(BLOCK_TYPES, (_, i) => (isYakataTorch(BLOCK_TYPES[i]!.id) ? C.yakataTorchLevel : isTorchIndex(i) || ANDON_INDEX.has(i) ? C.torchLevel : i === LANTERN ? GADGET_TUNING.lantern.light : i === HOTARUISHI ? C.hotaruishiLevel : MAGMA_GLOW.has(i) ? MAGMA_TUNING.light : 0)); // ちょうちんは 表の 強さ（ITEM-FX-1）。ほたるいしは 光る 固い ブロック（MINE-1B。光は となりの 空気へ 広がる）

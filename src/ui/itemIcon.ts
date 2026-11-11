@@ -19,6 +19,7 @@ import { bucketItemPixels, isBucketItem } from './bucketArt';
 import { axeItemPixels, isAxeItem } from './itemArtBal';
 import { isTakoItem, takoItemPixels } from './itemArtTako';
 import { isMineItem, mineItemPixels } from './itemArtMine';
+import { isYakataTorchItem, yakataTorchPixels } from './itemArtYakata';
 import { tansuPixels } from '../storage/tansuArt';
 import { atlasIconUrl } from './iconAtlas';
 import { BLOCK_TILES, TILE_SIZE, getTilePixels, type Rgba, type TileName } from '../world/blocks/textures';
@@ -37,6 +38,7 @@ export function itemIconPixels(item: ItemId): Pixels {
   if (isAxeItem(item)) return axeItemPixels(item);
   if (isTakoItem(item)) return takoItemPixels(item); // TAKO-1: ふで
   if (isMineItem(item)) return mineItemPixels(item); // MINE-1B: チョーク・いしばい
+  if (isYakataTorchItem(item)) return yakataTorchPixels(item); // MINE-1F: あやしい たいまつ 2 つ
   if (isM4Item(item)) return m4ItemPixels(item);
   if (isNinjaItem(item)) return ninjaItemPixels(item); // NINJA-1: オーナー OK 済みの 絵
   if (isSamuraiItem(item)) return samuraiItemPixels(item); // SAMURAI-1: オーナー OK 済みの 絵
