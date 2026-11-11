@@ -324,7 +324,7 @@ describe('F9: 挑戦の 間の 保存は 挑戦の 前の 形・かった あと
           w.loadColumn(genColumn(r.seed, c.x >> 4, c.z >> 4));
         }
       }
-      for (const c of cells) w.setBlock(c.x, c.y, c.z, r.world.getBlock(c.x, c.y, c.z));
+      for (const c of cells) w.setBlock(c.x, c.y, c.z, r.world.getBlock(c.x, c.y, c.z) as never);
       const back = await openRestored(db, store, w);
       expect(back.restored.fromPending, '保険から もどした').toBe(true);
       cells.forEach((c, i) => expect(String(back.world.getBlock(c.x, c.y, c.z)), `保険 (${c.x}, ${c.y}, ${c.z})`).toBe(before[i]));
