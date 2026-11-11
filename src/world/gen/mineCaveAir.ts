@@ -17,7 +17,17 @@ const K = C.caves;
 const NK = WORLD_HEIGHT / 4 + 1;
 /** 1 つの 格子の 点で 覚える 最大数（列の 組）。古い 物から すてる */
 const NODE_CAP = 6000;
-const COL_CAP = 6000;
+/** 高さの おぼえの 数（2 の H_BITS 乗 か所） */
+const H_BITS = 16;
+/** 窓の おぼえの 列の 数（2 の W_BITS 乗 列） */
+const W_BITS = 15;
+/** 1 列の 窓の 数（縦 8 マスずつ） */
+const NW = WORLD_HEIGHT / 8;
+
+/** (x, z) から おぼえの 位置を きめる（まぜて 下の bits だけ 使う） */
+function slotOf(x: number, z: number, bits: number): number {
+  return (Math.imul(x, 73856093) ^ Math.imul(z, 19349663)) >>> (32 - bits);
+}
 
 interface Node {
   a: Float32Array;
@@ -30,22 +40,27 @@ export class CaveAir {
   private readonly sA: number;
   private readonly sB: number;
   private readonly nodes = new Map<number, Node>();
-  private readonly heights = new Map<number, number>();
+  /** 高さの おぼえ（場所から きめる 位置に 1 つ。-1 ＝ 空き） */
+  private readonly hKeys = new Float64Array(1 << H_BITS).fill(-1);
+  private readonly hVals = new Float64Array(1 << H_BITS);
+  /** 窓の おぼえ（列の 位置に 1 つ。wKeys ＝ 列の 番号、wDone ＝ 窓ごとの 計算ずみ、wAir ＝ 空気） */
+  private readonly wKeys = new Float64Array(1 << W_BITS).fill(-1);
+  private readonly wDone = new Uint8Array(NW << W_BITS);
+  private readonly wAir = new Uint8Array(WORLD_HEIGHT << W_BITS);
 
   constructor(private readonly T: Terrain) {
     this.sA = subSeed(T.seed, 501);
     this.sB = subSeed(T.seed, 502);
   }
 
-  /** 地面の 高さ（Terrain.height の おぼえ） */
+  /** 地面の 高さ（Terrain.height の おぼえ。ぶつかったら 古い 方を 上書き＝計算は 同じ 結果） */
   height(x: number, z: number): number {
-    const k = (x + 65536) * 131072 + (z + 65536);
-    let h = this.heights.get(k);
-    if (h === undefined) {
-      if (this.heights.size > 200000) this.heights.clear();
-      h = this.T.height(x, z);
-      this.heights.set(k, h);
-    }
+    const key = (x + 65536) * 131072 + (z + 65536);
+    const slot = slotOf(x, z, H_BITS);
+    if (this.hKeys[slot] === key) return this.hVals[slot]!;
+    const h = this.T.height(x, z);
+    this.hKeys[slot] = key;
+    this.hVals[slot] = h;
     return h;
   }
 
@@ -55,8 +70,8 @@ export class CaveAir {
     return h <= SEA_Y - 1 ? h - K.seaGap : h - K.topGap;
   }
 
-  /** 格子の 点（ix, iz）の 値の 入れもの。k の 値は 初めて 聞かれた とき 計算する */
-  private node(ix: number, iz: number, k: number): Node {
+  /** 格子の 点（ix, iz）の 値の 入れもの（なければ 作る。値は fill で 入れる） */
+  private node(ix: number, iz: number): Node {
     const key = (ix + 20000) * 40000 + (iz + 20000);
     let n = this.nodes.get(key);
     if (!n) {
@@ -64,22 +79,22 @@ export class CaveAir {
       n = { a: new Float32Array(NK + 1), b: new Float32Array(NK + 1), done: new Uint8Array(NK + 1) };
       this.nodes.set(key, n);
     }
-    if (n.done[k] === 0) {
-      const [ax, ay, az] = K.scaleA as [number, number, number];
-      const [bx, by, bz] = K.scaleB as [number, number, number];
-      n.a[k] = valueNoise3(this.sA, ix * 4, k * 4, iz * 4, ax, ay, az);
-      n.b[k] = valueNoise3(this.sB, ix * 4, k * 4, iz * 4, bx, by, bz);
-      n.done[k] = 1;
-    }
     return n;
   }
 
+  /** 入れものの k の 値は 初めて 聞かれた とき 計算する */
+  private fill(n: Node, ix: number, iz: number, k: number): void {
+    if (n.done[k] !== 0) return;
+    n.a[k] = valueNoise3(this.sA, ix * 4, k * 4, iz * 4, K.scaleA[0], K.scaleA[1], K.scaleA[2]);
+    n.b[k] = valueNoise3(this.sB, ix * 4, k * 4, iz * 4, K.scaleB[0], K.scaleB[1], K.scaleB[2]);
+    n.done[k] = 1;
+  }
+
   /** 縦 8 マスずつ 覚える（y の 窓）。窓が ない／空気が 1 つも ない ときは null */
-  private readonly wins = new Map<number, Uint8Array | null>();
   private readonly raw = new Uint8Array(10);
 
-  /** ノイズだけで 見た 空気（C2 の うめ前） */
-  private rawAir(x: number, y: number, z: number): boolean {
+  /** ノイズだけで 見た 空気（C2 の うめ前）。n0〜n3 ＝ 格子の 4 つの 点〔(ix, iz)・(ix+1, iz)・(ix, iz+1)・(ix+1, iz+1)〕 */
+  private rawAir(x: number, y: number, z: number, n0: Node, n1: Node, n2: Node, n3: Node): boolean {
     const ix = x >> 2;
     const iz = z >> 2;
     const k = y >> 2;
@@ -87,17 +102,17 @@ export class CaveAir {
     const fy = (y & 3) / 4;
     const fz = (z & 3) / 4;
     const r2 = K.radius * K.radius;
-    const a0 = this.node(ix, iz, k);
-    const a1 = this.node(ix + 1, iz, k);
-    const a2 = this.node(ix, iz + 1, k);
-    const a3 = this.node(ix + 1, iz + 1, k);
-    const b0 = this.node(ix, iz, k + 1);
-    const b1 = this.node(ix + 1, iz, k + 1);
-    const b2 = this.node(ix, iz + 1, k + 1);
-    const b3 = this.node(ix + 1, iz + 1, k + 1);
-    const d1 = tri(a0.a[k]!, a1.a[k]!, a2.a[k]!, a3.a[k]!, b0.a[k + 1]!, b1.a[k + 1]!, b2.a[k + 1]!, b3.a[k + 1]!, fx, fy, fz) - 0.5;
+    this.fill(n0, ix, iz, k);
+    this.fill(n1, ix + 1, iz, k);
+    this.fill(n2, ix, iz + 1, k);
+    this.fill(n3, ix + 1, iz + 1, k);
+    this.fill(n0, ix, iz, k + 1);
+    this.fill(n1, ix + 1, iz, k + 1);
+    this.fill(n2, ix, iz + 1, k + 1);
+    this.fill(n3, ix + 1, iz + 1, k + 1);
+    const d1 = tri(n0.a[k]!, n1.a[k]!, n2.a[k]!, n3.a[k]!, n0.a[k + 1]!, n1.a[k + 1]!, n2.a[k + 1]!, n3.a[k + 1]!, fx, fy, fz) - 0.5;
     if (d1 * d1 >= r2) return false;
-    const d2 = tri(a0.b[k]!, a1.b[k]!, a2.b[k]!, a3.b[k]!, b0.b[k + 1]!, b1.b[k + 1]!, b2.b[k + 1]!, b3.b[k + 1]!, fx, fy, fz) - 0.5;
+    const d2 = tri(n0.b[k]!, n1.b[k]!, n2.b[k]!, n3.b[k]!, n0.b[k + 1]!, n1.b[k + 1]!, n2.b[k + 1]!, n3.b[k + 1]!, fx, fy, fz) - 0.5;
     return d1 * d1 + d2 * d2 < r2;
   }
 
@@ -110,7 +125,13 @@ export class CaveAir {
     if (lo > hi) return null;
     const raw = this.raw;
     raw.fill(0);
-    for (let y = lo; y <= hi; y++) raw[y - base] = this.rawAir(x, y, z) ? 1 : 0;
+    const ix = x >> 2;
+    const iz = z >> 2;
+    const n0 = this.node(ix, iz);
+    const n1 = this.node(ix + 1, iz);
+    const n2 = this.node(ix, iz + 1);
+    const n3 = this.node(ix + 1, iz + 1);
+    for (let y = lo; y <= hi; y++) raw[y - base] = this.rawAir(x, y, z, n0, n1, n2, n3) ? 1 : 0;
     let out: Uint8Array | null = null;
     for (let y = Math.max(K.minY, w * 8); y <= Math.min(lim, w * 8 + 7); y++) {
       if (raw[y - base] !== 1) continue;
@@ -127,14 +148,20 @@ export class CaveAir {
   airAt(x: number, y: number, z: number): boolean {
     if (y < 0 || y >= WORLD_HEIGHT) return false;
     const w = y >> 3;
-    const key = ((x + 65536) * 131072 + (z + 65536)) * 64 + w;
-    let win = this.wins.get(key);
-    if (win === undefined) {
-      if (this.wins.size >= COL_CAP * 8) this.wins.clear();
-      win = this.computeWin(x, z, w);
-      this.wins.set(key, win);
+    const key = (x + 65536) * 131072 + (z + 65536);
+    const slot = slotOf(x, z, W_BITS);
+    if (this.wKeys[slot] !== key) {
+      // 別の 列が 使って いた 位置は 作りなおす
+      this.wKeys[slot] = key;
+      this.wDone.fill(0, slot * NW, slot * NW + NW);
+      this.wAir.fill(0, slot * WORLD_HEIGHT, slot * WORLD_HEIGHT + WORLD_HEIGHT);
     }
-    return win !== null && win[y & 7] === 1;
+    if (this.wDone[slot * NW + w] === 0) {
+      this.wDone[slot * NW + w] = 1;
+      const win = this.computeWin(x, z, w);
+      if (win) this.wAir.set(win, slot * WORLD_HEIGHT + w * 8);
+    }
+    return this.wAir[slot * WORLD_HEIGHT + y] === 1;
   }
 }
 

@@ -160,34 +160,40 @@ export function* stageRoomSteps(args: BuildArgs): Generator<void, RoomStage> {
     scratch[2] = z + g.z0;
     return scratch;
   };
-  // 床の 下 2 マスは かならず 固い（空気や 水の すぐ 下が 岩の とき）
+  // 床の 下 2 マスは かならず 固い（空気や 水の すぐ 下が 岩の とき）。添字の 計算だけで 進める（毎回 座標の 配列を 作らない）
+  const { gx, gz } = g;
+  const layerN = gx * gz;
   let n = 0;
   for (const i of cells) {
     if (++n % (SLICE * 8) === 0) yield;
-    const [x, y, z] = coord(i);
-    if (g.a[g.idx(x, y - 1, z)]) continue;
-    for (const d of [1, 2]) {
-      const j = g.idx(x, y - d, z);
-      g.s[j] = d === 1 ? 1 : Math.max(g.s[j]!, 2);
-      g.b[j] = STONE;
-    }
+    if (g.a[i - layerN]) continue;
+    g.s[i - layerN] = 1;
+    g.b[i - layerN] = STONE;
+    g.s[i - 2 * layerN] = Math.max(g.s[i - 2 * layerN]!, 2);
+    g.b[i - 2 * layerN] = STONE;
   }
-  // まわり 1 マス: 自然の 岩なら 石。自然の 空気は 穴
+  // まわり 1 マス: 自然の 岩なら 石。自然の 空気は 穴（となりの 順は SIX と 同じ: +x −x +y −y +z −z）
   const holes: number[] = [];
+  const near = [1, -1, layerN, -layerN, gx, -gx];
   n = 0;
   for (const i of cells) {
     if (++n % SLICE === 0) yield;
-    const [x, y, z] = coord(i);
-    for (const [dx, dy, dz] of SIX) {
-      const qx = x + dx;
-      const qy = y + dy;
-      const qz = z + dz;
-      const j = g.idx(qx, qy, qz);
+    const x = i % gx;
+    const r = (i - x) / gx;
+    const z = r % gz;
+    const px = x + g.x0;
+    const py = (r - z) / gz + g.y0;
+    const pz = z + g.z0;
+    for (let d = 0; d < 6; d++) {
+      const j = i + near[d]!;
       if (g.a[j] || g.b[j]) {
         if (g.b[j] && !g.a[j]) g.s[j] = 1;
         continue;
       }
       g.s[j] = 1;
+      const qx = d === 0 ? px + 1 : d === 1 ? px - 1 : px;
+      const qy = d === 2 ? py + 1 : d === 3 ? py - 1 : py;
+      const qz = d === 4 ? pz + 1 : d === 5 ? pz - 1 : pz;
       if (W.natAir(qx, qy, qz)) holes.push(j);
       else g.b[j] = STONE;
     }
