@@ -319,6 +319,8 @@ test.describe('HOUSE-2A 見つけて えらぶ 通し', () => {
     await stepUi(page, 1);
     expect((await recipeEd(page)).hoverTip?.id, '押しても ヘルプは 消えない').toBe(kawara[1]);
     await page.screenshot({ path: `${SHOTS}/popup-kawara-shiro.png` });
+    // のせて いる 間は その ばしょが ずっと 光る（仕様 §2.3）ので、はなしてから 90 コマで 消える ことを 見る
+    await page.mouse.move(0, 0);
     await stepUi(page, 95);
     expect((await recipeEd(page)).preview?.glow, '90 コマで 消える').toBeNull();
     const rows = await needOf(page);
