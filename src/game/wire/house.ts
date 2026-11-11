@@ -102,7 +102,10 @@ export function wireHouse(deps: WiredYokai) {
   const loadHouse = house.load.bind(house);
   house.load = (data) => {
     loadHouse(data);
-    for (const r of house.book.list()) if (r.spec) world.markDirty(r.spec.at.x + (r.outer.w >> 1), r.spec.at.z + (r.outer.d >> 1), r.outer.w + 2);
+    // 家の 箱の 4 すみの 区を 描きなおす（まんなかの 1 点＋はんいでは 端の 区を とりこぼす）
+    for (const s of house.book.specList()) {
+      for (const x of [s.at.x, s.at.x + s.w + 1]) for (const z of [s.at.z, s.at.z + s.d + 1]) world.markDirty(x, z, 1);
+    }
   };
   setPlanNameSource((plan) => house.planName(plan));
   // 見本（3D）は エディターを はじめて 開く とき 作る（ふだんの 遊びには 何も 足さない）

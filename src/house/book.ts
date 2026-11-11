@@ -5,6 +5,7 @@
 import type { Vec3 } from '../contracts';
 import { doorInfo } from '../world/blocks/houseBlocks';
 import type { Blueprint } from './editor/blueprint';
+import { DEFAULT_KIND, LIGHT_DEFAULT, LIGHT_KINDS, normalizeKind } from './recipes/kinds';
 import { houseShape } from './shape';
 
 /** 建てた 家の 形（場所ごとの しゅるいを 引く もと。HOUSE-2B。古い セーブには ない） */
@@ -68,8 +69,10 @@ export class HouseBook {
   private readonly recs: HouseRec[] = [];
   private readonly byDoor = new Map<number, HouseRec>();
   private nextId = 1;
-  /** 場所ごとの しゅるいの おぼえ（記録ごと。spec から 作る。保存は しない） */
-  private readonly looks = new WeakMap<HouseRec, Array<string | undefined>>();
+  /** 建てた 形の 記録（古い 順。戸が こわれて 家の 記録〔名前・帯〕が 消えても のこる。いちばん 新しい 物が かち） */
+  private readonly specs: HouseSpec[] = [];
+  /** 場所ごとの しゅるいの おぼえ（spec から 作る。保存は しない） */
+  private readonly looks = new WeakMap<HouseSpec, Array<string | undefined>>();
   /** 見はりの おぼえ（人ごと。1P の 動きが 2P の 判定を こわさない。[0] ＝ 1P、[1] ＝ 2P） */
   private readonly watch: [Watch, Watch] = [newWatch(), newWatch()];
   /** 毎ステップの しらべで 引いた 記録の 数（テスト用。1 ステップで 高々 1） */
@@ -77,7 +80,10 @@ export class HouseBook {
 
   add(r: Omit<HouseRec, 'id'>): HouseRec {
     const rec: HouseRec = { ...r, id: this.nextId++, door: { ...r.door }, outer: { ...r.outer } };
-    if (r.spec) rec.spec = { ...r.spec, at: { ...r.spec.at }, deco: [...r.spec.deco] };
+    if (r.spec) {
+      rec.spec = { ...r.spec, at: { ...r.spec.at }, deco: [...r.spec.deco] };
+      this.specs.push(rec.spec);
+    }
     this.recs.push(rec);
     this.byDoor.set(keyOf(rec.door.x, rec.door.y, rec.door.z), rec);
     return rec;
@@ -88,13 +94,18 @@ export class HouseBook {
   }
 
   /** 保存（HOUSE-1C PR-2。記録の 写し。次の 番号は 持たない: 読みこむ とき 一番 大きい id の 次から） */
-  serialize(): HouseRec[] {
-    return this.recs.map((r) => ({ ...r, door: { ...r.door }, outer: { ...r.outer }, ...(r.spec ? { spec: { ...r.spec, at: { ...r.spec.at }, deco: [...r.spec.deco] } } : {}) }));
+  serialize(): Array<HouseRec | { spec: HouseSpec }> {
+    const copy = (s: HouseSpec): HouseSpec => ({ ...s, at: { ...s.at }, deco: [...s.deco] });
+    const out: Array<HouseRec | { spec: HouseSpec }> = this.recs.map((r) => ({ ...r, door: { ...r.door }, outer: { ...r.outer }, ...(r.spec ? { spec: copy(r.spec) } : {}) }));
+    // 戸が こわれて 家の 記録が 消えた 形は 形だけ のこす
+    for (const s of this.specs) if (!this.recs.some((r) => r.spec === s)) out.push({ spec: copy(s) });
+    return out;
   }
 
   /** 読みこむ（前の 記録は すてる）。形が おかしい 1 件は とばす。キーが ない（前の セーブ）なら 家なし */
   restore(raw: unknown): void {
     this.recs.length = 0;
+    this.specs.length = 0;
     this.byDoor.clear();
     this.nextId = 1;
     this.watch[0] = newWatch();
@@ -105,10 +116,18 @@ export class HouseBook {
       const r = x as Partial<Record<keyof HouseRec, unknown>> | null;
       const door = r?.door as Record<string, unknown> | undefined;
       const outer = r?.outer as Record<string, unknown> | undefined;
+      if (r && r.id === undefined && !r.door) {
+        const only = parseSpec(r.spec); // 形だけの 記録（戸が こわれた 家）
+        if (only) this.specs.push(only);
+        continue;
+      }
       if (!r || !int(r.id) || !int(r.number) || typeof r.front !== 'string' || typeof r.back !== 'string' || !door || !int(door.x) || !int(door.y) || !int(door.z) || !outer || !int(outer.w) || !int(outer.d)) continue;
       const rec: HouseRec = { id: r.id, name: r.front + r.back, front: r.front, back: r.back, number: r.number, outer: { w: outer.w, d: outer.d }, door: { x: door.x, y: door.y, z: door.z }, doorOpen: r.doorOpen === true };
       const spec = parseSpec(r.spec);
-      if (spec) rec.spec = spec;
+      if (spec) {
+        rec.spec = spec;
+        this.specs.push(spec);
+      }
       this.recs.push(rec);
       this.byDoor.set(keyOf(rec.door.x, rec.door.y, rec.door.z), rec);
       this.nextId = Math.max(this.nextId, rec.id + 1);
@@ -117,19 +136,18 @@ export class HouseBook {
 
   /** 世界の 場所 (x, y, z) が どの 家の どの しゅるいか（家の 記録が なければ・箱の 外・床や 家具の マスは null） */
   cellOf(x: number, y: number, z: number): LookCell | null {
-    for (const r of this.recs) {
-      const s = r.spec;
-      if (!s) continue;
+    for (let i = this.specs.length - 1; i >= 0; i--) {
+      const s = this.specs[i]!;
       const rx = x - s.at.x;
       const ry = y - s.at.y;
       const rz = z - s.at.z;
       const ow = s.w + 2;
       const od = s.d + 2;
       if (rx < 0 || rz < 0 || rx >= ow || rz >= od || ry < 0) continue;
-      let looks = this.looks.get(r);
+      let looks = this.looks.get(s);
       if (!looks) {
         looks = houseShape({ ...s, furniture: [] }).cells.map((c) => c.look);
-        this.looks.set(r, looks);
+        this.looks.set(s, looks);
       }
       const h = looks.length / (ow * od);
       if (ry >= h) continue;
@@ -137,6 +155,11 @@ export class HouseBook {
       return look === undefined ? null : { look, rx, ry, rz, ow, od, h };
     }
     return null;
+  }
+
+  /** 建てた 形の 記録ぜんぶ（戸が こわれた 家の 分も。読みこんだ あとの 描きなおしに 使う） */
+  specList(): readonly HouseSpec[] {
+    return this.specs;
   }
 
   /** 世界の 場所の しゅるいの id（例 `kawara_shiro`）。記録に ない 場所は null（手で 置いた ブロック。案の 記録は 2C） */
@@ -230,5 +253,13 @@ function parseSpec(raw: unknown): HouseSpec | null {
   const int = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
   const str = (v: unknown): v is string => typeof v === 'string';
   if (!r || !at || !int(at.x) || !int(at.y) || !int(at.z) || !int(r.w) || !int(r.d) || !int(r.windows) || !str(r.roof) || !str(r.wall) || !str(r.windowKind) || !str(r.door) || !str(r.light) || !Array.isArray(r.deco) || !r.deco.every(str)) return null;
-  return { at: { x: at.x, y: at.y, z: at.z }, w: r.w as HouseSpec['w'], d: r.d as HouseSpec['d'], windows: r.windows, roof: r.roof as HouseSpec['roof'], wall: r.wall as HouseSpec['wall'], windowKind: r.windowKind as HouseSpec['windowKind'], door: r.door as HouseSpec['door'], deco: r.deco as HouseSpec['deco'], light: r.light as HouseSpec['light'] };
+  // 知らない しゅるいは いつもの 物に もどす（AC7）。かざりは すてる
+  const kind = (part: 'roof' | 'wall' | 'window' | 'door', v: unknown): string => normalizeKind(part, v) ?? DEFAULT_KIND[part];
+  const deco = (r.deco as unknown[]).map((k) => normalizeKind('deco', k)).filter((k): k is string => k !== null);
+  const light = (LIGHT_KINDS as readonly string[]).includes(r.light as string) ? (r.light as string) : LIGHT_DEFAULT;
+  return {
+    at: { x: at.x, y: at.y, z: at.z }, w: r.w as HouseSpec['w'], d: r.d as HouseSpec['d'], windows: r.windows,
+    roof: kind('roof', r.roof) as HouseSpec['roof'], wall: kind('wall', r.wall) as HouseSpec['wall'], windowKind: kind('window', r.windowKind) as HouseSpec['windowKind'], door: kind('door', r.door) as HouseSpec['door'],
+    deco: deco as HouseSpec['deco'], light: light as HouseSpec['light'],
+  };
 }

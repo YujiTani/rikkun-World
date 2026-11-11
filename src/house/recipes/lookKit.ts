@@ -98,7 +98,7 @@ export function lookBp(over: Partial<Blueprint> = {}): Blueprint {
 export const allKindsOf = (part: LookPart): string[] => (part === 'light' ? [...kindsMod.LIGHT_KINDS] : [...kindsMod.ALL_KINDS[part]]);
 
 /** やねの 上に つく かざりの 形（仕様 §4.2。家の 箱が 1 段 高く なる） */
-export const ROOF_TOP_FORMS: readonly string[] = ['entotsu', 'shachi'];
+const ROOF_TOP_FORMS: readonly string[] = ['entotsu', 'shachi'];
 export const isRoofTop = (kind: string): boolean => ROOF_TOP_FORMS.includes(kindsMod.splitKind(kind).form);
 
 /** 1 つの しゅるいだけ かえた せっけいず（part ごとの 項目に 入れる。deco は 1 つの 配列） */
@@ -118,8 +118,3 @@ export const dugItemAt = (book: LookAt, id: BlockId, x: number, y: number, z: nu
   pick<(b: unknown, i: BlockId, x: number, y: number, z: number) => ItemId>(dugMod, 'dugItemAt', 'src/dig/dugItems.ts')(book, id, x, y, z);
 /** 家の 記録の 本（lookAt を つけて 呼ぶ ため 型の 上で ひろげる） */
 export type LookBook = HouseBook & LookAt;
-/** しゅるいの id → ばしょ（id は ばしょを またいで 重ならない） */
-export const partOfKind = (kind: string): LookPart => {
-  for (const part of ['roof', 'wall', 'window', 'door', 'deco', 'light'] as const) if (allKindsOf(part).includes(kind)) return part;
-  throw new Error(`しらない しゅるい ${kind}`);
-};
