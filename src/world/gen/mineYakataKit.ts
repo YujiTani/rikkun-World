@@ -39,6 +39,7 @@ import { spawnOf } from './terrain';
  *   ・宝箱を あける 人〔`who`〕は 窓口の `open(x, y, z, who)` の 引数と ポートの `run(who, fn)`〔持ち物・おとし物は その 人の もの〕の 両方で 決まる。
  *   ・`hit` ＝ くじの 当たり〔置けず なしに した ときも true〕・`placed` ＝ 実際に 置けた。`yakata` が null ＝ 当たりでも 置けない ときを ふくむ。
  *   ・口の はなれ: あやしい 横穴の 口は ほかの 口〔本道・ひろばの かべの 口〕と 6 マス 以上・1 つの ひろばから 出る 物は あわせて 1 つ まで。
+ *   ・テストの ための 入口〔くじだけ。計画を 作らない〕: `src/world/gen/mineYakataRoll.ts` の `yakataHit(seed, rx, rz)`・`yakataLook(seed, rx, rz)`〔シードと 区画だけで きまる〕。ふかい 1E の 区画は `regionHit`〔mineShaftSite〕と `styleOf`〔mineBokenStyle〕の 性格で きめる。mineYakataRolls.test.ts の F1・F20 の わりあい。
  *   ・ログは 2 つの 道: 宝箱を ふれた ときの ログ〔ロック中「ようかい を ぜんぶ たおすと もらえる よ」・「からっぽ だよ」〕は `chest.say`・まけた あとの ログ〔復活の あと〕は `emit({ type: 'say' })`。
  *   ・保存: `hook.yakataSaveOverrides(): SaveBlockOverride[]`〔今ある `SaveManager` の `saveOverrides`〔src/save/saveOverride.ts〕に つなぐ。挑戦の 間だけ 門 12 マス〔live あやしいかべ → save air〕・宝箱 2 マス〔live あいた 形 → save しまった 形〕。ふだんは []〕。
  *   ・シェーダー: やかたの 光の 色〔`lookTint`〕と `dim.shade` は シェーダーの 文に 数として 入る 形を 約束する〔uniform で わたす 形に する ときは mineYakataLight.test.ts の 文字の 見はりを 直す〕。

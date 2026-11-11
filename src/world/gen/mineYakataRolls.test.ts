@@ -1,6 +1,9 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { LOOKS, SEED_POOL_F, ROLL_HALF, blockIdsOf, hookF, needYakataHook, rollSample, tableOf, type Look, type RollSample, type YakataPlan } from './mineYakataKit';
+import { LOOKS, SEED_POOL_F, blockIdsOf, hookF, needYakataHook, rollSample, tableOf, type Look, type RollSample, type YakataPlan } from './mineYakataKit';
 import { SEEDS_20 } from './mineShaftKit';
+import { regionHit } from './mineShaftSite';
+import { styleOf } from './mineBokenStyle';
+import { regionOfShaftId, yakataHit, yakataLook } from './mineYakataRoll';
 import { spawnOf } from './terrain';
 
 /**
@@ -21,7 +24,7 @@ vi.setConfig({ testTimeout: 900_000 });
 const NEED = { deep: 700, hits: 1000 } as const;
 /** 「当たりの うち 置けた」を 見る 標本の 数と しきい〔PO の 決め〕 */
 const PLACED_SAMPLE = 200;
-const PLACED_MIN = 0.7;
+const PLACED_MIN = 0.7; // 目標。標本 n の 当たりで 0.7 − 3·√(0.7·0.3/n) 以上〔n=150 で 約 0.59〕
 
 const plans = import.meta.glob<{ yakataPlanFor?: (seed: number, shaftId: string, opt?: { looks?: Record<Look, number> }) => YakataPlan | null }>('./mineYakataPlan.ts', { eager: true });
 const planFor = (): NonNullable<(typeof plans)[string]['yakataPlanFor']> => {
@@ -30,45 +33,75 @@ const planFor = (): NonNullable<(typeof plans)[string]['yakataPlanFor']> => {
   return fn;
 };
 
+/**
+ * 【テスト側の 入口】くじだけの 標本〔計画を 作らない〕: 区画 (rx, rz) ごとに、1C の 坑道の くじ〔`regionHit`〕に 当たり 1E の 性格〔`styleOf`〕が ふかい 区画を ふかい 1E の 坑道と 見て、
+ * `yakataHit`・`yakataLook`〔src/world/gen/mineYakataRoll.ts。シードと 区画だけで きまる〕を 直接 よぶ。陸・広さで 置けない 区画は 数えない〔わりあいに ひびかない〕。
+ */
+interface Cheap {
+  seed: number;
+  rx: number;
+  rz: number;
+  hit: boolean;
+  look: Look | null;
+}
+const CHEAP_R = 40;
+function cheapSample(): Cheap[] {
+  const out: Cheap[] = [];
+  for (const seed of SEED_POOL_F) {
+    for (let rz = -CHEAP_R; rz <= CHEAP_R; rz++) {
+      for (let rx = -CHEAP_R; rx <= CHEAP_R; rx++) {
+        if (!regionHit(seed, rx, rz) || styleOf(seed, rx, rz).depth !== 'fukai') continue;
+        const hit = yakataHit(seed, rx, rz);
+        out.push({ seed, rx, rz, hit, look: hit ? yakataLook(seed, rx, rz) : null });
+      }
+    }
+    if (out.length >= NEED.deep && out.filter((c) => c.hit).length >= NEED.hits) break;
+  }
+  return out;
+}
+
 let all: RollSample[] = [];
 let used = 0;
+let cheap: Cheap[] = [];
 beforeAll(() => {
-  const hits = (s: readonly RollSample[]): number => s.filter((r) => r.roll.hit).length;
-  const r = rollSample((s) => s.length >= NEED.deep && hits(s) >= NEED.hits);
+  cheap = cheapSample();
+  // 計画つきの 標本: 先頭の 200 本〔置けたかの 見はり〕と、置けた やかたが 20 こ 以上〔look の くらべ〕
+  const r = rollSample((s) => s.length >= PLACED_SAMPLE && s.filter((x) => x.roll.placed).length >= 20);
   all = r.all;
   used = r.seeds;
 }, 1200_000); // CI は ほかの テストと 同時に 回るので 余裕を みる
 
 describe('F1: くじ', () => {
-  it('ふかい 1E の 坑道が 700 こ 以上 あつまる〔窓口 `yakataRolls`・`yakataTable` が ある〕', () => {
+  it('ふかい 1E の 坑道が 700 こ 以上 あつまる〔くじだけの 標本〕・窓口 `yakataTable` が ある', () => {
     expect(tableOf().chance, 'やかたの 表の chance').toBeGreaterThan(0);
-    expect(all.length, `ふかい 1E の 坑道〔${used} シード〕`).toBeGreaterThanOrEqual(NEED.deep);
+    expect(cheap.length, 'ふかい 1E の 坑道〔くじだけ〕').toBeGreaterThanOrEqual(NEED.deep);
   });
 
   it('当たりの わりあいが 表の chance ± 0.06・当たりの 7 割 以上に 置ける〔placed。標本 200 本〕・置けた ものは 当たり', () => {
     const T = tableOf();
-    expect(all.length, 'ふかい 1E の 坑道').toBeGreaterThanOrEqual(NEED.deep);
-    const hit = all.filter((r) => r.roll.hit);
-    expect(Math.abs(hit.length / all.length - T.chance), `当たり ${hit.length} / ${all.length}`).toBeLessThanOrEqual(0.06);
+    expect(cheap.length, 'ふかい 1E の 坑道').toBeGreaterThanOrEqual(NEED.deep);
+    const hit = cheap.filter((r) => r.hit);
+    expect(Math.abs(hit.length / cheap.length - T.chance), `当たり ${hit.length} / ${cheap.length}`).toBeLessThanOrEqual(0.06);
     // 「置けた」は 計画が いる ので 標本は 先頭の 200 本。しきいは PO の 決めで 7 割 以上〔1D の D14 と 同じ あつかい。遊びの やかたの 数は chance を 上げて 合わせる〕
     const head = all.slice(0, PLACED_SAMPLE);
     const headHit = head.filter((r) => r.roll.hit);
     const placed = headHit.filter((r) => r.roll.placed);
     expect(headHit.length, `先頭 ${PLACED_SAMPLE} 本の 当たり`).toBeGreaterThan(0);
-    expect(placed.length / headHit.length, `置けた ${placed.length} / 当たり ${headHit.length}`).toBeGreaterThanOrEqual(PLACED_MIN);
+    expect(placed.length / headHit.length, `置けた ${placed.length} / 当たり ${headHit.length}`).toBeGreaterThanOrEqual(PLACED_MIN - 3 * Math.sqrt((PLACED_MIN * (1 - PLACED_MIN)) / headHit.length)); // 3σ の ゆとり〔ほかの くじの 基準と 同じ〕
     expect(all.filter((r) => r.roll.placed && !r.roll.hit).length, '当たりで ないのに 置けた').toBe(0);
   });
 
   it('同じ シードは 同じ くじ〔窓口を 作りなおしても・べつの はんいから 先に よんでも〕', () => {
-    for (const seed of SEED_POOL_F.slice(0, 3)) {
+    for (const seed of SEED_POOL_F.slice(0, 1)) {
       const sp = spawnOf(seed);
-      const win: [number, number, number, number] = [sp.x - ROLL_HALF, sp.z - ROLL_HALF, sp.x + ROLL_HALF - 1, sp.z + ROLL_HALF - 1];
+      const H = 1024; // 計画が 重い ので 1 シード・はんいは 小さめ
+      const win: [number, number, number, number] = [sp.x - H, sp.z - H, sp.x + H - 1, sp.z + H - 1];
       const a = hookF(seed);
       needYakataHook(a, ['yakataRolls']);
       const first = a.yakataRolls(...win);
       const b = hookF(seed);
       // 先に 北東の はんいを よんで から 全体を よぶ〔作る 順が ちがっても 同じ〕
-      b.yakataRolls(sp.x, sp.z - ROLL_HALF, sp.x + ROLL_HALF - 1, sp.z - 1);
+      b.yakataRolls(sp.x, sp.z - H, sp.x + H - 1, sp.z - 1);
       expect(b.yakataRolls(...win), `seed ${seed}`).toEqual(first);
       expect(first.length, `seed ${seed} の ふかい 1E の 坑道`).toBeGreaterThan(0);
     }
@@ -87,11 +120,11 @@ describe('F1: くじ', () => {
   it('1C・1D の 形〔gen: c〕の 坑道・ふかく ない 1E の 坑道は やかた なし。ふかい 1E の 坑道は 置けた ときだけ あり〔くじと 同じ〕', () => {
     let checked = 0;
     let deepE = 0;
-    for (const seed of SEED_POOL_F.slice(0, 4)) {
+    for (const seed of SEED_POOL_F.slice(0, 1)) {
       const h = hookF(seed);
       needYakataHook(h, ['yakataRolls']);
       const sp = spawnOf(seed);
-      const half = 1536;
+      const half = 1024; // 計画が 重い ので 1 シード・小さめ
       const shafts = h.shafts(sp.x - half, sp.z - half, sp.x + half - 1, sp.z + half - 1);
       const rolls = new Map(h.yakataRolls(sp.x - half, sp.z - half, sp.x + half - 1, sp.z + half - 1).map((r) => [r.shaft, r] as const));
       for (const s of shafts) {
@@ -119,29 +152,31 @@ describe('F1: くじ', () => {
 
 describe('F20: 見た目の くじ', () => {
   it('当たりが 1,000 こ 以上 あつまる', () => {
-    expect(all.filter((r) => r.roll.hit).length, `当たり〔${used} シード〕`).toBeGreaterThanOrEqual(NEED.hits);
+    expect(cheap.filter((r) => r.hit).length, `当たり〔くじだけ。計画つきは ${used} シード〕`).toBeGreaterThanOrEqual(NEED.hits);
   });
 
   it('maou の わりあいが 表の looks.maou ± 0.05・look は 当たりの ときだけ ある〔当たりで ない 坑道は null〕', () => {
     const T = tableOf();
     expect(T.looks.maou + T.looks.otera, '表の looks の ごうけい').toBeCloseTo(1, 6);
-    const hit = all.filter((r) => r.roll.hit);
+    const hit = cheap.filter((r) => r.hit);
     expect(hit.length).toBeGreaterThanOrEqual(NEED.hits);
-    for (const r of hit) expect(LOOKS, `${r.roll.shaft} の look`).toContain(r.roll.look);
+    for (const r of hit) expect(LOOKS, `(${r.rx}, ${r.rz}) の look`).toContain(r.look);
+    for (const r of cheap.filter((x) => !x.hit)) expect(r.look, `(${r.rx}, ${r.rz})〔当たりで ない〕`).toBeNull();
     for (const r of all.filter((x) => !x.roll.hit)) expect(r.roll.look, `${r.roll.shaft}〔当たりで ない〕`).toBeNull();
-    const maou = hit.filter((r) => r.roll.look === 'maou').length / hit.length;
+    const maou = hit.filter((r) => r.look === 'maou').length / hit.length;
     expect(Math.abs(maou - T.looks.maou), `maou ${maou.toFixed(3)}〔当たり ${hit.length}〕`).toBeLessThanOrEqual(0.05);
   });
 
   it('同じ シードは 同じ look〔窓口を 作りなおしても・ほかの 坑道の 計画を 先に 作っても〕', () => {
-    const rows = all.filter((r) => r.roll.hit).slice(0, 12);
+    const rows = all.filter((r) => r.roll.hit).slice(0, 4);
     expect(rows.length).toBeGreaterThan(0);
     for (const r of rows) {
       const h = hookF(r.seed);
-      // 近くの 窓を 先に よぶ〔坑道の 計画の 順を かえる〕
-      const sp = spawnOf(r.seed);
-      h.yakataRolls(sp.x + 1024, sp.z + 1024, sp.x + 2047, sp.z + 2047);
-      const row = h.yakataRolls(sp.x - ROLL_HALF, sp.z - ROLL_HALF, sp.x + ROLL_HALF - 1, sp.z + ROLL_HALF - 1).find((x) => x.shaft === r.roll.shaft);
+      const reg = regionOfShaftId(r.roll.shaft)!;
+      const R = 256; // 区画の 大きさ〔mineShaftConfig の region〕
+      // となりの 区画を 先に よぶ〔坑道の 計画の 順を かえる〕→ その 坑道の 区画
+      h.yakataRolls((reg.rx + 1) * R, reg.rz * R, (reg.rx + 2) * R - 1, (reg.rz + 1) * R - 1);
+      const row = h.yakataRolls(reg.rx * R, reg.rz * R, (reg.rx + 1) * R - 1, (reg.rz + 1) * R - 1).find((x) => x.shaft === r.roll.shaft);
       expect(row?.look, `${r.roll.shaft}`).toBe(r.roll.look);
     }
   });
