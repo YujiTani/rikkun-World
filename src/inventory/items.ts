@@ -1,5 +1,5 @@
 import type { ItemType } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GEYSER_DEFS, GOLD_DEFS, HOUSE_BLOCK_DEFS, HOUSE_FURNITURE_DEFS, HOUSE_PLAN_DEFS, HOUSE_TOOL_DEFS, INGOT_DEFS, ROPE_DEFS, WATERFALL_DEFS, KONGO_DEFS, LEGEND_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, MATERIAL_DEFS, MINE_DEFS, NINJA_SAMURAI_DEFS, PLACEABLE_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, VOX_I_DEFS, itemTypesOf } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GEYSER_DEFS, GOLD_DEFS, HOUSE_BLOCK_DEFS, HOUSE_FURNITURE_DEFS, HOUSE_PLAN_DEFS, HOUSE_TOOL_DEFS, INGOT_DEFS, ROPE_DEFS, WATERFALL_DEFS, KONGO_DEFS, LEGEND_DEFS, LEGEND4_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, MATERIAL_DEFS, MINE_DEFS, NINJA_SAMURAI_DEFS, PLACEABLE_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, VOX_I_DEFS, itemTypesOf } from '../content/items/registry';
 
 export const INVENTORY_SIZE = 36;
 export const HOTBAR_SIZE = 9;
@@ -36,6 +36,8 @@ export const ITEM_TYPES: readonly ItemType[] = [
   ...itemTypesOf(LIVE_DEFS),
   // WEAPON-7/8/9: レジェンダリー武器 3 つ（雷神剣・風神剣・虹）は 登録表（content/items/legend.ts）から
   ...itemTypesOf(LEGEND_DEFS),
+  // LEGEND-4: 新しい レジェンダリー武器（黒龍 …）は 3 つの すぐ 次
+  ...itemTypesOf(LEGEND4_DEFS),
   // GOLD-1（#222）: きん・きんの そうび 8 こ・はらぱんみみず は 登録表（content/items/gold.ts）から
   ...itemTypesOf(GOLD_DEFS),
   // KONGO-1: ダイヤ・こんごうの そうび 8 こ（金の すぐ うしろ）は 登録表（content/items/kongo.ts）から

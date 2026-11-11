@@ -7,7 +7,8 @@ import { parryCellOf } from '../char/parryCells';
 import { bladeColorsOf } from '../fx/bladeTrailModel';
 import { playCombat } from '../fx/combatSounds';
 import { playLegend } from '../fx/legendSounds';
-import { buffsOfHeld } from '../ui/buffIconsModel';
+import { buffsOf } from '../ui/buffIconsModel';
+import { createBuffSources } from '../ui/buffSources';
 import { SAMURAI_GEAR } from '../craft/config';
 import { legendMoveMulOf, chargeOf } from '../legend/defs';
 import { shiningBodyPose, lightningPoseFrame } from '../legend/pose';
@@ -39,7 +40,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     screen, kodachi, geta, craft, furnaceWorld, storage, dropController, farm, renderer, m7, trackOldFarmSeeds,
     madeTracker, fxSound, pickupLog, log, celebrate, achievements, waterFx, farmFx, eyePos, sparkle,
     sparkleView, sprayFx, sprinklers, dropper, notice, impactBus, camFx1, camFx2, titleOfYokai, kodachiHookBuf,
-    arrowVisuals, stuckVisuals, wearNotice, weaponFx, thunderFx, windWaveFx, reducedMotionMq, spiralFx,
+    arrowVisuals, stuckVisuals, kokuryuInkFx, wearNotice, weaponFx, thunderFx, windWaveFx, reducedMotionMq, spiralFx,
     spiralDebris, chargeLight, handNow, chargeLightFx, handInfo, chargeChest, domeGrains, nijiCenter,
     nijiFx, slashFx, kodachiFx, fujinFx, raijinFx, rainbowFx, buffIcons, buffModel, parryFx, combatUi,
     craftHud, fx, combatFx, level, levelHud, updateFurnaceFx, blockDollOnly, aimMarks, sky, crosshair,
@@ -50,6 +51,8 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
   } = deps;
   /** シャイニングの ドーム: 始めてから まだ 当たって いない（最初の 当たりだけ 大）。1P も 2P も 同じ 部品（legendImpact.ts） */
   const legendImpact = newLegendImpactState();
+  /** バフ アイコンの 倍率の 出どころ（1P。2P は duoPlay.ts で 同じ 部品を 2P の 体で） */
+  const buffSrc1 = createBuffSources(w2, () => controller.settings.jumpHeight);
   /** シャイニング中は 手の 物を かえさせない（1P も 2P も 同じ 部品〔selectLock.ts〕） */
   const selLock = createSelectLock();
   /** 畑の 毎ステップの 入力（使いまわす。2P が いる ときだけ 足もとを 入れる。COOP-1 5a） */
@@ -312,6 +315,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       achievements.feedCombat(combatEvents);
     }
     arrowVisuals.syncFlying(tools.bow().arrows());
+    kokuryuInkFx.step(tools.bow().arrows(), reducedMotionMq?.matches ?? false); // LEGEND-4: 黒龍の 墨の すじ
     stuckVisuals.syncStuck(tools.bow().stuck());
     wearNotice.step();
     weaponFx.step();
@@ -368,9 +372,9 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
           shared.domeEraseThisStep = false;
         }
       }
-      // WEAPON-8 §2.4: 速さバフの アイコン（手に 持つ 物の 速さの 倍率が 1 より 大きい 間）
+      // WEAPON-8 §2.4・LEGEND-4: バフの アイコン（速さ = 手に 持つ 物の 倍率が 1 より 大きい 間。ジャンプ力アップ = 黒龍を 持つ 間・わらじを はいて いる 間）
       const heldNow = inventory.held()?.item ?? null;
-      buffIcons.sync(buffModel.step(buffsOfHeld(heldNow, (i) => legendMoveMulOf(w2, i)), reducedNow));
+      buffIcons.sync(buffModel.step(buffsOf(heldNow, armor.equipped('legs'), buffSrc1), reducedNow));
     }
     for (const n of parry.sounds()) if (isParrySound(n)) playParry(fxSound, n);
     {

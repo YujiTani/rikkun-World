@@ -10,6 +10,8 @@ import type {
   PlayerMotionMod,
   StuckArrowInfo,
   Vec3,
+  YokaiRayHit,
+  YokaiWorld,
 } from '../../contracts';
 import { raycastBlocks } from '../../dig/raycast';
 import { cellInWall } from '../../world/wall';
@@ -33,7 +35,15 @@ export interface BowDepsX extends BowDeps {
 }
 
 /** 飛んでいる や（`stage` は 当たったときの ダメージ用。窓口では 出さない） */
-type Arrow = ArrowInfo & { stage: 1 | 2 | 3; /** うった ゆみ ごと の つよさ（GOLD-1: きんの ゆみ は 2・3・5） */ damage: number };
+type Arrow = ArrowInfo & {
+  stage: 1 | 2 | 3;
+  /** うった ゆみ ごと の つよさ（GOLD-1: きんの ゆみ は 2・3・5） */
+  damage: number;
+  /** LEGEND-4: まっすぐな や（黒龍）が 消える きょり（マス）。ふつうの や は 0 */
+  range: number;
+  /** LEGEND-4: まっすぐな や が ここまでに 飛んだ きょり（マス） */
+  traveled: number;
+};
 
 export function stageOf(drawTicks: number, stageTicks: readonly number[]): BowStage {
   if (drawTicks >= stageTicks[2]!) return 3;
@@ -128,7 +138,16 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
       age: 0,
       stage: st,
       damage: (ctx.item !== null ? s.bowDamageByItem[ctx.item]?.[st - 1] : undefined) ?? s.bowDamage[st - 1]!,
+      range: 0,
+      traveled: 0,
     };
+    // LEGEND-4: 黒龍の や は 重力なしで まっすぐ とび、妖怪を ぜんぶ つらぬく
+    const straightRange = ctx.item !== null ? s.bowStraightByItem[ctx.item] : undefined;
+    if (straightRange !== undefined) {
+      info.straight = true;
+      info.hitIds = [];
+      info.range = straightRange;
+    }
     flying.push(info);
     nockLeft = s.bowNockTicks;
     emit({
@@ -144,6 +163,51 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
 
   // ---------------------------------------------------------- 飛んでいる や
 
+  /**
+   * LEGEND-4 §4.3: まっすぐな や（黒龍）の 1 ステップ。`rayDir`・`origin` は 呼ぶ 側が 書いて ある（この ステップの 線分）。
+   * 線分に かかる 妖怪を 近い 順に ぜんぶ（ブロックより 手前の 体だけ。1 本は 同じ 体に 1 回）。ブロックに 当たれば ささる。きょりで 消える。生きて いれば true
+   */
+  function stepStraight(a: Arrow, yokai: YokaiWorld, blockDist: number | null, L: number): boolean {
+    const p = a.position;
+    const hitIds = a.hitIds!;
+    const hits = yokai.raycastAll ? yokai.raycastAll(origin, rayDir, L) : singleHit(yokai, L);
+    for (let k = 0; k < hits.length; k++) {
+      const yh = hits[k]!;
+      if (blockDist !== null && yh.distance >= blockDist) break; // ブロックの 向こうの 体は 当たらない（近い 順）
+      if (hitIds.includes(yh.id)) continue;
+      hitIds.push(yh.id);
+      const hit = { x: p.x + rayDir.x * yh.distance, y: p.y + rayDir.y * yh.distance, z: p.z + rayDir.z * yh.distance };
+      yokai.damage(yh.id, a.damage, { ...lastPos }, { dist: s.bowKnock[a.stage - 1]!, up: 0 });
+      emit({ type: 'arrowHit', tick: deps.tick(), yokaiId: yh.id, damage: a.damage, position: hit });
+    }
+    if (blockDist !== null) {
+      const hit = { x: p.x + rayDir.x * blockDist, y: p.y + rayDir.y * blockDist, z: p.z + rayDir.z * blockDist };
+      stuck.push({ id: a.id, position: hit, dir: { x: rayDir.x, y: rayDir.y, z: rayDir.z }, age: 0 });
+      while (stuck.length > s.arrowStuckMax) stuck.shift();
+      emit({ type: 'arrowStick', tick: deps.tick(), position: { ...hit } });
+      return false;
+    }
+    p.x += a.velocity.x * DT;
+    p.y += a.velocity.y * DT;
+    p.z += a.velocity.z * DT;
+    a.traveled += L;
+    // きょり・世界の 外（x・z が 外 か 下へ 出た）で 消える
+    if (a.traveled >= a.range || !deps.world.isLoaded(p.x, p.z) || !cellInWall(Math.floor(p.x), Math.floor(p.z)) || p.y < 0 || a.age >= s.arrowLifeTicks) {
+      emit({ type: 'arrowEnd', tick: deps.tick(), position: { ...p } });
+      return false;
+    }
+    return true;
+  }
+
+  /** `raycastAll` が ない 世界での 見かた（最初の 1 体だけ。入れ物は 使いまわす） */
+  const oneHit: YokaiRayHit[] = [];
+  function singleHit(yokai: YokaiWorld, L: number): readonly YokaiRayHit[] {
+    const h = yokai.raycast(origin, rayDir, L);
+    oneHit.length = h ? 1 : 0;
+    if (h) oneHit[0] = h;
+    return oneHit;
+  }
+
   function stepArrows(): void {
     if (flying.length === 0) return;
     const yokai = deps.yokai();
@@ -153,8 +217,8 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
       const p = a.position;
       const v = a.velocity;
       a.age++;
-      // 先に 速度、次に 位置
-      v.y -= s.arrowGravity * DT;
+      // 先に 速度、次に 位置（まっすぐな や は 重力なし）
+      if (!a.straight) v.y -= s.arrowGravity * DT;
       const mx = v.x * DT;
       const my = v.y * DT;
       const mz = v.z * DT;
@@ -168,6 +232,11 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
         origin.x = p.x;
         origin.y = p.y;
         origin.z = p.z;
+        if (a.straight) {
+          alive = stepStraight(a, yokai, blk ? blk.distance : null, L);
+          if (alive) flying[w++] = a;
+          continue;
+        }
         const yh = yokai.raycast(origin, rayDir, L);
         if (yh && (!blk || yh.distance < blk.distance)) {
           const hit = { x: p.x + rayDir.x * yh.distance, y: p.y + rayDir.y * yh.distance, z: p.z + rayDir.z * yh.distance };

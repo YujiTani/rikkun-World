@@ -110,8 +110,8 @@ describe('#22・#22a・#22b・#20: 2P の 分も 同じ 部品の 同じ 答え'
     expect(n).not.toMatch(/if \(who === 1\) parent\.append\(this\.nameEl\)/);
     expect(n).toMatch(/notice-name/);
   });
-  it('#22: 2P の バフの 札は buffsOfHeld（1P と 同じ 関数）で 決める', () => {
-    const users = ALL.filter(({ f, s }) => /\bbuffsOfHeld\(/.test(s) && f !== 'src/ui/buffIconsModel.ts').map((x) => x.f);
+  it('#22: 2P の バフの 札は buffsOf（1P と 同じ 関数。LEGEND-4 で buffsOfHeld から ふえた）で 決める', () => {
+    const users = ALL.filter(({ f, s }) => /\bbuffsOf\(/.test(s) && f !== 'src/ui/buffIconsModel.ts').map((x) => x.f);
     expect(users.length).toBeGreaterThanOrEqual(2); // 1P の step.ts と 2P
   });
   it('#20: 2P の つくれるは anyCraftNow（1P と 同じ 関数）で 決める', () => {

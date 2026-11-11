@@ -18,6 +18,7 @@ import { createSpiralDebris } from '../../legend/spiralDebris';
 import { createChargeLight } from '../../legend/chargeLight';
 import { pointOnScreen, FIRST_DEPTH, CHEST_UP, newHandInfo, computeHand } from '../../legend/handPos';
 import { WindWaveFx } from '../../fx/windWaveFx';
+import { KokuryuInkFx } from '../../fx/kokuryuInkFx';
 import { SpiralFx } from '../../fx/spiralFx';
 import { createWaveView3D } from '../../legend/waveView';
 import { ChargeLightFx } from '../../fx/chargeLightFx';
@@ -189,6 +190,8 @@ export function wireWeapons(deps: WiredDrops) {
   });
   thunderFx.warmUp(game.renderer, game.camera); // 読みこみ中に 雷 B の プログラムを 作る
   const windWaveFx = new WindWaveFx({ scene: game.scene, camera: game.camera });
+  // LEGEND-4: 黒龍の 墨の すじ（矢の うしろ。1P の 矢。2P の 矢は duoPlay が 別に 持つ）
+  const kokuryuInkFx = new KokuryuInkFx(game.scene);
   // WEAPON-8: らせんの かぜ（S2）・土と 草の つぶ・手もとの 光・速さバフの アイコン
   const spiralFx = new SpiralFx({ scene: game.scene, camera: game.camera });
   // WEAPON-9: 虹の ドーム・かけら・すいよせの つぶ・斬撃（材質は 読みこみ中に ぜんぶ 作る）
@@ -226,7 +229,7 @@ export function wireWeapons(deps: WiredDrops) {
   controller.lungeYokai = () => (shared.yokaiManager ? shared.yokaiManager.list() : []);
   return {
     level, armor, tools, blade, legend, nijiCenter, waveSys, reducedMotionMq, parry, geta, parryFx,
-    sparkAt, thunderFx, rainbowFx, windWaveFx, spiralFx, nijiFx, domeGrains, slashFx, raijinFx, fujinFx,
+    sparkAt, thunderFx, rainbowFx, windWaveFx, kokuryuInkFx, spiralFx, nijiFx, domeGrains, slashFx, raijinFx, fujinFx,
     spiralDebris, chargeLight, chargeLightFx, chargeChest, handInfo, handNow, buffModel,
   };
 }

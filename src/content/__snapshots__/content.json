@@ -4925,6 +4925,32 @@
       "rarity": "legendary",
       "recipes": []
     },
+    "kokuryu": {
+      "ITEM_INFO.kokuryu": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ",
+        "special": "や が つよく なり、すべて を つらぬく！ もてば かぜ の ように はやく、そら たかく とべる",
+        "stats": "bow",
+        "use": "や を とばして とおく の ようかい を たおす。や が いる"
+      },
+      "W2.bowDamageByItem.kokuryu": [
+        4,
+        6,
+        10
+      ],
+      "W2.bowStraightByItem.kokuryu": 48,
+      "W2.toolDurability.kokuryu": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［黒龍｜こくりゅう］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
     "harapan_mimizu": {
       "ITEM_INFO.harapan_mimizu": {
         "buttons": [

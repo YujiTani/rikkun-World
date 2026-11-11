@@ -12,6 +12,7 @@ import { goldItemPixels, isGoldItem } from './itemArtGold';
 import { houseToolPixels, isHouseToolItem } from './itemArtHouse';
 import { houseEditorItemPixels, isHouseEditorItem } from './itemArtHouseEditor';
 import { houseBlockItemPixels, isHouseBlockItem } from './itemArtHouseBlocks';
+import { isL4Item, l4ItemPixels } from './itemArtL4';
 import { isKongoItem, kongoItemPixels } from './itemArtKongo';
 import { isNinjaItem, ninjaItemPixels } from './itemArtNinja';
 import { isSamuraiItem, samuraiItemPixels } from './itemArtSamurai';
@@ -52,6 +53,7 @@ export function itemIconPixels(item: ItemId): Pixels {
   if (isKongoItem(item)) return kongoItemPixels(item);
   if (isLive3Item(item)) return live3ItemPixels(item);
   if (isW7Item(item)) return w7ItemPixels(item);
+  if (isL4Item(item)) return l4ItemPixels(item); // LEGEND-4
   if (isM7Item(item)) return m7ItemPixels(item);
   if (isM72Item(item)) return m72ItemPixels(item);
   if (isBucketItem(item)) return bucketItemPixels(item);

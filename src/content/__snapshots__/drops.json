@@ -257,6 +257,7 @@
     "kin_yoroi": "epic",
     "kin_yumi": "epic",
     "kite": "uncommon",
+    "kokuryu": "legendary",
     "kokuyouseki": "rare",
     "kongo_axe": "mythic",
     "kongo_kabuto": "mythic",
@@ -356,6 +357,10 @@
     },
     {
       "item": "niji",
+      "weight": 1
+    },
+    {
+      "item": "kokuryu",
       "weight": 1
     },
     {

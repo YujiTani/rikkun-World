@@ -21,9 +21,10 @@ import { FX_SETTINGS } from '../../fx/config';
 import { createRng } from '../../world/gen/random';
 import type { DuoHud } from '../../ui/duoHud';
 import { halvesCoveredBy, hudNoticeShow, type DuoHalves, type Who } from '../../ui/duoHalves';
-import { buffsOfHeld } from '../../ui/buffIconsModel';
+import { KokuryuInkFx } from '../../fx/kokuryuInkFx';
+import { buffsOf } from '../../ui/buffIconsModel';
+import { createBuffSources } from '../../ui/buffSources';
 import { anyCraftNow } from '../../ui/craftModel';
-import { legendMoveMulOf } from '../../legend/defs';
 import { lifeUiOf } from '../../fx/combatFxModel';
 import { actionHintView, fillHintCtx, type DuoAimStep2, type DuoHintInput, type DuoAimHud } from '../../ui/duoAimHud';
 import type { LockStatus, Inventory, ItemId, Vec3 } from '../../contracts';
@@ -120,6 +121,8 @@ interface Live {
   parry: P2Parry;
   /** 2P の パリィの 火花・青白い 光（1P の ParryFx と 別の 2 つ目。やめる ときに 片づける） */
   parryFx: ParryFx;
+  /** LEGEND-4: 2P の 黒龍の 墨の すじ（1P の KokuryuInkFx と 別の 2 つ目。矢の id が 1P と ぶつからない ように）。やめる ときに 片づける */
+  ink: KokuryuInkFx;
   /** COOP-1 4d-3: がしゃどくろ・少女が 見る 2P の 口（参加ごとに 1 つ） */
   gasha: P2GashaPort;
   /** COOP-1 4d-2: 2P の レジェンダリーの わざ（1P と 同じ 部品の 2 つ目）と その 絵 */
@@ -378,7 +381,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       shake: (a) => { if (FX_SETTINGS.fxShake) shared.duoCamFx(2).addTrauma(a); },
       shakeTo: (l) => { const fx = shared.duoCamFx(2), d = l - fx.trauma(); if (d > 0 && FX_SETTINGS.fxShake) fx.addTrauma(d); },
     };
-    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, gasha, legend, farm, feed, animals: ani, gadgets };
+    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, ink: new KokuryuInkFx(game.scene), gasha, legend, farm, feed, animals: ani, gadgets };
   }
 
   /** 2P の 足音。1P の step.ts と 同じ 決まり: 遊び画面が 開いて いない・やられて いない・ひるんで いない ときだけ 歩く */
@@ -483,6 +486,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     l.kodachi.combat(combatEvents);
     l.combat.takeHookEvents();
     l.sounds.swings(l.tools.drainSwings(), p2.inventory.held()?.item ?? null);
+    l.ink.step(l.tools.bow().arrows(), deps.reducedMotionMq?.matches ?? false); // LEGEND-4: 2P の 黒龍の 墨の すじ
     const arrowEvents = l.tools.drainArrowEvents();
     l.sounds.arrows(arrowEvents);
     l.feed.arrows(arrowEvents);
@@ -513,6 +517,8 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     stepHalves(l, dt);
   }
 
+  /** バフ アイコンの 倍率の 出どころ（2P の 体の ジャンプの 高さが 土台。1P の step.ts と 同じ 部品） */
+  const buffSrc2 = createBuffSources(w2, () => c.ctl2().settings.jumpHeight);
   /** COOP-1 5f-2: 2P の 半分の 部品を すすめる（世界で 1 つの 物は 1P と 同じ 答え。つくれる マークは 2P の もちもので。メダルの 印は 2P の かたまりに 入れない） */
   function stepHalves(l: Live, dt: number): void {
     const yk = shared.yokaiManager;
@@ -523,7 +529,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     yk.nameplates(halves.plates2, 2);
     if (open2) halves.plates2.length = 0;
     const show = hudNoticeShow(2, true, anyCraftNow(c.craft2(), p2.inventory), 0, hudShow);
-    halves.step(dt, yk.inkDim(2), buffsOfHeld(p2.inventory.held()?.item ?? null, (i) => legendMoveMulOf(w2, i)), deps.reducedMotionMq?.matches ?? false, show.craft, open2 ? halvesCoveredBy(2, true) : NO_HALVES);
+    halves.step(dt, yk.inkDim(2), buffsOf(p2.inventory.held()?.item ?? null, p2.armor.equipped('legs'), buffSrc2), deps.reducedMotionMq?.matches ?? false, show.craft, open2 ? halvesCoveredBy(2, true) : NO_HALVES);
   }
 
   let thunder1: ThunderHook | null = null;
@@ -659,6 +665,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       live?.legend.dispose();
       live?.fx.dispose();
       live?.parryFx.dispose();
+      live?.ink.dispose();
       live?.farm.dispose();
       live?.animals.dispose();
       live?.gadgets.dispose();
@@ -671,6 +678,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         live.legend.dispose(); // ためている・シャイニング中でも すぐ 消す（カメラの 口も 手ばなす）
         live.parry.cancel(game.tick);
         live.parryFx.dispose();
+        live.ink.dispose();
       }
       live?.fx.dispose();
       live?.farm.dispose();

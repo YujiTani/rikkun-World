@@ -88,6 +88,9 @@ export class YokaiManager implements YokaiWorld {
   private readonly boxList: OBox[] = [];
   private readonly aimPool: { id: number; min: Vec3; max: Vec3 }[] = [];
   private readonly aimView: { id: number; min: Vec3; max: Vec3 }[] = [];
+  /** raycastAll の 使いまわす 入れ物（LEGEND-4） */
+  private readonly rayPool: YokaiRayHit[] = [];
+  private readonly rayView: YokaiRayHit[] = [];
 
   /** 妖怪の列（係どうしで共有する入れ物 `f` の中身。テストも この名前で のぞく） */
   private get ents(): Ent[] {
@@ -198,6 +201,41 @@ export class YokaiManager implements YokaiWorld {
       }
     }
     return best;
+  }
+
+  /**
+   * LEGEND-4（黒龍の や）: 線に かかる 妖怪を ぜんぶ（1 体 1 つ・その 体の いちばん 近い 箱まで の きょり・近い 順）。
+   * 妖怪を 1 周 するだけ（O(体の 数)）。返す 配列と 中身は 使いまわす（毎ステップ new しない）
+   */
+  raycastAll(origin: Vec3, dir: Vec3, maxDistance: number): readonly YokaiRayHit[] {
+    let n = 0;
+    for (const e of this.ents) {
+      syncTransform(e);
+      let best = -1;
+      for (const b of boxesOf(e, this.boxList)) {
+        b.hx += AI_CONST.hitPad;
+        b.hy += AI_CONST.hitPad;
+        b.hz += AI_CONST.hitPad;
+        const d = rayObb(origin.x, origin.y, origin.z, dir.x, dir.y, dir.z, b, e.x, e.y, e.z, e.yaw);
+        if (d >= 0 && d <= maxDistance && (best < 0 || d < best)) best = d;
+      }
+      if (best < 0) continue;
+      let h = this.rayPool[n];
+      if (!h) this.rayPool[n] = h = { id: 0, kind: e.kind, distance: 0 };
+      h.id = e.id;
+      h.kind = e.kind;
+      h.distance = best;
+      // 近い 順に 差しこむ（体の 数は 少ない）
+      let i = n++;
+      while (i > 0 && this.rayPool[i - 1]!.distance > best) {
+        this.rayPool[i] = this.rayPool[i - 1]!;
+        i--;
+      }
+      this.rayPool[i] = h;
+    }
+    this.rayView.length = n;
+    for (let i = 0; i < n; i++) this.rayView[i] = this.rayPool[i]!;
+    return this.rayView;
   }
 
   /** テスト用: 体力を 決める（最大を こえて も よい。0 以下 は 1 に する） */

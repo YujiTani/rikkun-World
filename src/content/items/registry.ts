@@ -12,6 +12,7 @@ import { HOUSE_TOOLS } from './house';
 import { HOUSE_BLOCKS } from './houseBlocks';
 import { HOUSE_FURNITURE, HOUSE_PLANS } from './houseEditor';
 import { LEGEND } from './legend';
+import { LEGEND4 } from './legend4';
 import { KONGO } from './kongo';
 import { KOTATSU, LIVE } from './live';
 import { INGOT, MATERIALS, ORB } from './materials';
@@ -110,6 +111,8 @@ export const WATERFALL_DEFS: ItemDefs = WATERFALL_BLOCKS;
 
 /** レジェンダリー武器（ITEM_TYPES・武器の 色分けでは これまでと 同じ 位置（crystal_katana の 次）に 入れる） */
 export const LEGEND_DEFS: ItemDefs = LEGEND;
+/** LEGEND-4: 新しい レジェンダリー武器（黒龍 …）。ITEM_TYPES・武器の 色分けでは LEGEND の すぐ 次 */
+export const LEGEND4_DEFS: ItemDefs = LEGEND4;
 
 /**
  * MINE-1B（#349）: せっかいせき・しっくい・ほたるいし・きんの いし（置ける）・チョーク・いしばい。
@@ -126,7 +129,7 @@ export const ITEM_DEFS: Readonly<Record<ItemDefId, ItemDef>> = {
   ...PLACEABLE, ...M4_BLOCKS, ...GEYSER, ...VOX_I,
   ...TOOLS, ...SWORDS, ...BOWS, ...ARMOR, ...NINJA, ...SAMURAI,
   ...SEEDS, ...VEGGIES, ...FARM_TOOLS, ...SPRINKLER, ...BUCKETS,
-  ...ORB, ...MATERIALS, ...INGOT, ...GADGETS, ...LIVE, ...KOTATSU, ...LEGEND, ...GOLD, ...KONGO, ...HOUSE_TOOLS,
+  ...ORB, ...MATERIALS, ...INGOT, ...GADGETS, ...LIVE, ...KOTATSU, ...LEGEND, ...LEGEND4, ...GOLD, ...KONGO, ...HOUSE_TOOLS,
   ...MINE_BLOCKS, ...MINE_ITEMS, ...HOUSE_FURNITURE, ...HOUSE_PLANS, ...HOUSE_BLOCKS,
   ...ROPE_BLOCKS,
   ...WATERFALL_BLOCKS,
@@ -258,6 +261,11 @@ export function registryTrailOnlyIds(): ItemId[] {
 /** ゆみ: 段ごとの ダメージ（W2 bowDamageByItem） */
 export function registryBowDamage(): Partial<Record<ItemId, [number, number, number]>> {
   return pickAll(ITEM_DEFS, (d) => (d.bow ? ([...d.bow.damage] as [number, number, number]) : undefined));
+}
+
+/** ゆみ: 重力なしで まっすぐ とぶ ゆみの きょり（W2 bowStraightByItem。LEGEND-4 黒龍） */
+export function registryBowStraight(): Partial<Record<ItemId, number>> {
+  return pickAll(ITEM_DEFS, (d) => d.bow?.straightRange);
 }
 
 /** 防具: ふせぐ量（CraftConfig.armorValue） */

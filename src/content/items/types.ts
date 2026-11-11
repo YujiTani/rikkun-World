@@ -107,8 +107,11 @@ export interface ItemDef {
    * `trailOnly: true` は 「軌跡だけ」の 物（なぎなた）: BLADE_ITEMS には 入らず BLADE_LIKE_ITEMS に 入る。届く長さ（reach）は 書かない（tool.reach を 使う）
    */
   blade?: { reach?: number; trail: Readonly<BladeTrailStyle>; trailOnly?: true };
-  /** ゆみ: 段ごとの ダメージ [1 段, 2 段, 3 段] */
-  bow?: { damage: readonly [number, number, number] };
+  /**
+   * ゆみ: 段ごとの ダメージ [1 段, 2 段, 3 段]。
+   * `straightRange`（LEGEND-4 黒龍）: 書くと その ゆみの や は 重力なしで まっすぐ とび、妖怪を ぜんぶ つらぬく（ブロックで 止まる）。数は この きょり（マス）で 消える
+   */
+  bow?: { damage: readonly [number, number, number]; straightRange?: number };
   /**
    * 道具の数: ほる強さ・ほれるレベル・たたく強さ・とどく距離・当たるまでのステップ（書かない = 手と同じ）。
    * family = あう ブロックの なかま（おの = log・つるはし = stone。あわない ブロックは 強さが 半分）

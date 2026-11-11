@@ -58,8 +58,8 @@ export function createP2Gadgets(d: P2GadgetsDeps): P2Gadgets {
       kite.onHeld(d.held());
       kite.update(body.state.position);
       d.view?.update(kite.position(), body.state.position, d.tick());
-      // わらじ: はいている 間だけ ジャンプが 高い
-      body.setJumpHeight(jumpHeightWith(d.legs(), body.settings.jumpHeight));
+      // わらじ: はいている 間だけ ジャンプが 高い。LEGEND-4: 黒龍を 持つ 間も（重なったら 高い ほう）
+      body.setJumpHeight(jumpHeightWith(d.legs(), body.settings.jumpHeight, d.held()));
     },
     info: () => kiteInfo(kite) as KiteInfo,
     clear() {

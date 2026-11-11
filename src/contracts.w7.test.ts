@@ -27,7 +27,7 @@ const NAME = '［雷神剣｜らいじんけん］';
 describe('WEAPON-7 AC1: legendary の 初期値（雷神剣 ＋ PR2 の 風神剣）', () => {
   it('雷神剣が §3.1 どおり', () => {
     const defs = legendary();
-    expect(defs.map((d) => d.item)).toEqual(['raijin_ken', 'fujin_ken', 'niji']); // PR2 で 風神剣・WEAPON-9 で 虹が 足される
+    expect(defs.map((d) => d.item).slice(0, 3)).toEqual(['raijin_ken', 'fujin_ken', 'niji']); // LEGEND-4: 新しい 武器は うしろに ならぶ（ここは さいしょの 3 つ） // PR2 で 風神剣・WEAPON-9 で 虹が 足される
     const d = defs[0]!;
     expect(d.power).toBe(8);
     expect(d.charge).toEqual({ kind: 'lightning', chargeTicks: 60, range: 20, radius: 5, damageMul: 2.0, knock: [2, 4], strikeF: 8, boltSteps: 12, recovery: 40 });

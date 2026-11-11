@@ -4,7 +4,7 @@ python3 art/ICON-32/build.py [シートの 出力 dir]
 import json, os, sys
 from PIL import Image, ImageDraw
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
-import gear as G, misc as M, legend as LG
+import gear as G, misc as M, legend as LG, legend4 as L4
 OUT = os.path.join(HERE, '..', 'icons32')
 os.makedirs(OUT, exist_ok=True)
 
@@ -33,6 +33,7 @@ ICONS = {
 LEAF_ = G.LEAF
 ICONS['grass'] = M.grass
 for _i in LG.IDS: ICONS[_i] = getattr(LG, _i)  # でんせつ 11 点は 1 点もの
+ICONS['kokuryu'] = L4.kokuryu  # LEGEND-4 PR1（黒龍）。ほかの 4 点は それぞれの PR で 足す
 import hero as HR, armor_hero as AH
 ICONS.update(HR.IDS); ICONS.update(AH.IDS)  # 2 回目の 描きなおし（英雄っぽい 形・強い 明暗）
 import batch2 as B2

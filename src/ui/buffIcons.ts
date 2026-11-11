@@ -3,7 +3,8 @@ import { selfCluster } from './levelHud';
 import { halfId } from './duoHalfIds';
 import type { BuffRow } from './buffIconsModel';
 
-const ICON_URL: Record<BuffRow['id'], string> = { speed: './models/fx/buff_speed.png' };
+/** 16×16 の 絵（相対パス。GitHub Pages の ため 絶対パスに しない）。字は 入れない */
+const ICON_URL: Record<BuffRow['id'], string> = { speed: './models/fx/buff_speed.png', jumpUp: './models/fx/buff_jump_up.png' };
 
 /**
  * WEAPON-8 §3.3: 速さバフの アイコンの 絵（HUD）。`#buff-plate` の 中に `[data-buff="speed"]`。字は 出さない。

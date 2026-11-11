@@ -75,6 +75,11 @@ export interface YokaiWorld {
   /** 線に当たるいちばん近い妖怪（パンチ用）。maxDistance より遠ければ null */
   raycast(origin: Vec3, dir: Vec3, maxDistance: number): YokaiRayHit | null;
   /**
+   * LEGEND-4（黒龍）: 線に かかる 妖怪を ぜんぶ（1 体 1 つ・近い 順・maxDistance より 遠い 体は 入れない）。
+   * 返す 配列と 中身は 使いまわす（次の 呼び出しまで 有効。読むだけ）。なければ 呼ぶ 側は `raycast` の 最初の 1 体だけで 済ます
+   */
+  raycastAll?(origin: Vec3, dir: Vec3, maxDistance: number): readonly YokaiRayHit[];
+  /**
    * パンチが当たった。from はたたいた人の足もと（押される向き）。
    * WEAPON-2: `knock` を 省くと 今まで どおり（水平 1.0・上へ 0）。ぬりかべは どの 値でも 押されない
    */

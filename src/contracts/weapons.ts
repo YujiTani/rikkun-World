@@ -196,6 +196,10 @@ export interface ArrowInfo {
   velocity: Vec3;
   /** 飛んでから の ステップ */
   age: number;
+  /** LEGEND-4（黒龍）: 重力なしで まっすぐ とび 妖怪を つらぬく や。ふつうの や は 書かない */
+  straight?: boolean;
+  /** LEGEND-4（黒龍）: もう 当てた 妖怪の id（1 本の や は 同じ 妖怪に 1 回だけ）。まっすぐな や だけ */
+  hitIds?: number[];
 }
 
 export interface StuckArrowInfo {
@@ -324,6 +328,8 @@ export interface W2Settings {
   bowDamage: [number, number, number];
   /** GOLD-1 §4.3: ゆみ ごと の や の つよさ（段 1・2・3）。なければ `bowDamage`。きんの ゆみ = 2・3・5 */
   bowDamageByItem: Partial<Record<ItemId, [number, number, number]>>;
+  /** LEGEND-4 §4: 重力なしで まっすぐ とび、妖怪を ぜんぶ つらぬく ゆみ（黒龍）。値 = うった 所から 消える きょり（マス）。なければ ふつうの や */
+  bowStraightByItem: Partial<Record<ItemId, number>>;
   bowKnock: [number, number, number];
   arrowGravity: number;
   arrowLifeTicks: number;
