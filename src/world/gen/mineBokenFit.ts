@@ -1,6 +1,6 @@
 import { SEA_Y } from '../../contracts';
 import { colKey } from '../stream/ring';
-import { ShaftBuilder, airHeightOf, keyOf, keyX, keyY, keyZ } from './mineShaftBuild';
+import { SIX_KEY_DELTA, ShaftBuilder, airHeightOf, keyOf } from './mineShaftBuild';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import type { Geo, Site } from './mineShaftSite';
 import type { PathCell } from './mineShaftTypes';
@@ -178,11 +178,8 @@ export class Fit {
       if (b.air.has(below) && !entry?.has(below)) return false;
     }
     for (const k of air) {
-      const x = keyX(k);
-      const y = keyY(k);
-      const z = keyZ(k);
-      for (const [dx, dy, dz] of SIX) {
-        const n = keyOf(x + dx, y + dy, z + dz);
+      for (let d = 0; d < 6; d++) {
+        const n = k + SIX_KEY_DELTA[d]!;
         if (!air.has(n) && !skip.has(n) && b.air.has(n) && !entry?.has(n)) return false;
       }
     }
@@ -204,11 +201,3 @@ export class Fit {
   }
 }
 
-const SIX: readonly (readonly [number, number, number])[] = [
-  [1, 0, 0],
-  [-1, 0, 0],
-  [0, 1, 0],
-  [0, -1, 0],
-  [0, 0, 1],
-  [0, 0, -1],
-];
