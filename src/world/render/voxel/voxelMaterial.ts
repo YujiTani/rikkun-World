@@ -16,7 +16,7 @@ import { seamAxisGlsl } from './seamGrow';
 /**
  * 小ブロック・箱のメッシュ用の材料（TEX-A）。色 = 16×16 の絵（atlas）の画素 × 面の明るさ × 角の暗がり（AO）× 光。
  * - 頂点: position = セクションの中の小ブロック座標（Uint16）。mesh.scale = 1/9、mesh.position = セクションの位置で ワールドに置く。
- * - aData = [ブロックの種類, 地形の横の面の行の符号（255 = 世界の高さで決める）, 0, 面の番号]。
+ * - aData = [種類の 下 8 ビット, 地形の横の面の行の符号（255 = 世界の高さで決める）, 角の印 | つぶの 印, 面の番号 | 種類の 上 2 ビット（ビット 3〜4）]。
  * - aLight = [空の光, ブロックの光]（0〜1 に正規化した Uint8。15 を 17 倍して 255）。昼夜は uniform（uDarken）で毎コマ。
  * - 絵: 面の向きで [上, 下, 横] のタイル（uTileOf）を選び、ワールド座標の小数部から 16×16 の画素を texelFetch（atlas は sRGB の
  *   テクスチャなので 読むと 線形になる）。式の TS 写しは projection.ts（`render.texelAt`）。
@@ -66,7 +66,8 @@ ${seamAxisGlsl()}`;
 
 const VERT_BODY = `
 {
-  int f = int(aData.w + 0.5);
+  int wbits = int(aData.w + 0.5);
+  int f = wbits & 7;
   // 面を、その場所の画面で片面 0.5 画素外へ出す（T 字の透け。両側で 1 画素。#147）。色と AO は広げる前の位置
   float cb = aData.z + 0.5;
   vec3 corner = vec3(mod(floor(cb), 2.0), mod(floor(cb / 2.0), 2.0), mod(floor(cb / 4.0), 2.0)) * 2.0 - 1.0;
@@ -77,10 +78,10 @@ const VERT_BODY = `
     tangent.x == 0.0 ? 0.0 : tangent.x * seamAxis(vec3(tangent.x, 0.0, 0.0), seamNdc),
     tangent.y == 0.0 ? 0.0 : tangent.y * seamAxis(vec3(0.0, tangent.y, 0.0), seamNdc),
     tangent.z == 0.0 ? 0.0 : tangent.z * seamAxis(vec3(0.0, 0.0, tangent.z), seamNdc));
-  int kind = int(aData.x + 0.5);
+  int kind = int(aData.x + 0.5) + ((wbits >> 3) << 8); // 種類は 10 ビット: 下 8 ビットは aData.x、上 2 ビットは aData.w のビット 3〜4
   float tile = uTileOf[kind][f == 0 ? 0 : (f == 1 ? 1 : 2)];
   vShade = SHADE[f];
-  vInfo = vec4(tile, aData.y, float(f), aData.x);
+  vInfo = vec4(tile, aData.y, float(f), float(kind));
   vGrain = floor(aData.z / 8.0 + 0.001);
   vAvg = tile < -0.5 ? vec3(1.0) : uTileAvg[int(tile + 0.5)];
   vWorld = (modelMatrix * vec4(position, 1.0)).xyz;

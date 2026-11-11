@@ -9,7 +9,8 @@ import type { QuadBuilder } from './sectionQuads';
 import { ROW_NONE } from './projection';
 
 // vitest の import は 読むたびに getter を通って 遅い。内側のループが読む定数は このファイルの const に写す（本番のビルドでは同じ）
-const { AXIS_OF, BL, DIR, EDGE_UNKNOWN, FACE_VERTS, N, OCC } = K;
+const { AXIS_OF, BL, BOX_BLK, BOX_SKY, DIR, EDGE_UNKNOWN, FACE_VERTS, N, OCC } = K;
+const BOX_KIND_MASK = (1 << BOX_SKY) - 1;
 
 /**
  * box の段（形は 1 マスの箱）のメッシュ作り（SectionMesher から分けた。4-7）。
@@ -66,7 +67,7 @@ export class BoxMesher {
             }
             const cell = v * 16 + u;
             if (flat) {
-              mask[cell] = (kind + 1) | (co[0] << 9) | (co[1] << 17);
+              mask[cell] = (kind + 1) | (co[0] << BOX_SKY) | (co[1] << BOX_BLK);
             } else {
               mask[cell] = (1 << 30) | cell;
               smooth.set(co, cell * 8);
@@ -101,7 +102,7 @@ export class BoxMesher {
               const kindHere = this.kindOfCell(ax, l, u, v);
               b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], kindHere, ROW_NONE, 0, 0, 0, 0, smooth.subarray(cell * 8, cell * 8 + 8));
             } else {
-              b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], (k & 511) - 1, ROW_NONE, 0, 0, (k >> 9) & 255, (k >> 17) & 255, null);
+              b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], (k & BOX_KIND_MASK) - 1, ROW_NONE, 0, 0, (k >> BOX_SKY) & 255, (k >> BOX_BLK) & 255, null);
             }
           }
         }

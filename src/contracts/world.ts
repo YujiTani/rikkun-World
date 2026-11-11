@@ -268,16 +268,19 @@ export interface ColumnPos {
   cz: number;
 }
 
+/** ブロックの番号を 入れる 配列（1 マス 2 バイト。番号は 0〜MAX_BLOCK_KINDS-1）。型は ここ 1 か所 */
+export type BlockArray = Uint16Array;
+
 /**
  * セクション（16³）の持ち方 3 つ。番号は BLOCK_TYPES の順。マスの順は (ly * 16 + lz) * 16 + lx。
- * - uniform: 全部同じ 1 種類（1 バイト）
- * - palette: 16 種類までの表 + 1 マス 4 ビット（2,048 B）
- * - full: そのまま 1 マス 1 バイト（4,096 B）
+ * - uniform: 全部同じ 1 種類
+ * - palette: 16 種類までの表（番号は 2 バイト）+ 1 マス 4 ビット（2,048 B）
+ * - full: そのまま 1 マス 2 バイト（8,192 B）
  */
 export type SectionData =
   | { readonly kind: 'uniform'; readonly block: number }
-  | { readonly kind: 'palette'; readonly palette: Uint8Array; readonly packed: Uint8Array }
-  | { readonly kind: 'full'; readonly data: Uint8Array };
+  | { readonly kind: 'palette'; readonly palette: BlockArray; readonly packed: Uint8Array }
+  | { readonly kind: 'full'; readonly data: BlockArray };
 
 /** 1 列（16×WORLD_HEIGHT×16）。sections は下から並ぶ（長さ WORLD_HEIGHT/16） */
 export interface ChunkColumn {

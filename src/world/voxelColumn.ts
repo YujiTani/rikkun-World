@@ -1,4 +1,4 @@
-import type { ChunkColumn, SectionData } from '../contracts';
+import type { BlockArray, ChunkColumn, SectionData } from '../contracts';
 import { BLOCK_TYPES, isOpaqueIndex, isSolidIndex } from './blocks/blockTypes';
 import { OPACITY } from './light/opacity';
 
@@ -23,12 +23,12 @@ export class Column implements ChunkColumn {
     this.sections = sections;
     this.hidden = new Int8Array(sections.length).fill(-1);
     this.exp = new Array<Uint8Array | null>(sections.length).fill(null);
-    this.fast = new Array<Uint8Array | null>(sections.length).fill(null);
+    this.fast = new Array<BlockArray | null>(sections.length).fill(null);
     this.uni = new Int16Array(sections.length);
     for (let sy = 0; sy < sections.length; sy++) this.sync(sy);
   }
   /** 読み出しを速くする写し: full なら その配列、それ以外は null（sections と同じものを指す） */
-  readonly fast: (Uint8Array | null)[];
+  readonly fast: (BlockArray | null)[];
   /** 描画側に「変わった」と伝える印（World が持つ一覧に入っているか・どのセクションか） */
   colDirty = false;
   secListed = false;
