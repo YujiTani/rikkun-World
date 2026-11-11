@@ -518,12 +518,13 @@ export function wireFighters(deps: WiredWeapons) {
   }
   /** ねらいの点 X（S から D の線で 最初に当たる 固いブロックか 妖怪の箱の点。なければ S + D × 64） */
   const AIM_FAR = 64;
-  function aimPointInto(out: { x: number; y: number; z: number }): { x: number; y: number; z: number } {
+  function aimPointInto(out: { x: number; y: number; z: number }, ignoreYokai = false): { x: number; y: number; z: number } {
     const st = controller.state;
     const S = rig.aimOrigin(assistShoulder);
     const D = lookDirection(st.yawDeg, st.pitchDeg, assistDir);
     const b = raycastBlocks(world, S.x, S.y, S.z, D.x, D.y, D.z, AIM_FAR, true);
-    const y = shared.yokaiM.raycast(S, D, b ? b.distance : AIM_FAR);
+    // LEGEND-4: 黒龍の や は 妖怪を つらぬく ので、ねらいの 点は 妖怪で 止めず 最初の ブロック（か 遠く）に する（肩から の 線が 手前の 1 体で 中心線を はなれない ように）
+    const y = ignoreYokai ? null : shared.yokaiM.raycast(S, D, b ? b.distance : AIM_FAR);
     const t = y ? y.distance : b ? b.distance : AIM_FAR;
     out.x = S.x + D.x * t;
     out.y = S.y + D.y * t;
@@ -538,7 +539,8 @@ export function wireFighters(deps: WiredWeapons) {
     const aimV = { x: 0, y: 0, z: 0 };
     tools.step = (primary, _eye, dir) => {
       const pv = aimPivot(world, controller.state.position, aimPv);
-      aimPointInto(aimX);
+      const held = inventory.held()?.item;
+      aimPointInto(aimX, held !== undefined && w2.bowStraightByItem[held] !== undefined);
       const dx = aimX.x - pv.x, dy = aimX.y - pv.y, dz = aimX.z - pv.z;
       const len = Math.hypot(dx, dy, dz);
       if (len < 1e-3) toolStep(primary, pv, dir);
