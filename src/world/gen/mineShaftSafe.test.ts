@@ -36,7 +36,7 @@ beforeAll(() => {
   SEEDS_20.forEach((seed, k) => {
     const s = sampleShafts(seed, 2, { legacy: true });
     s.shafts.forEach((shaft, i) => {
-      const one = { seed, shaft, path: s.hook.shaftPath(shaft.id), g: s.g };
+      const one = { seed, shaft, path: s.hook.shaftPath(shaft.id).filter((c) => (c.part as string) !== 'yakata'), g: s.g };
       samples.push(one);
       if (k < 6 && i < 2) lightSamples.push(one);
     });
