@@ -108,8 +108,8 @@ export function wireMine(deps: WiredDuo) {
         fxSound.playTones(CHEST_SOUNDS[`chestOpen${tier}` as keyof typeof CHEST_SOUNDS]); // 案 A。4 段目だけ「大」（BGM が さがる）
         openedTier = tier;
       },
-      // HOUSE-2A: いちばん 下の へやの 宝箱・まきもの: レシピを 1 まい おぼえる（建築士さんの 係。持ち物は 使わない）
-      recipe: (at) => void shared.house?.recipes.found(at),
+      // HOUSE-2A（3.3 版）: いちばん 下の へやの 宝箱・まきもの: あけた 人の 持ち物に レシピの まきもの 1 まい（建築士さんの 係。おぼえるのは 使った とき）
+      recipe: () => void shared.house?.recipes.found(router.who()),
     },
   });
 

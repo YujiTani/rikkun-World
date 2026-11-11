@@ -56,10 +56,11 @@ export function wireHouse(deps: WiredYokai) {
     gave: (item, who) => (who === 2 ? shared.p2DropPicked(item, 1, false) : shared.onDropPicked(item, 1, false)),
     // 戸を 外から 通って 中に 入った: 名前の 帯を 上の 帯の 列〔実績・テロップと ならぶ〕に 入れる（HOUSE-1 §3.3）
     nameBand: (text) => shared.celebrate.enqueueHouseName(text),
-    // HOUSE-2A: レシピを おぼえた テロップ（上の 帯の 列。「<名前>の レシピを おぼえた！…」）・ぜんぶ おぼえた あとの かみが 持ち物に 入らない 分は 足もとへ
+    // HOUSE-2A: まきものの テロップ（上の 帯の 列。「<名前>の レシピを おぼえた！…」・はじめての 使い方）。上の 帯は 世界に 1 つ なので 2P でも 同じ 列
     recipeBand: (text) => shared.celebrate.enqueueHouseDone(text, 'recipe-band'),
-    drop: (item, count) => {
-      const p = controller.state.position;
+    // まきものが 持ち物に 入らない 分・ぜんぶ おぼえた あとの かみが 入らない 分は その 人の 足もとへ
+    drop: (item, count, who) => {
+      const p = who === 2 ? (shared.duoMate()?.position ?? controller.state.position) : controller.state.position;
       drops.scatter({ x: p.x, y: p.y + RECIPE_DROP_RISE, z: p.z }, [{ item, count }], RECIPE_SCATTER);
     },
     // たんすの 中の 道具も「持って いる」（なくした ときだけ「どうぐを もらう」）

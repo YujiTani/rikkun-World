@@ -7,6 +7,8 @@ import { RECIPE_IDS, isRecipeId, recipeButtons, recipeOfFurniture, recipeOfForm,
 export interface RecipeSave {
   learned: string[];
   fresh: string[];
+  /** まきものを はじめて 手に 入れた とき 使い方の テロップを 出した あと（HOUSE-2A 3.3 版。出して いない ときは キーごと ない） */
+  howto?: true;
 }
 
 const PART_BTN = (part: Part): string => `part-${part}`;
@@ -14,6 +16,8 @@ const PART_BTN = (part: Part): string => `part-${part}`;
 export class RecipeLog {
   private learned: RecipeId[] = [];
   private fresh: string[] = [];
+  /** まきものを はじめて 手に 入れた ときの 使い方の テロップを もう 出したか */
+  howtoShown = false;
 
   has(id: RecipeId): boolean {
     return this.learned.includes(id);
@@ -94,15 +98,17 @@ export class RecipeLog {
   // ---------------------------------------------------------------- 保存
 
   serialize(): RecipeSave {
-    return { learned: [...this.learned], fresh: [...this.fresh] };
+    return { learned: [...this.learned], fresh: [...this.fresh], ...(this.howtoShown ? { howto: true as const } : {}) };
   }
 
   /** 読む（知らない id・くりかえしは すてる。例外を 出さない） */
   restore(raw: unknown): void {
     this.learned = [];
     this.fresh = [];
+    this.howtoShown = false;
     if (typeof raw !== 'object' || raw === null) return;
-    const r = raw as { learned?: unknown; fresh?: unknown };
+    const r = raw as { learned?: unknown; fresh?: unknown; howto?: unknown };
+    this.howtoShown = r.howto === true;
     if (Array.isArray(r.learned)) {
       for (const id of r.learned as unknown[]) if (isRecipeId(id) && !this.learned.includes(id)) this.learned.push(id);
     }

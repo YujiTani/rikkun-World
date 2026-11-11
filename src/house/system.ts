@@ -77,10 +77,10 @@ export interface HouseSystemDeps {
   held?: () => ItemId | null;
   /** 音・演出（HOUSE-1C PR-2。なければ 鳴らさない） */
   play?: (e: HouseSfx) => void;
-  /** 持ち物に 入らなかった 物を 足もとに 落とす（レシピを ぜんぶ おぼえた あとの かみ 3 まいの 入りきらない 分。HOUSE-2A） */
-  drop?: (item: ItemId, count: number) => void;
-  /** レシピを おぼえた テロップを 上の 帯の 列に 入れる（HOUSE-2A。なければ 何も しない） */
-  recipeBand?: (text: string) => void;
+  /** 持ち物に 入らなかった 物を その 人の 足もとに 落とす（まきものの 入りきらない 分・ぜんぶ おぼえた あとの かみ 3 まいの 入りきらない 分。HOUSE-2A。who を 省くと 1P） */
+  drop?: (item: ItemId, count: number, who?: Who) => void;
+  /** まきものの テロップ（はじめて 手に 入れた・おぼえた）を 上の 帯の 列に 入れる（HOUSE-2A。who ＝ 使った・拾った 人。なければ 何も しない） */
+  recipeBand?: (text: string, who?: Who) => void;
   /** その 人を 足もと (x, y, z) へ うつす（建築を はじめる とき 場所の 中に いた ときだけ）。なければ 位置を 書きかえる */
   teleport?: (who: Who, x: number, y: number, z: number) => void;
   /** 建築を はじめる 場所の 中に いる 動物・妖怪を 外へ うつす。なければ 何も しない */
@@ -126,7 +126,7 @@ export class HouseSystem {
     cellChanged: (x, y, z, id) => this.book.cellChanged(x, y, z, id),
     boxFilled: (x0, y0, z0, x1, y1, z1, id) => this.book.boxFilled(x0, y0, z0, x1, y1, z1, id),
   };
-  /** レシピを おぼえる（とった とき・宝箱）。おぼえた 記録は state.recipes（保存） */
+  /** レシピの まきもの: 手に 入れる・使って おぼえる（3.3 版）。おぼえた 記録は state.recipes（保存） */
   readonly recipes: RecipeKeeper;
   private readonly renamer: HouseRename;
   /** 名前の ヘルプ（ばしょ・しゅるいの ボタンに のせて 12 コマ） */
@@ -200,10 +200,10 @@ export class HouseSystem {
     });
     this.recipes = new RecipeKeeper(this.state.recipes, {
       seed: d.seed,
-      bag: d.bag,
+      bagOf: (who) => this.bagOf(who),
       ...(d.drop ? { drop: d.drop } : {}),
       play: (e) => d.play?.(e),
-      band: (text) => d.recipeBand?.(text),
+      band: (text, who) => d.recipeBand?.(text, who),
       confetti: () => this.build.celebrate.bump(),
     });
     this.talk = new HouseTalk({
@@ -421,7 +421,7 @@ export class HouseSystem {
     this.tip.hover(id, this.visibleButton);
   }
 
-  /** 窓口 `recipes()`・`learn(id)`・`found(at)`・`recipeBand()`・`recipeKinds(id)`（HOUSE-2A。テスト用の 窓口と 拾った とき の 入口） */
+  /** 窓口 `recipes()`・`learn(id)`・`found(at, who)`・`read(who)`・`recipeBand()`・`recipeKinds(id)`（HOUSE-2A。テスト用の 窓口と 手に 入れる・使う 入口） */
   recipeKinds(id: string): string[] {
     return isRecipeId(id) ? recipeButtons(id) : [];
   }

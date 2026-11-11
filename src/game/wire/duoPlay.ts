@@ -53,6 +53,7 @@ import type { ThunderHook } from '../../fx/thunderFx';
 import type { FlashSrc } from '../../duo/flash';
 import type { P2GashaPort } from './gashaPeople';
 import type { WiredLoop } from './save';
+import { createScrollPort } from './scrollPort';
 
 const DEG = Math.PI / 180;
 
@@ -297,6 +298,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         // COOP-1 5d: ほんだな（ZL）と 建築士さん（ZL で 話す・ほるで おっとっと）。who 2 で 呼ぶ。いす・おふろは 2P 自身の SeatSystem（5e。wireSeat の seatFor(2)）
         furniture: { use: (kind, x, y, z) => deps.furniture.use(kind, x, y, z, 2) },
         gadgets: { sleep: () => void deps.gadgets.port.sleep(2), kite: gadgets.useKite }, // COOP-1 5e: ふとん（1P と 同じ 1 つ）・たこ（2P の）
+        scroll: createScrollPort(() => shared.house, 2), // HOUSE-2A: 2P の まきもの（2P の もちものから へらして おぼえる。記録は 世界に 1 つ）
         architects: {
           rayHit: (origin, dir, reach) => shared.house?.manager.rayHit(origin, dir, reach) ?? null,
           talk: (id) => shared.house?.talkTo(id, 2) ?? false,

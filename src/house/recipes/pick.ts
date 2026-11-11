@@ -1,5 +1,6 @@
-// HOUSE-2A（#364）どの レシピに なるか（拾った とき に 決まる。仕様 §2.1）。DOM・three なし。
-// 1 まい目は かならず かわらの やね。つぎからは まだの 物から 1 まい。同じ 世界・同じ 場所・同じ おぼえた 物 なら いつも 同じ 答え（おぼえた 順は 関係ない）。
+// HOUSE-2A（#364）どの レシピに なるか（まきものを 使った とき に 決まる。仕様 §2.2）。DOM・three なし。
+// 1 まい目は かならず かわらの やね。つぎからは まだの 物から 1 まい。答えは 世界の シード と おぼえた 物 だけで きまる
+// （どの 坑道で 拾った まきものか・何まい 持って いるかには よらない。使う 前に 保存して 開きなおしても 同じ。おぼえた 順は 関係ない）。
 import { RECIPE_IDS, type RecipeId } from './table';
 
 /** 1 まい目に かならず 出る レシピ（かわらの やね） */
@@ -7,7 +8,6 @@ export const FIRST_RECIPE: RecipeId = 'roof_kawara';
 
 export interface PickInput {
   seed: number;
-  at: { x: number; y: number; z: number };
   learned: readonly string[];
 }
 
@@ -26,8 +26,6 @@ export function pickRecipe(o: PickInput): RecipeId | null {
   const left = RECIPE_IDS.filter((id) => !o.learned.includes(id));
   if (left.length === 0) return null;
   if (o.learned.length === 0) return FIRST_RECIPE;
-  let h = mix(o.seed | 0, Math.floor(o.at.x));
-  h = mix(h, Math.floor(o.at.y));
-  h = mix(h, Math.floor(o.at.z));
-  return left[h % left.length]!;
+  // 表の 並びで 数えた「のこり」から 選ぶ ので、おぼえた 順に よらない。おぼえた 数で 混ぜる（世界ごとに 順が 1 本）
+  return left[mix(o.seed | 0, o.learned.length) % left.length]!;
 }

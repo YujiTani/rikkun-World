@@ -9,6 +9,7 @@ import type { ArchitectInfo } from './manager';
 import type { GlowInfo } from './preview/glow';
 import { previewModeOf } from './preview/port';
 import type { SeatInfo } from './seat';
+import type { Who } from './whoPort';
 import type { HouseSystem } from './system';
 import type { HouseMenuState } from './talk';
 
@@ -26,10 +27,11 @@ import type { HouseMenuState } from './talk';
  *   previewDrag(dx, dy) / previewWheel(dx, dy)   見本の 上で ドラッグ／wheel した のと 同じ。今の { angle, pitch }（見本が 出て いなければ null）
  *   hover(id | null)    ボタンに マウスを のせた／はなした のと 同じ（光るのは windowsDown・windowsUp・windowKind と、ポップアップの しゅるいの ボタン〔その ばしょ〕。ばしょ・しゅるいの ボタンは 12 コマで ヘルプ）
  * 2A（#364）:
- *   recipes()       { learned, fresh, all }（おぼえた 順の レシピの id・「あたらしい！」が のこる レシピ・表の ぜんぶ）
+ *   recipes()       { learned, fresh, all, nextPick }（おぼえた 順の レシピの id・「あたらしい！」が のこる レシピ・表の ぜんぶ・今 使ったら おぼえる 物〔ぜんぶ おぼえて いれば null〕）
  *   recipeKinds(id) そのレシピで 出る ボタンの id の 列（例 roof_kawara → roof-kawara_mura・roof-kawara_shiro・roof-kawara_kozan）
- *   learn(id)       レシピを おぼえる（まだの 物だけ true。テロップ・音つき）
- *   found(at)       拾った とき: レシピを 1 まい おぼえる（pick.ts）。ぜんぶ おぼえて いたら null で かみ 3 まい
+ *   learn(id)       レシピを おぼえる（テスト用の 近道。まだの 物だけ true。テロップ・音つき。ゲームの 中の 道は read だけ）
+ *   found(at, who?) 手に 入れた（宝箱の わく・まきもの。3.3 版）: who の 持ち物に まきもの 1 まい（入らなければ 足もとへ）。おぼえない。はじめてなら 使い方の テロップ
+ *   read(who?)      手に もって 右クリック 1 回の 本体: who の まきものを 1 まい へらして 1 つ おぼえる（持って いなければ false）。ぜんぶ おぼえた あとは かみ 3 まい
  *   recipeBand()    おぼえた テロップ { text, ticksLeft }（なければ null）
  *   editor() の 2A: popup・popupRows・hoverTip・marks・roof・wall・windowKind・door・deco・light
  * 1D（#341）:
@@ -111,7 +113,8 @@ export interface HouseHook {
   recipes(): ReturnType<HouseSystem['recipes']['view']>;
   recipeKinds(id: string): string[];
   learn(id: string): boolean;
-  found(at: { x: number; y: number; z: number }): string | null;
+  found(at: { x: number; y: number; z: number }, who?: Who): void;
+  read(who?: Who): boolean;
   recipeBand(): { text: string; ticksLeft: number } | null;
   buildNow(number: number, at: Vec3): HouseView | null;
   houses(): HouseView[];
@@ -181,7 +184,8 @@ export function createHouseHook(sys: HookSystem, seat: { seat(): SeatInfo | null
     recipes: () => sys.recipes.view(),
     recipeKinds: (id) => sys.recipeKinds(id),
     learn: (id) => sys.recipes.learn(id),
-    found: (at) => sys.recipes.found(at),
+    found: (_at, who) => sys.recipes.found(who), // 場所は 使わない（3.3 版: どの 坑道かは レシピに 関係しない）
+    read: (who) => sys.recipes.read(who),
     recipeBand: () => sys.recipes.band(),
     buildNow: (number, at) => sys.buildNow(number, at),
     houses: () => sys.houses(),

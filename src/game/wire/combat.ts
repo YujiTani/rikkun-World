@@ -56,6 +56,7 @@ import { wireGadgets } from './gadgets';
 import { wireSeat } from './seat';
 import { playSleepJingle } from '../../fx/sleepJingle';
 import type { WiredDrops } from './inventory';
+import { createScrollPort } from './scrollPort';
 
 const KOGETA = BLOCK_INDEX.kogeta;
 const SIDES: readonly (readonly [number, number])[] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -479,6 +480,7 @@ export function wireFighters(deps: WiredWeapons) {
       partner: () => shared.duoMate()?.position ?? null,
       gadgets: gadgets.port,
       furniture: furniture.port,
+      scroll: createScrollPort(() => shared.house, 1), // HOUSE-2A: レシピの まきもの（もって 右クリックで よむ）
     },
   );
   // ねらいの線・矢・刀・パンチの出どころは 目でなく 回転の中心 P（CHAR-1 §4.5）
