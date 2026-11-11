@@ -3,7 +3,7 @@ import type { BlockId, ItemId } from '../contracts';
 import { dugItemOf } from '../dig/dugItems';
 import { doorInfo } from '../world/blocks/houseBlocks';
 import { doorIndex, windowCells } from './editor/model';
-import { HEIGHT, WINDOW_Y } from './editor/tuning';
+import { DOOR_TOP_Y, HEIGHT, WINDOW_Y } from './editor/tuning';
 import { houseShape, recordHouse } from './shape';
 import { ALL_KINDS, LIGHT_KINDS, PART_FORMS, PARTS, STYLES, kindsOfForm } from './recipes/kinds';
 import { allKindsOf, houseBox, kindBlocks, kindItem, lookBp, withKind, type LookPart } from './recipes/lookKit';
@@ -193,7 +193,7 @@ describe('AC11: なしの 家（§2.4）', () => {
         const ring = c.x === 0 || c.z === 0 || c.x === ow - 1 || c.z === od - 1;
         if (!ring || c.y < HEIGHT.floor || c.y >= HEIGHT.floor + HEIGHT.inner) continue;
         const corner = (c.x === 0 || c.x === ow - 1) && (c.z === 0 || c.z === od - 1);
-        const isDoor = c.x === doorX && c.z === od - 1 && c.y <= HEIGHT.doorLevels;
+        const isDoor = c.x === doorX && c.z === od - 1 && c.y <= DOOR_TOP_Y;
         if (corner) {
           expect(pillar.has(c.id), `${door}: すみ (${c.x},${c.y},${c.z}) は 柱 → ${c.id}`).toBe(true);
           pillars++;

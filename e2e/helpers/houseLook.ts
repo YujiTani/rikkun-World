@@ -20,6 +20,13 @@ export function kindBlocksOf(part: string, kind: string): string[] {
   return (f as (p: string, k: string) => string[])(part, kind);
 }
 
+/** kindItem（本番に 足す 物。ほると 手に 入る アイテム） */
+export function kindItemOf(part: string, kind: string): string | null {
+  const f = (kindsMod as unknown as Record<string, unknown>).kindItem;
+  if (typeof f !== 'function') throw new Error('kindItem が まだ ない（2B の 約束。src/house/recipes/kinds.ts）');
+  return (f as (p: string, k: string) => string | null)(part, kind);
+}
+
 /** 作る せっけいず（中の 5×5・窓 2・家具 なし）の しゅるいの えらび。いつもの 物は 書かない */
 export interface LookPicks {
   roof?: string;

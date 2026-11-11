@@ -24,7 +24,7 @@ import {
   type Pt,
 } from './helpers/houseBuilt';
 import { learn } from './helpers/houseRecipe';
-import { kindBlocksOf, lookBlueprint, lookMismatches, makeLookBlueprint, scanLook } from './helpers/houseLook';
+import { kindBlocksOf, kindItemOf, lookBlueprint, lookMismatches, makeLookBlueprint, scanLook } from './helpers/houseLook';
 import {
   BUILD_WORDS,
   HAMMER_RE,
@@ -452,7 +452,9 @@ test.describe('HOUSE-1C PR-2 建築', () => {
       const roofBlocks = new Set<string>(kindBlocksOf('roof', kind));
       const placed = Object.values(got).filter((c) => roofBlocks.has(c.id));
       expect(placed.length, 'おしろの かわらの やねの ブロックが 建って いる').toBeGreaterThan(0);
-      expect(placed.every((c) => c.item !== null), 'ほると その しゅるいの アイテム（blockAt の item）').toBe(true);
+      const want2 = kindItemOf('roof', kind);
+      expect(want2, 'おしろの かわらの やねの アイテム').not.toBeNull();
+      expect(placed.filter((c) => c.item !== want2), 'ほると その しゅるいの アイテム（blockAt の item）').toEqual([]);
       expect((await houses(page)).some((r) => r.number === lookNumber), '戸が あるので houses() に のる').toBe(true);
     });
   });
