@@ -6,7 +6,7 @@ import { TUNE as BT } from '../src/gasha/gashaBigTuning';
 import { RELEASE } from '../src/gasha/releaseTuning';
 
 /**
- * #293 段 4: 体力 1/2 → 噴火 → 固まる → 笑う → ワープ 5 回 → 決めポーズ → 魔法 → 5 回の あと 肩に 座って 休む（座った 少女は 大ダメージ）。
+ * #293 段 4: 体力 1/2 → 噴火 → 固まる → 笑う → ワープ 5 回 → 決めポーズ → 魔法 → 5 回の あと プレイヤーの 近くで ぺたん座りで 休む（座った 少女は 大ダメージ）。
  * 既存の gashaGirlIntro.spec.ts（正しい 流れの 順番）と だぶらない よう、境目・固まって いる 間・座った 少女の 当たり・途中の 片づけを 見る。
  * 時間では 待たず、コマで 進める。体力は 'girl' 部位（倍率 5・防御 0）で 正確に 下げる。
  */
@@ -24,14 +24,14 @@ async function ready(page: Page, fast = true): Promise<string[]> {
   return errs;
 }
 
-/** 少女が 肩に 座り おわる まで（form が perch で、少女の 場面も perch） */
+/** 少女が プレイヤーの 前に 座り おわる まで（form が perch で、少女の 場面も perch） */
 async function untilSeated(page: Page): Promise<void> {
   const ok = await page.evaluate(() => {
     const w = window as any, gt = w.__gt;
     if (w.__gg.untilForm('perch') < 0) return false;
     return gt.until(() => w.__gashaGirl.phase() === 'perch', 900, () => gt.heal()) >= 0;
   });
-  expect(ok, '肩に 座る').toBe(true);
+  expect(ok, 'プレイヤーの 前に 座る').toBe(true);
 }
 
 test.describe('切りかえの 境目', () => {
@@ -143,7 +143,7 @@ test.describe('固まって いる 間（笑い・ワープ・ポーズ）', () 
     expect(errs).toEqual([]);
   });
 
-  test('少女の 戦い（5 回）: 立ち止まって いると 魔法に 当たる（1 発 = 調整表の ダメージ）。5 回の あと 肩に 座る', async ({ page }) => {
+  test('少女の 戦い（5 回）: 立ち止まって いると 魔法に 当たる（1 発 = 調整表の ダメージ）。5 回の あと プレイヤーの 前に 座る', async ({ page }) => {
     const errs = await ready(page, false);
     await page.evaluate(() => (window as any).__gg.hpTo(0.3));
     const r = await page.evaluate(() => {
@@ -172,13 +172,13 @@ test.describe('固まって いる 間（笑い・ワープ・ポーズ）', () 
   });
 });
 
-test.describe('肩に 座った 少女', () => {
-  test('座って いる 間は 新しい 魔法を 出さず プレイヤーを 傷つけない（飛んで いた 弾が 消えた あと）・曲は「災厄」の まま・座った 位置は 肩', async ({ page }) => {
+test.describe('プレイヤーの 前で 座った 少女', () => {
+  test('座って いる 間は 新しい 魔法を 出さず プレイヤーを 傷つけない（飛んで いた 弾が 消えた あと）・曲は「災厄」の まま・座った 位置は プレイヤーの 前 rest.dist ブロック', async ({ page }) => {
     const errs = await ready(page);
     await page.evaluate(() => (window as any).__gg.hpTo(0.3));
     await untilSeated(page);
     const r = await page.evaluate((lifeFrames) => {
-      const w = window as any, gt = w.__gt, gg = w.__gg, g = gt.big();
+      const w = window as any, gt = w.__gt, gg = w.__gg;
       const shots = () => { const gi = gg.girl(); return gi.fireballs + gi.waves + gi.vortexCount + (gi.hitActive ? 1 : 0); };
       // 座る 前に 撃った 弾は 飛びきる まで のこる（調整表の lifeSec ぶん）。のこりが 0 に なる まで 待つ
       const clearedAt = gt.until(() => shots() === 0, lifeFrames, () => gt.heal());
@@ -188,8 +188,8 @@ test.describe('肩に 座った 少女', () => {
         gt.heal(); w.__rikkun.step(1); gt.drain();
         maxShots = Math.max(maxShots, shots());
       }
-      const sp = g.perchSpot(), gi = gg.girl();
-      return { clearedAt, taken: gt.takenTotal(), maxShots, bgm: gg.bgm(), form: gg.form(), dist: Math.hypot(gi.girlX - sp.x, gi.girlZ - sp.z), phase: w.__gashaGirl.phase() };
+      const pp = w.__rikkun.player.get().position, gi = gg.girl();
+      return { clearedAt, taken: gt.takenTotal(), maxShots, bgm: gg.bgm(), form: gg.form(), dist: Math.hypot(gi.girlX - pp.x, gi.girlZ - pp.z), phase: w.__gashaGirl.phase() };
     }, Math.ceil(Math.max(GT.s3.lifeSec, GT.s4.lifeSec, GT.s2.totalSec) * 60) + 60);
     expect(r.clearedAt, '飛んで いた 弾が 消える').toBeGreaterThanOrEqual(0);
     expect(r.phase).toBe('perch');
@@ -197,7 +197,7 @@ test.describe('肩に 座った 少女', () => {
     expect(r.taken).toBe(0);
     expect(r.maxShots, '魔法・渦・火の玉は 新しく 出ない').toBe(0);
     expect(r.bgm.desired, '座って いる 間も「災厄」(ふだんの 曲に もどさない)').toBe('saiyaku');
-    expect(r.dist).toBeLessThan(0.5);
+    expect(Math.abs(r.dist - GT.rest.dist), 'プレイヤーの 前 rest.dist ブロック').toBeLessThan(0.6);
     expect(errs).toEqual([]);
   });
 
@@ -207,11 +207,11 @@ test.describe('肩に 座った 少女', () => {
     await page.evaluate(() => (window as any).__gg.hpTo(0.3));
     await untilSeated(page);
     await page.evaluate(() => {
-      const w = window as any, gt = w.__gt, h = gt.h, g = gt.big();
+      const w = window as any, gt = w.__gt, h = gt.h;
       gt.run(30, () => gt.heal());
-      const sp = g.perchSpot(), gi = w.__gashaGirl.info();
-      // 肩の 上（少女の まうしろ）に 立って、-z（少女の 方）へ 突く。登らず 置く
-      h.player.set({ position: { x: gi.girlX, y: sp.y - 0.2, z: gi.girlZ + 1.8 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+      const gi = w.__gashaGirl.info();
+      // 地面の 少女の まうしろに 立って、-z（少女の 方）へ 突く
+      h.player.set({ position: { x: gi.girlX, y: gi.girlY, z: gi.girlZ + 1.8 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
       h.step(1);
     });
     const hp0 = await page.evaluate(() => (window as any).__gashaBig.hp() as number);
@@ -234,9 +234,9 @@ test.describe('肩に 座った 少女', () => {
     const f = await page.evaluate(() => (window as any).__gg.untilForm('laugh'));
     expect(f).toBeGreaterThanOrEqual(0);
     await page.evaluate(() => {
-      const w = window as any, gt = w.__gt, h = gt.h, g = gt.big();
-      const sp = g.perchSpot();
-      h.player.set({ position: { x: sp.x, y: sp.y - 0.2, z: sp.z + 1.8 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+      const w = window as any, gt = w.__gt, h = gt.h;
+      const gi = w.__gashaGirl.info();
+      h.player.set({ position: { x: gi.girlX, y: gi.girlY, z: gi.girlZ + 1.8 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
       h.step(1);
     });
     const hp0 = await page.evaluate(() => (window as any).__gashaBig.hp() as number);
