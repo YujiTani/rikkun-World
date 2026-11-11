@@ -20,15 +20,9 @@ export const keyOf = (x: number, y: number, z: number): number => (x + OFF) * XS
 export const keyY = (k: number): number => k % ZS;
 export const keyZ = (k: number): number => (Math.floor(k / ZS) % 2_097_152) - OFF;
 export const keyX = (k: number): number => Math.floor(k / XS) - OFF;
+/** となり 6 方向〔+x −x +y −y +z −z〕の 番号の 差。`keyOf(x + dx, y + dy, z + dz)` ＝ `keyOf(x, y, z) + 差`（分けて 作りなおさ なくて よい） */
+export const SIX_KEY_DELTA: readonly number[] = [XS, -XS, 1, -1, ZS, -ZS];
 
-const SIX: readonly (readonly [number, number, number])[] = [
-  [1, 0, 0],
-  [-1, 0, 0],
-  [0, 1, 0],
-  [0, -1, 0],
-  [0, 0, 1],
-  [0, 0, -1],
-];
 
 /** 道の 足の マス 1 つの 上に 空気に する 高さ（マス）。へやは 5 */
 export const airHeightOf = (part: PathPart): number => (part === 'room' ? 5 : part === 'hibi' ? 2 : 4);
@@ -122,11 +116,8 @@ export class ShaftBuilder {
     }
     for (const k of fresh) this.ring.delete(k);
     for (const k of fresh) {
-      const x = keyX(k);
-      const y = keyY(k);
-      const z = keyZ(k);
-      for (const [dx, dy, dz] of SIX) {
-        const n = keyOf(x + dx, y + dy, z + dz);
+      for (let d = 0; d < 6; d++) {
+        const n = k + SIX_KEY_DELTA[d]!;
         if (!this.air.has(n) && !this.exempt.has(n)) this.ring.add(n);
       }
     }
@@ -146,11 +137,8 @@ export class ShaftBuilder {
 /** 空気の となり 6 方向 ＋ 道の 足の 下 2 マス〔空気と skip を のぞく〕を out に 入れる */
 export function ringFor(air: ReadonlySet<number>, path: readonly Pt3[], skip: ReadonlySet<number>, out: Set<number>): void {
   for (const k of air) {
-    const x = keyX(k);
-    const y = keyY(k);
-    const z = keyZ(k);
-    for (const [dx, dy, dz] of SIX) {
-      const n = keyOf(x + dx, y + dy, z + dz);
+    for (let d = 0; d < 6; d++) {
+      const n = k + SIX_KEY_DELTA[d]!;
       if (!air.has(n) && !skip.has(n)) out.add(n);
     }
   }

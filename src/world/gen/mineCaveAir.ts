@@ -18,7 +18,7 @@ const NK = WORLD_HEIGHT / 4 + 1;
 /** 1 つの 格子の 点で 覚える 最大数（列の 組）。古い 物から すてる */
 const NODE_CAP = 6000;
 /** 高さの おぼえの 数（2 の H_BITS 乗 か所） */
-const H_BITS = 16;
+const H_BITS = 18;
 /** 窓の おぼえの 列の 数（2 の W_BITS 乗 列） */
 const W_BITS = 15;
 /** 1 列の 窓の 数（縦 8 マスずつ） */
@@ -42,7 +42,7 @@ export class CaveAir {
   private readonly nodes = new Map<number, Node>();
   /** 高さの おぼえ（場所から きめる 位置に 1 つ。-1 ＝ 空き） */
   private readonly hKeys = new Float64Array(1 << H_BITS).fill(-1);
-  private readonly hVals = new Float64Array(1 << H_BITS);
+  private readonly hVals = new Int32Array(1 << H_BITS);
   /** 窓の おぼえ（列の 位置に 1 つ。wKeys ＝ 列の 番号、wDone ＝ 窓ごとの 計算ずみ、wAir ＝ 空気） */
   private readonly wKeys = new Float64Array(1 << W_BITS).fill(-1);
   private readonly wDone = new Uint8Array(NW << W_BITS);

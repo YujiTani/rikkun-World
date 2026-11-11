@@ -238,24 +238,32 @@ export function* finishRoomSteps(st: RoomStage): Generator<void, BuiltRoom> {
 
 /** 穴を 分ける: 歩いて 行き来 できて 外を 4 歩 すすめる 物は のこし、ほかは 石で ふさぐ。のこした 数を 返す */
 function* sealHoles(g: Grid, W: Combined, holes: number[], coord: (i: number) => [number, number, number]): Generator<void, number> {
-  const isHole = new Map<number, boolean>(holes.map((i) => [i, true]));
-  const seen = new Set<number>();
+  // 穴・見たか は 地図の 添字で 印を つける（Map・Set を 使わない）
+  const isHole = new Uint8Array(g.a.length);
+  for (const i of holes) isHole[i] = 1;
+  const seen = new Uint8Array(g.a.length);
+  const { gx, gy, gz } = g;
+  const layerN = gx * gz;
   let openings = 0;
   const comps: number[][] = [];
   for (const h of holes) {
-    if (seen.has(h)) continue;
+    if (seen[h]) continue;
     const comp: number[] = [];
     const stack = [h];
-    seen.add(h);
+    seen[h] = 1;
     while (stack.length > 0) {
       const i = stack.pop()!;
       comp.push(i);
-      const [x, y, z] = coord(i);
-      for (const [dx, dy, dz] of SIX) {
-        if (!g.inside(x + dx, y + dy, z + dz)) continue;
-        const j = g.idx(x + dx, y + dy, z + dz);
-        if (isHole.has(j) && !seen.has(j)) {
-          seen.add(j);
+      const x = i % gx;
+      const r = (i - x) / gx;
+      const z = r % gz;
+      const y = (r - z) / gz;
+      // となりの 順は SIX と 同じ（+x −x +y −y +z −z）。地図の 外は 見ない
+      for (let d = 0; d < 6; d++) {
+        if (d === 0 ? x + 1 >= gx : d === 1 ? x < 1 : d === 2 ? y + 1 >= gy : d === 3 ? y < 1 : d === 4 ? z + 1 >= gz : z < 1) continue;
+        const j = i + (d === 0 ? 1 : d === 1 ? -1 : d === 2 ? layerN : d === 3 ? -layerN : d === 4 ? gx : -gx);
+        if (isHole[j] && !seen[j]) {
+          seen[j] = 1;
           stack.push(j);
         }
       }
