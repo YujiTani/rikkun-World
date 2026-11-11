@@ -25,7 +25,7 @@ import { yakataBox, gateCells } from './mineYakataReport';
  */
 
 /** うその 妖怪の 係: `YakataPorts.yokai` の とおりに 動く。たおす〔`kill`〕・たおさずに 消す〔`vanish`〕・ふつうの 妖怪を 足す〔`addOrdinary`〕 */
-export class FakeYokai {
+class FakeYokai {
   private nextId = 100;
   readonly rows: YakataYokaiRow[] = [];
   readonly spawned: { id: number; kind: YokaiKindId; title: string; x: number; y: number; z: number; opts: { title: string; free: boolean; graceSteps: number } }[] = [];

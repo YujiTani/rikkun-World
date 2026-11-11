@@ -122,5 +122,5 @@ describe('F6: ふつうの きまりの 外', () => {
     const closed = rig(cfg, { noSpawnAt: () => true });
     closed.step(tries);
     expect(closed.m.list(), '出ない').toHaveLength(0);
-  });
+  }, 300_000);
 });

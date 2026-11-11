@@ -1,6 +1,6 @@
 import { createMineHook } from './mineHook';
-import { hookE, type BokenShaft, type MineHookE } from './mineBokenKit';
-import { SEEDS_20, type ChestTable, type OldCols, type PathCell, type Pt, type Tier } from './mineShaftKit';
+import { type BokenShaft, type MineHookE } from './mineBokenKit';
+import { SEEDS_20, type OldCols, type PathCell, type Pt, type Tier } from './mineShaftKit';
 import { spawnOf } from './terrain';
 
 /**
@@ -31,6 +31,14 @@ import { spawnOf } from './terrain';
  *   ・光: `WorldLight.setYakataBoxes(boxes)`・`WorldLight.yakataBoxes()`・`WorldLight.yakataTint(x, y, z)`・`brightness` は やかたの 中の 式〔`mineYakataLight.test.ts`〕
  *   ・音: `src/fx/yakataSound.ts`〔`YAKATA_SOUND_URLS`・`YakataSound`〕・`src/fx/bgm/yakataScene.ts`〔`createYakataScene`〕〔`src/fx/yakataSound.test.ts`・`yakataScene.test.ts`〕
  *   ・距離は 横〔x・z〕。座標・向きは 窓口に 聞く
+ *
+ * 【テスト側の 読み】〔仕様に 書いて ない 所だけ。1 行ずつ。developer が ちがう 読みなら テストを 直して 台帳に 書く〕
+ *   ・`yakataFoes(id)` は 7 ひきの 種類・二つ名・出る 場所の 候補を シードで きめた 答え〔あける 前でも 同じ〕。あけた 人の 近く〔横 4 マス 以内〕を のぞく えらびで 場所が かわる 分は、実際の 妖怪の 種類・二つ名の 並びで くらべ 場所は 候補の マス〔12 か所〕の どれかで 見る。
+ *   ・「横 N マス」「N マス 以内」の きょりは 床の 面〔x・z〕の ふつうの きょり〔√〕。まわり 2 マス・4 マスの 余白は チェビシェフ〔四角〕。
+ *   ・1E の 道の まわり 2 マスに かからない 例外は あやしい 横穴の 口の 3 マス ＋ その 先 2 マス〔= 横穴の 最初の 5 マス〕だけ。
+ *   ・宝箱を あける 人〔`who`〕は 窓口の `open(x, y, z, who)` の 引数と ポートの `run(who, fn)`〔持ち物・おとし物は その 人の もの〕の 両方で 決まる。
+ *   ・`hit` ＝ くじの 当たり〔置けず なしに した ときも true〕・`placed` ＝ 実際に 置けた。`yakata` が null ＝ 当たりでも 置けない ときを ふくむ。
+ *   ・口の はなれ: あやしい 横穴の 口は ほかの 口〔本道・ひろばの かべの 口〕と 6 マス 以上・1 つの ひろばから 出る 物は あわせて 1 つ まで。
  */
 
 // ------------------------------------------------------------------ 窓口の 型〔仕様 §6.1〕
@@ -207,9 +215,6 @@ interface HookOptionsF {
 export function hookF(seed: number, o: HookOptionsF = {}): MineHookF {
   return createMineHook({ seed, ...o } as never) as unknown as MineHookF;
 }
-/** 1E の 窓口〔型だけ〕 */
-export const asE = (h: MineHookF): MineHookE => h as unknown as MineHookE;
-export { hookE };
 
 /** 窓口が ある〔ない うちは 赤〕ことを 先に 見て、ない 名前を ぜんぶ 言って 落とす */
 export function needYakataHook(h: MineHookF, names: readonly (keyof MineHookF)[]): void {
@@ -229,15 +234,6 @@ export function tableOf(seed = SEEDS_20[0]!): YakataTable {
   const t = h.yakataTable();
   tableMemo.set(seed, t);
   return t;
-}
-export function soundTableOf(seed = SEEDS_20[0]!): YakataSoundTable {
-  const h = hookF(seed);
-  needYakataHook(h, ['yakataSoundTable']);
-  return h.yakataSoundTable();
-}
-/** 宝箱の 表 `yakata`〔MINE-1 §4.6〕 */
-export function yakataChestTable(seed = SEEDS_20[0]!): ChestTable {
-  return hookF(seed).chestTable('yakata');
 }
 
 // ------------------------------------------------------------------ 標本
@@ -325,14 +321,6 @@ export function upperRect(y: Yakata, T: YakataTable): Rect {
   const x0 = Math.floor(c.x - (w - 1) / 2);
   const z0 = Math.floor(c.z - (dd - 1) / 2);
   return { x0, y: a.y + 1, z0, x1: x0 + w - 1, z1: z0 + dd - 1 };
-}
-/** あける 人が 立つ 足の マス: 宝箱の 前〔門の ほう〕の 上の 段の 上 */
-export function chestFront(y: Yakata): Pt {
-  const d = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] }[y.chest.front];
-  const c = y.chest.cells;
-  const cx = c.reduce((s, p) => s + p.x, 0) / c.length;
-  const cz = c.reduce((s, p) => s + p.z, 0) / c.length;
-  return { x: Math.round(cx + d[0] * 1.5 - (c.length > 1 ? 0 : 0)), y: y.chest.cells[0]!.y, z: Math.round(cz + d[1] * 1.5) };
 }
 /** 光の 見え方に わたす やかたの 箱〔世界の 座標。両はし ふくむ。`WorldLight.setYakataBoxes`〕。横穴の 箱と 大広間〔かべの 中〕の 箱の 2 つ */
 export interface LightBox {

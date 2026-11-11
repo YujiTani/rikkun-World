@@ -2,7 +2,7 @@ import { SEA_Y } from '../../contracts';
 import { SHAFT_CONFIG } from './mineShaftConfig';
 import { isBodyIndex, isSolidIndex, ptKey, standable, type GenCols, type PathCell, type Pt } from './mineShaftKit';
 import { heightAt } from './terrain';
-import { blockIdsOf, cheb2, gateDir, hookF, rectCells, rectCenter, rectD, rectW, upperRect, LOOKS, type Look, type Rect, type Yakata, type YakataShaft, type YakataTable, type Zone } from './mineYakataKit';
+import { blockIdsOf, cheb2, gateDir, rectCells, rectCenter, rectD, rectW, upperRect, LOOKS, type Look, type Rect, type Yakata, type YakataShaft, type YakataTable, type Zone } from './mineYakataKit';
 
 /**
  * MINE-1F を ブロックで しらべる 道具〔F2・F21 の 一部。約束は mineYakataKit.ts の 冒頭〕。直した ほうが よい 所を 文で 返す〔空なら 合格〕。
@@ -21,7 +21,7 @@ const idsSet = (T: YakataTable, look: Look): Set<string> => new Set(blockIdsOf(T
 const otherLook = (look: Look): Look => LOOKS.find((l) => l !== look)!;
 
 /** あやしい 横穴が すすむ 向き〔口 → 門〕 */
-export function passageDir(y: Yakata): { dx: number; dz: number } {
+function passageDir(y: Yakata): { dx: number; dz: number } {
   const a = y.passage[0]!;
   const b = y.passage[y.passage.length - 1]!;
   return Math.abs(b.x - a.x) >= Math.abs(b.z - a.z) ? { dx: Math.sign(b.x - a.x), dz: 0 } : { dx: 0, dz: Math.sign(b.z - a.z) };
@@ -406,6 +406,3 @@ export function placeProblemsF(seed: number, s: YakataShaft, path: readonly Path
   return bad.slice(0, 6);
 }
 
-/** F2 の 「くじで 見つけた やかた」を つくる 窓口の ない とき の 見張り */
-export const lookOf = (s: YakataShaft): Look => s.yakata!.look;
-export { hookF };

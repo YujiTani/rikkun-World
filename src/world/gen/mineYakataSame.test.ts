@@ -1,6 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { GOLDEN_CAVE_HALF, GOLDEN_CAVE_SEEDS, GOLDEN_E_FILE, GOLDEN_E_HALF, GOLDEN_E_SEEDS, hashOf, pathHashOf, sidesSig, type GoldenE } from './mineYakataGolden';
+import { GOLDEN_CAVE_HALF, GOLDEN_CAVE_SEEDS, GOLDEN_E_FILE, GOLDEN_E_HALF, GOLDEN_E_SEEDS, hashOf, sidesSig, type GoldenE } from './mineYakataGolden';
+import { pathHashOf } from './mineBokenGolden';
 import { hookE } from './mineBokenKit';
 import { goldenE, pathHashNoYakata } from './mineYakataGolden';
 import { hookF, needYakataHook } from './mineYakataKit';

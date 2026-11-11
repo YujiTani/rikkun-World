@@ -43,7 +43,6 @@ export const goldenE = (): GoldenE => JSON.parse(readFileSync(GOLDEN_E_FILE, 'ut
 
 /** `'yakata'` の 足の マスを のぞいた 道の ハッシュ〔1F の あと 比べる〕 */
 export const pathHashNoYakata = (path: readonly PathCell[]): string => pathHashOf(path.filter((c) => (c.part as string) !== 'yakata'));
-export { pathHashOf };
 
 const fnv = (s: string): string => {
   let v = 0x811c9dc5;
