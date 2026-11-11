@@ -62,7 +62,7 @@ const gateOf = (y: Yakata): Pt[] => {
   return out;
 };
 
-export /** 門の 内がわ〔大広間の 側〕の 立つ 場所: 門の まん中から 大広間の まん中へ 2 マス */
+/** 門の 内がわ〔大広間の 側〕の 立つ 場所: 門の まん中から 大広間の まん中へ 2 マス */
 function pushOut(y: Yakata, footY: number): { x: number; y: number; z: number } {
   const gx = (y.gate.x0 + y.gate.x1 + 1) / 2;
   const gz = (y.gate.z0 + y.gate.z1 + 1) / 2;
