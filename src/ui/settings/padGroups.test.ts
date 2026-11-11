@@ -66,11 +66,14 @@ describe('ゲームパッドの札', () => {
     expect(minus.box.x + minus.box.w).toBeLessThanOrEqual(plus.box.x);
   });
 
-  it('もちもの・クラフトは 十字=えらぶ・B=きめる・A=もどる・＋=スタートメニュー', () => {
+  it('もちもの・クラフトは 十字=えらぶ・B=きめる・A=もどる・X=すてる・R3=ぜんぶ すてる・Y=とじる・＋=スタートメニュー', () => {
     expect(MENU_LABELS.map((l) => [l.text, l.faces.join(',')])).toEqual([
       ['えらぶ', 'dpadUp,dpadDown,dpadLeft,dpadRight'],
       ['きめる', 'faceBottom'],
       ['もどる', 'faceRight'],
+      ['1こ すてる', 'faceTop'],
+      ['ぜんぶ すてる', 'r3'],
+      ['とじる', 'faceLeft'],
       ['スタートメニュー', 'start'],
     ]);
   });

@@ -216,10 +216,11 @@ export class DropField {
   /**
    * プレイヤーが 1 つ すてる（M6 §2.8）。目の高さから 0.3 下、向いている方へ 横・上へ とび出す。
    * 出る所がブロックの中なら 足もとに出す。dropPickupDelay ステップは拾わない。
+   * from = すてる 人の 足もと（2P が すてる とき。なければ 1P）
    */
-  throwItem(stack: ItemStack, yawDeg: number, eyeHeight: number): void {
+  throwItem(stack: ItemStack, yawDeg: number, eyeHeight: number, from?: Vec3): void {
     if (stack.count < 1) return;
-    const p = this.d.player();
+    const p = from ?? this.d.player();
     const yaw = (yawDeg * Math.PI) / 180;
     const dx = Math.sin(yaw);
     const dz = -Math.cos(yaw);
