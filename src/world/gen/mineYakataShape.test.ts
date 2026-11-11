@@ -96,7 +96,7 @@ describe('F2: 形〔横穴・門・大広間・祭壇・宝箱・出る 場所�
       const cells = yakataPathCells(pathOf(r));
       const y = r.yakata;
       const have = new Set(cells.map((c) => `${c.x},${c.y},${c.z}`));
-      if (cells.length < y.passage.length + 17 * 17 - 20) bad.push(`${tag(r)}: yakata の 足の マスが ${cells.length} こ〔少ない〕`);
+      if (cells.length < y.passage.length + tableOf().hall.size * tableOf().hall.size - 20 /* 柱の 下は 数えない 余裕 */) bad.push(`${tag(r)}: yakata の 足の マスが ${cells.length} こ〔少ない〕`);
       for (const c of y.passage) if (!have.has(`${c.x},${c.y},${c.z}`)) bad.push(`${tag(r)}: 横穴 (${c.x}, ${c.y}, ${c.z}) が shaftPath に ない`);
       for (const c of cells.slice(0, 40)) {
         if (r.hook.caveAt(c.x, c.y, c.z) !== 'yakata') bad.push(`${tag(r)}: caveAt (${c.x}, ${c.y}, ${c.z}) が ${String(r.hook.caveAt(c.x, c.y, c.z))}`);
@@ -159,6 +159,22 @@ describe('F17: 計画の 仕事・光る ブロックの 上限', () => {
       expect(w!, `${tag(r)}`).toBeGreaterThanOrEqual(1);
       expect(w!, `${tag(r)}`).toBeLessThanOrEqual(lim!);
     }
+  });
+
+  it('列 1 つで 見る 坑道の 区画は 4 つ まで〔やかたの 箱の まわりの 列。`work(cx, cz).shaftRegions` ≤ 表の regionsPerCol〕', () => {
+    expect(rows.length, 'やかたが ない').toBeGreaterThan(0);
+    const T = tableOf();
+    let cols = 0;
+    for (const r of rows.slice(0, 6)) {
+      const limit = r.hook.shaftShapeTable().limit.regionsPerCol;
+      expect(limit, '表の 上限は 仕様の 4').toBeLessThanOrEqual(4);
+      const b = yakataBox(r.yakata, T);
+      for (let cz = (b.z0 >> 4) - 1; cz <= (b.z1 >> 4) + 1; cz++) for (let cx = (b.x0 >> 4) - 1; cx <= (b.x1 >> 4) + 1; cx++) {
+        cols++;
+        expect(r.hook.work(cx, cz).shaftRegions, `${tag(r)} 列 (${cx}, ${cz})`).toBeLessThanOrEqual(limit);
+      }
+    }
+    expect(cols, '見た 列').toBeGreaterThan(0);
   });
 
   it('やかた 1 つの あやしい たいまつは 表の maxTorches 本 まで〔torchProblemsF〕・やかたの かかる 列の 光る ブロックは 1 列 80 こ まで〔`work(cx, cz).emitters` ≦ 表の `torchesPerCol`〕', () => {

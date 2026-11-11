@@ -116,21 +116,26 @@ const kabeIds = (): { A: string; B: string } => {
   const lb = tableOf(SEED).lookBlocks;
   return { A: lb.maou.kabe, B: lb.otera.kabe };
 };
+const partIds = (look: 'maou' | 'otera'): string[] => {
+  const b = tableOf(SEED).lookBlocks[look];
+  return [b.kabe, b.yuka, b.dan, b.taimatsu];
+};
 
 describe('F4: ロックの 間は こわれない', () => {
   for (const look of LOOKS) {
-    for (const tool of [null, 'iron_pickaxe'] as const) {
-      it(`${look}: ${tool ?? 'すで'} で 600 ステップ ほっても こわれない・blockedReason は yakata・blocked の できごと`, () => {
-        const id = look === 'maou' ? kabeIds().A : kabeIds().B;
-        const r = rig(tool ? I(tool) : null, id as BlockId, { yakata: { locked: () => true } });
-        expect(r.at(), '置いた').toBe(id);
-        expect(dugThrough(r), 'こわれた').toBe(false);
-        expect(r.at()).toBe(id);
-        expect(r.dig.state().blockedReason).toBe('yakata');
-        const ev = r.dig.drainEvents().filter((e: DigEvent) => e.type === 'blocked');
-        expect(ev.length).toBeGreaterThan(0);
-        expect(ev.every((e) => (e as { reason?: string }).reason === 'yakata')).toBe(true);
-      });
+    for (const [pi, id] of partIds(look).entries()) {
+      for (const tool of [null, 'iron_pickaxe'] as const) {
+        it(`${look} の ${['かべ', 'ゆか', 'だん', 'たいまつ'][pi]}: ${tool ?? 'すで'} で 600 ステップ ほっても こわれない・blockedReason は yakata・blocked の できごと`, () => {
+          const r = rig(tool ? I(tool) : null, id as BlockId, { yakata: { locked: () => true } });
+          expect(r.at(), '置いた').toBe(id);
+          expect(dugThrough(r), 'こわれた').toBe(false);
+          expect(r.at()).toBe(id);
+          expect(r.dig.state().blockedReason).toBe('yakata');
+          const ev = r.dig.drainEvents().filter((e: DigEvent) => e.type === 'blocked');
+          expect(ev.length).toBeGreaterThan(0);
+          expect(ev.every((e) => (e as { reason?: string }).reason === 'yakata')).toBe(true);
+        });
+      }
     }
   }
 
@@ -139,19 +144,24 @@ describe('F4: ロックの 間は こわれない', () => {
     expect(dugThrough(r, 1200), 'こわれた').toBe(true);
   });
 
-  it('かった あと〔ロックなし〕: 固さ 3・いしの つるはし・ほると じぶん 1・すでは ほれない', () => {
-    const id = kabeIds().A;
-    const hard = DIG.hardness[id as BlockId];
-    expect(hard, '表の 固さ').toBeDefined();
-    const bare = rig(null, id as BlockId, { yakata: { locked: () => false } });
-    expect(dugThrough(bare, 900), 'すでは ほれない').toBe(false);
-    const r = rig(I('stone_pickaxe'), id as BlockId, { yakata: { locked: () => false } });
-    expect(dugThrough(r, 1200), 'いしの つるはしで こわれた').toBe(true);
-    const got: Record<string, number> = {};
-    r.inv.slots().forEach((s, i) => {
-      if (s && i !== 0) got[s.item] = (got[s.item] ?? 0) + s.count;
-    });
-    expect(got, 'じぶん 1').toEqual({ [id]: 1 });
+  it('かった あと〔ロックなし〕: 8 つ とも ほると じぶん 1〔かべ・ゆか・だんは 固さ 3・いしの つるはし・すでは ほれない／たいまつは すでで すぐ〕', () => {
+    for (const look of LOOKS) {
+      for (const [pi, id] of partIds(look).entries()) {
+        const torch = pi === 3;
+        if (!torch) {
+          expect(DIG.hardness[id as BlockId], `${id} の 固さ`).toBe(3);
+          const bare = rig(null, id as BlockId, { yakata: { locked: () => false } });
+          expect(dugThrough(bare, 900), `${id}: すでは ほれない`).toBe(false);
+        }
+        const r = rig(torch ? null : I('stone_pickaxe'), id as BlockId, { yakata: { locked: () => false } });
+        expect(dugThrough(r, 1200), `${id} が こわれた`).toBe(true);
+        const got: Record<string, number> = {};
+        r.inv.slots().forEach((s, i) => {
+          if (s && (torch || i !== 0)) got[s.item] = (got[s.item] ?? 0) + s.count;
+        });
+        expect(got, `${id} は じぶん 1`).toEqual({ [id]: 1 });
+      }
+    }
   });
 });
 

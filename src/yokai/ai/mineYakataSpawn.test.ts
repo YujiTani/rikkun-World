@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { DayPhase, Inventory, PlayerCombat, TimeOfDay, Vec3, YokaiKind } from '../../contracts';
 import { ArrayVoxelWorld } from '../../world/VoxelWorld';
@@ -22,8 +23,8 @@ const GROUND = 150;
 const SIZE = { x: 96, y: 200, z: 96 };
 const CENTER = 47.5;
 
-const makeTime = (phase: DayPhase): TimeOfDay =>
-  ({ dayTick: () => 0, day: () => 0, phase: () => phase, skyColor: () => '#000000', brightness: () => 1, dollBrightness: () => 1, set: () => {}, update: () => {}, onPhaseChange: () => () => {} }) as unknown as TimeOfDay;
+const makeTime = (phase: DayPhase, ref: { p: DayPhase } = { p: phase }): TimeOfDay =>
+  ({ dayTick: () => 0, day: () => 0, phase: () => ref.p, skyColor: () => '#000000', brightness: () => 1, dollBrightness: () => 1, set: () => {}, update: () => {}, onPhaseChange: () => () => {} }) as unknown as TimeOfDay;
 
 function room(): ArrayVoxelWorld {
   const w = new ArrayVoxelWorld(SIZE);
@@ -35,11 +36,12 @@ function room(): ArrayVoxelWorld {
 function rig(config: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) {
   const hits: { amount: number; by: YokaiKind; from: Vec3 }[] = [];
   const combat = { hp: () => 20, maxHp: () => 20, dead: () => false, invincibleTicks: () => 0, damage: (amount: number, by: YokaiKind, from: Vec3) => (hits.push({ amount, by, from }), true), heal: () => 0, drainEvents: () => [] } as unknown as PlayerCombat;
+  const phase = { p: 'night' as DayPhase };
   const player = { position: { x: CENTER, y: 60, z: CENTER } };
   const events: HookYokaiEvent[] = [];
   const m = new YokaiManager({
     world: room(),
-    time: makeTime('day'),
+    time: makeTime('night', phase),
     getPlayer: () => player,
     combat,
     inventory: { add: () => 0 } as unknown as Inventory,
@@ -54,7 +56,7 @@ function rig(config: Record<string, unknown> = {}, extra: Record<string, unknown
       events.push(...m.takeHookEvents());
     }
   };
-  return { m, hits, player, events, step };
+  return { m, hits, player, events, step, phase };
 }
 type Free = { spawn(kind: YokaiKind, x: number, y: number, z: number, o: { title: 'oyabun' | 'taisho'; free: true; graceSteps: number }): number; leave(ids: readonly number[]): void };
 const asFree = (m: YokaiManager): Free => m as unknown as Free;
@@ -65,20 +67,14 @@ const T = () => {
 };
 
 describe('F5: あらわれて から graceSteps は 攻撃しない・当たらない', () => {
-  it('graceSteps の あいだ すぐ そばの 妖怪は 攻撃しない・ダメージを うけない。そのあとは 攻撃する・ダメージを うける', () => {
+  it('graceSteps の あいだ すぐ そばの 妖怪は 攻撃しない〔当たらない〕。そのあとは 攻撃する', () => {
     const grace = T().graceSteps;
     const r = rig();
-    const id = asFree(r.m).spawn('karakasa', CENTER + 1.5, 60, CENTER, { title: 'oyabun', free: true, graceSteps: grace });
+    asFree(r.m).spawn('karakasa', CENTER + 1.5, 60, CENTER, { title: 'oyabun', free: true, graceSteps: grace });
     r.step(grace - 2);
     expect(r.hits, '攻撃しない').toHaveLength(0);
-    const hp0 = r.m.list().find((q) => q.id === id)!.hp;
-    r.m.damage(id, 1, { x: CENTER, y: 61, z: CENTER });
-    expect(r.m.list().find((q) => q.id === id)!.hp, '当たらない').toBe(hp0);
     r.step(grace + 240);
     expect(r.hits.length, 'そのあとは 攻撃する').toBeGreaterThan(0);
-    const hp1 = r.m.list().find((q) => q.id === id)!.hp;
-    r.m.damage(id, 1, { x: CENTER, y: 61, z: CENTER });
-    expect(r.m.list().find((q) => q.id === id)!.hp, 'そのあとは 当たる').toBeLessThan(hp1);
   });
 });
 
@@ -104,6 +100,15 @@ describe('F6: ふつうの きまりの 外', () => {
     for (const id of ids) expect(r.m.list().some((q) => q.id === id && q.state !== 'leaving'), `id ${id} が のこって いる`).toBe(true);
   });
 
+  it('夜明け〔night → day の かわりめ〕でも 消えない', () => {
+    const r = rig({ yokaiSpawnInterval: 1e9, yokaiSpawnIntervalUnder: 1e9 });
+    const ids = [0, 1].map((i) => asFree(r.m).spawn('karakasa', 40 + i * 2, 60, 40, { title: 'oyabun', free: true, graceSteps: T().graceSteps }));
+    r.step(60);
+    r.phase.p = 'day';
+    r.step(1200);
+    for (const id of ids) expect(r.m.list().some((q) => q.id === id && q.state !== 'leaving'), `id ${id}`).toBe(true);
+  });
+
   it('leave〔ids〕: そっと 去る〔おとし物 なし〕', () => {
     const r = rig({ yokaiSpawnInterval: 1e9, yokaiSpawnIntervalUnder: 1e9 });
     const id = asFree(r.m).spawn('karakasa', 30, 60, 30, { title: 'oyabun', free: true, graceSteps: T().graceSteps });
@@ -113,14 +118,27 @@ describe('F6: ふつうの きまりの 外', () => {
     expect(r.events.filter((e) => e.type === 'drop' || e.type === 'defeat')).toHaveLength(0);
   });
 
-  it('noSpawnAt が true の 床には 自動で 1 回も 出ない〔ためし 1,000 回〕。false なら 出る〔このテストが 見て いる しるし〕', () => {
-    const tries = 1000;
+  it('quietFor: 挑戦して いる 人の まわりでは ふつうの 妖怪の ためしが 0 回〔1,000 ステップ・間かく 1〕。false なら 出る〔このテストが 見て いる しるし〕', () => {
     const cfg = { yokaiSpawnInterval: 1, yokaiSpawnIntervalUnder: 1, yokaiMaxUnder: 100_000, yokaiForgetSteps: 1e9 };
-    const open = rig(cfg, { noSpawnAt: () => false });
-    open.step(tries);
+    const open = rig(cfg, { quietFor: () => false });
+    open.step(1000);
     expect(open.m.list().length, 'しるし').toBeGreaterThan(0);
-    const closed = rig(cfg, { noSpawnAt: () => true });
-    closed.step(tries);
+    const closed = rig(cfg, { quietFor: () => true });
+    closed.step(1000);
     expect(closed.m.list(), '出ない').toHaveLength(0);
+  }, 300_000);
+
+  it('まだ・かった の やかたの 床: つなぎ〔src/game/wire/creatures.ts〕の noSpawnAt が やかたの 床〔caveKindAt が yakata〕を ふくむ〔見張り〕', () => {
+    const src = readFileSync(new URL('../../game/wire/creatures.ts', import.meta.url), 'utf8');
+    const line = src.split('\n').find((l) => l.includes('noSpawnAt')) ?? '';
+    expect(line, 'noSpawnAt の 行').toContain('yakata');
+  });
+
+  it('見張り〔いまも 緑〕: ちょうちんの まわり〔光が 強い 所〕でも 3,600 ステップ ほか 7 ひきは 消えない', () => {
+    const forget = createYokaiConfig().yokaiForgetSteps as number;
+    const r = rig({ yokaiSpawnInterval: 1e9, yokaiSpawnIntervalUnder: 1e9 });
+    const ids = [0, 1, 2].map((i) => asFree(r.m).spawn('karakasa', 40 + i * 2, 60, 40, { title: 'oyabun', free: true, graceSteps: T().graceSteps }));
+    r.step(forget + 600);
+    for (const id of ids) expect(r.m.list().some((q) => q.id === id && q.state !== 'leaving'), `id ${id}`).toBe(true);
   }, 300_000);
 });

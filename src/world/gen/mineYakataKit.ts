@@ -29,7 +29,7 @@ import { spawnOf } from './terrain';
  *   ・YokaiManager: `spawn(kind, x, y, z, { title, free: true, graceSteps })`〔`SpawnOptions` に `free`・`graceSteps` を 足す〕・`YokaiManagerOptions.quietFor?: (who) => boolean`〔true の 人の まわりでは 自動の 出現の ためしを しない〕・
  *       `noSpawnAt` は 今の まま〔やかたの 床で true〕〔`src/yokai/ai/mineYakataSpawn.test.ts`〕
  *   ・光: `WorldLight.setYakataBoxes(boxes)`・`WorldLight.yakataBoxes()`・`WorldLight.yakataTint(x, y, z)`・`brightness` は やかたの 中の 式〔`mineYakataLight.test.ts`〕
- *   ・音: `src/fx/yakataSound.ts`〔`YAKATA_SOUND_URLS`・`YakataSound`〕・`src/fx/bgm/yakataScene.ts`〔`createYakataScene`〕〔`src/fx/yakataSound.test.ts`・`yakataScene.test.ts`〕
+ *   ・音: `src/fx/yakataSound.ts`〔`YAKATA_SOUND_URLS`・`YAKATA_GAIN_MAX`・`YakataSound`〕・`src/fx/bgm/yakataScene.ts`〔`createYakataScene`〕・`src/fx/yakataMotion.ts`〔`yakataMotion`〕。形は 各 test.ts の 頭〔`src/fx/yakataSound.test.ts`・`src/fx/bgm/yakataScene.test.ts`〕。
  *   ・距離は 横〔x・z〕。座標・向きは 窓口に 聞く
  *
  * 【テスト側の 読み】〔仕様に 書いて ない 所だけ。1 行ずつ。developer が ちがう 読みなら テストを 直して 台帳に 書く〕
@@ -39,6 +39,10 @@ import { spawnOf } from './terrain';
  *   ・宝箱を あける 人〔`who`〕は 窓口の `open(x, y, z, who)` の 引数と ポートの `run(who, fn)`〔持ち物・おとし物は その 人の もの〕の 両方で 決まる。
  *   ・`hit` ＝ くじの 当たり〔置けず なしに した ときも true〕・`placed` ＝ 実際に 置けた。`yakata` が null ＝ 当たりでも 置けない ときを ふくむ。
  *   ・口の はなれ: あやしい 横穴の 口は ほかの 口〔本道・ひろばの かべの 口〕と 6 マス 以上・1 つの ひろばから 出る 物は あわせて 1 つ まで。
+ *   ・ログは 2 つの 道: 宝箱を ふれた ときの ログ〔ロック中「ようかい を ぜんぶ たおすと もらえる よ」・「からっぽ だよ」〕は `chest.say`・まけた あとの ログ〔復活の あと〕は `emit({ type: 'say' })`。
+ *   ・保存: `SaveManager` の option `savePatch(x, y, z): BlockId | null`〔= `hook.yakataSavePatch`。挑戦の 間だけ 挑戦の 前の ブロックを 返し、保存に それを 書く。ふだんは null〕。
+ *   ・シェーダー: やかたの 光の 色〔`lookTint`〕と `dim.shade` は シェーダーの 文に 数として 入る 形を 約束する〔uniform で わたす 形に する ときは mineYakataLight.test.ts の 文字の 見はりを 直す〕。
+ *   ・F10 の「なかま いし」「おける」は ブロックの 表に その 項目が ないので 見ない〔固さ・段階・光・かたさ・登録は 見る〕。
  */
 
 // ------------------------------------------------------------------ 窓口の 型〔仕様 §6.1〕

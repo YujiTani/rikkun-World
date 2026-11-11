@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Pt } from './mineShaftKit';
-import { LOOKS, ZONES, rectCells, type Look, type YakataSampleRow, type Zone } from './mineYakataKit';
+import { LOOKS, ZONES, blockIdsOf, rectCells, type Look, type YakataSampleRow, type Zone } from './mineYakataKit';
 import { gateIds, lookBlocks, makeRig, oneOf, openSpots, pickBoth, type YakataRig } from './mineYakataRig';
-import { gateCells } from './mineYakataReport';
+import { gateCells, yakataBox } from './mineYakataReport';
 
 /**
  * MINE-1F（docs/design/MINE-1F.md §4.4・§4.5・§4.7・§5・受け入れ基準 F5・F7・F8・F12・F13〔やかたの 挑戦の 係〕）:
@@ -349,5 +349,48 @@ describe('F13: 実績の できごと', () => {
     r.step();
     expect(r.opened, 'かった とき').toEqual([4]);
     expect(r.eventsOf('achievement').filter((e) => e.kind === 'won').length).toBe(1);
+  });
+});
+
+// ------------------------------------------------------------------ F4: 本物の `yakataLocked`〔スタブでは ない〕
+
+describe('F4: yakataLocked〔まだ・挑戦の 間は やかたの ブロックと ふさいだ かべで true〕', () => {
+  const boxCells = (r: YakataRig): { x: number; y: number; z: number; id: string }[] => {
+    const b = yakataBox(r.y, r.T);
+    const out: { x: number; y: number; z: number; id: string }[] = [];
+    for (let x = b.x0; x <= b.x1; x++) for (let z = b.z0; z <= b.z1; z++) for (let y = b.y0; y <= b.y1; y++) out.push({ x, y, z, id: String(r.world.getBlock(x, y, z)) });
+    return out;
+  };
+  it.each(LOOKS)('%s: まだ: 組の 4 つの ブロック〔かべ・ゆか・だん・たいまつ〕の マスは ぜんぶ true〔4 種類とも ある〕・自分で 置いた dirt・外の ふつうの いしは false', (look) => {
+    const r = rigOf(look);
+    const mine = new Set(blockIdsOf(r.T, look));
+    const cells = boxCells(r);
+    const look4 = cells.filter((c) => mine.has(c.id));
+    for (const id of mine) expect(look4.some((c) => c.id === id), `${id} の マスが ある`).toBe(true);
+    const bad = look4.filter((c) => !r.hook.yakataLocked(c.x, c.y, c.z));
+    expect(bad.slice(0, 5), `${bad.length} マスが ロック されて いない`).toEqual([]);
+    const spot = centerOf(r);
+    r.world.setBlock(spot.x, spot.y + 2, spot.z, 'dirt' as never);
+    expect(r.hook.yakataLocked(spot.x, spot.y + 2, spot.z), '自分で 置いた dirt').toBe(false);
+    const b = yakataBox(r.y, r.T);
+    const far = [-3, b.x1 + 3].map((x) => ({ x, y: r.y.hall.y - 6, z: b.z0 })).find((p) => String(r.world.getBlock(p.x, p.y, p.z)) === 'stone');
+    if (far) expect(r.hook.yakataLocked(far.x, far.y, far.z), '外の いし').toBe(false);
+  });
+
+  it.each(LOOKS)('%s: 挑戦の 間は 門の 12 マスも true・まけると false・かった あとは ぜんぶ false', (look) => {
+    const r = rigOf(look);
+    const gate = gateCells(r.y, r.T);
+    for (const c of gate) expect(r.hook.yakataLocked(c.x, c.y, c.z), '門の マス〔まだ。空気〕').toBe(false);
+    r.stand(1, centerOf(r));
+    r.open();
+    for (const c of gate) expect(r.hook.yakataLocked(c.x, c.y, c.z), `挑戦の 間 門 (${c.x}, ${c.y}, ${c.z})`).toBe(true);
+    const mine = new Set(blockIdsOf(r.T, look));
+    const locked = boxCells(r).filter((c) => mine.has(c.id));
+    expect(locked.every((c) => r.hook.yakataLocked(c.x, c.y, c.z)), '挑戦の 間も やかたの ブロックは true').toBe(true);
+    for (const id of r.foes().map((q) => q.id)) r.yokai.kill(id);
+    r.step();
+    expect(r.hook.yakataState(r.y.id).state).toBe('katta');
+    const still = boxCells(r).filter((c) => mine.has(c.id) && r.hook.yakataLocked(c.x, c.y, c.z));
+    expect(still.slice(0, 5), 'かった あとは ぜんぶ false').toEqual([]);
   });
 });

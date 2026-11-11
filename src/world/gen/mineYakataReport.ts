@@ -188,7 +188,7 @@ export function shapeProblemsF(g: GenCols, s: YakataShaft, T: YakataTable, chest
   if (pillars !== T.hall.pillars) bad.push(`柱が ${pillars} 本〔${T.hall.pillars}〕`);
   // 門から 祭壇までの まん中の 道 はば 5 を あける
   const hc = rectCenter(hall);
-  const lane = 2;
+  const lane = 2; // 仕様 §4.2: 門から 祭壇までの まん中の 道は はば 5〔中心 ± 2〕
   for (let t = -Math.floor(T.hall.size / 2); t <= Math.floor(T.hall.size / 2); t++) {
     for (let o = -lane; o <= lane; o++) {
       const x = Math.round(hc.x + gd2.dx * t + gd2.dz * o);

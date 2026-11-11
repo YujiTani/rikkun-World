@@ -45,6 +45,34 @@ const bag = (page: Page) =>
     return out;
   });
 
+/** n ステップ すすめる。1 ステップ ごとに 体力を 全回復〔7 ひきの 攻撃は とめない。待つ 間に やられて mada に もどらない ため〕 */
+const stepSafe = (page: Page, n: number): Promise<void> =>
+  page.evaluate((n) => {
+    const h = (window as any).__rikkun;
+    for (let i = 0; i < n; i++) {
+      const c = h.combat.get();
+      h.combat.setHp(c.maxHp ?? 20);
+      h.step(1);
+    }
+  }, n);
+const isDm = (c: unknown): boolean => (typeof c === 'string' ? /^Dm|D.?minor/i.test(c) : JSON.stringify(c).includes('"D"') && /minor|"m"|true/.test(JSON.stringify(c)));
+/** 門の 12 マスが すべて air か〔門の 長方形 × 高さ〕 */
+const gateAir = (page: Page, id: string): Promise<{ air: number; cells: number }> =>
+  page.evaluate((id) => {
+    const h = (window as any).__rikkun;
+    const sp = h.world.spawn();
+    const s = (h.mine.shafts(sp.x - 4096, sp.z - 4096, sp.x + 4095, sp.z + 4095) as any[]).find((q) => q.id === id);
+    const g = s.yakata.gate;
+    const hgt = 12 / ((g.x1 - g.x0 + 1) * (g.z1 - g.z0 + 1)); // 仕様: 門は 12 マス
+    let air = 0;
+    let cells = 0;
+    for (let x = g.x0; x <= g.x1; x++) for (let z = g.z0; z <= g.z1; z++) for (let y = g.y; y < g.y + hgt; y++) {
+      cells++;
+      if (h.world.getBlock(x, y, z) === 'air') air++;
+    }
+    return { air, cells };
+  }, id);
+
 /** 宝箱の 前〔上の 段・前の まん中〕に 立って 宝箱を ねらい 右クリック */
 async function openChest(page: Page, f: Found): Promise<void> {
   await page.evaluate(({ x, z }) => (window as any).__rikkun.world.teleport(x, z), { x: f.stand.x, z: f.stand.z });
@@ -120,22 +148,14 @@ test('F14: やかたを さがす → あける → 7 ひき・札 7 → 1 ぴ�
   expect(st.foes, '妖怪の id').toHaveLength(total);
   expect(await bag(page), '持ち物は かわらない').toEqual(bagBefore);
   const label = page.locator('[data-testid="yakata-left"]');
+  const g1 = await gateAir(page, f.id);
+  expect(g1.air, '門が ふさがった').toBe(0);
   await expect(label, 'のこりの 札').toContainText(String(total));
   const scene0 = await page.evaluate(() => (window as any).__rikkun.audio.state().yakataScene as string);
   expect(['waiting', 'challenge'], '場面').toContain(scene0);
   expect(scene0, 'あけた すぐ あとは 挑戦の 曲に しない').toBe('waiting');
 
-  // --- F16 場面: 出現音の あと 挑戦の 曲 → 和音 Dm ---
-  const delaySteps = Math.ceil(sound.challengeDelaySec * 60);
-  await page.evaluate((n) => (window as any).__rikkun.step(n + 120), delaySteps);
-  const au = await page.evaluate(() => {
-    const a = (window as any).__rikkun.audio;
-    return { scene: a.state().yakataScene as string, chord: a.chord() as { root?: string; minor?: boolean } | string };
-  });
-  expect(au.scene, '挑戦の 曲').toBe('challenge');
-  expect(JSON.stringify(au.chord), 'やかたの 間は Dm').toMatch(/D/);
-
-  // --- F15: 札の 位置〔3 つの 大きさ〕 ---
+  // --- F15: 札の 位置・ほかの 部品と 重ならない〔3 つの 大きさ。はじまりの おしらせは 3 秒 だけ ので すぐ 見る〕 ---
   for (const [w, h] of [[1280, 720], [1024, 640], [800, 600]]) {
     await page.setViewportSize({ width: w!, height: h! });
     const box = await label.boundingBox();
@@ -145,8 +165,26 @@ test('F14: やかたを さがす → あける → 7 ひき・札 7 → 1 ぴ�
     expect(box!.y, '上が 切れない').toBeGreaterThanOrEqual(0);
     expect(box!.y + box!.height, '上の ほう').toBeLessThanOrEqual(h! * 0.3);
     expect(Math.abs(box!.x + box!.width / 2 - w! / 2), '上の まん中').toBeLessThanOrEqual(w! * 0.1);
+    for (const sel of ['#hearts', '#hotbar', '#notice-name']) {
+      const o = page.locator(sel);
+      if ((await o.count()) === 0 || !(await o.first().isVisible())) continue;
+      const ob = await o.first().boundingBox();
+      if (!ob) continue;
+      const cross = box!.x < ob.x + ob.width && ob.x < box!.x + box!.width && box!.y < ob.y + ob.height && ob.y < box!.y + box!.height;
+      expect(cross, `札と ${sel} が かさならない〔${w}x${h}〕`).toBe(false);
+    }
   }
   await page.setViewportSize({ width: 1280, height: 720 });
+
+  // --- F16 場面: 出現音の あと 挑戦の 曲 → 和音 Dm ---
+  const delaySteps = Math.ceil(sound.challengeDelaySec * 60);
+  await stepSafe(page, delaySteps + 120);
+  const au = await page.evaluate(() => {
+    const a = (window as any).__rikkun.audio;
+    return { scene: a.state().yakataScene as string, chord: a.chord() as { root?: string; minor?: boolean } | string };
+  });
+  expect(au.scene, '挑戦の 曲').toBe('challenge');
+  expect(isDm(au.chord), `やかたの 間は Dm〔${JSON.stringify(au.chord)}〕`).toBe(true);
 
   // --- 1 ぴき たおす → 札 ---
   await page.evaluate((id) => {
@@ -161,6 +199,7 @@ test('F14: やかたを さがす → あける → 7 ひき・札 7 → 1 ぴ�
   // --- 体力 0 → やられて 復活・宝箱 しまる・門 ひらく ---
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
+    h.inventory.clear(); // やられても おとしものぶくろを 出さない〔あとで ひろって 数が ずれない ため〕
     h.combat.setHp(0);
     h.step(10);
   });
@@ -178,6 +217,8 @@ test('F14: やかたを さがす → あける → 7 ひき・札 7 → 1 ぴ�
   expect(st.state, 'まけて mada').toBe('mada');
   expect(st.floating, 'うかぶ 中身 なし').toBeNull();
   expect(await page.evaluate(() => (window as any).__rikkun.yokai.list().filter((y: any) => y.title && y.title !== 'none').length), '二つ名の 妖怪は 消えた').toBe(0);
+  const g2 = await gateAir(page, f.id);
+  expect(g2.air, 'まけて 門が ひらいた').toBe(g2.cells);
 
   // --- 2 回目: あける → ぜんぶ たおす ---
   await openChest(page, f);
@@ -189,11 +230,12 @@ test('F14: やかたを さがす → あける → 7 ひき・札 7 → 1 ぴ�
   await page.evaluate((ids) => {
     const h = (window as any).__rikkun;
     for (const id of ids) {
+      h.combat.setHp(h.combat.get().maxHp ?? 20);
       h.yokai.setHp(id, 0);
       h.step(5);
     }
-    h.step(120);
   }, st.foes);
+  await stepSafe(page, 120);
   st = await state(page, f.id);
   expect(st.state, 'かった').toBe('katta');
   expect(st.left).toBe(0);
@@ -206,7 +248,10 @@ test('F14: やかたを さがす → あける → 7 ひき・札 7 → 1 ぴ�
     const d = (bagAfter[id] ?? 0) - (bagMid[id] ?? 0);
     if (d !== 0) gained[id] = d;
   }
-  expect(gained, '持ち物が プレビューの とおり ふえる').toEqual(want);
+  // 二つ名の おとし物〔ふつうの 表〕も ひろう ので、中身は「ぜんぶ ふえた」〔以上〕で 見る
+  for (const [item, n] of Object.entries(want)) expect(gained[item] ?? 0, `${item} が プレビューの 数 以上 ふえる`).toBeGreaterThanOrEqual(n);
+  const g3 = await gateAir(page, f.id);
+  expect(g3.air, 'かって 門が ひらいた').toBe(g3.cells);
   const unlocked = await page.evaluate((name) => (window as any).__rikkun.achievements.list().filter((a: any) => String(a.name).replace(/\s+/g, '') === name).map((a: any) => a.unlocked as boolean), norm(WIN));
   expect(unlocked, `実績「${WIN}」`).toEqual([true]);
   const sceneEnd = await page.evaluate(() => (window as any).__rikkun.audio.state().yakataScene as string);

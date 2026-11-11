@@ -159,6 +159,7 @@ describe('F21: やかたの 中の 見え方', () => {
       expect(spot, `${tag(r)}: たいまつを 置く 本道の マス`).toBeDefined();
       const id = T.lookBlocks[r.row.yakata.look].taimatsu;
       expect(r.world.setBlock(spot!.x, spot!.y + 1, spot!.z, id as never), `${id} を 置けた`).toBe(true);
+      const restore = (): void => void r.world.setBlock(spot!.x, spot!.y + 1, spot!.z, 'air' as never);
       r.light.update();
       r.light.flush();
       r.plain.update();
@@ -175,6 +176,11 @@ describe('F21: やかたの 中の 見え方', () => {
           }
         }
       }
+      restore();
+      r.light.update();
+      r.light.flush();
+      r.plain.update();
+      r.plain.flush();
     }
     expect(cells, '光 dim.from〜dim.to の マス').toBeGreaterThan(0);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
@@ -205,6 +211,12 @@ describe('F21: やかたの 中の 見え方', () => {
   });
 
   it('2 人 あそび: 画面ごとの 前の 処理〔beforePane〕で やかたの 箱を かえない〔箱の 一覧は 世界の 座標で 1 つ〕', () => {
+    expect(rigs.length, 'やかたが ない').toBe(2);
+    need(rigs[0]!);
+    rigs[0]!.light.setYakataBoxes(rigs[0]!.boxes);
+    const a = JSON.stringify(rigs[0]!.light.yakataBoxes());
+    rigs[0]!.light.update();
+    expect(JSON.stringify(rigs[0]!.light.yakataBoxes()), '1 画面の 前の 処理を はさんでも 一覧が 同じ').toBe(a);
     const src = readFileSync(new URL('../../game/wire/duo.ts', import.meta.url), 'utf8');
     const i = src.indexOf('beforePane:');
     const j = src.indexOf('afterPane:', i);
