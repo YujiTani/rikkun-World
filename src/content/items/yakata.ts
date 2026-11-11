@@ -12,16 +12,19 @@ import type { ItemDef } from './types';
  */
 const SOURCE = 'ようかいの やかた を かちぬいて ほる';
 const blockName = (id: BlockId): string => BLOCK_TYPES.find((b) => b.id === id)!.name;
-const wall = (id: BlockId, zukan: string, use: string) => ({
-  name: blockName(id),
-  zukan,
-  maxStack: 64,
-  placeBlock: id,
-  rarity: DIG_DEFAULTS.rarity[id],
-  category: 'build' as const,
-  info: { use, how: PLACE_HOW, buttons: ['1-9', 'right'] as Array<'1-9' | 'right'> },
-  source: SOURCE,
-});
+const wall = (id: BlockId, zukan: string, use: string) => {
+  const info = { use, how: PLACE_HOW, buttons: ['1-9', 'right'] as Array<'1-9' | 'right'> };
+  return {
+    name: blockName(id),
+    zukan,
+    maxStack: 64,
+    placeBlock: id,
+    rarity: DIG_DEFAULTS.rarity[id],
+    category: 'build' as const,
+    info,
+    source: SOURCE,
+  };
+};
 const torch = (id: BlockId, zukan: string, use: string) => ({ ...wall(id, zukan, use), category: 'light' as const });
 
 const M = YAKATA_BLOCKS.maou;

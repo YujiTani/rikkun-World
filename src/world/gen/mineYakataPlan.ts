@@ -1,5 +1,6 @@
 import { pickYokaiKind, effectiveRow, type YokaiRow } from '../../yokai/countryPick';
 import type { YokaiKind } from '../../contracts';
+import { KIND_TRAITS } from '../../yokai/traits';
 import { COUNTRY_TABLE } from './countryTable';
 import { countryAt } from './biome';
 import { rollChest } from './mineChest';
@@ -40,7 +41,7 @@ function kindsOf(seed: number, y: Yakata): YokaiKind[] {
   let limited = 0;
   for (let i = 0; i < ranks().length; i++) {
     const k = pickYokaiKind(row, {}, limited >= 1, rng()) ?? 'karakasa';
-    if (k === 'nurikabe') limited++;
+    if (KIND_TRAITS[k].limitedCount) limited++; // 数に 上限が ある 妖怪（ぬりかべ）は 1 体まで
     out.push(k);
   }
   return out;

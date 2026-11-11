@@ -10,8 +10,6 @@ import './yakataLeft.css';
  * つなぎ込みの 使い方: `show(n)` で 出す〔挑戦の はじまり〕・`set(n, reduce)` で 数を かえる〔1 ぴき たおす たび〕・`hide()` で 消す〔かち・まけ・とじた〕。
  * 2 人あそびは who = 2 で もう 1 つ〔挑戦して いる 人の 半分の 上の まん中。`html[data-duo]` の とき左右の 半分の まん中〕。
  */
-export const YAKATA_LEFT_ICON_PX = 32;
-
 /** 札の 文字 */
 export function yakataLeftText(n: number): string {
   return `のこり ${Math.max(0, Math.floor(n))}`;
