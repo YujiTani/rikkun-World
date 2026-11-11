@@ -331,6 +331,7 @@
     "table": "common",
     "takitsubo": "uncommon",
     "tansu": "uncommon",
+    "tenshi_yumi": "legendary",
     "tomato": "common",
     "torch": "common",
     "toriya": "uncommon",
@@ -366,6 +367,10 @@
     },
     {
       "item": "yatagarasu",
+      "weight": 1
+    },
+    {
+      "item": "tenshi_yumi",
       "weight": 1
     },
     {

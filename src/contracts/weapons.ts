@@ -202,6 +202,8 @@ export interface ArrowInfo {
   hitIds?: number[];
   /** LEGEND-4（八咫烏）: 当たった 点で ほのおが はじける や（金の 光の すじの 目印）。ふつうの や は 書かない */
   burst?: boolean;
+  /** LEGEND-4（天使の弓）: うしろに 白い 羽が 舞う や（見た目 だけ。当たりは ふつうの や と 同じ） */
+  feather?: boolean;
 }
 
 export interface StuckArrowInfo {

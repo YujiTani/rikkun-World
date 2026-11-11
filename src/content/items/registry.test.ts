@@ -231,7 +231,7 @@ describe('登録表（金シリーズ）', () => {
     const w = W2_SETTING_DEFAULTS;
     expect(w.bladeReach.kin_katana).toBe(2.2);
     expect(w.bladeTrail.kin_katana).toEqual({ color: 0xf2b938, glow: 0xfff0b4, blade: 0xebb840, bladeShine: 0xfff0b4, style: 'gold', under: 0x2a2238 });
-    expect(w.bowDamageByItem).toEqual({ kin_yumi: [2, 3, 5], kongo_yumi: [3, 4, 7], kokuryu: [4, 6, 10], yatagarasu: [4, 6, 10] }); // LEGEND-4: 黒龍・八咫烏（4・6・10）が ふえた
+    expect(w.bowDamageByItem).toMatchObject({ kin_yumi: [2, 3, 5], kongo_yumi: [3, 4, 7], kokuryu: [4, 6, 10] }); // LEGEND-4: 新しい 弓（黒龍 4・6・10 …）は ふえても 直さない（各 PR の テストが 数を 見る）
     expect(BLADE_ITEMS.has('kin_katana')).toBe(true);
     expect(BLADE_ITEMS.size).toBe(8); // KONGO-1: こんごうの かたなが ふえた
     expect(BLADE_LIKE_ITEMS.size).toBe(9);

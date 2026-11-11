@@ -4977,6 +4977,31 @@
       "rarity": "legendary",
       "recipes": []
     },
+    "tenshi_yumi": {
+      "ITEM_INFO.tenshi_yumi": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ",
+        "special": "せなか に つばさ が はえて、ふわふわ とべる ように なる",
+        "stats": "bow",
+        "use": "や を とばして とおく の ようかい を たおす。や が いる"
+      },
+      "W2.bowDamageByItem.tenshi_yumi": [
+        3,
+        5,
+        7
+      ],
+      "W2.toolDurability.tenshi_yumi": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［天使｜てんし］の［弓｜ゆみ］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
     "harapan_mimizu": {
       "ITEM_INFO.harapan_mimizu": {
         "buttons": [

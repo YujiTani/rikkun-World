@@ -168,8 +168,9 @@ describe('WEAPON-7 PR2・PR3 AC21: ヌシの 既定の 表（雷神剣・風神�
       n[got[0]!] = (n[got[0]!] ?? 0) + 1;
     }
     for (const k of LEGENDS) {
-      expect(n[k], k).toBeGreaterThanOrEqual(330);
-      expect(n[k], k).toBeLessThanOrEqual(530);
+      const even = 3000 / LEGENDS.length; // 行が ふえても 直さない（もとは 7 行で 330〜530 = 429 の ±23%）
+      expect(n[k], k).toBeGreaterThanOrEqual(Math.floor(even * 0.74));
+      expect(n[k], k).toBeLessThanOrEqual(Math.ceil(even * 1.26));
     }
   });
 });

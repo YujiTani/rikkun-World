@@ -13,6 +13,7 @@ import type {
   YokaiRayHit,
   YokaiWorld,
 } from '../../contracts';
+import { isTenshi } from '../../player/tenshiMove';
 import { raycastBlocks } from '../../dig/raycast';
 import { cellInWall } from '../../world/wall';
 import { arrowSaved, createSaveRoll, fireBurst, BURST_BACKOFF } from './yatagarasu';
@@ -158,6 +159,7 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
       info.range = straightRange;
     }
     if (burst) info.burst = true;
+    if (isTenshi(ctx.item)) info.feather = true; // LEGEND-4: 天使の弓の や は 羽の すじ（見た目 だけ）
     flying.push(info);
     if (saved) emit({ type: 'arrowSaved', tick: deps.tick() });
     nockLeft = s.bowNockTicks;
