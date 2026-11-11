@@ -5,6 +5,7 @@ import { CHALK_MARK_IDS, type ChalkMarkId } from '../world/blocks/chalkMark';
 import { CHEST_BLOCK_IDS, type ChestBlockId } from '../world/blocks/chestBlock';
 import { forWaterExtra } from '../world/blocks/water';
 import { forMagmaExtra } from '../world/blocks/magma';
+import { LOOK_BLOCK_IDS, type LookBlockId } from '../world/blocks/houseLookBlocks';
 import { HOUSE_BLOCK_IDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, houseDropOf, type HouseBase, type HouseBlockId, type HouseDoorPartId, type NewFurnBlockId } from '../world/blocks/houseBlocks';
 
 /** チョークの しるし 12 こ ぜんぶに 同じ 値を 入れる（`satisfies Record<BlockId, …>` が 12 こ そろって いることを 見る） */
@@ -15,6 +16,11 @@ function forChalkMarks<T>(value: T): Record<ChalkMarkId, T> {
 /** 宝箱 16 こ（MINE-1C）ぜんぶに 同じ 値を 入れる */
 function forChest<T>(value: T): Record<ChestBlockId, T> {
   return Object.fromEntries(CHEST_BLOCK_IDS.map((id) => [id, value])) as Record<ChestBlockId, T>;
+}
+
+/** 家の しゅるいの ブロック 20 こ（HOUSE-2B）ぜんぶに 同じ 値を 入れる */
+function forLook<T>(value: T): Record<LookBlockId, T> {
+  return Object.fromEntries(LOOK_BLOCK_IDS.map((id) => [id, value])) as Record<LookBlockId, T>;
 }
 
 /** 足場 5 つ（HOUSE-1C PR-2）ぜんぶに 同じ 値を 入れる */
@@ -162,6 +168,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     }),
     // HOUSE-1C PR-2（#340）: かためた つちは つち と おなじ。足場は ほれない（建築が 終わると 消える）
     katame_tsuchi: 0.5,
+    ...forLook<number>(WOOD_HARDNESS), // HOUSE-2B: 家の しゅるいの ブロックも き と 同じ
     ...forScaffold<null>(null),
     ...forWaterExtra<null>(null),
     rope: 0.05, // ROPE-1: すぐ とれる（すすきと 同じ）
@@ -269,6 +276,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     // HOUSE-1C: 家の ブロック・家具は すでで ほれる
     ...forHouse<number>({ house_floor: 0, house_wall: 0, house_roof: 0, shoji: 0, house_door: 0, tansu: 0, furnace: 0, table: 0, long_table: 0, round_table: 0, chair: 0, stool: 0, maneki: 0, andon: 0, shelf: 0, ofuro: 0 }),
     katame_tsuchi: 0,
+    ...forLook(0), // HOUSE-2B: すでで ほれる
     ...forScaffold(0),
     ...forWaterExtra(0),
     rope: 0,
@@ -389,6 +397,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     }),
     // HOUSE-1C PR-2: かためた つち・足場（ほると 手に 入る 数の 上限。かためた つちは FARM_BREAK_DROP で いつも 1 こ）
     katame_tsuchi: 'common',
+    ...forLook<Rarity>('common'), // HOUSE-2B: ほる 数は いつも 1 こ（digBreak の houseDrop）
     ...forScaffold<Rarity>('common'),
     ...forWaterExtra<Rarity>('common'),
     rope: 'common',

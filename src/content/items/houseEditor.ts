@@ -101,7 +101,7 @@ export const HOUSE_FURNITURE = {
     source: FURN_SOURCE,
     wear: 'permanent',
   },
-  // HOUSE-2A（#364）まねきねこ（案 B の 形）。レシピ（まねきねこ）を おぼえると エディターの ② で 置ける。ブロックの 見た目は 仮（HOUSE-2B で 本番の 絵に する）
+  // HOUSE-2A（#364）まねきねこ（案 B の 形）。レシピ（まねきねこ）を おぼえると エディターの ② で 置ける。見た目は アートの 案 B の 形と 絵（HOUSE-2B。world/blocks/furnitureArt.ts）
   maneki: {
     placeBlock: 'maneki',
     name: 'まねきねこ',

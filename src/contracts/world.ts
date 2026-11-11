@@ -7,6 +7,7 @@ import type { ChestBlockId } from '../world/blocks/chestBlock';
 import type { KATAME_TSUCHI, ScaffoldId } from '../world/blocks/buildBlocks';
 import type { ReservedId, WaterPartialId } from '../world/blocks/water';
 import type { MagmaExtraId } from '../world/blocks/magma';
+import type { LookBlockId } from '../world/blocks/houseLookBlocks';
 import type { FurnBlockId, HouseBlockId, HouseDoorPartId } from '../world/blocks/houseBlocks';
 
 export interface Vec3 {
@@ -99,6 +100,8 @@ export type BlockId =
   | HouseBlockId
   | HouseDoorPartId
   | FurnBlockId
+  // HOUSE-2B（#364）: 家の しゅるいの ブロック 20 こ（形ごと。`src/world/blocks/houseLookBlocks.ts`）
+  | LookBlockId
   // HOUSE-1C PR-2（#340。うしろに足す）: かためた つち・足場 5 つ（`src/world/blocks/buildBlocks.ts`）
   | typeof KATAME_TSUCHI
   | ScaffoldId
@@ -137,7 +140,7 @@ export type BlockId =
   | 'takibi_ato'
   // HOUSE-2A（#364。うしろに足す。212）: まきもの（坑道の 宝箱の ない 坑道の いちばん 下の へやに 1 つ。固くない・こわせない・右クリックで とる。レシピを おぼえる）
   | 'makimono'
-  // VOX-I-4a（#187。うしろに足す。217〜221）: 国だけの物 その 1（十字の 板。固くない・こわせる）
+  // VOX-I-4a（#187。うしろに足す。237〜241。HOUSE-2B の lk_* 20 こ〔217〜236〕の うしろ）: 国だけの物 その 1（十字の 板。固くない・こわせる）
   | 'kinoko' // きのこ（もり。ひろえる）
   | 'himawari' // ひまわり（はなばたけ。2 段の 下の 段 = くき。ほると himawari 1 こ）
   | 'himawari_top' // ひまわり の 上の 段（花）。持ち物に 入らない（ほると himawari）

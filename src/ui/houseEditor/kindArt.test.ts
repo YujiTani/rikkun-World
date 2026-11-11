@@ -5,7 +5,7 @@ import { kindArt, lightArt, placeArt } from './kindArt';
 /** clipPath の 通し番号は 1 回ごとに かわる ので 比べる ときは ぬく */
 const flat = (s: string): string => s.replace(/ka\d+/g, 'ka');
 
-describe('しゅるいの ボタンの 絵（仮。HOUSE-2B で かえる）', () => {
+describe('しゅるいの ボタンの 絵（HOUSE-2B。アートの 32×32 の ドット絵）', () => {
   it('知って いる しゅるいは ぜんぶ 絵が ある（足し忘れが ない）', () => {
     for (const part of PARTS) {
       for (const kind of ALL_KINDS[part]) expect(kindArt(part, kind), `${part}-${kind}`).toMatch(/^<svg /);
@@ -29,11 +29,11 @@ describe('しゅるいの ボタンの 絵（仮。HOUSE-2B で かえる）', (
     }
   });
 
-  it('「なし」は 点線の わく（✕・赤い 斜線は 使わない）', () => {
+  it('「なし」は 点線の わく（ドット絵。色は #E6DEC8 の 1 色・✕・赤い 線は 使わない）', () => {
     for (const part of ['roof', 'wall', 'window'] as const) {
       const a = kindArt(part, 'none');
-      expect(a, part).toContain('stroke-dasharray');
-      expect(a, part).not.toContain('M5 5l14 14'); // ✕ の 線
+      expect([...a.matchAll(/fill="(#[0-9a-fA-F]{6})"/g)].map((m) => m[1]!.toUpperCase()), part).toEqual(['#E6DEC8']);
+      expect(a, part).toContain('crispEdges');
     }
   });
 

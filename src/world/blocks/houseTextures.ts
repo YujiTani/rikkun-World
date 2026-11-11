@@ -1,3 +1,4 @@
+import { LOOK_BLOCK_IDS } from './houseLookBlocks';
 /**
  * 家の ブロックと 家具の 絵（HOUSE-1C PR-1 #340）を 世界の 絵の 表（textures.ts の TILE_NAMES）に 足す 名前と 描き方。
  * ・家の ブロック 12 まい（houseArt.ts）…… 名前は そのまま（`house_wall` など）
@@ -10,14 +11,23 @@ import { KATAME_TSUCHI, SCAFFOLD_IDS } from './buildBlocks';
 import { FURN_TILE_NAMES, furnTiles, type FurnTile } from './furnitureArt';
 import { HOUSE_TILE_NAMES, houseTiles, type HouseTile } from './houseArt';
 import { FURN_BLOCK_IDS, FLAT_FURN_KINDS, furnBlockId, furnInfo, type FlatFurnKind, type FurnBlockKind, type FurnRot } from './houseBlocks';
-import type { Px } from './houseTilePaint';
+import { SOLID_TILE_NAMES } from './houseLookColors';
+import { HOUSE_LOOK_TILES } from './houseLookTiles.data';
+import { fromRows, type Px } from './houseTilePaint';
 import type { TileName } from './textures';
 
 type FurnAtlasTile = `furn_${FurnTile}`;
-export type HouseAtlasTile = HouseTile | FurnAtlasTile | BuildTile;
+/** HOUSE-2B（#364）: 家の 3 つの 見た目の 面の 絵 64 まい（名前は `h2_…`。絵は houseLookTiles.data.ts） */
+export type LookTile = `h2_${string}`;
+/** 1 色の 箱の 面に つかう 白い 絵（色は 面の 頂点の 色で つける。houseLookPieces.ts）。HOUSE_ATLAS の 列数（4）の 倍数に そろえる 余白も ここ（マグマの 4 コマが 1 だんに 入る きまり） */
+export const LOOK_WHITE = 'h2_white' as const;
+/** まきものの 絵は すきまの ある 十字の 板なので makimonoTexture.ts が 引く（アトラスには 入れない） */
+const LOOK_TILE_ART = Object.keys(HOUSE_LOOK_TILES).filter((n) => n !== 'h2_kozan_makimono_tile') as LookTile[];
+export const HOUSE_LOOK_TILE_NAMES: readonly LookTile[] = [...LOOK_TILE_ART, LOOK_WHITE, ...SOLID_TILE_NAMES, ...Array.from({ length: (4 - ((LOOK_TILE_ART.length + 1 + SOLID_TILE_NAMES.length) % 4)) % 4 }, (_, i) => `h2_pad${i}` as LookTile)];
+export type HouseAtlasTile = HouseTile | FurnAtlasTile | BuildTile | LookTile;
 
 /** 世界の 絵の 表に 足す 名前（家の ブロック 12 → 家具 20 → 建築の ブロック 8 の 順。PR-2 の 8 まいは さいごに 足した） */
-export const HOUSE_ATLAS_TILE_NAMES: readonly HouseAtlasTile[] = [...HOUSE_TILE_NAMES, ...FURN_TILE_NAMES.map((n): FurnAtlasTile => `furn_${n}`), ...BUILD_TILE_NAMES];
+export const HOUSE_ATLAS_TILE_NAMES: readonly HouseAtlasTile[] = [...HOUSE_TILE_NAMES, ...FURN_TILE_NAMES.map((n): FurnAtlasTile => `furn_${n}`), ...BUILD_TILE_NAMES, ...HOUSE_LOOK_TILE_NAMES];
 const HOUSE_SET: ReadonlySet<string> = new Set<string>(HOUSE_ATLAS_TILE_NAMES);
 
 export function isHouseTile(name: string): name is HouseAtlasTile {
@@ -33,6 +43,7 @@ export function paintHouseTile(name: HouseAtlasTile): Px {
     const furn = furnTiles();
     for (const n of FURN_TILE_NAMES) painted[`furn_${n}`] = furn[n];
     Object.assign(painted, buildTiles());
+    for (const n of HOUSE_LOOK_TILE_NAMES) painted[n] = HOUSE_LOOK_TILES[n] ? fromRows(HOUSE_LOOK_TILES[n]!.rows, HOUSE_LOOK_TILES[n]!.pal) : new Array<number>(256).fill(n === LOOK_WHITE ? 0xffffff : n.startsWith('h2_c_') ? parseInt(n.slice(5), 16) : 0xff00ff);
   }
   return painted[name]!;
 }
@@ -65,7 +76,7 @@ const DOOR_TILES: Readonly<Partial<Record<BlockId, Tiles3>>> = {
 const PROP_FURN_TILES: Readonly<Record<Exclude<FurnBlockKind, FlatFurnKind>, Tiles3>> = {
   chair: ['furn_zabuton', 'furn_wood_top', 'furn_wood_side'],
   stool: ['furn_zabuton', 'furn_wood_top', 'furn_wood_side'],
-  maneki: ['furn_wood_top', 'furn_wood_top', 'furn_wood_side'], // 仮（HOUSE-2A。絵は 2B）
+  maneki: ['h2_c_f2eee6', 'h2_c_dcd5c8', 'h2_c_f2eee6'], // まねきねこ（アートの 案 B。形・色は furnitureArt.ts。ふだんは 使わない 代表の 絵）
   table: ['furn_wood_top', 'furn_wood_top', 'furn_wood_side'],
   long_table: ['furn_wood_top', 'furn_wood_top', 'furn_wood_side'],
   round_table: ['furn_wood_top', 'furn_wood_top', 'furn_wood_side'],
@@ -107,6 +118,7 @@ const BUILD_BLOCK_TILES: Readonly<Partial<Record<BlockId, Tiles3>>> = {
 export const HOUSE_BLOCK_TILES: Readonly<Partial<Record<BlockId, Tiles3>>> = {
   ...FLAT_HOUSE_TILES,
   ...BUILD_BLOCK_TILES,
+  ...Object.fromEntries(LOOK_BLOCK_IDS.map((id) => [id, [LOOK_WHITE, LOOK_WHITE, LOOK_WHITE] as Tiles3])), // HOUSE-2B: 形ごとの ブロック（描くのは render/houseLookPieces.ts。ここは 代表の 絵）
   shoji: ['house_shoji', 'house_shoji', 'house_shoji'],
   ...DOOR_TILES,
   ...Object.fromEntries(FURN_BLOCK_IDS.flatMap((id) => { const k = furnInfo(id)!.kind; return FLAT_FURN_KINDS.has(k) ? [] : [[id, PROP_FURN_TILES[k as keyof typeof PROP_FURN_TILES]] as const]; })),

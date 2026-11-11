@@ -26,7 +26,7 @@ export interface BuildPlan {
   finish: PlanCell[];
 }
 
-export type PlanBlueprint = Pick<Blueprint, 'w' | 'd' | 'windows' | 'furniture'>;
+export type PlanBlueprint = Pick<Blueprint, 'w' | 'd' | 'windows' | 'furniture'> & Partial<Pick<Blueprint, 'roof' | 'wall' | 'windowKind' | 'door' | 'deco' | 'light'>>;
 
 export function makePlan(bp: PlanBlueprint): BuildPlan {
   const shape = houseShape(bp);
@@ -40,7 +40,7 @@ export function makePlan(bp: PlanBlueprint): BuildPlan {
   for (const c of shape.cells) {
     if (c.id === 'air') continue;
     if (c.y === 0) floor.push(c);
-    else if (c.y === ROOF_Y) roof.push(c);
+    else if (c.y >= ROOF_Y) roof.push(c);
     else if (ring(c)) walls.push(c);
     else inner.push(c);
   }

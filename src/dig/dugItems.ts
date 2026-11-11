@@ -2,6 +2,8 @@ import type { BlockId, ItemId } from '../contracts';
 import { GADGET_ID } from '../content/items/gadgetTuning';
 import { ITEM_DEFS } from '../content/items/registry';
 import { isFutonId } from '../world/blocks/futon';
+import { firstKindOfBlock, kindBlocks, kindItem, partOfLook } from '../house/recipes/kinds';
+import { isLookBlock } from '../world/blocks/houseLookBlocks';
 import { houseDropOf } from '../world/blocks/houseBlocks';
 import { isKotatsuBlock } from '../world/blocks/kotatsu';
 import { FARM_BREAK_DROP } from './config';
@@ -24,6 +26,30 @@ export function dropBlockOf(id: BlockId): BlockId {
 
 /** ほると 手に 入る アイテム。ほる 側〔BlockBreaker〕と 窓口 `house.blockAt` が 同じ 答えを 使う（はたけ・たねの 決まった 物 → 持てない ブロック → もとの id） */
 export function dugItemOf(id: BlockId): ItemId {
+  // HOUSE-2B: 家の しゅるいの ブロックを 記録なしで ほる（手で 置いた・記録が きえた）: その ブロックを 使う いちばん はじめの しゅるい（むら）の アイテム。かべ なしの 柱は き
+  if (isLookBlock(id)) {
+    const k = firstKindOfBlock(id);
+    return (k ? kindItem(k.part, k.kind) : null) ?? 'log';
+  }
   const base = dropBlockOf(id);
   return FARM_BREAK_DROP[id]?.item ?? DUG_ITEM.get(base) ?? base;
+}
+
+/** 場所を 見て ほった アイテムを 引く 家の 記録（HouseBook）の 口 */
+export interface LookAt {
+  lookAt(x: number, y: number, z: number): string | null;
+}
+
+/**
+ * 場所で 引く ほった アイテム（HOUSE-2B）。家の 記録に その 場所の しゅるい（案こみ）が あり、ブロックが その しゅるいの ブロックなら その しゅるいの アイテム 1 こ。
+ * 記録が ない・ブロックが ちがう（手で 置いた）なら 今までの dugItemOf（案の 記録は 2C）
+ */
+export function dugItemAt(book: LookAt | null | undefined, id: BlockId, x: number, y: number, z: number): ItemId {
+  const kind = book?.lookAt(x, y, z) ?? null;
+  const part = kind === null ? null : partOfLook(kind);
+  if (kind !== null && part !== null && kindBlocks(part, kind).includes(id)) {
+    const item = kindItem(part, kind);
+    if (item !== null) return item;
+  }
+  return dugItemOf(id);
 }

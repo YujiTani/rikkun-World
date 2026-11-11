@@ -158,12 +158,24 @@
 
 /* 「つくる」: 左に レシピ（1280・1440 は 4 列、1024 は 3 列）、右に せつめい（ちぢめない）。レシピは 中で たてに スクロール */
 .inv-root[data-layout='duo'] .craft-panel {
-  height: calc(var(--rk-slot-inv) * 7.5);
+  flex: 1;
+  min-height: 0;
   padding: 0;
   background: none;
   gap: var(--rk-sp-4);
 }
+/* 高さは 7.5 マスが 上限。ヘルプの 帯の ぶん たりない とき（1024×700）は ここが ちぢみ、レシピの 一覧の 中だけ スクロールする（#460） */
+.inv-root[data-layout='duo']:is([data-page='craft'], [data-page='furnace']) .inv-side {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 calc(var(--rk-slot-inv) * 7.5);
+  min-height: 0;
+}
 .inv-root[data-layout='duo'] .cp-left {
+  min-height: 0;
+}
+/* せつめいの 最低の 高さ（7.5 マス）は 1 人用の 物。2 人用は パネルが ちぢむ とき いっしょに ちぢむ */
+.inv-root[data-layout='duo'] .cp-detail {
   min-height: 0;
 }
 .inv-root[data-layout='duo'] .craft-grid {

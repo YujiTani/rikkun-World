@@ -10,6 +10,8 @@ import { isScaffoldId, scaffoldBoxes } from '../blocks/buildBlocks';
 import { doorBoxes, shojiBoxes, type BoxFace, type HouseBox } from '../blocks/houseBoxes';
 import { furnitureQuads } from '../blocks/furnitureQuads';
 import { FURN_LEN, doorInfo, furnCellOffset, furnInfo, type FurnRot } from '../blocks/houseBlocks';
+import { isLookBlock } from '../blocks/houseLookBlocks';
+import { lookPieces, type LookCtx, type LookPiece } from './houseLookPieces';
 import type { MeshData } from './meshChunk';
 import { FACE_SHADE_BY_INDEX } from './config';
 
@@ -142,8 +144,37 @@ export function shojiAxisAt(getIndex: (x: number, y: number, z: number) => numbe
   return w.has(getIndex(x, y, z - 1)) || w.has(getIndex(x, y, z + 1)) ? 'x' : 'z';
 }
 
+/** 家の しゅるいの ブロックの 場所ごとの ようすを 引く 口（家の 記録。HOUSE-2B。つなぎは game/wire の house。なければ むらの 案・かんたんな 形） */
+let lookSource: ((x: number, y: number, z: number) => LookCtx | null) | null = null;
+export function setHouseLookSource(src: ((x: number, y: number, z: number) => LookCtx | null) | null): void {
+  lookSource = src;
+}
+
+/** 区の メッシュに 足す 面 1 まいぶん（Piece と 同じ 形に そろえる） */
+function pushPieces(mesh: MeshData, x: number, y: number, z: number, pieces: readonly LookPiece[], sky: number, block: number): void {
+  for (const p of pieces) {
+    const base = mesh.positions.length / 3;
+    const sk = p.sky ?? sky;
+    const bk = p.blk ?? block;
+    const [r, g, b] = p.rgb ?? [1, 1, 1];
+    for (let i = 0; i < 4; i++) {
+      mesh.positions.push(x + p.pos[i * 3]!, y + p.pos[i * 3 + 1]!, z + p.pos[i * 3 + 2]!);
+      mesh.uvs.push(p.uv[i * 2]!, p.uv[i * 2 + 1]!);
+      mesh.colors.push(p.shade * r, p.shade * g, p.shade * b);
+      mesh.lights.push(sk, bk);
+      mesh.darks.push(0);
+    }
+    mesh.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    mesh.faceCount++;
+  }
+}
+
 /** 家の 戸・しょうじ・家具・足場なら 描いて true（そうでなければ false）。shojiAxis は しょうじの ときだけ 使う（shojiAxisAt） */
 export function pushHouseProp(mesh: MeshData, x: number, y: number, z: number, id: string, sky: number, block: number, shojiAxis: 'x' | 'z' = 'z'): boolean {
+  if (isLookBlock(id)) {
+    pushPieces(mesh, x, y, z, lookPieces(id, lookSource?.(x, y, z) ?? null), sky, block);
+    return true;
+  }
   const pieces = piecesOf(id, shojiAxis);
   if (!pieces) return false;
   for (const p of pieces) {
