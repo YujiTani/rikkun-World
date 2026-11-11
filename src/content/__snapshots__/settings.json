@@ -921,6 +921,7 @@
       "furnace": "uncommon",
       "futon": "uncommon",
       "geyser_dirt": "uncommon",
+      "gnome_axe": "legendary",
       "grass": "common",
       "haniwa": "uncommon",
       "harapan_mimizu": "epic",
@@ -1254,6 +1255,7 @@
     "arrowRange": 24,
     "naginataComboReset": 60,
     "toolLevel": {
+      "gnome_axe": 0,
       "iron_axe": 0,
       "iron_pickaxe": 2,
       "kin_axe": 0,
@@ -1266,6 +1268,7 @@
       "wood_pickaxe": 0
     },
     "toolPower": {
+      "gnome_axe": 6,
       "iron_axe": 6,
       "iron_pickaxe": 6,
       "kin_axe": 6,
@@ -1281,6 +1284,7 @@
     "weaponDamage": {
       "bokuto": 2,
       "crystal_katana": 4,
+      "gnome_axe": 7,
       "katana": 4,
       "kin_axe": 5,
       "kin_katana": 5,
@@ -1853,6 +1857,13 @@
           }
         ],
         "power": 10
+      },
+      {
+        "charge": null,
+        "item": "gnome_axe",
+        "onAttack": [],
+        "passive": [],
+        "power": 7
       }
     ],
     "legendaryChargeWalk": 0.5,
@@ -1871,6 +1882,10 @@
       },
       {
         "item": "kokuryu",
+        "weight": 1
+      },
+      {
+        "item": "gnome_axe",
         "weight": 1
       },
       {
@@ -1924,6 +1939,7 @@
       "crystal_katana": 400,
       "fude": 5,
       "fujin_ken": 10000,
+      "gnome_axe": 10000,
       "iron_axe": 250,
       "iron_pickaxe": 250,
       "kabuto": 165,

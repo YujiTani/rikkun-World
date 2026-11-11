@@ -347,10 +347,10 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
     if (!had) status[m] = 'loading';
     const myBase = base;
     const myAtlasP = atlasP;
-    const sk = kind === 'girl' && KATANA_SET.has(m) ? wantSkin : null;
+    let sk = kind === 'girl' && KATANA_SET.has(m) ? wantSkin : null;
     try {
       const skinA = sk ? await skinAtlas(sk) : null;
-      if (sk && !skinA?.motions[m]) throw new Error(`${sk} の 絵の 表が ありません`);
+      if (sk && !skinA?.motions[m]) { if (skinA) sk = null; else throw new Error(`${sk} の 絵の 表が ありません`); } // LEGEND-4: スキンに ない 動きは もとの 絵
       const url = sk ? `${myBase}${sk}/${m}.png` : `${myBase}${m}.png`;
       const [img] = await Promise.all([loadImage(url), myAtlasP]);
       if (disposed || g !== gen) return; // 切りかえの 前に 始めた読みこみ: すてる

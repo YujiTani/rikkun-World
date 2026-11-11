@@ -1,5 +1,8 @@
 // 毎ステップの 本体（main.ts から 移した）。順番は そのまま。まとまりは 最初に 1 回だけ 作る。
 import { isBladeItem } from '../tools/blade/BladeSystem';
+import { isGnomeAxe } from '../dig/gnomeChop';
+import { gnomeSpriteBlade } from '../char/gnomeSprite';
+import { GNOME_SKIN } from '../char/techCurves';
 import { STEPS_PER_SECOND } from '../tools/config';
 import { parryGlowLevel } from '../combat/parry';
 import { isParrySound, playParry } from '../fx/parrySounds';
@@ -180,7 +183,8 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       if ((bs.move !== null && bs.frame === 1) || parry.startedNow() || lstrike?.F === 1) st.velocity.x = st.velocity.z = 0;
       const bowPose = tools.bow().state();
       const held = inventory.held()?.item ?? null;
-      const weapon = bs.item !== null ? 'katana' : isBowItem(held) ? 'bow' : 'none';
+      const gnomeSwing = isGnomeAxe(held) ? gnomeSpriteBlade(blade.sweep?.()) : null; // LEGEND-4: ノームの斧（刀の 絵の 組に スキン gnome）
+      const weapon = bs.item !== null || gnomeSwing !== null ? 'katana' : isBowItem(held) ? 'bow' : 'none';
       sprite?.step({
         position: st.position,
         velocity: st.velocity,
@@ -192,10 +196,12 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
         // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
         bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
         // WEAPON-9: 手に 持つ 絵は 虹・雷神剣・風神剣が 専用（女の子）。シャイニング F1〜240 は ため の 形（おおげさぎり コマ 5）を 止める
-        weaponSkin: held === 'niji' ? 'niji' : held === 'raijin_ken' ? 'raijin' : held === 'fujin_ken' ? 'fujin' : null,
+        weaponSkin: held === 'niji' ? 'niji' : held === 'raijin_ken' ? 'raijin' : held === 'fujin_ken' ? 'fujin' : gnomeSwing !== null ? GNOME_SKIN : null,
         legendCharge: weapon === 'katana' && (legend.view().charging || shiningBody),
         blade:
-          weapon === 'katana'
+          gnomeSwing !== null
+            ? gnomeSwing
+            : weapon === 'katana'
             ? lstrike && !shiningNow
               ? { stance: bs.stance, tech: 'kesa' as const, ...lightningPoseFrame(lstrike.F, lstrike.total), lengths: null }
               : { stance: bs.stance, tech: bs.tech, phase: bs.phase, frame: bs.frame, lengths: bs.tech ? (bs.lengths ?? w2.bladeTech[bs.tech]) : null }

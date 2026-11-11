@@ -167,9 +167,12 @@ describe('WEAPON-7 PR2・PR3 AC21: ヌシの 既定の 表（雷神剣・風神�
       expect(got, `${i} 回目`).toHaveLength(1);
       n[got[0]!] = (n[got[0]!] ?? 0) + 1;
     }
+    // LEGEND-4: 行の 数は 武器が ふえるたびに かわる ので 3,000 ÷ 行の 数 の ±23% で 見る（7 行 = 330〜530）
+    const rows = createW2Settings().nushiDrops.length;
+    const mid = 3000 / rows;
     for (const k of LEGENDS) {
-      expect(n[k], k).toBeGreaterThanOrEqual(330);
-      expect(n[k], k).toBeLessThanOrEqual(530);
+      expect(n[k], k).toBeGreaterThanOrEqual(mid * 0.77);
+      expect(n[k], k).toBeLessThanOrEqual(mid * 1.24);
     }
   });
 });

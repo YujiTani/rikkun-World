@@ -14,6 +14,7 @@ import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { hash01, randInt, type Rng } from '../world/gen/random';
 import { DUG_ALWAYS_ONE, FARM_BREAK_DROP, HEMP_DROP, NO_DROP_BLOCKS } from './config';
 import { dropBlockOf, dugItemOf } from './dugItems';
+import { chopAbove } from './gnomeChop';
 import { COOP_BLOCKS, HANGING_SUPPORT, TORCH_NEIGHBORS, type DigCore } from './digCore';
 
 /** MINE-1D: つらら（天井の 下に さがる。ブロック id） */
@@ -54,7 +55,8 @@ export class BlockBreaker {
     private readonly rng: Rng,
   ) {}
 
-  breakBlock(t: TargetInfo, bodyGlass: boolean): BreakEnd {
+  /** extra = ノームの斧で いっしょに きった 上の マス（たいきゅうは 数えない） */
+  breakBlock(t: TargetInfo, bodyGlass: boolean, extra = false): BreakEnd {
     const c = this.c;
     if (c.bodyTgt()) return this.breakBodyBlock(t, bodyGlass);
     if (isMakimonoId(t.id)) return this.breakMakimono(t); // HOUSE-2A: まきもの。ほっても 右クリックでも 持ち物へ
@@ -106,7 +108,10 @@ export class BlockBreaker {
       }
     }
     c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: houseDrop ?? t.id, gotItem: got > 0, count: got });
-    this.wearForBlock();
+    if (!extra) this.wearForBlock();
+    // LEGEND-4 ノームの斧: 真上の まるたも いっしょに（ふつうに ほった ときと 同じ 道。1 回だけ）
+    const up = extra ? null : chopAbove(c.inventory.held()?.item, t, c.world);
+    if (up) this.breakBlock(up, false, true);
     return 'done';
   }
 

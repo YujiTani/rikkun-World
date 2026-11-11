@@ -70,6 +70,7 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
   if (isAxe(item)) {
     add(`ほる つよさ ${tools.toolPower[item] ?? 1}`, item);
     add('き に つよい', item);
+    if (tools.weaponDamage[item] !== undefined) add(`たたく つよさ ${tools.weaponDamage[item]}`, item); // LEGEND-4: ノームの斧（よこなぎ）。きんの おのも 同じ 行
   }
   if (BLADE_LIKE_ITEMS.has(item)) {
     // WEAPON-7 PR3: 虹は その 1 本の つよさ（ヌシが おとした ときに 決まる）

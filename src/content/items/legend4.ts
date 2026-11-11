@@ -36,4 +36,24 @@ export const LEGEND4 = {
       passive: [{ kind: 'moveMul', mul: LEGEND4_TUNING.kokuryu.moveMul }],
     },
   },
+  // ノームの斧: おのと 同じに 木を きり、きれた 上の まるたも いっしょに きる。妖怪には よこなぎ（前の 扇に 7）
+  gnome_axe: {
+    name: 'ノームの［斧｜おの］',
+    zukan: 'ノームは ［森｜もり］の ［木｜き］の ねもとに すむ ［小｜ちい］さな ［小人｜こびと］。［小｜ちい］さいけれど ［力｜ちから］もちで、［大｜おお］きな ［木｜き］も あっと いう ［間｜ま］に きって しまう。この おのは ノームの たからもの。［木｜き］を きると、［上｜うえ］の ［木｜き］も いっしょに きれる。よこに ひとふり すれば、まわりの ようかいも まとめて なぎはらう。',
+    maxStack: 1,
+    rarity: 'legendary', // 7 段目
+    category: 'weapon',
+    info: {
+      use: 'き を はやく きれる。ようかい も たたける',
+      special: 'き を きれば 2 だん いっきに まっぷたつ！ よこなぎ で ようかい を なぎはらう',
+      how: 'えらんで、ブロック に むけて ひだりクリック を おしつづける。ようかい に むけて ひだりクリック で よこに ふる',
+      buttons: ['1-9', 'leftHold'],
+      stats: 'pickaxe',
+    },
+    wear: 10000,
+    // ほる 強さ・レベル・あう なかま（き）は てつの おのと 同じ。たたく 強さ = よこなぎの ダメージ
+    tool: { power: LEGEND4_TUNING.gnome.digPower, level: LEGEND4_TUNING.gnome.digLevel, family: 'log', damage: LEGEND4_TUNING.gnome.damage },
+    // ためわざ なし・ずっと 効く 力 なし（power は 刀の 表の 形を そろえる ための 値）
+    legend: { power: LEGEND4_TUNING.gnome.damage, charge: null, onAttack: [], passive: [] },
+  },
 } satisfies Record<Legend4Id, ItemDef>;

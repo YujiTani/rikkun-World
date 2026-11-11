@@ -102,7 +102,9 @@ export type BladeEvent =
   | { type: 'techHit'; tick: number; tech: BladeTech; yokaiId: number; damage: number; knock: number; up: number; position: Vec3; step?: BladeStep }
   | { type: 'techMiss'; tick: number; tech: BladeTech; step?: BladeStep }
   | { type: 'stance'; tick: number; from: BladeStance; to: BladeStance }
-  | { type: 'cancel'; tick: number };
+  | { type: 'cancel'; tick: number }
+  /** LEGEND-4: ノームの斧の よこなぎを はじめた（音 `gnomeSwing`）。当たりは `techHit` */
+  | { type: 'sweepStart'; tick: number };
 
 /** 刀に 毎ステップ わたすもの。ふりわけ（わざ か ほる か しゅうかく）は つなぎ込みの DigSystem が 決めて、わざ なら techPressed / techHeld を 立てる */
 export interface BladeStepContext {
@@ -166,6 +168,8 @@ export interface BladeSystem {
   nextStart?(): { tech: BladeTech; step: BladeStep };
   /** WEAPON-6: パリィが 始まった ステップに、つなぎの窓の わざを やめる（イベントは 出さない） */
   yieldToParry?(): void;
+  /** LEGEND-4: ノームの斧の よこなぎの ようす（絵・DigInput が 見る）。idle なら frame 0 */
+  sweep?(): { phase: 'idle' | 'startup' | 'active' | 'recovery'; frame: number; dirDeg: number | null };
 }
 
 // ---------------------------------------------------------------- 弓（B）

@@ -27,6 +27,8 @@ export const WEAPON_SOUNDS = {
   combo2: [...box(hz('E6'), hz('E6') * 1.01, 0, 0.07, 0.2)],
   /** WEAPON-6: 3 段目を 始めた「ピッ」（combo2 より 少し 高い。5 度） */
   combo3: [...box(hz('G6'), hz('G6') * 1.01, 0, 0.08, 0.2)],
+  /** LEGEND-4 ノームの斧 よこなぎ「ブンッ」: 低めの シャカ（下がる）＋ ぽわん（小さく 短い。くりかえす 行動なので 控えめ） */
+  gnomeSwing: [swish(1100, 380, 0, 0.16, 0.3, 0.6), powan(220, 140, 0.03, 0.12, 0.18, 0.02)],
   /** たいきゅう のこり わずか「ピピッ」: オルゴール 2 音 */
   wearLow: [...box(hz('G6'), hz('G6'), 0, 0.07, 0.35), ...box(hz('C7'), hz('C7'), 0.1, 0.1, 0.35)],
   /** こわれた「パキ ポロロン」: 木の「パキ」＋ オルゴールで下がる 3 音（最後ははねて明るく） */
@@ -102,6 +104,9 @@ export function playBladeSound(sound: Pick<SoundFx, 'playTones'>, e: BladeEvent)
       break;
     case 'stance':
       playWeapon(sound, 'stance');
+      break;
+    case 'sweepStart':
+      playWeapon(sound, 'gnomeSwing');
       break;
     case 'techMiss':
     case 'cancel':
