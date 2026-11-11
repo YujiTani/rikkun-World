@@ -75,6 +75,19 @@ describe('F16 ④ YakataSound', () => {
     expect(s.loops().map((l) => l.name)).toEqual(['ambience']);
   });
 
+  it('鳴って いる ループへの 2 回目の 頼みは 鳴らしなおさず gain を 下げる（ふんいき −6 dB）', async () => {
+    const { s, f } = make();
+    await s.preload();
+    s.startLoop('ambience', 0);
+    const n = f.log.gains.length;
+    expect(s.startLoop('ambience', -6)).toBe(true);
+    expect(f.log.started).toBe(1);
+    expect(s.loops()).toEqual([{ name: 'ambience', db: -6 }]);
+    const after = f.log.gains.slice(n);
+    expect(after.length).toBeGreaterThan(0);
+    expect(Math.min(...after)).toBeCloseTo(0.5 * Math.pow(10, -6 / 20), 2);
+  });
+
   it('音量 0 なら 鳴らさない〔上げれば 鳴る〕', async () => {
     let v = 0;
     const { s, f } = make({ volume: () => v });

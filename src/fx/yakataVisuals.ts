@@ -7,17 +7,26 @@
 import * as THREE from 'three';
 import type { ItemId } from '../contracts/items';
 import { drawPixels, itemIconPixels } from '../ui/itemIcon';
-import { setYakataSway } from '../world/light/yakataLight';
+import { yakataUniforms } from '../world/light/yakataLight';
 import { yakataMotion } from './yakataMotion';
 
 /** うかぶ 中身の 同時 数〔こ〕・板の 大きさ〔マス〕・祭壇の 上の 高さ〔マス〕 */
-const FLOAT_SLOTS = 4;
+const FLOAT_SLOTS = 5;
 const FLOAT_SIZE = 0.7;
 const FLOAT_HEIGHT = 1.3;
 /** ほこりの 数〔こ〕・大きさ〔マス〕・うき上がる 高さ〔マス〕 */
 const DUST_COUNT = 8;
 const DUST_SIZE = 0.25;
 const DUST_RISE = 0.8;
+
+/** たいまつの ゆれ: 1 回 torchSwaySec 秒・ふれはば ±torchSwayAmp〔ゆっくり・点滅しない。動きを へらす では ゆれない〕を 光の uniform に 書く */
+function setYakataSway(step: number, reduce: boolean): void {
+  const m = yakataMotion(reduce);
+  yakataUniforms.sway.value = reduce ? 1 : 1 + m.torchSwayAmp * Math.sin((2 * Math.PI * step) / (m.torchSwaySec * 60));
+}
+
+/** せり上がる 板を 門の ブロックより 少し 大きく して〔マス〕、立った ブロックの 外に はみ出して 見えるように する */
+const SLAB_PAD = 0.08;
 
 const texCache = new Map<ItemId, THREE.CanvasTexture>();
 
@@ -170,7 +179,7 @@ export class YakataGateFx {
     // 門の 本体は すでに ブロックで 立つ / 消える ので、板は 上書きの 飾り（下から 出る・下へ しまう）
     const s = this.slab;
     s.visible = k > 0 && k < 1;
-    s.scale.set(g.w, g.h * k, g.d);
+    s.scale.set(g.w + SLAB_PAD, g.h * k, g.d + SLAB_PAD);
     s.position.set(g.x, g.y + (g.h * k) / 2, g.z);
     const dustT = this.mode === 'close' ? this.t - c.dustAt : this.t - m.gateOpenEnd;
     const showDust = this.mode === 'close' && dustT >= 0 && dustT <= c.endAt - c.dustAt;
