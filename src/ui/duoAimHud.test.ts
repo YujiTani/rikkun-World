@@ -144,8 +144,9 @@ describe('AC175: ボタンの 絵（pad の 種類・面の 名前）', () => {
       expect(actionHintView(input({ who: 2, lastInput, right: R, left: 'dig' }))!.pad).toBe('pad');
     }
   });
-  it('1 人の ときは 1P も いつも マウスの 絵（パッドで 遊んでいても 今の まま）', () => {
-    for (const lastInput of ['keyboard', 'mouse', 'gamepad'] as const) {
+  it('1 人の ときの 1P: パッドが あり 最後が パッド → パッドの 絵。それいがいは マウス', () => {
+    expect(actionHintView(input({ who: 1, duo: false, padIndex: 0, lastInput: 'gamepad', right: R, left: 'dig' }))!.pad).toBe('pad');
+    for (const lastInput of ['keyboard', 'mouse'] as const) {
       expect(actionHintView(input({ who: 1, duo: false, padIndex: 0, lastInput, right: R, left: 'dig' }))!.pad).toBe('mouse');
     }
   });

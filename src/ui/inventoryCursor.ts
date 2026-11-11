@@ -17,6 +17,8 @@ export class HeldCursor {
   mouseY = 0;
   private readonly icon: HTMLImageElement;
   private readonly count: HTMLSpanElement;
+  private readonly name: HTMLDivElement;
+  private nameHtml = '';
   private readonly anchor = new CursorAnchor();
 
   constructor(private readonly host: HeldCursorHost) {
@@ -27,7 +29,10 @@ export class HeldCursor {
     this.icon.alt = '';
     this.count = document.createElement('span');
     this.count.className = 'slot-count';
-    this.el.append(this.icon, this.count);
+    this.name = document.createElement('div');
+    this.name.className = 'inv-cursor-name';
+    this.name.hidden = true;
+    this.el.append(this.icon, this.count, this.name);
   }
 
   get shown(): boolean {
@@ -39,9 +44,15 @@ export class HeldCursor {
     this.anchor.invalidate();
   }
 
-  show(stack: ItemStack | null): void {
+  /** nameHtml = つかんだ 物の 名前（ふりがなつきの html。絵の 下の 小さな 札） */
+  show(stack: ItemStack | null, nameHtml = ''): void {
     this.el.hidden = !stack;
     if (!stack) return;
+    if (nameHtml !== this.nameHtml) {
+      this.nameHtml = nameHtml;
+      this.name.innerHTML = nameHtml;
+    }
+    this.name.hidden = nameHtml === '';
     this.icon.src = itemIconUrl(stack.item);
     this.count.textContent = stack.count >= 2 ? String(stack.count) : '';
     this.place();

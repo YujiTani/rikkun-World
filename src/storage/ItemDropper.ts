@@ -61,10 +61,14 @@ export class ItemDropper {
     return false;
   }
 
-  /** カーソルに持っているものを ぜんぶ すてる */
-  dropCursor(): boolean {
+  /** カーソルに持っているものを ぜんぶ すてる（all=false なら 1 こだけ。パッドの X） */
+  dropCursor(all = true): boolean {
     const cur = this.d.inventory.cursor();
     if (!cur) return false;
+    if (!all && cur.count > 1) {
+      this.d.inventory.setCursor({ ...cur, count: cur.count - 1 });
+      return this.throwOut({ ...cur, count: 1 });
+    }
     this.d.inventory.setCursor(null);
     return this.throwOut(cur);
   }
@@ -87,6 +91,8 @@ export interface DropControllerDeps {
   inventoryOpen: () => boolean;
   /** もちもの画面で マウスが合っているマス */
   hover: () => DragTarget | null;
+  /** パッドで えらんでいる マス。パッドを つかっていない ときは undefined（そのときは hover を つかう） */
+  padFocus?: () => DragTarget | null | undefined;
   /** WEAPON-9: true の あいだ すてない（シャイニング F1〜240） */
   blocked?: () => boolean;
 }
@@ -101,6 +107,12 @@ export class DropController {
     if (this.d.blocked?.()) return;
     const all = stack; // Shift＋Q のときは drop は出ない
     if (this.d.inventoryOpen()) {
+      const pad = this.d.padFocus?.();
+      if (pad !== undefined) {
+        // パッド: つかんでいる 物が あれば それを、なければ えらんでいる マスを すてる
+        if (!this.d.dropper.dropCursor(all) && pad !== null) this.d.dropper.dropTarget(pad, all);
+        return;
+      }
       const t = this.d.hover();
       if (t !== null) this.d.dropper.dropTarget(t, all);
     } else if (this.d.playEnabled()) this.d.dropper.dropHeld(all);

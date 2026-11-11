@@ -364,6 +364,7 @@ export function wireFighters(deps: WiredWeapons) {
     playEnabled: () => lock.playInputEnabled() && !screen.inventoryOpen(),
     inventoryOpen: () => screen.inventoryOpen(),
     hover: () => shared.dragOut?.hoverTarget() ?? null,
+    padFocus: () => shared.dragOut?.padTarget(),
   });
   // 農業（M7）。作物の段階を描画へ、出来事は 毎ステップ 1 回だけ drain して配る
   // ふるい たんす の場所（置いたとき・保存を読んだあとに 1 回だけ決める）
