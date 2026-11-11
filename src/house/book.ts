@@ -4,6 +4,34 @@
 // 名前の 帯そのものは 上の 帯の 列（ui/celebrate の TopBandModel）が 出す。ここは「外 → 戸 → 中」に 入った 家を 知らせる だけ。
 import type { Vec3 } from '../contracts';
 import { doorInfo } from '../world/blocks/houseBlocks';
+import type { Blueprint } from './editor/blueprint';
+import { houseShape } from './shape';
+
+/** 建てた 家の 形（場所ごとの しゅるいを 引く もと。HOUSE-2B。古い セーブには ない） */
+export interface HouseSpec {
+  /** 外の 箱の 北西の すみ・床の 段 */
+  at: Vec3;
+  w: Blueprint['w'];
+  d: Blueprint['d'];
+  windows: number;
+  roof: Blueprint['roof'];
+  wall: Blueprint['wall'];
+  windowKind: Blueprint['windowKind'];
+  door: Blueprint['door'];
+  deco: Blueprint['deco'];
+  light: Blueprint['light'];
+}
+
+/** 場所 1 つの しゅるい（見た目の 係が 引く）。rx・ry・rz ＝ 外の 箱の 北西・床の 段からの ずれ、ow・od・h ＝ 家の 箱 */
+export interface LookCell {
+  look: string;
+  rx: number;
+  ry: number;
+  rz: number;
+  ow: number;
+  od: number;
+  h: number;
+}
 
 export interface HouseRec {
   id: number;
@@ -18,10 +46,12 @@ export interface HouseRec {
   /** 戸の 下の マス */
   door: Vec3;
   doorOpen: boolean;
+  /** 建てた 形（HOUSE-2B。場所ごとの しゅるい〔lookAt〕を 引く もと） */
+  spec?: HouseSpec;
 }
 
 /** 窓口 `houses()` の 1 件（記録の 中身から 前・後ろの 文字を のぞいた もの） */
-export type HouseView = Omit<HouseRec, 'front' | 'back'>;
+export type HouseView = Omit<HouseRec, 'front' | 'back' | 'spec'>;
 
 /** 戸の 下の マス (x, y, z) → 表の 番号（x・z は ±百万、y は 0〜255 の はんい） */
 /** 見はりの おぼえ 1 人分: 前の マスと、外（南）から 戸の マスに 入った 家（つぎの 1 歩で 中〔北〕へ 行けば 帯。ほかへ 行けば わすれる） */
@@ -38,6 +68,8 @@ export class HouseBook {
   private readonly recs: HouseRec[] = [];
   private readonly byDoor = new Map<number, HouseRec>();
   private nextId = 1;
+  /** 場所ごとの しゅるいの おぼえ（記録ごと。spec から 作る。保存は しない） */
+  private readonly looks = new WeakMap<HouseRec, Array<string | undefined>>();
   /** 見はりの おぼえ（人ごと。1P の 動きが 2P の 判定を こわさない。[0] ＝ 1P、[1] ＝ 2P） */
   private readonly watch: [Watch, Watch] = [newWatch(), newWatch()];
   /** 毎ステップの しらべで 引いた 記録の 数（テスト用。1 ステップで 高々 1） */
@@ -45,6 +77,7 @@ export class HouseBook {
 
   add(r: Omit<HouseRec, 'id'>): HouseRec {
     const rec: HouseRec = { ...r, id: this.nextId++, door: { ...r.door }, outer: { ...r.outer } };
+    if (r.spec) rec.spec = { ...r.spec, at: { ...r.spec.at }, deco: [...r.spec.deco] };
     this.recs.push(rec);
     this.byDoor.set(keyOf(rec.door.x, rec.door.y, rec.door.z), rec);
     return rec;
@@ -56,7 +89,7 @@ export class HouseBook {
 
   /** 保存（HOUSE-1C PR-2。記録の 写し。次の 番号は 持たない: 読みこむ とき 一番 大きい id の 次から） */
   serialize(): HouseRec[] {
-    return this.recs.map((r) => ({ ...r, door: { ...r.door }, outer: { ...r.outer } }));
+    return this.recs.map((r) => ({ ...r, door: { ...r.door }, outer: { ...r.outer }, ...(r.spec ? { spec: { ...r.spec, at: { ...r.spec.at }, deco: [...r.spec.deco] } } : {}) }));
   }
 
   /** 読みこむ（前の 記録は すてる）。形が おかしい 1 件は とばす。キーが ない（前の セーブ）なら 家なし */
@@ -74,10 +107,41 @@ export class HouseBook {
       const outer = r?.outer as Record<string, unknown> | undefined;
       if (!r || !int(r.id) || !int(r.number) || typeof r.front !== 'string' || typeof r.back !== 'string' || !door || !int(door.x) || !int(door.y) || !int(door.z) || !outer || !int(outer.w) || !int(outer.d)) continue;
       const rec: HouseRec = { id: r.id, name: r.front + r.back, front: r.front, back: r.back, number: r.number, outer: { w: outer.w, d: outer.d }, door: { x: door.x, y: door.y, z: door.z }, doorOpen: r.doorOpen === true };
+      const spec = parseSpec(r.spec);
+      if (spec) rec.spec = spec;
       this.recs.push(rec);
       this.byDoor.set(keyOf(rec.door.x, rec.door.y, rec.door.z), rec);
       this.nextId = Math.max(this.nextId, rec.id + 1);
     }
+  }
+
+  /** 世界の 場所 (x, y, z) が どの 家の どの しゅるいか（家の 記録が なければ・箱の 外・床や 家具の マスは null） */
+  cellOf(x: number, y: number, z: number): LookCell | null {
+    for (const r of this.recs) {
+      const s = r.spec;
+      if (!s) continue;
+      const rx = x - s.at.x;
+      const ry = y - s.at.y;
+      const rz = z - s.at.z;
+      const ow = s.w + 2;
+      const od = s.d + 2;
+      if (rx < 0 || rz < 0 || rx >= ow || rz >= od || ry < 0) continue;
+      let looks = this.looks.get(r);
+      if (!looks) {
+        looks = houseShape({ ...s, furniture: [] }).cells.map((c) => c.look);
+        this.looks.set(r, looks);
+      }
+      const h = looks.length / (ow * od);
+      if (ry >= h) continue;
+      const look = looks[(ry * od + rz) * ow + rx];
+      return look === undefined ? null : { look, rx, ry, rz, ow, od, h };
+    }
+    return null;
+  }
+
+  /** 世界の 場所の しゅるいの id（例 `kawara_shiro`）。記録に ない 場所は null（手で 置いた ブロック。案の 記録は 2C） */
+  lookAt(x: number, y: number, z: number): string | null {
+    return this.cellOf(x, y, z)?.look ?? null;
   }
 
   get(id: number): HouseRec | null {
@@ -157,4 +221,14 @@ export class HouseBook {
   view(r: HouseRec): HouseView {
     return { id: r.id, name: r.name, number: r.number, outer: { ...r.outer }, door: { ...r.door }, doorOpen: r.doorOpen };
   }
+}
+
+/** 保存の spec を 読む（形が おかしければ null＝ 場所ごとの しゅるいは 引かない） */
+function parseSpec(raw: unknown): HouseSpec | null {
+  const r = raw as Record<string, unknown> | null;
+  const at = r?.at as Record<string, unknown> | undefined;
+  const int = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
+  const str = (v: unknown): v is string => typeof v === 'string';
+  if (!r || !at || !int(at.x) || !int(at.y) || !int(at.z) || !int(r.w) || !int(r.d) || !int(r.windows) || !str(r.roof) || !str(r.wall) || !str(r.windowKind) || !str(r.door) || !str(r.light) || !Array.isArray(r.deco) || !r.deco.every(str)) return null;
+  return { at: { x: at.x, y: at.y, z: at.z }, w: r.w as HouseSpec['w'], d: r.d as HouseSpec['d'], windows: r.windows, roof: r.roof as HouseSpec['roof'], wall: r.wall as HouseSpec['wall'], windowKind: r.windowKind as HouseSpec['windowKind'], door: r.door as HouseSpec['door'], deco: r.deco as HouseSpec['deco'], light: r.light as HouseSpec['light'] };
 }

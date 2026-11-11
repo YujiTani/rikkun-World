@@ -7,6 +7,7 @@ import type { ChestBlockId } from '../world/blocks/chestBlock';
 import type { KATAME_TSUCHI, ScaffoldId } from '../world/blocks/buildBlocks';
 import type { ReservedId, WaterPartialId } from '../world/blocks/water';
 import type { MagmaExtraId } from '../world/blocks/magma';
+import type { LookBlockId } from '../world/blocks/houseLookBlocks';
 import type { FurnBlockId, HouseBlockId, HouseDoorPartId } from '../world/blocks/houseBlocks';
 
 export interface Vec3 {
@@ -99,6 +100,8 @@ export type BlockId =
   | HouseBlockId
   | HouseDoorPartId
   | FurnBlockId
+  // HOUSE-2B（#364）: 家の しゅるいの ブロック 20 こ（形ごと。`src/world/blocks/houseLookBlocks.ts`）
+  | LookBlockId
   // HOUSE-1C PR-2（#340。うしろに足す）: かためた つち・足場 5 つ（`src/world/blocks/buildBlocks.ts`）
   | typeof KATAME_TSUCHI
   | ScaffoldId

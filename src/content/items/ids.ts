@@ -133,3 +133,53 @@ export type HouseFurnitureId = (typeof HOUSE_FURNITURE_IDS)[number];
 /** せっけいず（HOUSE-1B #339。1 マスに 1 こ。中身〔形・名前・番号〕は 1 こずつ 持つ）。ITEM_TYPES では 新しい 家具の 次 */
 export const HOUSE_PLAN_IDS = ['sekkeizu'] as const;
 export type HousePlanId = (typeof HOUSE_PLAN_IDS)[number];
+
+/**
+ * 家の しゅるいの アイテム（HOUSE-2B #364）。ほると 手に 入る（置く・作るのは 2C）。id ＝ `<ばしょ>_<しゅるい>`（しゅるいは `<形>_<案>`・しゃちほこ・あかり）。
+ * 形・案の 表は house/recipes/kinds.ts（PART_FORMS・STYLES・LIGHT_KINDS）。ここは 葉なので 型に 必要な 分だけ 書く（足し忘れは kinds.test と houseLooks.test が 落とす）。
+ */
+export const HOUSE_LOOK_ITEM_IDS = [
+  'roof_sankaku_mura',
+  'roof_sankaku_shiro',
+  'roof_sankaku_kozan',
+  'roof_kawara_mura',
+  'roof_kawara_shiro',
+  'roof_kawara_kozan',
+  'roof_wara_mura',
+  'roof_wara_shiro',
+  'roof_wara_kozan',
+  'roof_kin_mura',
+  'roof_kin_shiro',
+  'roof_kin_kozan',
+  'wall_shikkui_mura',
+  'wall_shikkui_shiro',
+  'wall_shikkui_kozan',
+  'wall_renga_mura',
+  'wall_renga_shiro',
+  'wall_renga_kozan',
+  'wall_ishi_mura',
+  'wall_ishi_shiro',
+  'wall_ishi_kozan',
+  'window_suisho_mura',
+  'window_suisho_shiro',
+  'window_suisho_kozan',
+  'window_maru_mura',
+  'window_maru_shiro',
+  'window_maru_kozan',
+  'door_tetsu_mura',
+  'door_tetsu_shiro',
+  'door_tetsu_kozan',
+  'deco_entotsu_mura',
+  'deco_entotsu_shiro',
+  'deco_entotsu_kozan',
+  'deco_noren_mura',
+  'deco_noren_shiro',
+  'deco_noren_kozan',
+  'deco_hanadan_mura',
+  'deco_hanadan_shiro',
+  'deco_hanadan_kozan',
+  'deco_shachi',
+  'light_hotaru',
+  'light_suisho',
+] as const;
+export type HouseLookItemId = (typeof HOUSE_LOOK_ITEM_IDS)[number];
