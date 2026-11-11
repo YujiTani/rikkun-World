@@ -1,13 +1,12 @@
-# #444 CI の 赤を 直す あいだは えらんだ spec だけ 回す ci.yml（これで .github/workflows/ci.yml を まるごと 置きかえる。yuzu が 画面で）。
-# 前と ちがう 所: pull_request の types に ready_for_review / 「変更の 中身」に「えらんだ spec」の step と pick の 出力 /
-# e2e-pick の ジョブ / E2E（6 シャード）は pick が ない ときだけ / 「E2E（全部）」は えらんだ 分だけの 回では いつも 赤。
-# しくみ: PR が draft で、先頭の コミットの メッセージに [e2e: e2e/a.spec.ts e2e/b.spec.ts] が あれば、その spec だけ 1 ジョブで 回す。
-# draft を やめる（ready）と、同じ コミットで 全部が 回る。draft でない PR・main への push は 今までどおり いつも 全部。
+# #444 直しの push では「まえの 回で 落ちた テスト」だけを 先に 回す ci.yml（これで .github/workflows/ci.yml を まるごと 置きかえる。yuzu が 画面で）。
+# 前と ちがう 所: 「変更の 中身」が 同じ ブランチの まえの 回の 落ちた テスト（Playwright の .last-run.json）を 集める /
+# e2e-first の ジョブ（その テストだけ 数分で 回す。落ちたら 6 シャードは 回さず すぐ 赤）/ 各シャードが 落ちた テストの 一覧を e2e-last-run-<n> に 残す。
+# まえの 回が 緑・はじめての push・一覧が とれない ときは 今までどおり すぐ 全部を 回す（落ちない）。だれも 何も 操作 しなくて よい。
 name: CI
 
 on:
   pull_request:
-    # ready_for_review: draft を やめた ときに 全部を 回す（#444）
+    # ready_for_review: スレッドが draft に して すぐ やめると 回し直せる（ランナーの 不調で 止まった とき。#444）
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
@@ -50,7 +49,7 @@ jobs:
     outputs:
       code: ${{ steps.diff.outputs.code }}
       times: ${{ steps.times.outputs.times }}
-      pick: ${{ steps.pick.outputs.pick }}
+      first: ${{ steps.first.outputs.first }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -61,24 +60,6 @@ jobs:
           files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
           echo "$files"
           if echo "$files" | grep -qvE '^docs/|\.md$|^\.claude/'; then echo "code=true" >> "$GITHUB_OUTPUT"; else echo "code=false" >> "$GITHUB_OUTPUT"; fi
-
-      # えらんだ spec（#444）: draft の PR で、先頭の コミットの メッセージに [e2e: e2e/a.spec.ts …] が ある ときだけ。
-      # 形が e2e/ の spec で、ファイルが ある 物だけ 通す（ほかは すてる。1 つも 残らなければ 全部 回す）
-      - id: pick
-        env:
-          DRAFT: ${{ github.event.pull_request.draft }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -f
-          pick=""
-          if [ "${{ github.event_name }}" = "pull_request" ] && [ "$DRAFT" = "true" ]; then
-            line=$(git log -1 --format=%B "$HEAD_SHA" | grep -m1 -oE '\[e2e: [^]]+\]' || true)
-            for s in $(printf '%s' "$line" | sed -e 's/^\[e2e: //' -e 's/\]$//'); do
-              if printf '%s' "$s" | grep -qE '^e2e/[A-Za-z0-9_/-]+\.spec\.ts(:[0-9]+)?$' && [ -f "${s%%:*}" ]; then pick="$pick $s"; fi
-            done
-          fi
-          echo "えらんだ spec: ${pick:-（なし。全部 回す）}"
-          echo "pick=${pick# }" >> "$GITHUB_OUTPUT"
 
       # いちばん 新しい 緑の main の CI が 残した spec ごとの 時間（#311）。5 つの シャードが 同じ 表で 分けるよう、ここで 1 つに まとめて わたす
       - id: last
@@ -105,10 +86,94 @@ jobs:
         run: |
           if ls e2e-times-prev/*.json >/dev/null 2>&1; then echo "times=$(jq -sc 'add' e2e-times-prev/*.json || true)" >> "$GITHUB_OUTPUT"; fi
 
+      # まえの 回で 落ちた テスト（#444）: 同じ ブランチの、落ちた テストの 一覧（e2e-last-run-*）が 残って いる いちばん 新しい 回から 集める。
+      # 60 本を こえる ときは 全体が こわれて いるので 先には 回さない（すぐ 全部）
+      - id: prev
+        if: github.event_name == 'pull_request' && steps.diff.outputs.code == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          run=""
+          for id in $(gh run list -R "$REPO" -w CI -b "$HEAD_REF" -e pull_request -L 8 --json databaseId -q '.[].databaseId' || true); do
+            if [ "$id" = "$GITHUB_RUN_ID" ]; then continue; fi
+            if gh api "repos/$REPO/actions/runs/$id/artifacts" -q '.artifacts[].name' 2>/dev/null | grep -q '^e2e-last-run-'; then run=$id; break; fi
+          done
+          echo "まえの 回: ${run:-（なし）}"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+      - if: steps.prev.outputs.run != ''
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: e2e-last-run-*
+          path: last-run-prev
+          run-id: ${{ steps.prev.outputs.run }}
+          github-token: ${{ github.token }}
+      - id: first
+        run: |
+          ids='[]'
+          if ls last-run-prev/*/last-run.json >/dev/null 2>&1; then
+            ids=$(jq -sc '[.[].failedTests[]? | select(type == "string" and test("^[0-9a-f]{20}-[0-9a-f]{20}$"))] | unique' last-run-prev/*/last-run.json || echo '[]')
+          fi
+          n=$(printf '%s' "$ids" | jq 'length' || echo 0)
+          echo "まえの 回で 落ちた テスト: $n 本"
+          if [ "$n" -ge 1 ] && [ "$n" -le 60 ]; then echo "first=$ids" >> "$GITHUB_OUTPUT"; fi
+
+  # 直しの push（#444）: まえの 回で 落ちた テストだけを 先に 回す（数分）。落ちたら 6 シャードは 回さない（すぐ 赤が 分かる）。通ったら 全部へ
+  e2e-first:
+    name: E2E（まえに 落ちた テスト）
+    needs: changes
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.first != ''
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+      options: --ipc=host
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          check-latest: true
+          cache: npm
+      - run: npm ci
+      # Playwright の --last-failed は test-results/.last-run.json の id（ファイルと テストの 名前から 作る。行が ずれても 同じ）だけを 回す。
+      # 名前を 変えた・消した テストは 当たらない（--pass-with-no-tests。あとの 全部で 見る）
+      - name: まえに 落ちた テストを 回す
+        env:
+          FIRST: ${{ needs.changes.outputs.first }}
+          PLAYWRIGHT_HTML_OPEN: never
+        run: |
+          mkdir -p test-results
+          printf '%s' "$FIRST" | jq -c '{status: "failed", failedTests: .}' > test-results/.last-run.json
+          npx playwright test --last-failed --pass-with-no-tests --reporter=list,html
+      - name: 落ちた テストの 一覧を 作る（次の 回が 使う）
+        if: ${{ !cancelled() }}
+        run: mkdir -p e2e-last-run && cp test-results/.last-run.json e2e-last-run/last-run.json || true
+      - name: 落ちた テストの 一覧を 残す
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-last-run-first
+          path: e2e-last-run/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: 失敗したときのレポートとスクショ
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-first
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
   e2e:
     name: E2E（${{ matrix.shard }}/6）
-    needs: changes
-    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.pick == ''
+    needs: [changes, e2e-first]
+    # e2e-first が ない（skipped）か 通った ときだけ。落ちた ときは 回さない
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.code == 'true' && (needs.e2e-first.result == 'success' || needs.e2e-first.result == 'skipped') }}
     runs-on: ubuntu-24.04
     # Chromium と その部品が 入った Playwright の コンテナで 動かす（毎回 apt で 入れると ときどき 10 分 以上 かかる）。
     # 版は package.json の @playwright/test と 同じに する（上げる ときは ここも 上げる）
@@ -152,6 +217,18 @@ jobs:
           path: e2e-times/
           if-no-files-found: ignore
           retention-days: 30
+      # 途中で 止められた 回（cancelled）は 残さない（中身が 半分で、落ちた テストを 見おとすため）
+      - name: 落ちた テストの 一覧を 作る（次の 回が 先に 回す。#444）
+        if: ${{ !cancelled() }}
+        run: mkdir -p e2e-last-run && cp test-results/.last-run.json e2e-last-run/last-run.json || true
+      - name: 落ちた テストの 一覧を 残す
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-last-run-${{ matrix.shard }}
+          path: e2e-last-run/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: 失敗したときのレポートとスクショ
         if: failure()
         uses: actions/upload-artifact@v4
@@ -170,52 +247,16 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # CI の 赤を 直す あいだ（#444）: えらんだ spec だけを 1 ジョブで 回す（数分）
-  e2e-pick:
-    name: E2E（えらんだ spec）
-    needs: changes
-    if: needs.changes.outputs.pick != ''
-    runs-on: ubuntu-24.04
-    container:
-      image: mcr.microsoft.com/playwright:v1.56.1-noble
-      options: --ipc=host
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          check-latest: true
-          cache: npm
-      - run: npm ci
-      - name: えらんだ spec を 回す
-        run: npx playwright test $PICK --reporter=list,html
-        env:
-          PICK: ${{ needs.changes.outputs.pick }}
-          PLAYWRIGHT_HTML_OPEN: never
-      - name: 失敗したときのレポートとスクショ
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-pick
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 7
-
   # 5 つ全部が通ったかを、前と同じ名前の 1 つのチェックにまとめる（必須チェックの名前を変えないため）
   e2e-all:
     name: E2E（全部）
-    needs: [changes, e2e, e2e-pick]
+    needs: [changes, e2e-first, e2e]
     if: always()
     runs-on: ubuntu-24.04
     steps:
       # ドキュメントだけの PR は E2E を とばして 緑（変更の 中身の ジョブが 落ちたら 赤）
       - name: 5 つの結果をたしかめる
-        env:
-          PICK: ${{ needs.changes.outputs.pick }}
         run: |
           test "${{ needs.changes.result }}" = "success"
-          # えらんだ spec だけの 回は、通っても ここを 赤に する（全部を 回すまで マージ できない ように。#444）
-          if [ -n "$PICK" ]; then echo "えらんだ spec だけを 回した（結果: ${{ needs.e2e-pick.result }}）。全部は まだ。PR の draft を やめると 全部 回る"; exit 1; fi
+          if [ "${{ needs.e2e-first.result }}" = "failure" ]; then echo "まえに 落ちた テストが まだ 落ちる（6 シャードは 回して いない）"; exit 1; fi
           if [ "${{ needs.changes.outputs.code }}" = "true" ]; then test "${{ needs.e2e.result }}" = "success"; fi
