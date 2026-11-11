@@ -1,5 +1,5 @@
 /**
- * #293 少女の ポーズを 骨に かける 小さな 道具（決めポーズ・肩に 座る ポーズ）。数・名前は gashaGirlTuning.ts、ポーズの データは gashaGirlPoseData.ts。
+ * #293 少女の ポーズを 骨に かける 小さな 道具（決めポーズ・うなだれポーズ）。数・名前は gashaGirlTuning.ts、ポーズの データは gashaGirlPoseData.ts。
  */
 import { Euler, Quaternion, type Object3D } from 'three';
 import type { PoseBones } from './gashaGirlPoseData';
@@ -32,9 +32,21 @@ export function applyDelta(base: readonly BaseBone[], delta: Record<string, read
   }
 }
 
-/** 肩に 座る: ももを 前へ 90°、ひざを 90° まげて 足を ぶらさげる(少し 前かがみ・首を かしげる) */
-export const SIT_DELTA: Record<string, readonly [number, number, number]> = {
-  LeftUpLeg: [90, 0, -4], RightUpLeg: [90, 0, 4],
-  LeftLeg: [-90, 0, 0], RightLeg: [-90, 0, 0],
-  Spine: [4, 0, 0], Spine01: [4, 0, 0], neck: [6, 0, 0], Head: [4, 0, 10],
+/**
+ * ぺたん座り(女の子座り): ひざは 前で 少し ひらき、すねと 足は 外向きに 後ろへ たたむ(M 字)。お尻が 地面に のり、頭は 少し うなだれる。
+ * 骨の 回転(度 x y z。もとの 休みの 姿勢に かける)。足の 骨は 休みの 姿勢が 上下 さかさ なので、ももは -70°(ひざが 前へ)、ひざは +140°(すねを たたむ)、
+ * ももを 60° ねじって すねを 外へ。ねじりを 大きく すると 絵が くずれる ので、小さい 回転で 形を 優先した(測った 形は gashaGirlPose.test.ts)。
+ */
+export const PETAN_DELTA: Record<string, readonly [number, number, number]> = {
+  LeftUpLeg: [-70, 60, -15], RightUpLeg: [-70, -60, 15],
+  LeftLeg: [140, 0, 0], RightLeg: [140, 0, 0],
+  Spine: [3, 0, 0], Spine01: [4, 0, 0], Spine02: [4, 0, 0], neck: [14, 0, 0], Head: [16, 0, 0],
 };
+
+/** 地面に つく 点(つま先・足首・ひざ)の 骨の 名前。お尻は 腰の 骨から buttDrop 下 */
+export const PETAN_CONTACT: readonly string[] = ['LeftToeBase', 'RightToeBase', 'LeftFoot', 'RightFoot', 'LeftLeg', 'RightLeg'];
+
+/** いちばん 低い 接地点の 高さ(骨の 世界の 高さ y と 腰の 高さ から)。体を この 分 さげると お尻・足が 地面に つく */
+export function lowestContactY(ys: readonly number[], hipsY: number, buttDrop: number): number {
+  return Math.min(hipsY - buttDrop, ...ys);
+}

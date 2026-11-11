@@ -97,3 +97,15 @@ export const POSES: Record<string, PoseData> = {
     },
   },
 };
+
+/**
+ * pose_slump: 立った まま うなだれる(GASHA-FIX-3)。頭を 深く 下げ、背中を 少し まるく する。足・腰の 骨は 入れない(立った まま。座ると 絵が くずれる)。
+ * うでは もとの 休みの 姿勢(下に たれた まま)で だらんと する。回転は 前(+x)へ 曲げる 角度: Spine 6° / Spine01 8° / Spine02 8° / neck 25° / Head 30°。
+ */
+export const SLUMP_POSE: PoseBones = {
+  Spine: [0.0523, 0, 0, 0.9986],
+  Spine01: [0.0698, 0, 0, 0.9976],
+  Spine02: [0.0698, 0, 0, 0.9976],
+  neck: [0.2164, 0, 0, 0.9763],
+  Head: [0.2588, 0, 0, 0.9659],
+};

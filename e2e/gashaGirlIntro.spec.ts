@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// 体力 1/2 → 噴火して 固まる → BGM ぶつっと → 笑い声 → 少女が ワープで 飛びまわる → 決めポーズ → 戦い → 5 回の あと 肩に 座る（FIX-BRIEF-2 §4）
+// 体力 1/2 → 噴火して 固まる → BGM ぶつっと → 笑い声 → 少女が ワープで 飛びまわる → 決めポーズ → 戦い → 5 回の あと プレイヤーの 前に 座る（FIX-BRIEF-2 §4）
 test.describe.configure({ timeout: 180_000 });
 
 async function open(page: Page) {
@@ -11,7 +11,7 @@ async function open(page: Page) {
 
 type W = { __rikkun: { gasha: { info(): { form: string; state: string }; spawn(o: object): Promise<boolean> }; step(n: number): void; pause(): void }; __gashaBig: { damage(p: string, a: number): number; frozen(): boolean; info(): Record<string, unknown>; perchSpot(): { x: number; y: number; z: number } | null }; __gashaGirl?: { info(): Record<string, unknown>; tune(o: unknown): void; camera(m: string): void }; __gashaBgm?: { status(): { cut: boolean; playing: string | null } } };
 
-test('固まって 笑い、飛びまわり、ポーズを 決め、5 回の あと 肩に 座る', async ({ page }, testInfo) => {
+test('固まって 笑い、飛びまわり、ポーズを 決め、5 回の あと プレイヤーの 前に 座る', async ({ page }, testInfo) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await open(page);
@@ -54,7 +54,7 @@ test('固まって 笑い、飛びまわり、ポーズを 決め、5 回の あ
   expect(forms).toEqual(['freeze', 'laugh', 'orbit', 'pose', 'girl']);
   expect(cutSeen).toBe(true);
   expect(await page.evaluate(() => (window as unknown as W).__gashaBig.frozen())).toBe(true);
-  // 戦いの 5 回を 早送りして 肩へ（1 回で 座る ように 調整表を 上書き。休みも 短く）
+  // 戦いの 5 回を 早送りして 休みへ（1 回で 座る ように 調整表を 上書き。休みも 短く）
   await page.evaluate(() => { (window as unknown as W).__gashaGirl!.tune({ eye: { turnsPerShow: 1, bigWaitSec: 6 }, timing: { goneSec: 0.2 } }); });
   let perch = false;
   for (let i = 0; i < 2500 && !perch; i++) { perch = (await seen(10)) === 'perch'; }

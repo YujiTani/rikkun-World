@@ -24,9 +24,9 @@ function firstHit(hits: BoxLike[], o: number[], t: number[]): string | null {
   return best?.n ?? null;
 }
 
-/** 地面（コアより 約 8 ブロック 下）の 左がわから、穴の あたりに ねらいを ふって 最初に コアに 当たる ねらいの 数と 全体の 数 */
+/** 地面（高さ 0。モデルは 地面 0 に 置く。目は 1.6）の 左がわから、穴の あたりに ねらいを ふって 最初に コアに 当たる ねらいの 数と 全体の 数 */
 function scan(hits: BoxLike[], core: WorldHit, dx: number, dz: number): { ok: number; total: number } {
-  const o = [core.center[0] + dx, core.center[1] - 8.4 + 1.6, core.center[2] + dz];
+  const o = [core.center[0] + dx, 1.6, core.center[2] + dz];
   let ok = 0, total = 0;
   for (let y = -4; y <= 4; y += 0.2) for (let z = -3.5; z <= 3.5; z += 0.2) {
     total++;
@@ -56,7 +56,7 @@ describe('体の 左がわの 小さな 穴（core.sideHole）', () => {
 
   it('穴を 通さない 線（コアの まんなかを 直接 ねらう）は 道の かべに ふさがれる。穴を なくすと 通る ねらいが へる', () => {
     const { hits, core } = boxes();
-    const o = [core.center[0] + 26, core.center[1] - 6.8, core.center[2]];
+    const o = [core.center[0] + 26, 1.6, core.center[2]];
     expect(firstHit(hits, o, core.center as number[])).not.toBe('core');
     const saved = T.core.sideHole.enabled;
     try {

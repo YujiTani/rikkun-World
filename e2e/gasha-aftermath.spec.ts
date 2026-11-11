@@ -102,7 +102,7 @@ test.describe('1. たおした 後は 動かない', () => {
     expect(errs).toEqual([]);
   });
 
-  test('少女の 形態（肩で 休む 間）に コアを なぐって たおしても、とどめが 正しく 走り 5 分 動かない', async ({ page }) => {
+  test('少女の 形態（プレイヤーの 前で 休む 間）に コアを なぐって たおしても、とどめが 正しく 走り 5 分 動かない', async ({ page }) => {
     const errs = await openGasha(page);
     await installGirlTools(page);
     await setupBoss(page, { walk: true, distance: 60 });
@@ -115,15 +115,15 @@ test.describe('1. たおした 後は 動かない', () => {
       if (w.__gg.untilForm('perch') < 0) return false;
       return gt.until(() => w.__gashaGirl.phase() === 'perch', 900, () => gt.heal()) >= 0;
     });
-    expect(seated, '肩に 座る').toBe(true);
-    // 肩の 少女を 刀で なぐって 体力 0（本物の 道: 当たりは ゲームの 1 コマの 中）
+    expect(seated, 'プレイヤーの 前に 座る').toBe(true);
+    // 休んで いる 少女を 刀で なぐって 体力 0（本物の 道: 当たりは ゲームの 1 コマの 中）
     await takeKatana(page, 'chudan');
     await page.evaluate(() => {
-      const w = window as any, gt = w.__gt, h = gt.h, g = gt.big();
+      const w = window as any, gt = w.__gt, h = gt.h;
       w.__gg.hpTo(0.001);
       gt.run(5, () => undefined);
-      const sp = g.perchSpot(), gi = w.__gashaGirl.info();
-      h.player.set({ position: { x: gi.girlX, y: sp.y - 0.2, z: gi.girlZ + 1.8 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0 });
+      const gi = w.__gashaGirl.info();
+      h.player.set({ position: { x: gi.girlX, y: gi.girlY, z: gi.girlZ + 1.8 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0 });
       h.step(1);
     });
     await runTech(page, 14);
