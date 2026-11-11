@@ -14,14 +14,14 @@ import { SaveManager } from './SaveManager';
 const same = (a: SectionData[], b: SectionData[]) => a.length === b.length && a.every((s, i) => sectionToArray(s).every((v, k) => v === sectionToArray(b[i])[k]));
 
 function sample(): SectionData[] {
-  const full = new Uint8Array(4096);
+  const full = new Uint16Array(4096);
   for (let i = 0; i < 4096; i++) full[i] = i % 20; // 20 種類 → そのまま
   const packed = new Uint8Array(2048);
   for (let i = 0; i < 2048; i++) packed[i] = (i % 3) | ((i % 2) << 4);
   return [
     { kind: 'uniform', block: 0 },
     { kind: 'uniform', block: 3 },
-    { kind: 'palette', palette: Uint8Array.of(0, 5, 2), packed },
+    { kind: 'palette', palette: Uint16Array.of(0, 5, 2), packed },
     { kind: 'full', data: full },
   ];
 }
@@ -31,7 +31,7 @@ describe('chunkCodec', () => {
     const s = sample();
     const raw = encodeSections(s);
     expect(same(decodeSections(raw, 4), s)).toBe(true);
-    const few = new Uint8Array(4096);
+    const few = new Uint16Array(4096);
     few[7] = 4;
     const raw2 = encodeSections([{ kind: 'full', data: few }]);
     const head = 1 + (1 + 3) + (1 + 4); // 版 2: 頭に id の一覧（air, sand）
@@ -39,7 +39,7 @@ describe('chunkCodec', () => {
     expect(raw2.length).toBe(head + 2 + 2 + 2048);
     // 版 1 の生バイト（番号は凍らせた表）は 版 1 として今までどおり読める
     expect(decodeSections(Uint8Array.of(0, 9), 1, 1)[0]).toEqual({ kind: 'uniform', block: 9 });
-    expect(decodeSections(encodeSections([{ kind: 'full', data: new Uint8Array(4096).fill(9) }]), 1)[0]).toEqual({ kind: 'uniform', block: 9 });
+    expect(decodeSections(encodeSections([{ kind: 'full', data: new Uint16Array(4096).fill(9) }]), 1)[0]).toEqual({ kind: 'uniform', block: 9 });
   });
 
   it('こわれていたら Error', () => {

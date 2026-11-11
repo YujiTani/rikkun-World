@@ -1,4 +1,4 @@
-import type { ChunkColumn, ItemId, Rarity } from '../../contracts';
+import type { BlockArray, ChunkColumn, ItemId, Rarity } from '../../contracts';
 import { WORLD_HEIGHT } from '../../contracts';
 import { BLOCK_INDEX, BLOCK_TYPES } from '../blocks/blockTypes';
 import { SkyDarkness } from '../light/skyDarkness';
@@ -176,7 +176,7 @@ const idOf = (b: number): string => (b >= 0 ? BLOCK_TYPES[b]!.id : 'outside');
 
 /** 生成した 列を ためて 読む〔1 列 1 回だけ 作る〕。世界の 外・高さの 外は -1 */
 export class GenCols {
-  private readonly flat = new Map<string, Uint8Array>();
+  private readonly flat = new Map<string, BlockArray>();
   private readonly chunks = new Map<string, ChunkColumn>();
   constructor(
     readonly seed: number,
@@ -188,11 +188,11 @@ export class GenCols {
     if (!c) this.chunks.set(k, (c = genColumn(this.seed, cx, cz, this.oldCols)));
     return c;
   }
-  col(cx: number, cz: number): Uint8Array {
+  col(cx: number, cz: number): BlockArray {
     const k = `${cx},${cz}`;
     let f = this.flat.get(k);
     if (!f) {
-      f = new Uint8Array(WORLD_HEIGHT * 256);
+      f = new Uint16Array(WORLD_HEIGHT * 256);
       this.chunk(cx, cz).sections.forEach((s, sy) => f!.set(sectionToArray(s), sy * SECTION_VOLUME));
       this.flat.set(k, f);
     }
