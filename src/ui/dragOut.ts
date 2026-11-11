@@ -19,6 +19,8 @@ export interface DragOutDeps {
   armor?: { equipped(slot: ArmorSlot): unknown; click?(slot: ArmorSlot): void };
   /** 持ち物のマスを シフトクリック（たんす が開いていれば たんす へ。無ければ ホットバー ⇄ ふくろ） */
   shiftMove: (index: number) => void;
+  /** 最後に さわったのが パッドか（「ぜんぶ すてる」「1 こ すてる」を えらんでいる マスに する） */
+  padActive?: () => boolean;
 }
 
 const ARMOR: readonly string[] = ['head', 'body', 'arms', 'legs'];
@@ -99,6 +101,13 @@ export class DragOut {
     // 画面が閉じているあいだは、前に合っていたマスを返さない（見えないマスをすてない）
     if (this.host.el.hidden) this.hovered = null;
     return this.hovered;
+  }
+
+  /** パッドで えらんでいる マス（パッドを つかっていない ときは undefined） */
+  padTarget(): DragTarget | null | undefined {
+    if (!this.d.padActive?.()) return undefined;
+    const a = document.activeElement;
+    return a instanceof HTMLElement && this.host.el.contains(a) ? targetOf(a) : null;
   }
 
   isDragging(): boolean {

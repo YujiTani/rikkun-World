@@ -150,6 +150,7 @@ export function wireHud(deps: WiredAnimalView) {
     },
     // 2 人用の 画面を パッドで 開いた か（たんす・やく の はじめの えらび。COOP-1 4c）
     padOpened: () => gamepadApi.reader.getLastInput() === 'gamepad',
+    padInput: () => gamepadApi.reader.getLastInput() === 'gamepad', // ヘルプ帯・ツールチップを パッド用に
   });
   // CRAFT-2: ログ（左のログ＋できごと の履歴）。拾ったログ（PickupLog）は これの liveModel を読む
   const log: LogSystem = new LogSystem({ nameOf, settings: craft2Settings, live: craftUi });
@@ -595,6 +596,7 @@ export function wireAchievements(deps: WiredWeaponFx) {
       if (storage.ui().open) storage.shiftClick('inv', i);
       else inventory.shiftMove(i);
     },
+    padActive: () => deps.gamepadApi.reader.getLastInput() === 'gamepad',
   });
   shared.tryOpenTansu = () => dig.tryOpenAimedStorage();
   time.onPhaseChange((p) => achievements.feedPhase(p));

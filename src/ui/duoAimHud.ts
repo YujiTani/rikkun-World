@@ -63,10 +63,9 @@ export function fillHintCtx(ctx: ActionHintCtx, tool: { item: ActionHintCtx['hel
   ctx.carrying = carrying;
 }
 
-/** 2 人の とき 1P は 1P の パッドが 使われて いれば パッド、そうでなければ マウス。2P は いつも パッド。1 人の ときは いつも マウス */
-function padOf(who: 1 | 2, duo: boolean, padIndex: number | null, lastInput: LastInput): HintPad {
-  if (!duo) return 'mouse';
-  if (who === 2) return 'pad';
+/** 1P は 1P の パッドが つながっていて 最後に さわったのが パッドなら パッド、そうでなければ マウス（1 人でも 2 人でも）。2P は いつも パッド（2 人の ときだけ） */
+export function padOf(who: 1 | 2, duo: boolean, padIndex: number | null, lastInput: LastInput): HintPad {
+  if (who === 2) return duo ? 'pad' : 'mouse';
   return padIndex !== null && lastInput === 'gamepad' ? 'pad' : 'mouse';
 }
 
@@ -218,7 +217,7 @@ export class DuoAimHud {
       b.marks2.update({ stance: null, bowStage: 0 });
       b.blade2.update(IDLE_BLADE);
     }
-    this.d.hint1.setPad('mouse');
+    this.d.hint1.setPad('mouse'); // 1 人にもどった。つぎの ステップで 1P の 見分け（step.ts）が 決めなおす
     for (const list of [this.placed1 ?? [], ...(b?.placed ?? [])]) for (const p of list) this.clearPlace(p.el);
     this.setBelow(1, false);
     this.setBelow(2, false);
@@ -363,7 +362,7 @@ export class DuoAimHud {
 const IDLE_BLADE = { item: null } as unknown as BladeState;
 
 /** 左の 札・右の 札の 面の 絵（面の 名前＋字）。ついて いなければ null */
-function faceArts(binds: BindMap): [HintPadFace | null, HintPadFace | null] {
+export function faceArts(binds: BindMap): [HintPadFace | null, HintPadFace | null] {
   const f = hintFaces(binds);
   const art = (face: PadFace | null): HintPadFace | null => (face ? { face, label: TEXT[face] ?? '' } : null);
   return [art(f.left), art(f.right)];

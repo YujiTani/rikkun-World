@@ -176,6 +176,39 @@
   right: 0;
   bottom: 0;
 }
+/* つかんだ 物の 名前の 札（絵の 下） */
+.inv-cursor-name {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  margin-top: var(--rk-sp-1);
+  padding: 0 var(--rk-sp-2);
+  white-space: nowrap;
+  font-size: var(--rk-fs-small);
+  font-weight: 800;
+  color: var(--rk-ink);
+  background: var(--rk-text-sub);
+  border-radius: var(--rk-r-s);
+}
+.inv-cursor-name[hidden] {
+  display: none;
+}
+/* ヘルプ帯の パッドの 印は 文字と そろえて 小さく */
+.inv-hint .pad-badge-svg {
+  width: 22px;
+  height: 22px;
+}
+.inv-hint .pad-badge {
+  min-width: 24px;
+  height: 24px;
+  font-size: 13px;
+}
+.inv-hint[data-pad] .rk-chip__text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rk-sp-1);
+}
 
 /* 画面の下: ここでできる操作（シンプルな ひらがな。キーは キーの形） */
 .inv-hints {

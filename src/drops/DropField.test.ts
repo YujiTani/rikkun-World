@@ -235,6 +235,16 @@ describe('DropField', () => {
     expect(Math.hypot(p.x - 10.5, p.z - 10.5)).toBeLessThan(0.5);
   });
 
+  it('throwItem の from（2P の 足もと）が あれば そこから 投げる（1P の 所に 出さない）', () => {
+    const r = rig();
+    r.player.x = 10.5;
+    r.player.y = 9;
+    r.player.z = 10.5;
+    r.f.throwItem({ item: 'dirt', count: 1 }, 0, 1.62, { x: 4.5, y: 9, z: 4.5 });
+    const p = r.f.list()[0]!.position;
+    expect(Math.hypot(p.x - 4.5, p.z - 4.5)).toBeLessThan(0.5);
+  });
+
   it('WEAPON-9: 虹の 強さは 地面の 袋 → 保存 → 読みこみ → ひろう で かわらない', () => {
     const r = rig();
     r.f.scatter({ x: 10.5, y: 9, z: 10.5 }, [{ item: 'niji', count: 1, power: 9 }]);
