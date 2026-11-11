@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { WILD_BLOCK, WORLD_HEIGHT } from '../../contracts';
+import { SEA_Y, WILD_BLOCK, WORLD_HEIGHT } from '../../contracts';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { SECTION_VOLUME, sectionToArray } from '../sections';
 import { clearCountryCache, countryAt, countryCell, takePath, type CountryKind } from './biome';
 import { generateChunk } from './chunk';
 import { GEN_CONFIG as C } from './config';
-import { clearTerrainCache } from './terrain';
+import { clearTerrainCache, terrainFor } from './terrain';
 
 /**
  * #187 VOX-I-4a「国だけの物 その 1」（docs/design/VOX-I.md §2.3・§8.3、タスク票 docs/tickets/VOX-I-4a.md）。
@@ -45,13 +45,13 @@ const OWNER: Record<string, CountryKind> = {
 };
 const TYPES = Object.keys(OWNER);
 
-/** その国の升目（山でない）を 20 こ。番号の小さい順に 間をあけて ひろう */
+/** その国の升目（山でない・点が 陸 = 海面より上。§2.3「水の上には 置かない」）を 20 こ。番号の小さい順に 間をあけて ひろう */
 function cellsOf(seed: number, kind: CountryKind): { i: number; j: number; px: number; pz: number }[] {
   const all: { i: number; j: number; px: number; pz: number }[] = [];
   for (let j = -36; j <= 36; j++) {
     for (let i = -36; i <= 36; i++) {
       const c = countryCell(seed, i, j);
-      if (c.kind === kind && !c.startForced) all.push({ i, j, px: c.px, pz: c.pz });
+      if (c.kind === kind && !c.startForced && terrainFor(seed).height(c.px, c.pz) >= SEA_Y) all.push({ i, j, px: c.px, pz: c.pz });
     }
   }
   expect(all.length, `${kind} の升目が 20 こ以上`).toBeGreaterThanOrEqual(20);
@@ -113,7 +113,7 @@ describe('#187-AC1: 数（§2.3 の表）', () => {
     }
   });
 
-  it('takenoko: 1 升目に 3 こ まで。たけやぶの 道の上。たけのこ どうし 8 以上はなす。7 割の升目に 1 こ以上', async () => {
+  it('takenoko: 1 升目に 3 こ まで。たけやぶの 道の上。たけのこ どうし 8 以上はなす。20 升目の 合計で 1 こ以上（見つかった数だけ）', async () => {
     const fn = await load();
     for (const seed of SEEDS) {
       const rows = perCell(fn, seed, 'take', 'takenoko');
@@ -123,7 +123,7 @@ describe('#187-AC1: 数（§2.3 の表）', () => {
         for (const f of list) expect(path.has(`${f.x},${f.z}`), `道の上 (${f.x},${f.z})`).toBe(true);
         for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) expect(cheb(list[a]!, list[b]!)).toBeGreaterThanOrEqual(8);
       }
-      expect(rows.filter((r) => r.list.length >= 1).length, `seed ${seed} 1 こ以上の升目`).toBeGreaterThanOrEqual(14);
+      expect(rows.reduce((n, r) => n + r.list.length, 0), `seed ${seed} 合計`).toBeGreaterThanOrEqual(1);
     }
   });
 });

@@ -14,8 +14,14 @@ test.describe('#187 国だけの物 その 1', () => {
       const h = (window as any).__rikkun;
       const T = (window as any).__biomeT;
       if (typeof h.biome.features !== 'function') return { error: 'biome.features が まだ無い' };
-      const p = h.biome.find('hana');
-      const list = h.biome.features(p.x - 48, p.z - 48, p.x + 48, p.z + 48).filter((f: any) => f.type === 'himawari');
+      // 点が 海の はなばたけ は ひまわりが 0 こ。陸の ひまわりが 見つかるまで、遠い はなばたけへ 移りながら 広い四角で 聞く
+      let list: any[] = [];
+      let from: { x: number; z: number } | undefined;
+      for (let k = 0; k < 12 && list.length === 0; k++) {
+        const p = h.biome.find('hana', from);
+        list = h.biome.features(p.x - 112, p.z - 112, p.x + 112, p.z + 112).filter((f: any) => f.type === 'himawari' && h.biome.at(f.x, f.z).kind === 'hana');
+        from = { x: p.x + 300, z: p.z + 100 * (k + 1) };
+      }
       if (list.length === 0) return { error: 'ひまわりが 0 こ', count: 0 };
       const f = list[0];
       const g = T.goToPoint({ x: f.x, z: f.z });

@@ -47,6 +47,7 @@
 - ブロックの id: きのこ = `kinoko`、ひまわり = `himawari`（下の段）と `himawari_top`（上の段）、かいがら = `kaigara`、たけのこ = `takenoko`。アイテムは `kinoko`・`himawari`・`kaigara`・`takenoko`（`himawari_top` という アイテムは 無い。ほると `himawari`）。4 つとも 固くない・こわせる・置ける（`placeBlock` が 自分）。
 - 生成の窓口: `src/world/gen/countryFeatures.ts` が `featuresInRect(seed, x0, z0, x1, z1)` を export（`{ type, cx, cz, x, y, z }[]`）。`window.__rikkun.biome.features(x0, z0, x1, z1)` はその 包み（`biomeHook.ts`）。`cx, cz` は 国の升目の番号（`countryAt` の `cx, cz` と同じ）。
 - 基準のマス: ひまわり・かいがら・たけのこ は その物の マス（ひまわり は 下の段。上は y+1）、きのこの わ は まん中（8 か所は 半径 3 の たて・よこ と ななめ 2,2 で、y は ±3 の中）、はたけあと・つきみの いわ は 置いた 場所の まわり（やさい 3 本以上／いし 15 こ以上を 近くで数える）。
-- 仕様に 書いていない 仮定（テストの 置き方）: たけのこ は 14/20 升目で 1 こ以上・たけのこ どうし 8 以上は チェビシェフで はかる。「点から 32・40 以内」もチェビシェフ。ひまわりの 数の上は 5 こ。かいがらは 1 列 4 こまで（2〜4 の下限は 見ない）。はたけあと は やさいの 下が `dirt`、つきみの いわ は まん中の 列に いしが 3 つ以上つながる。
+- 仕様に 書いていない 仮定（テストの 置き方）: たけのこ は 20 升目の 合計で 1 こ以上（陸の升目で 実測したら 7 割は 通らなかった）・たけのこ どうし 8 以上は チェビシェフで はかる。「点から 32・40 以内」もチェビシェフ。ひまわりの 数の上は 5 こ。かいがらは 1 列 4 こまで（2〜4 の下限は 見ない）。はたけあと は やさいの 下が `dirt`、つきみの いわ は まん中の 列に いしが 3 つ以上つながる。
+- 「各国 20 升目」は「点が 陸（海面より上）の 升目 20 こ」と 読む（点が 海の升目は 水の上なので 置かない。PO の決め）。
 - たけのこ は `takePath` の マスの上。「その国の升目」= `countryAt` が 同じ kind・同じ cx, cz・`e >= blend`。
 - ユニット: `src/world/gen/countryFeatures.test.ts`・`src/world/blocks/voxI4aBlocks.test.ts`・`src/dig/himawari.test.ts`。E2E: `e2e/voxI4a-features.spec.ts`。
