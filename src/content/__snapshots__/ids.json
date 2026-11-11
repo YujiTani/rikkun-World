@@ -673,6 +673,8 @@
     "mine.cave.suisho.1",
     "mine.chest.1",
     "mine.kabitaPan.1",
+    "mine.yakata.found.1",
+    "mine.yakata.won.1",
     "morning.1",
     "morning.3",
     "morning.30",
@@ -1543,6 +1545,8 @@
     "wearAll",
     "wearTotal",
     "wild:*",
-    "wild:kinds"
+    "wild:kinds",
+    "yakata:found",
+    "yakata:won"
   ]
 }
