@@ -1,4 +1,5 @@
 import { BOKEN_TILE_NAMES } from './mineBokenTextures';
+import { YAKATA_TILE_NAMES } from './mineYakataTextures';
 import { ROPE_TILE_NAMES } from './ropeTextures';
 import { WATERFALL_TILE_NAMES } from './waterfallTextures';
 import { describe, expect, it } from 'vitest';
@@ -16,7 +17,7 @@ describe('世界の 絵の 表に 足した 絵', () => {
     expect(HOUSE_ATLAS_TILE_NAMES).toHaveLength(12 + 20 + 8); // PR-2 で 建築の ブロック 8 まい（かためた つち 2・足場 5・のぼり 1）を さいごに 足した
     expect(new Set(TILE_NAMES).size, 'アトラスの 名前は ぜんぶ ちがう').toBe(TILE_NAMES.length);
     // ROPE-1: ロープの 2 まいが 家の 絵の あとに 足された（家の 絵の 位置は かわらない）
-    const end = TILE_NAMES.length - ROPE_TILE_NAMES.length - WATERFALL_TILE_NAMES.length - BOKEN_TILE_NAMES.length; // WATERFALL-1 の 7 まいも その あと
+    const end = TILE_NAMES.length - ROPE_TILE_NAMES.length - WATERFALL_TILE_NAMES.length - BOKEN_TILE_NAMES.length - YAKATA_TILE_NAMES.length; // MINE-1F の 10 まいも その あと。 WATERFALL-1 の 7 まいも その あと
     expect(TILE_NAMES.slice(end - HOUSE_ATLAS_TILE_NAMES.length, end)).toEqual([...HOUSE_ATLAS_TILE_NAMES]);
     for (const n of HOUSE_ATLAS_TILE_NAMES) expect(isHouseTile(n)).toBe(true);
     expect(isHouseTile('stone')).toBe(false);

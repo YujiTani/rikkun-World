@@ -134,7 +134,16 @@ export type BlockId =
   | 'kowareta_waku'
   | 'taoreta_hashigo_x'
   | 'taoreta_hashigo_z'
-  | 'takibi_ato';
+  | 'takibi_ato'
+  // MINE-1F（うしろに足す。212〜219）: ようかいの やかたの ブロック 8 こ（2 組 × かべ・ゆか・だん・たいまつ。仕様 §4.6。id の 表は world/blocks/mineYakata.ts）
+  | 'maou_kabe'
+  | 'maou_yuka'
+  | 'maou_dan'
+  | 'maou_taimatsu'
+  | 'otera_ishigaki'
+  | 'otera_ishidatami'
+  | 'otera_dan'
+  | 'onibi_taimatsu';
 
 export interface BlockType {
   id: BlockId;

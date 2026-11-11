@@ -6,6 +6,7 @@ import { FURNITURE } from '../../house/editor/furniture';
 import { FLAT_FURN_KINDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from './houseBlocks';
 import { isLiquidIndex } from './liquids';
 import { isFloorDeco } from './mineBoken';
+import { isYakataTorch } from './mineYakata';
 import { MAGMA_IDS, MAGMA_M0, MAGMA_RESERVED_IDS } from './magma';
 import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL_INDEX, WATER_PARTIAL_IDS, WATER_W0 } from './water';
 
@@ -140,6 +141,15 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'taoreta_hashigo_x', name: 'たおれた はしご', solid: false, breakable: true },
   { id: 'taoreta_hashigo_z', name: 'たおれた はしご', solid: false, breakable: true },
   { id: 'takibi_ato', name: 'たきびの あと', solid: false, breakable: true },
+  // MINE-1F（番号は 後ろに 足す。212〜219）: ようかいの やかた。かべ・ゆか・だんは 固い。たいまつは 固くない（ふつうの たいまつと 同じ）
+  { id: 'maou_kabe', name: 'まおうの かべ', solid: true, breakable: true },
+  { id: 'maou_yuka', name: 'まおうの ゆか', solid: true, breakable: true },
+  { id: 'maou_dan', name: 'まおうの だん', solid: true, breakable: true },
+  { id: 'maou_taimatsu', name: 'むらさきの たいまつ', solid: false, breakable: true },
+  { id: 'otera_ishigaki', name: 'おてらの いしがき', solid: true, breakable: true },
+  { id: 'otera_ishidatami', name: 'おてらの いしだたみ', solid: true, breakable: true },
+  { id: 'otera_dan', name: 'おてらの だん', solid: true, breakable: true },
+  { id: 'onibi_taimatsu', name: 'おにびの たいまつ', solid: false, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -163,9 +173,10 @@ export const LANTERN = BLOCK_INDEX.lantern;
 export const HOTARUISHI = BLOCK_INDEX.hotaruishi;
 export const SHOJI = BLOCK_INDEX.shoji;
 
-/** たいまつの なかまか（細い棒＋炎の形で描く。光る） */
+/** たいまつの なかまか（細い棒＋炎の形で描く。光る。MINE-1F: あやしい たいまつ 2 つも） */
+const YAKATA_TORCH = BLOCK_TYPES.map((t) => isYakataTorch(t.id));
 export function isTorchIndex(index: number): boolean {
-  return index === TORCH || index === START_TORCH;
+  return index === TORCH || index === START_TORCH || YAKATA_TORCH[index] === true;
 }
 
 /** 小物の置き物（ITEM-FX-1: ちょうちん・ふとん・はにわ）。固くない・光を通す・箱の組み合わせで描く（絵は meshChunk の pushProp） */

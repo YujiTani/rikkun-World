@@ -62,6 +62,12 @@ const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
   taoreta_hashigo_x: 'log',
   taoreta_hashigo_z: 'log',
   takibi_ato: 'stone',
+  maou_kabe: 'stone', // MINE-1F: やかたの かべ・ゆか・だんは いし の なかま（たいまつは どの 道具でも ない）
+  maou_yuka: 'stone',
+  maou_dan: 'stone',
+  otera_ishigaki: 'stone',
+  otera_ishidatami: 'stone',
+  otera_dan: 'stone',
   // つち（あう道具: くわ）
   grass: 'dirt',
   dirt: 'dirt',
