@@ -18,6 +18,7 @@ import { type FarmStepContext, type ItemId, cropKindOfBlock, VEG_ITEM } from '..
 import { FARM_HINT_VIEW } from '../ui/farmHintModel';
 import { feedPourFx } from '../fx/farmPourFx';
 import { actionHintLines } from '../ui/actionHintModel';
+import { padOf, faceArts, type HintPad } from '../ui/duoAimHud';
 import { impactOf } from '../fx/impact';
 import { feedLegendImpact, newLegendImpactState } from '../legend/legendImpact';
 import { createSelectLock } from '../legend/selectLock';
@@ -53,6 +54,17 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
   const selLock = createSelectLock();
   /** 畑の 毎ステップの 入力（使いまわす。2P が いる ときだけ 足もとを 入れる。COOP-1 5a） */
   const farmCtx: FarmStepContext = { playerPos: controller.state.position };
+  /** 1 人の ときの アクションヒントの ボタンの 絵（パッド・マウス）と 面の 字（ZR・ZL など）。変わった ときと 30 ステップごと（せっていの 割り当てを うつす）だけ 書く */
+  const reader = deps.gamepadApi.reader;
+  let lastPad: HintPad | null = null;
+  const updateHint1Pad = (): void => {
+    const pad = padOf(1, false, reader.hasPad() ? 0 : null, reader.getLastInput());
+    if (pad !== lastPad) {
+      lastPad = pad;
+      actionHint.setPad(pad);
+    }
+    if (pad === 'pad' && game.tick % 30 === 0) actionHint.setFaces(...faceArts(reader.getBinds()));
+  };
   return (dt: number): void => {
     streamFrame();
     audioStep();
@@ -421,6 +433,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       const tid = hintVisible() ? dig.animalTarget() : null;
       natsukiPanel.update(tid === null ? null : animals.natsukiView(tid));
     }
+    updateHint1Pad();
     actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { carryProgress: dig.carryProgress(), carrying: animals.carrying() !== null, held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade', yakataChest: shared.yakataChestAimed() }) : {});
     farmHint.step();
     {

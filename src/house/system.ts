@@ -1,6 +1,6 @@
 import type { BlockId, ItemId, Vec3 } from '../contracts';
 import { blueprintName, blueprintWindows, type Blueprint } from './editor/blueprint';
-import { glowsWindows } from './editor/buttons';
+import { editorButtons, glowsWindows } from './editor/buttons';
 import { EditorController } from './editor/controller';
 import { editOp } from './editor/ops';
 import { needBonusOf, type NeedRow } from './editor/model';
@@ -12,6 +12,9 @@ import { ArchitectManager, type ArchitectInfo } from './manager';
 import { HouseBook, type HouseView } from './book';
 import { bagVia, type Who } from './whoPort';
 import { cellInfo, type CellInfo } from './cell';
+import { HoverTip, glowPartOf, tipLines } from './recipes/hoverTip';
+import { RecipeKeeper } from './recipes/keeper';
+import { isRecipeId, recipeButtons } from './recipes/table';
 import type { PreviewMode } from './preview/mesh';
 import { NO_PREVIEW, previewModeOf, type PreviewPort } from './preview/port';
 import { HouseRename, type RenameView } from './rename';
@@ -74,6 +77,10 @@ export interface HouseSystemDeps {
   held?: () => ItemId | null;
   /** 音・演出（HOUSE-1C PR-2。なければ 鳴らさない） */
   play?: (e: HouseSfx) => void;
+  /** 持ち物に 入らなかった 物を その 人の 足もとに 落とす（まきものの 入りきらない 分・ぜんぶ おぼえた あとの かみ 3 まいの 入りきらない 分。HOUSE-2A。who を 省くと 1P） */
+  drop?: (item: ItemId, count: number, who?: Who) => void;
+  /** まきものの テロップ（はじめて 手に 入れた・おぼえた）を 上の 帯の 列に 入れる（HOUSE-2A。who ＝ 使った・拾った 人。なければ 何も しない） */
+  recipeBand?: (text: string, who?: Who) => void;
   /** その 人を 足もと (x, y, z) へ うつす（建築を はじめる とき 場所の 中に いた ときだけ）。なければ 位置を 書きかえる */
   teleport?: (who: Who, x: number, y: number, z: number) => void;
   /** 建築を はじめる 場所の 中に いる 動物・妖怪を 外へ うつす。なければ 何も しない */
@@ -119,7 +126,11 @@ export class HouseSystem {
     cellChanged: (x, y, z, id) => this.book.cellChanged(x, y, z, id),
     boxFilled: (x0, y0, z0, x1, y1, z1, id) => this.book.boxFilled(x0, y0, z0, x1, y1, z1, id),
   };
+  /** レシピの まきもの: 手に 入れる・使って おぼえる（3.3 版）。おぼえた 記録は state.recipes（保存） */
+  readonly recipes: RecipeKeeper;
   private readonly renamer: HouseRename;
+  /** 名前の ヘルプ（ばしょ・しゅるいの ボタンに のせて 12 コマ） */
+  private readonly tip = new HoverTip();
   /** 材料の もと（もちもの ＋ 近くの たんす）。数えるのは 画面を 開いた とき・押した とき だけ（呼ぶ 側が 毎ステップ 呼ばない） */
   private readonly materials: Materials;
   private onChange: (() => void) | null = null;
@@ -149,6 +160,7 @@ export class HouseSystem {
     const gave = (item: ItemId): void => d.gave(item, this.talker() ?? 1);
     this.editor = new EditorController({
       holder: this.state.holder,
+      recipes: this.state.recipes,
       have: (item) => this.materials.have(item),
       sheet: createSheetPort({
         bag: bagNow,
@@ -162,7 +174,7 @@ export class HouseSystem {
       }),
       onMade: () => this.talk.made(),
     });
-    this.renamer = new HouseRename({ book: this.book, player: () => this.nowPos() });
+    this.renamer = new HouseRename({ book: this.book, player: () => this.nowPos(), suffixOk: (i) => this.state.recipes.suffixOk(i) });
     this.build = new BuildGlue({
       world: d.world,
       player: () => this.nowPos(),
@@ -185,6 +197,14 @@ export class HouseSystem {
         }
       },
       evict: (box, spots) => d.evict?.(box, spots),
+    });
+    this.recipes = new RecipeKeeper(this.state.recipes, {
+      seed: d.seed,
+      bagOf: (who) => this.bagOf(who),
+      ...(d.drop ? { drop: d.drop } : {}),
+      play: (e) => d.play?.(e),
+      band: (text, who) => d.recipeBand?.(text, who),
+      confetti: () => this.build.celebrate.bump(),
     });
     this.talk = new HouseTalk({
       flow: this.build.flow,
@@ -220,6 +240,8 @@ export class HouseSystem {
     const entered = e1 ?? e2;
     if (entered) this.d.nameBand?.(entered.name);
     this.build.update();
+    this.recipes.step();
+    this.tickTip();
     this.talk.tickBye();
     const id = this.talk.current();
     if (id !== null) this.stepTalk(id);
@@ -331,7 +353,23 @@ export class HouseSystem {
   tickEditor(): void {
     if (!this.talk.editing()) return;
     this.editor.tick();
+    this.tickTip();
     this.emit();
+  }
+
+  /** ヘルプの 1 コマ（update() か tickEditor() の どちらか 一方だけ 毎コマ 呼ばれる）。エディターが とじて いたら 消す */
+  private tickTip(): void {
+    if (!this.talk.editing()) this.tip.reset();
+    else this.tip.tick(this.visibleButton);
+  }
+
+  /** そのボタンが いま 画面に 見えて いるか（ヘルプ・光りの 目安） */
+  private readonly visibleButton = (id: string): boolean => this.talk.editing() && editorButtons(this.editor).some((b) => b.id === id);
+
+  /** 窓口 editor().hoverTip: 出て いる ヘルプ { id, lines }（出て いなければ null）。置き場所は 画面が 決める */
+  hoverTip(): { id: string; lines: string[] } | null {
+    const id = this.tip.shown;
+    return id === null ? null : { id, lines: tipLines(id, this.editor.s) };
   }
 
   /** 窓口 `edit(op)`（仕様 §6.1）。エディターが 開いて いない とき false */
@@ -371,9 +409,28 @@ export class HouseSystem {
     return this.turn((p) => p.wheel(dx, dy));
   }
 
-  /** 窓口 `hover(id | null)`: その ボタンに マウスを のせた のと 同じ。光るのは まどの かず・しゅるいの ボタン だけ（① で） */
+  /**
+   * 窓口 `hover(id | null)`: その ボタンに マウスを のせた のと 同じ。光るのは まどの かず −＋（窓が ぜんぶ）と、ポップアップの しゅるいの ボタン
+   * （その ばしょ。やね・かべ・まど・と・えんとつ・のれん・はなだん・しゃちほこ）だけ（① で）。ばしょ・しゅるいの ボタンには 名前の ヘルプも 出る
+   */
   hover(id: string | null): void {
-    this.preview.hover(id !== null && this.previewMode() === 'outside' && glowsWindows(id));
+    const part = id !== null && this.previewMode() === 'outside' ? glowPartOf(id) : null;
+    if (id !== null && this.previewMode() === 'outside' && glowsWindows(id)) this.preview.hover(true);
+    else if (id !== null && part !== null && !this.drawsNothing(id, part) && this.visibleButton(id)) this.preview.hover(true, part);
+    else this.preview.hover(false);
+    this.tip.hover(id, this.visibleButton);
+  }
+
+  /** 「なし」の ボタンに のせた・その ばしょが 今 なし（描いて いない）なら 光らせる 物が ない（やね・かべ・まど。AC9c「なしは 描かず 光らない」） */
+  private drawsNothing(id: string, part: string): boolean {
+    if (id.endsWith('-none')) return true;
+    const e = this.editor.s;
+    return (part === 'roof' && e.roof === 'none') || (part === 'wall' && e.wall === 'none') || (part === 'window' && e.windowKind === 'none');
+  }
+
+  /** 窓口 `recipes()`・`learn(id)`・`found(at, who)`・`read(who)`・`recipeBand()`・`recipeKinds(id)`（HOUSE-2A。テスト用の 窓口と 手に 入れる・使う 入口） */
+  recipeKinds(id: string): string[] {
+    return isRecipeId(id) ? recipeButtons(id) : [];
   }
 
   /** 窓口 `need(source?)`: source なし ＝ エディターの 今の 形、数 ＝ 持ち物の せっけいずの マスの 番号。have ＝ もちもの ＋ 近くの たんす（1E）。bonus は はじめての 家の おまけ（1C） */

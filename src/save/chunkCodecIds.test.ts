@@ -11,13 +11,13 @@ const idx = (id: string) => base.indexOf(id);
 
 /** uniform / palette / full の 3 つの形（base の番号で作る） */
 function shapes(): SectionData[] {
-  const full = new Uint8Array(4096);
+  const full = new Uint16Array(4096);
   for (let i = 0; i < 4096; i++) full[i] = i % 20;
   const packed = new Uint8Array(2048);
   for (let i = 0; i < 2048; i++) packed[i] = (i % 3) | ((i % 2) << 4);
   return [
     { kind: 'uniform', block: idx('stone') },
-    { kind: 'palette', palette: Uint8Array.of(idx('air'), idx('farmland'), idx('sprinkler')), packed },
+    { kind: 'palette', palette: Uint16Array.of(idx('air'), idx('farmland'), idx('sprinkler')), packed },
     { kind: 'full', data: full },
   ];
 }
@@ -48,7 +48,7 @@ describe('SAVE-30 AC1: 並び順のちがう表で読んでも 同じ id', () =>
     const pos = (id: string) => reversed.indexOf(id);
     const rev = src.map((s) => {
       const a = sectionToArray(s).map((v) => pos(base[v]));
-      return { kind: 'full', data: Uint8Array.from(a) } as SectionData;
+      return { kind: 'full', data: Uint16Array.from(a) } as SectionData;
     });
     const viaRev = decodeSections(encodeSections(rev, reversed), 3, 2, base);
     for (let s = 0; s < 3; s++) expect(sectionToArray(viaRev[s])).toEqual(sectionToArray(viaBase[s]));
@@ -70,7 +70,7 @@ describe('SAVE-30 版 2 の形', () => {
   });
 
   it('使う id だけ入る（2 種類の palette）', () => {
-    const few = new Uint8Array(4096);
+    const few = new Uint16Array(4096);
     few[7] = idx('sand');
     const raw = encodeSections([{ kind: 'full', data: few }], base);
     expect(raw[0]).toBe(2);
@@ -130,12 +130,12 @@ describe('SAVE-30 AC2: 版 1 の列は 凍らせた表で 今までどおり読�
     expect(() => decodeSections(Uint8Array.of(0, 31), 1, 1)).toThrow();
   });
 
-  it('unpackColumn: v 1 の record を読める。v 3 は NewerFormatError', async () => {
+  it('unpackColumn: v 1 の record を読める。v 4 は NewerFormatError（v 3 は BLOCK-ID16 で 読める）', async () => {
     const rec = { cx: 1, cz: 2, v: 1, gen: 2, h: 3, data: await deflateRaw(raw) };
     const col = await unpackColumn(rec, 3);
     expect(col.sections).toHaveLength(3);
     expect(BLOCK_TYPES[sectionToArray(col.sections[0])[0]].id).toBe('dirt');
-    await expect(unpackColumn({ ...rec, v: 3 }, 3)).rejects.toThrow(/新しい/);
+    await expect(unpackColumn({ ...rec, v: 4 }, 3)).rejects.toThrow(/新しい/);
   });
 });
 

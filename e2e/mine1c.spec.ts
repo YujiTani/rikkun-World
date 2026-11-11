@@ -221,6 +221,7 @@ test.describe('MINE-1C 通し', () => {
     const HAND = { item: 'dirt', count: 5 } as const;
     const want = new Map<string, number>([[HAND.item, HAND.count]]);
     for (const it of before.preview!.items) want.set(it.item, (want.get(it.item) ?? 0) + it.count);
+    want.set('recipe_scroll', 1); // HOUSE-2A 仕様 3.3: 宝箱には レシピの わく（まきもの 1 まい）が ある。プレビューの 中身には 出ない
     const bag = (): Promise<Record<string, number>> =>
       page.evaluate(() => {
         const out: Record<string, number> = {};
@@ -458,6 +459,7 @@ test.describe('MINE-1C 通し', () => {
     );
     const want: Record<string, number> = {};
     for (const it of preview.items) want[it.item] = (want[it.item] ?? 0) + it.count;
+    want.recipe_scroll = 1; // HOUSE-2A 仕様 3.3: 宝箱の レシピの わく（まきもの 1 まい。プレビューの 中身には 出ない）
     expect(after.mainOpened && after.restOpened, '開きなおしても 宝箱は あいた まま').toBe(true);
     expect(after.bag, '「あいた ＋ 中身なし」に ならない: 持ち物に プレビューの 中身が ある').toEqual(want);
   });

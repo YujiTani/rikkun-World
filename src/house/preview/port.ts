@@ -32,8 +32,8 @@ export interface PreviewPort {
   /** 見本を ドラッグ／wheel した のと 同じ。まわせたら true */
   drag(dx: number, dy: number): boolean;
   wheel(dx: number, dy: number): boolean;
-  /** まどの ボタンに 手を おいた（true）／はなした（false） */
-  hover(on: boolean): void;
+  /** ボタンに 手を おいた（true）／はなした（false）。part ＝ ポップアップの しゅるいの ボタンの ばしょ（やね・かべ・まど・と・えんとつ・のれん・はなだん・しゃちほこ）。なければ まどの かず −＋（窓 ぜんぶ） */
+  hover(on: boolean, part?: string): void;
 }
 
 /** 見本を つなぐ 前（テスト）は 何も しない */

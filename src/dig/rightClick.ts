@@ -1,9 +1,11 @@
 import { GADGET_ID } from '../content/items/gadgetTuning';
+import { MINE_ITEM } from '../content/items/ids';
 import { isFutonId } from '../world/blocks/futon';
 import { furnUseOf } from '../world/blocks/furnUse';
 import { doorInfo } from '../world/blocks/houseBlocks';
 import type { BucketPreview, BlockId, ItemId, RightClickKind, TargetInfo, WaterPreview, WaterRay } from '../contracts';
 import { isWater } from '../world/blocks/water';
+import { isMakimonoId } from '../world/blocks/blockTypes';
 import { chestBlockInfo } from '../world/blocks/chestBlock';
 export type { RightClickKind };
 
@@ -84,7 +86,7 @@ export function isKitEgg(item: ItemId | null): boolean {
   return item === 'egg' || item === 'kin_tamago';
 }
 
-/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → 宝箱（あける）→ 家の 戸 → 家具（すわる・はいる・よむ）→ ふとん（ねる）→ たこ → みずもり・どうづき → 防具 → チョーク（かく）→ バケツ → じょうろ（4a くむ・4b まく・4c 合図）→ いしばい（まく）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
+/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → 宝箱（あける）→ 家の 戸 → 家具（すわる・はいる・よむ）→ ふとん（ねる）→ たこ → レシピの まきもの（よむ）→ みずもり・どうづき → 防具 → チョーク（かく）→ バケツ → じょうろ（4a くむ・4b まく・4c 合図）→ いしばい（まく）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
 export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   const t = c.target;
   if (c.carrying?.()) return { kind: c.throwKind?.() ?? 'putDown', item: null };
@@ -102,6 +104,8 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   if (coop && coop.eggs >= 1) return { kind: 'coopCollect', item: null };
   if (t && c.isTansu(t.block.x, t.block.y, t.block.z)) return { kind: 'storage', item: null };
   if (t && c.isFurnace(t.block.x, t.block.y, t.block.z)) return { kind: 'furnace', item: null };
+  // HOUSE-2A: まきもの（右クリックで とる。宝箱と 同じ 道〔DigSystem が chestPort.open を 呼ぶ〕。持ち物に よらず、置かない）
+  if (t && isMakimonoId(t.id)) return { kind: 'chest', item: null };
   // MINE-1C: 宝箱（2 マス どちらを ねらっても 同じ。持ち物に よらず、置かない）
   const chest = t ? chestBlockInfo(t.id) : null;
   if (chest) return { kind: chest.open || (t && c.chestPaired?.(t.block.x, t.block.y, t.block.z) === false) ? 'chestDone' : 'chest', item: null };
@@ -114,6 +118,8 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   // ITEM-FX-1: ふとん（ねる。置くより 先）・たこ（持って 右クリック。ねらいが なくても）
   if (t && isFutonId(t.id)) return { kind: 'sleep', item: null };
   if (c.held === GADGET_ID.kite) return { kind: 'kite', item: c.held };
+  // HOUSE-2A（3.3 版）: レシピの まきもの（持って 右クリック。ねらいが なくても・かたい ブロックを ねらって いても。右クリックの はたらきが ある ブロックは 上で 先）
+  if (c.held === MINE_ITEM.recipe_scroll) return { kind: 'read', item: c.held };
   // HOUSE-1C PR-2: みずもり・どうづき（置けない 道具。ブロックを ねらって いる とき）
   const tool = t ? c.siteTool?.() : null;
   if (tool) return { kind: tool, item: c.held };

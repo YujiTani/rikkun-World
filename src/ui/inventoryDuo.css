@@ -143,13 +143,10 @@
 /* ページごとに 出す 物: もちもの = そうび・もちもの・ホットバー / つくる・やく = レシピ（やく は かまど）・せつめい・ホットバー / たんす = ボタン・たんす・もちもの・ホットバー */
 .inv-root[data-layout='duo'][data-page='items'] :is(.inv-side, .inv-storage),
 .inv-root[data-layout='duo'][data-page='tansu'] :is(.inv-side, .equip-panel, .inv-hints, .inv-duo-quit),
-.inv-root[data-layout='duo']:is([data-page='craft'], [data-page='furnace']) :is(.inv-storage, .equip-panel, .inv-bag, .inv-gap, .inv-hints, .inv-duo-quit) {
+.inv-root[data-layout='duo']:is([data-page='craft'], [data-page='furnace']) :is(.inv-storage, .equip-panel, .inv-bag, .inv-gap, .inv-duo-quit) {
   display: none;
 }
-/* 操作の ひとこと（キー・マウスの 説明）は 1P だけ。2P は パッドだけ なので「やめる」 */
-.inv-root[data-who='2'] .inv-hints {
-  display: none;
-}
+/* 操作の ひとこと（もちもの・つくる・やく）は 1P・2P とも 出す（2P は パッドの 印）。たんす の ページだけ 上で かくす */
 .inv-root[data-layout='duo'] .inv-duo-quit {
   align-self: stretch;
   min-height: max(56px, var(--rk-h-btn));
@@ -161,12 +158,24 @@
 
 /* 「つくる」: 左に レシピ（1280・1440 は 4 列、1024 は 3 列）、右に せつめい（ちぢめない）。レシピは 中で たてに スクロール */
 .inv-root[data-layout='duo'] .craft-panel {
-  height: calc(var(--rk-slot-inv) * 7.5);
+  flex: 1;
+  min-height: 0;
   padding: 0;
   background: none;
   gap: var(--rk-sp-4);
 }
+/* 高さは 7.5 マスが 上限。ヘルプの 帯の ぶん たりない とき（1024×700）は ここが ちぢみ、レシピの 一覧の 中だけ スクロールする（#460） */
+.inv-root[data-layout='duo']:is([data-page='craft'], [data-page='furnace']) .inv-side {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 calc(var(--rk-slot-inv) * 7.5);
+  min-height: 0;
+}
 .inv-root[data-layout='duo'] .cp-left {
+  min-height: 0;
+}
+/* せつめいの 最低の 高さ（7.5 マス）は 1 人用の 物。2 人用は パネルが ちぢむ とき いっしょに ちぢむ */
+.inv-root[data-layout='duo'] .cp-detail {
   min-height: 0;
 }
 .inv-root[data-layout='duo'] .craft-grid {

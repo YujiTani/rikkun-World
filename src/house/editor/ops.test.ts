@@ -4,7 +4,7 @@ import { FURN_ORDER } from './furniture';
 import { KANA_CHARS, placeProblem } from './model';
 import { editOp, pressEditor } from './ops';
 import { makeController } from './testkit';
-import { ROOF_KINDS, SIZES, SUFFIXES, WINDOW_KINDS } from './tuning';
+import { SIZES, SUFFIXES } from './tuning';
 
 /** HOUSE-1B 窓口 edit(op)・press(id) と ボタンの 一覧（画面の もと）。仕様 §6.1・e2e/helpers/house.ts の 先頭の 約束。HOUSE-1E: place／rotate／remove／select の 赤い 家具・next／done */
 
@@ -15,17 +15,31 @@ describe('ボタンの 一覧（すすみごと）', () => {
     const got = ids(makeController());
     expect(got).toEqual(expect.arrayContaining(['undo', 'redo', 'close', 'new', 'need', 'next', 'done', 'windowsDown', 'windowsUp']));
     for (const n of SIZES) expect(got).toEqual(expect.arrayContaining([`width-${n}`, `depth-${n}`]));
-    for (const k of WINDOW_KINDS) expect(got).toContain(`windowKind-${k}`);
-    for (const k of ROOF_KINDS) expect(got).toContain(`roof-${k}`);
-    for (const no of ['prev', 'light', 'take', 'char-あ', 'furniture-futon']) expect(got).not.toContain(no);
+    // 2A（3 版）: ばしょの ボタンだけ（かざりの ばしょは かざりを 1 つ おぼえる まで ない）。しゅるいの ボタンは ポップアップを 開くまで 出ない
+    for (const p of ['roof', 'wall', 'window', 'door']) expect(got).toContain(`part-${p}`);
+    expect(got).not.toContain('part-deco');
+    expect(got.filter((x) => /^(roof|wall|window|door|deco)-/.test(x)), 'ポップアップが とじて いる 間は しゅるいの ボタンは ない').toEqual([]);
+    expect(got).not.toContain('popupClose');
+    for (const no of ['prev', 'light-lantern', 'take', 'char-あ', 'furniture-futon', 'windowKind-shoji', 'window-shoji', 'wall-ki', 'door-ie']) expect(got).not.toContain(no);
+    const k = makeController();
+    pressEditor(k.ctl, 'part-window');
+    expect(ids(k).filter((x) => /^(roof|wall|window|door|deco)-/.test(x)), '窓の ばしょを 開くと 窓の しゅるいが 出る（おぼえて いない ので なし・しょうじ だけ）').toEqual(['window-none', 'window-shoji']);
+    expect(ids(k), '✕').toContain('popupClose');
+    expect(ids(k).filter((x) => /^(part-|width-|depth-|windows(Up|Down)$)/.test(x)), '① の パネルの ボタンは ポップアップの 下に かくれる').toEqual([]);
+    expect(ids(k), '帯の ボタンは 出る').toEqual(expect.arrayContaining(['undo', 'redo', 'close', 'new', 'need', 'next', 'done']));
+    pressEditor(k.ctl, 'popupClose');
+    expect(ids(k).filter((x) => /^(roof|wall|window|door|deco)-/.test(x)), 'とじると 引っこむ').toEqual([]);
+    expect(ids(k)).toContain('part-roof');
   });
 
   it('② なか: 家具の ボタン（FURN_ORDER ぜんぶ）＋ あかり。置いた 家具を えらぶと そばの 3 つ。prev も next も ある', () => {
     const k = makeController();
     k.ctl.next();
     const got = ids(k);
-    for (const f of FURN_ORDER) expect(got).toContain(`furniture-${f}`);
-    expect(got).toEqual(expect.arrayContaining(['light', 'prev', 'next']));
+    // 2A: まねきねこ（レシピ）は おぼえる まで 出ない。1 版の 13 しゅるいは いつも 出る
+    for (const f of (FURN_ORDER as readonly string[]).filter((x) => x !== 'maneki')) expect(got).toContain(`furniture-${f}`);
+    expect(got).not.toContain('furniture-maneki');
+    expect(got).toEqual(expect.arrayContaining(['light-lantern', 'prev', 'next']));
     expect(got).not.toContain('take');
     k.ctl.place('chair', 0, 0);
     k.ctl.selectPlaced(0);
@@ -39,7 +53,8 @@ describe('ボタンの 一覧（すすみごと）', () => {
     const got = ids(k);
     for (const c of KANA_CHARS) expect(got).toContain(`char-${c}`);
     for (const id of ['dakuten', 'handakuten', 'katakana', 'erase', 'prev', 'done']) expect(got).toContain(id);
-    SUFFIXES.forEach((_, i) => expect(got).toContain(`suffix-${i}`));
+    // 2A: 後ろの 文字は はじめからの 5 つ（suffix-0〜4）。のしろ・ごてん・のとりで（suffix-5〜7）は おぼえる まで 出ない
+    expect(got.filter((x) => x.startsWith('suffix-')).sort()).toEqual(SUFFIXES.slice(0, 5).map((_, i) => `suffix-${i}`));
     expect(got).not.toContain('next');
   });
 
@@ -91,8 +106,15 @@ describe('press(id)（ボタンと 同じ 道）', () => {
     expect(pressEditor(k.ctl, 'windowsUp')).toBe(true);
     expect(k.ctl.s.windows).toBe(1);
     expect(pressEditor(k.ctl, 'windowsDown')).toBe(true);
-    expect(pressEditor(k.ctl, 'windowKind-shoji'), '今と 同じ ＝ かわらない').toBe(false);
-    expect(pressEditor(k.ctl, 'windowKind', 'shoji')).toBe(false);
+    expect(pressEditor(k.ctl, 'window-shoji'), 'ポップアップが とじて いる 間は 窓の しゅるいは 出て いない ＝ 押せない').toBe(false);
+    expect(pressEditor(k.ctl, 'part-window'), 'ばしょの ボタンで ポップアップを 開く').toBe(true);
+    expect(pressEditor(k.ctl, 'window-shoji'), '今と 同じ ＝ かわらない').toBe(false);
+    expect(pressEditor(k.ctl, 'window', 'shoji')).toBe(false);
+    expect(pressEditor(k.ctl, 'roof-flat'), '窓の ポップアップが 開いて いる 間は やねの しゅるいは 押せない').toBe(false);
+    expect(pressEditor(k.ctl, 'width-9'), 'ポップアップの 下の パネルの ボタンは 押せない').toBe(false);
+    expect(pressEditor(k.ctl, 'popupClose'), '✕').toBe(true);
+    expect(pressEditor(k.ctl, 'popupClose'), 'とじて いる ときは ✕ は ない').toBe(false);
+    expect(pressEditor(k.ctl, 'part-roof'), 'やねの ポップアップを 開く').toBe(true);
     expect(pressEditor(k.ctl, 'roof', 'flat')).toBe(false);
     expect(pressEditor(k.ctl, 'roof', 'gabled')).toBe(false);
   });
@@ -111,7 +133,7 @@ describe('press(id)（ボタンと 同じ 道）', () => {
     expect(pressEditor(k.ctl, 'turnLeft')).toBe(true);
     expect(pressEditor(k.ctl, 'take')).toBe(true);
     expect(k.ctl.s.furniture).toHaveLength(0);
-    pressEditor(k.ctl, 'light');
+    pressEditor(k.ctl, 'light-lantern');
     expect(k.ctl.bubble?.text).toBe('あかりは ひとつ ひつようだよ');
   });
 

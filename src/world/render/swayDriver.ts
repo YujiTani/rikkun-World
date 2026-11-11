@@ -62,7 +62,7 @@ export class SwayDriver {
       this.source((x, y, z, deg) => {
         if (this.cells.length >= SWAY_POOL_MAX) return;
         const b = this.world.getIndex(x, y, z);
-        if (b < 0 || !isCrossIndex(b) || isTsuraraIndex(b)) return; // つららは ゆれない（MINE-1D）
+        if (b < 0 || !isCrossIndex(b) || isTsuraraIndex(b)) return; // つらら・まきものは ゆれない（MINE-1D・HOUSE-2A）
         this.cells.push({ x, y, z, deg });
         this.next.add(this.keyOf(x, y, z));
       });

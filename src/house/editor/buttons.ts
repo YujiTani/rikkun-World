@@ -2,9 +2,11 @@
 // 画面は ここで 決めた 一覧に ある id の ボタンだけを 見せ、enabled が false の ものは 押せなくする（窓口と 画面が くい違わない ように 1 か所）。
 // id は DOM の data-testid ＝ "house-btn-" ＋ id（テストの 約束 e2e/helpers/house.ts の 先頭）。
 import type { EditorController } from './controller';
+import { LIGHT_KINDS } from '../recipes/kinds';
+import { visibleParts } from '../recipes/rows';
 import { FURN_ORDER } from './furniture';
 import { KANA_CHARS, canAddChar } from './model';
-import { ROOF_KINDS, SIZES, SUFFIXES, WINDOW_KINDS } from './tuning';
+import { SIZES, SUFFIXES } from './tuning';
 
 export interface EditorButton {
   id: string;
@@ -23,20 +25,21 @@ function bars(c: EditorController): EditorButton[] {
   return out;
 }
 
+/** ① そと: ポップアップが 開いて いる 間は ✕ と その ばしょの しゅるいの ボタンだけ（① の パネルの ボタンは ポップアップの 下に かくれる。3 版） */
 function soto(c: EditorController): EditorButton[] {
   const s = c.s;
+  if (c.popup !== null) return [b('popupClose'), ...c.popupRows().flat().map((id) => b(id))];
   return [
     ...SIZES.map((n) => b(`width-${n}`)),
     ...SIZES.map((n) => b(`depth-${n}`)),
     b('windowsDown', s.windows > 0),
     b('windowsUp', s.windows < c.windowMax()),
-    ...WINDOW_KINDS.map((k) => b(`windowKind-${k}`)),
-    ...ROOF_KINDS.map((k) => b(`roof-${k}`)),
+    ...visibleParts(c.recipes).map((p) => b(`part-${p}`)),
   ];
 }
 
 function naka(c: EditorController): EditorButton[] {
-  const out = [...FURN_ORDER.map((k) => b(`furniture-${k}`)), b('light')];
+  const out = [...FURN_ORDER.filter((k) => c.recipes.furnOk(k)).map((k) => b(`furniture-${k}`)), ...LIGHT_KINDS.filter((k) => c.recipes.lightOk(k)).map((k) => b(`light-${k}`))];
   if (c.sel.placed !== null) out.push(b('take'), b('turnRight'), b('turnLeft'));
   return out;
 }
@@ -49,16 +52,16 @@ function namae(c: EditorController): EditorButton[] {
     b('handakuten', c.canMark('handakuten')),
     b('katakana'),
     b('erase', c.s.name.front.length > 0),
-    ...SUFFIXES.map((_, i) => b(`suffix-${i}`)),
+    ...SUFFIXES.flatMap((_, i) => (c.recipes.suffixOk(i) ? [b(`suffix-${i}`)] : [])),
   ];
 }
 
 /**
- * マウスを のせると 見本の 窓が ぜんぶ 光る ボタン（まどの かず −＋・まどの しゅるい。AC56）。'windowKind' だけでも よい（窓口 hover）。
- * 画面は この ボタンの ならびに 手を おいた ときを 見る
+ * マウスを のせると 見本の 窓が ぜんぶ 光る ボタン（まどの かず −＋。AC56）。'windowKind' だけでも よい（窓口 hover）。
+ * まどの しゅるいの ボタンは ポップアップの 中の ボタンなので その ばしょが 光る（hoverTip.ts の glowPartOf）
  */
 export function glowsWindows(id: string): boolean {
-  return id === 'windowsDown' || id === 'windowsUp' || id === 'windowKind' || id.startsWith('windowKind-');
+  return id === 'windowsDown' || id === 'windowsUp' || id === 'windowKind';
 }
 
 /** エディター本体の ボタン ぜんぶ（ポップアップは 数えない。画面は これで 見える・押せるを 決める） */

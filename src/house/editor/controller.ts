@@ -1,17 +1,18 @@
 // HOUSE-1B エディターの 持ち主（作りかけ・もどす／すすむ・できた！の しらべ・ふきだし）。DOM・three なし。
 // 仕様 docs/design/HOUSE-1.md §2.5（すすみ方・できた！・もどす／すすむ・Esc の 順・赤い 家具〔1E〕）・§2.6（名前）・§4.9（ふきだしの 長さ）。
 import type { ItemId } from '../../contracts';
+import type { Part } from '../recipes/kinds';
+import { RecipeLog } from '../recipes/log';
+import { popupRows, visibleParts } from '../recipes/rows';
 import { K_FUTON, FURNITURE, type FurnKind } from './furniture';
+import { KindEdit } from './kindEdit';
 import {
   cloneState, dakuten, emptyState, footprint, furnitureProblems, handakuten, inGrid, needOf, refit, topLeftOf, touchesGrid, turned, windowMax,
   type EditorState, type NeedRow, type Placed,
 } from './model';
 import { NameEdit } from './nameEdit';
 import { hasNgName } from './ngWords';
-import {
-  BUBBLE, MSG, ROOF_KINDS, SIZES, WINDOW_KINDS,
-  type RoofKind, type Rot, type Size, type Step, type WindowKind,
-} from './tuning';
+import { BUBBLE, MSG, SIZES, type Rot, type Size, type Step } from './tuning';
 
 export type Confirm = null | 'reset' | 'futonOnly';
 
@@ -35,6 +36,8 @@ export interface EditorHost {
   /** ある 数（もちもの ＋ 近くの たんす。「ひつような もの」の ある） */
   have: (item: ItemId) => number;
   sheet: SheetPort;
+  /** おぼえた レシピ（2A。なければ 何も おぼえて いない: いつもの 物だけ えらべる） */
+  recipes?: RecipeLog;
   /** せっけいずが できた（メニューの 上の ページへ もどし、ふきだしを 出す） */
   onMade: () => void;
 }
@@ -44,6 +47,8 @@ interface HistoryItem {
   after: EditorState;
   /** この 操作が 属する すすみ（もどすと この すすみへ 切りかわる） */
   step: Step;
+  /** ① の ばしょの しゅるいを えらんだ 操作の ばしょ（ポップアップが 開いて いれば もどすと その ばしょへ 切りかわる） */
+  part?: Part;
 }
 
 /** 赤く 光らせた 家具（1E。フックの `flash` と 同じ 形）。items ＝ furniture の 番号、seq ＝ 光らせる たびに 1 ふえる 数 */
@@ -67,6 +72,8 @@ export class EditorController {
   katakana = false;
   confirm: Confirm = null;
   needOpen = false;
+  /** ① の ポップアップ（開いて いる ばしょ。作りかけ・保存・もどす には 入らない。2A） */
+  popup: Part | null = null;
   bubble: Bubble | null = null;
   /** 赤く 1 回 光らせる 家具（つぎへ・できた！で 止まった とき・まわせなかった とき）。まだ 光らせて いなければ null */
   flash: Flash | null = null;
@@ -78,9 +85,22 @@ export class EditorController {
   /** flash.seq の 数え（ふきだしの 通し番号とは べつ。エディターを 開きなおしても もどらない） */
   private flashSeq = 0;
   private readonly listeners: Array<() => void> = [];
-  private readonly names = new NameEdit({ state: () => this.s, commit: (next) => this.commit(next, 'namae'), say: (text) => this.say(text) });
+  /** おぼえた レシピと「あたらしい！」の 印 */
+  readonly recipes: RecipeLog;
+  private readonly names: NameEdit;
+  private readonly kinds: KindEdit;
 
-  constructor(private readonly h: EditorHost) {}
+  constructor(private readonly h: EditorHost) {
+    this.recipes = h.recipes ?? new RecipeLog();
+    this.names = new NameEdit({
+      state: () => this.s,
+      commit: (next) => this.commit(next, 'namae'),
+      say: (text) => this.say(text),
+      suffixOk: (i) => this.recipes.suffixOk(i),
+      suffixDone: (i) => this.recipes.clearMark(`suffix-${i}`),
+    });
+    this.kinds = new KindEdit({ state: () => this.s, commit: (next, step, part) => this.commit(next, step, part), say: (text) => this.say(text) }, this.recipes);
+  }
 
   /** 作りかけ（読むだけ。かえる ときは 下の 操作を 通す） */
   get s(): EditorState {
@@ -108,6 +128,7 @@ export class EditorController {
     this.sel = { palette: null, placed: null };
     this.confirm = null;
     this.needOpen = false;
+    this.popup = null;
     this.bubble = null;
     this.flash = null;
     this.katakana = false;
@@ -190,10 +211,10 @@ export class EditorController {
 
   // ------------------------------------------------------------ 操作（もどす の 1 回に なる もの）
 
-  /** 状態を かえて 履歴に 積む。かわらなければ 何もしない（false） */
-  private commit(next: EditorState, step: Step): boolean {
+  /** 状態を かえて 履歴に 積む。かわらなければ 何もしない（false）。part ＝ ① の ばしょの しゅるいを えらんだ とき の ばしょ */
+  private commit(next: EditorState, step: Step, part?: Part): boolean {
     if (JSON.stringify(next) === JSON.stringify(this.s)) return false;
-    this.undos.push({ before: cloneState(this.s), after: cloneState(next), step });
+    this.undos.push({ before: cloneState(this.s), after: cloneState(next), step, ...(part ? { part } : {}) });
     this.redos = [];
     next.step = this.s.step;
     this.s = next;
@@ -223,22 +244,43 @@ export class EditorController {
     if (n < 0 || n > this.windowMax()) return false;
     const next = cloneState(this.s);
     next.windows = n;
-    return this.commit(next, 'soto');
+    const ok = this.commit(next, 'soto');
+    if (ok && delta === 1 && this.s.wall === 'none') this.say(MSG.wallNoneWindow); // かべが ないと 窓は 建たない（つけた ことには なる）
+    return ok;
   }
 
-  /** 窓の しゅるい・屋根の しゅるい（ボタンの ならびに ある 物だけ。今と 同じ 物は 何も かわらない = false） */
-  setWindowKind(kind: WindowKind): boolean {
-    if (!WINDOW_KINDS.includes(kind)) return false;
-    const next = cloneState(this.s);
-    next.windowKind = kind;
-    return this.commit(next, 'soto');
+  /** ① の しゅるい（やね・かべ・まど・と は 1 つ・かざりは 形ごとに 1 つ）。おぼえて いない・知らない・今と 同じ 物は 何も かわらない = false。kindEdit.ts */
+  setKind(part: Part, kind: string): boolean {
+    return part === 'deco' ? this.kinds.deco(kind) : this.kinds.set(part, kind);
   }
 
-  setRoof(kind: RoofKind): boolean {
-    if (!ROOF_KINDS.includes(kind)) return false;
-    const next = cloneState(this.s);
-    next.roof = kind;
-    return this.commit(next, 'soto');
+  /** まど・やねの しゅるい（1 版からの 名前。setKind の 別名） */
+  setWindowKind(kind: string): boolean {
+    return this.setKind('window', kind);
+  }
+  setRoof(kind: string): boolean {
+    return this.setKind('roof', kind);
+  }
+
+  /** あかり（② の 1 回の 操作）。kindEdit.ts */
+  setLight(kind: string): boolean {
+    return this.kinds.light(kind);
+  }
+
+  // ------------------------------------------------------------ ポップアップ（① の しゅるいを えらぶ 窓。もどす・保存に 入らない）
+
+  /** ばしょ part の ポップアップを 開く（null ＝ とじる。とじて いる のに とじる・① 以外・かざりが まだ 出て いない ときは false） */
+  setPopup(part: Part | null): boolean {
+    if (part === this.popup) return false;
+    if (part !== null && (this.s.step !== 'soto' || !visibleParts(this.recipes).includes(part))) return false;
+    this.popup = part;
+    this.emit();
+    return true;
+  }
+
+  /** ポップアップの 行（ボタンの id。開いて いない ときは []） */
+  popupRows(): string[][] {
+    return this.popup === null ? [] : popupRows(this.popup, this.recipes);
   }
 
   /**
@@ -250,6 +292,7 @@ export class EditorController {
     const at = topLeftOf(kind, rot, x, z);
     const next = cloneState(this.s);
     next.furniture.push({ kind, x: at.x, z: at.z, rot });
+    this.recipes.clearMark(`furniture-${kind}`);
     return this.commit(next, 'naka');
   }
 
@@ -314,6 +357,7 @@ export class EditorController {
   resetAll(): boolean {
     const next = emptyState();
     this.sel = { palette: null, placed: null };
+    this.popup = null;
     this.resets++;
     const ok = this.commit(next, 'soto');
     this.s.step = 'soto';
@@ -327,7 +371,7 @@ export class EditorController {
     const h = this.undos.pop();
     if (!h) return false;
     this.redos.push(h);
-    this.restore(h.before, h.step);
+    this.restore(h.before, h.step, h.part);
     return true;
   }
 
@@ -335,14 +379,15 @@ export class EditorController {
     const h = this.redos.pop();
     if (!h) return false;
     this.undos.push(h);
-    this.restore(h.after, h.step);
+    this.restore(h.after, h.step, h.part);
     return true;
   }
 
-  private restore(state: EditorState, step: Step): void {
+  private restore(state: EditorState, step: Step, part?: Part): void {
     this.s = cloneState(state);
     this.s.step = step === 'namae' && this.redItems().length > 0 ? 'naka' : step; // ③ に 赤い 家具は ない
     this.sel.placed = null;
+    if (this.popup !== null) this.popup = this.s.step === 'soto' ? (part ?? null) : null; // 開いて いれば ① の ばしょの しゅるいなら その ばしょへ・ほかは とじる
     this.emit();
   }
 
@@ -360,6 +405,7 @@ export class EditorController {
     }
     this.s.step = this.s.step === 'soto' ? 'naka' : 'namae';
     this.sel.placed = null;
+    this.popup = null;
     this.emit();
     return true;
   }
@@ -368,11 +414,13 @@ export class EditorController {
     if (this.s.step === 'soto') return false;
     this.s.step = this.s.step === 'namae' ? 'naka' : 'soto';
     this.sel.placed = null;
+    this.popup = null;
     this.emit();
     return true;
   }
 
   selectPalette(kind: FurnKind | null): void {
+    if (kind !== null) this.recipes.clearMark(`furniture-${kind}`);
     this.sel = { palette: kind, placed: null };
     this.emit();
   }
@@ -406,6 +454,7 @@ export class EditorController {
 
   openNeed(): void {
     this.needOpen = true;
+    this.popup = null;
     this.bubble = null;
     this.emit();
   }
@@ -416,12 +465,14 @@ export class EditorController {
 
   openReset(): void {
     this.confirm = 'reset';
+    this.popup = null;
     this.emit();
   }
 
   /** できた！: 下の 順に しらべ、ひっかかった 1 つ目で 止まる（§2.5。① は 2.2 で なくした）。止まった ときは かみ・ふで・持ち物は かわらない */
   done(): 'made' | 'stopped' | 'confirm' {
     const s = this.s;
+    this.popup = null;
     const stop = (text: string, step: Step | null): 'stopped' => {
       if (step) s.step = step;
       this.say(text);
@@ -471,7 +522,7 @@ export class EditorController {
     this.emit();
   }
 
-  /** Esc: 確かめの まど → ひつような もの → 家具の えらび →（何も なければ false ＝ エディターを とじる）。AC55 */
+  /** Esc: 確かめの まど → ひつような もの → ポップアップ → 家具の えらび →（何も なければ false ＝ エディターを とじる）。AC55 */
   escape(): boolean {
     if (this.confirm) {
       this.confirm = null; // ふとん だけ ではせっけいずを 作らず、すすみも かわらない
@@ -482,6 +533,7 @@ export class EditorController {
       this.closeNeed();
       return true;
     }
+    if (this.popup !== null) return this.setPopup(null);
     return this.clearPlaced();
   }
 

@@ -228,27 +228,6 @@
   line-height: 24px;
   white-space: nowrap;
 }
-.ed-light {
-  flex: none;
-  justify-content: flex-start;
-  gap: 4px;
-  width: auto;
-  padding: 0 12px;
-}
-.ed-light img {
-  width: 40px;
-  height: 40px;
-  pointer-events: none;
-}
-.ed-light small {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--rk-text-sub);
-}
-.ed-light.is-sel small {
-  color: var(--rk-ink);
-}
-
 /* 置いた 家具の そばに 出る ボタン（［とる］と、アイコン だけの まわす 2 つ）。しっぽが 家具を さす */
 .ed-cluster {
   position: absolute;
@@ -373,16 +352,31 @@
   height: var(--e-key);
   padding: 0 16px;
 }
+/* 後ろの 文字: 2 列 × 4 だん（HOUSE-2A。左 ＝ 3 字の 列 100、右 ＝ 4〜5 字の 列 148、列の あいだ 12・12・16 → はば 260・260・264） */
 .ed-namae__side {
   display: flex;
   flex-direction: column;
   gap: var(--e-bgap);
-  width: 144px;
+}
+.ed-namae__sufs {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e-bgap);
+}
+.ed-namae__suf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-bgap);
+}
+.ed-namae__suf:first-child .ed-btn {
+  width: 100px;
+}
+.ed-namae__suf:last-child .ed-btn {
+  width: 148px;
 }
 .ed-namae__side .ed-btn {
-  width: 144px;
   height: var(--e-key);
-  padding: 0 8px;
+  padding: 0 12px;
 }
 
 /* ---- なまえを かえる（HOUSE-1C。一覧 .rn-list・名前の 画面 .rn-name。大きさの 表は 上の --e-*） ---- */
@@ -448,10 +442,4 @@
 .rn-cancel {
   font-size: 24px;
 }
-/* 右の 列を ひろげる（「これで いい！」が 24px で 1 行に おさまる はば） */
-.rn-name .ed-namae__side {
-  width: 192px;
-}
-.rn-name .ed-namae__side .ed-btn {
-  width: 192px;
-}
+/* 「これで いい！」・やめる は 後ろの 文字の 下に、2 列の はば いっぱい（260 ＞ 24px で 1 行に おさまる はば） */

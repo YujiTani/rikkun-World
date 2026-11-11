@@ -333,6 +333,8 @@ export function installGameHook(deps: WiredMine): void {
           openPanel: () => document.querySelector<HTMLButtonElement>('[data-testid="settings-open"]')?.click(),
           closePanel: () => document.querySelector<HTMLButtonElement>('[data-testid="settings-close"]')?.click(),
           binds: () => gamepadApi!.reader.getBinds(),
+          lastInput: () => gamepadApi!.reader.getLastInput(),
+          setLastInput: (k: 'gamepad' | 'keyboard' | 'mouse') => (k === 'gamepad' ? gamepadApi!.reader.noteGamepad() : k === 'mouse' ? gamepadApi!.reader.noteMouse() : gamepadApi!.reader.noteKeyboard()),
           settings: () => gamepadApi!.reader.getSettings(),
         }
       : null,

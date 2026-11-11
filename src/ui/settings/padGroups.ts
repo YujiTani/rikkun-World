@@ -129,5 +129,8 @@ export const MENU_LABELS: readonly PadLabel[] = [
   { key: 'menu-dpad', help: 'ui:menuDpad', text: 'えらぶ', group: 'dpad', faces: ['dpadUp', 'dpadDown', 'dpadLeft', 'dpadRight'], action: null, parts: [] },
   { key: 'menu-ok', help: 'ui:menuOk', text: 'きめる', group: 'abxy', faces: ['faceBottom'], action: null, parts: [] },
   { key: 'menu-back', help: 'ui:menuBack', text: 'もどる', group: 'abxy', faces: ['faceRight'], action: null, parts: [] },
+  { key: 'menu-drop', help: 'ui:menuDrop', text: '1こ すてる', group: 'abxy', faces: ['faceTop'], action: null, parts: [] },
+  { key: 'menu-drop-all', help: 'ui:menuDropAll', text: 'ぜんぶ すてる', group: 'stickR', faces: ['r3'], action: null, parts: [] },
+  { key: 'menu-close', help: 'ui:menuClose', text: 'とじる', group: 'abxy', faces: ['faceLeft'], action: null, parts: [] },
   { key: 'menu-start', help: 'ui:menuStart', text: 'スタートメニュー', group: 'plus', faces: ['start'], action: null, parts: [] },
 ];

@@ -26,7 +26,7 @@ describe('保存だけの 置きかえ（#293 間欠泉の 土）', () => {
   const i = localIndex(3, 5, 7);
 
   it('full: 管理が 作った マスだけ 元の ブロックで 書く。ほかの geyser_dirt（プレイヤーが 置いた もの）は そのまま', () => {
-    const data = new Uint8Array(4096).fill(STONE);
+    const data = new Uint16Array(4096).fill(STONE);
     data[i] = GEY;
     const other = localIndex(9, 5, 7);
     data[other] = GEY;
@@ -39,7 +39,7 @@ describe('保存だけの 置きかえ（#293 間欠泉の 土）', () => {
   });
 
   it('palette 版（16 種類 いかい）でも 置きかえて 保存できる。元の 列は かわらない', () => {
-    const palette = Uint8Array.of(STONE, GEY, DIRT);
+    const palette = Uint16Array.of(STONE, GEY, DIRT);
     const packed = new Uint8Array(2048);
     for (let k = 0; k < 4096; k++) {
       const p = k % 3;
@@ -66,7 +66,7 @@ describe('保存だけの 置きかえ（#293 間欠泉の 土）', () => {
   });
 
   it('そのマスが もう geyser_dirt でなければ（掘られた・かわった）さわらない', () => {
-    const data = new Uint8Array(4096).fill(STONE);
+    const data = new Uint16Array(4096).fill(STONE);
     const col = column({ kind: 'full', data });
     const got = roundTrip(col, [OV(x, y, z)]);
     expect(sectionGet(got[0], i)).toBe(STONE);

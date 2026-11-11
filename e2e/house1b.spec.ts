@@ -113,17 +113,23 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
       expect(await mark.evaluate((el) => el.tagName.toLowerCase() === 'button' || el.getAttribute('role') === 'button' || (el.getAttribute('data-testid') ?? '').startsWith('house-btn-')), `すすみの 印 ${s} は 押せない`).toBe(false);
     }
     const ids1 = await editorBtnIds(page);
-    for (const id of ['undo', 'redo', 'close', 'new', 'need', 'done', 'next', 'width-5', 'width-7', 'width-9', 'depth-5', 'depth-7', 'depth-9', 'windowsDown', 'windowsUp', 'windowKind-shoji', 'roof-flat']) {
-      expect(ids1, `① には ${TID.btn(id)} が ある`).toContain(id);
+    for (const id of ['undo', 'redo', 'close', 'new', 'need', 'done', 'next', 'width-5', 'width-7', 'width-9', 'depth-5', 'depth-7', 'depth-9', 'windowsDown', 'windowsUp', 'part-roof', 'part-wall', 'part-window', 'part-door']) {
+      expect(ids1, `① には ${TID.btn(id)} が ある（2A 3 版: ばしょの ボタン。しゅるいの ボタンは ポップアップを 開くまで 出ない）`).toContain(id);
     }
-    for (const id of ['prev', 'take', 'turnRight', 'turnLeft', 'furniture-futon', 'light', 'char-あ']) expect(ids1, `① には ${TID.btn(id)} は 出ない`).not.toContain(id);
+    for (const id of ['prev', 'take', 'turnRight', 'turnLeft', 'furniture-futon', 'light-lantern', 'char-あ', 'part-deco', 'roof-flat', 'window-shoji', 'wall-ki', 'door-ie', 'popupClose']) expect(ids1, `① には ${TID.btn(id)} は 出ない`).not.toContain(id);
     expect((await btnState(page, 'next'))?.enabled, 'はじめから「つぎへ」が 押せる（新 20）').toBe(true);
     for (const id of ['undo', 'redo', 'windowsDown']) expect((await btnState(page, id))?.enabled, `${id} は まだ 押せない`).toBe(false);
     expect((await btnState(page, 'width-5'))?.pressed, 'よこ 5 を えらんで ある').toBe(true);
     expect((await btnState(page, 'depth-5'))?.pressed, 'たて 5 を えらんで ある').toBe(true);
     expect((await btnState(page, 'width-7'))?.pressed, 'よこ 7 は えらんで いない').toBe(false);
-    expect((await btnState(page, 'windowKind-shoji'))?.pressed, 'しょうじ ✓').toBe(true);
+    expect(await editorMismatch(page), '画面と menu() の ちがい（① パネル）').toEqual([]);
+    await clickBtn(page, 'part-window'); // 2A（3 版）: しゅるいの ボタンは ばしょの ポップアップの 中
+    expect((await btnState(page, 'window-shoji'))?.pressed, 'しょうじ ✓').toBe(true);
+    expect(await editorMismatch(page), '画面と menu() の ちがい（① ポップアップ。下の パネルの ボタンは かくれる）').toEqual([]);
+    await clickBtn(page, 'popupClose');
+    await clickBtn(page, 'part-roof');
     expect((await btnState(page, 'roof-flat'))?.pressed, 'たいら ✓').toBe(true);
+    await clickBtn(page, 'popupClose');
     expect(await editorMismatch(page), '画面と menu() の ちがい（①）').toEqual([]);
     // AC41: エディターが 開いて いる 間は 時刻が 止まる（step(600) の 前後で 同じ）
     const clock0 = await clockOf(page);
@@ -149,8 +155,12 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     expect((await btnState(page, 'windowsDown'))?.enabled, 'まどの かずが 1 以上 なら − が 押せる').toBe(true);
     // しょうじ・たいら は 今は 1 つだけ。押しても 形は かわらず、もどす にも 入らない（AC11）
     const beforeKinds = await ed(page);
-    await clickBtn(page, 'windowKind-shoji');
+    await clickBtn(page, 'part-window');
+    await clickBtn(page, 'window-shoji');
+    await clickBtn(page, 'popupClose');
+    await clickBtn(page, 'part-roof');
     await clickBtn(page, 'roof-flat');
+    await clickBtn(page, 'popupClose');
     const afterKinds = await ed(page);
     expect({ shape: shapeOf(afterKinds), canUndo: afterKinds.canUndo, canRedo: afterKinds.canRedo }, 'しょうじ・たいらを 押しても 形・もどす は かわらない').toEqual({
       shape: shapeOf(beforeKinds),
@@ -200,7 +210,7 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     await expectHeadings(page, 'naka');
     await expect(page.getByTestId('editor-step-naka')).toHaveAttribute('aria-current', 'step');
     const ids2 = await editorBtnIds(page);
-    for (const id of ['prev', 'next', 'light', 'undo', 'redo', 'close', 'new', 'need', 'done', ...Object.keys(FURNITURE).map((k) => `furniture-${k}`)]) {
+    for (const id of ['prev', 'next', 'light-lantern', 'undo', 'redo', 'close', 'new', 'need', 'done', ...Object.keys(FURNITURE).map((k) => `furniture-${k}`)]) {
       expect(ids2, `② には ${TID.btn(id)} が ある`).toContain(id);
     }
     expect(ids2.filter((id) => id.startsWith('furniture-')).sort(), '② の 家具の ボタンは 13 しゅるい ちょうど（2.4）').toEqual(Object.keys(FURNITURE).map((k) => `furniture-${k}`).sort());
@@ -305,7 +315,7 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
 
     // ---- AC13b: あかりの わくの ちょうちんは はずせない（ふきだし「あかりは ひとつ ひつようだよ」。何も かわらない）
     const beforeLight = await ed(page);
-    await clickBtn(page, 'light');
+    await clickBtn(page, 'light-lantern');
     const afterLight = await ed(page);
     expect({ shape: shapeOf(afterLight), canUndo: afterLight.canUndo }, 'あかりの わくを 押しても 形・もどす は かわらない').toEqual({ shape: shapeOf(beforeLight), canUndo: beforeLight.canUndo });
     expect(afterLight.light).toBe('lantern');
@@ -317,7 +327,7 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     await stepUi(page, 20);
     expect((await menuState(page)).bubble, '長さが 来たら 消える').toBe('');
     // つぎに どこかを 押したら すぐ 消える（方眼の マス）
-    await clickBtn(page, 'light');
+    await clickBtn(page, 'light-lantern');
     await expectBubble(page, MSG.light, 'もう 1 度');
     await clickCell(page, 6, 4);
     expect((await menuState(page)).bubble, 'どこかを 押すと すぐ 消える').toBe('');

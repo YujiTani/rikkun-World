@@ -364,6 +364,6 @@ describe('右の 案内（AC54）', () => {
 
   it('家具の しゅるいは ぜんぶ 型で そろっている（FurnBlockKind）', () => {
     const kinds: FurnBlockKind[] = [...FURN_BLOCK_KINDS];
-    expect(kinds).toHaveLength(10);
+    expect(kinds).toHaveLength(11); // ＋ 1 ＝ HOUSE-2A の まねきねこ
   });
 });

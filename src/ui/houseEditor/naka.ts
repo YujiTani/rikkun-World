@@ -3,13 +3,15 @@
 // 1E: 方眼の 中の マスなら どこでも 置ける（置けない 所の 家具は 赤。重なりは あとから 置いた 方が 上）。はみ出した 所は 方眼の はこ（かべの 帯 こみ）で 切る。
 // 置いた 家具を 押す と、その 家具の すぐ そば（上、入らなければ 下）に ［とる］［↻］［↺］が 出る。家具を まわすと ついて いく。
 import type { EditorController } from '../../house/editor/controller';
-import { FURN_ORDER, FURNITURE, K_LANTERN, paletteColumns, type FurnKind } from '../../house/editor/furniture';
+import { FURN_ORDER, FURNITURE, paletteColumns, type FurnKind } from '../../house/editor/furniture';
 import { doorIndex, doorInside, footprint, furnitureProblems, placeProblem, topLeftOf, windowCells } from '../../house/editor/model';
 import { DOOR_WALL, type Wall } from '../../house/editor/tuning';
+import { LIGHT_KINDS, LIGHT_NAME, type LightKind } from '../../house/recipes/kinds';
 import type { Preview3D } from '../../house/preview/preview';
 import { btn, el, markSel, type BtnOpts, type TileUrls } from './dom';
 import type { PressFx } from './feedback';
 import { ICONS } from './icons';
+import { lightArt } from './kindArt';
 import { DOOR_MARK_H, doorMark, shojiMark } from './marks';
 import type { StepPanel } from './soto';
 import { clusterPlace } from './clusterPlace';
@@ -27,7 +29,8 @@ export class NakaPanel implements StepPanel {
   private readonly cluster = el('div', 'ed-cluster');
   private readonly palette = new Map<FurnKind, HTMLButtonElement>();
   private readonly fname = el('p', 'ed-fname');
-  private readonly light: HTMLButtonElement;
+  /** あかりの ボタン（ちょうちん・ほたるいしの あかり・すいしょう ランプ。おぼえた 物だけ 出る。HOUSE-2A） */
+  private readonly lights = new Map<LightKind, HTMLButtonElement>();
   private cell = 48;
   private shape = '';
   private layerKey = '';
@@ -60,10 +63,19 @@ export class NakaPanel implements StepPanel {
       this.palette.set(kind, b);
       pal.append(b);
     }
-    this.light = btn({ cls: 'ed-light', id: 'light', html: '', onPress: press });
     this.fname.dataset.testid = 'editor-furn-name';
+    // 下の 行: 左に えらんだ 家具の 名前、右に あかりの わく（字「あかり」＋ あかりの ボタン 3 こ。絵 だけ・正方形）
+    const lightBox = el('div', 'ed-lights');
+    const lightBtns = el('div', 'ed-lights__btns');
+    for (const kind of LIGHT_KINDS) {
+      const b = btn({ cls: 'ed-lbtn', id: `light-${kind}`, html: lightArt(kind), onPress: press });
+      b.setAttribute('aria-label', LIGHT_NAME[kind]);
+      this.lights.set(kind, b);
+      lightBtns.append(b);
+    }
+    lightBox.append(el('span', 'ed-lights__label', 'あかり'), lightBtns);
     const lower = el('div', 'ed-lower');
-    lower.append(this.fname, this.light);
+    lower.append(this.fname, lightBox);
     side.append(this.view, pal, lower);
     this.el.append(left, side);
     this.buildCluster(press);
@@ -159,10 +171,6 @@ export class NakaPanel implements StepPanel {
       img.src = this.preview().furnitureImage(kind, 0, 'iso').normal;
       b.prepend(img);
     }
-    const lamp = el('img');
-    lamp.alt = '';
-    lamp.src = this.preview().furnitureImage(K_LANTERN, 0, 'iso').normal;
-    this.light.append(lamp, el('span', '', 'あかり'), el('small', '', 'ちょうちん'));
   }
 
   update(): void {
@@ -179,6 +187,7 @@ export class NakaPanel implements StepPanel {
     this.paintCluster();
     const sel = this.ctl.sel;
     for (const [k, b] of this.palette) markSel(b, sel.palette === k);
+    for (const [k, b] of this.lights) markSel(b, s.light === k);
     const placed = sel.placed !== null ? s.furniture[sel.placed] : undefined;
     const name = placed ? FURNITURE[placed.kind].name : sel.palette ? FURNITURE[sel.palette].name : '';
     this.fname.textContent = name || 'かぐを えらぼう'; // 7 字 ＋ 空白 ＝ 176 に おさまる 長さ

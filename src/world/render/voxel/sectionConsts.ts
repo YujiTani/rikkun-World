@@ -66,10 +66,17 @@ export function syncProtoOcc(): void {
 export const GRAIN_MAPS: readonly (Uint8Array | undefined)[] = Array.from({ length: NB }, (_t, i) => grainMapOf(i));
 export const GRAIN_KIND = Uint8Array.from(GRAIN_MAPS, (m) => (m ? 1 : 0));
 
-/** 1 平面の mask〔Int32〕の ビット: 種類 0〜7（MINE-1B で 6 → 8 ビットに ひろげた）・行の符号 8〜15・光 16〜23・つぶの 印 24〜28 */
-export const MK_ROW = 8;
-export const MK_LIGHT = 16;
-export const MK_GRAIN = 24;
+/** 種類の ビット数（MAX_BLOCK_KINDS = 1024 = 10 ビット。BLOCK-ID16） */
+export const KIND_BITS = 10;
+/** 1 平面の mask〔Int32〕の ビット: 種類 0〜9（BLOCK-ID16 で 8 → 10 ビットに ひろげた）・行の符号 10〜17・光 18〜25・つぶの 印 26〜30 */
+export const MK_ROW = KIND_BITS;
+export const MK_LIGHT = MK_ROW + 8;
+export const MK_GRAIN = MK_LIGHT + 8;
+/** 種類の 下の 10 ビットを 取り出す mask */
+export const MK_KIND_MASK = (1 << KIND_BITS) - 1;
+/** box の mask〔Int32〕: 種類 + 1（0 = 空）11 ビット・空の光 8 ビット・ブロックの光 8 ビット。bit 30 = 角ごとに 光が ちがう マス */
+export const BOX_SKY = KIND_BITS + 1;
+export const BOX_BLK = BOX_SKY + 8;
 /** はっぱの種類（#202: はっぱは 地下あつかいしない） */
 export const LEAF = Uint8Array.from(BLOCK_TYPES, (_t, i) => (isLeafIndex(i) ? 1 : 0));
 /** 光を通さない（光の読みを まわりからかりる） */

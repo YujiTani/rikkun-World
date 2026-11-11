@@ -103,9 +103,9 @@ const FARM_IDS = [...SEED_ITEM_IDS, ...VEG_ITEM_IDS, ...FARM_TOOL_IDS, 'sprinkle
  * MINE-1B で はじめて 登録表に 入る アイテム 6 つ（ダイヤは KONGO-1 で もう ある）。どの シリーズ（ファイル）に 入れるかは developer が 決める ので、
  * 下の「シリーズの 一覧」とは 別に 数える（登録された ことと 値は src/content/items/mine1b.test.ts）
  */
-// MINE-1E の かびた パン（kabita_pan）も 同じ 扱い（別シリーズのファイル mine.ts）
+// MINE-1E の かびた パン（kabita_pan）・HOUSE-2A の レシピの まきもの（recipe_scroll）も 同じ 扱い（別シリーズのファイル mine.ts）
 // MINE-1F の やかたの ブロック 8 つ（yakata.ts）も 同じ 扱い
-const MINE_1B_IDS: readonly string[] = ['sekkaiseki', 'shikkui', 'hotaruishi', 'kin_ore', 'chalk', 'ishibai', 'kabita_pan', ...YAKATA_BLOCK_IDS];
+const MINE_1B_IDS: readonly string[] = ['sekkaiseki', 'shikkui', 'hotaruishi', 'kin_ore', 'chalk', 'ishibai', 'kabita_pan', 'recipe_scroll', ...YAKATA_BLOCK_IDS];
 const strip1B = (ids: readonly string[]): string[] => ids.filter((id) => !MINE_1B_IDS.includes(id));
 
 describe('登録表（金シリーズ）', () => {

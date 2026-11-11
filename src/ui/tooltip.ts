@@ -41,6 +41,7 @@ export interface TooltipOptions extends TooltipDeps {
 export class Tooltip {
   readonly el: HTMLDivElement;
   private target: HoverTarget | null = null;
+  private anchor: HTMLElement | null = null;
   private shownKey = '';
   private mx = 0;
   private my = 0;
@@ -106,9 +107,10 @@ export class Tooltip {
     window.addEventListener('wheel', this.onWheel, { passive: true });
   }
 
-  /** マウスを合わせた（null で外れた） */
-  hover(target: HoverTarget | null): void {
+  /** マウスを合わせた（null で外れた）。anchor = 十字で えらんだ 要素（あれば その 右下に 出す。マウスの ときは 付けない） */
+  hover(target: HoverTarget | null, anchor: HTMLElement | null = null): void {
     this.target = target;
+    this.anchor = anchor;
     this.update();
   }
 
@@ -176,7 +178,15 @@ export class Tooltip {
     if (this.el.hidden) return;
     const w = this.el.offsetWidth;
     const h = this.el.offsetHeight;
-    const p = placeNear(this.mx, this.my, w, h, window.innerWidth, window.innerHeight);
+    let mx = this.mx;
+    let my = this.my;
+    if (this.anchor) {
+      // 十字で えらんだ 要素の 右下（placeNear は 18px ずらす ので その ぶん 引く）
+      const r = this.anchor.getBoundingClientRect();
+      mx = r.right - 12;
+      my = r.bottom - 12;
+    }
+    const p = placeNear(mx, my, w, h, window.innerWidth, window.innerHeight);
     const x = p.x;
     const y = p.y;
     this.el.style.transform = `translate(${x}px, ${y}px)`;

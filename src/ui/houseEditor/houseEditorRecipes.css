@@ -1,0 +1,208 @@
+/*
+ * HOUSE-2A（#364）せっけいずエディター: ① ばしょの ボタン・ポップアップ・名前の ヘルプ・「あたらしい！」の 印・② あかりの わく。
+ * 数は 仕様 docs/design/HOUSE-2.md §3.2 の 表（1024×700 ／ 1280×800 ／ 1440×900）。あき・大きさは houseEditor.css の --e-*。
+ * 色・ふち・角・影は src/ui/theme の 変数だけ（絵〔SVG〕の 中の 色は kindArt.ts の 仮の 色）。
+ */
+.ed-root {
+  /* ばしょの ボタンの 絵（1024 ＝ 32、1280・1440 ＝ 40） */
+  --e-pico: 32px;
+}
+@media (min-height: 750px) {
+  .ed-root {
+    --e-pico: 40px;
+  }
+}
+.ed-btn[hidden] {
+  display: none !important;
+}
+/* 字を 持つ ボタンの 中身の 箱（dom.ts の btnInner）。1 行・折りかえさない */
+.ed-btn__in {
+  display: block;
+  flex: none;
+  white-space: nowrap;
+}
+/* ボタンの 中の 絵（SVG）。マウスは ボタンに とどく */
+.ed-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* ---- ① ばしょの ボタン（絵 ＋ 字。高さ ＝ ふち 2＋上 4＋絵＋4＋字 24＋下 4＋ふち 2 ＝ 絵 ＋ 40 → 72・80・80。はば ＝ 字・絵の 大きい 方 ＋ 12、56・64 より 小さく しない） ---- */
+.ed-places {
+  display: flex;
+  gap: var(--e-fgap);
+}
+.ed-place {
+  height: calc(var(--e-pico) + 40px);
+  /* はば ＝ 字の はば（1 字 24）＋ 左右 4×2 ＋ ふち 2×2 ＝ 字の 数 ×24 ＋ 12、56・64 より 小さく しない。--chars ＝ 字の 数（soto.ts が 入れる）。
+     字体に よって 字が 25px などに なっても 表の はばの まま（min-width ではなく width で 決める。はみ出す 1〜3px は 左右の あき 4 に おさまる） */
+  width: max(var(--e-btn), calc(var(--chars, 1) * 24px + 12px));
+  min-width: 0;
+  padding: 4px;
+  font-size: 24px;
+  line-height: 24px;
+}
+/* 絵の 下に 字（1 つの 箱に まとめる。印〔✓・あたらしい！〕は ボタンの 右上に 絶対位置） */
+.ed-place__in {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.ed-place__art {
+  display: block;
+  flex: none;
+  width: var(--e-pico);
+  height: var(--e-pico);
+  pointer-events: none;
+}
+.ed-place__text {
+  display: block;
+  flex: none;
+  pointer-events: none;
+}
+
+/* ---- ① ばしょの ポップアップ（パネルと 同じ 場所・はば・まん中の 高さ いっぱい。見本は かくさない。上 よせ） ---- */
+.ed-side {
+  position: relative;
+}
+.ed-popup {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-row);
+  padding: var(--e-pad);
+  background: var(--rk-bg-800);
+  box-shadow: inset 0 0 0 var(--rk-bw) var(--rk-line);
+  border-radius: var(--rk-r-l);
+}
+/* 上の だん: 左に ばしょの 絵と 名前、右に ✕（高さ ＝ ボタンの 高さ 56・64） */
+.ed-popup__top {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--e-btn);
+}
+.ed-popup__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 24px;
+  white-space: nowrap;
+}
+.ed-popup__ico {
+  display: block;
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+/* 一覧: ぜんぶ おぼえても スクロール なしで 入る（1 行 5 こ × 5 行 まで）。こえたら ここだけ スクロール。
+   上に 8 の よゆうを とるのは えらんだ ボタンの ✓（ボタンの 上 -8 に はみ出す）が 切れない ため（よこの ならびは かわらない） */
+.ed-popup__list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--e-bgap);
+  min-height: 0;
+  margin-top: -8px;
+  padding-top: 8px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rk-line) transparent;
+}
+.ed-popup__row {
+  display: flex;
+  flex: none;
+  gap: var(--e-bgap);
+}
+/* しゅるいの ボタン（絵 だけ・正方形） */
+.ed-kind {
+  width: var(--e-btn);
+  min-width: 0;
+  padding: 0;
+}
+.ed-kind .ed-art,
+.ed-lbtn .ed-art {
+  width: calc(var(--e-btn) - 16px);
+  height: calc(var(--e-btn) - 16px);
+}
+
+/* ---- 名前の ヘルプ（カーソルの 近く。押せない・字 24・しゅるい 1 行 44 ／ ばしょ 2 行 76） ---- */
+.ed-tip {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: max-content;
+  padding: 8px 12px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 24px;
+  white-space: nowrap;
+  color: var(--rk-text);
+  background: var(--rk-bg-900);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-2);
+  pointer-events: none;
+}
+
+/* ---- 「あたらしい！」の 印（ボタンの 右上。動かない。ボタンの わくの 中に おさまる） ---- */
+.ed-newmark {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: block;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+}
+.ed-newmark__svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+/* ---- ② あかりの わく（字「あかり」＋ 絵 だけの ボタン 3 こ。正方形） ---- */
+.ed-lights {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--e-lab);
+}
+.ed-lights__label {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 24px;
+  white-space: nowrap;
+}
+.ed-lights__btns {
+  display: flex;
+  gap: var(--e-fgap);
+}
+.ed-lbtn {
+  width: var(--e-btn);
+  min-width: 0;
+  padding: 0;
+}
+
+/* ---- なまえを かえる（HOUSE-1C）: 後ろの 文字が 2 列に なった ぶん、小さい 画面（1024）で 内がわの あきと 列の あいだを つめて 画面の はば（992）に おさめる
+   （50 音 696 ＋ あいだ 12 ＋ 後ろの 文字 260 ＝ 968 ≦ 992 − あき 8×2 − ふち 2×2 ＝ 972）。スクロールする 入れものに なるので はみ出させない ---- */
+@media (max-width: 1100px) {
+  .rn-name {
+    padding: 8px;
+  }
+  .rn-name .ed-namae {
+    gap: 12px;
+  }
+}

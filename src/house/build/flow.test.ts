@@ -5,7 +5,7 @@ import type { Site } from './sites';
 import { MSG } from './tuning';
 
 /** ユニット 3・5（AC18・AC19・AC20）: 一覧 → 上空の 視点 → 確かめ。世界は 読まない（場所は 表で わたす） */
-const bp = (n: number): Blueprint => ({ number: n, name: { front: 'もも', back: 'のいえ' }, w: 5, d: 5, windows: 0, windowKind: 'shoji', roof: 'flat', furniture: [], light: 'lantern' });
+const bp = (n: number): Blueprint => ({ number: n, name: { front: 'もも', back: 'のいえ' }, w: 5, d: 5, windows: 0, windowKind: 'shoji', roof: 'flat', wall: 'ki', door: 'ie', deco: [], furniture: [], light: 'lantern' });
 const SITES: Site[] = [{ x: 10, y: 5, z: 10 }, { x: 20, y: 5, z: 10 }];
 
 function rig(opts: { plans?: FlowPlan[]; sites?: Site[]; begin?: boolean } = {}) {

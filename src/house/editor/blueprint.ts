@@ -1,6 +1,6 @@
 // HOUSE-1B せっけいずの 中身（持ち物の マスの `plan` 番号 → ここ）。DOM・three なし。仕様 docs/design/HOUSE-1.md §2.7・§6.1。
 import { cloneState, parseState, plainFurniture, windowCells, type EditorState, type Placed, type WindowCell } from './model';
-import { LIGHT_DEFAULT, type LightKind, type RoofKind, type Size, type WindowKind } from './tuning';
+import type { DecoKind, DoorKind, LightKind, RoofKind, Size, WallKind, WindowKind } from './tuning';
 
 /** せっけいず 1 まいの 中身。番号は その 世界で 作った 順（1, 2, 3 …。すてても こわしても もどらない） */
 export interface Blueprint {
@@ -11,6 +11,10 @@ export interface Blueprint {
   windows: number;
   windowKind: WindowKind;
   roof: RoofKind;
+  /** 2A: かべ・と・かざり・あかり（古い 保存は き・いえの と・かざり なし・ちょうちん） */
+  wall: WallKind;
+  door: DoorKind;
+  deco: DecoKind[];
   furniture: Placed[];
   light: LightKind;
 }
@@ -18,7 +22,7 @@ export interface Blueprint {
 /** 作りかけ → せっけいず（コピー。あとで 作りかけを かえても せっけいずは かわらない） */
 export function toBlueprint(draft: Readonly<EditorState>, number: number): Blueprint {
   const s = cloneState(draft as EditorState);
-  return { number, name: s.name, w: s.w, d: s.d, windows: s.windows, windowKind: s.windowKind, roof: s.roof, furniture: s.furniture, light: LIGHT_DEFAULT };
+  return { number, name: s.name, w: s.w, d: s.d, windows: s.windows, windowKind: s.windowKind, roof: s.roof, wall: s.wall, door: s.door, deco: s.deco, furniture: s.furniture, light: s.light };
 }
 
 /** せっけいずの 名前（持ち物の ツールチップ）。「<前><後ろ>の せっけいず」 */

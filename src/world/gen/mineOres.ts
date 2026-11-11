@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, type BlockId } from '../../contracts';
+import { CHUNK_SIZE, type BlockArray, type BlockId } from '../../contracts';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { COL_VOLUME, HW, LAYER } from './columnLayout';
 import { MINE_CONFIG, type MineClusterSize, type MineLayerId, type MineOreRow } from './mineConfig';
@@ -99,7 +99,7 @@ function neighbor(c: number, d: number): number {
 }
 
 /** i は 置ける・足せる マスか（石・層の 中・地面より 下・同じ 鉱石の ほかの かたまりと 面で ふれない） */
-function canTake(out: Uint8Array, heights: Int16Array, r: OreRowRt, serial: number, i: number): boolean {
+function canTake(out: BlockArray, heights: Int16Array, r: OreRowRt, serial: number, i: number): boolean {
   if (out[i] !== STONE) return false;
   const y = Math.floor(i / LAYER);
   if (y < r.lo || y > r.hi) return false;
@@ -112,7 +112,7 @@ function canTake(out: Uint8Array, heights: Int16Array, r: OreRowRt, serial: numb
 }
 
 /** 今の かたまり（members の size こ）に 面で となりあって 置ける マスを cands に 集める（同じ マスは 1 回）。集めた 数を 返す */
-function collectCandidates(out: Uint8Array, heights: Int16Array, r: OreRowRt, serial: number, size: number): number {
+function collectCandidates(out: BlockArray, heights: Int16Array, r: OreRowRt, serial: number, size: number): number {
   let nc = 0;
   for (let m = 0; m < size; m++) {
     for (let d = 0; d < 6; d++) {
@@ -127,7 +127,7 @@ function collectCandidates(out: Uint8Array, heights: Int16Array, r: OreRowRt, se
 }
 
 /** マスを 鉱石に して かたまりに 入れる */
-function take(out: Uint8Array, r: OreRowRt, serial: number, i: number): void {
+function take(out: BlockArray, r: OreRowRt, serial: number, i: number): void {
   out[i] = r.id;
   owner[i] = serial;
   placed[nPlaced++] = i;
@@ -137,7 +137,7 @@ function take(out: Uint8Array, r: OreRowRt, serial: number, i: number): void {
  * 鉱石の かたまりを 置く（chunk.ts の buildBlocks から 呼ぶ）。heights は 18×18 の 高さの 地図。
  * rec が あれば 置いた かたまりを 入れる（窓口 `mine.oreClusters` 用。ふだんの 生成では わたさない）
  */
-export function placeMineOres(out: Uint8Array, seed: number, cx: number, cz: number, heights: Int16Array, rec?: OreCluster[]): void {
+export function placeMineOres(out: BlockArray, seed: number, cx: number, cz: number, heights: Int16Array, rec?: OreCluster[]): void {
   nPlaced = 0;
   try {
     placeRows(out, seed, cx, cz, heights, rec);
@@ -149,7 +149,7 @@ export function placeMineOres(out: Uint8Array, seed: number, cx: number, cz: num
 }
 
 /** 表の 行ごとに かたまりを 置く */
-function placeRows(out: Uint8Array, seed: number, cx: number, cz: number, heights: Int16Array, rec: OreCluster[] | undefined): void {
+function placeRows(out: BlockArray, seed: number, cx: number, cz: number, heights: Int16Array, rec: OreCluster[] | undefined): void {
   const sO = subSeed(seed, 601);
   const x0 = cx * CHUNK_SIZE;
   const z0 = cz * CHUNK_SIZE;

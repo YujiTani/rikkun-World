@@ -29,6 +29,7 @@ const WANT = {
   long_table: null,
   round_table: null,
   andon: null,
+  maneki: null, // HOUSE-2A（かざり。はたらき なし）
   chair: { kind: 'sit', word: 'すわる' },
   stool: { kind: 'sit', word: 'すわる' },
   ofuro: { kind: 'bath', word: 'はいる' },

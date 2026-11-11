@@ -118,7 +118,7 @@ export const LEGEND_DEFS: ItemDefs = LEGEND;
  * MINE-1B（#349）: せっかいせき・しっくい・ほたるいし・きんの いし（置ける）・チョーク・いしばい。
  * ITEM_TYPES・色分けでは いちばん うしろ（家づくりの 道具の 次）。作業台・かまどの カードも いちばん うしろ（チョーク → しっくい／いしばい）
  */
-export const MINE_DEFS: ItemDefs = pickDefs({ ...MINE_BLOCKS, ...MINE_ITEMS }, ['sekkaiseki', 'hotaruishi', 'kin_ore', 'shikkui', 'chalk', 'ishibai', 'kabita_pan']);
+export const MINE_DEFS: ItemDefs = pickDefs({ ...MINE_BLOCKS, ...MINE_ITEMS }, ['sekkaiseki', 'hotaruishi', 'kin_ore', 'shikkui', 'chalk', 'ishibai', 'kabita_pan', 'recipe_scroll']);
 
 /**
  * 登録された 全アイテム（置ける ブロック・道具・刀・ゆみ・防具・忍者・侍・畑・ざいりょう・小物・生き物・レジェンダリー・金。刀の集まり BLADE_ITEMS の 並びは この 順）。

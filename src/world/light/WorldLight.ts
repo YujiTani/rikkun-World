@@ -39,8 +39,8 @@ const TIME_BUDGET_MS = 3;
 /** 空 15・明かり 0 のセクションの目印（長さ 1。中身は読まない） */
 const UNI = new Uint8Array(1);
 const UNI_BYTE = 0xf0;
-/** 読みこんでいないマス（ブロックの番号の外）。光を通さない */
-const UNKNOWN = 255;
+/** 読みこんでいないマス（ブロックの番号の外。MAX_BLOCK_KINDS 以上）。光を通さない（lightSpread の OPAQ[0xFFFF] = 15） */
+export const UNKNOWN_BLOCK = 0xffff;
 
 type Entry = Uint8Array | null | undefined;
 
@@ -72,7 +72,7 @@ export class WorldLight implements LightField {
   readonly initMs: number;
 
   // 計算用の置き場（毎回 new しない）
-  private blk = new Uint8Array(R3 ** 3);
+  private blk = new Uint16Array(R3 ** 3);
   private sky = new Uint8Array(R3 ** 3);
   private block = new Uint8Array(R3 ** 3);
   private colTop = new Int16Array(R3 * R3);
@@ -495,7 +495,7 @@ export class WorldLight implements LightField {
     for (const t of byTile.values()) this.computeTile(t.cx, t.cz, TILE, TILE, 0, this.nSections - 1, false);
     // 大きな置き場は 手放す（ふだんの 1 セクションぶんに戻す）
     if (this.blk.length > R3 ** 3) {
-      this.blk = new Uint8Array(R3 ** 3);
+      this.blk = new Uint16Array(R3 ** 3);
       this.sky = new Uint8Array(R3 ** 3);
       this.block = new Uint8Array(R3 ** 3);
       this.colTop = new Int16Array(R3 * R3);
@@ -658,7 +658,7 @@ export class WorldLight implements LightField {
     this.ry = ry;
     const n = rx * rz * ry;
     if (this.blk.length < n) {
-      this.blk = new Uint8Array(n);
+      this.blk = new Uint16Array(n);
       this.sky = new Uint8Array(n);
       this.block = new Uint8Array(n);
       this.colTop = new Int16Array(rx * rz);
@@ -674,7 +674,7 @@ export class WorldLight implements LightField {
           const bx = dx * SECTION_SIZE;
           const bz = dz * SECTION_SIZE;
           if (sec === undefined || sec.kind === 'uniform') {
-            const v = sec === undefined ? UNKNOWN : sec.block;
+            const v = sec === undefined ? UNKNOWN_BLOCK : sec.block;
             for (let ly = 0; ly < rows; ly++) {
               for (let lz = 0; lz < SECTION_SIZE; lz++) {
                 const o = ((ly0 + ly) * rz + bz + lz) * rx + bx;

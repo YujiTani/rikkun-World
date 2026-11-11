@@ -3,9 +3,11 @@
 import type { ItemId } from '../../contracts';
 import { furnFootprint } from '../../world/blocks/houseBlocks';
 import { FURNITURE, K_FUTON, isFurnKind, type FurnKind } from './furniture';
+import { exteriorMats, type MatShape } from '../recipes/mats';
+import { DEFAULT_KIND, LIGHT_DEFAULT, LIGHT_KINDS, normalizeKind, splitKind, type Part } from '../recipes/kinds';
 import {
-  BUILD_TICKS, DOOR_WALL, MATERIAL_ORDER, NAME_FRONT_MAX, OPPOSITE, PAPER_PER_WINDOW, ROOF_DEFAULT, ROOF_KINDS, SIZES, SIZE_DEFAULT, STEPS, SUFFIXES, SUFFIX_DEFAULT,
-  WINDOW_KINDS, WINDOW_KIND_DEFAULT, type RoofKind, type Rot, type Size, type Step, type Wall, type WindowKind,
+  BUILD_TICKS, DOOR_WALL, MATERIAL_ORDER, NAME_FRONT_MAX, OPPOSITE, SIZES, SIZE_DEFAULT, STEPS, SUFFIXES, SUFFIX_DEFAULT,
+  type DecoKind, type DoorKind, type LightKind, type RoofKind, type Rot, type Size, type Step, type Wall, type WallKind, type WindowKind,
 } from './tuning';
 
 export interface Placed {
@@ -23,22 +25,27 @@ export interface EditorState {
   w: Size;
   d: Size;
   windows: number;
-  /** 窓・屋根の しゅるい（いまは 1 つずつ。あとで レシピで ふえる） */
+  /** ①「そと」の しゅるい（やね・かべ・まど・と は 1 つ、かざりは 形ごとに 1 つずつ。id は `<形>_<案>`・いつもの 物・none）。あかり（②）も 1 つ */
   windowKind: WindowKind;
   roof: RoofKind;
+  wall: WallKind;
+  door: DoorKind;
+  deco: DecoKind[];
+  light: LightKind;
   furniture: Placed[];
   name: { front: string; back: string };
 }
 
 export function emptyState(): EditorState {
   return {
-    step: 'soto', w: SIZE_DEFAULT, d: SIZE_DEFAULT, windows: 0, windowKind: WINDOW_KIND_DEFAULT, roof: ROOF_DEFAULT,
+    step: 'soto', w: SIZE_DEFAULT, d: SIZE_DEFAULT, windows: 0, windowKind: DEFAULT_KIND.window, roof: DEFAULT_KIND.roof,
+    wall: DEFAULT_KIND.wall, door: DEFAULT_KIND.door, deco: [], light: LIGHT_DEFAULT,
     furniture: [], name: { front: '', back: SUFFIX_DEFAULT },
   };
 }
 
 export function cloneState(s: EditorState): EditorState {
-  return { ...s, furniture: s.furniture.map((p) => ({ ...p })), name: { ...s.name } };
+  return { ...s, deco: [...s.deco], furniture: s.furniture.map((p) => ({ ...p })), name: { ...s.name } };
 }
 
 // ------------------------------------------------------------ 窓と 戸（§4.2）
@@ -117,7 +124,7 @@ export function windowMax(s: Pick<EditorState, 'w' | 'd'>): number {
 }
 
 /** 戸の かべの 中での 場所（まん中。窓と おなじ 数え方） */
-export function doorIndex(s: Pick<EditorState, 'w' | 'd'>): number {
+export function doorIndex(s: { w: number; d: number }): number {
   return (wallLength(s.w, s.d, DOOR_WALL) - 1) / 2;
 }
 
@@ -241,18 +248,29 @@ export interface NeedRow {
   short: number;
 }
 
-/** 必要な 材料 ＝ 外装（き ＝ 外まわり 1 周、いし ＝ 中の 床）＋ 窓 × かみ 1 ＋ 家具の 合計。あかり（ちょうちん）は 材料 なし */
-function materialsOf(s: Pick<EditorState, 'w' | 'd' | 'windows' | 'furniture'>): Map<ItemId, number> {
+/** 材料を 数える のに いる 形（EditorState の 一部。せっけいずも 同じ） */
+export type NeedShape = Pick<EditorState, 'w' | 'd' | 'windows' | 'furniture'> & Partial<Omit<MatShape, 'w' | 'd' | 'windows'>>;
+
+/**
+ * 必要な 材料 ＝ 外装（かべ ＝ 外まわり 1 周、いし ＝ 中の 床）＋ 窓 ＋ 家具の 合計。いつもの 物は HOUSE-1 の まま（き P・いし w×d・かみ n）。
+ * ①の 形・あかりの 材料は recipes/mats.ts（形が 書いて なければ いつもの 物）。あかり（ちょうちん）は 材料 なし
+ */
+function materialsOf(s: NeedShape): Map<ItemId, number> {
   const m = new Map<ItemId, number>();
-  m.set('log', 2 * (s.w + s.d) + 4);
-  m.set('stone', s.w * s.d);
-  if (s.windows > 0) m.set('paper', (m.get('paper') ?? 0) + s.windows * PAPER_PER_WINDOW);
+  exteriorMats(
+    {
+      w: s.w, d: s.d, windows: s.windows, roof: s.roof ?? DEFAULT_KIND.roof, wall: s.wall ?? DEFAULT_KIND.wall,
+      windowKind: s.windowKind ?? DEFAULT_KIND.window, door: s.door ?? DEFAULT_KIND.door, deco: s.deco ?? [], light: s.light ?? LIGHT_DEFAULT,
+    },
+    m,
+  );
+  m.set('stone', (m.get('stone') ?? 0) + s.w * s.d);
   for (const p of s.furniture) for (const [item, n] of FURNITURE[p.kind].mats) m.set(item, (m.get(item) ?? 0) + n);
   return m;
 }
 
 /** ひつような もの（§3.2 の 並び）。have ＝ もちもの ＋ 近くの たんすの 数（item → 数） */
-export function needOf(s: Pick<EditorState, 'w' | 'd' | 'windows' | 'furniture'>, have: (item: ItemId) => number): NeedRow[] {
+export function needOf(s: NeedShape, have: (item: ItemId) => number): NeedRow[] {
   const m = materialsOf(s);
   return MATERIAL_ORDER.filter((item) => (m.get(item) ?? 0) > 0).map((item) => {
     const need = m.get(item) ?? 0;
@@ -271,7 +289,7 @@ export interface NeedBonusRow extends NeedRow {
  * ふとん 1 つぶんの 材料（ぬの 3・いと 1）は ただ。設計図に ふとんが あれば、その 材料の 合計の うち ふとん 1 つぶんまで（合計が それより 少なければ 合計まで）を おまけに する。
  * need が 0 でも bonus が 1 以上の 行は のこす。足りるかの 判定は need（おまけを ひいた 数）で する
  */
-export function needBonusOf(s: Pick<EditorState, 'w' | 'd' | 'windows' | 'furniture'>, have: (item: ItemId) => number, firstBonus: boolean): NeedBonusRow[] {
+export function needBonusOf(s: NeedShape, have: (item: ItemId) => number, firstBonus: boolean): NeedBonusRow[] {
   const m = materialsOf(s);
   const hasFuton = s.furniture.some((p) => p.kind === K_FUTON);
   const free = new Map<ItemId, number>(firstBonus && hasFuton ? FURNITURE[K_FUTON].mats : []);
@@ -343,28 +361,58 @@ export function canAddChar(front: string): boolean {
 // ------------------------------------------------------------ 保存から 読む（形が おかしい 所は はじめの まま）
 
 const NAME_CHAR = /^[\u3041-\u3096\u30A1-\u30FA\u30FC\u309B\u309C]$/;
+/** かざりの 形（`noren_mura` → noren。しゃちほこ は そのまま）が 同じか */
+export const sameForm = (a: DecoKind, b: DecoKind): boolean => splitKind(a).form === splitKind(b).form;
 const int = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
 
-/** 保存された 作りかけ → EditorState。知らない 値・おかしい 値・方眼に 1 マスも 入らない 家具は すてる（赤い 家具は のこす。例外を 出さない） */
-export function parseState(raw: unknown): EditorState {
+/**
+ * 保存から 読む とき、おぼえて いない しゅるいを いつもの 物に もどす 門（recipes/log.ts の RecipeLog が 合う）。
+ * null ＝ 門なし（できた せっけいずは 知って いる しゅるいなら そのまま。仕様 §5）
+ */
+export interface KindGate {
+  kindOk(part: Part, kind: string): boolean;
+  lightOk(kind: string): boolean;
+  furnOk(kind: string): boolean;
+  suffixOk(index: number): boolean;
+}
+
+/** ばしょ part の しゅるい（2 版の 形の id は 案 むら。知らない・おぼえて いない 物は null） */
+function readKind(part: Part, raw: unknown, gate: KindGate | null): string | null {
+  const k = normalizeKind(part, raw);
+  return k !== null && (gate === null || gate.kindOk(part, k)) ? k : null;
+}
+
+/** 保存された 作りかけ → EditorState。知らない 値・おかしい 値・方眼に 1 マスも 入らない 家具は すてる（赤い 家具は のこす。例外を 出さない）。おぼえて いない しゅるいは いつもの 物（かざりは はずす）*/
+export function parseState(raw: unknown, gate: KindGate | null = null): EditorState {
   const out = emptyState();
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return out;
   const r = raw as Record<string, unknown>;
   out.step = STEPS.find((x) => x === r.step) ?? out.step;
   out.w = SIZES.find((x) => x === r.w) ?? out.w;
   out.d = SIZES.find((x) => x === r.d) ?? out.d;
-  out.windowKind = WINDOW_KINDS.find((x) => x === r.windowKind) ?? out.windowKind;
-  out.roof = ROOF_KINDS.find((x) => x === r.roof) ?? out.roof;
+  out.windowKind = (readKind('window', r.windowKind, gate) as WindowKind | null) ?? out.windowKind;
+  out.roof = (readKind('roof', r.roof, gate) as RoofKind | null) ?? out.roof;
+  out.wall = (readKind('wall', r.wall, gate) as WallKind | null) ?? out.wall;
+  out.door = (readKind('door', r.door, gate) as DoorKind | null) ?? out.door;
+  if (Array.isArray(r.deco)) {
+    for (const x of r.deco as unknown[]) {
+      const k = readKind('deco', x, gate) as DecoKind | null;
+      if (k !== null && !out.deco.some((q) => sameForm(q, k))) out.deco.push(k);
+    }
+  }
+  if ((LIGHT_KINDS as readonly string[]).includes(r.light as string)) out.light = gate === null || gate.lightOk(r.light as LightKind) ? (r.light as LightKind) : out.light;
   if (int(r.windows)) out.windows = Math.min(Math.max(r.windows, 0), windowMax(out));
   const nm = r.name as { front?: unknown; back?: unknown } | null | undefined;
   if (typeof nm === 'object' && nm !== null) {
     if (typeof nm.front === 'string') out.name.front = [...nm.front].filter((c) => NAME_CHAR.test(c)).slice(0, NAME_FRONT_MAX).join('');
-    out.name.back = SUFFIXES.find((x) => x === nm.back) ?? out.name.back;
+    const at = SUFFIXES.indexOf(nm.back as string);
+    if (at >= 0 && (gate === null || gate.suffixOk(at))) out.name.back = SUFFIXES[at]!;
   }
   if (Array.isArray(r.furniture)) {
     for (const f of r.furniture as unknown[]) {
       const q = f as Record<string, unknown> | null;
       if (typeof q !== 'object' || q === null || !isFurnKind(q.kind) || !int(q.x) || !int(q.z)) continue;
+      if (gate !== null && !gate.furnOk(q.kind)) continue;
       const rot = q.rot === 0 || q.rot === 1 || q.rot === 2 || q.rot === 3 ? q.rot : null;
       if (rot === null) continue;
       const p: Placed = { kind: q.kind, x: q.x, z: q.z, rot };

@@ -108,7 +108,7 @@ describe('E12: 新しい ブロックの 値', () => {
     // 1F 以降の id は 後ろに 足される ので、1E の id の いちばん 後ろ〔自分の 行の 最大の 番号〕までを 数える
     const added = Math.max(...ROWS.map((r) => IDX[r.id]!)) + 1 - BLOCKS_THROUGH_1D;
     expect(added, '1E で 足した id').toBeGreaterThanOrEqual(ROWS.length);
-    expect(added, '1E で 足した id').toBeLessThanOrEqual(10);
+    expect(added, '1E で 足した id').toBeLessThanOrEqual(10 + 5); // 5 ＝ HOUSE-2A（#364）が 後ろに 足した まきもの 1 ＋ まねきねこ 4（向き）。やかたは その あと
     expect(BLOCK_TYPES.length).toBeLessThanOrEqual(256);
   });
 });

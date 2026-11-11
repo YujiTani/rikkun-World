@@ -3,7 +3,7 @@
 // 2 つ: cue ＝ 窓を かえた・① に なった 戸の 光り（時間で ふえて 消える）、hover ＝ まどの ボタンに 手を おいて いる 間 ぜんぶの 窓。
 // 描く 数は 光って いる 間だけ 1〜2 回 ふえる（三角形は 1 まど 18）。時間の 数え方は glow.ts、数は tuning.ts の GLOW。
 import { AdditiveBlending, BufferGeometry, DoubleSide, Float32BufferAttribute, Mesh, MeshBasicMaterial, type Scene } from 'three';
-import { doorIndex, type EditorState, type WindowCell } from '../editor/model';
+import { doorIndex, type WindowCell } from '../editor/model';
 import { DOOR_WALL, HEIGHT, WINDOW_Y, type Wall } from '../editor/tuning';
 import { GLOW } from './tuning';
 
@@ -19,7 +19,17 @@ export interface GlowSpot {
 /** 窓 1 つ（k ＝ つよさ） */
 export const windowSpot = (c: WindowCell, k: number): GlowSpot => ({ wall: c.wall, i: c.i, y: WINDOW_Y, h: 1, k });
 /** 戸（まえの かべの まん中。下の 段から 上の 段まで） */
-export const doorSpot = (s: Pick<EditorState, 'w' | 'd'>): GlowSpot => ({ wall: DOOR_WALL, i: doorIndex(s), y: HEIGHT.floor, h: HEIGHT.doorLevels, k: 1 });
+export const doorSpot = (s: { w: number; d: number }): GlowSpot => ({ wall: DOOR_WALL, i: doorIndex(s), y: HEIGHT.floor, h: HEIGHT.doorLevels, k: 1 });
+
+/**
+ * 光らせる 部分の 名前 → あなの 場所（HOUSE-2A）。まど・はなだん ＝ 窓 ぜんぶ、と・のれん ＝ 戸。
+ * やね・かべ・えんとつ・しゃちほこ・あかりは 光る 形（絵）が まだ 無い ので なし（名前だけ glow.parts に 出る。形は HOUSE-2B）
+ */
+export function partSpots(part: string, cells: readonly WindowCell[], size: { w: number; d: number }): GlowSpot[] {
+  if (part === 'window' || part === 'hanadan') return cells.map((c) => windowSpot(c, 1));
+  if (part === 'door' || part === 'noren') return [doorSpot(size)];
+  return [];
+}
 
 type V3 = readonly [number, number, number];
 interface Frame {

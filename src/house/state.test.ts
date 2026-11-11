@@ -31,6 +31,8 @@ describe('AC32 保存: 書いて 読むと 同じ', () => {
       draft: emptyState(),
       blueprints: [],
       next: 1,
+      // 2A（#364）: おぼえた レシピと「あたらしい！」は セーブの house の 中の recipes（learned・fresh。おぼえた 順の id）。はじめは 空
+      recipes: { learned: [], fresh: [] },
     });
   });
 

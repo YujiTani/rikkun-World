@@ -11,6 +11,10 @@ export interface NameHost {
   /** 状態を ③ なまえの 操作として 履歴に 積む。かわらなければ 何もしない（false） */
   commit(next: EditorState): boolean;
   say(text: string): void;
+  /** 後ろの ことば（SUFFIXES の 番号）を えらべる か（レシピ。なければ ぜんぶ えらべる） */
+  suffixOk?(index: number): boolean;
+  /** 後ろの ことばを えらんだ（「あたらしい！」の 印を 消す） */
+  suffixDone?(index: number): void;
 }
 
 export class NameEdit {
@@ -61,9 +65,11 @@ export class NameEdit {
   }
 
   suffix(back: string): boolean {
-    if (!SUFFIXES.includes(back)) return false;
+    const at = SUFFIXES.indexOf(back);
+    if (at < 0 || this.host.suffixOk?.(at) === false) return false;
     const next = cloneState(this.host.state());
     next.name.back = back;
+    this.host.suffixDone?.(at);
     return this.commitName(next);
   }
 }
