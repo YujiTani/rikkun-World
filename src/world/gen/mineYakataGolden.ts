@@ -20,7 +20,7 @@ interface Pt3 {
   y: number;
   z: number;
 }
-export interface ShaftE {
+interface ShaftE {
   id: string;
   depth: string;
   entrance: Pt3;

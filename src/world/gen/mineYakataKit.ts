@@ -39,7 +39,7 @@ export type Look = 'maou' | 'otera';
 export const LOOKS: readonly Look[] = ['maou', 'otera'];
 export type Zone = 'left' | 'right' | 'front';
 export const ZONES: readonly Zone[] = ['left', 'right', 'front'];
-export type Rank = 'oyabun' | 'taisho';
+type Rank = 'oyabun' | 'taisho';
 export type YokaiKindId = string;
 
 export interface Rect {
@@ -74,19 +74,19 @@ export interface YakataShaft extends Omit<BokenShaft, 'work'> {
   /** 計画の 仕事〔ためした 回数〕: 1E の 5 つ ＋ `yakata`〔ためした 候補の 数。上限は `shaftShapeTable().limit.tries.yakata`。F17〕 */
   work?: { entrance: number; floors: number; sides: number; eda: number; maze: number; yakata: number };
 }
-export interface YakataRoll {
+interface YakataRoll {
   shaft: string;
   hit: boolean;
   placed: boolean;
   look: Look | null;
 }
-export interface Foe {
+interface Foe {
   kind: YokaiKindId;
   rank: Rank;
   at: Pt;
 }
-export type YakataStateName = 'mada' | 'chosen' | 'katta';
-export interface YakataStateInfo {
+type YakataStateName = 'mada' | 'chosen' | 'katta';
+interface YakataStateInfo {
   state: YakataStateName;
   left: number;
   foes: number[];
@@ -116,7 +116,7 @@ export interface YakataPlan {
   foes: Foe[];
   chestPreview: { item: string; count: number }[];
 }
-export interface YakataSoundTable {
+interface YakataSoundTable {
   swapSec: number;
   challengeDelaySec: number;
   challengeFadeSec: number;
@@ -191,10 +191,10 @@ export interface MineHookF extends Omit<MineHookE, 'shafts' | 'saveGens' | 'oldC
   isOld(kind: 'kodo' | 'heya' | 'boken' | 'yakata', cx: number, cz: number): boolean;
 }
 
-export interface OldColsF extends OldCols {
+interface OldColsF extends OldCols {
   yakata?: ReadonlySet<number>;
 }
-export interface HookOptionsF {
+interface HookOptionsF {
   oldCols?: OldColsF;
   world?: unknown;
   metaGen?: () => number | null;
