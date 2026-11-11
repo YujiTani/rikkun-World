@@ -80,4 +80,51 @@ export const LEGEND4_TUNING = {
     /** 点。舞う 羽の 数の 上限（全部で 48 点まで。LEGEND-4 §3.7） */
     featherPointsMax: 48,
   },
+  daichi: {
+    /** ダメージ。1 回の 当たり（地面の 振り。O5） */
+    damage: 20,
+    /** 倍。けさぎりの 区間の 長さに かける（ゆっくり おもく） */
+    slowMul: 1.5,
+    /** ステップ（1/60 秒）。出だし（F1〜F42）。けさ 28 × 1.5 */
+    startup: 42,
+    /** ステップ。当たり（F43〜F51）。けさ 6 × 1.5 */
+    active: 9,
+    /** ステップ。後すき（F52〜F159）。けさ 72 × 1.5。合計 159 で 次の 振りが 始まる */
+    recovery: 108,
+    /** 倍。ふって いる 間の 歩く 速さ（歩けない） */
+    moveMul: 0,
+    /** マス。1 振りで こわす よこ・たて・奥行き（急降下で 4 マス 以上なら 奥行き ＋1。上限は breakDepthMax） */
+    breakWidth: 3,
+    breakHeight: 2,
+    breakDepth: 1,
+    /** マス。奥行きの 上限（急降下） */
+    breakDepthMax: 2,
+    /** ステップ。空中で 押した あと その場に 止まる 長さ（ふりかぶり。速さは 水平・上下 とも 0） */
+    diveHover: 6,
+    /** マス/ステップ。急降下の 速さ（30 マス/秒 ＝ 今の maxFallSpeed。1 ステップ 0.5） */
+    diveStep: 0.5,
+    /** 倍。落ちた 高さ 1 マスごとに 足す 威力 */
+    divePerBlock: 0.1,
+    /** 倍。急降下の 威力の 上限（10 マス 以上で 40 ダメージ） */
+    diveMulMax: 2.0,
+    /** マス。落ちた 高さを 切りすてる 前に 足す ゆとり（空中で ふって すぐの 小さな ずれ 〔重力の 1〜2 ステップ ぶん 約 0.02〕を ひろう。0.1 より 小さく） */
+    diveHeightSlack: 0.05,
+    /** マス。この 高さ 以上の 急降下で 奥行き ＋1（2 列） */
+    diveDeepFrom: 4,
+    /** たいきゅう。妖怪に 当たった か ブロックを 1 つでも こわした 振り 1 回に へる 数（こわした 数では へらない） */
+    wearPerSwing: 1,
+    /** マス。当たりの 形（けさぎりと 同じ）: 左右の 半分の 角度は 度、近い・遠い 半径、足もとからの 高さの はば */
+    shape: { halfAngleDeg: 75, rMin: 0.3, rMax: 2.2, yMin: -0.5, yMax: 2.6 },
+    /** マス。のけぞり [よこ, 上]（けさぎりと 同じ） */
+    knock: [6, 3] as const,
+    /** 度。前の 向きを 4 方向に まるめる とき、x の 向きに なる 境（|x 成分| ≧ |z 成分| = 45 度。44 度は x、46 度は z） */
+    dirSnapDeg: 45,
+    /** こわせる 自然の ブロック（これ いがいは ぜんぶ こわさない。岩盤・宝箱・家・家具・はたけ・水・空気 など） */
+    breakable: [
+      'grass', 'dirt', 'sand', 'snow', 'nendo', 'stone', 'coal_ore', 'iron_ore', 'kin_ore', 'suisho_ore', 'diamond_ore',
+      'sekkaiseki', 'hotaruishi', 'hibi_ishi', 'kuzure_ishi', 'tsurara', 'log', 'leaves', 'momiji_leaves', 'matsu_leaves', 'bamboo',
+    ] as readonly string[],
+    /** ステップ。しっぱい（何も こわせない・当たらない）の とき、土けむりの 見た目が 残る 長さ */
+    bonkSteps: 20,
+  },
 } as const;

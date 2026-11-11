@@ -22,6 +22,10 @@ import { pointOnScreen, FIRST_DEPTH, CHEST_UP, newHandInfo, computeHand } from '
 import { WindWaveFx } from '../../fx/windWaveFx';
 import { KokuryuInkFx } from '../../fx/kokuryuInkFx';
 import { YatagarasuFx } from '../../fx/yatagarasuFx';
+import { HammerSlamFx } from '../../fx/hammerSlamFx';
+import { playHammer } from '../../fx/hammerSounds';
+import { LEGEND4_TUNING } from '../../content/items/legend4Tuning';
+import { createHammerSystem, type HammerSystem } from '../../tools/hammer/HammerSystem';
 import { SpiralFx } from '../../fx/spiralFx';
 import { createWaveView3D } from '../../legend/waveView';
 import { ChargeLightFx } from '../../fx/chargeLightFx';
@@ -198,6 +202,8 @@ export function wireWeapons(deps: WiredDrops) {
   const yatagarasuFx = new YatagarasuFx(game.scene); // LEGEND-4: 八咫烏（1P。2P は duoPlay が 別に 持つ）
   // LEGEND-4: 天使の弓（つばさ・羽の すじ・空中ジャンプの 音と 羽）。1P の 体・1P の 矢
   const tenshiWire = createTenshiWire(game.scene, controller, fxSound);
+  // LEGEND-4: 大地のハンマーの 地面の われ・光（H1。1P の 振り。2P の 振りは duoPlay が 別に 持つ）
+  const hammerSlamFx = new HammerSlamFx(game.scene);
   // WEAPON-8: らせんの かぜ（S2）・土と 草の つぶ・手もとの 光・速さバフの アイコン
   const spiralFx = new SpiralFx({ scene: game.scene, camera: game.camera });
   // WEAPON-9: 虹の ドーム・かけら・すいよせの つぶ・斬撃（材質は 読みこみ中に ぜんぶ 作る）
@@ -235,7 +241,7 @@ export function wireWeapons(deps: WiredDrops) {
   controller.lungeYokai = () => (shared.yokaiManager ? shared.yokaiManager.list() : []);
   return {
     level, armor, tools, blade, legend, nijiCenter, waveSys, reducedMotionMq, parry, geta, parryFx,
-    sparkAt, thunderFx, rainbowFx, windWaveFx, kokuryuInkFx, yatagarasuFx, tenshiWire, spiralFx, nijiFx, domeGrains, slashFx, raijinFx, fujinFx,
+    sparkAt, thunderFx, rainbowFx, windWaveFx, kokuryuInkFx, yatagarasuFx, tenshiWire, hammerSlamFx, spiralFx, nijiFx, domeGrains, slashFx, raijinFx, fujinFx,
     spiralDebris, chargeLight, chargeLightFx, chargeChest, handInfo, handNow, buffModel,
   };
 }
@@ -269,6 +275,8 @@ export function wireFighters(deps: WiredWeapons) {
   // COOP-1 3a: 1P の 妖怪の 世界は 「1P の こうげき」と 名前を つけた 物（けいけんちは 当てた 人に）。妖怪の 係は あとで 作るので 初めて 使う とき 包む
   let yokai1: YokaiWorld | null = null;
   const yokaiOf1 = (): YokaiWorld => (yokai1 ??= bindWho(shared.yokaiManager!, 1));
+  /** LEGEND-4: 大地のハンマー（dig を 作った あとで 入れる。急降下の 間は 落下ダメージを 見ない） */
+  let hammer: HammerSystem | null = null;
   const combat = new PlayerCombatImpl({
     config: combatCfg,
     tool: tools,
@@ -285,7 +293,7 @@ export function wireFighters(deps: WiredWeapons) {
     // WEAPON-9: シャイニング中は 受ける ダメージ 1/3・落下ダメージなし
     takenMul: () => legend.takenMul(),
     // ROPE-1 版 3: ロープに つかまって いる 間は 落ちた 高さを ためない（ゆっくり おりて 着地しても・とちゅうで はなしても、はなした 所から 数える）
-    noFall: () => legend.noFall() || shared.protoNoFall || controller.onRope() || tenshiNoFall(inventory.held()?.item ?? null), // 天使の弓: 持って いる 間 着地ダメージ なし
+    noFall: () => legend.noFall() || shared.protoNoFall || controller.onRope() || tenshiNoFall(inventory.held()?.item ?? null) || (hammer?.noFall() ?? false), // 天使の弓: 持って いる 間 着地ダメージ なし
     // 妖怪のねらい（CHAR-1 第 5.2 版 §4.5）: 届く距離は P から。S からの線で当たらないときは やさしい ねらい補助
     reachOrigin: (out) => aimPivot(world, controller.state.position, out),
     assist: (eye, dir, reach) => aimAssistPick(eye, dir, reach),
@@ -493,6 +501,13 @@ export function wireFighters(deps: WiredWeapons) {
       scroll: createScrollPort(() => shared.house, 1), // HOUSE-2A: レシピの まきもの（もって 右クリックで よむ）
     },
   );
+  hammer = createHammerSystem({
+    world,
+    yokai: yokaiOf1,
+    breakAt: (x, y, z) => dig.breakExternal(x, y, z),
+    wear: () => inventory.wearHeld(LEGEND4_TUNING.daichi.wearPerSwing),
+    sound: (n) => playHammer(fxSound, n),
+  });
   // ねらいの線・矢・刀・パンチの出どころは 目でなく 回転の中心 P（CHAR-1 §4.5）
   dig.aimOrigin = (_p, out) => rig.aimOrigin(out); // ねらいの線の出どころは 肩の点 S
   dig.reachOrigin = (p, out) => aimPivot(world, p.position, out); // 届く距離は P から
@@ -558,6 +573,7 @@ export function wireFighters(deps: WiredWeapons) {
   }
   return {
     combat, storage, craft, furnaceWorld, dropper, dropController, sprinklers, pet, farm, dig, aimCfg, aimPointInto, gadgets,
+    hammer,
     seat: furniture.seat,
     /** COOP-1 5e: 2P の いす・おふろ（参加する たびに attach、やめる たびに detach） */
     seatFor: furniture.seatFor,

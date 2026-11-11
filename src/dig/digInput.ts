@@ -64,7 +64,7 @@ export class DigInput {
     const secondary = enabled && (actions.isHeld('secondary') || actions.wasPressed('secondary'));
     const tools = c.m4.tools;
     const eye = { x: o.x, y: o.y, z: o.z };
-    const bow = tools?.current().kind === 'bow';
+    const bow = tools?.current().kind === 'bow' || tools?.current().kind === 'hammer'; // ゆみ・ハンマーは ほる・たたくを しない（LEGEND-4: ハンマーは 専用の 係が 振る）
     // ゆみ を持っているあいだは ほる・たたく をしない（や は tools が飛ばす）
     let primary = primaryRaw && !bow;
     // 刀（WEAPON-2 §2.1-6・WEAPON-3 §4.4）: 向いている方の 妖怪（1）・＋マークで ねらった 妖怪（2）・何もない（4）→ わざ。作物・ブロック → しゅうかく・ほる

@@ -2,6 +2,7 @@
 import type { BladePhase, BladeStance, BladeTech, BladeTechFrames, Vec3 } from '../contracts';
 import { W2_SETTING_DEFAULTS } from '../contracts';
 import { techCell } from '../tools/blade/advance';
+import { HAMMER_RAISED_CELL, hammerSwingCell } from './hammerCells';
 import { CHARGE_CELL } from '../legend/pose';
 import { BOW_RAPID_TICKS, BOW_SHOT_TICKS, TECH_CURVES, TECH_PHASES } from './techCurves';
 
@@ -55,6 +56,8 @@ export interface SpriteStepInput {
   bladeColors?: { body: number; shine: number } | null;
   /** WEAPON-9: 手に 持つ 絵の 差しかえ（'niji' = 虹の 太刀。女の子の 刀の組 6 まいを 入れかえる）。刀を 持っていない ときは 見ない */
   weaponSkin?: string | null;
+  /** LEGEND-4: 大地のハンマーを 振って いる／急降下の 間（振りの F。刀と 同じ 刀の組の 板に ハンマーの 絵〔skin 'hammer'〕を 入れて 使う）。なければ null */
+  hammer?: { phase: 'swing' | 'hover' | 'dive'; f: number } | null;
 }
 
 /** 場面が 見たい絵（読みこみの 代わりの絵にする前） */
@@ -219,6 +222,11 @@ export class MotionMachine {
     if (input.legendCharge && !(b && b.tech)) {
       if (grounded && v >= MOVE_MIN_SPEED) this.stepWalking('kamaeWalk', KAMAE_WALK[stance], input, v);
       else this.setStill('tech', TECH_MOTION.kesa, CHARGE_CELL);
+      return;
+    }
+    // LEGEND-4: ハンマーの 振り（20 コマ）・急降下（ふりかぶりの 形の まま）
+    if (input.hammer) {
+      this.setStill('tech', TECH_MOTION.kesa, input.hammer.phase === 'swing' ? hammerSwingCell(input.hammer.f) : HAMMER_RAISED_CELL);
       return;
     }
     // K1: わざ

@@ -50,5 +50,22 @@ export const L4_BOW: Partial<Record<ItemId, BowPalette>> = {
   tenshi_yumi: { grip: 0xf4c850, limb: 0xf2f6ff, band: 0xe8b030, tip: 0xffffff },
 };
 
+/** ゆみ いがいの 手に 持つ 形の 箱（刀・つるはしと 同じ 書き方） */
+const L4_TOOL_PARTS: Partial<Record<ItemId, Part[]>> = {
+  // 大地のハンマー: こはく色の 柄 ＋ 輪、青みの ある 鉄の 大きな 頭（箱 7）。頭は よこに 長い
+  daichi_hammer: [
+    P([0.055, 0.055, 0.62], [0, 0, -0.21], 0x7a4a18),
+    P([0.07, 0.07, 0.05], [0, 0, -0.04], 0xf0c050),
+    P([0.07, 0.07, 0.04], [0, 0, -0.5], 0xf0c050),
+    P([0.38, 0.2, 0.22], [0, 0, -0.66], 0x7c879a),
+    P([0.4, 0.1, 0.24], [0, 0.04, -0.66], 0xb4bfcc),
+    P([0.06, 0.22, 0.24], [0.2, 0, -0.66], 0x4a5266),
+    P([0.06, 0.22, 0.24], [-0.2, 0, -0.66], 0x4a5266),
+  ],
+};
+
 /** HELD_MODELS に 入れる 箱（ゆみは かざりの 箱）。手に 持つ 模型が ある 目印 */
-export const L4_HELD_PARTS: Partial<Record<ItemId, Part[]>> = Object.fromEntries(Object.entries(L4_BOW_DECOR).map(([k, v]) => [k, [...v!]]));
+export const L4_HELD_PARTS: Partial<Record<ItemId, Part[]>> = {
+  ...Object.fromEntries(Object.entries(L4_BOW_DECOR).map(([k, v]) => [k, [...v!]])),
+  ...L4_TOOL_PARTS,
+};

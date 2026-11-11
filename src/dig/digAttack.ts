@@ -89,7 +89,8 @@ export class DigAttack {
 
   /** 今の 持ち物の 近接の なかま（弓は bow） */
   private holdKind(): AttackHold {
-    if (this.d.m4.tools?.current().kind === 'bow') return 'bow';
+    const k = this.d.m4.tools?.current().kind;
+    if (k === 'bow' || k === 'hammer') return 'bow';
     return isBladeItem(this.d.inventory.held()?.item) ? 'blade' : 'punch';
   }
 
@@ -147,7 +148,7 @@ export class DigAttack {
   freshDecision(): AttackDecision | null {
     const c = this.d;
     if (!c.lock.playInputEnabled() || c.gate?.blocksInput()) return null;
-    if (!c.m4.w2 || !c.m4.yokai || c.m4.tools?.current().kind === 'bow') return null;
+    if (!c.m4.w2 || !c.m4.yokai || (c.m4.tools?.current().kind === 'bow' || c.m4.tools?.current().kind === 'hammer')) return null;
     const p = c.player();
     const d = lookDirection(p.yawDeg, p.pitchDeg, this.pvDir);
     const o = c.origin(p, this.pvOrigin);

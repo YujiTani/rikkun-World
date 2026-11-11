@@ -255,7 +255,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
   // ---- WEAPON-9: 手に 持つ 絵の 差しかえ（虹の 太刀）。刀の組 6 まいを 入れかえる（足さない）
   interface SkinAtlas {
     extras: PaletteRgb;
-    motions: Record<string, { frames: number; packed?: Packed }>;
+    motions: Record<string, { frames: number; packed?: Packed }>; partial: boolean; // partial = 一部の 絵だけの 差しかえ（ハンマー）。ない 絵は ふつうの 絵
   }
   const skinAtlases = new Map<string, Promise<SkinAtlas | null>>();
   const loadedSkin = {} as Record<SpriteMotion, string | null | undefined>;
@@ -266,7 +266,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
     if (!p) {
       p = loadJson(`${base}${name}/atlas.json`)
         .then((raw) => {
-          const o = (raw ?? {}) as { extras?: unknown; motions?: Record<string, { frames?: number; packed?: unknown }> };
+          const o = (raw ?? {}) as { extras?: unknown; partial?: unknown; motions?: Record<string, { frames?: number; packed?: unknown }> };
           const extras = (Array.isArray(o.extras) ? o.extras : []).slice(0, EXTRA_COLORS_MAX).map((c) => [Number((c as number[])[0]), Number((c as number[])[1]), Number((c as number[])[2])] as [number, number, number]);
           const motions: SkinAtlas['motions'] = {};
           for (const [k, v] of Object.entries(o.motions ?? {})) {
@@ -276,7 +276,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
           // 板の 色見本の 席(23〜)に 書く
           const u = uniforms.uPalette!.value as THREE.Vector3[];
           extras.forEach((c, i) => u[PALETTE_RGB.length + 1 + i]!.set(srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2])));
-          return { extras, motions };
+          return { extras, motions, partial: o.partial === true };
         })
         .catch(() => null);
       skinAtlases.set(name, p);
@@ -347,10 +347,10 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
     if (!had) status[m] = 'loading';
     const myBase = base;
     const myAtlasP = atlasP;
-    const sk = kind === 'girl' && KATANA_SET.has(m) ? wantSkin : null;
+    let sk = kind === 'girl' && KATANA_SET.has(m) ? wantSkin : null;
     try {
       const skinA = sk ? await skinAtlas(sk) : null;
-      if (sk && !skinA?.motions[m]) throw new Error(`${sk} の 絵の 表が ありません`);
+      if (sk && !skinA?.motions[m]) { if (skinA?.partial) sk = null; else throw new Error(`${sk} の 絵の 表が ありません`); }
       const url = sk ? `${myBase}${sk}/${m}.png` : `${myBase}${m}.png`;
       const [img] = await Promise.all([loadImage(url), myAtlasP]);
       if (disposed || g !== gen) return; // 切りかえの 前に 始めた読みこみ: すてる

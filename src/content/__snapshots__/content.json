@@ -5002,6 +5002,26 @@
       "rarity": "legendary",
       "recipes": []
     },
+    "daichi_hammer": {
+      "ITEM_INFO.daichi_hammer": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで、ようかい に むけて ひだりクリック。そら で ふると まっすぐ おちて たたきつける",
+        "special": "だいち を くだく いちげき！ ジャンプ こうげき は はかいりょく ばつぐん",
+        "stats": "hammer",
+        "use": "ようかい を つよく たたく。まえ の つち や いし も こわす"
+      },
+      "W2.toolDurability.daichi_hammer": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［大地｜だいち］のハンマー",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
     "harapan_mimizu": {
       "ITEM_INFO.harapan_mimizu": {
         "buttons": [

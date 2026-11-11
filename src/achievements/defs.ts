@@ -80,6 +80,7 @@ export const LEGEND_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['kokuryu', '［黒龍｜こくりゅう］'], // LEGEND-4 PR1
   ['yatagarasu', '［八咫烏｜やたがらす］'], // LEGEND-4 PR2
   ['tenshi_yumi', '［天使｜てんし］の［弓｜ゆみ］'], // LEGEND-4 PR3
+  ['daichi_hammer', '［大地｜だいち］のハンマー'], // LEGEND-4 PR5
 ];
 
 export const WEAPON_RECIPES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'yumi'] as const;
