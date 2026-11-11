@@ -26,7 +26,19 @@ export const yokaiHp = (page: Page): Promise<Record<number, number>> =>
   page.evaluate(() => Object.fromEntries(((window.__rikkun as any).yokai.list() as { id: number; hp: number }[]).map((y) => [y.id, y.hp])));
 
 /** 世界の ブロックの 数の 表（くらべる 用） */
-export const blockCounts = (page: Page): Promise<Record<string, number>> => page.evaluate(() => (window.__rikkun as any).world.countBlocks() as Record<string, number>);
+/**
+ * プレイヤーの まわり（よこ ±12・たて −4〜+8 マス）の ブロックを 1 つずつ 読んだ 文字列。
+ * 世界 ぜんぶの 数（`world.countBlocks()`）は、テスト中に 遠くの チャンクが 読みこまれて ふえるので 使わない
+ */
+export const blockCounts = (page: Page): Promise<string> =>
+  page.evaluate(() => {
+    const h = window.__rikkun as any;
+    const p = h.player.get().position as V3;
+    const cx = Math.floor(p.x), cy = Math.floor(p.y), cz = Math.floor(p.z);
+    const out: string[] = [];
+    for (let y = cy - 4; y <= cy + 8; y++) for (let z = cz - 12; z <= cz + 12; z++) for (let x = cx - 12; x <= cx + 12; x++) out.push(String(h.world.getBlock(x, y, z)));
+    return out.join(',');
+  });
 
 /** 妖怪の 体の まん中（箱の 高さの 半分あたり）へ 向く pitch を 置く。yaw は 北（0）の まま */
 export async function pitchTo(page: Page, id: number): Promise<void> {
