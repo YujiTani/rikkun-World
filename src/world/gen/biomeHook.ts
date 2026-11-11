@@ -1,5 +1,6 @@
 import { COUNTRY_KINDS, countryAt, countryCell, takePath, type CountryKind } from './biome';
 import { GEN_CONFIG as C } from './config';
+import { featuresInRect, type CountryFeature } from './countryFeatures';
 import { findSpacing, floraOfColumn, plantsInRect, type PlacedPlant } from './placement';
 import { clearingsInRect, spacingAt, type Clearing, type SpacingLevel } from './spacing';
 import { COUNTRY_TABLE, countryRow, type CountryRow } from './countryTable';
@@ -18,6 +19,8 @@ import { spawnOf } from './terrain';
  *   setFound(kinds)        → 並びを 入れる（記録と実績を しずかに そろえる。harappa は 足さない）
  *   current()              → 今の国の kind（なければ null）
  *   quiet(on)              → しずかモード（on の間は「入った」の判定を しない）
+ * VOX-I-4a §8.3（国だけの物）:
+ *   features(x0, z0, x1, z1) → 四角の中の 国だけの 物 { type, cx, cz, x, y, z }[]（生成と 同じ 場所。読みこんでいない所でも 答える）
  * FLORA-75 §9（くさ・のばな・間隔のきまり）:
  *   plants(x0, z0, x1, z1) → 四角の中の 木・はな・すすき・たけ・くさ・のばな { type, x, y, z }[]（間隔のきまりの あと）
  *   flora(cx, cz)          → その列の { kusa, nobana, tris }
@@ -37,6 +40,7 @@ export interface BiomeHook {
   find(kind: CountryKind, from?: { x: number; z: number }): { x: number; z: number };
   take: { path(cx: number, cz: number): { x: number; z: number }[] };
   plants(x0: number, z0: number, x1: number, z1: number): PlacedPlant[];
+  features(x0: number, z0: number, x1: number, z1: number): CountryFeature[];
   flora(cx: number, cz: number): { kusa: number; nobana: number; tris: number };
   clearings(x0: number, z0: number, x1: number, z1: number): Clearing[];
   spacing(x: number, z: number): { level: SpacingLevel; v: number };
@@ -106,6 +110,7 @@ export function createBiomeHook(opts: { seed: number; player: () => { x: number;
     },
     take: { path: (cx, cz) => takePath(seed, cx, cz) },
     plants: (x0, z0, x1, z1) => plantsInRect(seed, x0, z0, x1, z1),
+    features: (x0, z0, x1, z1) => featuresInRect(seed, x0, z0, x1, z1),
     flora: (cx, cz) => floraOfColumn(seed, cx, cz),
     clearings: (x0, z0, x1, z1) => clearingsInRect(seed, x0, z0, x1, z1),
     spacing: (x, z) => spacingAt(seed, x, z),

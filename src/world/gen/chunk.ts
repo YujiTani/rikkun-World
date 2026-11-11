@@ -10,6 +10,7 @@ import { applyShaftOps } from './mineShaftCarve';
 import type { OldCols } from './mineShaftOps';
 import { shaftWorldFor } from './mineShafts';
 import { defOf } from './biome';
+import { featuresNearChunk, writeFeatureBlocks } from './countryFeatureBlocks';
 import { floraOfChunk } from './flora';
 import { plantsOfChunk } from './plants';
 import { hash01, subSeed, valueNoise3 } from './random';
@@ -362,8 +363,11 @@ export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCl
   // 坑道（MINE-1C）: 木・草花を よける 四角と、置く 物
   const shafts = shaftWorldFor(seed, oldCols);
   const zones = shafts.zones(cx, cz);
-  placeTrees(out, T, x0, z0, zones?.trees);
-  placePlants(out, T, cx, cz, H, zones?.plants);
+  // 国だけの物（VOX-I-4a）: 置く 所の 木・草花は どける → 木・草花の あとに ブロックを 書く
+  const feat = featuresNearChunk(seed, x0, z0);
+  placeTrees(out, T, x0, z0, zones?.trees ? [...zones.trees, ...feat.trees] : feat.trees.length > 0 ? feat.trees : undefined);
+  placePlants(out, T, cx, cz, H, zones?.plants ? [...zones.plants, ...feat.plants] : feat.plants.length > 0 ? feat.plants : undefined);
+  writeFeatureBlocks(out, feat, x0, z0);
   const shaftOps = shafts.opsFor(cx, cz);
   if (shaftOps) applyShaftOps(out, shaftOps);
   const caveOps = shafts.caveOps(cx, cz);

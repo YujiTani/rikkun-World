@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { SECTION_SIZE, WORLD_HEIGHT } from '../../contracts';
+import { SECTION_SIZE, WILD_BLOCK, WORLD_HEIGHT } from '../../contracts';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
+import { COUNTRY_PLANT_IDS } from '../blocks/countryPlants';
 import { SECTION_VOLUME, sectionToArray } from '../sections';
 import { generateChunk } from './chunk';
 import { regionRect } from './region';
@@ -14,7 +15,9 @@ import { surfaceFor } from './surface';
 const SEEDS = [20261012, 1, 2];
 // FLORA-75: くさ・のばな（id は 仮。ブロックが 入るまでは undefined なので のぞく）も 草花の なかま
 const FLORA = ['kusa', 'nobana'].map((id) => (BLOCK_INDEX as Record<string, number | undefined>)[id]).filter((i): i is number => i !== undefined);
-const PLANTS = [BLOCK_INDEX.flower_y, BLOCK_INDEX.flower_o, BLOCK_INDEX.flower_p, BLOCK_INDEX.susuki, BLOCK_INDEX.bamboo, ...FLORA];
+// VOX-I-4a: 国だけの物の 小さな 板（きのこ・ひまわり 2 段・かいがら・たけのこ）と はたけあとの やせいの やさいも 草花の なかま
+const COUNTRY = [...COUNTRY_PLANT_IDS, ...Object.values(WILD_BLOCK)].map((id) => BLOCK_INDEX[id]);
+const PLANTS = [BLOCK_INDEX.flower_y, BLOCK_INDEX.flower_o, BLOCK_INDEX.flower_p, BLOCK_INDEX.susuki, BLOCK_INDEX.bamboo, ...FLORA, ...COUNTRY];
 const LEAVES = [BLOCK_INDEX.leaves, BLOCK_INDEX.momiji_leaves, BLOCK_INDEX.matsu_leaves];
 // MAGMA-SPAWN: マグマ（量 8）も 水と 同じ 液体
 const SOFT = new Set<number>([BLOCK_INDEX.air, BLOCK_INDEX.water, BLOCK_INDEX.magma, BLOCK_INDEX.log, BLOCK_INDEX.start_torch, ...LEAVES, ...PLANTS]);
