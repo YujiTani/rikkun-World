@@ -10,6 +10,9 @@ import type { StepPanel } from './soto';
 const EXTRA_FROM = 2;
 const EXTRA_TO = 9;
 
+/** 左の 列に 入る 後ろの 文字の 長さ（字）。これ 以下 ＝ 左、より 長い ＝ 右（仕様 §3.2） */
+const SUFFIX_SHORT = 3;
+
 const MARKS: Readonly<Record<string, { id: 'dakuten' | 'handakuten'; label: string }>> = {
   '゛': { id: 'dakuten', label: 'てんてん' },
   '゜': { id: 'handakuten', label: 'まる' },
@@ -54,10 +57,16 @@ export function buildNamae(src: NameSource, press: BtnOpts['onPress']): StepPane
   });
   main.append(plate, kana);
 
+  // 後ろの 文字: 2 列 × 4 だん（左 ＝ 3 字、右 ＝ 4〜5 字。どちらも SUFFIXES の 順に 上から つめる。おぼえて いない 物は 出ない ので 列を ふやす のは 列ごと）
   const side = el('div', 'ed-namae__side');
+  const sufs = el('div', 'ed-namae__sufs');
+  const colShort = el('div', 'ed-namae__suf');
+  const colLong = el('div', 'ed-namae__suf');
+  sufs.append(colShort, colLong);
+  side.append(sufs);
   const sufBtns = SUFFIXES.map((suf, i) => {
-    const b = btn({ id: `suffix-${i}`, html: suf, onPress: press });
-    side.append(b);
+    const b = btn({ id: `suffix-${i}`, html: `<span class="ed-btn__in">${suf}</span>`, onPress: press });
+    ([...suf].length <= SUFFIX_SHORT ? colShort : colLong).append(b);
     return { b, suf };
   });
   const kata = btn({ id: 'katakana', html: 'カタカナ', onPress: press });

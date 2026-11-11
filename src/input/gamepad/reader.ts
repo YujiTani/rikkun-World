@@ -118,6 +118,10 @@ export class GamepadReader {
   noteKeyboard(): void {
     this.lastInput = 'keyboard';
   }
+  /** テストの 口（testHook）: 最後に さわったのが パッドだった ことに する */
+  noteGamepad(): void {
+    this.lastInput = 'gamepad';
+  }
   noteMouse(): void {
     this.lastInput = 'mouse';
   }
@@ -317,7 +321,9 @@ export class GamepadReader {
     if (this.menuOpen) {
       // メニューの決定・もどる・十字は割り当て表より優先（抜けられないように）
       if (face === 'faceBottom') return 'confirm';
-      if (face === 'faceRight') return 'closeMenu';
+      if (face === 'faceRight' || face === 'faceLeft') return 'closeMenu'; // A・Y（Y は もちもの画面の「とじる」）
+      if (face === 'faceTop') return 'drop'; // X: 1 こ すてる（もちもの画面）
+      if (face === 'r3') return 'dropStack'; // R3: ぜんぶ すてる
       if (face === 'start') return 'openStartMenu';
       if (face === 'dpadUp') return 'focusUp';
       if (face === 'dpadDown') return 'focusDown';

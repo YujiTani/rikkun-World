@@ -87,6 +87,28 @@
   scrollbar-width: thin;
   scrollbar-color: var(--rk-line) transparent;
 }
+/* 大きい 画面（1280×800・1440×900。HOUSE-2A）: とじる を 見出しの だんの 右に 出して ふちを へらし、材料 17 行が 11 行・13 行 まで スクロール なしで 見える ように する
+   （1024×700 は 今まで どおり 9 行。10 行から スクロール）。高さ ＝ 画面 − ふち×2 − 内がわ 24×2 − 見出しの だん（ボタンの 高さ）− あき 8 − ふち 2×2 */
+@media (min-height: 750px) {
+  .ed-need {
+    position: relative;
+    padding: 24px;
+  }
+  .ed-need__title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--e-btn);
+  }
+  .ed-need > .ed-btn {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+  }
+  .ed-need__list {
+    max-height: calc(100vh - 2 * var(--e-edge) - 48px - var(--e-btn) - 12px);
+  }
+}
 .ed-need__row {
   display: grid;
   grid-template-columns: 40px 1fr 112px 112px 112px;

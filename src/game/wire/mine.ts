@@ -10,6 +10,7 @@ import { chestShowsToP1, createChestHands, createChestRouter } from '../../duo/p
 import { BOKEN_GEN, KODO_GEN } from '../../save/SaveManager';
 import { maxDurability } from '../../tools/durability';
 import { setChestLidless } from '../../world/render/looks/chestLooks';
+import { isMakimonoId } from '../../world/blocks/blockTypes';
 import { createMineHook } from '../../world/gen/mineHook';
 import type { HotbarGain } from '../../ui/hotbarModel';
 import type { WiredDuo } from './duo';
@@ -107,6 +108,8 @@ export function wireMine(deps: WiredDuo) {
         fxSound.playTones(CHEST_SOUNDS[`chestOpen${tier}` as keyof typeof CHEST_SOUNDS]); // 案 A。4 段目だけ「大」（BGM が さがる）
         openedTier = tier;
       },
+      // HOUSE-2A（3.3 版）: いちばん 下の へやの 宝箱・まきもの: あけた 人の 持ち物に レシピの まきもの 1 まい（建築士さんの 係。おぼえるのは 使った とき）
+      recipe: () => void shared.house?.recipes.found(router.who()),
     },
   });
 
@@ -130,6 +133,10 @@ export function wireMine(deps: WiredDuo) {
   dig.chestPort = {
     // who ＝ あける 人（1 = 1P・2 = 2P）。中身・あふれ・ひとことだけ 人に 合わせる。ふた・実績・見せる 物は 世界に 1 つ
     open: (x, y, z, who) => {
+      if (isMakimonoId(world.getBlock(x, y, z))) {
+        router.run(who, () => mine.open(x, y, z)); // HOUSE-2A: まきもの。ブロックが 消えて レシピ（ふたの 動きは ない）
+        return;
+      }
       const at = mine.chestAt(x, y, z);
       if (!at) return;
       const key = `${at.main.x},${at.main.y},${at.main.z}`;

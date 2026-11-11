@@ -1,5 +1,6 @@
 import type { ItemId, TargetInfo, VoxelWorld } from '../contracts';
 import { isFloraBlock } from '../world/blocks/flora';
+import { isMakimonoId } from '../world/blocks/blockTypes';
 import { isFloorDeco } from '../world/blocks/mineBoken';
 import { CHALK_FACES, CHALK_NORMAL, chalkInfo, isChalkMarkId } from '../world/blocks/chalkMark';
 import { chestBlockInfo, chestFrontAt, chestPartner } from '../world/blocks/chestBlock';
@@ -57,6 +58,7 @@ export class BlockBreaker {
   breakBlock(t: TargetInfo, bodyGlass: boolean): BreakEnd {
     const c = this.c;
     if (c.bodyTgt()) return this.breakBodyBlock(t, bodyGlass);
+    if (isMakimonoId(t.id)) return this.breakMakimono(t); // HOUSE-2A: まきもの。ほっても 右クリックでも 持ち物へ
     if (COOP_BLOCKS.has(t.id)) return this.breakCoopBlock(t);
     if (isChalkMarkId(t.id)) return this.breakChalkMark(t);
     if (isRopeBlock(t.id)) return this.breakRope(t);
@@ -127,6 +129,19 @@ export class BlockBreaker {
     this.clearChalkMarks(x, y, z);
     this.c.emit({ type: 'break', tick: this.c.tick(), block: { x, y, z }, id: t.id, gotItem: false, count: 0 });
     this.wearForBlock();
+    return 'done';
+  }
+
+  /**
+   * HOUSE-2A（3.3 版）まきもの: ブロックが 消えて 持ち物に レシピの まきもの 1 こ（いっぱいなら 足もとに）。おぼえるのは 使った とき
+   * （手に 入れた「はじめて」の テロップだけ 家の 係に 知らせる。右クリックで とる 道と 同じ）。道具は へらない
+   */
+  private breakMakimono(t: TargetInfo): BreakEnd {
+    const { x, y, z } = t.block;
+    this.c.world.setBlock(x, y, z, 'air');
+    giveStacks(this.c, [{ item: dugItemOf(t.id), count: 1 }], x, y, z);
+    this.c.m4.scroll?.dug?.();
+    this.c.emit({ type: 'break', tick: this.c.tick(), block: { x, y, z }, id: t.id, gotItem: true, count: 1 });
     return 'done';
   }
 

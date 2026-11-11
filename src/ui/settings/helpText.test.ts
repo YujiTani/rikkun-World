@@ -30,8 +30,8 @@ describe('せっていの ヘルプの文', () => {
   });
 
   it('もちもの・クラフトの ふだと スティックにも 説明がある（かえられないふだは かえられると言わない）', () => {
-    expect(MENU_LABELS.length).toBe(4);
-    for (const k of ['menuDpad', 'menuOk', 'menuBack', 'menuStart', 'stickL', 'stickR'] as const) expect(UI_HELP[k]).toBeTruthy();
+    expect(MENU_LABELS.length).toBe(7);
+    for (const k of ['menuDpad', 'menuOk', 'menuBack', 'menuStart', 'menuDrop', 'menuDropAll', 'menuClose', 'stickL', 'stickR'] as const) expect(UI_HELP[k]).toBeTruthy();
     expect(UI_HELP.menuDpad).not.toContain('かえられるよ');
   });
 

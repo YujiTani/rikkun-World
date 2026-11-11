@@ -233,8 +233,8 @@ export class CelebrateUi {
   }
 
   /** 完成の 帯「<名前> が できた！」を 列に 入れる（HOUSE-1C PR-2。実績・テロップ・家の 名前と 重ならず ならぶ） */
-  enqueueHouseDone(text: string, owner: Owner = 'world'): void {
-    this.bandModel.enqueueHouseDone(text, owner);
+  enqueueHouseDone(text: string, owner: Owner = 'world', tag?: string): void {
+    this.bandModel.enqueueHouseDone(text, owner, tag);
   }
 
   /** `ui.topBand()` */
@@ -269,7 +269,7 @@ export class CelebrateUi {
     }
     if (r.houseStarted !== null) {
       this.bandHalves = halvesOfAll(this.bandModel.info(null).owners, this.duo);
-      for (const v of this.bandViewsOf(this.bandHalves)) v.showHouse(r.houseStarted, r.houseDone);
+      for (const v of this.bandViewsOf(this.bandHalves)) v.showHouse(r.houseStarted, r.houseDone, r.houseTag);
     }
     if (r.toastEnded) for (const f of this.closedFns) f(r.toastEnded);
     // 同じ 帯を 同じ 時間で（1 つの モデルを 出す 半分の 絵が 見る。出さない 半分は かくす）

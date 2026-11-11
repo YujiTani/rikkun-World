@@ -30,12 +30,22 @@ export function btn(o: BtnOpts): HTMLButtonElement {
   return b;
 }
 
+/**
+ * ボタンの 中身を 1 つの 箱（.ed-btn__in）に まとめた ボタンの、その 箱。なければ ボタン そのもの。
+ * 字を 持つ ボタンは 絵・字・印（✓・あたらしい！）を この 箱に 入れる（印は 絶対位置 なので 箱の 外〔ボタンの 右上〕に 出る）。
+ * 字が 1 行か 調べる E2E は ボタン直下の 子を 見るので、直下が 箱 1 つなら 印が 字と ちがう 高さに あっても 1 行と 数える
+ */
+export function btnInner(b: HTMLElement): HTMLElement {
+  return b.querySelector<HTMLElement>(':scope > .ed-btn__in') ?? b;
+}
+
 /** えらんで いる しるし（色 ＋ 太い ふち は CSS の .is-sel、✓ は ここで 足す・外す）。aria-pressed も 合わせる */
 export function markSel(b: HTMLElement, on: boolean): void {
   b.classList.toggle('is-sel', on);
   b.setAttribute('aria-pressed', on ? 'true' : 'false');
-  const tick = b.querySelector(':scope > .ed-btn__tick');
-  if (on && !tick) b.append(el('span', 'ed-btn__tick', ICONS.check));
+  const host = btnInner(b);
+  const tick = host.querySelector(':scope > .ed-btn__tick');
+  if (on && !tick) host.append(el('span', 'ed-btn__tick', ICONS.check));
   if (!on && tick) tick.remove();
 }
 

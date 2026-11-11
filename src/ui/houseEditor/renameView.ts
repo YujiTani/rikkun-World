@@ -50,7 +50,12 @@ export function buildRenameName(initial: RenameView, press: Press): RenameNamePa
       view = v;
       panel.update();
       const on = new Map(buttons.map((b) => [b.id, b.enabled]));
-      for (const b of root.querySelectorAll<HTMLButtonElement>('button[data-btn]')) setEnabled(b, on.get(b.dataset.btn ?? '') ?? true);
+      for (const b of root.querySelectorAll<HTMLButtonElement>('button[data-btn]')) {
+        const id = b.dataset.btn ?? '';
+        // おぼえて いない 後ろの 文字は 出さない（一覧に ない ＝ まだ。HOUSE-2A）
+        if (id.startsWith('suffix-')) b.hidden = !on.has(id);
+        setEnabled(b, on.get(id) ?? true);
+      }
     },
   };
 }

@@ -209,6 +209,7 @@ export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, 
     y: yR,
   };
   let chest: Shaft['chest'] = null;
+  let scroll: Pt3 | null = null;
   const chestCells = new Set<number>();
   if (chestPlaced(seed, id)) {
     // 前（へやの ほう）＝ −u 向き
@@ -226,7 +227,13 @@ export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, 
       chestCells.add(keyOf(c.x, c.y, c.z));
     });
     chest = { x: main.x, y: main.y, z: main.z, cells: cells.map((c) => ({ ...c })), front, tier };
+  } else {
+    // 宝箱の ない 坑道: 宝箱が 置かれる マスに まきもの（HOUSE-2A。固くない 1 マス）
+    const mid = { x: F.x(uBack, rLane), z: F.z(uBack, rLane) };
+    b.put.set(keyOf(mid.x, yR, mid.z), BLOCK_INDEX.makimono);
+    scroll = { x: mid.x, y: yR, z: mid.z };
   }
+  const recipe: Shaft['recipe'] = chest ? { kind: 'chest', x: chest.x, y: chest.y, z: chest.z, taken: false } : { kind: 'scroll', ...scroll!, taken: false };
   for (const t of torchCells) {
     const k = keyOf(t.x, t.y, t.z);
     if (!chestCells.has(k)) b.put.set(k, TORCH);
@@ -336,6 +343,7 @@ export function* planShaftSteps(G: Geo, site: Site, id: string, start: boolean, 
     mound,
     room,
     chest,
+    recipe,
     sides,
     box,
     gen: 'c',

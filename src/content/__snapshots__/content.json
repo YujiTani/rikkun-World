@@ -6422,6 +6422,23 @@
       "rarity": "common",
       "recipes": []
     },
+    "recipe_scroll": {
+      "ITEM_INFO.recipe_scroll": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック",
+        "use": "ひらいて よむと いえ の つくりかた を ひとつ おぼえる"
+      },
+      "category": "material",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "レシピの まきもの",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
     "table": {
       "DIG_DEFAULTS.hardness.table": 5,
       "DIG_DEFAULTS.harvestLevel.table": 0,
@@ -6580,6 +6597,26 @@
       "name": "まるいす",
       "placeBlock": "stool",
       "rarity": "common",
+      "recipes": []
+    },
+    "maneki": {
+      "DIG_DEFAULTS.hardness.maneki": 5,
+      "DIG_DEFAULTS.harvestLevel.maneki": 0,
+      "DIG_DEFAULTS.rarity.maneki": "rare",
+      "ITEM_INFO.maneki": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "いえの なかに かざる ねこ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "まねきねこ",
+      "placeBlock": "maneki",
+      "rarity": "rare",
       "recipes": []
     },
     "sekkeizu": {

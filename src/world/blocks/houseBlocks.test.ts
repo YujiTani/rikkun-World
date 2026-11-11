@@ -43,7 +43,7 @@ describe('ブロックの 番号', () => {
   it('新しい id は チョークの さいごの 後ろに 並ぶ（古い セーブの 番号は かわらない）', () => {
     const lastChalk = Math.max(...CHALK_MARK_IDS.map((id) => BLOCK_INDEX[id]!));
     const added = [...HOUSE_BLOCK_IDS, ...HOUSE_DOOR_PART_IDS, ...NEW_FURN_BLOCK_IDS];
-    expect(added).toHaveLength(5 + 3 + 54);
+    expect(added).toHaveLength(5 + 3 + 54 + 4); // ＋ 4 ＝ HOUSE-2A の まねきねこ（1 マス × 4 向き）
     const idx = added.map((id) => BLOCK_INDEX[id]!);
     expect(Math.min(...idx), '新しい id は ぜんぶ チョークより 後ろ').toBeGreaterThan(lastChalk);
     expect(idx, '決まった 順で 並ぶ').toEqual([...idx].sort((a, b) => a - b));
@@ -57,8 +57,8 @@ describe('ブロックの 番号', () => {
     expect(BLOCK_INDEX.furnace).toBeLessThan(BLOCK_INDEX.house_floor!);
   });
 
-  it('向きの ある 家具は 56 こ（1 マス 7 しゅるい × 4 向き ＋ 2 マス 2 しゅるい × 8 ＋ 3 マス × 12）。ぜんぶ ちがう id', () => {
-    expect(FURN_BLOCK_IDS).toHaveLength(7 * 4 + 2 * 8 + 12);
+  it('向きの ある 家具は 60 こ（1 マス 8 しゅるい × 4 向き ＋ 2 マス 2 しゅるい × 8 ＋ 3 マス × 12）。ぜんぶ ちがう id', () => {
+    expect(FURN_BLOCK_IDS).toHaveLength(8 * 4 + 2 * 8 + 12); // 1 マス 8 しゅるい（HOUSE-2A で まねきねこ）
     expect(new Set(FURN_BLOCK_IDS).size).toBe(FURN_BLOCK_IDS.length);
     expect(FURN_VARIANT_IDS).toHaveLength(FURN_BLOCK_IDS.length - FURN_BLOCK_KINDS.length);
     for (const id of FURN_BLOCK_IDS) expect(BLOCK_INDEX[id], id).toBeDefined();

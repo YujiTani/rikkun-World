@@ -5,7 +5,8 @@ import { EquipPanel, type ArmorUi } from './equipPanel';
 import { createSlotEl, paintSlot, type SlotEls } from './hotbar';
 import { HeldCursor } from './inventoryCursor';
 import { Tooltip, type HoverTarget } from './tooltip';
-import { buildHintChips } from './inventoryHints';
+import { buildHintChips, type HintKind } from './inventoryHints';
+import { withRuby } from './text';
 import { duoFirstFocus, duoPageAvailable, duoPageOf, duoPageTraits, duoInvSnapshot, type DuoInvPage, type FullPage, type InvLayout } from '../duo/invRules';
 import { BAKE_RECIPES } from '../craft/recipes';
 import { InvFocus } from '../duo/invFocus';
@@ -35,6 +36,8 @@ export interface InventoryM4 {
   materials?: PanelMaterials;
   /** COOP-1 4c: 1P の 画面を パッドで 開いた か（2 人用の たんす・やく を 開いた ときの はじめの えらびに 使う。キー・マウスなら false）。2P は いつも パッド */
   padOpened?: () => boolean;
+  /** 最後に さわったのが パッドか（ヘルプ帯・ツールチップを パッド用に する。1P は GamepadReader.lastInput。2P は 渡さなくても いつも パッド） */
+  padInput?: () => boolean;
 }
 
 /** 画面の 形（COOP-1 4a。'duo' = 2 人の あいだの 半分の 形。§3.3）。ふだんは 全面 */
@@ -99,6 +102,8 @@ export class InventoryScreen {
   private tabNow: InventoryTab = 'items';
   private hintsEl!: HTMLDivElement;
   private hintsKey = '';
+  /** パッドで えらんでいる 場所の ツールチップ（変わった ときだけ 出しなおす） */
+  private padTipKey: string | null = null;
   private marker: { active(): boolean; toggle(i: number): void; has(i: number): boolean } | null = null;
   /** たんす の ✓ えらびの口（StorageScreen がつなぐ） */
   setMarker(m: { active(): boolean; toggle(i: number): void; has(i: number): boolean } | null): void {
@@ -264,7 +269,7 @@ export class InventoryScreen {
 
     this.held = new HeldCursor({
       frame: this.frame,
-      duo: () => this.layoutNow === 'duo',
+      duo: () => this.layoutNow === 'duo' || this.padNow(), // パッドの ときは 1 人用でも えらんだ マスに ついていく
       anchorEl: (x, y) => this.cursorAnchor(x, y),
     });
     this.el.append(this.held.el);
@@ -288,7 +293,7 @@ export class InventoryScreen {
     window.addEventListener('mousemove', this.onMove);
     // 1P: キー・パッドで フォーカスが かわったら、手に もっている 物の 場所を 合わせる（毎コマは 測らない）
     this.el.addEventListener('focusin', () => {
-      if (this.layoutNow === 'duo' && this.held.shown) this.held.place();
+      if ((this.layoutNow === 'duo' || this.padNow()) && this.held.shown) this.held.place();
     });
     this.onPointer = (e) => {
       if (!this.open || !this.outside) return;
@@ -334,11 +339,40 @@ export class InventoryScreen {
   private paintHints(): void {
     const tansu = this.sideNow === 'storage';
     const duo = this.layoutNow === 'duo';
-    const key = `${this.tabNow}|${tansu}|${duo}`;
+    const pad = this.padNow();
+    const kind: HintKind = (duo && duoPageTraits(this.pageNow).craftTab) || 'items'; // つくる・やく の ページ
+    const key = `${this.tabNow}|${tansu}|${duo}|${pad}|${kind}`;
     if (key === this.hintsKey) return;
     this.hintsKey = key;
     this.hintsEl.hidden = this.tabNow !== 'items';
-    this.hintsEl.replaceChildren(...buildHintChips({ tansu, duo }));
+    this.hintsEl.replaceChildren(...buildHintChips({ tansu, duo, pad, kind }));
+  }
+
+  /** 最後に さわったのが パッドか（2P は いつも パッド） */
+  private padNow(): boolean {
+    return this.who === 2 || (this.m4?.padInput?.() ?? false);
+  }
+
+  /** パッドで えらんでいる マス・カードの ツールチップ（マウスの hover が 先。変わった ときだけ 出しなおす） */
+  private syncPadTip(): void {
+    const tip = this.tooltip;
+    if (!tip) return;
+    let key: string | null = null;
+    let target: HoverTarget | null = null;
+    let el: HTMLElement | null = null;
+    if (this.padNow()) {
+      const a = document.activeElement;
+      el = a instanceof HTMLElement && this.el.contains(a) ? a : null;
+      const name = focusName(el);
+      if (name !== null) {
+        const [kind, id = ''] = [name.slice(0, name.indexOf(':')), name.slice(name.indexOf(':') + 1)];
+        target = kind === 'slot' ? Number(id) : kind === 'equip' ? id : kind === 'tile' ? `card:${id}` : null;
+        if (target !== null) key = name;
+      }
+    }
+    if (key === this.padTipKey) return;
+    this.padTipKey = key;
+    tip.hover(target, key === null ? null : el);
   }
 
   /** 右の場所を入れかえる（つくる・やく ⇄ たんす）。見た目は style.display だけで切る */
@@ -541,6 +575,7 @@ export class InventoryScreen {
         }
       }
       if (!open) {
+        this.padTipKey = null;
         this.tooltip?.hover(null);
         this.nav?.clear();
       }
@@ -562,6 +597,8 @@ export class InventoryScreen {
     this.craftPanel?.update();
     if (open) {
       this.equip?.update();
+      this.paintHints(); // パッド・キーの きりかえ（変わった ときだけ 描きなおす）
+      this.syncPadTip();
       this.tooltip?.update();
       if (this.nav && this.held.shown) this.held.place(); // 2P: えらびが かわった ときだけ 場所を 測りなおす（CursorAnchor）
     }
@@ -628,13 +665,14 @@ export class InventoryScreen {
       this.cells[i].root.dataset.selected = String(i === sel);
       this.cells[i].root.dataset.marked = String(!!this.marker?.active() && this.marker.has(i));
     }
-    this.held.show(this.inv.cursor());
+    const cur = this.inv.cursor();
+    this.held.show(cur, cur && this.m4 ? withRuby(this.m4.nameOf(cur.item)) : '');
   }
 
   /** 手に もっている 物を 出す 目じるし: 2P は いつも えらんでいる マス。1P は マウスが パネルの そとに ある ときだけ フォーカス */
   private cursorAnchor(mouseX: number, mouseY: number): HTMLElement | null {
     if (this.nav) return this.nav.currentEl();
-    if (this.isInsidePanels(mouseX, mouseY)) return null;
+    if (!this.padNow() && this.isInsidePanels(mouseX, mouseY)) return null;
     const a = document.activeElement;
     return a instanceof HTMLElement && this.el.contains(a) ? a : null;
   }

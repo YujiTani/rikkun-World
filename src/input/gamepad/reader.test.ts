@@ -218,6 +218,19 @@ describe('GamepadReader: 後追いの直し', () => {
     expect(actions.isHeld('jump')).toBe(false);
   });
 
+  it('もちもの画面（メニュー中）: X = drop・R3 = dropStack・Y と A = closeMenu', () => {
+    const { actions, reader, mk, set } = setup();
+    reader.setMenuOpen(true);
+    set(mk([3, 11]));
+    reader.poll(16);
+    expect(actions.isHeld('drop')).toBe(true);
+    expect(actions.isHeld('dropStack')).toBe(true);
+    set(mk([2]));
+    reader.poll(32);
+    expect(actions.isHeld('drop')).toBe(false);
+    expect(actions.isHeld('closeMenu')).toBe(true);
+  });
+
   it('みる はやさはステップごとにかかり、デッドゾーンやフレーム時刻では変わらない', () => {
     const { look, reader, mk, set } = setup();
     reader.setSettings({ lookSensitivity: 2, deadZone: 0.24 });

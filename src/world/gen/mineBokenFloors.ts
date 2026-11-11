@@ -46,6 +46,7 @@ export interface Skeleton {
   frames: FrameMark[];
   room: Shaft['room'];
   chest: Shaft['chest'];
+  recipe: Shaft['recipe'];
   chestCells: Set<number>;
   /** いちばん 下の へやから 出る 横穴の 出口 */
   roomHub: Hub;
@@ -302,7 +303,7 @@ export function* planSkeleton(c: FloorCtx): Generator<void, Skeleton | null> {
     }
     if (made.room) {
       const r = made.room;
-      return { floors, frames, room: r.room, chest: r.chest, chestCells: r.cells, roomHub: r.hub, F };
+      return { floors, frames, room: r.room, chest: r.chest, recipe: r.recipe, chestCells: r.cells, roomHub: r.hub, F };
     }
     // つぎの さか道
     const end = rd.main[rd.main.length - 1]!;
@@ -330,6 +331,7 @@ interface RoomOut {
   puts: [number, number][];
   room: NonNullable<Shaft['room']>;
   chest: Shaft['chest'];
+  recipe: Shaft['recipe'];
   hub: Hub;
   cells: Set<number>;
 }
@@ -378,9 +380,18 @@ function bottomRoom(c: FloorCtx, road: NonNullable<ReturnType<typeof planRoad>>)
     });
     chest = { x: main.x, y: main.y, z: main.z, cells: cs.map((p) => ({ ...p })), front, tier };
   }
+  // どの 坑道にも レシピが 1 つ（HOUSE-2A）: 宝箱の ある 坑道は 宝箱の わく、ない 坑道は 宝箱が 置かれる マスの まきもの（固くない 1 マス）
+  const mid = { x: end.x + dx * size, z: end.z + dz * size };
+  if (!chest) {
+    const k = keyOf(mid.x, y, mid.z);
+    const ix = puts.findIndex((q) => q[0] === k);
+    if (ix >= 0) puts.splice(ix, 1);
+    puts.push([k, BLOCK_INDEX.makimono]);
+  }
+  const recipe: Shaft['recipe'] = chest ? { kind: 'chest', x: chest.x, y: chest.y, z: chest.z, taken: false } : { kind: 'scroll', x: mid.x, y, z: mid.z, taken: false };
   const f = new Frame(end.x, end.z, dirIndex(-dx, -dz) as 0 | 1 | 2 | 3);
   const hub: Hub = { kind: 'room', y, u: Math.ceil(size / 2), vMin: -4, vMax: 4, frame: f, alongU: true };
-  return { roomCells, puts, room: { x0, y, z0, x1, z1 }, chest, hub, cells };
+  return { roomCells, puts, room: { x0, y, z0, x1, z1 }, chest, recipe, hub, cells };
 }
 
 /** わくを 置く マス〔道の 中心から よこ ±2・高さ 4 と 天井の 5 マス〕。こわれた わくの わりあいは `broken` で きまる */

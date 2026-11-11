@@ -161,6 +161,13 @@ export function wireHouseSite(deps: WiredYokai) {
       case 'done':
         playHouseDone(fxSound);
         break;
+      // 仮の 音（HOUSE-2A。本番の 音は HOUSE-2B で かえる）: レシピを おぼえた ＝ はじまりの 音、ぜんぶ おぼえた ＝ 完成の 音
+      case 'recipe':
+        playTonkachiStart(fxSound);
+        break;
+      case 'recipeAll':
+        playHouseDone(fxSound);
+        break;
       default: {
         const never: never = e;
         throw new Error(`知らない 音: ${JSON.stringify(never)}`);

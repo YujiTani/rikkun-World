@@ -17,7 +17,8 @@ import { ROOF_Y, WALLS, type Rot, type Wall } from '../editor/tuning';
 import { FurnitureIcons, type FurnImage } from './furnitureIcons';
 import { GhostWall, wallGhostLevels } from './ghostWall';
 import { GlowCtl } from './glow';
-import { GlowMeshes, doorSpot, windowSpot, type GlowSpot } from './glowMesh';
+import { GlowMeshes, doorSpot, partSpots, windowSpot, type GlowSpot } from './glowMesh';
+import { partChange, snapOf, type PartChange, type ShapeSnap } from './changes';
 import { buildPreview, type PreviewMode, type PreviewParts } from './mesh';
 import type { PreviewInfo, PreviewPort } from './port';
 import { GLOW, PREVIEW } from './tuning';
@@ -83,8 +84,10 @@ export class Preview3D implements PreviewPort {
   private readonly glowMesh = new GlowMeshes();
   /** 今の 形の 窓（まどの ボタンに 手を おいた とき ぜんぶ 光らせる） */
   private cells: WindowCell[] = [];
-  /** 前に 見た 窓（そと の 見本。かわった 窓を 見つける ため。null ＝ まだ 見て いない） */
-  private open: Pick<EditorState, 'w' | 'd' | 'windows' | 'windowKind'> | null = null;
+  /** 前に 見た 形（そと の 見本。かわった 窓・しゅるいを 見つける ため。null ＝ まだ 見て いない） */
+  private open: ShapeSnap | null = null;
+  /** 前に 見た あかり（なか の 見本。かわった あかりを 光らせる ため。null ＝ まだ 見て いない） */
+  private lightWas: string | null = null;
   private fitKey = '';
   /** その ときの 穴の よこ÷たて（数で くらべる。毎コマ 文字を 作らない） */
   private fitAspect = 0;
@@ -122,10 +125,13 @@ export class Preview3D implements PreviewPort {
     }
     // 赤い 家具は 見本に 出さない ので、赤い 家具だけ ふえても 作りなおさない（1E）
     const plain = mode === 'inside' ? plainFurniture(s) : [];
-    const key = JSON.stringify([mode, s.w, s.d, s.windows, s.windowKind, s.roof, plain]);
+    const key = JSON.stringify([mode, s.w, s.d, s.windows, s.windowKind, s.roof, s.wall, s.door, s.deco, s.light, plain]);
     if (key !== this.key) this.rebuild(s, mode, key, plain.length);
     if (mode === 'outside') this.trackOpenings(s, entering);
-    else this.open = null;
+    else {
+      this.open = null;
+      this.trackLight(s, entering);
+    }
   }
 
   private rebuild(s: EditorState, mode: PreviewMode, key: string, shown: number): void {
@@ -152,7 +158,7 @@ export class Preview3D implements PreviewPort {
   /** そとの 見本で 前に 見た 窓と くらべる。① に なった ばかりなら 戸が 光る。窓が かわって いたら 回って 光る。大きさが かわったら 出て いる 光りの 場所を あわせる */
   private trackOpenings(s: EditorState, entering: boolean): void {
     const was = this.open;
-    this.open = { w: s.w, d: s.d, windows: s.windows, windowKind: s.windowKind };
+    this.open = snapOf(s);
     if (entering) {
       this.glowMesh.setCue([doorSpot(s)], s.w, s.d);
       this.glow.startDoor();
@@ -160,8 +166,10 @@ export class Preview3D implements PreviewPort {
       return;
     }
     if (!was) return;
-    const change = openingChange(was, this.open);
-    if (change) this.startWindows(s, change);
+    const kinds = was.w === s.w && was.d === s.d ? partChange(was, this.open) : null;
+    const change = openingChange({ ...was, windowKind: s.windowKind }, this.open); // しゅるいの かわりは partChange が 受けもつ
+    if (kinds) this.startParts(s, kinds);
+    else if (change) this.startWindows(s, change);
     else if (was.w !== s.w || was.d !== s.d) {
       if (this.glow.door) this.glowMesh.setCue([doorSpot(s)], s.w, s.d);
       else if (this.glow.freezing) this.glow.dropCue(); // 窓の 光りは 大きさが かわったら 消す（家 ぜんたいが かわる）
@@ -180,10 +188,48 @@ export class Preview3D implements PreviewPort {
     this.builds++;
   }
 
-  /** まどの ボタンに 手を おいた／はなした（そとの 見本 だけ。回らない）。おいた 直後に 1 回 作る */
-  hover(on: boolean): void {
-    if (this.shown !== 'outside' || !this.glow.setHover(on)) return;
+  /** しゅるいを かえた・かざりを つけた（HOUSE-2A）: 光る 部分の 名前を glow.parts に 出して 90 コマ 光る。まど・はなだん ＝ うしろの かど、と・のれん ＝ まえへ 回る。「なし」・はずす は 光らない（回る だけ） */
+  private startParts(s: EditorState, c: PartChange): void {
+    const reduced = this.reduced();
+    const turn = c.turn !== null;
+    const v = this.views.outside;
+    if (turn) v.turnTo(c.turn === 'back' ? cueTarget(v.yaw) : PREVIEW.stillYawDeg, reduced ? 1 : PREVIEW.turnFrames);
+    if (c.parts.length === 0) {
+      // なし・はずす: 光る 物が ない。前の かわりで 光って いる 光りも 消す（回りは そのまま）
+      if (this.glow.cueing) {
+        this.glow.dropCue();
+        this.glowMesh.setCue([], s.w, s.d);
+      }
+      this.builds++;
+      return;
+    }
+    this.glowMesh.setCue(c.parts.flatMap((p) => partSpots(p, windowCells(s), s)), s.w, s.d);
+    this.glow.startParts(c.parts, c.parts.some((p) => p === 'window' || p === 'hanadan') ? windowCells(s) : [], turn && !reduced ? GLOW.windowDelayFrames : 0, turn);
+    this.builds++;
+  }
+
+  /** なかの 見本: あかりを かえたら 1 回 光る（parts ['light']。回らない。② に はいった だけでは 光らない） */
+  private trackLight(s: EditorState, entering: boolean): void {
+    const was = this.lightWas;
+    this.lightWas = s.light;
+    if (entering || was === null || was === s.light) return;
+    this.glowMesh.setCue([], s.w, s.d);
+    this.glow.startParts(['light'], [], 0, false);
+    this.builds++;
+  }
+
+  /**
+   * ボタンに 手を おいた／はなした（そとの 見本 だけ。回らない）。おいた 直後に 1 回 作る。
+   * part なし ＝ まどの かず −＋（窓 ぜんぶ）、part ＝ ポップアップの しゅるいの ボタンの ばしょ（その 部分。はなすまで ずっと）
+   */
+  hover(on: boolean, part?: string): void {
+    if (this.shown !== 'outside' || !this.glow.setHover(on, part ?? null)) return;
     if (on) {
+      // ひらいた ばかりの 戸の 光り（90 コマ）が のこって いても、しゅるいの ボタンに のせたら その ばしょの 光りを 出す（戸の 光りは ゆずる）
+      if (part !== undefined && this.glow.door) {
+        this.glow.dropCue();
+        this.glowMesh.setCue([], this.parts?.w ?? 0, this.parts?.d ?? 0);
+      }
       this.hoverShape();
       this.builds++;
     }
@@ -191,12 +237,15 @@ export class Preview3D implements PreviewPort {
 
   private hoverShape(): void {
     const p = this.parts;
-    if (p) this.glowMesh.setHover(this.cells.map((c) => windowSpot(c, 1)), p.w, p.d);
+    if (!p) return;
+    const part = this.glow.hoverPart;
+    this.glowMesh.setHover(part === null ? this.cells.map((c) => windowSpot(c, 1)) : partSpots(part, this.cells, p), p.w, p.d);
   }
 
   /** 見本を 見せるのを やめた（③ なまえ）。光りは 消すが、向き・さわった 印は のこす（もどると つづき） */
   hide(): void {
     this.shown = null;
+    this.lightWas = null;
     this.glow.clear();
   }
 
@@ -206,6 +255,7 @@ export class Preview3D implements PreviewPort {
     this.pressed = null;
     this.shown = null;
     this.open = null;
+    this.lightWas = null;
     this.glow.clear();
   }
 
@@ -257,7 +307,7 @@ export class Preview3D implements PreviewPort {
   /** その 見せ方の ようす（窓口 `editor().preview` の 元）。yaw 0 ＝ まえから、90 ＝ みぎから */
   info(mode: PreviewMode): PreviewInfo {
     const v = this.views[mode];
-    return { yaw: v.yaw, elev: v.elev, touched: v.touched, wait: v.wait, builds: this.builds, furniture: this.shownFurniture, glow: this.shown === mode && mode === 'outside' ? this.glow.info(this.cells) : null };
+    return { yaw: v.yaw, elev: v.elev, touched: v.touched, wait: v.wait, builds: this.builds, furniture: this.shownFurniture, glow: this.shown === mode ? this.glow.info(this.cells) : null };
   }
 
   // ------------------------------------------------------------ カメラ

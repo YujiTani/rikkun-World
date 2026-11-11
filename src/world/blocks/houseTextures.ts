@@ -65,6 +65,7 @@ const DOOR_TILES: Readonly<Partial<Record<BlockId, Tiles3>>> = {
 const PROP_FURN_TILES: Readonly<Record<Exclude<FurnBlockKind, FlatFurnKind>, Tiles3>> = {
   chair: ['furn_zabuton', 'furn_wood_top', 'furn_wood_side'],
   stool: ['furn_zabuton', 'furn_wood_top', 'furn_wood_side'],
+  maneki: ['furn_wood_top', 'furn_wood_top', 'furn_wood_side'], // 仮（HOUSE-2A。絵は 2B）
   table: ['furn_wood_top', 'furn_wood_top', 'furn_wood_side'],
   long_table: ['furn_wood_top', 'furn_wood_top', 'furn_wood_side'],
   round_table: ['furn_wood_top', 'furn_wood_top', 'furn_wood_side'],

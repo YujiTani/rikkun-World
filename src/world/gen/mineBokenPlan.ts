@@ -187,6 +187,7 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
     mound,
     room,
     chest: sk.chest,
+    recipe: sk.recipe,
     sides: sideList,
     box,
     gen: 'e',

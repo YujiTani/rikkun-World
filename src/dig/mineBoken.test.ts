@@ -106,7 +106,7 @@ describe('E12: 新しい ブロックの 値', () => {
 
   it('1E で 足した id は 10 こ 以下・合計は 256 以下', () => {
     expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1D, '1E で 足した id').toBeGreaterThanOrEqual(ROWS.length);
-    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1D, '1E で 足した id（＋ VOX-I-4a の 5 こ）').toBeLessThanOrEqual(10 + 5); // VOX-I-4a で 212〜216 を 足した
+    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1D, '1E で 足した id（＋ HOUSE-2A の 5 こ ＋ VOX-I-4a の 5 こ）').toBeLessThanOrEqual(10 + 10); // 10 ＝ HOUSE-2A（#364）の まきもの 1 ＋ まねきねこ 4（向き）＋ VOX-I-4a（#187）の 5 こ
     expect(BLOCK_TYPES.length).toBeLessThanOrEqual(256);
   });
 });
