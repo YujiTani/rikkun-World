@@ -2,7 +2,7 @@ import type { ItemId, PlayerState, YokaiWorld } from '../contracts';
 import type { HammerSlamFx } from '../fx/hammerSlamFx';
 import { playHammer } from '../fx/hammerSounds';
 import { LEGEND4_TUNING } from '../content/items/legend4Tuning';
-import { createHammerSystem, type HammerMotion, type HammerSystem } from '../tools/hammer/HammerSystem';
+import { createHammerSystem, type HammerFocus, type HammerMotion, type HammerSystem } from '../tools/hammer/HammerSystem';
 import type { VoxelWorld } from '../contracts';
 import type { SoundFx } from '../fx/sound';
 
@@ -14,6 +14,8 @@ export interface P2HammerDeps {
   world: Pick<VoxelWorld, 'getBlock' | 'isSolid'>;
   /** 2P の 人で 妖怪を 見る（bindWho(…, 2)） */
   yokai: () => YokaiWorld;
+  /** 2P の ねらって いる ブロック（ふつうに ほる ときと 同じ。妖怪を ねらって いる ときは null） */
+  focus: () => HammerFocus | null;
   /** 2P の ほる係で 1 マス こわす */
   breakAt: (x: number, y: number, z: number) => boolean;
   inventory: { held(): { item: ItemId } | null; wearHeld?(n: number): void };
@@ -42,6 +44,7 @@ export function createP2Hammer(d: P2HammerDeps): P2Hammer {
   const system = createHammerSystem({
     world: d.world,
     yokai: d.yokai,
+    focus: d.focus,
     breakAt: d.breakAt,
     wear: () => d.inventory.wearHeld?.(LEGEND4_TUNING.daichi.wearPerSwing),
     sound: (n) => playHammer(d.sound, n),

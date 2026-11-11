@@ -30,6 +30,8 @@ export interface WireRefs {
   weaponDamage(item: ItemId): number;
   /** SAMURAI-1: 明珍手甲の 刀の 強さの 倍率（雷・ドームの 強さに かける。なければ 1。刀の ふつうの わざは weaponDamage に、波は 波が もつ 数に もう 入っている） */
   powerMul?(item: ItemId): number;
+  /** 大地のハンマーの 当たり球（HammerSystem.bigHits）。なければ 当たらない */
+  hammer?(): readonly { center: Vec3; radius: number; damage: number }[];
   yokai(): YokaiWorldLike | null;
   sound?(): void;
 }
@@ -76,6 +78,7 @@ export function makeHitSources(r: WireRefs): HitSources {
       domeMul ??= r.powerMul?.(h.item) ?? 1;
       return { center: { x: d.x, y: d.y, z: d.z }, radius: d.r, damage: Math.round((legendPowerOf(r.settings, h.item, h.power ?? null) ?? 1) * domeMul * L.damageMul * 100 + 1e-7) / 100, everySteps: L.hitEvery };
     },
+    hammer: r.hammer,
     yokai: r.yokai,
     sound: r.sound,
   };

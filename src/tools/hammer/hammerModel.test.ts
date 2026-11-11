@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { LEGEND4_TUNING } from '../../content/items/legend4Tuning';
-import { breakCells, diveDamage, diveDepth, facingDir4, isBreakable } from './hammerModel';
+import { diveCells, diveDamage, facingDir4, faceCells, isBreakable } from './hammerModel';
 
-const T = LEGEND4_TUNING.daichi;
 
 describe('hammerModel', () => {
   it('D2 向き: 4 方向・44 度は x・46 度は z（x 軸からの 角度）', () => {
@@ -13,19 +11,29 @@ describe('hammerModel', () => {
     expect(facingDir4(0, 1)).toEqual({ dx: 0, dz: 1 });
     expect(facingDir4(-1, 0)).toEqual({ dx: -1, dz: 0 });
   });
-  it('D2 こわす マス: 3 × 2 × 奥行き。足もとの 段は 入らない', () => {
-    const one = breakCells({ x: 5, y: 10, z: 5 }, { dx: 0, dz: -1 }, 1);
-    expect(one.length).toBe(T.breakWidth * T.breakHeight);
-    expect(one.every((c) => c.z === 4 && (c.y === 10 || c.y === 11) && c.x >= 4 && c.x <= 6)).toBe(true);
-    const two = breakCells({ x: 5, y: 10, z: 5 }, { dx: 1, dz: 0 }, 2);
-    expect(two.length).toBe(12);
-    expect(new Set(two.map((c) => c.x))).toEqual(new Set([6, 7]));
-    expect(new Set(two.map((c) => c.z))).toEqual(new Set([4, 5, 6]));
+  it('D2 地面の 振り: 面に 沿った 3 × 3（9 マス）。上向き・横向きで 平面が かわる', () => {
+    const up = faceCells({ x: 5, y: 10, z: 5 }, { x: 0, y: 1, z: 0 });
+    expect(up.length).toBe(9);
+    expect(up.every((c) => c.y === 10 && Math.abs(c.x - 5) <= 1 && Math.abs(c.z - 5) <= 1)).toBe(true);
+    const wallZ = faceCells({ x: 5, y: 10, z: 5 }, { x: 0, y: 0, z: 1 });
+    expect(wallZ.every((c) => c.z === 5 && Math.abs(c.x - 5) <= 1 && Math.abs(c.y - 10) <= 1)).toBe(true);
+    expect(new Set(wallZ.map((c) => `${c.x},${c.y}`)).size).toBe(9);
+    const wallX = faceCells({ x: 5, y: 10, z: 5 }, { x: -1, y: 0, z: 0 });
+    expect(wallX.every((c) => c.x === 5 && Math.abs(c.y - 10) <= 1 && Math.abs(c.z - 5) <= 1)).toBe(true);
+    expect(new Set(wallX.map((c) => `${c.y},${c.z}`)).size).toBe(9);
   });
-  it('D6 急降下の 高さと 強さ・奥行き', () => {
+  it('D2b 急降下: 足の 下の 段の 3 × 3 ＋ 同じ 段の まわり 8（体の マスは 入らない）＝ 17', () => {
+    const cs = diveCells({ x: 5, y: 10, z: 5 });
+    expect(cs.length).toBe(17);
+    expect(cs.filter((c) => c.y === 9).length).toBe(9);
+    expect(cs.filter((c) => c.y === 10).length).toBe(8);
+    expect(cs.some((c) => c.x === 5 && c.y === 10 && c.z === 5)).toBe(false);
+    expect(cs.some((c) => c.y === 11)).toBe(false);
+    expect(new Set(cs.map((c) => `${c.x},${c.y},${c.z}`)).size).toBe(17);
+  });
+  it('D6 急降下の 高さと 強さ', () => {
     const hs = [0.6, 3.2, 3.9, 4.0, 10, 25];
     expect(hs.map(diveDamage)).toEqual([20, 26, 26, 28, 40, 40]);
-    expect(hs.map(diveDepth)).toEqual([1, 1, 1, 2, 2, 2]);
     expect(diveDamage(6)).toBe(32);
   });
   it('D3 こわす ブロックは 表の 物だけ', () => {

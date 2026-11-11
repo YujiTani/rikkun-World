@@ -304,6 +304,19 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     hpIs(r, 37.8);
   });
 
+  it('大地のハンマーの 球: 箱に 重なれば 1 回 当たる（source は hammer）・重ならなければ 当たらない', () => {
+    let hs: { center: Vec3; radius: number; damage: number }[] = [];
+    const r = rig({ hammer: () => hs });
+    const h = r.find('handL');
+    hs = [{ center: v(h.c[0]! + 40, h.c[1]!, h.c[2]!), radius: 1.5, damage: 20 }];
+    r.bh.step(1 / 60);
+    hpIs(r, 0);
+    hs = [{ center: v(h.c[0]!, h.c[1]!, h.c[2]!), radius: 1.5, damage: 20 }];
+    r.bh.step(1 / 60);
+    expect(r.bh.last?.source).toBe('hammer');
+    expect(r.bh.hits).toBe(1);
+  });
+
   it('防御力（はじめて）: 手・腕・頭・胴体は 30 ひかれる（オーナー 2026-10-24: 腕にも）。最低 1。コアは 防御力 0', () => {
     Object.assign(T.hit.partDef, defSaved); // 調整表の 本物の 数
     expect(defSaved.hand).toBe(30);

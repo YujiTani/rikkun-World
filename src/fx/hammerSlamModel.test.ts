@@ -19,16 +19,20 @@ describe('hammerSlamModel', () => {
     expect(u.y).toBeCloseTo(0, 9);
     expect(hammerFrameUv(0).y).toBeCloseTo(5 / 6, 9);
   });
-  it('向き・場所: 北へ 奥行き 2 の まん中は 前 1.5 マス', () => {
+  it('向き・場所: 地面の 点の 真上・大きさは 倍で かわる', () => {
     expect(hammerFacingDeg({ dx: 0, dz: -1 })).toBe(0);
     expect(hammerFacingDeg({ dx: 1, dz: 0 })).toBe(90);
     expect(hammerFacingDeg({ dx: 0, dz: 1 })).toBe(180);
     expect(hammerFacingDeg({ dx: -1, dz: 0 })).toBe(270);
-    const p = hammerFxPlacement({ x: 10.5, y: 9, z: 10.5 }, { dx: 0, dz: -1 }, 2, false);
+    const p = hammerFxPlacement({ x: 10.5, y: 9, z: 9 }, 1);
     expect(p.x).toBeCloseTo(10.5, 9);
     expect(p.z).toBeCloseTo(9, 9);
     expect(p.y).toBeGreaterThan(9);
-    expect(hammerFxPlacement({ x: 10.5, y: 9, z: 10.5 }, { dx: 0, dz: -1 }, 2, true).w).toBeGreaterThan(p.w);
+    const g = hammerFxPlacement({ x: 10.5, y: 9, z: 9 }, 2);
+    const d = hammerFxPlacement({ x: 10.5, y: 9, z: 9 }, 3);
+    expect(g.w).toBeCloseTo(p.w * 2, 9); // 地面の 振りは 約 2 倍
+    expect(d.w).toBeCloseTo(p.w * 3, 9); // 急降下は 約 3 倍
+    expect(d.w).toBeGreaterThan(g.w);
   });
   it('同時に 出す 数は 描画回数の 上限 4 に 入る（1 つ 2 まい）', () => {
     expect(HAMMER_FX_MAX * 2).toBeLessThanOrEqual(4);

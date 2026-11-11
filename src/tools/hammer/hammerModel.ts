@@ -22,15 +22,30 @@ export function facingDir4OfYaw(yawDeg: number): { dx: number; dz: number } {
   return facingDir4(Math.sin(r), -Math.cos(r));
 }
 
-/** こわす マス: 足の マスの 前 1〜depth 列、よこ 3 マス、足の 段と 頭の 段（足もとの 段は 入らない） */
-export function breakCells(foot: Cell, dir: { dx: number; dz: number }, depth: number): Cell[] {
+/** 地面の 振りで こわす マス: ねらった ブロック c の 面（向き face）に 垂直な 平面の 中心 ＋ まわり breakHalf マス（3 × 3 ＝ 9 マス） */
+export function faceCells(c: Cell, face: { x: number; y: number; z: number }): Cell[] {
+  const h = T.breakHalf;
   const out: Cell[] = [];
-  const half = (T.breakWidth - 1) / 2;
-  for (let k = 1; k <= depth; k++) {
-    const cx = foot.x + dir.dx * k;
-    const cz = foot.z + dir.dz * k;
-    for (let s = -half; s <= half; s++) {
-      for (let h = 0; h < T.breakHeight; h++) out.push({ x: cx + dir.dz * s, y: foot.y + h, z: cz + dir.dx * s });
+  const ax = Math.abs(face.x);
+  const ay = Math.abs(face.y);
+  for (let a = -h; a <= h; a++) {
+    for (let b = -h; b <= h; b++) {
+      if (ay > 0) out.push({ x: c.x + a, y: c.y, z: c.z + b }); // 地面・天じょう: よこ × 奥
+      else if (ax > 0) out.push({ x: c.x, y: c.y + a, z: c.z + b }); // 東西の かべ: たて × 奥
+      else out.push({ x: c.x + a, y: c.y + b, z: c.z }); // 南北の かべ: よこ × たて
+    }
+  }
+  return out;
+}
+
+/** 急降下の 着地で こわす マス: 足の 下の 段の 3 × 3 ＋ プレイヤーと 同じ 段の まわり 8（体の マスは こわさない）＝ 17 マス */
+export function diveCells(foot: Cell): Cell[] {
+  const h = T.breakHalf;
+  const out: Cell[] = [];
+  for (let dx = -h; dx <= h; dx++) {
+    for (let dz = -h; dz <= h; dz++) {
+      out.push({ x: foot.x + dx, y: foot.y - 1, z: foot.z + dz });
+      if (dx !== 0 || dz !== 0) out.push({ x: foot.x + dx, y: foot.y, z: foot.z + dz });
     }
   }
   return out;
@@ -41,11 +56,6 @@ export function diveDamage(h: number): number {
   const cap = Math.round((T.diveMulMax - 1) / T.divePerBlock);
   const mul = Math.min(1 + T.divePerBlock * Math.min(Math.floor(h + T.diveHeightSlack), cap), T.diveMulMax);
   return Math.round(T.damage * mul * 100) / 100;
-}
-
-/** 急降下の 奥行き（4 マス 以上で 2、上限 breakDepthMax） */
-export function diveDepth(h: number): number {
-  return Math.min(T.breakDepth + (h + T.diveHeightSlack >= T.diveDeepFrom ? 1 : 0), T.breakDepthMax);
 }
 
 export function isBreakable(id: string): boolean {

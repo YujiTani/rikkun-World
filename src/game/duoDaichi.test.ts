@@ -9,10 +9,13 @@ import { ArrayVoxelWorld } from '../world/VoxelWorld';
 
 /**
  * LEGEND-4 PR5 D10・D11: 2P の ハンマーで こわれた 物は 2P の もちもの・1P の もちものは かわらない。2P の 急降下も D5 と 同じ 数。
- * 1 振りで ブロックを 見る 回数は 12 以下（奥行き 2 でも）。
+ * 1 振りで ブロックを 見る 回数は lookMax（17）以下。ねらいは 北の かべの まん中（2P の ほる係の `target()` の かわりに 固定）。
  */
 const FLOOR = 8;
 const T = LEGEND4_TUNING.daichi;
+const WALL_FOCUS = { block: { x: 10, y: FLOOR + 2, z: 8 }, face: { x: 0, y: 0, z: 1 } };
+const fillWall = (w: ArrayVoxelWorld) => w.fill(8, FLOOR + 1, 8, 12, FLOOR + 3, 8, 'stone');
+const fillRing = (w: ArrayVoxelWorld) => w.fill(9, FLOOR + 1, 9, 11, FLOOR + 1, 11, 'stone'); // 体の マスは あとで 空気
 
 function setup(noYokai = false) {
   const world = new ArrayVoxelWorld({ x: 32, y: 32, z: 32 });
@@ -32,6 +35,7 @@ function setup(noYokai = false) {
   const ham = createP2Hammer({
     world: counted,
     yokai: () => yokai,
+    focus: () => WALL_FOCUS,
     breakAt: (x, y, z) => dig2.breakExternal(x, y, z),
     inventory: inv2,
     body: () => body,
@@ -57,20 +61,21 @@ function setup(noYokai = false) {
 describe('D10・D11 2P の 大地のハンマー', () => {
   it('2P の 振りで こわれた 石は 2P の もちものへ・1P は かわらない・見る 回数 12 以下', () => {
     const s = setup();
-    s.world.fill(9, FLOOR + 1, 8, 11, FLOOR + 2, 9, 'stone');
+    fillWall(s.world);
+    s.world.setBlock(10, FLOOR + 2, 7, 'stone');
     s.step(true);
     s.resetReads();
     for (let i = 0; i < 50; i++) s.step();
-    expect(s.world.getBlock(10, FLOOR + 1, 9)).toBe('air');
-    expect(s.world.getBlock(10, FLOOR + 1, 8)).toBe('stone');
+    expect(s.world.getBlock(10, FLOOR + 2, 8)).toBe('air');
+    expect(s.world.getBlock(10, FLOOR + 2, 7)).toBe('stone');
     expect(s.inv2.count('stone')).toBeGreaterThan(0);
     expect(s.inv1.count('stone')).toBe(0);
     expect(s.hp.v).toBe(99 - T.damage);
-    expect(s.world.getBlock(10, FLOOR + 1, 8)).toBe('stone');
   });
-  it('2P の 急降下も 地面 + 6 マスで 32・奥行き 2 で 12 マス（見る 回数 12）', () => {
+  it('2P の 急降下も 地面 + 6 マスで 32・足の 下 9 ＋ まわり 8 ＝ 17 マス', () => {
     const s = setup();
-    s.world.fill(9, FLOOR + 1, 8, 11, FLOOR + 2, 9, 'stone');
+    fillRing(s.world);
+    s.world.setBlock(10, FLOOR + 1, 10, 'air');
     s.body.position.y = FLOOR + 1 + 6;
     s.body.onGround = false;
     s.step();
@@ -78,12 +83,13 @@ describe('D10・D11 2P の 大地のハンマー', () => {
     s.resetReads();
     for (let i = 0; i < 40; i++) s.step();
     expect(s.hp.v).toBe(99 - 32);
-    expect(s.ham.system.view().last?.broken.length).toBe(12);
-    expect(s.world.getBlock(10, FLOOR + 1, 8)).toBe('air');
+    expect(s.ham.system.view().last?.broken.length).toBe(17);
+    expect(s.world.getBlock(10, FLOOR + 1, 9)).toBe('air');
   });
-  it('D11 ブロックを 見る 回数: 奥行き 2（12 マス）でも 12 以下', () => {
+  it('D11 ブロックを 見る 回数: 急降下 17 マスでも lookMax 以下', () => {
     const s = setup(true);
-    s.world.fill(9, FLOOR + 1, 8, 11, FLOOR + 2, 9, 'stone');
+    fillRing(s.world);
+    s.world.setBlock(10, FLOOR + 1, 10, 'air');
     s.body.position.y = FLOOR + 1 + 6;
     s.body.onGround = false;
     s.step();
@@ -91,7 +97,7 @@ describe('D10・D11 2P の 大地のハンマー', () => {
     for (let i = 0; i < 7; i++) s.step(); // ふりかぶり
     s.resetReads();
     for (let i = 0; i < 40; i++) s.step();
-    expect(s.ham.system.view().last?.broken.length).toBe(12);
-    expect(s.reads()).toBeLessThanOrEqual(12);
+    expect(s.ham.system.view().last?.broken.length).toBe(17);
+    expect(s.reads()).toBeLessThanOrEqual(T.lookMax);
   });
 });

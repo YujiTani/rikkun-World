@@ -506,6 +506,7 @@ export function wireFighters(deps: WiredWeapons) {
   hammer = createHammerSystem({
     world,
     yokai: yokaiOf1,
+    focus: () => (dig.aimedYokaiId() !== null ? null : dig.target()), // ねらいが 妖怪の ときは ブロックを こわさない
     breakAt: (x, y, z) => dig.breakExternal(x, y, z),
     wear: () => inventory.wearHeld(LEGEND4_TUNING.daichi.wearPerSwing),
     sound: (n) => playHammer(fxSound, n),

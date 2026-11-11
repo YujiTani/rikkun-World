@@ -57,8 +57,8 @@ export class HammerSlamFx {
     for (const e of events) {
       if (e.type === 'slam') {
         if (e.cells.length === 0) continue; // 何も こわれて いない ときは 土けむり（bonk）の ほう
-        this.start(e.position, e.dir, e.depth, e.big, 1, 1, reduced);
-      } else this.start(e.position, e.dir, 1, false, BONK_SCALE, BONK_ALPHA, reduced);
+        this.start(e.position, e.dir, e.scale, 1, reduced);
+      } else this.start(e.position, e.dir, BONK_SCALE, BONK_ALPHA, reduced);
     }
     for (const s of this.slots) {
       if (s.age < 0) continue;
@@ -75,14 +75,12 @@ export class HammerSlamFx {
     }
   }
 
-  private start(pos: { x: number; y: number; z: number }, dir: { dx: number; dz: number }, depth: number, big: boolean, scale: number, alpha: number, reduced: boolean): void {
+  private start(pos: { x: number; y: number; z: number }, dir: { dx: number; dz: number }, scale: number, alpha: number, reduced: boolean): void {
     const s = this.slots[this.next]!; // ふるい ほうから 入れかえる
     this.next = (this.next + 1) % this.slots.length;
-    const p = hammerFxPlacement(pos, dir, depth, big);
+    const p = hammerFxPlacement(pos, scale);
     s.group.position.set(p.x, p.y, p.z);
-    for (const m of s.planes) m.scale.set(p.w * scale, p.h * scale, 1);
-    // 絵の 地面の 点を そろえる（小さくした とき 地面から はなれない ように）
-    s.group.position.y = Math.floor(pos.y + 1e-6) + (p.y - Math.floor(pos.y + 1e-6)) * scale;
+    for (const m of s.planes) m.scale.set(p.w, p.h, 1);
     s.group.rotation.y = crossYaw(hammerFacingDeg(dir));
     s.age = 0;
     s.reduced = reduced;

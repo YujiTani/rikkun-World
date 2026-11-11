@@ -186,6 +186,8 @@ export interface HitSources {
   waves?(): readonly { id: number; position: Vec3; radius: number; damage: number }[];
   /** 今の ステップに 落ちた 雷（球） */
   strikes?(): readonly { center: Vec3; radius: number; damage: number }[];
+  /** 大地のハンマーの 当たり球（F43 に 1 回だけ 返す。1 振りに つき 1 回。ブロックを こわす 範囲の 中心の まわり） */
+  hammer?(): readonly { center: Vec3; radius: number; damage: number }[];
   /** 虹の ドーム（ない ときは null）。everySteps ごとに 1 回 当たる */
   dome?(): { center: Vec3; radius: number; damage: number; everySteps: number } | null;
   /** 矢・パンチの 口を つなぐ 相手（YokaiManager） */
@@ -495,6 +497,7 @@ export class BigHit {
     this.stepBlade(s, m, who);
     this.stepWaves(s, m, who);
     this.stepStrikes(s, who);
+    this.stepHammer(s, who);
     this.stepDome(s, m, who);
   }
 
@@ -561,6 +564,15 @@ export class BigHit {
     for (const k of ks) {
       const i = this.pick((n) => boxTouchesSphere(this.boxes[n]!, k.center, k.radius), k.center);
       if (i >= 0) this.strike(i, k.damage, k.center, 'strike', who);
+    }
+  }
+
+  private stepHammer(s: HitSources, who: 1 | 2): void {
+    const hs = s.hammer?.();
+    if (!hs) return;
+    for (const k of hs) {
+      const i = this.pick((n) => boxTouchesSphere(this.boxes[n]!, k.center, k.radius), k.center);
+      if (i >= 0) this.strike(i, k.damage, k.center, 'hammer', who);
     }
   }
 

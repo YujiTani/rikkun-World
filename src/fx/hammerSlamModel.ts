@@ -19,8 +19,8 @@ export const HAMMER_FX_STEPS = HAMMER_SHEET.frames * HAMMER_FX_STEPS_PER_FRAME;
 /** 「動きを へらす」: 止めて 見せる コマ（われ目と 光が いちばん 見える 所）と 見せる ステップ */
 const HAMMER_REDUCED_FRAME = 9;
 const HAMMER_REDUCED_STEPS = 30;
-/** マス/ドット。1 ドットの 大きさ（ふつう 3 マスの はばに あう）と 急降下の 大（高さ 4 マス 以上。2 段だけ） */
-const HAMMER_DOT_BLOCKS = { normal: 1 / 80, big: 1 / 58 } as const;
+/** マス/ドット。1 ドットの 大きさ（もとの 3 マスはば）。実際の 大きさは これに LEGEND4_TUNING.daichi.fxScale（地面 2 倍・急降下 3 倍）を かける */
+const HAMMER_DOT_BLOCKS = 1 / 80;
 /** 同時に 出す 数（描画回数 4 以下: 1 つ 2 まい × 2） */
 export const HAMMER_FX_MAX = 2;
 
@@ -45,16 +45,15 @@ export function hammerFacingDeg(dir: { dx: number; dz: number }): number {
 }
 
 /**
- * 置く 場所。まん中 = こわす 範囲の まん中（足の マスの 前 (1 + 奥行き) / 2 マス）。
- * 高さ = 絵の 地面の 点が 足もとの 段の 底に あう（板の まん中は 地面の 点より (originY − cellH / 2) ドット 上）
+ * 置く 場所。まん中 = 地面の 点 origin の 真上、高さ = 絵の 地面の 点が origin に あう（板の まん中は 地面の 点より (originY − cellH / 2) ドット 上）。
+ * scale = もとの 大きさに かける 倍（板の 大きさだけ かえる。描画の 数は ふえない）
  */
-export function hammerFxPlacement(foot: { x: number; y: number; z: number }, dir: { dx: number; dz: number }, depth: number, big: boolean): { x: number; y: number; z: number; w: number; h: number } {
-  const s = big ? HAMMER_DOT_BLOCKS.big : HAMMER_DOT_BLOCKS.normal;
-  const k = (1 + depth) / 2;
+export function hammerFxPlacement(origin: { x: number; y: number; z: number }, scale: number): { x: number; y: number; z: number; w: number; h: number } {
+  const s = HAMMER_DOT_BLOCKS * scale;
   return {
-    x: Math.floor(foot.x) + 0.5 + dir.dx * k,
-    y: Math.floor(foot.y + 1e-6) + (HAMMER_SHEET.originY - HAMMER_SHEET.cellH / 2) * s,
-    z: Math.floor(foot.z) + 0.5 + dir.dz * k,
+    x: origin.x,
+    y: origin.y + (HAMMER_SHEET.originY - HAMMER_SHEET.cellH / 2) * s,
+    z: origin.z,
     w: HAMMER_SHEET.cellW * s,
     h: HAMMER_SHEET.cellH * s,
   };
