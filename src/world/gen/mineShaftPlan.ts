@@ -12,6 +12,8 @@ import type { SideRef, StartLink } from './mineShaftHeya';
 import { Geo, coverOk, type Dir, type Site } from './mineShaftSite';
 import type { HiroiTryRow, PlacedCave } from './mineCaves';
 import type { Compass, PathCell, Shaft } from './mineShaftTypes';
+import type { FloorGeo } from './mineBokenFloors';
+import type { YakataBuilt } from './mineYakataTypes';
 import { createRng, hashInts, subSeed, type Rng } from './random';
 
 /**
@@ -43,6 +45,12 @@ export interface ShaftPlan {
   tries: HiroiTryRow[];
   /** 横穴の しるし〔はじまりの 坑道を 1C の まま に する ための くらべ〕 */
   ref: SideRef;
+  /** 1F: やかたを つける ための 手がかり〔いちばん 下の 階と、その 階の 口の 場所。1E の 坑道〔深い ほう〕だけ〕 */
+  boken?: { bottom: FloorGeo; mouths: { x: number; z: number }[] };
+  /** 1F: 置いた やかた〔なければ 省略〕。空気・かべは 上の `b` に 入って いる */
+  yakata?: YakataBuilt;
+  /** 1F: 形が かかる 列を 見つける ための 外の 四角〔やかたが 箱から はみ出す とき〕 */
+  ext?: { x0: number; z0: number; x1: number; z1: number };
   /** 1E: 場所の 窓口 `areaAt` 用〔足の マスの キー → 場所〕。1C・1D は なし */
   areas?: ReadonlyMap<number, 'kakushi' | 'mukashi' | 'meiro' | 'camp'>;
 }

@@ -54,8 +54,15 @@ interface DigBuildPort {
   tamp(x: number, y: number, z: number): void;
 }
 
+/** MINE-1F §4.3: ようかいの やかたの ブロック〔かつ まで こわせない〕の 守り（`hook.yakataLocked` が 合う） */
+interface DigYakataPort {
+  locked(x: number, y: number, z: number): boolean;
+}
+
 /** M4 の つなぎ目（どれもなくてよい。なければ M2 のとおり） */
 export interface DigM4Deps {
+  /** MINE-1F: やかたの ブロックの 守り。true の マスは ひびが 進まず「いまは ほれない よ」 */
+  yakata?: DigYakataPort;
   /** COOP-1 3a: 仲間（もう 1 人）の 足もとの 位置。なければ 仲間は いない。置く とき 仲間の 体と 重なる マスには 置けない */
   partner?: () => Vec3 | null;
   /** HOUSE-1C PR-2: 家を 建てる 場所の 守りと みずもり・どうづき */

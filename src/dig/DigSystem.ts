@@ -382,7 +382,7 @@ export class DigSystemImpl implements DigSystem {
     }
     if (primary && t) {
       const tool = this.m4.tools?.current();
-      const r = digSteps(cfg, t.id, tool?.level);
+      const r = this.m4.yakata?.locked(t.block.x, t.block.y, t.block.z) ? { blocked: 'yakata' as const } : digSteps(cfg, t.id, tool?.level); // やかたの ブロックは かつ まで こわせない（MINE-1F §4.3）
       if ('blocked' in r) {
         this.blockedReason = r.blocked;
         if (this.justPressed()) {

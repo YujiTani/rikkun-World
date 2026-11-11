@@ -3,6 +3,7 @@
  * 実装が 型を 持ち、テストの 道具は 同じ 形を 自分でも 書いて いる〔向きや 形が ちがうと テストの 型が 通らない〕。
  */
 import type { ItemId, Rarity } from '../../contracts';
+import type { Yakata } from './mineYakataTypes';
 
 export interface Pt {
   x: number;
@@ -10,7 +11,7 @@ export interface Pt {
   z: number;
 }
 export type Compass = 'n' | 'e' | 's' | 'w';
-export type PathPart = 'entrance' | 'ramp' | 'landing' | 'side' | 'joint' | 'koheya' | 'room' | 'hiroba' | 'main' | 'eda' | 'end' | 'hibi' | 'kakushi' | 'maze' | 'camp';
+export type PathPart = 'entrance' | 'ramp' | 'landing' | 'side' | 'joint' | 'koheya' | 'room' | 'hiroba' | 'main' | 'eda' | 'end' | 'hibi' | 'kakushi' | 'maze' | 'camp' | 'yakata';
 export interface PathCell extends Pt {
   part: PathPart;
 }
@@ -60,8 +61,10 @@ export interface Shaft {
   branches: ShaftBranch[];
   maze: ShaftMaze | null;
   camp: ShaftCamp | null;
-  /** 1E: 計画の 仕事〔ためした 回数〕 */
-  work?: { entrance: number; floors: number; sides: number; eda: number; maze: number };
+  /** 1E: 計画の 仕事〔ためした 回数〕。1F: ふかい 坑道は `yakata`〔やかたの 候補を ためした 数〕も */
+  work?: { entrance: number; floors: number; sides: number; eda: number; maze: number; yakata?: number };
+  /** 1F: ようかいの やかた〔ふかい 1E の 坑道で くじに 当たって 置けた ときだけ。ほかは null か 省略〕 */
+  yakata?: Yakata | null;
 }
 interface ShaftStyle {
   depth: ShaftLayer;

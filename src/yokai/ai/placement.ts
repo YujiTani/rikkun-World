@@ -66,15 +66,16 @@ export class YokaiPlacement {
    * request = null なら 抽選（シード付き）。m を省くと 出た場所 (x, y, z) から。
    * 体が入らない所では 二つ名なし（§6）。
    */
-  decidePlace(e: Ent, request: YokaiTitle | null, m?: number): void {
+  decidePlace(e: Ent, request: YokaiTitle | null, m?: number, free = false): void {
     const { opts, events } = this.d;
     const origin = opts.origin?.() ?? { x: 0, z: 0 };
     e.m = m ?? locationMAt({ x: e.x, y: e.y, z: e.z }, origin, opts.seaY?.() ?? SEA_Y);
-    const taken = this.bigTaken(e);
+    // やかたの 二つ名〔free。MINE-1F §4.5〕は「たいしょう・ヌシは 1 体まで」の 外。おしらせ・出現音は やかたの 係が 1 回だけ 出す
+    const taken = free ? false : this.bigTaken(e);
     let title = request === null ? rollTitle(this.d.titleRng, e.kind, taken) : limitTitle(e.kind, request, taken);
     if (title !== 'none' && !this.fits(e, title)) title = 'none';
     this.applyStats(e, title);
-    if (title === 'none') return;
+    if (title === 'none' || free) return;
     const text = titleAnnounceText(e.model.displayName, title);
     if (text && (title === 'taisho' || title === 'nushi')) this.announceNow = { text, icon: title, ticksLeft: ANNOUNCE_TICKS };
     events.emit({ type: 'titleSound', tick: events.tick(), id: e.id, kind: e.kind, title });

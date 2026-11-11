@@ -70,6 +70,10 @@ export interface YokaiManagerOptions {
   canSpawnAt?: (x: number, z: number) => boolean;
   /** MINE-1D §4.3・D6: 妖怪が 立つ 床の マス（x・足の y・z。整数）を 聞く。true なら そこには 出ない（ほたるの ほらあなの 床）。なければ どこでも 出る */
   noSpawnAt?: (x: number, y: number, z: number) => boolean;
+  /** MINE-1F §4.5: true の 人〔1 = 1P・2 = 2P〕の まわりでは 自動の 出現の ためしを しない（やかたの 挑戦の 間）。なければ いつも false */
+  quietFor?: (who: 1 | 2) => boolean;
+  /** MINE-1F §4.3: true の マスは ぬりかべの たおれこみで こわさない（やかたの ブロック）。なければ いつも false */
+  protectAt?: (x: number, y: number, z: number) => boolean;
   /** はじまりの場所（水平）。世界の設定から読む。複数なら いちばん近い所から d をはかる。省くと (0, 0) */
   origin?: () => { x: number; z: number } | readonly { x: number; z: number }[];
   /** 海面の高さ。世界の設定（contracts の SEA_Y）。省くと SEA_Y */
@@ -147,6 +151,10 @@ export interface SpawnOptions {
   title?: YokaiTitle;
   /** 場所の倍率を決めて出す（テスト用。省くと 1。'auto' なら 自動の出現と同じに 出た場所から決める） */
   m?: number | 'auto';
+  /** MINE-1F §4.5: ふつうの きまりの 外〔地下の 上限・横 64・夜明け・見つけられない で 消えない。たいしょうの おしらせ・出現音は 出さない〕。0.5 秒で あらわれる */
+  free?: boolean;
+  /** MINE-1F §4.5: あらわれて から この ステップ数は 攻撃しない・体当たりしない（`free` の とき） */
+  graceSteps?: number;
 }
 
 /** 登場のおしらせ（画面の上のまん中） */

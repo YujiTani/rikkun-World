@@ -295,6 +295,11 @@ export class YokaiManager implements YokaiWorld {
     return this.spawner.spawnByHand(kind, x, y, z, opts);
   }
 
+  /** MINE-1F: 指す 妖怪を そっと 去らせる（おとし物 なし。やかたの 挑戦の まけ・ふさいだ 門の 中の ふつうの 妖怪） */
+  leave(ids: readonly number[]): void {
+    this.spawner.leaveIds(ids);
+  }
+
   /** 妖怪と火の玉をすぐ全部消す（イベントは出さない） */
   clear(): void {
     this.placement.clearAnnounce();
