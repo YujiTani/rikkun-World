@@ -22,10 +22,10 @@ export interface AudioState {
   ducking: boolean;
   chord: string;
   /** MINE-1F: やかたの 場面〔none・ambience・waiting・challenge〕とループ・たたかいの 曲・BGM を 小さくして いるか */
-  yakataScene: YakataSceneState['scene'];
-  yakataLoops: YakataSceneState['fileLoops'];
-  yakataBattleMusic: boolean;
-  yakataBgmDuck: boolean;
+  yakataScene?: YakataSceneState['scene'];
+  yakataLoops?: YakataSceneState['fileLoops'];
+  yakataBattleMusic?: boolean;
+  yakataBgmDuck?: boolean;
   master: number;
   bgm: number;
   fx: number;
@@ -67,10 +67,7 @@ export function createAudioHook(d: AudioHookDeps): AudioHook {
       screenLevel: d.mixer.screenLevel(),
       ducking: d.mixer.ducking(),
       chord: (yakataChordOf(ys()) ?? d.bgm.chord()).name,
-      yakataScene: ys().scene,
-      yakataLoops: ys().fileLoops.map((l) => ({ ...l })),
-      yakataBattleMusic: ys().battleMusic,
-      yakataBgmDuck: ys().bgmDuck,
+      ...(d.yakata ? { yakataScene: ys().scene, yakataLoops: ys().fileLoops.map((l) => ({ ...l })), yakataBattleMusic: ys().battleMusic, yakataBgmDuck: ys().bgmDuck } : {}),
       master: d.audio.masterVolume,
       bgm: d.audio.bgmVolume,
       fx: d.fx.fxVolume,

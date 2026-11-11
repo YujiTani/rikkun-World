@@ -1,4 +1,5 @@
 import { YAKATA_BLOCKS } from '../blocks/mineYakata';
+import { YAKATA_LIGHT } from '../light/yakataLight';
 
 /**
  * ようかいの やかた（MINE-1F。docs/design/MINE-1F.md §4）の 数の 表。1 つの データは 1 か所（#304）。
@@ -18,10 +19,10 @@ export const YAKATA_TABLE = {
   looks: { maou: 0.5, otera: 0.5 } as Record<Look, number>,
   /** 組ごとの ブロック〔id を 書くのは src/world/blocks/mineYakata.ts 1 か所〕 */
   lookBlocks: YAKATA_BLOCKS as Record<Look, { kabe: string; yuka: string; dan: string; taimatsu: string }>,
-  /** やかたの 中の 見え方: 光 from〜to〔段〕の 所を 明るさ shade〔0〜1〕より 暗く しない・妖怪の 体は foe〔0〜1〕より 暗く しない */
-  dim: { from: 2, to: 5, shade: 0.16, foe: 0.25 },
-  /** やかたの 中の 光の 色〔組ごと。赤・みどり・あおの かけ算 0〜1。むらさき・青白い。アートが あとで 直す〕 */
-  lookTint: { maou: [0.85, 0.55, 1], otera: [0.6, 0.8, 1] } as Record<Look, [number, number, number]>,
+  /** やかたの 中の 見え方〔数は 光の 表 `YAKATA_LIGHT` の まま〕: 光 from〜to〔段〕の 所を 明るさ shade〔0〜1〕より 暗く しない・妖怪の 体は foe〔0〜1〕より 暗く しない */
+  dim: { ...YAKATA_LIGHT.dim },
+  /** やかたの 中の 光の 色〔組ごと。数は 光の 表 `YAKATA_LIGHT` の まま〕 */
+  lookTint: { maou: [...YAKATA_LIGHT.lookTint.maou], otera: [...YAKATA_LIGHT.lookTint.otera] } as Record<Look, [number, number, number]>,
   /** 二つ名の 数〔ひき〕: おやぶん・たいしょう・ヌシ（ヌシは なし） */
   oyabun: 5,
   taisho: 2,
