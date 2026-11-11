@@ -15,6 +15,11 @@ const ER = TUNE.eruption;
 
 interface Ember { id: number; x: number; y: number; z: number; age: number; body: boolean }
 
+/** 寿命の 決まりを 見ない テスト（触れる・殴る・植物が 燃える）用: 燃えかすの 寿命だけ 長く する（FIX-3 で 10 秒に なり、テストの 待ちの 間に 消えて しまう ため） */
+async function keepEmbers(page: Page): Promise<void> {
+  await page.evaluate(() => (window as any).__gashaBig.tune({ eruption: { ember: { sec: 300 } } }));
+}
+
 /** 噴火を 1 回 おわらせて（灰が ぜんぶ 落ちる まで）、次の 攻撃が 来ない ように する */
 async function erupt(page: Page, stand?: { x: number; z: number; up?: number }): Promise<Ember[]> {
   await quietCycle(page);
@@ -69,6 +74,7 @@ test.describe('燃えかす', () => {
   test('触れて いると ドットダメージ（燃えかすの 上に 立つ）。足が 高く はなれて いれば 受けない', async ({ page }) => {
     const errs = await openGasha(page);
     await setupBoss(page);
+    await keepEmbers(page);
     const list = await erupt(page);
     const e = isolated(list)[0]!;
     expect(e).toBeTruthy();
@@ -94,6 +100,7 @@ test.describe('燃えかす', () => {
   test('刀で 殴ると その 燃えかすだけ 消える（ほかは のこる）', async ({ page }) => {
     const errs = await openGasha(page);
     await setupBoss(page);
+    await keepEmbers(page);
     const list = await erupt(page);
     // 隕石の まわりに 火の 粉の 燃えかすが かたまる ので、すきまは 3.5 ブロック。隕石の 小さな 穴の 底では なく、切る 場所（手前）と 同じ 高さの 地面の もの
     const flat = await flatOf(page, list);
@@ -128,6 +135,7 @@ test.describe('燃えかす', () => {
     const errs = await openGasha(page);
     await installAimHelpers(page);
     await setupBoss(page);
+    await keepEmbers(page);
     const list = await erupt(page);
     const flat = await flatOf(page, list);
     const e = isolated(list, 3.5).filter((q) => flat[list.indexOf(q)])[0]!; // 刀と おなじ: 穴の 底では なく 同じ 高さの 地面の もの
@@ -159,6 +167,7 @@ test.describe('燃えかす', () => {
   test('灰が 落ちた 点の まわり（burnRadius）の 植物が 燃えて、はなれた 植物は のこる', async ({ page }) => {
     const errs = await openGasha(page);
     await setupBoss(page);
+    await keepEmbers(page);
     // 地面いちめんに くさ を 置く
     const cells = await page.evaluate(() => {
       const gt = (window as any).__gt, h = gt.h;
