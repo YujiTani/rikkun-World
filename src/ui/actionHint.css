@@ -1,5 +1,6 @@
 /* 照準の すぐ下。左クリック（左）と 右クリック（右）を横にならべる。合図（1 秒だけ）は これの下に出る（notice.css） */
-#action-hint {
+#action-hint,
+.action-hint--p2 {
   position: fixed;
   left: 50%;
   top: calc(50% + var(--rk-sp-5));
@@ -12,7 +13,8 @@
   white-space: nowrap;
 }
 #action-hint[hidden],
-#action-hint .action-hint__cell[hidden] {
+.action-hint--p2[hidden],
+.action-hint .action-hint__cell[hidden] {
   display: none;
 }
 .action-hint__cell {
@@ -71,4 +73,29 @@
 .action-hint__cell--disabled .action-hint__art {
   opacity: 0.4;
   filter: grayscale(0.8);
+}
+
+/* COOP-1 5f-1: パッドの 札。肩ボタンの 小さな 絵（面の 名前入り。24px 以上）。マウスの 絵と 入れかわる */
+.action-hint__pad {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: calc(var(--rk-sp-6) + var(--rk-sp-1));
+  height: calc(var(--rk-sp-6) - var(--rk-sp-1) / 2);
+  padding: 0 var(--rk-sp-1);
+  border: 2px solid var(--rk-text);
+  border-radius: var(--rk-r-pill) var(--rk-r-pill) var(--rk-r-s) var(--rk-r-s);
+  background: var(--rk-accent, #ffd23f);
+  color: var(--rk-ink, #222);
+  font-size: var(--rk-fs-small, 16px);
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: none;
+}
+.action-hint[data-pad='pad'] .action-hint__pad {
+  display: inline-flex;
+}
+.action-hint[data-pad='pad'] .action-hint__mouse {
+  display: none;
 }

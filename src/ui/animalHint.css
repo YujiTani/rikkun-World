@@ -1,5 +1,6 @@
 /* にわとり の 合図: 画面の 上の方 まん中（農業の 合図と 同じ 位置。同時には 出ない） */
-#animal-hint {
+#animal-hint,
+#animal-hint-p2 {
   position: fixed;
   left: 50%;
   top: 24%;
@@ -9,9 +10,11 @@
   max-width: min(90vw, 760px);
   width: max-content; /* left:50% だと 幅 が 画面の 半分 に つまって 折り返す ので、中身 の 幅 まで ひろげる */
 }
-#animal-hint .rk-chip__text {
+#animal-hint .rk-chip__text,
+#animal-hint-p2 .rk-chip__text {
   white-space: nowrap;
 }
-#animal-hint[hidden] {
+#animal-hint[hidden],
+#animal-hint-p2[hidden] {
   display: none;
 }

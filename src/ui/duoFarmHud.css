@@ -10,10 +10,14 @@ html[data-duo] #farm-hint-p2 {
 html[data-duo] #farm-hint {
   left: 25%;
 }
-/* 2P の チップは 半分の 下の 方（照準の 下。ハート・ホットバーの 上。たいきゅうの お知らせ〔上の 方〕と 重ならない） */
+/*
+ * 2P の チップは 1P と 同じ 高さ（上の 方。farmHint.css の top 24%）。照準の 下には アクションヒント（5f-1）、その 下には ハート・レベル表示が
+ * 来る ので、下の 方には 置かない（60% では 1280×800・1440×900 で レベル表示に かかった）。
+ * 時計（右上）の 下（--rk-clock-bottom）より 上には 来ない（2P の 半分の 右はしに 時計が ある）。
+ */
 html[data-duo] #farm-hint-p2 {
   left: 75%;
-  top: 60%;
+  top: max(24%, calc(var(--rk-clock-bottom) + var(--rk-sp-2)));
 }
 html[data-duo] #farm-aim {
   left: 25%;

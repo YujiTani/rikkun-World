@@ -2,6 +2,8 @@ import type { RenameView } from '../house/rename';
 import type { HouseButtonId, HouseMenuState } from '../house/talk';
 import { buildRenameList, buildRenameName, type RenameNamePanel } from './houseEditor/renameView';
 import { houseButtonIcons } from './houseMenuArt';
+import { placeBubble, type Pane, type Rect } from './houseBubble';
+import { housePadReady } from './houseMenuPad';
 import { HouseSiteUi, type SiteDeps } from './houseSite';
 import { withRuby } from './text';
 import './houseUi.css';
@@ -46,8 +48,14 @@ interface HouseUiDeps {
   makeEditor(parent: HTMLElement): EditorViewLike;
   /** 「ポン」（ボタン・ページを かえた 音） */
   tick(): void;
-  /** 話して いる 建築士さんの 頭の 上（画面の ピクセル）。見えなければ null */
+  /** 話して いる 建築士さんの 頭の 上（画面の ピクセル。話した 人の カメラ・区画で）。見えなければ null */
   anchor(): { x: number; y: number } | null;
+  /** ふきだしを おさめる 区画（話した 人の 半分。1 人の ときは 画面ぜんたい）。COOP-1 5d */
+  pane(): Pane;
+  /** ふきだしが かからない ように したい 四角（2 人の とき 2P の 半分の 時計）。なければ null。毎フレーム 呼ぶ ので 同じ 入れ物を 使いまわす */
+  avoid?(): Rect | null;
+  /** 上空の 視点の 確かめの まどが 出て いるか（パッドで 押せる 画面の 判定。housePadReady の confirm） */
+  confirming(): boolean;
   /** 「けんちくを はじめる」の 画面（一覧・ひつような もの・上空の 視点）が 読む もの。press・tick は 上と 同じ */
   site: Omit<SiteDeps, 'press' | 'tick'>;
 }
@@ -74,6 +82,9 @@ export class HouseUi {
   private editorView: EditorViewLike | null = null;
   private menuEl: HTMLDivElement | null = null;
   private menuSig = '';
+  /** placeBubble の 結果の 入れ物（毎フレーム 新しい 物を 作らない） */
+  private readonly bubblePos = { left: 0, top: 0 };
+  private readonly bubbleSize = { w: 0, h: 0 };
   /** 名前の 画面（page 'renameName'。入るたびに 作りなおす） */
   private namePanel: RenameNamePanel | null = null;
   /** 「けんちくを はじめる」の 画面（HOUSE-1C PR-2） */
@@ -102,6 +113,8 @@ export class HouseUi {
         : m.page === 'editor' || m.page === 'need' ? 'editor' : 'menu'
       : m.bubble !== '' ? 'float' : 'off';
     if (mode !== this.mode) this.setMode(mode);
+    // パッドの 十字＋A・B で 押せる 画面の 目印（activeMenuRoot が 見る。COOP-1 5d・AC165）
+    this.el.toggleAttribute('data-pad-ready', housePadReady(m, m.open && m.page === 'sky' && this.d.confirming()));
     if (mode === 'off') return;
     const html = withRuby(m.bubble);
     if (this.bubble.innerHTML !== html) this.bubble.innerHTML = html;
@@ -121,17 +134,11 @@ export class HouseUi {
   /** 毎フレーム: 話して いる 間は ふきだしを 頭の 上へ */
   placeBubble(): void {
     if (this.mode !== 'float') return;
-    const a = this.d.anchor();
-    const w = this.bubble.offsetWidth;
-    const h = this.bubble.offsetHeight;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const x = a ? a.x : vw / 2;
-    const y = a ? a.y : vh * 0.4;
-    const left = Math.max(16, Math.min(vw - w - 16, x - w / 2));
-    const top = Math.max(16, Math.min(vh - h - 16, y - h - 16));
-    this.bubble.style.left = `${Math.round(left)}px`;
-    this.bubble.style.top = `${Math.round(top)}px`;
+    this.bubbleSize.w = this.bubble.offsetWidth;
+    this.bubbleSize.h = this.bubble.offsetHeight;
+    const pos = placeBubble(this.d.anchor(), this.bubbleSize, this.d.pane(), this.bubblePos, 16, this.d.avoid?.() ?? null);
+    this.bubble.style.left = `${Math.round(pos.left)}px`;
+    this.bubble.style.top = `${Math.round(pos.top)}px`;
   }
 
   // ------------------------------------------------------------ 場面の 切りかえ

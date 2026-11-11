@@ -33,6 +33,9 @@ export interface CoopMenuDeps {
   onClose(): void;
 }
 
+/** とどく 距離（マス。M2 の 5.0。小屋 の ふち から。1P も 2P も この 1 つ） */
+export const COOP_MENU_REACH = 5.0;
+
 /** 小屋 の ふち（まん中 ±2.5）から プレイヤー まで の 水平 きょり が `reach` 以内 か。`c` = 5×5 の まん中 の マス */
 export function coopMenuReach(c: { x: number; z: number }, px: number, pz: number, reach: number): boolean {
   const dx = Math.max(0, Math.abs(px - (c.x + 0.5)) - 2.5);

@@ -249,6 +249,12 @@ export function wireFighters(deps: WiredWeapons) {
     armor,
     lock,
     onSleepStart: () => playSleepJingle(fxSound),
+    actions: game.input,
+    combat: () => combat,
+    paused: () => screen.inventoryOpen(),
+    ready: () => shared.sleepReady(), // COOP-1 5e: 「2 人」に 数えられる 人の 数（wireDuoPlay が 差しかえる。1 人の とき 1）
+    beforeSleep: () => shared.p2SleepWake(),
+    noteFor2: (text) => shared.duoGadgetNote(2, text),
   });
   // COOP-1 3a: 1P の 妖怪の 世界は 「1P の こうげき」と 名前を つけた 物（けいけんちは 当てた 人に）。妖怪の 係は あとで 作るので 初めて 使う とき 包む
   let yokai1: YokaiWorld | null = null;
@@ -402,7 +408,7 @@ export function wireFighters(deps: WiredWeapons) {
     };
   }
   // HOUSE-1D: 家具の はたらき（いす・おふろ・ほんだな）
-  const furniture = wireSeat({ game, world, controller, combat, rig, book: deps.book, lock, pointerLock: deps.pointerLock });
+  const furniture = wireSeat({ game, world, controller, combat, rig, book: deps.book, lock, pointerLock: deps.pointerLock, owner: shared.modalOwner });
   // COOP-1 5b: 守り・くじは 1P と 2P で 同じ 物（2P の ほる係には shared 経由で わたす。duoPlay.ts は このファイルを import しない）
   const buildPort = (shared.buildPort = createBuildPort(() => shared.house));
   const harapanPort = (shared.harapanPort = createHarapanPort(harapanRoll));
@@ -539,6 +545,13 @@ export function wireFighters(deps: WiredWeapons) {
   return {
     combat, storage, craft, furnaceWorld, dropper, dropController, sprinklers, pet, farm, dig, aimCfg, aimPointInto, gadgets,
     seat: furniture.seat,
+    /** COOP-1 5e: 2P の いす・おふろ（参加する たびに attach、やめる たびに detach） */
+    seatFor: furniture.seatFor,
+    attachSeat2: furniture.attach2,
+    detachSeat2: furniture.detach2,
+    /** COOP-1 5d: 本・建築士さんの 錠の あつかい（1 つを 共有。かけなおし待ちの 窓口）と、家具の はたらき（2P の ほるが who 2 で 呼ぶ） */
+    modalLock: furniture.modal,
+    furniture: furniture.port,
   };
 }
 

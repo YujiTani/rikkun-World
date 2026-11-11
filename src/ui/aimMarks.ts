@@ -16,9 +16,14 @@ export class AimMarks {
   private stance: BladeStance | null = null;
   private bowLit = 0;
 
-  constructor(parent: HTMLElement) {
+  /** who = 2: 2 人の ときの 2P の 分（COOP-1 5f-1。`#aim-stance-p2`・`#aim-bow-p2`。2P の 半分の ＋に ついていく） */
+  constructor(parent: HTMLElement, who: 1 | 2 = 1) {
+    const suffix = who === 1 ? '' : `-p${who}`;
     this.stanceEl = document.createElement('div');
-    this.stanceEl.id = 'aim-stance';
+    this.stanceEl.id = `aim-stance${suffix}`;
+    this.stanceEl.className = `aim-stance aim-stance--p${who}`;
+    this.stanceEl.dataset.testid = `duo-aim-stance-p${who}`;
+    this.stanceEl.dataset.aim = 'stance';
     this.stanceEl.hidden = true;
     for (const s of STANCE_LINE_ORDER) {
       const l = document.createElement('div');
@@ -28,7 +33,9 @@ export class AimMarks {
       this.lines.push(l);
     }
     this.bowEl = document.createElement('div');
-    this.bowEl.id = 'aim-bow';
+    this.bowEl.id = `aim-bow${suffix}`;
+    this.bowEl.className = `aim-bow aim-bow--p${who}`;
+    this.bowEl.dataset.aim = 'bow';
     this.bowEl.hidden = true;
     for (let i = 0; i < 3; i++) {
       const d = document.createElement('div');

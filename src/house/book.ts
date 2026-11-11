@@ -24,16 +24,22 @@ export interface HouseRec {
 export type HouseView = Omit<HouseRec, 'front' | 'back'>;
 
 /** 戸の 下の マス (x, y, z) → 表の 番号（x・z は ±百万、y は 0〜255 の はんい） */
+/** 見はりの おぼえ 1 人分: 前の マスと、外（南）から 戸の マスに 入った 家（つぎの 1 歩で 中〔北〕へ 行けば 帯。ほかへ 行けば わすれる） */
+interface Watch {
+  prevX: number;
+  prevZ: number;
+  via: HouseRec | null;
+}
+const newWatch = (): Watch => ({ prevX: Number.NaN, prevZ: Number.NaN, via: null });
+
 const keyOf = (x: number, y: number, z: number): number => ((x + 1048576) * 2097152 + (z + 1048576)) * 256 + y;
 
 export class HouseBook {
   private readonly recs: HouseRec[] = [];
   private readonly byDoor = new Map<number, HouseRec>();
   private nextId = 1;
-  private prevX = Number.NaN;
-  private prevZ = Number.NaN;
-  /** 外（南）から 戸の マスに 入った 家（つぎの 1 歩で 中〔北〕へ 行けば 帯。ほかへ 行けば わすれる） */
-  private via: HouseRec | null = null;
+  /** 見はりの おぼえ（人ごと。1P の 動きが 2P の 判定を こわさない。[0] ＝ 1P、[1] ＝ 2P） */
+  private readonly watch: [Watch, Watch] = [newWatch(), newWatch()];
   /** 毎ステップの しらべで 引いた 記録の 数（テスト用。1 ステップで 高々 1） */
   lookups = 0;
 
@@ -58,8 +64,8 @@ export class HouseBook {
     this.recs.length = 0;
     this.byDoor.clear();
     this.nextId = 1;
-    this.prevX = Number.NaN;
-    this.prevZ = Number.NaN;
+    this.watch[0] = newWatch();
+    this.watch[1] = newWatch();
     if (!Array.isArray(raw)) return;
     const int = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
     for (const x of raw as unknown[]) {
@@ -119,21 +125,22 @@ export class HouseBook {
    * 1 ステップ。プレイヤーが「外（南）→ 戸の マス → 中（すぐ 北）」と 通った 家を 返す（名前の 帯を 出す 合図）。ほかは null。
    * 戸の マスに 入って すぐ 外へ もどる・中を 歩く・出る・テレポート〔さっきの マスから 1 マス より 遠い〕・かべの あなから 入る ときは 返さない。
    */
-  step(p: Vec3): HouseRec | null {
+  step(p: Vec3, who: 1 | 2 = 1): HouseRec | null {
+    const w = this.watch[who - 1]!;
     const cx = Math.floor(p.x);
     const cz = Math.floor(p.z);
-    if (cx === this.prevX && cz === this.prevZ) return null;
-    const px = this.prevX;
-    const pz = this.prevZ;
-    this.prevX = cx;
-    this.prevZ = cz;
-    const via = this.via;
-    this.via = null;
+    if (cx === w.prevX && cz === w.prevZ) return null;
+    const px = w.prevX;
+    const pz = w.prevZ;
+    w.prevX = cx;
+    w.prevZ = cz;
+    const via = w.via;
+    w.via = null;
     if (Math.abs(cx - px) > 1 || Math.abs(cz - pz) > 1) return null; // はじめて・テレポート
     this.lookups++;
     if (via && cx === via.door.x && cz === via.door.z - 1) return via; // 外 → 戸 → 中
     const rec = this.doorBelow(cx, p.y, cz);
-    if (rec && cz === pz - 1) this.via = rec; // 外（南）から 戸の マスへ
+    if (rec && cz === pz - 1) w.via = rec; // 外（南）から 戸の マスへ
     return null;
   }
 

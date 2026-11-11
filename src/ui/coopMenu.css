@@ -189,8 +189,8 @@
 }
 
 /* 開いている間は 遊び の HUD（レベル・ハート・ホットバー・合図）を 消す（もちもの画面と おなじ） */
-#hud:has(.coop-menu:not([hidden]))
-  > :is(#crosshair, #hud-self, #clock, #hotbar, #action-hint, #hud-notice, #farm-hint, #farm-aim, #pickup-log, #home-notice) {
+#hud:has(.coop-menu:not(.coop-menu--p2):not([hidden]))
+  > :is(#crosshair, .duo-crosshair-p1, #hud-self, #clock, #hotbar, #action-hint, #hud-notice, #farm-hint, #farm-aim, #pickup-log, #home-notice) {
   opacity: 0;
 }
 .coop-btn__text,

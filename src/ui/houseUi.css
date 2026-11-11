@@ -55,10 +55,16 @@
   box-shadow: var(--rk-shadow-1);
   pointer-events: none;
 }
+/* 2 人の とき: 半分の はば（まん中の 線から 5% あけた 90%）から はみ出さない */
+html[data-duo] .house-bubble {
+  max-width: min(560px, calc(45vw - 32px));
+}
 .house-ui.is-float .house-bubble {
   position: absolute;
   left: 0;
   top: 0;
+  /* はばは 中身（max-width まで）で きまり、left に よらない（絶対配置の 「あまった はば」に ひきずられて 毎フレーム かわる のを 止める） */
+  width: max-content;
 }
 .house-ui.is-float .house-bubble::after {
   content: '';
@@ -169,7 +175,7 @@
 
 /* 開いている 間は 遊びの HUD（ハート・ホットバー・合図 など）を 消す（もちもの画面と おなじ） */
 #hud:has(.house-ui.is-menu)
-  > :is(#crosshair, #hud-self, #clock, #hotbar, #action-hint, #hud-notice, #farm-hint, #farm-aim, #pickup-log, #home-notice) {
+  > :is(#crosshair, .duo-crosshair-p1, #hud-self, #clock, #hotbar, #action-hint, #hud-notice, #farm-hint, #farm-aim, #pickup-log, #home-notice) {
   opacity: 0;
 }
 

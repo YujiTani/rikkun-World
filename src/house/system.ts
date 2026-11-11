@@ -10,6 +10,7 @@ import type { HouseWorld } from './ground';
 import type { BlockWatcher } from './blockWatch';
 import { ArchitectManager, type ArchitectInfo } from './manager';
 import { HouseBook, type HouseView } from './book';
+import { bagVia, type Who } from './whoPort';
 import { cellInfo, type CellInfo } from './cell';
 import type { PreviewMode } from './preview/mesh';
 import { NO_PREVIEW, previewModeOf, type PreviewPort } from './preview/port';
@@ -39,9 +40,15 @@ export interface HouseSystemDeps {
   /** 世界の 窓口。`setBlock` は 建てた 家を 書く `buildNow` が 使う（本物の 世界は ふつうの `setBlock`） */
   world: HouseWorld & { setBlock(x: number, y: number, z: number, id: BlockId): boolean };
   spawn: () => { x: number; z: number; yawDeg: number };
-  /** プレイヤーの 足もと */
+  /** プレイヤー（1P）の 足もと */
   player: () => Vec3;
   bag: SheetBag;
+  /** COOP-1 5d: その 人の 足もと。2P が いなければ null（省くと who 1 は player()、who 2 は null）。話して いる あいだ 中の「プレイヤーの 場所」は 話した 人の 物 */
+  playerOf?: (who: Who) => Vec3 | null;
+  /** その 人の もちもの（省くと bag）。せっけいず・材料・どうぐは 話した 人の 物 */
+  bagOf?: (who: Who) => SheetBag;
+  /** その 人から craftTansuRange の たんすを 数える 係（省くと craft）。たんす本体の 取り出しは tansu のまま */
+  craftOf?: (who: Who) => CraftCount | undefined;
   /** 材料の 数え方（もちもの ＋ 近くの たんす。「つくる」と 同じ きょり・同じ 数え方。HOUSE-1E）。`tansu` と そろって いない ときは もちものだけ */
   craft?: CraftCount;
   /** 近くの たんすから 取り出す・読む・書く（建てる 材料・せっけいずの かみ・ふで。HOUSE-1E） */
@@ -51,14 +58,14 @@ export interface HouseSystemDeps {
   /** 声「ぽぽぽ」を 1 回 鳴らす */
   voice: () => void;
   /** 道具を わたした（拾った 知らせ） */
-  gave: (item: ItemId) => void;
+  gave: (item: ItemId, who?: Who) => void;
   /** 持ち物の ほかに 持って いる 数（たんすの 中）。なければ 持ち物だけ */
   owned?: (item: ItemId) => number;
   /** メニューが 開いた / とじた（ゲームの 時間を 止める・マウスの ポインターを はなす / もどす） */
   onOpen: () => void;
   onClose: () => void;
-  /** やられた・ほかの 画面が 開いた など、話しを つづけられない とき true */
-  interrupted?: () => boolean;
+  /** やられた・ほかの 画面が 開いた など、話しを つづけられない とき true（who ＝ 話して いる 人） */
+  interrupted?: (who: Who) => boolean;
   /** 地形だけで 見た「水でない 地面」（テストで 差しかえる） */
   isLand?: (x: number, z: number) => boolean;
   /** 戸を 外から 通って 中に 入った: 名前の 帯を 上の 帯の 列に 入れる（text ＝ 家の 名前。HOUSE-1 §3.3） */
@@ -67,8 +74,8 @@ export interface HouseSystemDeps {
   held?: () => ItemId | null;
   /** 音・演出（HOUSE-1C PR-2。なければ 鳴らさない） */
   play?: (e: HouseSfx) => void;
-  /** プレイヤーを 足もと (x, y, z) へ うつす（建築を はじめる とき 場所の 中に いた ときだけ）。なければ 位置を 書きかえる */
-  teleport?: (x: number, y: number, z: number) => void;
+  /** その 人を 足もと (x, y, z) へ うつす（建築を はじめる とき 場所の 中に いた ときだけ）。なければ 位置を 書きかえる */
+  teleport?: (who: Who, x: number, y: number, z: number) => void;
   /** 建築を はじめる 場所の 中に いる 動物・妖怪を 外へ うつす。なければ 何も しない */
   evict?: (box: { x0: number; z0: number; x1: number; z1: number; y0: number; y1: number }, spots: readonly Vec3[]) => void;
 }
@@ -117,6 +124,8 @@ export class HouseSystem {
   private readonly materials: Materials;
   private onChange: (() => void) | null = null;
   private seen = 0;
+  /** 話して いる 人（話して いない あいだは 1P） */
+  private who: Who = 1;
 
   constructor(private readonly d: HouseSystemDeps) {
     this.manager = new ArchitectManager({
@@ -124,20 +133,40 @@ export class HouseSystem {
       world: d.world,
       spawn: d.spawn,
       record: this.state.record,
-      player: d.player,
+      player: () => this.nowPos(),
       isLand: d.isLand,
     });
-    this.materials = new Materials(d.bag, d);
+    // もちもの・たんすを 数える 係・場所は「いま 話して いる 人」の 物（話して いなければ 1P）
+    const bagNow = bagVia(() => this.bagOf(this.talker() ?? 1));
+    const crafter = (): CraftCount | undefined => d.craftOf?.(this.talker() ?? 1) ?? d.craft;
+    const source = {
+      get craft() {
+        return crafter();
+      },
+      tansu: d.tansu,
+    };
+    this.materials = new Materials(bagNow, source);
+    const gave = (item: ItemId): void => d.gave(item, this.talker() ?? 1);
     this.editor = new EditorController({
       holder: this.state.holder,
       have: (item) => this.materials.have(item),
-      sheet: createSheetPort({ bag: d.bag, craft: d.craft, tansu: d.tansu, durability: d.durability, register: (draft) => this.state.register(draft), gave: d.gave }),
+      sheet: createSheetPort({
+        bag: bagNow,
+        get craft() {
+          return crafter();
+        },
+        tansu: d.tansu,
+        durability: d.durability,
+        register: (draft) => this.state.register(draft),
+        gave,
+      }),
       onMade: () => this.talk.made(),
     });
-    this.renamer = new HouseRename({ book: this.book, player: () => d.player() });
+    this.renamer = new HouseRename({ book: this.book, player: () => this.nowPos() });
     this.build = new BuildGlue({
       world: d.world,
-      player: d.player,
+      player: () => this.nowPos(),
+      playerOf: (who) => this.posOf(who),
       held: () => d.held?.() ?? null,
       plans: () => this.blueprints(),
       have: (item) => this.materials.have(item),
@@ -148,9 +177,12 @@ export class HouseSystem {
       speaker: () => this.talk.current(),
       fallbackArchitect: () => this.manager.all()[0]?.id ?? null,
       play: (e) => d.play?.(e),
-      teleport: (x, y, z) => {
-        if (d.teleport) d.teleport(x, y, z);
-        else Object.assign(d.player(), { x, y, z });
+      teleport: (who, x, y, z) => {
+        if (d.teleport) d.teleport(who, x, y, z);
+        else {
+          const p = this.posOf(who);
+          if (p) Object.assign(p, { x, y, z });
+        }
       },
       evict: (box, spots) => d.evict?.(box, spots),
     });
@@ -162,12 +194,12 @@ export class HouseSystem {
       editor: this.editor,
       record: this.state.record,
       legacy: this.state.legacy,
-      bag: d.bag,
+      bag: bagNow,
       voice: d.voice,
       onOpen: () => d.onOpen(),
       onClose: () => d.onClose(),
       endTalk: (id) => this.manager.endTalk(id),
-      gave: d.gave,
+      gave,
       ...(d.owned ? { owned: d.owned } : {}),
     });
   }
@@ -181,7 +213,11 @@ export class HouseSystem {
   /** 1 ステップ */
   update(): void {
     this.manager.update();
-    const entered = this.book.step(this.d.player());
+    // 戸を 通った 家の 帯: 人ごとに しらべ、同じ ステップに 2 人なら 1 つ（1P の 家が 先）
+    const p2 = this.d.playerOf?.(2) ?? null;
+    const e1 = this.book.step(this.d.player(), 1);
+    const e2 = p2 ? this.book.step(p2, 2) : null;
+    const entered = e1 ?? e2;
     if (entered) this.d.nameBand?.(entered.name);
     this.build.update();
     this.talk.tickBye();
@@ -191,17 +227,43 @@ export class HouseSystem {
   }
 
   /** 右クリックで 話しかける。いない・もう 話して いる なら false */
-  talkTo(id: string): boolean {
+  talkTo(id: string, who: Who = 1): boolean {
     if (!this.manager.get(id) || this.talk.current() !== null) return false;
-    if (!this.talk.start(id)) return false;
-    this.manager.beginTalk(id, this.d.player());
+    const from = this.posOf(who);
+    if (!from) return false;
+    this.who = who;
+    if (!this.talk.start(id)) {
+      this.who = 1;
+      return false;
+    }
+    this.manager.beginTalk(id, from);
     this.emit();
     return true;
   }
 
-  /** たたかれた（おっとっと） */
-  hit(id: string): void {
-    this.manager.hit(id, this.d.player());
+  /** 話して いる 人（話して いなければ null）。中の「プレイヤーの 場所」・もちもの・材料は この 人の 物 */
+  talker(): Who | null {
+    return this.talk.current() === null ? null : this.who;
+  }
+
+  /** たたかれた（おっとっと）。who ＝ たたいた 人（その 人の 方から かたむく） */
+  hit(id: string, who: Who = 1): void {
+    const from = this.posOf(who);
+    if (from) this.manager.hit(id, from);
+  }
+
+  /** その 人の 足もと（2P が いなければ null） */
+  private posOf(who: Who): Vec3 | null {
+    return this.d.playerOf?.(who) ?? (who === 1 ? this.d.player() : null);
+  }
+
+  /** いま 中で「プレイヤー」と 呼ぶ 場所: 話して いる 人、いなければ 1P */
+  private nowPos(): Vec3 {
+    return this.posOf(this.talker() ?? 1) ?? this.d.player();
+  }
+
+  private bagOf(who: Who): SheetBag {
+    return this.d.bagOf?.(who) ?? this.d.bag;
   }
 
   press(id: string, arg?: unknown): void {
@@ -335,7 +397,7 @@ export class HouseSystem {
   /** 窓口 `blueprints()`: 持ち物の せっけいず（マスの 番号つき）。中身を 知らない 番号は とばす */
   blueprints(): Array<Blueprint & { slot: number; windowCells: ReturnType<typeof blueprintWindows> }> {
     const out: Array<Blueprint & { slot: number; windowCells: ReturnType<typeof blueprintWindows> }> = [];
-    this.d.bag.slots().forEach((s, slot) => {
+    this.bagOf(this.talker() ?? 1).slots().forEach((s, slot) => {
       const bp = s?.item === SHEET && s.plan ? this.state.blueprint(s.plan) : null;
       if (bp) out.push({ ...bp, slot, windowCells: blueprintWindows(bp) });
     });
@@ -344,7 +406,7 @@ export class HouseSystem {
 
   /** 持ち物の マスの せっけいずの 中身（なければ null） */
   private planAt(slot: number): Blueprint | null {
-    const s = this.d.bag.slots()[slot];
+    const s = this.bagOf(this.talker() ?? 1).slots()[slot];
     return s?.item === SHEET && s.plan ? this.state.blueprint(s.plan) : null;
   }
 
@@ -456,9 +518,9 @@ export class HouseSystem {
 
   private stepTalk(id: string): void {
     const a = this.manager.get(id);
-    const p = this.d.player();
-    // 建築士さんが きえた（遠くへ はなれて 一覧から はずれた）・プレイヤーが はなれた・ほかの 画面が 開いた: やめる
-    if (!a || Math.hypot(a.x - p.x, a.z - p.z) > TALK_RANGE || this.d.interrupted?.() === true) {
+    const p = this.posOf(this.who);
+    // 建築士さんが きえた（遠くへ はなれて 一覧から はずれた）・話した 人が はなれた／いなくなった・ほかの 画面が 開いた: やめる
+    if (!a || !p || Math.hypot(a.x - p.x, a.z - p.z) > TALK_RANGE || this.d.interrupted?.(this.who) === true) {
       this.talk.close();
       return;
     }

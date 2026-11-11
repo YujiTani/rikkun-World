@@ -24,7 +24,7 @@
  * 世界は すけたまま。ホットバーは パネルの中にもある（#44・#82）。
  */
 #hud:has(> #inventory-screen:not([hidden]))
-  > :is(#title, #crosshair, #notice-signal, #notice-signal-text, #notice-name, #hud-self, #clock, #hotbar, #action-hint, #hud-notice, #farm-hint, #farm-aim, #pickup-log, #home-notice) {
+  > :is(#title, #crosshair, .duo-crosshair-p1, #notice-signal, #notice-signal-text, #notice-name, #hud-self, #clock, #hotbar, #action-hint, #hud-notice, #farm-hint, #farm-aim, #pickup-log, #home-notice) {
   opacity: 0;
 }
 

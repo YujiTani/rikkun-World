@@ -9,7 +9,7 @@ import { dist2d, inFootprintAny } from './animalMath';
 import { isDeepWater } from '../world/blocks/water';
 
 /** この 係 が 使う ものだけ（`AnimalCore` の 一部） */
-type KitCtx = Pick<AnimalCore, 'breedRng' | 'breedState' | 'coopList' | 'd' | 'dropGold' | 'ents' | 'find' | 'friendCount' | 'getPlayer' | 'hintOut' | 'kitList' | 'kitScratch' | 'make' | 'push' | 'settings' | 'world'>;
+type KitCtx = Pick<AnimalCore, 'breedRng' | 'breedState' | 'coopList' | 'd' | 'dropGold' | 'ents' | 'find' | 'friendCount' | 'getPlayer' | 'hintOut' | 'playerOf' | 'kitList' | 'kitScratch' | 'make' | 'push' | 'settings' | 'world'>;
 
 /** その マス が こたつ の 3 マス の どれか なら 本体 の マス。ほか は そのまま */
 function kitAnchor(core: KitCtx, x: number, y: number, z: number): { x: number; y: number; z: number } {
@@ -84,6 +84,7 @@ function kitEggCount(core: KitCtx): number {
 export function kitIcons(core: KitCtx, aimed: { x: number; y: number; z: number } | null, holdingEgg: boolean): KitIcon[] {
   const out: KitIcon[] = [];
   const p = core.getPlayer().position;
+  const q = core.playerOf(2)?.position ?? null;
   const a = aimed && holdingEgg ? kitAnchor(core, aimed.x, aimed.y, aimed.z) : null;
   const row = (k: Kit | null, x: number, y: number, z: number): KitIcon => {
     const slots: KitIcon['slots'] = [];
@@ -98,7 +99,8 @@ export function kitIcons(core: KitCtx, aimed: { x: number; y: number; z: number 
     const isAimed = !!a && a.x === k.x && a.y === k.y && a.z === k.z;
     const half = (k.size ?? 1) / 2;
     if (isAimed) aimedDone = true;
-    if (!isAimed && dist2d(k.x + half, k.z + half, p.x, p.z) > KIT_ICON_DIST) continue;
+    // COOP-1 5c: 2 人の どちらかから 近ければ 出す
+    if (!isAimed && dist2d(k.x + half, k.z + half, p.x, p.z) > KIT_ICON_DIST && (!q || dist2d(k.x + half, k.z + half, q.x, q.z) > KIT_ICON_DIST)) continue;
     out.push(row(k, k.x, k.y, k.z));
   }
   if (a && !aimedDone && String(core.world.getBlock(a.x, a.y, a.z)) === BLOCK_NUKUNUKU) out.push(row(null, a.x, a.y, a.z));
@@ -152,7 +154,7 @@ function kitInfo(core: KitCtx, k: Kit, out: KitInfo, deep: boolean): KitInfo {
 }
 
 /** 毎ステップ の こたつ（LIVE-2 §2.1・LIVE-2.1 §2.4）。時間 は 世界 の 時計 で たまご ごと に すすむ（はなれて いても） */
-export function updateKits(core: KitCtx, p: Vec3): void {
+export function updateKits(core: KitCtx, p1: Vec3, p2: Vec3 | null = null): void {
   const s = core.settings;
   for (let i = core.kitList.length - 1; i >= 0; i--) {
     const k = core.kitList[i]!;
@@ -188,7 +190,8 @@ export function updateKits(core: KitCtx, p: Vec3): void {
     if (k.gap > 0 && --k.gap > 0) continue;
     const ready = k.eggs.find((r) => r.left <= 0);
     if (!ready) continue;
-    // あたため おわり: 近く に いて、なかま が 8 わ より 少ない とき に かえる
+    // あたため おわり: 近く に いて、なかま が 8 わ より 少ない とき に かえる（COOP-1 5c: 2 人の 近い 方）
+    const p = p2 && dist2d(k.x + 0.5, k.z + 0.5, p2.x, p2.z) < dist2d(k.x + 0.5, k.z + 0.5, p1.x, p1.z) ? p2 : p1;
     if (dist2d(k.x + 0.5, k.z + 0.5, p.x, p.z) > s.kitHatchDist || Math.abs(p.y - k.y) > 8) {
       k.fullWait = 0;
       continue;

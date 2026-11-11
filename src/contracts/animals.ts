@@ -38,8 +38,13 @@ export type AnimalHintKind = AnimalWindowHint;
 
 export type AnimalRemoveReason = 'far' | 'void' | 'buried';
 
-/** `animals.events()` の出来事（§6.1） */
-export type AnimalEvent =
+/**
+ * `animals.events()` の出来事（§6.1）。COOP-1 5c: 2P の 口を 通した 出来事だけ `by: 2` が つく（1P の 物には `by` の キーが ない）。
+ * にわとりが 自分で 動く 出来事（spawn・warp・hatch など）は 人なし。
+ */
+export type AnimalEvent = AnimalEventBody & { by?: 2 };
+
+type AnimalEventBody =
   | { type: 'spawn'; id: number; x: number; y: number; z: number }
   | { type: 'remove'; id: number; reason: AnimalRemoveReason }
   | { type: 'feed'; id: number; item: ItemId; hearts: number; friend: boolean }

@@ -102,26 +102,26 @@ export interface AnimalApi {
   preview(id: number, held: ItemStack | null): 'feed' | 'animalFull' | 'animalPet' | null;
   /** 版 3.2（C が 足した）: なかま か。なかま は 右クリック を はなす か 40 おしつづける まで 何も しない（§2.3・§2.8）。なければ やせい あつかい */
   isFriend?(id: number): boolean;
-  /** 版 3.2（C が 足した）: C から の 合図（treeEmpty・netHint・cantPutHere・carryWild・fullHint・friendFull・feedHint）を 出来事 `hint` と `lastHint()` に 入れる */
-  emitHint?(h: AnimalHintKind): void;
+  /** 版 3.2（C が 足した）: C から の 合図（treeEmpty・netHint・cantPutHere・carryWild・fullHint・friendFull・feedHint）を 出来事 `hint` と `lastHint()` に 入れる。COOP-1 5c: `who` 2 は 出来事（`by: 2`）だけ */
+  emitHint?(h: AnimalHintKind, who?: 1 | 2): void;
   /** 'ate' の とき だけ C が むし を 1 へらす。'full' = おなかいっぱい、'pet' = なでる に なった、'friendFull' = なかま が 8 わ */
-  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | 'wait' | 'harapan' | 'harapanNo' | null;
+  feed(id: number, item: ItemId, who?: 1 | 2): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | 'wait' | 'harapan' | 'harapanNo' | null;
   /** GOLD-1: `'wait'` = なでる の まち中（なでられない。合図 natsukiWait は A が 出す） */
-  pet(id: number): 'wild' | 'friend' | 'wait' | null;
+  pet(id: number, who?: 1 | 2): 'wild' | 'friend' | 'wait' | null;
   /** GOLD-1 §6: なかよし パネル の 状態（`shown` は 大人 の なかま だけ） */
   natsukiView?(id: number): NatsukiView | null;
   /** 版 3.2: おなかいっぱい か（テスト・確認用。照準 の 下 の `まってね` は `preview` が 'animalFull' を 返す） */
   isFull?(id: number): boolean;
   /** 版 3.2: あみ を ふる（block = ねらって いる ブロック）。くじ は A */
-  swingNet(block: Vec3): SwingResult;
+  swingNet(block: Vec3, who?: 1 | 2): SwingResult;
   /** 版 3.2: 押しつづけ（heldTicks）。'lifted' = だっこ した、'wait' = まだ、'wild' = やせい は だっこ できない、null = 何も しない */
-  carryHold(id: number, heldTicks: number): 'lifted' | 'wait' | 'wild' | null;
+  carryHold(id: number, heldTicks: number, who?: 1 | 2): 'lifted' | 'wait' | 'wild' | null;
   /** 版 3.2: おろす（spot = 足もと の 位置）。おろせたら true */
-  putDown(spot: Vec3): boolean;
+  putDown(spot: Vec3, who?: 1 | 2): boolean;
   /** LIVE-2（C が 足した）: `putDown` が false の 直後 に 呼ぶ。A が 理由 を 持って いれば その 合図（`coopFull`＝6 わ の 小屋・`friendFull`＝なかま 8 わ）。なければ C は 小屋 の 中 の 数 を 自分 で 見て、それ でも なければ `cantPutHere` */
-  putDownWhy?(): AnimalWindowHint | null;
-  /** だっこ している id か null */
-  carrying(): number | null;
+  putDownWhy?(who?: 1 | 2): AnimalWindowHint | null;
+  /** だっこ している id か null（COOP-1 5c: `who` を 省くと 1P） */
+  carrying(who?: 1 | 2): number | null;
   forEachVisible(fn: (v: AnimalView) => void): void;
 
   // ---- LIVE-2（§6.1・§7）。A が 実装。C（ふりわけ・画面）・B（描画）・つなぎ込み が 使う
@@ -136,11 +136,11 @@ export interface AnimalApi {
   /** その ブロック を 持つ 小屋（さく・もん・ねぐら・すばこ。なければ null） */
   coopAt(x: number, y: number, z: number): CoopInfo | null;
   /** 右クリック: `held` を 持って こたつ を ねらった。入れた なら 'put'（A が 持ち物 を へらす 口 は 無い。C が `held` を 1 へらす） */
-  useKit(x: number, y: number, z: number, held: ItemId | null): KitUseResult;
+  useKit(x: number, y: number, z: number, held: ItemId | null, who?: 1 | 2): KitUseResult;
   /** 右クリック: 小屋 の すばこ の たまご を ぜんぶ あつめる（入らない 分 は のこる）。あつめた 数 */
-  collectCoop(coopId: number): { egg: number; gold: number };
+  collectCoop(coopId: number, who?: 1 | 2): { egg: number; gold: number };
   /** 左クリック の 押した ステップ: 小屋 の ブロック を こわして よい か。'locked' なら 出来事 `coopLocked`・合図 `coopNotEmpty`・音 `animalHint` は A が 出す */
-  breakCoop(coopId: number, firstPress: boolean): CoopBreakResult;
+  breakCoop(coopId: number, firstPress: boolean, who?: 1 | 2): CoopBreakResult;
   /** 小屋 を 消す（子 0 の とき だけ。ブロック を 消すのは つなぎ込み〈`AnimalDeps.removeCoopBlocks`〉）。すばこ の たまご を おとす */
   removeCoop(coopId: number): boolean;
   /** ひよこ から 数えて 種類 の くじ の 数（保存 される。引数 で 設定） */
@@ -152,23 +152,22 @@ export interface AnimalApi {
   /** B が 描く: 小屋（すばこ の 数 と 子 の 数） */
   forEachCoop(fn: (c: CoopInfo) => void): void;
   /** 直前 の `putDown` が 失敗 した わけ（`coopFull`・`friendFull`。A が 合図 を 出して いる）。ほか は null */
-  putDownWhy?(): AnimalHintKind | null;
   // ---- LIVE-2.1（§6.2）
   /** だっこ 中 の 着地点 の 答え（だっこ して いなければ null）。照準 の 下 の 語・着地点 の 丸 の もと */
-  throwSpot?(aim: ThrowAim): ThrowSpot | null;
+  throwSpot?(aim: ThrowAim, who?: 1 | 2): ThrowSpot | null;
   /** だっこ 中 に 右クリック: なげる（d＜1 は そっと おろす）。なげられない 所 は 合図 を 出して false */
-  startThrow?(aim: ThrowAim): boolean;
+  startThrow?(aim: ThrowAim, who?: 1 | 2): boolean;
   /** テスト 用: だっこ 中 の 子 を その 足もと の 点 へ なげる（ゲーム と 同じ とびかた・きまり） */
-  throwTo?(x: number, y: number, z: number): boolean;
+  throwTo?(x: number, y: number, z: number, who?: 1 | 2): boolean;
   /** 小屋 の 子 に なった しゅんかん の 大きな しるし の 段 0〜1（いちばん あたらしい 子。なければ 0） */
   homePop?(): number;
   // ---- LIVE-3（§6.1）
   /** その 小屋 の えらべる 子 の id（§2.1） */
   meatList?(coopId: number): number[];
   /** いただきます を はじめる。`notEligible` = えらべない 子（演出 中 の 小屋 より 先 に 見る）・`busy` = その 小屋 で 演出 中 */
-  meat?(coopId: number, id: number): { ok: boolean; reason: null | 'notEligible' | 'busy' };
+  meat?(coopId: number, id: number, who?: 1 | 2): { ok: boolean; reason: null | 'notEligible' | 'busy' };
   /** 演出 の 一言 の ふわっと 度 0〜1（出て いない とき は null） */
-  meatSay?(): number | null;
+  meatSay?(who?: 1 | 2): number | null;
   /** 保存 の 前: 演出 中 の 子 を その場 で おわらせる（にく は 持ち物 へ） */
   finishMeat?(): void;
   /** 天板 の 上 の たまご の 3 わく（プレイヤー 8 マス 以内、または たまご を 持って ねらって いる こたつ） */
@@ -210,11 +209,11 @@ export interface AnimalDeps {
   settings?: LiveSettings;
   dropEgg(at: Vec3): void;
   /** 版 3.2: 持ち物 に 入れる。入らなければ 落として false（むし） */
-  addItem(item: ItemId): boolean;
+  addItem(item: ItemId, who?: 1 | 2): boolean;
   /** 版 3.2: もう だっこ した ことが ある か（記録 `carry:*` ＞ 0）。`carryHint` を 出すか の 判定 */
   carriedBefore?(): boolean;
   /** LIVE-2: 入る なら 持ち物 へ。入らなければ 何も せず false（足もと に 落とさない）。すばこ の たまご を あつめる とき に 使う。なければ `addItem` */
-  tryAddItem?(item: ItemId): boolean;
+  tryAddItem?(item: ItemId, who?: 1 | 2): boolean;
   day(): number;
   phase(): DayPhase;
   countryAt(seed: number, x: number, z: number): { kind: string };

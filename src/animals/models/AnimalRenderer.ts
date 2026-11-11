@@ -4,7 +4,9 @@ import { ANIMAL_FX } from '../../fx/animalFxConfig';
 import { MODEL_SCALE, getAnimalModel, modelKindOf, type AnimalModelKind } from './chickenModel';
 import { NEST_EGG_SCALE, getCoopDoorModel, getCoopModel, getNestEggsModel } from './coopSpec';
 import { ICON_H, ICON_PER_BLOCK, ICON_W, kitIconKey, rasterKitIcon, type KitIconRow } from './kitIcons';
-import { RING_TEX, rasterRing, ringState, type RingState, type ThrowSpotLike } from './throwRing';
+import { ringStates, type RingState, type ThrowSpotLike } from './throwRing';
+import { ThrowRingView } from './throwRingView';
+import { carryPlacement, placeCarriedRoot, type CarryPlacement } from './carryPane';
 import { getBugModel } from './bugNetModel';
 import { LAND_TICKS, createPose, poseChicken } from './chickenPose';
 import { CHICKEN_BONES, CHICKEN_SCALE, COL, V } from './chickenSpec';
@@ -38,6 +40,11 @@ const ARROW_TRIS = 8;
 const DOOR_TOP = 16 / 9;
 /** 小屋 の 形 は 1/9 点 で 組んだ ので 1/16 で 作った 面 に かける */
 const COOP_SCALE = 16 / 9;
+interface Vec3Like {
+  x: number;
+  y: number;
+  z: number;
+}
 const KIND_INDEX: Readonly<Record<AnimalModelKind, number>> = { chicken: 0, chick: 1, machoChick: 2, macho: 3 };
 /** 小屋 の むき（0 北 −z・1 東 +x・2 南 +z・3 西 −x）の 回転（もん = −z が その むき） */
 /** 天板 の 上 の たまご の 表示: 天板 の 上 0.5 マス が 絵 の 下 の はし（LIVE-2.1 §3.2）。こたつ の 高さ = 1 */
@@ -65,10 +72,14 @@ export class AnimalRenderer {
   /** とぶ むし の 入れ物（見えない ものは 隠して 使いまわす） */
   private readonly bugs: THREE.Group[] = [];
   private carry: CarryInfo | null = null;
+  /** いま だっこ中の 羽（2 人まで）と その 足もと。区画ごとに 置きなおす（`placeCarriedFor`） */
+  private readonly carried: { e: Entry; feet: Vec3Like }[] = [];
+  private carriedN = 0;
+  private readonly cp: CarryPlacement = { first: true, chest: { x: 0, y: 0, z: 0, yaw: 0 } };
+  private readonly cs = { v: new THREE.Vector3(), q: new THREE.Quaternion(), flipY: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI) };
   private readonly v1 = new THREE.Vector3();
   private readonly v2 = new THREE.Vector3();
   private readonly v3 = new THREE.Vector3();
-  private readonly flipY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
   // ---- LIVE-3: メニュー で えらんで いる 子 の 頭 の 上 の ▼（1 つ。点滅 しない）
   private arrow: THREE.Mesh | null = null;
   // ---- LIVE-2
@@ -170,6 +181,7 @@ export class AnimalRenderer {
     let draws = 0;
     let n = 0;
     this.carry = null;
+    this.carriedN = 0;
     camera.updateMatrixWorld();
     const pickId = this.o.fx.pick();
     let arrowAt: AnimalView | null = null;
@@ -291,7 +303,14 @@ export class AnimalRenderer {
     const flutterT = fl ? (now - e.flutterStart) * 0.06 : 0;
     const landT = e.landStart > -1e11 && !fl && !carried ? (now - e.landStart) * 0.06 : -1;
     if (carried) {
-      this.placeCarried(e, v, camera);
+      // 置きなおせる ように 足もと（羽の 位置）を 覚える（2 人まで）
+      const c = this.carried[this.carriedN] ?? (this.carried[this.carriedN] = { e, feet: { x: 0, y: 0, z: 0 } });
+      c.e = e;
+      c.feet.x = v.x;
+      c.feet.y = v.y;
+      c.feet.z = v.z;
+      this.carriedN = Math.min(this.carriedN + 1, 2);
+      this.placeCarried(e, c.feet, camera);
     } else {
       e.root.scale.set(1, 1, 1);
       e.root.rotation.set(0, -v.yaw, 0); // ゲームの 向きは −yaw（妖怪と 同じ）
@@ -343,7 +362,7 @@ export class AnimalRenderer {
     }
     e.hull.visible = v.targeted && !carried;
     e.root.updateMatrixWorld(true);
-    if (carried && !this.carry) this.measureCarry(e, camera);
+    if (carried && !this.carry) this.measureCarry(e, this.carried[this.carriedN - 1]!.feet, camera);
   }
 
   /** 見た目 の 形。大人 に なる 動き の 前半 は ひよこ の 形、半分 を すぎたら 大人 の 形（つなぎめ は ポーズ が そろえる） */
@@ -479,57 +498,27 @@ export class AnimalRenderer {
     for (let i = n; i < this.kitIconProps.length; i++) this.kitIconProps[i]!.mesh.visible = false;
   }
 
-  private ring: { mesh: THREE.Mesh; plain: THREE.DataTexture; home: THREE.DataTexture } | null = null;
-  private ringNow: RingState | null = null;
+  private readonly rings = new ThrowRingView(this.group);
+  private ringNow: RingState[] = [];
+  private readonly ringSpots: (ThrowSpotLike | null)[] = [null, null];
 
   /** だっこ 中 の 着地点 の 丸（`animals.throwSpot()` の 答え）。毎フレーム 呼ぶ。`null`・なげられない 所 で 消える */
   setThrowSpot(spot: ThrowSpotLike | null, seen = false): void {
-    this.ringNow = ringState(spot);
-    this.ringSeen = seen;
+    this.ringSpots[0] = spot;
+    this.ringSpots[1] = null;
+    this.setThrowSpots(this.ringSpots, seen);
   }
-  /** 目 から 丸 への 線 が 地形 に ふさがれて いない（さく の 板 ごし でも 見せる） */
-  private ringSeen = false;
+
+  /** COOP-1 5c: 2 人分 の 着地点（1P・2P の 順。だっこ して いない 人は null）。丸は 世界に 出る ので 両方 の 半分 から 見える */
+  setThrowSpots(spots: readonly (ThrowSpotLike | null)[], seen = false): void {
+    this.ringNow = ringStates(spots, this.ringNow);
+    this.rings.setSeen(seen);
+  }
 
   private updateRing(): void {
-    const st = this.ringNow;
-    if (!st) {
-      if (this.ring) this.ring.mesh.visible = false;
-      return;
-    }
-    if (!this.ring) {
-      const mk = (home: boolean): THREE.DataTexture => {
-        const t = new THREE.DataTexture(rasterRing(home), RING_TEX, RING_TEX, THREE.RGBAFormat);
-        t.magFilter = THREE.LinearFilter;
-        t.minFilter = THREE.LinearFilter;
-        t.needsUpdate = true;
-        return t;
-      };
-      const plain = mk(false);
-      const home = mk(true);
-      const mat = new THREE.MeshBasicMaterial({ map: plain, transparent: true, depthWrite: false, fog: false });
-      mat.userData.noDim = true;
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.renderOrder = 3;
-      mesh.frustumCulled = false;
-      this.group.add(mesh);
-      this.ring = { mesh, plain, home };
-    }
-    const r = this.ring;
-    const mat = r.mesh.material as THREE.MeshBasicMaterial;
-    const tex = st.home ? r.home : r.plain;
-    if (mat.map !== tex) {
-      mat.map = tex;
-      mat.needsUpdate = true;
-    }
-    // 地形 に ふさがれて いない とき は 深さ を 見ず 最後 に 描く（さく の 板 ごし でも 見える）。描画 の 数 は ふえない
-    mat.depthTest = !this.ringSeen;
-    r.mesh.renderOrder = this.ringSeen ? 999 : 3;
-    r.mesh.visible = true;
-    r.mesh.scale.set(st.diameter, st.diameter, 1);
-    r.mesh.position.set(st.x, st.y, st.z);
-    this.extraDraws++;
-    this.extraTris += 2;
+    this.rings.update(this.ringNow);
+    this.extraDraws += this.rings.used;
+    this.extraTris += this.rings.used * 2;
   }
 
   /** たいら に なる 足もと の 板（すけた 形 と いっしょ。白 の うすい 四角） */
@@ -617,45 +606,29 @@ export class AnimalRenderer {
     this.ghostShown = true;
   }
 
-  /** だっこ 中の 置き場所（§2.8・AC28）。1 人称 = カメラ の 前 の 画面 の 下 25%、3 人称 = プレイヤー の 胸 の 前 */
-  private placeCarried(e: Entry, v: AnimalView, camera: THREE.Camera): void {
-    const cam = camera.getWorldPosition(this.v1);
-    const feet = this.o.player ? this.o.player() : null;
-    let first = true;
-    if (feet) {
-      const d = Math.hypot(cam.x - feet.x, cam.y - (feet.y + CARRY.eyeY), cam.z - feet.z);
-      first = d < CARRY.firstPersonDist;
-    }
-    e.root.scale.setScalar(first ? CARRY.firstScale : CARRY.scale);
-    if (first) {
-      const fov = camera instanceof THREE.PerspectiveCamera ? camera.fov : 75;
-      const tanHalf = Math.tan((fov * D) / 2);
-      const topY = CARRY.topNdc * CARRY.front * tanHalf;
-      this.v2.set(0, topY - CARRY.height * CARRY.firstScale, -CARRY.front).applyMatrix4(camera.matrixWorld);
-      e.root.position.copy(this.v2);
-      camera.getWorldQuaternion(this.tmpQ);
-      e.root.quaternion.copy(this.tmpQ).multiply(this.flipY); // 顔（−z）が カメラ の ほう
-    } else {
-      let fx = feet!.x - cam.x;
-      let fz = feet!.z - cam.z;
-      const len = Math.hypot(fx, fz);
-      if (len < 1e-4) {
-        fx = 0;
-        fz = -1;
-      } else {
-        fx /= len;
-        fz /= len;
-      }
-      // カメラ から 見て 右（fx,fz を 左 へ 90 度 まわした むき の 反対）
-      const px = feet!.x + fx * CARRY.chestFront - fz * CARRY.chestSide;
-      const pz = feet!.z + fz * CARRY.chestFront + fx * CARRY.chestSide;
-      e.root.position.set(px, feet!.y + CARRY.chestY, pz);
-      e.root.rotation.set(0, Math.atan2(-(cam.x - px), -(cam.z - pz)), 0); // 顔 が カメラ の ほう
-    }
-    void v;
+  /**
+   * だっこ 中の 置き場所（§2.8・AC28）。1 人称 = カメラ の 前 の 画面 の 下 25%、3 人称 = だっこ した 人 の 胸 の 前。
+   * 決め方は carryPane.ts（区画ごと。足もとは 羽の 位置 = だっこ した 人の 足もと）
+   */
+  private placeCarried(e: Entry, feet: Vec3Like, camera: THREE.Camera): void {
+    camera.getWorldPosition(this.v1);
+    carryPlacement(this.v1, feet, this.cp);
+    placeCarriedRoot(e.root, camera, this.cp, this.cs);
   }
 
-  private measureCarry(e: Entry, camera: THREE.Camera): void {
+  /** 区画 ごと に 置きなおす（`duo/viewRender.ts` が 区画を 描く 前に 呼ぶ）。いま だっこ中の 羽を その カメラで 置き、`carryInfo()` も その カメラの 物に する */
+  placeCarriedFor(camera: THREE.Camera): void {
+    camera.updateMatrixWorld();
+    this.carry = null;
+    for (let i = 0; i < this.carriedN; i++) {
+      const c = this.carried[i]!;
+      this.placeCarried(c.e, c.feet, camera);
+      c.e.root.updateMatrixWorld(true);
+      if (!this.carry) this.measureCarry(c.e, c.feet, camera);
+    }
+  }
+
+  private measureCarry(e: Entry, feet: Vec3Like, camera: THREE.Camera): void {
     const pos = e.root.position;
     const h = CARRY.height * e.root.scale.y;
     const camPos = camera.getWorldPosition(this.v1);
@@ -668,10 +641,7 @@ export class AnimalRenderer {
     // 前（−z）の 向き と カメラ への 向き
     this.v2.set(0, 0, -1).applyQuaternion(e.root.getWorldQuaternion(this.tmpQ)).normalize();
     this.v3.set(camPos.x - pos.x, camPos.y - (pos.y + h / 2), camPos.z - pos.z).normalize();
-    const firstPerson = this.o.player ? (() => {
-      const feet = this.o.player!();
-      return !feet || Math.hypot(camPos.x - feet.x, camPos.y - (feet.y + CARRY.eyeY), camPos.z - feet.z) < CARRY.firstPersonDist;
-    })() : true;
+    const firstPerson = carryPlacement(camPos, feet, this.cp).first;
     this.carry = { firstPerson, x: pos.x, y: pos.y, z: pos.z, topNdcY, bottomNdcY, centerNdcX, faceToCamera: this.v2.dot(this.v3) };
   }
 
@@ -729,12 +699,7 @@ export class AnimalRenderer {
       (k.mesh.material as THREE.Material).dispose();
       k.mesh.geometry.dispose();
     }
-    if (this.ring) {
-      this.ring.plain.dispose();
-      this.ring.home.dispose();
-      (this.ring.mesh.material as THREE.Material).dispose();
-      this.ring.mesh.geometry.dispose();
-    }
+    this.rings.dispose();
     if (this.plate) {
       (this.plate.material as THREE.Material).dispose();
       this.plate.geometry.dispose();
