@@ -18,6 +18,7 @@ import type { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
 import type { StreamHost } from '../../world/stream/StreamHost';
 import type { Game } from '../Game';
 import type { DuoHudView } from '../../ui/duoHud';
+import { clockBoxAt } from '../../ui/duoHalves';
 
 export interface DuoViewsDeps {
   game: Game;
@@ -28,9 +29,11 @@ export interface DuoViewsDeps {
   /** 2P の カメラの 止め・ゆれ・きょり（COOP-1 4d-0） */
   fx2: P2CamFx;
   /** 区画を 描く 前に 呼ぶ（キャラの 板を そのカメラへ 向ける） */
-  beforePane: (cam: THREE.Camera) => void;
+  beforePane: (cam: THREE.Camera, who: 1 | 2, pane: Rect) => void;
   /** 各区画の 世界の 描画の すぐ あとに 呼ぶ（COOP-1 4d-2: 雷の 板を その 区画に 重ねる） */
-  afterPane: (cam: THREE.Camera) => void;
+  afterPane: (cam: THREE.Camera, who: 1 | 2, pane: Rect) => void;
+  /** その 半分の 時計の 実測の 大きさ（矢印が よける 箱。COOP-1 5f-2 1.17）。まだ はかれない・2P が いなければ null */
+  clockSize: (who: 1 | 2) => { w: number; h: number } | null;
 }
 
 /** 毎ステップ 渡す 2 人の 状態 */
@@ -67,6 +70,8 @@ export class DuoViews {
   /** 描く ときの 入れもの(毎コマ 新しく 作らない) */
   private readonly draw: DuoDrawState = { rc: this.scratch.out, fogFar: null };
   private readonly qOut = { x: 0, y: 0 };
+  /** 時計の 箱（矢印が よける。毎ステップ 同じ 入れものに 書く） */
+  private readonly clockBox: Rect = { x: 0, y: 0, w: 0, h: 0 };
   private active = false;
   private readonly pose: P2Pose = { x: 0, y: 0, z: 0, yawDeg: 0, pitchDeg: 0 };
   /** 画面に つかう 2P の カメラ（止め・ゆれ 入り。毎ステップ 同じ 入れものに 書く） */
@@ -222,6 +227,9 @@ export class DuoViews {
       ai.pane.h = pane.h;
       ai.tanHalfFovY = Math.tan((cam.fov * Math.PI) / 360);
       ai.panelOpen = who === 2 ? inp.panelOpen : inp.panel1Open;
+      // 1.17: 矢印は その 半分の 時計の 箱を よける（時計は 各半分の 外がわの 上すみ）
+      const size = this.d.clockSize(who as 1 | 2);
+      ai.avoid = size ? clockBoxAt(split, who as 1 | 2, size, this.clockBox) : null;
       const tr = this.arrows[who - 1]!;
       tr.step(ai);
       const ha = this.hud.arrows[who - 1]!;

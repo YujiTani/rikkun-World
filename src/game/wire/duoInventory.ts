@@ -5,7 +5,7 @@
 import type { ItemId, ItemStack, ScreenState, Vec3 } from '../../contracts';
 import { closeInvHand } from '../../duo/invClose';
 import { createP2Craft, type P2Craft } from '../../duo/p2Craft';
-import { createDropPicked } from '../../duo/p2Feed';
+import { createDropPicked, owned2 } from '../../duo/p2Feed';
 import { p2ArmorUi } from '../../duo/p2Equip';
 import { itemRarity } from '../../drops/rarity';
 import { playCraft } from '../../fx/craftSounds';
@@ -46,7 +46,7 @@ export function createDuoInventory(deps: WiredLoop, position: () => Vec3, onClos
     position,
     tansuRange: () => craft2Settings.craftTansuRange,
     requestSave: () => shared.requestSave(),
-    feedCraft: (events) => achievements.feedCraft(events), // 実績は 2 人で 共有（AC76）
+    feedCraft: owned2(achievements, (events) => achievements.feedCraft(events)), // 実績は 2 人で 共有（AC76）。持ち主は 2P（帯は 2P の 半分。5f-2）
     onEvents: (events) => handleCraftEvents(events, { sound: fxSound }), // つくった 音（できごとログ・とぶ 絵は 2P の パネルの 中だけ）
   });
   const craft = p2Craft.craft;

@@ -4,6 +4,10 @@
   left: 50%;
   top: 14%;
   transform: translateX(-50%);
+}
+/* 見た目（1 人の #title-announce と 2 人の ときの 2P の 分〔.title-announce--p2。位置は duoHalves.css〕で 共通） */
+#title-announce,
+.title-announce--p2 {
   display: flex;
   align-items: center;
   gap: var(--rk-sp-2);
@@ -22,10 +26,11 @@
   pointer-events: none;
   z-index: 7;
 }
-#title-announce[hidden] {
+#title-announce[hidden],
+.title-announce--p2[hidden] {
   display: none;
 }
-#title-announce .title-announce-icon {
+:is(#title-announce, .title-announce--p2) .title-announce-icon {
   flex: none;
   image-rendering: pixelated;
 }

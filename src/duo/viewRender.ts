@@ -25,13 +25,16 @@ export class DuoViewRenderer {
     private readonly renderer: THREE.WebGLRenderer,
     private readonly scene: THREE.Scene,
     private readonly mainCamera: THREE.PerspectiveCamera,
-    /** 区画を 描く 前に 呼ぶ（キャラの 板を その カメラへ 向ける。キャラの 板は 区画ごとに 向きが ちがう） */
-    private readonly beforePane: (cam: THREE.Camera) => void,
+    /**
+     * 区画を 描く 前に 呼ぶ（キャラの 板を その カメラへ 向ける。キャラの 板は 区画ごとに 向きが ちがう）。
+     * COOP-1 5f-2: who（1P の 区画 = 1・2P の 区画 = 2）と 区画の 矩形も わたす。この とき カメラの aspect は もう 区画の はば / 高さ（妖怪の 名札などを 区画ごとに 投げる）
+     */
+    private readonly beforePane: (cam: THREE.Camera, who: 1 | 2, pane: Rect) => void,
     /**
      * 各区画の 世界の 描画の すぐ あとに 呼ぶ（同じ viewport・scissor の 中。COOP-1 4d-2: 雷の 板を その 区画に 重ねる）。
      * 2 人の ときは 全面の 光の 道を 通らない ので、世界の 中に 出る 雷は ここで 描く
      */
-    private readonly afterPane: (cam: THREE.Camera) => void,
+    private readonly afterPane: (cam: THREE.Camera, who: 1 | 2, pane: Rect) => void,
   ) {}
 
   /** 1 コマ ぶんを 描く（1 人の 全面で 切りかえも 終わった ときは 呼ばない） */
@@ -58,9 +61,9 @@ export class DuoViewRenderer {
     this.pane(rc.main);
     main.aspect = rc.main.w / Math.max(1, rc.main.h);
     main.updateProjectionMatrix();
-    this.beforePane(main);
+    this.beforePane(main, 1, rc.main);
     r.render(this.scene, main);
-    this.afterPane(main);
+    this.afterPane(main, 1, rc.main);
     main.aspect = aspect0;
     main.updateProjectionMatrix();
 
@@ -69,10 +72,10 @@ export class DuoViewRenderer {
       const cam2 = this.camera2;
       cam2.aspect = b.w / Math.max(1, b.h);
       cam2.updateProjectionMatrix();
-      this.beforePane(cam2);
+      this.beforePane(cam2, 2, b);
       this.pane(b);
       r.render(this.scene, cam2);
-      this.afterPane(cam2);
+      this.afterPane(cam2, 2, b);
     }
     if (fog) {
       fog.near = this.fogNear0;

@@ -1,5 +1,7 @@
-import type { AchievementId, AchievementShow } from '../../contracts';
+import type { AchievementId, AchievementOwner, AchievementShow } from '../../contracts';
 import type { CelebrateSettings } from './config';
+
+const NO_OWNERS: readonly AchievementOwner[] = [];
 
 export interface ModalView {
   open: boolean;
@@ -32,7 +34,7 @@ export class ModalModel {
 
   open(show: AchievementShow): boolean {
     if (this.show) return false;
-    this.show = { ids: [...show.ids], mainId: show.mainId, more: show.more };
+    this.show = { ids: [...show.ids], mainId: show.mainId, more: show.more, owners: [...show.owners] };
     this.age = 0;
     return true;
   }
@@ -44,6 +46,11 @@ export class ModalModel {
 
   isOpen(): boolean {
     return this.show !== null;
+  }
+
+  /** 出している おしらせの 持ち主の 列（COOP-1 5f-2。出ていなければ []） */
+  owners(): readonly AchievementOwner[] {
+    return this.show?.owners ?? NO_OWNERS;
   }
 
   ageSteps(): number {

@@ -176,18 +176,24 @@ export class YokaiPresenter {
     return { visible: this.nameVisible(e), text: titleLabel(e.model.displayName, e.title) };
   }
 
-  /** 画面に出す名前の一覧（二つ名の妖怪で 16 ブロック以内。バーの上に置く） */
-  nameplates(out: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = []): typeof out {
+  /**
+   * 画面に出す名前の一覧（二つ名の妖怪で 16 ブロック以内。バーの上に置く）。
+   * who = どの 人の 足もとから 数えるか（既定 1P。2P の 半分に だけ 映る 妖怪の 名札も 出す。COOP-1 5f-2 #21。位置だけ 見る ので 倒れている 2P でも 出る）
+   */
+  nameplates(out: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = [], who: 1 | 2 = 1): typeof out {
     out.length = 0;
+    const p = who === 2 ? this.f.p2 : this.f.p1;
     for (const e of this.f.ents) {
-      if (!this.nameVisible(e)) continue;
+      if (e.title === 'none' || e.state === 'dying' || e.state === 'leaving') continue;
+      const dist = Math.hypot(p.x - e.x, p.z - e.z);
+      if (dist > HP_BAR.titleRange) continue;
       out.push({
         id: e.id,
         text: titleLabel(e.model.displayName, e.title),
         x: e.x,
         y: e.y + e.dims.marksHeight + HP_BAR.barHeight * 0.75 + 0.1,
         z: e.z,
-        dist: Math.hypot(this.f.px - e.x, this.f.pz - e.z),
+        dist,
       });
     }
     return out;

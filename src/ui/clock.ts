@@ -1,6 +1,7 @@
 import type { DayPhase } from '../contracts';
 import type { TimeSettings } from '../time/config';
 import { clockSceneUrl } from './clockArt';
+import { halfId } from './duoHalfIds';
 import { CLOCK_PHASES, CLOCK_WORDS, clockScene, clockShouldFade, type ClockPhases, type ClockScene } from './clockModel';
 import './clock.css';
 
@@ -22,9 +23,11 @@ export class Clock {
   private shownDay = -1;
   private prevTick: number | null = null;
 
-  constructor(parent: HTMLElement, private readonly phases: ClockPhases = CLOCK_PHASES) {
+  /** who = 2: 2 人の とき 2P の 半分の 時計（COOP-1 5f-2 #17。右上〔2P〕。1P の 時計は #clock が 左上へ。時刻は 同じ setTime を 両方に） */
+  constructor(parent: HTMLElement, private readonly phases: ClockPhases = CLOCK_PHASES, private readonly who: 1 | 2 = 1) {
     this.el = document.createElement('div');
-    this.el.id = 'clock';
+    this.el.id = who === 1 ? 'clock' : 'clock-p2';
+    if (who === 2) this.el.className = 'clock--p2';
     this.el.setAttribute('aria-hidden', 'true');
     this.pic = document.createElement('div');
     this.pic.className = 'clock-pic';
@@ -42,6 +45,12 @@ export class Clock {
     this.dayEl.hidden = true;
     this.el.append(this.pic, this.wordEl, this.dayEl);
     parent.append(this.el);
+  }
+
+  /** 2 人の あいだ だけ UI 検査の 目印を つける */
+  mark(on: boolean): void {
+    if (on) this.el.setAttribute('data-testid', halfId('clock', this.who));
+    else this.el.removeAttribute('data-testid');
   }
 
   set(phase: DayPhase): void {

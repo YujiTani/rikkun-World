@@ -82,6 +82,8 @@ export interface DuoPlayHook {
   target(who: 1 | 2): { block: DuoVec3; place: DuoVec3; id: string } | null;
   frame(who: 1 | 2): { visible: boolean; color: string };
   give(who: 1 | 2, item: ItemId, count: number): void;
+  /** COOP-1 5f-2（§12.0）: その人の ホットバーの 選びを slot（0 はじまり）に する（`?duo=dev` の ときだけ。2P の えらんだ 名前の 表示を UI 検査で 出す ため。2P が いなければ who 2 は 何も しない） */
+  select(who: 1 | 2, slot: number): void;
   /** COOP-1 4a（§12.0・1.10）: その人の もちもの 9×3 と ホットバー 9 を 見本で いっぱいに する（`?duo=dev` の ときだけ。2P が いなければ who 2 は 何も しない） */
   sample(who: 1 | 2): void;
   count(who: 1 | 2, item: ItemId): number;

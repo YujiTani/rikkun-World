@@ -22,7 +22,8 @@
 #notice-signal-text[hidden],
 .notice-signal--p2[hidden],
 .notice-signal-text--p2[hidden],
-#notice-name[hidden] {
+#notice-name[hidden],
+.notice-name--p2[hidden] {
   display: none;
 }
 /* えらんだ名前: ホットバーの上 中央、A・B の かたまりより上（見出し 24px のチップ） */
@@ -31,6 +32,10 @@
   left: 50%;
   bottom: calc(var(--hud-above-hotbar) + var(--rk-sp-7) + var(--rk-sp-7) + var(--rk-sp-5));
   transform: translateX(-50%);
+}
+/* 見た目（1 人の #notice-name と 2 人の ときの 2P の 分〔.notice-name--p2。位置は duoHalves.css〕で 共通） */
+#notice-name,
+.notice-name--p2 {
   padding: var(--rk-sp-1) var(--rk-sp-4);
   font-size: var(--rk-fs-head);
   font-weight: 700;

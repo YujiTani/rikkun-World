@@ -1,0 +1,109 @@
+/*
+ * COOP-1 5f-2（docs/design/COOP-1.md 1.17 §3.7 (g)・§9.13）: 2 人の ときの 規則だけ。1 人の ときは html[data-duo] が ないので 何も 効かない（今までと 同じ）。
+ * 出る 物は ぜんぶ その 人の 半分の 中。1P の 半分 = 左（まん中 25%）、2P の 半分 = 右（まん中 75%）。まん中の 線には またがらない。
+ * 見た目（色・字・形）は 1 人の ときの css と 共通。ここは 位置と はばだけ。
+ * 半分の はば = 50vw。中央そろえの 部品の いちばん 広い はば = --duo-band-w（半分の 90%。duoHud.css）。
+ */
+
+/* ---- #17 時計: 各半分の 外がわの 上すみ。1P = 左上、2P = 右上（まん中の 距離メーターに かからない） ---- */
+html[data-duo] #clock {
+  left: var(--rk-sp-5);
+  right: auto;
+}
+
+/* ---- #13 二つ名の おしらせ: 半分の まん中 ---- */
+html[data-duo] #title-announce {
+  left: 25%;
+  max-width: var(--duo-band-w);
+}
+
+html[data-duo] [data-testid='duo-clock-p2'] {
+  position: fixed;
+  top: var(--rk-sp-5);
+  right: var(--rk-sp-5);
+}
+
+html[data-duo] .title-announce--p2 {
+  position: fixed;
+  left: 75%;
+  top: 14%;
+  transform: translateX(-50%);
+  max-width: var(--duo-band-w);
+}
+
+/* ---- #15 ふち・#16 倒れた 画面・#22b すみの 暗さ: 1P は 左半分、2P は 右半分 ---- */
+html[data-duo] #damage-edge,
+html[data-duo] #death-screen,
+html[data-duo] #ink-dim {
+  right: 50%;
+}
+
+html[data-duo] .damage-edge--p2,
+html[data-duo] .ink-dim--p2 {
+  position: fixed;
+  inset: 0 0 0 50%;
+}
+
+/* ---- #19 横断幕: 1P の 半分の まん中（紙ふぶきの 区画は css では なく JS の confettiAt） ---- */
+html[data-duo] .cel-banner-wrap {
+  left: 25%;
+  width: var(--duo-band-w);
+  margin-left: calc(var(--duo-band-w) / -2);
+}
+
+/* ---- #14 もどったよ: 半分の まん中（長い 文は 折り返す） ---- */
+html[data-duo] #home-notice {
+  left: 25%;
+  max-width: var(--duo-band-w);
+  white-space: normal;
+  text-align: center;
+}
+
+/* ---- 1.17 開いた 人の 半分の 分だけ 消す: 2P が もちもの画面を 開いた とき 2P の 半分の 時計・もどったよ・つくれる マークを 消す（1P の 分は もう 1 人の ものなので のこる。1P が 開いた 分は 今の 規則が 消す） ---- */
+html[data-duo] #hud:has([data-testid='duo-inv-p2']:not([hidden])) [data-testid='duo-clock-p2'],
+html[data-duo] #hud:has([data-testid='duo-inv-p2']:not([hidden])) .home-notice--p2,
+html[data-duo] #hud:has([data-testid='duo-inv-p2']:not([hidden])) #hud-notice-p2 {
+  opacity: 0;
+  visibility: hidden;
+}
+
+html[data-duo] .home-notice--p2 {
+  position: fixed;
+  left: 75%;
+  top: 30%;
+  transform: translateX(-50%);
+  max-width: var(--duo-band-w);
+  white-space: normal;
+  text-align: center;
+}
+
+/* ---- #22a えらんだ 名前: 半分の まん中 ---- */
+html[data-duo] #notice-name {
+  left: 25%;
+}
+
+html[data-duo] .notice-name--p2 {
+  position: fixed;
+  left: 75%;
+  bottom: calc(var(--hud-above-hotbar) + var(--rk-sp-7) + var(--rk-sp-7) + var(--rk-sp-5));
+  transform: translateX(-50%);
+}
+
+/* ---- #18 上の 帯: 2P の 半分の 帯は 2P の 半分の まん中（1P は duoHud.css の 25%） ---- */
+html[data-duo] .cel-band.cel-band--p2 {
+  left: 75%;
+}
+
+/* ---- #20 つくれる マーク: 2P の ホットバーの 右はしの 上（1P は duoHud.css） ---- */
+html[data-duo] #hud-notice-p2 {
+  position: fixed;
+  left: auto;
+  right: calc(25% - var(--hb-w) * var(--duo-scale) / 2);
+  bottom: calc(var(--hb-bottom) + var(--rk-slot-hotbar) * var(--duo-scale) + var(--rk-sp-3));
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  z-index: 5;
+  transform: scale(var(--duo-scale));
+  transform-origin: 100% 100%;
+}

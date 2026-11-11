@@ -395,16 +395,27 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     crosshair.setVisible(rig.crosshairVisible() && screen.mode() === 'play');
     yokaiFocus.update(hintVisible() ? dig.aimedYokaiId() : null);
     titleAnnounce.sync(yokaiM.announce());
+    const feed = shared.duoJoined() ? shared.duoPaneFeed : null;
     // 持ち物・メニューを開いている間は 名前を出さない
     {
       // LIVE-4: 「！」と 顔（ねらい の 妖怪 の バー の 上）
       const fm = animals.fightMarks();
       machoMarkIn.bang = fm.bang && { x: fm.bang.x, y: fm.bang.y, z: fm.bang.z, age: fm.bang.age };
       machoMarkIn.face = fm.target === null ? null : yokaiM.markAnchor(fm.target);
-      machoMarks.update(machoMarkIn, game.camera, screen.mode() === 'play');
+      if (feed === null) machoMarks.update(machoMarkIn, game.camera, screen.mode() === 'play');
+      else feed.macho = machoMarkIn;
     }
-    yokaiNameplates.update(screen.mode() === 'play' ? yokaiM.nameplates(plateBuf) : NO_PLATES, game.camera);
-    staggerIcons.update(yokaiM.staggerIcons(stagIconBuf), game.camera, screen.mode() === 'play');
+    // 2 人の とき（COOP-1 5f-2 #21）: 名札・ひるみの 印・マッチョの 印は 区画ごとに その 区画の カメラ・矩形で 投げる（DuoHalves.projectPane）。ここでは 世界の 物を 渡すだけ
+    const plates = screen.mode() === 'play' ? yokaiM.nameplates(plateBuf) : NO_PLATES;
+    const stagItems = yokaiM.staggerIcons(stagIconBuf);
+    if (feed === null) {
+      yokaiNameplates.update(plates, game.camera);
+      staggerIcons.update(stagItems, game.camera, screen.mode() === 'play');
+    } else {
+      feed.plates = plates;
+      feed.stagger = stagItems;
+      feed.visible = screen.mode() === 'play';
+    }
     {
       // GOLD-1: なかよし パネル（なかま の 大人 を ねらって いる あいだ。案内 と 同じ とき）
       const tid = hintVisible() ? dig.animalTarget() : null;

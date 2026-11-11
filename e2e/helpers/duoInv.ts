@@ -277,7 +277,8 @@ export async function duoInvIssues(page: Page, which: InvScreenPage): Promise<Du
     return [read(1), read(2)];
   }, which);
 
-  const keepOut = ['[data-testid="duo-meter"]', '[data-testid="duo-split-line"]', '#clock'];
+  // 1.17: 時計は 2 つ（1P の #clock = 左上・2P の duo-clock-p2 = 右上）。開いた 人の 半分の 分は 消えて いる（opacity 0 なら 見えない 物として かぞえない）
+  const keepOut = ['[data-testid="duo-meter"]', '[data-testid="duo-split-line"]', '#clock', '[data-testid="duo-clock-p2"]'];
   for (const p of info) {
     const name = `duo-inv-p${p.who}`;
     if (!p.box) {
@@ -322,7 +323,7 @@ export async function duoInvIssues(page: Page, which: InvScreenPage): Promise<Du
     for (const id of keepOut) {
       const o = await page.evaluate((sel) => {
         const e = document.querySelector<HTMLElement>(sel);
-        if (!e) return null;
+        if (!e || getComputedStyle(e).opacity === '0') return null;
         const b = e.getBoundingClientRect();
         return b.width > 0 && b.height > 0 ? { l: b.left, t: b.top, r: b.right, b: b.bottom } : null;
       }, id);

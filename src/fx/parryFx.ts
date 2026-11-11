@@ -3,6 +3,8 @@ import type { Vec3 } from '../contracts';
 import bladePath from './bladePath.json';
 import { parryShownFrame } from '../combat/parryShown';
 import { makeRng } from './sfxVary';
+import type { Rect } from '../duo/viewRects';
+import { fullRect, ndcToHalf } from '../ui/halfProject';
 
 /**
  * WEAPON-5 刀のパリィの 見た目（火花・青白い光・よろけアイコン）。
@@ -323,6 +325,7 @@ export class StaggerIcons {
   private readonly burst = new Map<number, { age: number; x: number; y: number; z: number; titled: boolean }>();
   private readonly last = new Map<number, StaggerIconItem>();
   private readonly v = new THREE.Vector3();
+  private readonly at = { x: 0, y: 0 };
   private readonly url: string;
   private tick = 0;
 
@@ -338,14 +341,27 @@ export class StaggerIcons {
   burstAt(id: number): void {
     const p = this.last.get(id);
     if (p) this.burst.set(id, { age: 0, x: p.x, y: p.y, z: p.z, titled: p.titled });
+    this.twin?.burstAt(id);
   }
 
-  /** 1 ステップに 1 回（描画の 前でも よい） */
-  update(items: readonly StaggerIconItem[], camera: THREE.Camera, visible: boolean): void {
+  /** 2 人の とき 2P の 半分の もう 1 つ（COOP-1 5f-2 #21）。はじけるのを 2 つに 同じく 伝える */
+  twin: StaggerIcons | null = null;
+
+  /** 1 ステップ すすめる（回る コマ・はじける 年れい）。2 人の とき 区画ごとの update（毎コマ）の かわりに 毎ステップ 1 回 呼ぶ */
+  advance(): void {
     this.tick++;
+    for (const b of this.burst.values()) b.age++;
+  }
+
+  /**
+   * 1 ステップに 1 回（描画の 前でも よい）。half = 投げる 半分の 矩形（2 人の とき その 区画の カメラと 矩形。COOP-1 5f-2 #21）。省くと 画面ぜんたい。
+   * advance = false なら コマ・年れいを すすめない（2 人の とき 毎コマ 呼ぶ 側が 使う。すすめるのは advance()）
+   */
+  update(items: readonly StaggerIconItem[], camera: THREE.Camera, visible: boolean, half: Rect | null = null, advance = true): void {
+    if (advance) this.tick++;
     camera.updateMatrixWorld();
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    const hf = half ?? fullRect(window.innerWidth, window.innerHeight);
+    const h = hf.h;
     const fov = (camera as THREE.PerspectiveCamera).fov ?? 60;
     const pxPerBlock = (dist: number): number => h / (2 * Math.tan((fov * Math.PI) / 360) * Math.max(0.5, dist));
     let n = 0;
@@ -355,8 +371,9 @@ export class StaggerIcons {
       this.v.project(camera);
       if (this.v.z > 1 || this.v.z < -1) return;
       const size = Math.max(12, Math.min(72, ICON_BLOCKS * pxPerBlock(dist)));
-      const px = (this.v.x * 0.5 + 0.5) * w;
-      const py = (-this.v.y * 0.5 + 0.5) * h - ICON_GAP_BLOCKS * pxPerBlock(dist) - (it.titled ? NAMEPLATE_PX : 0);
+      ndcToHalf(hf, this.v.x, this.v.y, this.at);
+      const px = this.at.x;
+      const py = this.at.y - ICON_GAP_BLOCKS * pxPerBlock(dist) - (it.titled ? NAMEPLATE_PX : 0);
       const e = this.el(n++);
       const s = size * scale;
       const st = e.el.style;
@@ -395,7 +412,7 @@ export class StaggerIcons {
       }
       const k = b.age / ICON_BURST_STEPS;
       put({ id, x: b.x, y: b.y, z: b.z, titled: b.titled }, iconBurstFrame(b.age), 1, 1 + 0.5 * k, 1 - 0.6 * k);
-      b.age++;
+      if (advance) b.age++;
     }
     for (let i = n; i < this.pool.length; i++) {
       const p = this.pool[i]!;
@@ -403,6 +420,16 @@ export class StaggerIcons {
         p.el.style.display = 'none';
         p.shown = false;
       }
+    }
+  }
+
+  /** 全部 かくす（2P が やめた とき） */
+  hideAll(): void {
+    this.burst.clear();
+    this.last.clear();
+    for (const p of this.pool) {
+      p.el.style.display = 'none';
+      p.shown = false;
     }
   }
 

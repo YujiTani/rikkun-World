@@ -36,6 +36,8 @@ export function createSettingsPanel(
     dialogs: DialogStack;
     /** 「つかう コントローラー」タブ(いつも（作業 3d・AC65）)。ルーターの getPads と 同じ 所から 読む */
     router?: DuoPadRouter;
+    /** 開いて いた せっていを 閉じた とき 1 回（閉じる ボタン・scrim・Esc の どれでも）。COOP-1 5f-2 */
+    onClosed?: () => void;
   },
   anchor?: HTMLElement,
 ): SettingsPanel {
@@ -253,11 +255,13 @@ export function createSettingsPanel(
   };
 
   const setOpen = (on: boolean): void => {
+    const wasOpen = !root.hidden;
     root.hidden = !on;
     if (!on) {
       use?.setActive(false);
       pad.close();
       if (raf) cancelAnimationFrame(raf);
+      if (wasOpen) opts.onClosed?.(); // COOP-1 5f-2: 開いて いた → 閉じた ときに 1 回（2 人の とき パッドの 面の 名前を 読みなおす）
       return;
     }
     goTo('top');

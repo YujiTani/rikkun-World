@@ -1,7 +1,7 @@
 import type * as THREE from 'three';
 import type { DayPhase, ItemId, Rarity, PlayerCombat, TimeOfDay, YokaiWorld } from '../contracts';
 import { BagVisuals, type BagLike } from './bagVisuals';
-import { COMBAT_FX, invincibleAlpha } from './combatFxModel';
+import { COMBAT_FX, invincibleAlpha, lifeUiOf } from './combatFxModel';
 import { playCombat } from './combatSounds';
 import { FX_SETTINGS, type FxSettings } from './config';
 import type { SoundFx } from './sound';
@@ -93,6 +93,14 @@ export class CombatFx {
     if (this.titleSoundLeft > 0) this.titleSoundLeft -= dt;
 
     for (const ev of d.combat.drainEvents()) {
+      // 画面の 動き（ふち・倒れた 画面・もどったよ）は 2P と 同じ lifeUiOf の 答え。音と ゆれは ここ
+      const ui = lifeUiOf(ev);
+      if (ui === 'edge') d.edge.flash();
+      else if (ui === 'down') d.deathScreen.start();
+      else if (ui === 'respawn') {
+        d.deathScreen.end();
+        d.homeNotice.show();
+      }
       switch (ev.type) {
         case 'punchStart':
           d.doll.punch();
@@ -107,20 +115,15 @@ export class CombatFx {
           break;
         case 'playerHit':
           playCombat(sound, 'hurt');
-          d.edge.flash();
           this.shakeLeft = this.cfg.fxShake ? COMBAT_FX.hurtShakeSeconds : 0;
           break;
         case 'fallHurt':
           playCombat(sound, 'hurt');
-          d.edge.flash();
           break;
         case 'death':
-          d.deathScreen.start();
           playCombat(sound, 'faint');
           break;
         case 'respawn':
-          d.deathScreen.end();
-          d.homeNotice.show();
           playCombat(sound, 'respawn');
           break;
         case 'pickup':

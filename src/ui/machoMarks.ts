@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import type { Rect } from '../duo/viewRects';
+import { clampToHalf, fullRect, ndcToHalf } from './halfProject';
 import './machoMarks.css';
 
 /**
@@ -35,6 +37,8 @@ export interface MachoMarkInput {
 }
 
 const v = new THREE.Vector3();
+const at = { x: 0, y: 0 };
+const box = { x: 0, y: 0 };
 
 function faceCanvas(): HTMLCanvasElement {
   const s = FACE_DOT;
@@ -81,10 +85,10 @@ export class MachoMarks {
     parent.append(this.bangEl, this.faceEl);
   }
 
-  update(input: MachoMarkInput, camera: THREE.Camera, visible: boolean): void {
+  /** half = 投げる 半分の 矩形（2 人の とき 1P の 半分。COOP-1 5f-2 #21）。省くと 画面ぜんたい */
+  update(input: MachoMarkInput, camera: THREE.Camera, visible: boolean, half: Rect | null = null): void {
     camera.updateMatrixWorld();
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    const hf = half ?? fullRect(window.innerWidth, window.innerHeight);
     const place = (el: HTMLElement, x: number, y: number, z: number, lift: number, scale: number, clip = false): boolean => {
       v.set(x, y, z).project(camera);
       if (v.z > 1 || v.z < -1) return false;
@@ -92,9 +96,9 @@ export class MachoMarks {
       if (clip && (Math.abs(v.x) > 1 || Math.abs(v.y) > 1)) return false;
       const ew = el.offsetWidth || 36;
       const eh = el.offsetHeight || 44;
-      const px = Math.min(Math.max((v.x * 0.5 + 0.5) * w, ew / 2 + 4), w - ew / 2 - 4);
-      const py = Math.min(Math.max((-v.y * 0.5 + 0.5) * h - lift, eh + 4), h - 4);
-      el.style.transform = `translate(${(px - ew / 2).toFixed(1)}px, ${(py - eh).toFixed(1)}px) scale(${scale.toFixed(3)})`;
+      ndcToHalf(hf, v.x, v.y, at);
+      const p = clampToHalf(hf, at.x, at.y - lift, ew, eh, 4, 4, box);
+      el.style.transform = `translate(${(p.x - ew / 2).toFixed(1)}px, ${(p.y - eh).toFixed(1)}px) scale(${scale.toFixed(3)})`;
       el.style.transformOrigin = '50% 100%';
       return true;
     };

@@ -20,6 +20,11 @@ import { parryGlowLevel } from '../../combat/parry';
 import { FX_SETTINGS } from '../../fx/config';
 import { createRng } from '../../world/gen/random';
 import type { DuoHud } from '../../ui/duoHud';
+import { halvesCoveredBy, hudNoticeShow, type DuoHalves, type Who } from '../../ui/duoHalves';
+import { buffsOfHeld } from '../../ui/buffIconsModel';
+import { anyCraftNow } from '../../ui/craftModel';
+import { legendMoveMulOf } from '../../legend/defs';
+import { lifeUiOf } from '../../fx/combatFxModel';
 import { actionHintView, fillHintCtx, type DuoAimStep2, type DuoHintInput, type DuoAimHud } from '../../ui/duoAimHud';
 import type { LockStatus, Inventory, ItemId, Vec3 } from '../../contracts';
 import type { GetaPlayer } from '../../craft/geta';
@@ -61,6 +66,8 @@ export interface DuoPlayCtx {
   ui: DuoHud;
   /** COOP-1 5f-1: 照準まわり（＋・ヒント・おしらせの 印・構え・ロック・弓の 丸）を 各半分に */
   aim: DuoAimHud;
+  /** COOP-1 5f-2: 2P の 半分の 部品（時計・おしらせ・ふち・つくれる マーク・バフ・名札・すみ）。中身は ui/duoHalves.ts */
+  halves: DuoHalves;
   /** 2P の 入力 */
   actions: ActionState;
   /** 2P の 入力が 通る か（もちもの画面が 開いていない・倒れていない） */
@@ -85,7 +92,7 @@ export interface DuoPlayCtx {
   openFurnace: (x: number, y: number, z: number) => void;
   openTansu: (x: number, y: number, z: number) => void;
   /** COOP-1 4c: 2P の つくる（2P が かまどを こわした とき 中身は こわした 人 = 2P の もちものへ。参加している あいだだけ 呼ぶ） */
-  craft2: () => Pick<CraftSystem, 'furnaceBroken'> & { notifyPickup(item: ItemId, count: number): void };
+  craft2: () => Pick<CraftSystem, 'furnaceBroken' | 'status' | 'recipes'> & { notifyPickup(item: ItemId, count: number): void };
 }
 
 /** 参加の あいだ だけ ある 一式 */
@@ -129,6 +136,11 @@ interface Live {
 /** 2P の パリィの 火花を 出す 刀の まん中（毎回 同じ 入れものに 書く） */
 const sparkAt2: Vec3 = { x: 0, y: 0, z: 0 };
 
+/** 2P の つくれる マークの 答え（毎ステップ 同じ 入れものに 書く） */
+const hudShow = { craft: false, medal: 0 };
+/** 画面を 開いて いない（何も 消さない） */
+const NO_HALVES: readonly Who[] = [];
+
 /** 2P の 手もと（足もと + 1。毎回 同じ 入れものに 書く。1P の WeaponFx.handPos と 同じ 高さ） */
 const handScratch: Vec3 = { x: 0, y: 0, z: 0 };
 function handAt(p: Vec3): Vec3 {
@@ -139,7 +151,7 @@ function handAt(p: Vec3): Vec3 {
 }
 
 export function wireDuoPlay(c: DuoPlayCtx) {
-  const { deps, ui } = c;
+  const { deps, ui, halves } = c;
   const { shared, game, world, controller, w2, seed, toolConfig, digCfg, drops, fxSound, craft, storage, dig: dig1, combat: combat1, weaponFx, kodachiFx, achievements, animals, coopMenu: coopMenu1 } = deps;
   const p2 = shared.p2;
   // 2P の そうびの たいきゅうの 設定と 時計を 本物に（1P の armor と 同じ。COOP-1 4b）
@@ -461,6 +473,11 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     const combatEvents = l.combat.drainEvents();
     l.sounds.combat(combatEvents);
     l.feed.combat(combatEvents);
+    // 2P の ふち・もどったよは 2P の 半分の 中（1P と 同じ lifeUiOf の 答え。倒れた 表示は 今の duo-p2-down。音は l.sounds.combat）
+    for (const ev of combatEvents) {
+      const a = lifeUiOf(ev);
+      if (a !== null) halves.life(a);
+    }
     l.kodachi.combat(combatEvents);
     l.combat.takeHookEvents();
     l.sounds.swings(l.tools.drainSwings(), p2.inventory.held()?.item ?? null);
@@ -491,6 +508,20 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     ui.stepWear();
     ui.updateLevel(dt, p2.levels.get(), up);
     stepAim(l, dt);
+    stepHalves(l, dt);
+  }
+
+  /** COOP-1 5f-2: 2P の 半分の 部品を すすめる（世界で 1 つの 物は 1P と 同じ 答え。つくれる マークは 2P の もちもので。メダルの 印は 2P の かたまりに 入れない） */
+  function stepHalves(l: Live, dt: number): void {
+    const yk = shared.yokaiManager;
+    if (!yk) return;
+    const open2 = c.invOpen() || l.animals.menuOpen();
+    halves.world(yk.announce(), deps.time.dayTick(), deps.timeSettings, deps.time.day() + 1);
+    // 2P の 名札の 材料（もちもの画面が 開いて いる あいだは 出さない）
+    yk.nameplates(halves.plates2, 2);
+    if (open2) halves.plates2.length = 0;
+    const show = hudNoticeShow(2, true, anyCraftNow(c.craft2(), p2.inventory), 0, hudShow);
+    halves.step(dt, yk.inkDim(2), buffsOfHeld(p2.inventory.held()?.item ?? null, (i) => legendMoveMulOf(w2, i)), deps.reducedMotionMq?.matches ?? false, show.craft, open2 ? halvesCoveredBy(2, true) : NO_HALVES);
   }
 
   let thunder1: ThunderHook | null = null;
@@ -540,6 +571,12 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       inv.clear();
       sampleStacks(ITEM_TYPES, ALL_RECIPES, inv.size).forEach((s, i) => inv.setSlot(i, s));
       inv.select(0);
+    },
+    // COOP-1 5f-2（§12.0）: その人の ホットバーの 選びを slot（0 はじまり）に する（2P の えらんだ 名前を UI 検査で 出す ため）
+    select(who, slot) {
+      const inv = invOf(who);
+      if (!dev || !inv) return;
+      inv.select(slot);
     },
     count: (who, item) => invOf(who)?.count(item) ?? 0,
     armor: (who) => (who === 1 ? deps.armor.snapshot() : live ? p2.armor.snapshot() : null),

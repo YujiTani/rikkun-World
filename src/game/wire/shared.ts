@@ -26,6 +26,7 @@ import type { DuoLeaveReason, P2Save } from '../../duo/types';
 import type { P2GashaPort } from './gashaPeople';
 import type { DuoCamFx } from '../../duo/camFx';
 import type { Parry } from '../../combat/parry';
+import type { PaneFeed } from '../../ui/duoHalves';
 import type { P2Parry } from '../../duo/p2Parry';
 import type { P2AnimalsPort } from '../../duo/p2AnimalsPort';
 import type { DigM4Deps } from '../../dig/digPorts';
@@ -118,6 +119,10 @@ interface Shared {
   pickMux: (who: 1 | 2) => (id: number | null) => void;
   /** COOP-1 5f-1: 2P の おしらせの 印（2P の 半分の ＋の 右下）。2P が いなければ 何も しない */
   p2ShowSignal: Notice['showSignal'];
+  /** COOP-1 5f-2: せっていを 閉じた とき（パッドの 面の 名前を 読みなおす 口。wireDuo が 差しかえる） */
+  settingsClosed: () => void;
+  /** COOP-1 5f-2: 2 人の とき 区画ごとに 名札・ひるみの 印・マッチョの 印を 投げる ための 世界の 物（createStep が 毎ステップ 入れ、DuoHalves.projectPane が 区画の カメラで 使う）。wireDuo が 差しかえる。1 人の ときは 使わない */
+  duoPaneFeed: PaneFeed | null;
   /** COOP-1 4d-1: 妖怪の 更新の 直前に 毎ステップ 呼ぶ（createStep。1P の parry.update の すぐ あと）。2P の 入力を 妖怪の 当たりより 先に 入れる。wireDuoPlay が 差しかえる */
   preYokai: () => void;
   /** COOP-1 5e: ふとんで 「2 人」に 数えられる 人の 数（参加していて 倒れておらず 2P は パッドが ある 人。2 人とも 倒れて いれば 0。2P が いなければ 1。wireDuoPlay が 差しかえる） */
@@ -235,6 +240,8 @@ export function createShared(): Shared {
     p2Animals: () => null,
     pickMux: () => () => {},
     p2ShowSignal: () => {},
+    settingsClosed: () => {},
+    duoPaneFeed: null,
     preYokai: () => {},
     sleepReady: () => 1,
     p2SleepWake: () => {},

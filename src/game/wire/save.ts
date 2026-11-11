@@ -1,6 +1,7 @@
 // main.ts の 流れ 7: 保存と 世界の 読みこみ・毎ステップの 準備・ゲームの 毎コマの 登録と 影。
 import type { CountryWatch } from '../../achievements/countryWatch';
 import { createPlaceWatch, type PlaceWatch } from '../../duo/p2Place';
+import { owned2 } from '../../duo/p2Feed';
 import { createCameraHook } from '../../camera/hook';
 import { createCombatHook } from '../../combat';
 import { createCraftHook } from '../../craft';
@@ -352,14 +353,14 @@ export function wireFrame(deps: WiredSave) {
   let peakKey = NaN;
   const warmAt: { x: number; z: number }[] = [{ x: 0, z: 0 }]; // 坑道の 先読みの 中心〔毎ステップ 配列を 作らない〕
   // 場所の 実績・国の 見はり（COOP-1 5b: 1P 用と 2P 用に 1 つずつ。2P 用は 2P が 参加して はじめて 作る）
-  const placeOf = (country: Pick<CountryWatch, 'step' | 'reset'>) =>
+  const placeOf = (country: Pick<CountryWatch, 'step' | 'reset'>, opts: { feedMine?: (e: Parameters<typeof achievements.feedMine>[0]) => void } = {}) =>
     createPlaceWatch({
       country,
       // MINE-1C §4.10: 足が いちばん 下の へやに 入った（高さで 先に ふるいにかける。y は 足もと + 0.1 なので 引きもどす）
       bottom: (x, y, z) => y - 0.1 < SHAFT_CONFIG.room.maxY + SHAFT_CONFIG.room.height && shafts.inBottom(Math.floor(x), Math.floor(y), Math.floor(z)),
       cave: (x, y, z) => shafts.caveKindAt(Math.floor(x), Math.floor(y), Math.floor(z)), // MINE-1D §4.10
       area: (x, y, z) => areaIn(shafts, x, y, z), // MINE-1E §4.12
-      feedMine: (e) => achievements.feedMine(e),
+      feedMine: opts.feedMine ?? ((e) => achievements.feedMine(e)),
       tick: () => game.tick,
     });
   const place1 = placeOf(countryWatch);
@@ -408,7 +409,7 @@ export function wireFrame(deps: WiredSave) {
       const joined = shared.duoJoined();
       const mate = joined ? shared.duoMate() : null;
       if (mate) {
-        place2 ??= placeOf(newCountryWatch());
+        place2 ??= placeOf(newCountryWatch(), { feedMine: owned2(achievements, (e) => achievements.feedMine(e)) }); // COOP-1 5f-2: 2P の ばしょの 実績は 持ち主 2
         if (!p2WasJoined) place2.reset(); // 参加し直した とき 前の 記憶を すてる
         place2.step(mate.position, shared.p2Down(), ctx.screenSteps);
       }

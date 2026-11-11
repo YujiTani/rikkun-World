@@ -33,6 +33,8 @@ interface SwimDeps {
   /** すみの けむりを 置く 世界の 入れ物 */
   group: THREE.Group;
   rng: Rng;
+  /** 2P が いるか（COOP-1 5f-2: 画面の 暗さは 人ごと。2P が いなければ 2P の 分は 0） */
+  hasPartner: () => boolean;
 }
 
 /**
@@ -41,7 +43,8 @@ interface SwimDeps {
  */
 export class YokaiSwimmer {
   private readonly clouds: { cloud: InkCloud; sw: YokaiSwim }[] = [];
-  private dim = 0;
+  /** 画面の 暗さ [1P, 2P]（COOP-1 5f-2: すみを かぶった 人の 半分だけ 暗くする） */
+  private readonly dims: [number, number] = [0, 0];
   private dimSpec: YokaiSwim | null = null;
   private spits = 0;
 
@@ -280,24 +283,30 @@ export class YokaiSwimmer {
 
   // ---------------------------------------------------------------- けむり・画面の 暗さ
 
-  /** 毎ステップ 1 回: けむりを すすめ、りっくんの 目が けむりの 中なら 暗さを 上げ、外なら 下げる */
+  /** 毎ステップ 1 回: けむりを すすめ、人ごとに 目が けむりの 中なら 暗さを 上げ、外なら 下げる */
   tickWorld(): void {
     const { f } = this.d;
-    let inside = false;
+    const eye = AI_CONST.playerEye;
+    let in1 = false;
+    let in2 = false;
+    const has2 = this.d.hasPartner();
     for (const c of this.clouds) {
       c.cloud.step(DT);
       if (!c.cloud.active) continue;
       const p = c.cloud.center();
-      if (Math.hypot(f.px - p.x, f.py + AI_CONST.playerEye - p.y, f.pz - p.z) <= c.sw.inkRadius) inside = true;
+      if (Math.hypot(f.p1.x - p.x, f.p1.y + eye - p.y, f.p1.z - p.z) <= c.sw.inkRadius) in1 = true;
+      if (has2 && Math.hypot(f.p2.x - p.x, f.p2.y + eye - p.y, f.p2.z - p.z) <= c.sw.inkRadius) in2 = true;
     }
     const sp = this.dimSpec;
     if (!sp) return;
-    this.dim = inside ? Math.min(sp.dimAlpha, this.dim + sp.dimAlpha / DIM_RISE_STEPS) : Math.max(0, this.dim - sp.dimAlpha / steps(sp.dimFadeOutSeconds));
+    const fall = sp.dimAlpha / steps(sp.dimFadeOutSeconds);
+    this.dims[0] = in1 ? Math.min(sp.dimAlpha, this.dims[0] + sp.dimAlpha / DIM_RISE_STEPS) : Math.max(0, this.dims[0] - fall);
+    this.dims[1] = in2 ? Math.min(sp.dimAlpha, this.dims[1] + sp.dimAlpha / DIM_RISE_STEPS) : Math.max(0, this.dims[1] - fall);
   }
 
-  /** 画面を 暗くする 黒い 板の こさ（0〜1） */
-  inkDim(): number {
-    return this.dim;
+  /** 画面を 暗くする 黒い 板の こさ（0〜1）。who = どの 人の 目か（既定 1P） */
+  inkDim(who: 1 | 2 = 1): number {
+    return this.dims[who - 1]!;
   }
 
   /** テスト用: いま 出ている けむり（中心・半径・はいてからの 秒） */
@@ -309,7 +318,7 @@ export class YokaiSwimmer {
   clear(): void {
     for (const c of this.clouds) c.cloud.dispose();
     this.clouds.length = 0;
-    this.dim = 0;
+    this.dims[0] = this.dims[1] = 0;
     this.dimSpec = null;
   }
 }
