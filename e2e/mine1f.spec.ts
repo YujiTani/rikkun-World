@@ -30,6 +30,7 @@ interface Found {
   stand: Pt;
   yaw: number;
   cells: Pt[];
+  gate: { x0: number; y: number; z0: number; x1: number; z1: number };
 }
 
 async function needMine(page: Page, names: string[]): Promise<void> {
@@ -55,23 +56,20 @@ const stepSafe = (page: Page, n: number): Promise<void> =>
       h.step(1);
     }
   }, n);
-const isDm = (c: unknown): boolean => (typeof c === 'string' ? /^Dm|D.?minor/i.test(c) : JSON.stringify(c).includes('"D"') && /minor|"m"|true/.test(JSON.stringify(c)));
-/** 門の 12 マスが すべて air か〔門の 長方形 × 高さ〕 */
-const gateAir = (page: Page, id: string): Promise<{ air: number; cells: number }> =>
-  page.evaluate((id) => {
+const isDm = (c: any): boolean => c === 'Dm' || c?.name === 'Dm' || (c?.root === 2 && c?.minor === true); // BgmChord = { name, root, minor }
+/** 門の マス〔長方形 × 表の 高さ〕が すべて air か。`gate` は 探した ときに とっておく */
+const gateAir = (page: Page, f: Found): Promise<{ air: number; cells: number }> =>
+  page.evaluate((gate) => {
     const h = (window as any).__rikkun;
-    const sp = h.world.spawn();
-    const s = (h.mine.shafts(sp.x - 4096, sp.z - 4096, sp.x + 4095, sp.z + 4095) as any[]).find((q) => q.id === id);
-    const g = s.yakata.gate;
-    const hgt = 12 / ((g.x1 - g.x0 + 1) * (g.z1 - g.z0 + 1)); // 仕様: 門は 12 マス
+    const hgt = h.mine.yakataTable().gate.height as number;
     let air = 0;
     let cells = 0;
-    for (let x = g.x0; x <= g.x1; x++) for (let z = g.z0; z <= g.z1; z++) for (let y = g.y; y < g.y + hgt; y++) {
+    for (let x = gate.x0; x <= gate.x1; x++) for (let z = gate.z0; z <= gate.z1; z++) for (let y = gate.y; y < gate.y + hgt; y++) {
       cells++;
       if (h.world.getBlock(x, y, z) === 'air') air++;
     }
     return { air, cells };
-  }, id);
+  }, f.gate);
 
 /** 宝箱の 前〔上の 段・前の まん中〕に 立って 宝箱を ねらい 右クリック */
 async function openChest(page: Page, f: Found): Promise<void> {
@@ -124,7 +122,7 @@ test('F14: やかたを さがす → あける → 7 ひき・札 7 → 1 ぴ�
       const cz = cells.reduce((a, p) => a + p.z, 0) / cells.length;
       const stand = { x: Math.round(cx + front[0]!), y: y.altar.y + 1, z: Math.round(cz + front[1]!) };
       const yaw = (Math.atan2(-front[0]!, front[1]!) * 180) / Math.PI;
-      return { id: s.id, stand, yaw, cells };
+      return { id: s.id, stand, yaw, cells, gate: y.gate };
     }
     return null;
   });
@@ -148,7 +146,7 @@ test('F14: やかたを さがす → あける → 7 ひき・札 7 → 1 ぴ�
   expect(st.foes, '妖怪の id').toHaveLength(total);
   expect(await bag(page), '持ち物は かわらない').toEqual(bagBefore);
   const label = page.locator('[data-testid="yakata-left"]');
-  const g1 = await gateAir(page, f.id);
+  const g1 = await gateAir(page, f);
   expect(g1.air, '門が ふさがった').toBe(0);
   await expect(label, 'のこりの 札').toContainText(String(total));
   const scene0 = await page.evaluate(() => (window as any).__rikkun.audio.state().yakataScene as string);
@@ -167,7 +165,8 @@ test('F14: やかたを さがす → あける → 7 ひき・札 7 → 1 ぴ�
     expect(Math.abs(box!.x + box!.width / 2 - w! / 2), '上の まん中').toBeLessThanOrEqual(w! * 0.1);
     for (const sel of ['#hearts', '#hotbar', '#notice-name']) {
       const o = page.locator(sel);
-      if ((await o.count()) === 0 || !(await o.first().isVisible())) continue;
+      if (sel !== '#notice-name') await expect(o.first(), `${sel} が 見えて いる〔${w}x${h}〕`).toBeVisible();
+      else if ((await o.count()) === 0 || !(await o.first().isVisible())) continue; // はじまりの おしらせは 3 秒 だけ
       const ob = await o.first().boundingBox();
       if (!ob) continue;
       const cross = box!.x < ob.x + ob.width && ob.x < box!.x + box!.width && box!.y < ob.y + ob.height && ob.y < box!.y + box!.height;
@@ -217,7 +216,7 @@ test('F14: やかたを さがす → あける → 7 ひき・札 7 → 1 ぴ�
   expect(st.state, 'まけて mada').toBe('mada');
   expect(st.floating, 'うかぶ 中身 なし').toBeNull();
   expect(await page.evaluate(() => (window as any).__rikkun.yokai.list().filter((y: any) => y.title && y.title !== 'none').length), '二つ名の 妖怪は 消えた').toBe(0);
-  const g2 = await gateAir(page, f.id);
+  const g2 = await gateAir(page, f);
   expect(g2.air, 'まけて 門が ひらいた').toBe(g2.cells);
 
   // --- 2 回目: あける → ぜんぶ たおす ---
@@ -250,7 +249,7 @@ test('F14: やかたを さがす → あける → 7 ひき・札 7 → 1 ぴ�
   }
   // 二つ名の おとし物〔ふつうの 表〕も ひろう ので、中身は「ぜんぶ ふえた」〔以上〕で 見る
   for (const [item, n] of Object.entries(want)) expect(gained[item] ?? 0, `${item} が プレビューの 数 以上 ふえる`).toBeGreaterThanOrEqual(n);
-  const g3 = await gateAir(page, f.id);
+  const g3 = await gateAir(page, f);
   expect(g3.air, 'かって 門が ひらいた').toBe(g3.cells);
   const unlocked = await page.evaluate((name) => (window as any).__rikkun.achievements.list().filter((a: any) => String(a.name).replace(/\s+/g, '') === name).map((a: any) => a.unlocked as boolean), norm(WIN));
   expect(unlocked, `実績「${WIN}」`).toEqual([true]);

@@ -109,6 +109,7 @@ describe('F10: アイテム〔登録表・説明・source・かさね 64・め�
       expect(t, `${r.id} の 種類表`).toBeDefined();
       expect(norm(t!.name)).toContain(norm(TEXT[r.look][r.part].name));
       expect(t!.maxStack, `${r.id} の かさね`).toBe(64);
+      expect((d as { placeBlock?: string }).placeBlock, `${r.id} は 置ける〔placeBlock〕`).toBe(r.id);
       expect(ITEM_TYPES.some((x) => x.id === r.id)).toBe(true);
       expect(norm(d!.source ?? ''), `${r.id} の source`).toContain(norm('ようかいの やかた を かちぬいて ほる'));
       expect(d!.zukan.trim().length, `${r.id} の zukan`).toBeGreaterThan(0);

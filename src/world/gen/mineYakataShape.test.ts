@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { hookCave } from './mineCaveKit';
 import { reachOf } from './mineBokenReport';
 import { GenCols, SEEDS_20, type PathCell } from './mineShaftKit';
 import { LOOKS, SEED_POOL_F, needYakataHook, tableOf, yakataPathCells, yakataSample, type Look, type YakataSampleRow } from './mineYakataKit';
@@ -145,6 +146,25 @@ describe('F2: 形〔横穴・門・大広間・祭壇・宝箱・出る 場所�
       if (!near) bad.push(`${tag(r)}: 口 (${m.x}, ${m.z}) の うしろに 本道・ひろばが ない`);
     }
     fail('口', bad);
+  });
+});
+
+describe('F2: 1D の 抽選の 部屋〔まわり 4 マス〕に かからない', () => {
+  it('やかたの 箱から 横の 間が 4 マス いない に 1D の 部屋が ない〔仕様 §4.2〕', () => {
+    expect(rows.length, 'やかたが ない').toBeGreaterThan(0);
+    const T = tableOf();
+    const MARGIN = 4; // 仕様 §4.2: 1D の 抽選の 部屋は まわり 4 マス
+    const bad: string[] = [];
+    for (const r of rows) {
+      const b = yakataBox(r.yakata, T);
+      for (const c of hookCave(r.seed).caves(b.x0 - 16, b.z0 - 16, b.x1 + 16, b.z1 + 16)) {
+        const dx = Math.max(c.box.x0 - b.x1, b.x0 - c.box.x1, 0);
+        const dz = Math.max(c.box.z0 - b.z1, b.z0 - c.box.z1, 0);
+        const dy = Math.max(c.box.y0 - b.y1, b.y0 - c.box.y1, 0);
+        if (Math.max(dx, dz, dy) <= MARGIN) bad.push(`${tag(r)}: 部屋 ${c.id}〔${c.kind}〕が まわり ${MARGIN} マスに かかる`);
+      }
+    }
+    expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
   });
 });
 

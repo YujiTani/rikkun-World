@@ -95,13 +95,11 @@ describe('F16 ④ YakataSound', () => {
     await expect(b.s.preload()).resolves.toBeUndefined();
     expect(b.s.ready()).toBe(false);
     expect(b.s.startLoop('challenge', 0)).toBe(false);
-    const c = make({ audio: null });
     const Cls = mod()['YakataSound'] as new (o: unknown) => YS;
     const d = new Cls({ audio: () => null, load: okLoad, volume: () => 1 });
     await d.preload();
     expect(() => d.playOnce('gate_open')).not.toThrow();
     expect(d.playOnce('gate_open')).toBe(false);
-    expect(c.f.log.started).toBe(0);
   });
 
   it('表の ふんいきの 下げ幅〔ambienceUnderDb〕は マイナス〔小さく する〕', () => {

@@ -8,7 +8,7 @@ import { hookE } from '../world/gen/mineBokenKit';
 import { genColumn, type OldCols } from '../world/gen/mineShaftKit';
 import { GOLDEN_E_SEEDS, goldenE, pathHashNoYakata } from '../world/gen/mineYakataGolden';
 import { hookF, needYakataHook, tableOf } from '../world/gen/mineYakataKit';
-import { gateIds, makeRig, pickBoth, type YakataRig } from '../world/gen/mineYakataRig';
+import { makeRig, pickBoth, type YakataRig } from '../world/gen/mineYakataRig';
 import { gateCells, yakataBox } from '../world/gen/mineYakataReport';
 import { spawnOf } from '../world/gen/terrain';
 import { colKey } from '../world/stream/ring';
@@ -16,6 +16,8 @@ import { MemoryBackend, SAVE_ID } from './backend';
 import * as Gens from './gens';
 import { exportSave, importSave } from './portable';
 import { SAVE_GEN, SaveManager, type KeyValueStore } from './SaveManager';
+import { restoreStoredWorld } from './restore';
+import type { SaveBlockOverride } from './saveOverride';
 import { openStoredKeys, type StreamRestore } from './streamRestore';
 
 /**
@@ -24,12 +26,12 @@ import { openStoredKeys, type StreamRestore } from './streamRestore';
  *   ・版 7 の fixture `__fixtures__/world-v7-seed20261012.rikkun.gz`〔1F の 前の main = 1E 入りで 作った 新しい 世界。はじまりの 坑道と 近くの ふかい 1E の 坑道の 道の 列〕:
  *     開くと やかたの 一覧が 保存の 列ぜんぶ・保存すると meta の 版が 今の 版・一覧の 大きさは 列 1 つに つき 12 バイト 以下・やかたが 古い 列に かかる 坑道は `yakata` null・
  *     ほかの 1E の 坑道の `shaftPath`〔'yakata' を のぞく〕は 1F の 前と 同じ〔`mine1e-before.json`〕。
- *   ・挑戦の 間の 保存: 保存に 書く ブロック〔`yakataSavePatch(x, y, z)`〕は 門の かべ・宝箱の あいた 形を 挑戦の 前の ブロックに もどす。かった あと・まけた あとは 書きかえ なし。
+ *   ・挑戦の 間の 保存: 保存に 書く ブロック〔`hook.yakataSaveOverrides()`＝ 今ある `saveOverrides`〔src/save/saveOverride.ts〕の 形 `{ x, y, z, live, save }[]`〕は 挑戦の 間だけ 門 12 マス〔live あやしいかべ → save air〕・宝箱 2 マス〔live あいた 形 → save しまった 形〕を 返し、ふだん・かった あと・まけた あとは []。かった あと・まけた あとは 書きかえ なし。
  *   ・見た目の くじは 保存しない: 古い 列を もつ 世界でも やかたの `look` は 同じ。かった あとの 世界を 開きなおすと `katta`〔宝箱の ブロックで 持つ〕。
  * 【fixture の 作り方】 1F の 実装の 前の main〔1E 入り。SAVE_GEN 7〕で:
  *     MAKE_V7_FIXTURE=1 LANG=C.UTF-8 npx vitest run src/save/mine1fSave.test.ts
  *   〔1F を 入れた あとでは 作らない。作りなおす ときは 1E 入りの main に 戻して〕。
- * 【テスト側の 読み】古い 列の 一覧は `StreamRestore.oldCols.yakata`〔colKey の 集まり〕・窓口 `oldCols('yakata')`・`isOld('yakata', cx, cz)`・`saveGens().yakata`・`yakataSavePatch`。
+ * 【テスト側の 読み】古い 列の 一覧は `StreamRestore.oldCols.yakata`〔colKey の 集まり〕・窓口 `oldCols('yakata')`・`isOld('yakata', cx, cz)`・`saveGens().yakata`・`yakataSaveOverrides`。
  */
 
 vi.setConfig({ testTimeout: 900_000 });
@@ -47,9 +49,9 @@ class MemoryStore implements KeyValueStore {
 }
 type Restored = StreamRestore & { oldCols?: OldCols & { yakata?: ReadonlySet<number> } };
 
-async function openGame(db: MemoryBackend, store: MemoryStore, o: { world?: ArrayVoxelWorld; savePatch?: (x: number, y: number, z: number) => string | null } = {}) {
+async function openGame(db: MemoryBackend, store: MemoryStore) {
   const restored = (await openStoredKeys({ db, store, seed: SEED, saveId: SAVE_ID, reset: false })) as Restored;
-  const world = o.world ?? new ArrayVoxelWorld({ x: 0, z: 0 });
+  const world = new ArrayVoxelWorld({ x: 0, z: 0 });
   const state: PlayerState = {
     position: { x: 100, y: 200, z: 100 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0,
     onGround: true, inWater: false, moving: false, facingDeg: 0, running: false,
@@ -61,10 +63,27 @@ async function openGame(db: MemoryBackend, store: MemoryStore, o: { world?: Arra
     tick: () => 0,
     settings: { saveIntervalTicks: 600 },
     streaming: true,
-    ...(o.savePatch ? { savePatch: o.savePatch } : {}),
-  } as never);
+  });
   const loaded = save.load();
   return { world, restored, save, loaded };
+}
+/** ふだんの 起動と 同じ 順〔restoreStoredWorld → SaveManager〕。`world` を 渡すと その 世界の 変更を 保存する〔お手本 mine1bSave.test.ts〕 */
+async function openRestored(db: MemoryBackend, store: MemoryStore, world: ArrayVoxelWorld, saveOverrides?: () => SaveBlockOverride[]) {
+  const restored = await restoreStoredWorld({ world, db, store, seed: SEED, saveId: SAVE_ID, reset: false });
+  const state: PlayerState = {
+    position: { x: 100, y: 200, z: 100 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0,
+    onGround: true, inWater: false, moving: false, facingDeg: 0, running: false,
+  };
+  const save = new SaveManager({
+    world, seed: SEED, db, store, restored, inventory: new InventoryImpl(),
+    player: { get: () => state, set: () => {} },
+    spawn: () => ({ x: 100, y: 200, z: 100, yawDeg: 0, pitchDeg: 0 }),
+    tick: () => 0,
+    settings: { saveIntervalTicks: 600 },
+    ...(saveOverrides ? { saveOverrides } : {}),
+  });
+  save.load();
+  return { world, restored, save };
 }
 const keysOf = async (db: MemoryBackend): Promise<Set<number>> => new Set((await db.readKeys(SAVE_ID)).keys.map((k) => colKey(k.cx, k.cz)));
 const sorted = (xs: Iterable<number>): number[] => [...xs].sort((a, b) => a - b);
@@ -225,51 +244,79 @@ describe('F9: 挑戦の 間の 保存は 挑戦の 前の 形・かった あと
   beforeAll(() => {
     rows = pickBoth();
   }, 1200_000);
-  const patch = (r: YakataRig, p: { x: number; y: number; z: number }): string | null => (r.hook as unknown as { yakataSavePatch?: (x: number, y: number, z: number) => string | null }).yakataSavePatch?.(p.x, p.y, p.z) ?? null;
-  const need = (r: YakataRig): void => {
-    if (typeof (r.hook as unknown as Record<string, unknown>)['yakataSavePatch'] !== 'function') throw new Error('窓口が まだ ない: yakataSavePatch');
+
+  const overridesOf = (r: YakataRig): SaveBlockOverride[] => {
+    const f = (r.hook as unknown as { yakataSaveOverrides?: () => SaveBlockOverride[] }).yakataSaveOverrides;
+    if (typeof f !== 'function') throw new Error('窓口が まだ ない: yakataSaveOverrides');
+    return f.call(r.hook);
   };
 
-  it('挑戦の 間に 保存〔ふつうの 保存・PENDING_KEY の 保険〕→ 開きなおすと 門 空気・宝箱 しまった 形・mada。SaveManager の 本物の 流れを 通す', async () => {
+  it('yakataSaveOverrides: ふだんは []・挑戦の 間は 門 12 マス〔live あやしいかべ → save air〕と 宝箱 2 マス〔live あいた 形 → save しまった 形〕・かった あとは []', () => {
     expect(rows.length, 'やかたが ない').toBeGreaterThan(0);
     for (const row of rows) {
       const r = makeRig(row);
-      need(r);
+      expect(overridesOf(r), 'まだ').toEqual([]);
+      const gate = gateCells(r.y, r.T);
+      const cells = [...gate, ...r.y.chest.cells];
+      const before = cells.map((c) => String(r.world.getBlock(c.x, c.y, c.z)));
+      r.stand(1, { x: r.y.hall.x0 + 8, y: r.y.hall.y, z: r.y.hall.z0 + 8 });
+      r.open();
+      const ov = overridesOf(r);
+      expect(ov, '挑戦の 間').toHaveLength(cells.length);
+      cells.forEach((c, i) => {
+        const o = ov.find((q) => q.x === c.x && q.y === c.y && q.z === c.z);
+        expect(o, `(${c.x}, ${c.y}, ${c.z})`).toBeDefined();
+        expect(o!.live, 'いま 世界に ある ブロック').toBe(String(r.world.getBlock(c.x, c.y, c.z)));
+        expect(o!.save, '保存する ブロック').toBe(before[i]);
+      });
+      for (const id of r.foes().map((q) => q.id)) r.yokai.kill(id);
+      r.step();
+      expect(r.hook.yakataState(r.y.id).state).toBe('katta');
+      expect(overridesOf(r), 'かった あと').toEqual([]);
+    }
+  });
+
+  it('挑戦の 間に 保存〔ふつうの 保存〕→ 開きなおすと〔restoreStoredWorld〕門 空気・宝箱 しまった 形・mada', async () => {
+    expect(rows.length, 'やかたが ない').toBeGreaterThan(0);
+    for (const row of rows) {
+      const r = makeRig(row);
       const cells = [...gateCells(r.y, r.T), ...r.y.chest.cells];
       const before = cells.map((c) => String(r.world.getBlock(c.x, c.y, c.z)));
       r.world.resetSaveTracking();
       r.stand(1, { x: r.y.hall.x0 + 8, y: r.y.hall.y, z: r.y.hall.z0 + 8 });
       r.open();
       expect(r.hook.yakataState(r.y.id).state).toBe('chosen');
-      expect(gateIds(r).every((id) => id !== 'air'), '門は 今 ふさがって いる').toBe(true);
-      const savePatch = (x: number, y: number, z: number): string | null => patch(r, { x, y, z });
-      // ふつうの 保存
       const db = new MemoryBackend();
       const store = new MemoryStore();
-      const g = await openGame(db, store, { world: r.world, savePatch });
+      const g = await openRestored(db, store, r.world, () => overridesOf(r));
       await g.save.now();
-      const again = await openGame(db, store);
-      const w2 = again.world;
-      cells.forEach((c, i) => expect(String(w2.getBlock(c.x, c.y, c.z)), `保存 (${c.x}, ${c.y}, ${c.z})`).toBe(before[i]));
-      expect(hookF(r.seed, { world: w2 } as never).yakataState(r.y.id), '開きなおして').toMatchObject({ state: 'mada', left: 0, foes: [], floating: null });
-      // 書きこみが しっぱいした ときの 保険
-      const db2 = new MemoryBackend();
-      const store2 = new MemoryStore();
-      const g2 = await openGame(db2, store2, { world: r.world, savePatch });
-      db2.failWrites = true;
+      const again = await openRestored(db, store, new ArrayVoxelWorld({ x: 0, z: 0 }));
+      cells.forEach((c, i) => expect(String(again.world.getBlock(c.x, c.y, c.z)), `保存 (${c.x}, ${c.y}, ${c.z})`).toBe(before[i]));
+      expect(hookF(r.seed, { world: again.world } as never).yakataState(r.y.id), '開きなおして').toMatchObject({ state: 'mada', left: 0, foes: [], floating: null });
+    }
+  });
+
+  it('挑戦の 間に ページを 閉じる〔pagehide の 保険。PENDING_KEY〕→ 保険から もどすと 挑戦の 前の 形', async () => {
+    expect(rows.length, 'やかたが ない').toBeGreaterThan(0);
+    for (const row of rows) {
+      const r = makeRig(row);
+      const cells = [...gateCells(r.y, r.T), ...r.y.chest.cells];
+      const before = cells.map((c) => String(r.world.getBlock(c.x, c.y, c.z)));
+      r.world.resetSaveTracking();
+      r.stand(1, { x: r.y.hall.x0 + 8, y: r.y.hall.y, z: r.y.hall.z0 + 8 });
+      r.open();
+      const db = new MemoryBackend();
+      const store = new MemoryStore();
+      const g = await openRestored(db, store, r.world, () => overridesOf(r));
+      db.failWrites = true;
       const handlers = new Map<string, () => void>();
-      g2.save.bindPageEvents({ addEventListener: (t: string, fn: () => void) => handlers.set(t, fn), removeEventListener: () => undefined } as never, { hidden: false, addEventListener: () => undefined, removeEventListener: () => undefined } as never);
+      g.save.bindPageEvents({ addEventListener: (t: string, fn: () => void) => handlers.set(t, fn), removeEventListener: () => undefined } as never, { hidden: false, addEventListener: () => undefined, removeEventListener: () => undefined } as never);
       handlers.get('pagehide')!();
-      expect([...store2.data.keys()].some((k) => k.includes('pending')), '保険が 置かれた').toBe(true);
-      db2.failWrites = false;
-      const back = await openGame(db2, store2);
+      expect([...store.data.keys()].some((k) => k.includes('pending')), '保険が 置かれた').toBe(true);
+      db.failWrites = false;
+      const back = await openRestored(db, store, new ArrayVoxelWorld({ x: 0, z: 0 }));
       expect(back.restored.fromPending, '保険から もどした').toBe(true);
       cells.forEach((c, i) => expect(String(back.world.getBlock(c.x, c.y, c.z)), `保険 (${c.x}, ${c.y}, ${c.z})`).toBe(before[i]));
-      // かった あと: 保存の 書きかえ なし
-      for (const id of r.foes().map((q) => q.id)) r.yokai.kill(id);
-      r.step();
-      expect(r.hook.yakataState(r.y.id).state).toBe('katta');
-      for (const c of cells) expect(patch(r, c), `かった あと (${c.x}, ${c.y}, ${c.z})`).toBeNull();
     }
   });
 

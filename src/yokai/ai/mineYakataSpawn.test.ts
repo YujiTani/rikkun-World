@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { DayPhase, Inventory, PlayerCombat, TimeOfDay, Vec3, YokaiKind } from '../../contracts';
 import { ArrayVoxelWorld } from '../../world/VoxelWorld';
@@ -16,6 +15,7 @@ import type { HookYokaiEvent, YokaiManagerOptions } from './managerTypes';
  *     `graceSteps` ＝ あらわれてから その ステップ数は 攻撃しない・たたかれても ダメージを 受けない。
  *   ・`YokaiManager.leave(ids)`: そっと 去る〔おとし物 なし〕。
  *   ・`YokaiManagerOptions.noSpawnAt?(x, y, z): boolean`: true の マスには 自動で 出さない〔やかたの 大広間の 床。まだ・かった・挑戦の 間 ぜんぶ〕。
+ *   F6 の「まだ・かった の 床で ためし 0」は つなぎ〔src/game/wire/creatures.ts の noSpawnAt に caveKindAt が yakata を ふくめる〕なので つなぎ込みで 見る〔形の 見張りは 実装の 書き方に しばるので 書かない。`caveAt` が yakata は mineYakataShape.test.ts〕。
  *   数えかた〔`list()`〕: 自動で 出た ふつうの 妖怪は 7 ひきに かぞえない。
  */
 
@@ -36,11 +36,12 @@ function room(): ArrayVoxelWorld {
 function rig(config: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) {
   const hits: { amount: number; by: YokaiKind; from: Vec3 }[] = [];
   const combat = { hp: () => 20, maxHp: () => 20, dead: () => false, invincibleTicks: () => 0, damage: (amount: number, by: YokaiKind, from: Vec3) => (hits.push({ amount, by, from }), true), heal: () => 0, drainEvents: () => [] } as unknown as PlayerCombat;
+  const world = room();
   const phase = { p: 'night' as DayPhase };
   const player = { position: { x: CENTER, y: 60, z: CENTER } };
   const events: HookYokaiEvent[] = [];
   const m = new YokaiManager({
-    world: room(),
+    world,
     time: makeTime('night', phase),
     getPlayer: () => player,
     combat,
@@ -56,7 +57,7 @@ function rig(config: Record<string, unknown> = {}, extra: Record<string, unknown
       events.push(...m.takeHookEvents());
     }
   };
-  return { m, hits, player, events, step, phase };
+  return { m, hits, player, events, step, phase, world };
 }
 type Free = { spawn(kind: YokaiKind, x: number, y: number, z: number, o: { title: 'oyabun' | 'taisho'; free: true; graceSteps: number }): number; leave(ids: readonly number[]): void };
 const asFree = (m: YokaiManager): Free => m as unknown as Free;
@@ -128,15 +129,10 @@ describe('F6: ふつうの きまりの 外', () => {
     expect(closed.m.list(), '出ない').toHaveLength(0);
   }, 300_000);
 
-  it('まだ・かった の やかたの 床: つなぎ〔src/game/wire/creatures.ts〕の noSpawnAt が やかたの 床〔caveKindAt が yakata〕を ふくむ〔見張り〕', () => {
-    const src = readFileSync(new URL('../../game/wire/creatures.ts', import.meta.url), 'utf8');
-    const line = src.split('\n').find((l) => l.includes('noSpawnAt')) ?? '';
-    expect(line, 'noSpawnAt の 行').toContain('yakata');
-  });
-
-  it('見張り〔いまも 緑〕: ちょうちんの まわり〔光が 強い 所〕でも 3,600 ステップ ほか 7 ひきは 消えない', () => {
+  it('見張り〔いまも 緑。ちょうちんを ならべる〕: ちょうちんの まわりでも 3,600 ステップ ほか 7 ひきは 消えない', () => {
     const forget = createYokaiConfig().yokaiForgetSteps as number;
     const r = rig({ yokaiSpawnInterval: 1e9, yokaiSpawnIntervalUnder: 1e9 });
+    for (let x = 36; x <= 48; x += 2) r.world.setBlock(x, 60, 42, 'lantern' as never); // ちょうちんを ならべる
     const ids = [0, 1, 2].map((i) => asFree(r.m).spawn('karakasa', 40 + i * 2, 60, 40, { title: 'oyabun', free: true, graceSteps: T().graceSteps }));
     r.step(forget + 600);
     for (const id of ids) expect(r.m.list().some((q) => q.id === id && q.state !== 'leaving'), `id ${id}`).toBe(true);

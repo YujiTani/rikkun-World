@@ -43,7 +43,7 @@ export function yakataBox(y: Yakata, T: YakataTable): { x0: number; x1: number; 
 
 /** やかたの 本体〔横穴・大広間・祭壇〕の 足の マス〔ほかの 道との かさなりを 見る〕 */
 function footprint(y: Yakata, T: YakataTable): { air: Pt[]; solid: Rect } {
-  const air: Pt[] = [...y.passage.slice(5)];
+  const air: Pt[] = [...y.passage.slice(3)];
   return { air, solid: grow(y.hall, 1 + T.ring) };
 }
 
@@ -228,12 +228,12 @@ export function shapeProblemsF(g: GenCols, s: YakataShaft, T: YakataTable, chest
   const up = upperRect(y, T);
   for (const c of rectCells(lower)) {
     if (g.id(c.x, lower.y - 1, c.z) !== B.dan) bad.push(`祭壇の 下の 段 (${c.x}, ${lower.y - 1}, ${c.z}) が ${g.id(c.x, lower.y - 1, c.z)}〔${B.dan}〕`);
-    if (!inRect(up, c.x, c.z)) for (let k = 0; k < 4; k++) if (!isBodyIndex(g.at(c.x, lower.y + k, c.z))) bad.push(`祭壇の 下の 段の 上 (${c.x}, ${lower.y + k}, ${c.z}) が 空気でない: ${g.id(c.x, lower.y + k, c.z)}`);
+    if (!inRect(up, c.x, c.z)) for (let k = 0; k < 4; k++) if (!isBodyIndex(g.at(c.x, lower.y + k, c.z))) bad.push(`祭壇の 下の 段の 上 (${c.x}, ${lower.y + k}, ${c.z}) が 空気でない: ${g.id(c.x, lower.y + k, c.z)}`);  // 4 ＝ 仕様 §4.2 の「祭壇の 足から 上 4 マスは 空気」の 数〔表の 項目では ない〕
   }
   const chestSet = new Set(y.chest.cells.map(ptKey));
   for (const c of rectCells(up)) {
     if (g.id(c.x, up.y - 1, c.z) !== B.dan) bad.push(`祭壇の 上の 段 (${c.x}, ${up.y - 1}, ${c.z}) が ${g.id(c.x, up.y - 1, c.z)}〔${B.dan}〕`);
-    for (let k = 0; k < 4; k++) if (!chestSet.has(ptKey({ x: c.x, y: up.y + k, z: c.z })) && !isBodyIndex(g.at(c.x, up.y + k, c.z))) bad.push(`祭壇の 上の 段の 上 (${c.x}, ${up.y + k}, ${c.z}) が 空気でない`);
+    for (let k = 0; k < 4; k++) if (!chestSet.has(ptKey({ x: c.x, y: up.y + k, z: c.z })) && !isBodyIndex(g.at(c.x, up.y + k, c.z))) bad.push(`祭壇の 上の 段の 上 (${c.x}, ${up.y + k}, ${c.z}) が 空気でない`);  // 4 ＝ 同じ〔仕様 §4.2〕
   }
   // 祭壇は おくの かべぎわの まん中
   const ac = rectCenter(lower);
@@ -316,7 +316,7 @@ export function torchProblemsF(g: GenCols, s: YakataShaft, T: YakataTable): stri
   if (found.length > T.maxTorches) bad.push(`あやしい たいまつ ${found.length} 本〔${T.maxTorches} 本 まで〕`);
   const hallBox = grow(y.hall, 1);
   const inHall = found.filter((p) => inRect(hallBox, p.x, p.z));
-  if (inHall.length < 4) bad.push(`大広間の あやしい たいまつ ${inHall.length} 本〔4 本 以上〕`);
+  if (inHall.length < 4) bad.push(`大広間の あやしい たいまつ ${inHall.length} 本〔4 本 以上〕`);  // 4 本 ＝ 仕様 §4.10 の 光る ブロックの 下限〔大広間の 明るさ。表の 項目では ない〕
   // 横穴: 3 マスごと 左右 こうご
   const d = passageDir(y);
   const lat = { x: d.dz, z: d.dx };
@@ -326,7 +326,7 @@ export function torchProblemsF(g: GenCols, s: YakataShaft, T: YakataTable): stri
     .map((p) => ({ i: (p.x - P[0]!.x) * d.dx + (p.z - P[0]!.z) * d.dz, o: (p.x - P[0]!.x) * lat.x + (p.z - P[0]!.z) * lat.z }))
     .filter((p) => p.i >= 0 && p.i < P.length)
     .sort((a, b) => a.i - b.i);
-  if (inPass.length < 3 || inPass.length > 6) bad.push(`横穴の たいまつ ${inPass.length} 本〔3〜6〕`);
+  if (inPass.length < 3 || inPass.length > 6) bad.push(`横穴の たいまつ ${inPass.length} 本〔3〜6〕`);  // 3〜6 ＝ 仕様 §4.2 の 表の 数〔横穴の たいまつ〕
   for (let k = 1; k < inPass.length; k++) {
     if (inPass[k]!.i - inPass[k - 1]!.i !== T.passage.torchEvery) bad.push(`横穴の たいまつの あいだ ${inPass[k]!.i - inPass[k - 1]!.i}〔${T.passage.torchEvery}〕`);
     if (Math.sign(inPass[k]!.o) === Math.sign(inPass[k - 1]!.o) || inPass[k]!.o === 0) bad.push(`横穴の たいまつが 左右 こうごに ならない〔${k - 1} と ${k}〕`);
@@ -342,7 +342,7 @@ export function lightProblemsF(g: GenCols, s: YakataShaft, T: YakataTable): stri
   const light = g.lit({ x0: box.x0, x1: box.x1, z0: box.z0, z1: box.z1 }, 8);
   for (const [i, c] of y.passage.entries()) {
     const l = light.blockLight(c.x, c.y, c.z);
-    if (l < 6) bad.push(`横穴 ${i} 番目 (${c.x}, ${c.y}, ${c.z}) の ブロックの 光 ${l}〔6 以上〕`);
+    if (l < 6) bad.push(`横穴 ${i} 番目 (${c.x}, ${c.y}, ${c.z}) の ブロックの 光 ${l}〔6 以上〕`);  // 6 ＝ 仕様 §4.2・F2 の「光 6 以上」
   }
   const need = (c: Pt, what: string): void => {
     const l = light.blockLight(c.x, c.y, c.z);
@@ -384,7 +384,7 @@ export function placeProblemsF(seed: number, s: YakataShaft, path: readonly Path
     // 1E の 道の まわり 2 マス〔たて・よこ・高さ〕
     if (c.x >= f.solid.x0 - 2 && c.x <= f.solid.x1 + 2 && c.z >= f.solid.z0 - 2 && c.z <= f.solid.z1 + 2 && c.y >= y.hall.y - 1 - T.ring - 2 && c.y <= y.hall.y + T.hall.height + 1 + T.ring + 2) bad.push(`1E の 道 (${c.x}, ${c.y}, ${c.z}) が 大広間〔まわり ${T.ring}〕に かかる`);
   }
-  const P = y.passage.slice(5);
+  const P = y.passage.slice(3);
   const half = Math.floor(T.passage.width / 2);
   for (const p of P) {
     for (const c of others) if (Math.abs(c.x - p.x) <= half + 2 && Math.abs(c.z - p.z) <= half + 2 && c.y >= p.y - 3 && c.y <= p.y + T.passage.height + 2) bad.push(`1E の 道 (${c.x}, ${c.y}, ${c.z}) が 横穴 (${p.x}, ${p.z}) に かかる`);

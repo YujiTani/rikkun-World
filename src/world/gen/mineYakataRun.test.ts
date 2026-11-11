@@ -170,6 +170,7 @@ describe('F7: かち', () => {
     r.stand(1, openSpots(r)[0]!);
     r.open(1);
     r.clearEvents();
+    r.says.length = 0;
     const ids = r.foes().map((f) => f.id);
     expect(ids.length, `${tag(r)} の 7 ひき`).toBe(total);
     // 1 ぴき たおすたび のこりが へる
@@ -192,6 +193,7 @@ describe('F7: かち', () => {
     const want = new Map<string, number>();
     for (const it of preview.items) want.set(it.item, (want.get(it.item) ?? 0) + it.count);
     expect([...got].sort(), `${tag(r)} の 中身`).toEqual([...want].sort());
+    expect(r.says.length, '中身の ログ 1 行〔C8 と 同じ 流れ。chest.say〕').toBe(1);
     expect(r.opened, '宝箱の 「あけた」できごと〔段 4〕').toEqual([4]);
     expect(r.eventsOf('celebrate').map((e) => e.what).sort(), 'お祝い').toEqual(['confetti', 'fireworks']);
     expect(r.eventsOf('win').length, 'win').toBe(1);
@@ -373,8 +375,9 @@ describe('F4: yakataLocked〔まだ・挑戦の 間は やかたの ブロック
     r.world.setBlock(spot.x, spot.y + 2, spot.z, 'dirt' as never);
     expect(r.hook.yakataLocked(spot.x, spot.y + 2, spot.z), '自分で 置いた dirt').toBe(false);
     const b = yakataBox(r.y, r.T);
-    const far = [-3, b.x1 + 3].map((x) => ({ x, y: r.y.hall.y - 6, z: b.z0 })).find((p) => String(r.world.getBlock(p.x, p.y, p.z)) === 'stone');
-    if (far) expect(r.hook.yakataLocked(far.x, far.y, far.z), '外の いし').toBe(false);
+    const far = [b.x0 - 3, b.x1 + 3].map((x) => ({ x, y: r.y.hall.y - 6, z: b.z0 })).find((p) => String(r.world.getBlock(p.x, p.y, p.z)) === 'stone');
+    expect(far, '外の いしの マス').toBeDefined();
+    expect(r.hook.yakataLocked(far!.x, far!.y, far!.z), '外の いし').toBe(false);
   });
 
   it.each(LOOKS)('%s: 挑戦の 間は 門の 12 マスも true・まけると false・かった あとは ぜんぶ false', (look) => {
