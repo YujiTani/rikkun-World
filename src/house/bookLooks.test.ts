@@ -57,3 +57,15 @@ describe('形の 記録（spec）', () => {
     expect(s.light).toBe('lantern');
   });
 });
+
+describe('窓口 blockAt の item', () => {
+  it('おしろの やねの マスは ほるのと 同じ おしろの アイテム', async () => {
+    const { cellInfo } = await import('./cell');
+    const bp = withKind('roof', 'kawara_shiro', BASE);
+    const book = new HouseBook() as LookBook;
+    recordHouse(book, bp, 1, AT);
+    const c = houseShape(bp).cells.find((x) => x.look === 'kawara_shiro')!;
+    const [x, y, z] = [AT.x + c.x, AT.y + c.y, AT.z + c.z];
+    expect(cellInfo(c.id as BlockId, book, x, y, z).item).toBe(kindItem('roof', 'kawara_shiro'));
+  });
+});
