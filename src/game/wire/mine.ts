@@ -114,6 +114,10 @@ export function wireMine(deps: WiredDuo) {
   });
 
   shared.yakataLocked = (x, y, z) => mine.yakataLocked(x, y, z);
+  shared.yakataChestAimed = () => {
+    const t = dig.target();
+    return !!t && mine.chestAt(t.block.x, t.block.y, t.block.z)?.table === 'yakata';
+  };
   shared.yakataQuiet = (who) => mine.yakataQuiet(who);
   shared.yakataSaveOverrides = () => mine.yakataSaveOverrides();
   game.onUpdate(() => yakata.step(mine)); // 妖怪の 更新の あと〔wireMine は いちばん 最後に つなぐ〕

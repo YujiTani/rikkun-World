@@ -62,6 +62,25 @@ const gateOf = (y: Yakata): Pt[] => {
   return out;
 };
 
+/** 門の 絵の 飾りの 箱〔まん中の 下・はば・奥行き・高さ〕 */
+const gateBox = (y: Yakata): { x: number; y: number; z: number; w: number; d: number; h: number } => ({
+  x: (y.gate.x0 + y.gate.x1 + 1) / 2,
+  y: y.gate.y,
+  z: (y.gate.z0 + y.gate.z1 + 1) / 2,
+  w: y.gate.x1 - y.gate.x0 + 1,
+  d: y.gate.z1 - y.gate.z0 + 1,
+  h: T.gate.height,
+});
+/** うかぶ 中身の 場所: 上の 段の 宝箱の まわり〔宝箱の 2 マスと その 前〕。最大 4 つ */
+const FLOAT_MAX = 4;
+function floatCells(y: Yakata, items: readonly { item: string }[]): { item: string; x: number; y: number; z: number }[] {
+  const cs = y.chest.cells;
+  const dx = Math.sign(y.hall.x0 + y.hall.x1 - (y.gate.x0 + y.gate.x1)) || 0; // 門から 大広間の むき〔前の 逆〕
+  const dz = Math.sign(y.hall.z0 + y.hall.z1 - (y.gate.z0 + y.gate.z1)) || 0;
+  const spots = [cs[0]!, cs[1]!, { x: cs[0]!.x - (Math.abs(dx) > Math.abs(dz) ? dx : 0), z: cs[0]!.z - (Math.abs(dx) > Math.abs(dz) ? 0 : dz) }, { x: cs[1]!.x - (Math.abs(dx) > Math.abs(dz) ? dx : 0), z: cs[1]!.z - (Math.abs(dx) > Math.abs(dz) ? 0 : dz) }];
+  return items.slice(0, FLOAT_MAX).map((it, i) => ({ item: it.item, x: spots[i]!.x + 0.5, y: y.chest.y, z: spots[i]!.z + 0.5 }));
+}
+
 /** 門の 内がわ〔大広間の 側〕の 立つ 場所: 門の まん中から 大広間の まん中へ 2 マス */
 function pushOut(y: Yakata, footY: number): { x: number; y: number; z: number } {
   const gx = (y.gate.x0 + y.gate.x1 + 1) / 2;
@@ -138,6 +157,8 @@ export function createYakataRun(d: RunDeps) {
     });
     const run: Run = { y, who, members, ids, floating: plan.chestPreview.map((i) => ({ ...i })), plan, lastLeft: ids.length };
     runs.set(y.id, run);
+    ports.emit({ type: 'gate', what: 'close', gate: gateBox(y) });
+    ports.emit({ type: 'float', cells: floatCells(y, plan.chestPreview) });
     ports.emit({ type: 'sfx', name: 'yakataGateClose' });
     ports.emit({ type: 'sfx', name: 'titleAppear' });
     ports.emit({ type: 'notice', text: 'start' });
@@ -150,6 +171,8 @@ export function createYakataRun(d: RunDeps) {
     runs.delete(r.y.id);
     won.add(r.y.id);
     setGate(r.y, false);
+    ports.emit({ type: 'gate', what: 'open', gate: gateBox(r.y) });
+    ports.emit({ type: 'float', cells: null });
     ports.emit({ type: 'sfx', name: 'yakataGateOpen' });
     ports.emit({ type: 'sfx', name: 'fanfare' });
     if (d.chest) {
@@ -171,6 +194,8 @@ export function createYakataRun(d: RunDeps) {
     setChest(r.y, false);
     setGate(r.y, false);
     pendingSay.add(r.y.id);
+    ports.emit({ type: 'gate', what: 'open', gate: gateBox(r.y) });
+    ports.emit({ type: 'float', cells: null });
     ports.emit({ type: 'lose' });
     ports.emit({ type: 'sfx', name: 'yakataGateOpen' });
   }

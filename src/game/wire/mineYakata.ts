@@ -8,8 +8,10 @@ import { createBrowserYakataSound } from '../../fx/yakataSound';
 import type { YakataSceneReq } from '../../fx/bgm/yakataScene';
 import { YakataLeft } from '../../ui/yakataLeft';
 import { YAKATA_TEXT } from '../../ui/yakataText';
-import type { YokaiKind } from '../../contracts';
+import { YakataFloat, YakataGateFx } from '../../fx/yakataVisuals';
+import type { ItemId, YokaiKind } from '../../contracts';
 import type { YakataEvent, YakataPlayer, YakataPorts, YakataYokaiRow } from '../../world/gen/mineYakataPorts';
+import { yakataLightBoxes } from '../../world/gen/mineYakataLightBox';
 import type { YakataLightBox } from '../../world/light/yakataLight';
 import type { WiredDuo } from './duo';
 
@@ -19,14 +21,17 @@ const LIGHT_EVERY = 30;
 type Router = { run(who: 1 | 2, fn: () => void): void };
 
 export function wireYakata(deps: WiredDuo, router: Router) {
-  const { shared, game, controller, combat, yokaiM, achievements, notice, fxSound, titleSound, mixer, audioSettings, yakataScene, hud, reducedMotionMq, renderer, shafts } = deps;
+  const { shared, game, controller, combat, yokaiM, achievements, notice, fxSound, titleSound, mixer, yakataScene, hud, reducedMotionMq, renderer, shafts } = deps;
   const sound = createBrowserYakataSound(
     () => FX_SETTINGS.fxVolume,
     () => mixer.output()?.ctx ?? null,
     () => mixer.output()?.destination ?? null,
-    { volume: () => audioSettings.bgmVolume, output: () => mixer.output()?.destination ?? null },
+    { volume: () => 1, output: () => mixer.bgmInput() }, // ループは BGM の バスへ〔音楽の 音量・画面・duck が かかる。音量は バスが 持つ ので ここは 1〕
   );
   const left = { 1: new YakataLeft(hud, 1), 2: new YakataLeft(hud, 2) } as const;
+  const floatFx = new YakataFloat();
+  const gateFx = new YakataGateFx();
+  game.scene.add(floatFx.group, gateFx.group);
   let opener: 1 | 2 = 1;
   const reduce = (): boolean => reducedMotionMq?.matches ?? false;
 
@@ -95,6 +100,14 @@ export function wireYakata(deps: WiredDuo, router: Router) {
           return;
         case 'sfx':
           return; // 音は ぜんぶ 場面の 頼み〔drain〕で 1 回だけ 鳴らす
+        case 'gate':
+          if (e.what === 'close') gateFx.close(e.gate, reduce());
+          else gateFx.open(e.gate, reduce());
+          return;
+        case 'float':
+          if (e.cells) floatFx.show(e.cells.map((c) => ({ item: c.item as ItemId, x: c.x, y: c.y, z: c.z })));
+          else floatFx.hide();
+          return;
         case 'locked':
           notice.showSignal('yakataLocked');
           return;
@@ -131,7 +144,7 @@ export function wireYakata(deps: WiredDuo, router: Router) {
   const serve = (r: YakataSceneReq): void => {
     switch (r.kind) {
       case 'loop':
-        sound.startLoop(r.name === 'yakataAmbience' ? 'ambience' : 'challenge', r.db);
+        sound.startLoop(r.name === 'yakataAmbience' ? 'ambience' : 'challenge', r.db, r.sec);
         return;
       case 'stop':
         sound.stopLoop(r.name === 'yakataAmbience' ? 'ambience' : 'challenge', r.sec);
@@ -158,18 +171,25 @@ export function wireYakata(deps: WiredDuo, router: Router) {
   const step = (mine: { yakataStep(): void; yakataStage(): { present: boolean; chosen: boolean; katta: boolean } }): void => {
     mine.yakataStep();
     showStep();
+    floatFx.update(game.tick, reduce()); // たいまつの ゆれも ここで
+    gateFx.update();
     const st = mine.yakataStage();
     yakataScene.tick({ present: st.present, chosen: st.chosen, katta: st.katta, battle: false });
     for (const r of yakataScene.drain()) serve(r);
     if (game.tick % LIGHT_EVERY === 0) {
-      const p = controller.state.position;
+      // 1P と 2P の どちらの まわりの やかたも 入れる〔どちらの 画面でも 同じ 見え方〕
       const boxes: YakataLightBox[] = [];
-      for (const y of shafts.yakataNear(Math.floor(p.x) >> 4, Math.floor(p.z) >> 4)) {
-        boxes.push({ x0: y.hall.x0, y0: y.hall.y, z0: y.hall.z0, x1: y.hall.x1, y1: y.hall.y + 6, z1: y.hall.z1, look: y.look });
-        const xs = y.passage.map((c) => c.x);
-        const zs = y.passage.map((c) => c.z);
-        boxes.push({ x0: Math.min(...xs) - 1, y0: y.passage[0]!.y, z0: Math.min(...zs) - 1, x1: Math.max(...xs) + 1, y1: y.passage[0]!.y + 3, z1: Math.max(...zs) + 1, look: y.look });
-      }
+      const seen = new Set<string>();
+      const around = (p: { x: number; z: number }): void => {
+        for (const y of shafts.yakataNear(Math.floor(p.x) >> 4, Math.floor(p.z) >> 4)) {
+          if (seen.has(y.id)) continue;
+          seen.add(y.id);
+          boxes.push(...yakataLightBoxes(y));
+        }
+      };
+      around(controller.state.position);
+      const mate = shared.duoMate();
+      if (mate) around(mate.position);
       renderer.light.setYakataBoxes(boxes);
     }
   };

@@ -125,9 +125,9 @@ export class YakataSound {
   }
 
   /** ループを はじめる〔db は ふんいき・挑戦の 曲の 大きさ。0 = そのまま〕。同じ ループが 鳴って いれば 何も しない（true） */
-  startLoop(name: YakataLoopName, db: number): boolean {
+  startLoop(name: YakataLoopName, db: number, fadeInSec = 0): boolean {
     if (this.running.some((l) => l.name === name)) return true;
-    const r = this.start(name, true, db);
+    const r = this.start(name, true, db, fadeInSec);
     if (!r) return false;
     this.running.push({ name, db, ...r });
     return true;
@@ -149,7 +149,7 @@ export class YakataSound {
     }
   }
 
-  private start(name: YakataSoundName, loop: boolean, db: number): { src: LoopRun['src']; gain: LoopRun['gain'] } | null {
+  private start(name: YakataSoundName, loop: boolean, db: number, fadeInSec = 0): { src: LoopRun['src']; gain: LoopRun['gain'] } | null {
     try {
       const buf = this.buffers[name];
       if (buf === undefined) {
@@ -171,7 +171,10 @@ export class YakataSound {
       src.loop = loop;
       const g = Math.min(YAKATA_GAIN_MAX, vol * dbGain(db));
       this.applied.push(g);
-      gain.gain.setValueAtTime(g, ctx.currentTime);
+      if (fadeInSec > 0) {
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(g, ctx.currentTime + fadeInSec); // フェードで 入る
+      } else gain.gain.setValueAtTime(g, ctx.currentTime);
       src.connect(gain);
       gain.connect((loop ? this.d.loopOutput?.() : undefined) ?? this.d.output?.() ?? ctx.destination);
       src.onended = () => {

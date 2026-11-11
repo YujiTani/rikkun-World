@@ -29,7 +29,9 @@ export type YakataEvent =
   | { type: 'notice'; text: 'start' | 'win' }
   | { type: 'celebrate'; what: 'confetti' | 'fireworks' }
   | { type: 'sfx'; name: 'yakataGateClose' | 'yakataGateOpen' | 'titleAppear' | 'fanfare' }
-  | { type: 'locked'; x: number; y: number; z: number };
+  | { type: 'locked'; x: number; y: number; z: number }
+  | { type: 'gate'; what: 'close' | 'open'; gate: { x: number; y: number; z: number; w: number; d: number; h: number } }
+  | { type: 'float'; cells: { item: string; x: number; y: number; z: number }[] | null };
 
 export interface YakataPorts {
   /** ゲームに いる 人〔1P・2P〕。足の 位置と やられて いるか */

@@ -1,4 +1,5 @@
 // main.ts の 流れ 2: 入力・案内画面・プレイヤー・カメラ・キャラ。
+import { yakataSoundTable } from '../../fx/yakataSoundTable';
 import { CameraRig } from '../../camera/CameraRig';
 import { disposeMergedHeldGeometry } from '../../camera/heldTools';
 import { useBlockDoll } from '../../debug/glbDoll';
@@ -149,6 +150,8 @@ export function wireInput(deps: WiredRender) {
   document.addEventListener('visibilitychange', () => mixer.setHidden(document.hidden));
   mixer.setHidden(document.hidden);
   let audioKey = '';
+  const yakataTable = yakataSoundTable(); // MINE-1F: 入れかえ・もどす 秒
+  let yakataWas = false; // やかたの 場面の あと もとの BGM を フェードで もどす 1 回
   let audioYokai: BgmSceneInput['yokai'] = [];
   /** 設定が変わっていたら ミキサーに反映・保存・画面を合わせる */
   function audioSync(): void {
@@ -166,8 +169,13 @@ export function wireInput(deps: WiredRender) {
     const dead = shared.combat.dead();
     const ys = yakataScene.state();
     if (ys.bgmDuck) mixer.duck(); // MINE-1F: 大きな 音の 間は BGM を 小さく
-    if (shared.girlBgmOn || ys.scene !== 'none') bgm.play(null, shared.gashaBgmFade); // MINE-1F: やかたの 場面の 間は ふだんの BGM を 入れかえる〔ふんいき・挑戦の 曲が 鳴る〕 // #293 試作: 少女の 間は ふだんの BGM を 止める（「災厄」を 流す）
-    else { bgm.play(bgmScene.update({ tick: game.tick, phase: time.phase(), player: shared.controller.state.position, yokai: audioYokai, dead }), shared.gashaBgmFade); if (bgm.current() !== null) shared.gashaBgmFade = {}; }
+    const yk = ys.scene !== 'none';
+    if (yk) yakataWas = true;
+    if (shared.girlBgmOn || yk) bgm.play(null, yk ? { fadeOutSec: yakataTable.swapSec } : shared.gashaBgmFade); // MINE-1F: やかたの 場面の 間は ふだんの BGM を 入れかえる〔ふんいき・挑戦の 曲が 鳴る〕 // #293 試作: 少女の 間は ふだんの BGM を 止める（「災厄」を 流す）
+    else {
+      const back = yakataWas ? { fadeInSec: yakataTable.backSec } : shared.gashaBgmFade;
+      yakataWas = false;
+      bgm.play(bgmScene.update({ tick: game.tick, phase: time.phase(), player: shared.controller.state.position, yokai: audioYokai, dead }), back); if (bgm.current() !== null) shared.gashaBgmFade = {}; }
     const mode = shared.screen.mode();
     mixer.setScreenLevel(screenLevel(mode, dead));
     // 実績の おしらせ（上の 帯）が 出ている 間は BGM を さげる（ファンファーレを 聞かせる）
