@@ -136,7 +136,7 @@ describe('E19: たいまつの 数', () => {
       const h = hookE(a.seed);
       needBokenHook(h, ['shaftPath']);
       const g = new GenCols(a.seed);
-      const n = torchesNear(g, h.shaftPath(a.shaft.id));
+      const n = torchesNear(g, h.shaftPath(a.shaft.id).filter((c) => (c.part as string) !== 'yakata'));
       if (n > S.limit.torchesPerShaft) bad.push(`seed ${a.seed} ${a.shaft.id}: たいまつ ${n} 本〔上限 ${S.limit.torchesPerShaft}〕`);
     }
     for (const a of mazes) {

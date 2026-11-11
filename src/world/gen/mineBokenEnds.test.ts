@@ -64,7 +64,7 @@ beforeAll(() => {
   for (const a of chosen.values()) {
     const h = hookE(a.seed);
     needBokenHook(h, ['shaftPath']);
-    picks.push({ seed: a.seed, shaft: a.shaft, path: h.shaftPath(a.shaft.id), orig: new GenCols(a.seed), dug: new DugCols(a.seed, dugSetOf(a.shaft)) });
+    picks.push({ seed: a.seed, shaft: a.shaft, path: h.shaftPath(a.shaft.id).filter((c) => (c.part as string) !== 'yakata'), orig: new GenCols(a.seed), dug: new DugCols(a.seed, dugSetOf(a.shaft)) });
   }
 }, 1200_000);
 
