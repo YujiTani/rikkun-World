@@ -26,7 +26,7 @@ export interface ActionHintLines {
 }
 
 export interface ActionHintCtx {
-  /** MINE-1F: ねらって いる 宝箱が まだ あけて いない やかたの 宝箱か（つなぎ込みが わたす） */
+  /** MINE-1F: ねらって いる 宝箱が まだ あけて いない やかたの 宝箱か（つなぎ込みが わたす。世界を 読むので、宝箱の ときだけ 読まれる getter で わたす） */
   yakataChest?: boolean;
   held: ItemId | null;
   /** 持っているものが ツルハシ か（ほる の絵に使う） */
