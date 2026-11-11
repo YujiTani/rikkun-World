@@ -114,12 +114,13 @@ const TOKEN_MIN = 0.85;
 const TOKEN_MAX = 1.5;
 const TOKEN_DESIGN_W = 1280;
 
-function tokenPx(design: number, viewW: number): number {
+/** tokens.css の --rk-sp-N（設計の 値 design を 画面の はば viewW に 合わせた px）。5f-2 の ui/duoHalves.ts も これを 使う */
+export function tokenPx(design: number, viewW: number): number {
   return Math.min(design * TOKEN_MAX, Math.max(design * TOKEN_MIN, (design / TOKEN_DESIGN_W) * viewW));
 }
 
 /** 画面ぜんたいの はば（CSS px）。`vw` の もと */
-function viewWidth(r: ViewRects): number {
+export function viewWidth(r: ViewRects): number {
   return r.second ? r.second.x + r.second.w : r.main.x + r.main.w;
 }
 
@@ -200,14 +201,17 @@ export class DuoAimHud {
     if (on === this.on) return;
     this.on = on;
     this.sizeKey = '';
+    this.d.notice1.mark(on); // 5f-2 #22a: えらんだ 名前の 目印（2 人の あいだ だけ）
     if (on) {
       this.b ??= this.build();
+      this.b.notice2.mark(true);
       this.crossShown[0] = this.crossShown[1] = null;
       this.refreshFaces();
       return;
     }
     const b = this.b;
     if (b) {
+      b.notice2.mark(false);
       for (const c of b.cross) c.hidden = true;
       b.hint2.update({});
       b.notice2.clear();
@@ -292,8 +296,8 @@ export class DuoAimHud {
     this.refreshFaces();
   }
 
-  /** パッドの 札の 面の 名前を 今の 割り当てから 書く（変わった ときだけ 書き換わる） */
-  private refreshFaces(): void {
+  /** パッドの 札の 面の 名前を 今の 割り当てから 書く（変わった ときだけ 書き換わる）。せっていを 閉じた とき（5f-2）も 呼ぶ */
+  refreshFaces(): void {
     const b = this.b;
     if (!b) return;
     b.hint2.setFaces(...faceArts(this.d.binds2()));
@@ -343,7 +347,7 @@ export class DuoAimHud {
   }
 
   /** 2P の おしらせの 窓口（2P の 半分の ＋の 右下に 出す）。2P が いなければ 何も しない */
-  readonly notice2: Pick<Notice, 'showSignal'> = { showSignal: (kind) => this.b?.notice2.showSignal(kind) };
+  readonly notice2: Pick<Notice, 'showSignal' | 'showName'> = { showSignal: (kind) => this.b?.notice2.showSignal(kind), showName: (text) => this.b?.notice2.showName(text) };
 
   /** `duo.actionHint(who)`: その人の 半分に 出ている ヒント。出ていない・2P が いない → null */
   hint(who: 1 | 2): ActionHintView | null {

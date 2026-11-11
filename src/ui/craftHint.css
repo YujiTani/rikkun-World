@@ -8,11 +8,13 @@
   align-items: center;
   z-index: 5;
 }
-#hud-notice:not(:has(> :not([hidden]))) {
+#hud-notice:not(:has(> :not([hidden]))),
+#hud-notice-p2:not(:has(> :not([hidden]))) {
   display: none;
 }
 /* つくれる マーク（かなづち 48px 以上） */
-#craft-hint {
+#craft-hint,
+.craft-hint--p2 {
   flex: none;
   width: var(--rk-sp-7);
   height: var(--rk-sp-7);
@@ -20,6 +22,7 @@
   transform: translateY(calc(var(--hop, 0) * -14px));
   pointer-events: none;
 }
-#craft-hint[hidden] {
+#craft-hint[hidden],
+.craft-hint--p2[hidden] {
   display: none;
 }

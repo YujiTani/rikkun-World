@@ -2,6 +2,7 @@ import type {
   AchievementDef,
   AchievementId,
   AchievementModalPort,
+  AchievementOwner,
   AchievementShow,
   AchievementShowSource,
   CelebrateBusyPort,
@@ -31,6 +32,7 @@ import {
   MEDAL_RANK,
 } from './defs';
 import { applyAnimalEvents, applyCraftEvents, applyDigEvents, applyFarmEvents, applyMineEvents, applyStorageEvents, applyWearEvents, type MineAchEvent, type StatSink } from './feedStats';
+import { OwnerBook } from './ownerBook';
 
 /** 記録の上限（§5） */
 export const STAT_CAP = 2_000_000_000;
@@ -139,6 +141,8 @@ export class AchievementSystem implements AchievementShowSource {
   private lastPos: Vec3 | null = null;
   private prevOnGround = true;
 
+  /** COOP-1 5f-2: 実績の 持ち主（だれが 達成したか。帯を 出す 半分） */
+  private readonly owners = new OwnerBook();
   private modal: AchievementModalPort | null = null;
   private busy: CelebrateBusyPort | null = null;
 
@@ -235,6 +239,7 @@ export class AchievementSystem implements AchievementShowSource {
     this.stats_ = {};
     this.walkAcc = 0;
     this.unlocked.clear();
+    this.owners.clear();
     this.foundCountries = [];
     this.seen.clear();
     this.viewed.clear();
@@ -245,6 +250,16 @@ export class AchievementSystem implements AchievementShowSource {
     this.cond1Since = null;
     this.defeatTicks = [];
     this.version_++;
+  }
+
+  /** COOP-1 5f-2: fn の あいだ「いま feed している 人」を who に する（外は 1P。2P の 道は owned2〔duo/p2Feed.ts〕で 包む） */
+  withWho<T>(who: 1 | 2 | 'world', fn: () => T): T {
+    return this.owners.with(who, fn);
+  }
+
+  /** 取った 実績の 持ち主。取って いない・読みこみで 戻した 物は null */
+  ownerOf(id: AchievementId): AchievementOwner {
+    return this.owners.of(id, this.unlocked.has(id));
   }
 
   /** 見せていない列があれば 待ち時間・しずか を無視して 今 出す */
@@ -396,15 +411,21 @@ export class AchievementSystem implements AchievementShowSource {
   }
 
   feedPhase(phase: DayPhase): void {
-    this.run(() => {
-      if (phase === 'night') this.bump('night', 1);
-      else if (phase === 'day') this.bump('morning', 1);
-    });
+    this.withWho('world', () =>
+      this.run(() => {
+        if (phase === 'night') this.bump('night', 1);
+        else if (phase === 'day') this.bump('morning', 1);
+      }),
+    );
   }
 
   // ------------------------------------------------------------ 毎ステップ
 
   update(ctx: StepContext): void {
+    this.withWho('world', () => this.update_(ctx)); // 日数・場所・今の 状態は 世界が 進めて 取れる 物（持ち主は 世界）
+  }
+
+  private update_(ctx: StepContext): void {
     this.run(() => {
       this.tickNow = ctx.tick;
       this.dayNow = ctx.day;
@@ -452,19 +473,23 @@ export class AchievementSystem implements AchievementShowSource {
    */
   enterCountry(kind: string, silent: boolean): boolean {
     if (!(COUNTRY_KINDS as readonly string[]).includes(kind) || this.foundCountries.includes(kind)) return false;
-    this.run(() => {
-      this.foundCountries.push(kind);
-      this.syncCountryStats(silent);
-    });
+    this.withWho('world', () =>
+      this.run(() => {
+        this.foundCountries.push(kind);
+        this.syncCountryStats(silent);
+      }),
+    );
     return true;
   }
 
   /** テスト用: 並びを 入れかえる（しずかに 記録と 実績を そろえる。取った実績は 消えない。harappa は 足さない） */
   setFound(kinds: readonly string[]): void {
-    this.run(() => {
-      this.foundCountries = this.cleanCountries(kinds);
-      this.syncCountryStats(true);
-    });
+    this.withWho('world', () =>
+      this.run(() => {
+        this.foundCountries = this.cleanCountries(kinds);
+        this.syncCountryStats(true);
+      }),
+    );
   }
 
   /** 並びから `country:<kind>`（0 か 1）と `country:all`（並びの長さ）を そろえる。ふえたら 実績を 取る（取った物は へらさない） */
@@ -570,6 +595,7 @@ export class AchievementSystem implements AchievementShowSource {
     if (Array.isArray(d.foundCountries)) this.foundCountries = this.cleanCountries(d.foundCountries);
     else this.foundCountries = COUNTRY_KINDS.filter((k) => this.stat(`country:${k}`) > 0);
     this.syncCountryStats(true);
+    this.owners.clear(); // 戻した 物は 持ち主 なし（読みこみ後に 取った 物から 数える）
     this.version_++;
   }
 
@@ -610,6 +636,7 @@ export class AchievementSystem implements AchievementShowSource {
 
   private unlock(d: AchievementDef, silent: boolean): void {
     this.unlocked.set(d.id, this.dayNow);
+    this.owners.mark(d.id);
     this.log_({ type: 'unlock', tick: this.tickNow, id: d.id, silent });
     this.version_++;
     if (silent) {
@@ -719,7 +746,7 @@ export class AchievementSystem implements AchievementShowSource {
     }
     const rows = this.settings().achieveModalRows;
     const others = this.pending.length - 1;
-    return { ids: [...this.pending], mainId: main, more: Math.max(0, others - rows) };
+    return { ids: [...this.pending], mainId: main, more: Math.max(0, others - rows), owners: this.pending.map((id) => this.ownerOf(id)) };
   }
 
   /** じっせき ページで 見た ことにする（あたらしい を消す） */

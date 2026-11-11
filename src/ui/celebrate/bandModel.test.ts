@@ -3,7 +3,7 @@ import { TopBandModel, bandEase } from './bandModel';
 import { defaultCelebrateSettings } from './config';
 
 const cfg = () => defaultCelebrateSettings();
-const show = { ids: ['a0'], mainId: 'a0', more: 0 };
+const show = { ids: ['a0'], mainId: 'a0', more: 0, owners: [1] as const };
 
 /** WEAPON-7 §2.6 (2)(3): テロップ 300 ステップ・実績より 先・あらわれたの あとに */
 describe('上の 帯（テロップ）', () => {

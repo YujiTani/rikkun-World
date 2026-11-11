@@ -1,5 +1,6 @@
 import { DEATH_TEXT, DeathScreenModel, lanternFacePixels } from './deathScreenModel';
 import { drawPixels } from './itemIcon';
+import { halfId } from './duoHalfIds';
 import { createBar, setBar, type BarParts } from './theme';
 import './deathScreen.css';
 
@@ -29,6 +30,12 @@ export class DeathScreen {
     this.content.append(face, this.text, this.bar.root);
     this.el.append(this.content);
     parent.append(this.el);
+  }
+
+  /** 2 人の あいだ だけ UI 検査の 目印を つける（1P の 半分の 白い 画面。2P の 分は ない〔2P は duo-p2-down〕。COOP-1 5f-2 #16） */
+  mark(on: boolean): void {
+    if (on) this.el.setAttribute('data-testid', halfId('death', 1));
+    else this.el.removeAttribute('data-testid');
   }
 
   start(): void {

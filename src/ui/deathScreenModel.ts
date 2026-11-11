@@ -15,6 +15,13 @@ export const DEATH_VIEW = {
 
 export const DEATH_TEXT = 'やられちゃった…';
 export const HOME_TEXT = 'スタートに もどったよ';
+/** 2P の 文面（2P は スタートでは なく 1P の 横に 戻る。COOP-1 5f-2 #14。漢字なし） */
+export const HOME_TEXT_P2 = 'おともだちの そばに もどったよ';
+
+/** 復活の おしらせの 文面（1P＝ スタート・2P＝ おともだちの そば） */
+export function homeTextOf(who: 1 | 2): string {
+  return who === 1 ? HOME_TEXT : HOME_TEXT_P2;
+}
 
 type Mode = 'off' | 'dead' | 'fadeOut';
 

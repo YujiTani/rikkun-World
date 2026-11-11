@@ -7,7 +7,7 @@ import { poyonScale, SparkPool } from './sparkModel';
 import { CRAFT_SOUNDS } from '../../fx/craftSounds';
 
 const cfg = () => defaultCelebrateSettings();
-const show = (n: number) => ({ ids: Array.from({ length: n }, (_, i) => `a${i}`), mainId: 'a0', more: 0 });
+const show = (n: number) => ({ ids: Array.from({ length: n }, (_, i) => `a${i}`), mainId: 'a0', more: 0, owners: [] });
 
 describe('横断幕', () => {
   it('入場 36・退場 150・消える 180（AC11）', () => {

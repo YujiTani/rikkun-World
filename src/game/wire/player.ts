@@ -127,6 +127,7 @@ export function wireInput(deps: WiredRender) {
       onAudio: () => audioSync(),
       dialogs,
       router: gamepadApi.router,
+      onClosed: () => shared.settingsClosed(),
     },
     playOverlay.el,
   );

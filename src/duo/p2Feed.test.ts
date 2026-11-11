@@ -79,7 +79,7 @@ const WEAR: WearEvent[] = [
 describe('AC132: 2P の ほった 出来事が 実績へ（1P の feedDig と 同じ だけ ふえる）', () => {
   it('包んだ 口から 出た 出来事を feedDig に 1 回 わたし、同じ 配列を 返す。実績の 数は 1P に 同じ 出来事を わたした ときと 同じ', () => {
     const calls: Array<readonly DigEvent[]> = [];
-    const feed = createP2Feed({ feedDig: (e) => void calls.push(e), feedCombat() {}, feedBlade() {}, feedArrow() {}, feedWear() {} });
+    const feed = createP2Feed({ withWho: (_w, fn) => fn(), feedDig: (e) => void calls.push(e), feedCombat() {}, feedBlade() {}, feedArrow() {}, feedWear() {} });
     const tapped = feed.tapDig(() => DIG);
     expect(tapped()).toBe(DIG);
     expect(calls).toHaveLength(1);
@@ -97,7 +97,7 @@ describe('AC132: 2P の ほった 出来事が 実績へ（1P の feedDig と �
 
   it('空の ときは feedDig を 呼ばない・呼ぶ たびに 1 回ずつ（たまって 2 回 数えない）', () => {
     let feeds = 0;
-    const feed = createP2Feed({ feedDig: () => void feeds++, feedCombat() {}, feedBlade() {}, feedArrow() {}, feedWear() {} });
+    const feed = createP2Feed({ withWho: (_w, fn) => fn(), feedDig: () => void feeds++, feedCombat() {}, feedBlade() {}, feedArrow() {}, feedWear() {} });
     let queue: DigEvent[] = [];
     const tapped = feed.tapDig(() => {
       const q = queue;
@@ -176,7 +176,7 @@ describe('AC132: 落とし物を ひろった 知らせ（obtain:*・pickup:*・
 describe('AC150: 2P の combat・blade・arrow・wear の 出来事が 実績へ 1 回ずつ', () => {
   it('combat: 同じ 配列を feedCombat に 1 回。配列は かえない（音にも 同じ 配列）。実績は 1P と 同じ', () => {
     const calls: Array<readonly CombatEvent[]> = [];
-    const feed = createP2Feed({ feedDig() {}, feedCombat: (e) => void calls.push(e), feedBlade() {}, feedArrow() {}, feedWear() {} });
+    const feed = createP2Feed({ withWho: (_w, fn) => fn(), feedDig() {}, feedCombat: (e) => void calls.push(e), feedBlade() {}, feedArrow() {}, feedWear() {} });
     const copy = [...COMBAT];
     feed.combat(COMBAT);
     expect(calls).toHaveLength(1);
@@ -205,7 +205,7 @@ describe('AC150: 2P の combat・blade・arrow・wear の 出来事が 実績へ
 
   it('blade: sink には who 2 で わたる(feedBlade(events, 2))', () => {
     const got: Array<unknown[]> = [];
-    const feed = createP2Feed({ feedDig() {}, feedCombat() {}, feedBlade: ((e: unknown, who: unknown) => void got.push([e, who])) as never, feedArrow() {}, feedWear() {} });
+    const feed = createP2Feed({ withWho: (_w, fn) => fn(), feedDig() {}, feedCombat() {}, feedBlade: ((e: unknown, who: unknown) => void got.push([e, who])) as never, feedArrow() {}, feedWear() {} });
     feed.blade(BLADE);
     expect(got).toEqual([[BLADE, 2]]);
   });

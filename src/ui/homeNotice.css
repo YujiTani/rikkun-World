@@ -4,6 +4,10 @@
   left: 50%;
   top: 30%;
   transform: translateX(-50%);
+}
+/* 見た目（1 人の #home-notice と 2 人の ときの 2P の 分〔.home-notice--p2。位置は duoHalves.css〕で 共通） */
+#home-notice,
+.home-notice--p2 {
   padding: var(--rk-sp-2) var(--rk-sp-5);
   font-size: var(--rk-fs-title);
   font-weight: 800;
@@ -17,6 +21,7 @@
   pointer-events: none;
   z-index: 7;
 }
-#home-notice[hidden] {
+#home-notice[hidden],
+.home-notice--p2[hidden] {
   display: none;
 }

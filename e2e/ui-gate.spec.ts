@@ -22,6 +22,7 @@ import { duoGashaHpIssues, openDuoGashaHp } from './helpers/duoGasha';
 import { duoFlashIssues, openDuoFlash } from './helpers/duoFlash';
 import { duoAnimalHudIssues, duoCoopIssues, openDuoAnimalHud, openDuoCoop } from './helpers/duoCoop';
 import { duoAimHudIssues, openDuoAimHud } from './helpers/duoAim';
+import { duoHalvesIssues, openDuoHalfAll, openDuoHalfDown } from './helpers/duoHalves';
 import { duoHouseBubbleIssues, duoWaitP1Issues, openDuoHouseBubble, openDuoWaitP1 } from './helpers/duoModal';
 import { duoFarmIssues, openDuoFarm } from './helpers/duoFarm';
 import { duoArrowPanelIssues, duoBandIssues, duoHudIssues, duoPadLostIssues, duoUsePadIssues, duoViewIssues, openDuoArrowPanel, openDuoBand, openDuoHud, openDuoUsePad, openDuoPadLost, openDuoSplit } from './helpers/duoUi';
@@ -584,7 +585,7 @@ SCREENS.push(
  */
 SCREENS.push({
   id: 'duo-gasha-hp',
-  roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="gasha-hp-p1"]', '[data-testid="gasha-hp-p2"]', '#clock'],
+  roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="gasha-hp-p1"]', '[data-testid="gasha-hp-p2"]', '#clock', '[data-testid="duo-clock-p2"]'],
   layoutOnly: true,
   open: openDuoGashaHp,
   extra: (page: Page) => duoGashaHpIssues(page),
@@ -777,6 +778,31 @@ SCREENS.push({
   open: openDuoAimHud,
   extra: (page: Page) => duoAimHudIssues(page),
 });
+
+/**
+ * COOP-1 5f-2（1.16 §3.7 (g)・§9.13・AC177・AC178）: 2 人の とき 出る 物は ぜんぶ その人の 半分の 中。
+ * 'duo-half-all' = 2 人とも 風神剣（バフの 札）・材料（つくれる マーク）・ヒント・えらんだ 名前・二つ名の 妖怪（名札・世界の おしらせ）・ふちが ぜんぶ 出た いちばん 多い とき。
+ * 'duo-half-down' = 1P が 倒れて 復活した 直後（白い 画面は 1P の 半分だけ・「スタートに もどったよ」）。2P は 遊びつづける。
+ * 3 つの 大きさで、どれも その人の 半分の 中（まん中の 線に またがらない）・ホットバー／ハート／レベル／メーター／矢印／＋／ヒントに かからない・時計は 各半分の 外がわの 上すみ（1P = 左上・2P = 右上。1.17）で 同じ 時刻・距離メーターに かからない。
+ * 検査は e2e/helpers/duoHalves.ts の duoHalvesIssues。ステップを 進めずに 3 つの 大きさで 撮る（freeze。ふちと 白い 画面の 濃さが かわらない ように）。
+ * 見た目の OK は オーナー確認（AC181。試作の スクショは 作らない〔オーナー: マージ後に 自分で 遊んで 見る〕）。
+ */
+SCREENS.push(
+  {
+    id: 'duo-half-all',
+    roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-clock-p1"]', '[data-testid="duo-clock-p2"]', '[data-testid="duo-title-announce-p1"]', '[data-testid="duo-title-announce-p2"]', '[data-testid="duo-hud-notice-p1"]', '[data-testid="duo-hud-notice-p2"]', '[data-testid="duo-buff-plate-p1"]', '[data-testid="duo-buff-plate-p2"]', '[data-testid="duo-notice-name-p1"]', '[data-testid="duo-notice-name-p2"]'],
+    freeze: true,
+    open: openDuoHalfAll,
+    extra: (page: Page) => duoHalvesIssues(page, 'all'),
+  },
+  {
+    id: 'duo-half-down',
+    roots: [...DUO_HUD_ROOTS, '[data-testid="duo-split-line"]', '[data-testid="duo-clock-p1"]', '[data-testid="duo-clock-p2"]', '[data-testid="duo-home-notice-p1"]'],
+    freeze: true,
+    open: openDuoHalfDown,
+    extra: (page: Page) => duoHalvesIssues(page, 'down'),
+  },
+);
 
 /**
  * COOP-1 作業 2.5（#401）AC62: せっていの「つかう コントローラー」タブ(`?duo=dev`)。2 本・待ち / 4 本(おりかえし) / 0 本。

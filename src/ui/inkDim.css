@@ -2,6 +2,10 @@
 #ink-dim {
   position: fixed;
   inset: 0;
+}
+/* 見た目（1 人の #ink-dim と 2 人の ときの 2P の 分〔.ink-dim--p2。位置は duoHalves.css〕で 共通） */
+#ink-dim,
+.ink-dim--p2 {
   pointer-events: none;
   background: radial-gradient(ellipse at center, rgba(20, 16, 36, 0.45) 0%, rgba(20, 16, 36, 0.85) 100%);
   z-index: 3;

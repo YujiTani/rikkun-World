@@ -32,6 +32,8 @@ export interface ArrowStepInput {
   tanHalfFovY: number;
   /** その 人の もちもの パネルが 開いている */
   panelOpen: boolean;
+  /** COOP-1 5f-2（1.17）: その 半分の 時計の 箱（`clockBoxAt`）。矢印の 箱が かかる ときは 時計の 下まで ずらす。省くか null なら よけない */
+  avoid?: ArrowPane | null;
 }
 
 export interface ArrowOptions {
@@ -58,8 +60,9 @@ export function arrowHeightPx(screenH: number): number {
  * 矢印の 先の 位置。pane の 中心から (dx, dy) の 向きに のばした 線が 枠に 当たる 所。
  * 枠 = pane の ふちから arrowEdgePx ＋ 三角の 半分の はば だけ 内側。上は 高さの 12%、下は 78% より 内側（向きは かえず、ふちに そって ずれる）。
  * out を 渡すと そこに 書く。
+ * avoid（その 半分の 時計の 箱）を 渡すと、矢印の 箱（先の 点 ± 三角の 高さの 半分）が かかる ときだけ y を 箱の 上が avoid の 下はしに なる ところまで 下げる（x と 向きは かえない。§9.3）。
  */
-export function arrowPlace(dx: number, dy: number, pane: ArrowPane, out: { x: number; y: number } = { x: 0, y: 0 }): { x: number; y: number } {
+export function arrowPlace(dx: number, dy: number, pane: ArrowPane, out: { x: number; y: number } = { x: 0, y: 0 }, avoid: ArrowPane | null = null): { x: number; y: number } {
   if (dx === 0 && dy === 0) dy = 1;
   const inset = T.arrowEdgePx + arrowHeightPx(pane.h) / 2;
   const left = pane.x + inset;
@@ -73,6 +76,11 @@ export function arrowPlace(dx: number, dy: number, pane: ArrowPane, out: { x: nu
   const t = Math.min(tx, ty);
   out.x = cx + dx * t;
   out.y = cy + dy * t;
+  if (avoid !== null) {
+    const half = arrowHeightPx(pane.h) / 2;
+    const hit = out.x + half > avoid.x && out.x - half < avoid.x + avoid.w && out.y + half > avoid.y && out.y - half < avoid.y + avoid.h;
+    if (hit) out.y = avoid.y + avoid.h + half;
+  }
   return out;
 }
 
@@ -134,7 +142,7 @@ export class DuoArrowTracker {
       if (!this.shown && this.outSteps >= T.arrowHoldSteps) this.shown = true;
       else if (this.shown && this.inSteps >= T.arrowHoldSteps) this.shown = false;
       if (this.shown) {
-        const p = arrowPlace(dx, dy, pane, this.place);
+        const p = arrowPlace(dx, dy, pane, this.place, input.avoid ?? null);
         this.val.angle = arrowAngleDeg(dx, dy);
         this.val.x = p.x;
         this.val.y = p.y;

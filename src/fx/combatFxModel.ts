@@ -1,3 +1,4 @@
+import type { CombatEvent } from '../contracts';
 /** 戦いの演出の数値と、DOM・three.js なしで確かめられる計算（M3 §3.3・§3.5） */
 export const COMBAT_FX = {
   /** ダメージのふちのピンク #FF7A9A: いちばん濃いとき 0.25、0.4 秒で消える */
@@ -73,4 +74,31 @@ export function bagPose(time: number, ticksLeft: number): BagPose {
     spin: (2 * Math.PI * time) / B.spinSeconds,
     glow: blink,
   };
+}
+
+/** COOP-1 5f-2（1.17 #14〜#16）: 戦いの 出来事が 起こす 画面の 動き（1P の fx/combatFx.ts と 2P の game/wire/duoPlay.ts が 同じ 答えで 動かす） */
+export type LifeUiAction = 'edge' | 'down' | 'respawn';
+
+/** playerHit・fallHurt = ふちが 1 回 ふわっと / death = 倒れた 画面 / respawn = 「スタートに もどったよ」/ ほかは null */
+export function lifeUiOf(ev: CombatEvent): LifeUiAction | null {
+  switch (ev.type) {
+    case 'playerHit':
+    case 'fallHurt':
+      return 'edge';
+    case 'death':
+      return 'down';
+    case 'respawn':
+      return 'respawn';
+    case 'punchStart':
+    case 'punchHit':
+    case 'punchMiss':
+    case 'kodachiHit':
+    case 'regen':
+    case 'pickup':
+      return null;
+    default: {
+      const never: never = ev;
+      return never;
+    }
+  }
 }

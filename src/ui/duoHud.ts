@@ -115,7 +115,16 @@ export class DuoHud {
   /** うすい 光に 書いた 最後の 濃さ（0〜1000。-1 = まだ） */
   private readonly flashQ: [number, number] = [-1, -1];
 
+  /** 2P の ホットバーの えらんだ 名前の 行き先（wireDuo が 2P の Notice の showName に つなぐ。COOP-1 5f-2 #22a） */
+  showName2: (text: string) => void = () => {};
+
   constructor(private readonly d: DuoHudDeps) {}
+
+  /** 2P の ハートの かたまり（`#hud-self-p2`。バフの 札を 入れる 所。参加して はじめて ある） */
+  selfCluster2(): HTMLElement {
+    this.b ??= this.build();
+    return this.b.hearts2.el.parentElement as HTMLElement;
+  }
 
   private build(): Built {
     const { hud, p2Inventory: inv } = this.d;
@@ -171,7 +180,7 @@ export class DuoHud {
     question.hidden = true;
 
     // 2P の ホットバー（ふつうの Hotbar の 別の 持ち物）とハート（Hearts を 別の 入れものに 作る）
-    const hotbar2 = new Hotbar(hud, inv, { showName: () => undefined });
+    const hotbar2 = new Hotbar(hud, inv, { showName: (text) => this.showName2(text) }); // 2P の えらんだ 名前は 2P の 半分の Notice へ（5f-2 #22a）
     hotbar2.el.id = 'hotbar-p2';
     hotbar2.el.setAttribute('data-testid', 'duo-hotbar-p2');
     hotbar2.el.hidden = true;

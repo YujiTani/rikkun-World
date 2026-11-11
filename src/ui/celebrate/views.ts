@@ -4,6 +4,10 @@ import { CELEBRATE } from './config';
 import { telopParts, type TelopSource } from './telopText';
 import type { BannerLook } from './bannerModel';
 import { makeRng, poyonScale, type SparkPool } from './sparkModel';
+import { confettiAt } from './confettiModel';
+import { halfId } from '../duoHalfIds';
+import { fullRect } from '../halfProject';
+import type { Rect } from '../../duo/viewRects';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parent?: HTMLElement): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -136,6 +140,7 @@ export class BannerView {
   private readonly confetti: HTMLElement[] = [];
   private readonly confettiSeed: { x: number; sway: number; speed: number; color: number }[] = [];
   private shownRecipe: string | null = null;
+  private readonly paper = { x: 0, y: 0 };
 
   constructor(parent: HTMLElement) {
     el('div', 'cel-banner__sea rk-seigaiha', this.banner);
@@ -153,8 +158,17 @@ export class BannerView {
     parent.append(this.root);
   }
 
-  /** look が null なら 隠す。iconUrl/name/rarity は 出し始めに 1 回だけ使う */
-  paint(look: BannerLook | null, info: { name: string; iconUrl: string; rarity: RarityIndex; stars: number } | null): void {
+  /** 2 人の あいだ だけ UI 検査の 目印を つける（横断幕は 1P の 半分だけ。2P の 分は 作らない。COOP-1 5f-2 #19） */
+  mark(on: boolean): void {
+    if (on) this.wrap.setAttribute('data-testid', halfId('banner', 1));
+    else this.wrap.removeAttribute('data-testid');
+  }
+
+  /**
+   * look が null なら 隠す。iconUrl/name/rarity は 出し始めに 1 回だけ使う。
+   * view = 紙ふぶきを ふらせる 区画（2 人の とき 1P の 半分）。null なら 画面ぜんたい。横断幕の 位置は css（`html[data-duo] .cel-banner-wrap`）
+   */
+  paint(look: BannerLook | null, info: { name: string; iconUrl: string; rarity: RarityIndex; stars: number } | null, view: Rect | null = null): void {
     if (!look || !info) {
       this.wrap.hidden = true;
       this.shownRecipe = null;
@@ -181,8 +195,7 @@ export class BannerView {
     this.shine.hidden = look.shine < 0;
     if (look.shine >= 0) this.shine.style.left = `${look.shine * 100}%`;
     paintStars(this.stars, look.starLight);
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    const area = view ?? fullRect(window.innerWidth, window.innerHeight);
     this.confetti.forEach((c, i) => {
       if (look.confetti < 0) {
         c.hidden = true;
@@ -190,9 +203,8 @@ export class BannerView {
       }
       const s = this.confettiSeed[i];
       c.hidden = false;
-      const x = w * (0.2 + 0.6 * s.x) + Math.sin(look.confetti * 12 * s.speed + s.sway) * 24;
-      const y = -20 + look.confetti * s.speed * h * 0.8;
-      c.style.transform = `translate(${x}px, ${y}px) rotate(${look.confetti * 540 * s.speed}deg)`;
+      const p = confettiAt(s, look.confetti, area, this.paper);
+      c.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${look.confetti * 540 * s.speed}deg)`;
     });
   }
 
@@ -222,8 +234,14 @@ export class BandView {
   private readonly sub = el('div', 'cel-band__sub', this.text);
   private kind: 'achieve' | 'telop' | 'house' | null = null;
   private medal: HTMLElement | null = null;
+  /** 2 人の とき 2P の 半分の 帯（`cel-band--p2`。位置は duoHalves.css）。1P の 帯は 今の まま */
+  private readonly sfx: string;
+  private marked = false;
+  private houseId: string | null = null;
 
-  constructor(parent: HTMLElement) {
+  constructor(parent: HTMLElement, private readonly who: 1 | 2 = 1) {
+    this.sfx = who === 2 ? ' cel-band--p2' : '';
+    this.band.className = `cel-band${this.sfx}`;
     el('div', 'cel-band__rainbow', this.band);
     this.band.prepend(this.band.lastElementChild!);
     this.root.hidden = true;
@@ -231,10 +249,22 @@ export class BandView {
     parent.append(this.root);
   }
 
+  /** 2 人の あいだ だけ UI 検査の 目印を つける（帯 そのもの。家の 帯は 今の 目印が 先） */
+  mark(on: boolean): void {
+    this.marked = on;
+    this.syncId();
+  }
+
+  private syncId(): void {
+    const id = this.houseId ?? (this.marked ? halfId('band', this.who) : null);
+    if (id === null) delete this.band.dataset.testid;
+    else this.band.dataset.testid = id;
+  }
+
   /** 実績の おしらせを 出し始める */
   showToast(main: ModalRowInfo, more: number): void {
     this.kind = 'achieve';
-    this.band.className = 'cel-band cel-toast';
+    this.band.className = `cel-band cel-toast${this.sfx}`;
     this.band.dataset.band = 'achieve';
     this.plain(false);
     this.pic.replaceChildren((this.medal = createMedal(main.tier, 88, main.artUrl)));
@@ -253,7 +283,7 @@ export class BandView {
     this.kind = 'telop';
     this.plain(false);
     // 文が 長い 出どころ（がしゃどくろ・宝箱）は 帯を 広げる（NINJA-1）
-    this.band.className = source === 'nushi' ? 'cel-band cel-telop' : 'cel-band cel-telop cel-telop--long';
+    this.band.className = (source === 'nushi' ? 'cel-band cel-telop' : 'cel-band cel-telop cel-telop--long') + this.sfx;
     this.band.dataset.band = 'telop';
     const img = document.createElement('img');
     img.className = 'cel-band__icon rk-art';
@@ -276,9 +306,10 @@ export class BandView {
   /** 家の 帯を 出し始める（絵と 見出しは なし。字だけ。窓口の 目印は 名前の 帯 `house-name-band`、完成の 帯〔done〕 `house-done-banner`） */
   showHouse(text: string, done = false): void {
     this.kind = 'house';
-    this.band.className = 'cel-band cel-house';
+    this.band.className = `cel-band cel-house${this.sfx}`;
     this.band.dataset.band = 'house';
-    this.band.dataset.testid = done ? 'house-done-banner' : 'house-name-band';
+    this.houseId = done ? 'house-done-banner' : 'house-name-band';
+    this.syncId();
     this.medal = null;
     this.plain(true);
     this.name.textContent = text;
@@ -292,7 +323,10 @@ export class BandView {
   private plain(on: boolean): void {
     this.pic.hidden = on;
     this.head.hidden = on;
-    if (!on) delete this.band.dataset.testid;
+    if (!on) {
+      this.houseId = null;
+      this.syncId();
+    }
   }
 
   /** 毎ステップ: ease が null なら 隠す */
@@ -302,9 +336,10 @@ export class BandView {
         this.kind = null;
         this.band.hidden = true;
         this.root.hidden = true;
-        this.band.className = 'cel-band';
+        this.band.className = `cel-band${this.sfx}`;
         delete this.band.dataset.band;
-        delete this.band.dataset.testid;
+        this.houseId = null;
+        this.syncId();
       }
       return;
     }
