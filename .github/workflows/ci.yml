@@ -1,3 +1,8 @@
+# #447 ユニットテストを 2 ジョブに 分けて 並列に する ci.yml（これで .github/workflows/ci.yml を まるごと 置きかえる。yuzu が 画面で）。
+# 前と ちがう 所: 「型チェックとユニットテスト」が 19〜25 分 かかって いたので、check-fast を
+#   unit（ユニット 1/2・2/2。scripts/unit-shard-times.json の 時間で 分ける）/ typecheck（型チェックときまり）の 3 ジョブに 分けた。
+#   必須チェックの 名前「型チェックとユニットテスト」は、3 つの 結果を まとめる 同じ 名前の ジョブ（check-fast）で 残す。ほかは 変えて いない。
+# 注意: 必須チェックを 設定して いる ときは 「ユニットテスト (1/2)」などを 必須に しなくて よい（まとめの ジョブが 見る）。
 # #444 直しの push では「まえの 回で 落ちた テスト」だけを 先に 回す ci.yml（これで .github/workflows/ci.yml を まるごと 置きかえる。yuzu が 画面で）。
 # 前と ちがう 所: 「変更の 中身」が 同じ ブランチの まえの 回の 落ちた テスト（Playwright の .last-run.json）を 集める /
 # e2e-first の ジョブ（その テストだけ 数分で 回す。落ちたら 6 シャードは 回さず すぐ 赤）/ 各シャードが 落ちた テストの 一覧を e2e-last-run-<n> に 残す。
@@ -21,8 +26,27 @@ permissions:
   actions: read # 前の main の E2E の 時間（e2e-times-*）を もらう
 
 jobs:
-  check-fast:
-    name: 型チェックとユニットテスト
+  # ユニットテストを 2 つに 分けて 同時に 回す（時間の 表 scripts/unit-shard-times.json で 分ける。#447）
+  unit:
+    name: ユニットテスト (${{ matrix.shard }}/2)
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          check-latest: true
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run --shard=${{ matrix.shard }}/2
+
+  # 型・ラチェット・アイコンの アトラスは ユニットと 別の ジョブで 同時に 回す
+  typecheck:
+    name: 型チェックときまり
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +56,7 @@ jobs:
           check-latest: true
           cache: npm
       - run: npm ci
-      - run: npm run check:fast
+      - run: npm run typecheck
       # ラチェット（#310）: コードのきまり違反の数が ratchet.json の上限より ふえたら 失敗。約 25 秒
       - name: コードのきまり（ラチェット）
         run: npm run check:ratchet
@@ -41,6 +65,18 @@ jobs:
         run: |
           python3 -m pip install --quiet --break-system-packages pillow
           python3 art/ICON-32/pack.py --check
+
+  # 上の 3 つ（unit 2 つ + typecheck）を 前と 同じ 名前の 1 つの チェックに まとめる（必須チェックの 名前を 変えないため）
+  check-fast:
+    name: 型チェックとユニットテスト
+    needs: [unit, typecheck]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 3 つの結果をたしかめる
+        run: |
+          test "${{ needs.unit.result }}" = "success"
+          test "${{ needs.typecheck.result }}" = "success"
 
   # PR の 変更が ドキュメントだけ（docs/・.md・.claude/）なら E2E を とばす。main への push は いつも 全部 回す
   changes:
@@ -146,7 +182,8 @@ jobs:
           PLAYWRIGHT_HTML_OPEN: never
         run: |
           mkdir -p test-results
-          printf '%s' "$FIRST" | jq -c '{status: "failed", failedTests: .}' > test-results/.last-run.json
+          # Playwright の コンテナには jq が ない ので node で 書く
+          node -e 'process.stdout.write(JSON.stringify({ status: "failed", failedTests: JSON.parse(process.env.FIRST) }))' > test-results/.last-run.json
           npx playwright test --last-failed --pass-with-no-tests --reporter=list,html
       - name: 落ちた テストの 一覧を 作る（次の 回が 使う）
         if: ${{ !cancelled() }}
