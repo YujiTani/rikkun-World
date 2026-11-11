@@ -240,10 +240,16 @@ async function wrapped(page: Page, ids: string[]): Promise<string[]> {
       const c = el.cloneNode(true) as Element;
       c.querySelectorAll('rt, rp').forEach((n) => n.remove());
       if (!(c.textContent ?? '').trim()) continue;
-      const range = document.createRange();
-      range.selectNodeContents(el);
+      // 字（テキストノード）だけを 見る。絵の 箱・印〔✓・あたらしい！〕・ふりがな〔rt〕は 字と ちがう 高さに あって よい（絵 ＋ 字の 2 だんの ボタン）。
+      // 字が 折りかえすと、同じ ボタンの 字の rect が 2 つ以上の 高さに 分かれる
       const tops = new Set<number>();
-      for (const r of Array.from(range.getClientRects())) if (r.width > 0 && r.height > 0) tops.add(Math.round(r.top / 4));
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        if (!(n.textContent ?? '').trim() || n.parentElement?.closest('rt, rp')) continue;
+        const range = document.createRange();
+        range.selectNodeContents(n);
+        for (const r of Array.from(range.getClientRects())) if (r.width > 0 && r.height > 0) tops.add(Math.round(r.top / 4));
+      }
       if (tops.size > 1) out.push(id);
     }
     return out;

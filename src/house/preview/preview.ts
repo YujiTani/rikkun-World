@@ -220,6 +220,11 @@ export class Preview3D implements PreviewPort {
   hover(on: boolean, part?: string): void {
     if (this.shown !== 'outside' || !this.glow.setHover(on, part ?? null)) return;
     if (on) {
+      // ひらいた ばかりの 戸の 光り（90 コマ）が のこって いても、しゅるいの ボタンに のせたら その ばしょの 光りを 出す（戸の 光りは ゆずる）
+      if (part !== undefined && this.glow.door) {
+        this.glow.dropCue();
+        this.glowMesh.setCue([], this.parts?.w ?? 0, this.parts?.d ?? 0);
+      }
       this.hoverShape();
       this.builds++;
     }

@@ -147,6 +147,17 @@ describe('AC8 ポップアップの しゅるいの ボタンに のせて い�
     run(p, PREVIEW.glowFrames + 5);
     return p;
   }
+  it('ひらいた ばかりの 戸の 光りが のこって いても、のせたら その ばしょの 光りが 出る（はなすと 消える）', () => {
+    const p = new Preview3D(fake, () => false);
+    p.setShape(st(), 'outside');
+    run(p, 20);
+    expect(glowOf(p)?.parts, '戸の 光り').toBeUndefined();
+    (p as unknown as P3).hover(true, 'roof');
+    expect(glowOf(p)?.parts).toEqual(['roof']);
+    expect(glowOf(p)?.left).toBeNull();
+    (p as unknown as P3).hover(false);
+    expect(glowOf(p), 'はなすと 消える').toBeNull();
+  });
   for (const part of ['roof', 'wall', 'window', 'door', 'entotsu', 'noren', 'hanadan', 'shachi']) {
     it(`${part}: のせる と glow.parts ＝ ['${part}']・left は null（のせて いる 間 ずっと）・回らない。はなすと 消える`, () => {
       const p = shown({ deco: ['entotsu_mura', 'noren_shiro', 'hanadan_kozan', 'shachi'] });
