@@ -65,6 +65,7 @@ import { wireSeat } from './seat';
 import { playSleepJingle } from '../../fx/sleepJingle';
 import type { WiredDrops } from './inventory';
 import { createScrollPort } from './scrollPort';
+import { bladeWearPerHit } from '../../content/items/legend4Wear';
 
 const KOGETA = BLOCK_INDEX.kogeta;
 const SIDES: readonly (readonly [number, number])[] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -126,7 +127,7 @@ export function wireWeapons(deps: WiredDrops) {
     // SAMURAI-1 §4.5: 明珍手甲を 着ていれば 刀の 強さ × 1.5（わざの 倍率の 前に かける）
     weaponDamage: createWeaponDamage({ settings: w2, base: toolConfig.weaponDamage, held: () => inventory.held(), armor }),
     onHit: () => {
-      inventory.wearHeld(w2.toolWear.blade.hit);
+      inventory.wearHeld(bladeWearPerHit(inventory.held()?.item, w2.toolWear.blade.hit));
     },
     lunge: (dx, dz) => controller.lunge(dx, dz),
     tick: () => game.tick,

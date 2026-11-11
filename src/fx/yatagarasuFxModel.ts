@@ -47,6 +47,7 @@ export interface YataModel {
 
 export function createYataModel(): YataModel {
   const boltList: Bolt[] = [];
+  const boltPool: Bolt[] = []; // 人ごとに 1 つ（1P・2P で 書きあわない）
   const flameList: Flame[] = [];
   let nextFlame = 1;
   let clock = 0;
@@ -91,4 +92,3 @@ export function createYataModel(): YataModel {
   };
 }
 
-const boltPool: Bolt[] = [];

@@ -128,7 +128,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     // LEGEND-4: 大地のハンマー（体が 動いた あと。押した ステップ = F1。ふるのは 遊べる あいだだけ）
     hammer.update({
       item: inventory.held()?.item ?? null,
-      active: screen.mode() === 'play' && deps.lock.playInputEnabled() && !combat.dead() && !combat.flinching(),
+      active: screen.mode() === 'play' && deps.lock.playInputEnabled() && !combat.dead() && !combat.flinching() && animals.carrying() === null, // だっこ中は 左クリックは 何も しない（LIVE-1 §2.8）
       pressed: game.input.wasPressed('primary'),
       held: game.input.isHeld('primary'),
       position: controller.state.position,

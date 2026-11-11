@@ -65,6 +65,7 @@ import type { FlashSrc } from '../../duo/flash';
 import type { P2GashaPort } from './gashaPeople';
 import type { WiredLoop } from './save';
 import { createScrollPort } from './scrollPort';
+import { bladeWearPerHit } from '../../content/items/legend4Wear';
 
 const DEG = Math.PI / 180;
 
@@ -209,7 +210,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       // 刀の 強さは 1P と 同じ 部品（侍の 手甲は 2P の そうび）
       weaponDamage,
       onHit: () => {
-        p2.inventory.wearHeld(w2.toolWear.blade.hit);
+        p2.inventory.wearHeld(bladeWearPerHit(p2.inventory.held()?.item, w2.toolWear.blade.hit));
       },
       lunge: (dx, dz) => ctl.lunge(dx, dz),
       tick: () => game.tick,
@@ -350,7 +351,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       inventory: p2.inventory,
       body: () => ctl.state,
       actions: c.actions,
-      active: () => !life.down && c.lock.playInputEnabled() && !combat.flinching(),
+      active: () => !life.down && c.lock.playInputEnabled() && !combat.flinching() && animals.carrying(2) === null, // だっこ中は 何も しない（LIVE-1 §2.8）
       sound: fxSound,
       fx: new HammerSlamFx(game.scene),
       reduced: () => deps.reducedMotionMq?.matches ?? false,

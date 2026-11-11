@@ -56,10 +56,11 @@ export class BlockBreaker {
     private readonly rng: Rng,
   ) {}
 
-  /** extra = ノームの斧で いっしょに きった 上の マス（たいきゅうは 数えない） */
-  breakBlock(t: TargetInfo, bodyGlass: boolean, extra = false): BreakEnd {
+  /** ignoreAim = 今の ねらい（体）を 見ず 渡された ブロックを こわす（ハンマー）。
+   *  extra = ノームの斧で いっしょに きった 上の マス（たいきゅうは 数えない） */
+  breakBlock(t: TargetInfo, bodyGlass: boolean, extra = false, ignoreAim = false): BreakEnd {
     const c = this.c;
-    if (c.bodyTgt()) return this.breakBodyBlock(t, bodyGlass);
+    if (!ignoreAim && c.bodyTgt()) return this.breakBodyBlock(t, bodyGlass);
     if (isMakimonoId(t.id)) return this.breakMakimono(t); // HOUSE-2A: まきもの。ほっても 右クリックでも 持ち物へ
     if (COOP_BLOCKS.has(t.id)) return this.breakCoopBlock(t);
     if (isChalkMarkId(t.id)) return this.breakChalkMark(t);

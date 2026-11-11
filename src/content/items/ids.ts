@@ -61,7 +61,7 @@ export type LegendId = (typeof LEGEND_IDS)[number];
 export const LEGEND4_IDS = ['kokuryu', 'yatagarasu', 'tenshi_yumi', 'gnome_axe', 'daichi_hammer'] as const;
 export type Legend4Id = (typeof LEGEND4_IDS)[number];
 /** LEGEND-4: コードで 比べる ときの 名前（id の 文字を 直書きしない） */
-export const LEGEND4_ID = { daichi_hammer: 'daichi_hammer' } as const satisfies Partial<Record<Legend4Id, Legend4Id>>;
+export const LEGEND4_ID = { kokuryu: 'kokuryu', yatagarasu: 'yatagarasu', tenshi_yumi: 'tenshi_yumi', gnome_axe: 'gnome_axe', daichi_hammer: 'daichi_hammer' } as const satisfies Record<Legend4Id, Legend4Id>;
 
 /** 道具（M4・BAL-D）: つるはし 3 本・おの 3 本・ふで（TAKO-1。せっけいずを かく どうぐ）（この順が ITEM_TYPES・作業台のカード・色分けの 並び） */
 export const TOOL_ITEM_IDS = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'fude'] as const;

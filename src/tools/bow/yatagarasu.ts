@@ -10,9 +10,9 @@ import { createRng, type Rng } from '../../world/gen/random';
  */
 const Y = LEGEND4_TUNING.yatagarasu;
 /** 体の まん中の 高さ（足もとから。妖怪の 大きさ `scale` を かける） */
-const BODY_CENTER = 0.8;
+const BODY_CENTER = Y.bodyCenter;
 /** ブロックに 当たった ときの 点から 矢の 向きの うしろへ もどす きょり（マス。点が 面の 上だと 自分の ブロックに さえぎられる ため） */
-export const BURST_BACKOFF = 0.05;
+export const BURST_BACKOFF = Y.burstBackoff;
 
 /** 人ごとの くじの 乱数（シード付き。ほかの 乱数の 列と 混ぜない）。`who` = 1P か 2P */
 export function createSaveRoll(who: 1 | 2): Rng {

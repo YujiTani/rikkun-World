@@ -18,6 +18,7 @@ import { isBowItem, LEGEND4_ID } from '../content/items/ids';
 import { createBowSystem } from './bow/BowSystem';
 import { BLADE_LIKE_ITEMS } from './bladeSets';
 import { createToolConfig, type ToolConfig } from './config';
+import { bowWearPerShot } from '../content/items/legend4Wear';
 
 const MAX_QUEUE = 256;
 /** hitIds が ない や 用の 空の 配列（使いまわす） */
@@ -98,7 +99,7 @@ export class ToolSystemImpl implements ToolSystem {
       inventory: d.inventory,
       onShot: () => {
         if (d.onBowShot) d.onBowShot();
-        else d.inventory.wearHeld?.(this.settings.toolWear.bow.shot);
+        else d.inventory.wearHeld?.(bowWearPerShot(d.inventory.held()?.item, this.settings.toolWear.bow.shot));
       },
       tick: () => this.tickCount,
       who: d.who,

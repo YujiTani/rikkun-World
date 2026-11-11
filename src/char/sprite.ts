@@ -260,6 +260,8 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
   const loadedSkin = {} as Record<SpriteMotion, string | null | undefined>;
   let wantSkin: string | null = null;
   const KATANA_SET: ReadonlySet<SpriteMotion> = new Set(KATANA_MOTIONS);
+  /** 板の 色見本の 席(23〜)に スキンの 色を 書く（絵を 入れかえる たびに。持ちかえても 前の スキンの 色に ならない） */
+  const writeExtras = (extras: PaletteRgb): void => extras.forEach((c, i) => (uniforms.uPalette!.value as THREE.Vector3[])[PALETTE_RGB.length + 1 + i]!.set(srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2])));
   const skinAtlas = (name: string): Promise<SkinAtlas | null> => {
     let p = skinAtlases.get(name);
     if (!p) {
@@ -272,9 +274,6 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
             const packed = parsePacked(v?.packed);
             motions[k] = { frames: Number(v?.frames) || 8, ...(packed ? { packed } : {}) };
           }
-          // 板の 色見本の 席(23〜)に 書く
-          const u = uniforms.uPalette!.value as THREE.Vector3[];
-          extras.forEach((c, i) => u[PALETTE_RGB.length + 1 + i]!.set(srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2])));
           return { extras, motions, partial: o.partial === true };
         })
         .catch(() => null);
@@ -397,6 +396,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       loadedInfo[m] = { width: a.width, height: a.height, cols: a.cols, ...(a.packed ? { packed: a.packed } : {}) };
       textures[m] = tex;
       loadedSkin[m] = sk;
+      if (sk) writeExtras(skinA!.extras);
       gpuBytes += a.width * a.height;
       status[m] = 'ready';
       // 手に 持つ 絵で 上限(64 MiB)を こえる とき: 弓の組を おろす（弓を 持った とき また 読む）

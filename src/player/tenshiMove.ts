@@ -1,4 +1,5 @@
 import type { ItemId } from '../contracts';
+import { LEGEND4_ID } from '../content/items/ids';
 import { LEGEND4_TUNING } from '../content/items/legend4Tuning';
 
 /**
@@ -8,7 +9,7 @@ import { LEGEND4_TUNING } from '../content/items/legend4Tuning';
 const T = LEGEND4_TUNING.tenshi;
 
 /** 天使の弓の id（比べる 側は ここを 読む。id の 文字を あちこちに 書かない。ルール #304） */
-const TENSHI_ID = 'tenshi_yumi' as const satisfies ItemId;
+const TENSHI_ID = LEGEND4_ID.tenshi_yumi;
 
 /** 手に 持って いるのが 天使の弓か */
 export const isTenshi = (held: ItemId | null): boolean => held === TENSHI_ID;

@@ -1,4 +1,5 @@
 import type { ItemId } from '../contracts';
+import { LEGEND4_ID } from '../content/items/ids';
 
 /**
  * WEAPON-8 §2.4: 速さバフの アイコンの 出かた（ぽん・うすく なる）。1 ステップに 1 回 `step`。
@@ -9,7 +10,7 @@ export type BuffId = 'speed' | 'jumpUp' | 'airJump' | 'slowFall' | 'safeLand';
 /** 板の 中の 並び順（左から。LEGEND-4 §3.4） */
 export const BUFF_ORDER: readonly BuffId[] = ['speed', 'jumpUp', 'airJump', 'slowFall', 'safeLand'];
 /** 手に 持つ 物が 出す アイコン（倍率に よらない もの。LEGEND-4 PR3） */
-const HELD_BUFFS: Partial<Record<string, readonly BuffId[]>> = { tenshi_yumi: ['airJump', 'slowFall', 'safeLand'] };
+const HELD_BUFFS: Partial<Record<string, readonly BuffId[]>> = { [LEGEND4_ID.tenshi_yumi]: ['airJump', 'slowFall', 'safeLand'] };
 /** 足の そうびが 出す アイコン（忍びの 足袋 = 着地ダメージ 無効） */
 const LEGS_BUFFS: Partial<Record<string, readonly BuffId[]>> = { ninja_tabi: ['safeLand'] };
 export interface BuffWanted {

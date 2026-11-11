@@ -54,6 +54,7 @@ const v3 = (): Vec3 => ({ x: 0, y: 0, z: 0 });
 export function createInkModel(max: number = T.trailMax, steps: number = T.trailSteps): InkModel {
   const entries: Entry[] = [];
   const view: InkTrail[] = [];
+  const seen = new Set<number>();
   let clock = 0;
 
   function refresh(e: Entry): void {
@@ -69,7 +70,7 @@ export function createInkModel(max: number = T.trailMax, steps: number = T.trail
   return {
     step(arrows, reduced) {
       clock++;
-      const seen = new Set<number>(); // 本数は 3 本まで の 小さな 数。1 ステップに 1 つ（飛んで いる 矢が ある ときだけ）
+      seen.clear(); // 本数は 3 本まで の 小さな 数。使いまわす
       for (const a of arrows) {
         if (a.straight !== true) continue;
         seen.add(a.id);

@@ -14,9 +14,9 @@ const DEG = Math.PI / 180;
 /** ステップ。1 振りの ながさ（出だし ＋ 当たり ＋ 後すき） */
 const TOTAL = T.startup + T.active + T.recovery;
 /** ステップ。着地の あと 落下ダメージを 見ない 長さ（次の 地面の ステップで ためた 高さを けす） */
-const NO_FALL_AFTER_LAND = 3;
+const NO_FALL_AFTER_LAND = T.noFallAfterLand;
 /** マス。足もとの 地面を 見る はば（からだの 半分より 少し 小さく） */
-const FOOT_HALF = 0.29;
+const FOOT_HALF = T.footHalf;
 const EPS = 1e-6;
 
 type HammerPhase = 'idle' | 'swing' | 'hover' | 'dive';
@@ -102,8 +102,10 @@ export function createHammerSystem(d: HammerDeps): HammerSystem {
   let curH = 0;
   let acted = false; // この 振りで 何か こわした／当てた（たいきゅう 1 回・ゴンの 判定）
   let slammed = false;
-  let hitSet = new Set<number>();
+  const hitSet = new Set<number>();
+  // 出来事の 入れ物は 2 本を 入れかえて 使う（毎ステップ 新しく 作らない）。返した 配列は 次の 次の drainEvents まで 有効
   let events: HammerEvent[] = [];
+  let spare: HammerEvent[] = [];
   const out: HammerMotion = { speedMul: 1, jumpLocked: false, noRun: false, stopNow: false, hoverY: null };
   const viewOut: HammerView = { phase: 'idle', f: 0, diveFrom: null, last: null };
   const body: Vec3 = { x: 0, y: 0, z: 0 };
@@ -113,7 +115,7 @@ export function createHammerSystem(d: HammerDeps): HammerSystem {
     f = 0;
     diveFrom = null;
     buffered = false;
-    hitSet = new Set<number>();
+    hitSet.clear();
   }
 
   function standing(p: Vec3): boolean {
@@ -137,7 +139,7 @@ export function createHammerSystem(d: HammerDeps): HammerSystem {
     curH = 0;
     acted = false;
     slammed = false;
-    hitSet = new Set<number>();
+    hitSet.clear();
     buffered = false;
     d.sound('hammerSwing');
   }
@@ -150,7 +152,7 @@ export function createHammerSystem(d: HammerDeps): HammerSystem {
     lastY = ctx.position.y;
     acted = false;
     slammed = false;
-    hitSet = new Set<number>();
+    hitSet.clear();
     buffered = false;
     d.sound('hammerDive');
   }
@@ -288,7 +290,9 @@ export function createHammerSystem(d: HammerDeps): HammerSystem {
     },
     drainEvents(): HammerEvent[] {
       const e = events;
-      events = [];
+      events = spare;
+      events.length = 0;
+      spare = e;
       return e;
     },
   };

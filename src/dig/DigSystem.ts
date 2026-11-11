@@ -487,7 +487,7 @@ export class DigSystemImpl implements DigSystem {
     if (id === 'outside') return false;
     const from = this.drainQueue.length;
     const t: TargetInfo = { block: { x, y, z }, id, face: { x: 0, y: 1, z: 0 }, place: { x, y: y + 1, z }, distance: 0 };
-    const end = this.breaker.breakBlock(t, false);
+    const end = this.breaker.breakBlock(t, false, false, true);
     for (let i = from; i < this.drainQueue.length; i++) {
       const e = this.drainQueue[i]!;
       if (e.type === 'break') e.silent = true;

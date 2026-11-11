@@ -11,6 +11,8 @@ import { createFeathers, flapScale, pickTrails, wingFrame } from './tenshiFxMode
  * つばさは うしろから 見る 1 まいの 板（背中の 後ろに 立てる）。矢の すじは ゲームの 十字の 板（docs/art/design/05-effects.md §17）。
  */
 const T = LEGEND4_TUNING.tenshi;
+/** 矢が ない とき の 空の 入れ物（使いまわす） */
+const NO_TRAILS: never[] = [];
 const BASE = './models/fx/';
 /** つばさの シート: 5 れつ × 3 ぎょう（112×72 点） */
 const WING = { cols: 5, rows: 3, w: 112, h: 72, originY: 42 };
@@ -158,7 +160,7 @@ export class TenshiFx {
 
   private stepTrails(arrows: readonly ArrowInfo[], any: boolean): void {
     const t = this.trail;
-    const list = any ? pickTrails(arrows) : [];
+    const list = any ? pickTrails(arrows) : NO_TRAILS;
     if (list.length === 0) {
       t.mesh.visible = false;
       return;

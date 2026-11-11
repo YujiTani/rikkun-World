@@ -1,3 +1,5 @@
+import type { BlockId } from '../../contracts';
+
 /**
  * LEGEND-4（レジェンダリー武器 5 つ。docs/design/LEGEND-4.md）の 数。戦闘・調整の数は この 1 つの表に（ルール #304）。
  * `GADGET_TUNING` と 同じ 形。武器を 足す PR は 自分の キーを 足す（PR1 = 黒龍）。テストは 数字を 書かず、ここを 読む。
@@ -35,6 +37,10 @@ export const LEGEND4_TUNING = {
     burstKnock: [1.0, 1.5] as const,
     /** 0〜1。矢が へらない 確率（くじの 値が これより 小さければ へらさない） */
     saveChance: 0.5,
+    /** マス。体の まん中の 高さ（足もとから。大きさ 1 の 妖怪） */
+    bodyCenter: 0.8,
+    /** マス。ブロックに 当たった とき ほのおの 点を 矢の うしろへ もどす きょり（面の 上だと 自分の ブロックに さえぎられる ため） */
+    burstBackoff: 0.05,
     /** ステップ（1/60 秒）。ほのおの 絵が 見える 長さ（当たりは 当たった 1 ステップだけ。30 = 0.5 秒） */
     burstSteps: 30,
     /** たいきゅう。1 本 うつと へる 数（へらなかった ときも 1。ほのおは 0） */
@@ -123,7 +129,11 @@ export const LEGEND4_TUNING = {
     breakable: [
       'grass', 'dirt', 'sand', 'snow', 'nendo', 'stone', 'coal_ore', 'iron_ore', 'kin_ore', 'suisho_ore', 'diamond_ore',
       'sekkaiseki', 'hotaruishi', 'hibi_ishi', 'kuzure_ishi', 'tsurara', 'log', 'leaves', 'momiji_leaves', 'matsu_leaves', 'bamboo',
-    ] as readonly string[],
+    ] as const satisfies readonly BlockId[],
+    /** ステップ。着地の あと 落下ダメージを 見ない 長さ */
+    noFallAfterLand: 3,
+    /** マス。足もとの 地面を 見る はば（からだの はば 0.6 の 半分 0.3 より 少し 小さく） */
+    footHalf: 0.29,
     /** ステップ。しっぱい（何も こわせない・当たらない）の とき、土けむりの 見た目が 残る 長さ */
     bonkSteps: 20,
   },

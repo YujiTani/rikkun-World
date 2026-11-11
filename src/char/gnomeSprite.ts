@@ -9,8 +9,15 @@ import type { SpriteStepInput } from './motion';
 const T = LEGEND4_TUNING.gnome;
 const LENGTHS = { startup: T.startup, active: T.active, recovery: T.recovery } as const;
 
+/** 使いまわす 入れ物（絵の 入力は その ステップの うちに 読まれる。1P だけ） */
+const out: NonNullable<SpriteStepInput['blade']> = { stance: 'chudan', tech: null, phase: 'idle', frame: 0, lengths: null };
+
 export function gnomeSpriteBlade(sweep: { phase: 'idle' | 'startup' | 'active' | 'recovery'; frame: number } | undefined): NonNullable<SpriteStepInput['blade']> | null {
   if (!sweep) return null;
   const swinging = sweep.phase !== 'idle';
-  return { stance: 'chudan', tech: swinging ? 'thrust' : null, phase: swinging ? sweep.phase : 'idle', frame: sweep.frame, lengths: swinging ? { ...LENGTHS } : null };
+  out.tech = swinging ? 'thrust' : null;
+  out.phase = swinging ? sweep.phase : 'idle';
+  out.frame = sweep.frame;
+  out.lengths = swinging ? LENGTHS : null;
+  return out;
 }
