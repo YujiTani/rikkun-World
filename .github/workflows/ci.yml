@@ -182,7 +182,8 @@ jobs:
           PLAYWRIGHT_HTML_OPEN: never
         run: |
           mkdir -p test-results
-          printf '%s' "$FIRST" | jq -c '{status: "failed", failedTests: .}' > test-results/.last-run.json
+          # Playwright の コンテナには jq が ない ので node で 書く
+          node -e 'process.stdout.write(JSON.stringify({ status: "failed", failedTests: JSON.parse(process.env.FIRST) }))' > test-results/.last-run.json
           npx playwright test --last-failed --pass-with-no-tests --reporter=list,html
       - name: 落ちた テストの 一覧を 作る（次の 回が 使う）
         if: ${{ !cancelled() }}
