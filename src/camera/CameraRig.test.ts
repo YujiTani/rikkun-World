@@ -147,14 +147,14 @@ describe('CameraRig: 三人称だけ', () => {
     expect(t.world.isSolid(Math.floor(c.shoulder.x), Math.floor(c.shoulder.y), Math.floor(c.shoulder.z))).toBe(false);
   });
 
-  it('AC6: 後ろ（z0 + 2）に高いかべ -> S からカメラまで 1.30。かべを消すと 15 ステップで 4.00', () => {
+  it('AC6: 後ろ（z0 + 2）に高いかべ -> S からカメラまで 1.20。かべを消すと 15 ステップで 4.00', () => {
     const t = setup();
     t.state.yawDeg = 0;
     t.state.position.z = 6.5;
     t.world.fillSolid(0, 9, 8, 63, 20, 8); // z = 8 の列（キャラ z0 = 6 の + 2）
     t.step();
-    expect(camToS(t.rig)).toBeCloseTo(1.3, 1);
-    expect(Math.abs(camToS(t.rig) - 1.3)).toBeLessThanOrEqual(0.03);
+    expect(camToS(t.rig)).toBeCloseTo(1.2, 1);
+    expect(Math.abs(camToS(t.rig) - 1.2)).toBeLessThanOrEqual(0.03);
     t.world.clearSolid(0, 9, 8, 63, 20, 8);
     t.step(15);
     expect(camToS(t.rig)).toBeCloseTo(4.0, 2);
@@ -174,9 +174,9 @@ describe('CameraRig: 三人称だけ', () => {
     expect(t.rig.doll.visible).toBe(true);
   });
 
-  it('§4.1 の計算: 見上げ +45 は 1.60、+57 は 1.22（見える）、+58 は 1.19（かくす）', () => {
+  it('§4.1 の計算: 見上げ +45 は 1.39、+50 は 1.24（見える）、+52 は 1.19（かくす）。SIGHT-1 で 床との すきまが 0.3 に なった', () => {
     const t = setup();
-    for (const [pitch, dist, vis] of [[45, 1.6, true], [57, 1.22, true], [58, 1.19, false]] as const) {
+    for (const [pitch, dist, vis] of [[45, 1.39, true], [50, 1.24, true], [52, 1.19, false]] as const) {
       t.state.pitchDeg = pitch;
       t.step(30);
       expect(t.rig.getInfo().distanceToBody).toBeCloseTo(dist, 1);
@@ -204,7 +204,7 @@ describe('CameraRig: 三人称だけ', () => {
     const t = setup({ wall: 2 });
     t.step();
     const near = camToS(t.rig);
-    expect(near).toBeCloseTo(1.8, 1);
+    expect(near).toBeCloseTo(1.7, 1);
     t.state.position.x += 6; // 壁が遠くなる
     t.step(3);
     const mid = camToS(t.rig);

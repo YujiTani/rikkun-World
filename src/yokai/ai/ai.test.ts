@@ -187,13 +187,13 @@ describe('AI（距離だけで動く）', () => {
       expect(b.m.list()[0]!.state).toBe('idle');
     });
   }
-  it('壁ごしでも距離が近ければ見つける（目の線は見ない）', () => {
+  it('壁ごしでは見つけない（SIGHT-1: 目から相手まで固いブロックがあると気づかない）', () => {
     const { m, step, world, player } = setup();
     player.position = { x: 2.5, y: 9, z: 6.5 };
     for (let y = 9; y <= 11; y++) for (let z = 3; z <= 10; z++) world.setBlock(5, y, z, 'stone');
     m.spawn('karakasa', 8.5, 9, 6.5);
     step(30);
-    expect(m.list()[0]!.state).toBe('chase');
+    expect(m.list()[0]!.state).not.toBe('chase');
   });
   it('あきらめる距離をこえたら さがす → やすむ', () => {
     const { m, step, player } = setup();
@@ -453,7 +453,7 @@ describe('ろくろくびの首・妖怪の体にふれる（M4 追加）', () =
   it('間の壁を越えて、首を曲げて かみつく。道が無ければ かみつかない', () => {
     const { m, step, player, combat, world } = setup();
     player.position = { x: 8.5, y: 9, z: 6.5 };
-    for (let y = 9; y <= 10; y++) for (let z = 3; z <= 10; z++) world.setBlock(6, y, z, 'stone');
+    for (let z = 3; z <= 10; z++) world.setBlock(6, 9, z, 'stone'); // SIGHT-1: 目（11.3）より 低い 1 マスの かべ（2 マスだと 見えない）
     const id = m.spawn('rokurokubi', 3.5, 9, 6.5, { yawDeg: 90 });
     for (let i = 0; i < 90; i++) step();
     const ev = m.takeHookEvents();

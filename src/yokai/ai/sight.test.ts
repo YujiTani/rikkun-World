@@ -44,7 +44,7 @@ function rig(o: Opts = {}) {
     }
   };
   /** z の 1 マス（x 0〜40・高さ 9〜14）の 石の 壁。on = false で こわす */
-  const wall = (z: number, on = true, x0 = 0, x1 = 40) => void world.fill(x0, 9, z, x1, 14, z, on ? 'stone' : 'air');
+  const wall = (z: number, on = true, x0 = 0, x1 = 40) => void world.fill(x0, 9, Math.floor(z), x1, 14, Math.floor(z), on ? 'stone' : 'air');
   return { m, p1, partner, hurts, step, wall, states, state: () => m.list()[0]!.state, pos: () => m.list()[0]!.position };
 }
 const inCombat = (s: string) => COMBAT_STATES.has(s);

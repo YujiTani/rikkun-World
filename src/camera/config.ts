@@ -17,8 +17,6 @@ export const DEFAULT_CAMERA_CONFIG: Readonly<CameraConfig> = {
   thirdPersonHeight: 0.5,
 };
 
-/** 壁の手前に寄せる量 */
-export const WALL_MARGIN = 0.2;
 /** 壁から離れるときにもとの距離へ戻すのにかける秒数 */
 export const WALL_RECOVER_SECONDS = 0.25;
 /** カメラと キャラの からだの中心 の距離がこれ未満なら キャラを隠す（CHAR-1 §4.1） */
@@ -31,8 +29,10 @@ export const PIVOT_CEILING_GAP = 0.1;
 export const SHOULDER_DROP = 0.72;
 /** 肩ごしのずらし s の大きさ（s = これ × cos(pitch)） */
 export const SHOULDER_OFFSET = 0.7;
-/** 壁ぎわで s を 面の何手前まで小さくするか */
-export const SHOULDER_WALL_MARGIN = 0.2;
+/** 壁ぎわで s を 面の何手前まで小さくするか（マス） */
+export const SHOULDER_WALL_MARGIN = 0.3;
+/** カメラの 点の まわり この 半径（マス）に 固いブロックを 入れない（SIGHT-1。手前の 面の 角が 約 0.17 マスなので それより 大きく） */
+export const CAMERA_CLEARANCE = 0.3;
 /** 壁がなくなってから s がもとへもどる秒数（15 ステップ） */
 export const SHOULDER_RECOVER_SECONDS = 0.25;
 /** 壁の判定でたどる刻み幅 */

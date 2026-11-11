@@ -14,6 +14,7 @@ import type { YokaiFall } from './fall';
 import type { YokaiMover } from './mover';
 import { findNeckRoute, type P3 } from './neckRoute';
 import { SENSE, type KindSense } from './senseTuning';
+import { canSee } from './sight';
 
 const tmp = { x: 0, z: 0 };
 
@@ -67,7 +68,7 @@ export class YokaiChaser {
         return;
       case 'idle':
       case 'wander': {
-        if (this.notices(sense, targetable, dy, dist)) {
+        if (this.notices(e, sense, targetable, dy, dist)) {
           this.enterChase(e, dist);
           break;
         }
@@ -75,7 +76,7 @@ export class YokaiChaser {
         break;
       }
       case 'search': {
-        if (this.notices(sense, targetable, dy, dist)) {
+        if (this.notices(e, sense, targetable, dy, dist)) {
           this.enterChase(e, dist);
           break;
         }
@@ -100,10 +101,23 @@ export class YokaiChaser {
   }
 
   /** プレイヤーに 気づくか（高さの差・距離。忍び装束なら 距離が 半分） */
-  private notices(sense: KindSense, targetable: boolean, dy: number, dist: number): boolean {
+  private notices(e: Ent, sense: KindSense, targetable: boolean, dy: number, dist: number): boolean {
     if (!targetable || Math.abs(dy) > SENSE.sightDy || dist > sense.sight) return false;
     if (sense.shinobi && dist > sense.sight * SENSE.shinobiSightMul && this.targetBody() === NINJA_GEAR.body) return false;
-    return true;
+    return this.sees(e);
+  }
+
+  /** いま ねらっている 人（f.px…）が e から 見えるか（SIGHT-1。あいだに 固いブロックが ない） */
+  private sees(e: Ent): boolean {
+    const { f, world } = this.d;
+    return canSee((x, y, z) => world.isSolid(x, y, z), e.x, e.y, e.z, e.dims.height, f.px, f.py, f.pz);
+  }
+
+  /** 人 p に 気づける か（距離・高さ・見通し。忍び装束は 見ない）。2 人の ときの ねらい えらびで 使う */
+  noticeable(e: Ent, p: { x: number; y: number; z: number }): boolean {
+    const { world } = this.d;
+    if (Math.abs(p.y - e.y) > SENSE.sightDy || Math.hypot(p.x - e.x, p.z - e.z) > SENSE.kinds[e.kind].sight) return false;
+    return canSee((x, y, z) => world.isSolid(x, y, z), e.x, e.y, e.z, e.dims.height, p.x, p.y, p.z);
   }
 
   /** いま ねらっている 人（f.who）の からだの そうび。2P は 2P の そうび（窓口が なければ はだか。1P の 物に 代えない） */
@@ -121,6 +135,7 @@ export class YokaiChaser {
 
   private enterChase(e: Ent, dist: number): void {
     e.state = 'chase';
+    e.unseenSteps = 0;
     e.bestDist = dist;
     e.lastProgress = this.d.f.steps;
   }
@@ -176,12 +191,20 @@ export class YokaiChaser {
       this.lose(e);
       return 0;
     }
-    e.lastSeenX = f.px;
-    e.lastSeenZ = f.pz;
+    // SIGHT-1: 見えている あいだだけ「さいごに見た場所」を 更新。見えない が 続いたら さがす
+    const seen = this.sees(e);
+    if (seen) {
+      e.unseenSteps = 0;
+      e.lastSeenX = f.px;
+      e.lastSeenZ = f.pz;
+    } else if (++e.unseenSteps >= SENSE.loseSightSteps) {
+      this.lose(e);
+      return 0;
+    }
     const speed = this.d.fall.speedOf(e);
     const ux = dist > 1e-6 ? (f.px - e.x) / dist : 0;
     const uz = dist > 1e-6 ? (f.pz - e.z) / dist : -1;
-    const canAttack = e.cool <= 0 && e.age >= AI_CONST.noAttackTicks && e.stone < AI_CONST.stoneNoAttack;
+    const canAttack = seen && e.cool <= 0 && e.age >= AI_CONST.noAttackTicks && e.stone < AI_CONST.stoneNoAttack;
     let moved = 0;
     let hold = 0;
     switch (e.kind) {

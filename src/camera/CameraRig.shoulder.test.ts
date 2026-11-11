@@ -51,14 +51,14 @@ function setup() {
 }
 
 describe('肩ごしのずらし s と壁ぎわ（AC44）', () => {
-  it('右（x0 + 1 の列）に壁 -> s = 0.30、S は固くない。壁を消すと 15 ステップ以内に 0.70', () => {
+  it('右（x0 + 1 の列）に壁 -> s = 0.20、S は固くない。壁を消すと 15 ステップ以内に 0.70', () => {
     const t = setup();
     t.step();
     expect(t.rig.getInfo().shoulderOffset).toBeCloseTo(0.7, 2);
     t.world.fill(11, 9, 0, 11, 12, 63);
     t.step();
     const c = t.rig.getInfo();
-    expect(c.shoulderOffset).toBeCloseTo(0.3, 2);
+    expect(c.shoulderOffset).toBeCloseTo(0.2, 2);
     expect(t.world.isSolid(Math.floor(c.shoulder.x), Math.floor(c.shoulder.y), Math.floor(c.shoulder.z))).toBe(false);
     t.world.fill(11, 9, 0, 11, 12, 63, false);
     t.step(15);
