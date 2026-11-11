@@ -181,12 +181,12 @@ describe('#187-AC3: 作る順に関係なく 同じ', () => {
 
 describe('生成とのずれ: features の場所に 本当に その物が ある', () => {
   /** チャンクは 1 回だけ作って 覚える（作るのは 1 回 約 100ms。同じ列を 何度も作りなおすと 時間切れになる） */
-  const chunks = new Map<string, Uint8Array>();
+  const chunks = new Map<string, Uint16Array>();
   const blockAt = (seed: number, x: number, y: number, z: number): number => {
     const key = `${seed},${x >> 4},${z >> 4}`;
     let arr = chunks.get(key);
     if (!arr) {
-      arr = new Uint8Array(WORLD_HEIGHT * 256);
+      arr = new Uint16Array(WORLD_HEIGHT * 256);
       generateChunk(seed, x >> 4, z >> 4).sections.forEach((s, sy) => arr!.set(sectionToArray(s), sy * SECTION_VOLUME));
       chunks.set(key, arr);
     }

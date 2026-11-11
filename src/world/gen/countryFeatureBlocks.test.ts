@@ -38,7 +38,7 @@ describe('countryFeatureBlocks', () => {
     const s = firstOf('hana', 'himawari');
     const cx = s.x >> 4;
     const cz = s.z >> 4;
-    const arr = new Uint8Array(WORLD_HEIGHT * 256);
+    const arr = new Uint16Array(WORLD_HEIGHT * 256);
     generateChunk(seed, cx, cz).sections.forEach((sec, sy) => arr.set(sectionToArray(sec), sy * SECTION_VOLUME));
     const at = (x: number, y: number, z: number): number => arr[(y * 16 + (z & 15)) * 16 + (x & 15)]!;
     const m = FEATURE_TUNE.treeMargin;

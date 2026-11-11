@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, WILD_BLOCK, WORLD_HEIGHT, type BlockId } from '../../contracts';
+import { CHUNK_SIZE, WILD_BLOCK, WORLD_HEIGHT, type BlockArray, type BlockId } from '../../contracts';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { COUNTRY_PLANT_IDS } from '../blocks/countryPlants';
 import { HIMAWARI, HIMAWARI_TOP } from '../blocks/himawari';
@@ -77,7 +77,7 @@ export function featuresNearChunk(seed: number, x0: number, z0: number): ChunkFe
 }
 
 /** ブロックの 並び `out`（列の 中。y × 16 × 16）に、この チャンクの 中の マスだけ 書く */
-export function writeFeatureBlocks(out: Uint8Array, f: ChunkFeatures, x0: number, z0: number): void {
+export function writeFeatureBlocks(out: BlockArray, f: ChunkFeatures, x0: number, z0: number): void {
   for (const s of f.sites) {
     for (const b of s.blocks) {
       const lx = b.x - x0;
