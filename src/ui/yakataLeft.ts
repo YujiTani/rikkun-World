@@ -23,7 +23,7 @@ export class YakataLeft {
   constructor(parent: HTMLElement, who: 1 | 2 = 1) {
     this.el = document.createElement('div');
     this.el.id = who === 1 ? 'yakata-left' : 'yakata-left-p2';
-    if (who === 2) this.el.className = 'yakata-left--p2';
+    this.el.className = who === 2 ? 'yakata-left yakata-left--p2' : 'yakata-left';
     this.el.dataset.testid = who === 1 ? 'yakata-left' : 'yakata-left-p2';
     this.el.hidden = true;
     const icon = document.createElement('canvas');

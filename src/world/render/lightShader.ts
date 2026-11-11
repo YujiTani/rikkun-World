@@ -30,6 +30,7 @@ float blockTier(float lv) {
 uniform vec4 uYakataMin[${YAKATA_BOX_MAX}];
 uniform vec4 uYakataMax[${YAKATA_BOX_MAX}];
 uniform int uYakataN;
+uniform float uYakataSway;
 const vec3 YAKATA_TINT[2] = vec3[2](vec3(${YL.lookTint.maou.map(f).join(', ')}), vec3(${YL.lookTint.otera.map(f).join(', ')}));
 float yakataLook(vec3 p) {
   for (int i = 0; i < uYakataN; i++) {
@@ -59,7 +60,7 @@ export const LIGHT_GLSL_LIT = `
     float w = clamp((bb - sb) * 3.0, 0.0, 1.0) * ${f(LC.warmTintStrength)};
     vec3 tint = mix(vec3(1.0), YAKATA_TINT[int(yk + 0.5)], w);
     float v = max(sb, bb);
-    vLit = vec3(min(v, ${f(YL.dim.shade)})) + vec3(max(v - ${f(YL.dim.shade)}, 0.0)) * tint;
+    vLit = vec3(min(v, ${f(YL.dim.shade)})) + vec3(max(v - ${f(YL.dim.shade)}, 0.0)) * tint * uYakataSway;
   }`;
 
 /**

@@ -12,6 +12,8 @@ export interface ActionHintItem {
   icon: ItemId | 'heart' | 'full' | 'carry' | 'chicken' | 'talk' | 'chest';
   /** ひらがなの 1 語 */
   word: string;
+  /** MINE-1F: 絵の よこに おやぶんの バッジを 出す（まだ あけて いない やかたの 宝箱。「妖怪が 出る」と 分かる） */
+  badge?: boolean;
   /** LIVE-2: 入らない 所 など（絵 を うすく する。押しても 合図 だけ） */
   disabled?: boolean;
 }
@@ -24,6 +26,8 @@ export interface ActionHintLines {
 }
 
 export interface ActionHintCtx {
+  /** MINE-1F: ねらって いる 宝箱が まだ あけて いない やかたの 宝箱か（つなぎ込みが わたす） */
+  yakataChest?: boolean;
   held: ItemId | null;
   /** 持っているものが ツルハシ か（ほる の絵に使う） */
   heldIsPickaxe: boolean;
@@ -49,7 +53,7 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
   if (right) {
     switch (right.kind as string) {
       case 'chest':
-        out.right = { icon: 'chest', word: 'あける' };
+        out.right = c.yakataChest ? { icon: 'chest', word: 'あける', badge: true } : { icon: 'chest', word: 'あける' };
         break;
       case 'storage':
         out.right = { icon: 'tansu', word: 'ひらく' };
