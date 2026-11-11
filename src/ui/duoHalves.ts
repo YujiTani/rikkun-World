@@ -1,4 +1,5 @@
 import type { Camera } from 'three';
+import type { DayPhase } from '../contracts';
 import type { TimeSettings } from '../time/config';
 import { halfOf, newViewRectsScratch, viewRects, type Rect, type ViewRects } from '../duo/viewRects';
 import { DUO_TUNING } from '../duo/tuning';
@@ -297,10 +298,11 @@ export class DuoHalves {
   }
 
   /** 世界で 1 つの 物（#13 おしらせ・#17 時刻）を 2P の 半分にも 同じ 物で。音は ここでは 鳴らさない */
-  world(announce: AnnounceState | null, dayTick: number, settings: TimeSettings, day: number): void {
+  world(announce: AnnounceState | null, phase: DayPhase, dayTick: number, settings: TimeSettings, day: number): void {
     const b = this.b;
     if (!b || !this.on) return;
     b.title.sync(announce);
+    b.clock.set(phase);
     b.clock.setTime(dayTick, settings, day);
   }
 

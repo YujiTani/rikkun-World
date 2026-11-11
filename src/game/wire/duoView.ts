@@ -108,6 +108,7 @@ export class DuoViews {
       active: () => this.active,
       render: () => {
         const dr = this.draw;
+        this.refreshRects();
         dr.rc = this.rc;
         // 輪が 2 つの あいだは 描く 範囲に かすみを 合わせる（世界の ふちが 見えない ように）
         dr.fogFar = this._rings === 2 ? (getRing().draw + 1) * 16 : null;
@@ -133,6 +134,22 @@ export class DuoViews {
   }
 
   private readonly vs = { w: 0, h: 0 };
+  /** いまの 区画を 出した ときの 見せ方・進み・画面の 大きさ（窓の 大きさが かわった とき 描く 前に 出しなおす） */
+  private rcView: DuoView = 'one';
+  private rcProgress = 1;
+  private rcW = 0;
+  private rcH = 0;
+
+  /** 描く 直前: 画面の 大きさが 区画を 出した ときと ちがえば（ステップが 回る 前に 窓が かわった）、同じ 見せ方で 出しなおす */
+  private refreshRects(): void {
+    if (this.rcW === 0) return;
+    const vs = this.d.game.viewSize(this.vs);
+    if (vs.w === this.rcW && vs.h === this.rcH) return;
+    this.rcW = vs.w;
+    this.rcH = vs.h;
+    this.rc = viewRects(this.from, this.rcView, this.rcProgress, vs.w, vs.h, this.scratch);
+  }
+
   /** 状態機械へ 渡す 入れもの（毎ステップ 新しく 作らない） */
   private readonly machineIn = { joined: false };
 
@@ -171,7 +188,11 @@ export class DuoViews {
 
     // 区画
     const t = this.machine.transition();
-    this.rc = viewRects(this.from, view, t.active ? t.progress : 1, W, H, this.scratch);
+    this.rcView = view;
+    this.rcProgress = t.active ? t.progress : 1;
+    this.rcW = W;
+    this.rcH = H;
+    this.rc = viewRects(this.from, view, this.rcProgress, W, H, this.scratch);
     this.active = view !== 'one' || t.active;
 
     // 2P の カメラ（いつも 自分の カメラ。1P と 同じ 決まり）

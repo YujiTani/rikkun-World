@@ -14,6 +14,7 @@ html[data-duo] #clock {
 /* ---- #13 二つ名の おしらせ: 半分の まん中 ---- */
 html[data-duo] #title-announce {
   left: 25%;
+  top: max(14%, calc(var(--rk-clock-bottom) + var(--rk-sp-2)));
   max-width: var(--duo-band-w);
 }
 
@@ -26,7 +27,7 @@ html[data-duo] [data-testid='duo-clock-p2'] {
 html[data-duo] .title-announce--p2 {
   position: fixed;
   left: 75%;
-  top: 14%;
+  top: max(14%, calc(var(--rk-clock-bottom) + var(--rk-sp-2)));
   transform: translateX(-50%);
   max-width: var(--duo-band-w);
 }
@@ -100,9 +101,6 @@ html[data-duo] #hud-notice-p2 {
   left: auto;
   right: calc(25% - var(--hb-w) * var(--duo-scale) / 2);
   bottom: calc(var(--hb-bottom) + var(--rk-slot-hotbar) * var(--duo-scale) + var(--rk-sp-3));
-  display: flex;
-  flex-direction: row;
-  align-items: center;
   z-index: 5;
   transform: scale(var(--duo-scale));
   transform-origin: 100% 100%;

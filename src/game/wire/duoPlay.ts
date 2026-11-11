@@ -516,7 +516,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     const yk = shared.yokaiManager;
     if (!yk) return;
     const open2 = c.invOpen() || l.animals.menuOpen();
-    halves.world(yk.announce(), deps.time.dayTick(), deps.timeSettings, deps.time.day() + 1);
+    halves.world(yk.announce(), deps.time.phase(), deps.time.dayTick(), deps.timeSettings, deps.time.day() + 1);
     // 2P の 名札の 材料（もちもの画面が 開いて いる あいだは 出さない）
     yk.nameplates(halves.plates2, 2);
     if (open2) halves.plates2.length = 0;
@@ -602,8 +602,11 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     },
     hurt(who, amount) {
       if (!dev) return;
-      if (who === 1) combat1.debugDamage(amount);
-      else live?.life.damage(amount, { type: 'yokai' });
+      if (who === 1) {
+        // by なしの debugDamage は playerHit を 出さない ので、1P の ふちは ここで 光らせる（2P の life.damage と 同じ 見え方）
+        combat1.debugDamage(amount);
+        deps.combatUi.edge.flash();
+      } else live?.life.damage(amount, { type: 'yokai' });
     },
     legend: (who) => shared.legendFor(who)?.state() ?? null, // 4d-2（§12.0）: その人の わざ（legend.state() と 同じ 形）。下は 雷の 絵の 窓口
     // COOP-1 5a（§12.0）: その人の 半分の 畑の 合図・しるしの 中身（1P は 今の チップと farm.hud()。2P が いなければ who 2 は null）
