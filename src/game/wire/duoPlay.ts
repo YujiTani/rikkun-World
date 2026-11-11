@@ -559,11 +559,11 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       const mat = fx.outline.mesh.material as THREE.MeshBasicMaterial;
       return { visible: fx.outline.mesh.visible, color: `#${mat.color.getHexString()}` };
     },
-    give(who, item, count) {
+    give(who, item, count, slot = 0) {
       const inv = invOf(who);
       if (!dev || !inv) return;
-      inv.setSlot(0, { item, count });
-      inv.select(0);
+      inv.setSlot(slot, { item, count });
+      inv.select(slot);
     },
     sample(who) {
       const inv = invOf(who);

@@ -56,14 +56,18 @@ export async function openDuoHalfAll(page: Page): Promise<void> {
     h.settings.set('animalAutoSpawn', false);
     const p1 = h.duo.pos(1);
     h.duo.place(2, { x: p1.x, y: p1.y, z: p1.z + 6 });
-    for (const who of [1, 2] as const) {
-      h.duo.give(who, 'fujin_ken', 1); // 手に もつと バフの 札（速さ）
-      h.duo.give(who, 'log', 4); // つくれる マーク（きの いたが つくれる）
-    }
   });
   await stepN(page, 10);
+  // ねらう 土は スロット 0。材料（log）は 1、風神剣は 2（give は 指定の スロットだけ 書く ので 3 つとも 残る。最後に 風神剣を えらぶ）
   await aimWithItem(page, 1, 'dirt');
   await aimWithItem(page, 2, 'dirt');
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    for (const who of [1, 2] as const) {
+      h.duo.give(who, 'log', 4, 1); // つくれる マーク（きの いたが つくれる）
+      h.duo.give(who, 'fujin_ken', 1, 2); // 手に もつと バフの 札（速さ）
+    }
+  });
   await spawnTitledAhead(page);
   await stepN(page, 4);
   // えらんだ 名前: 選びを かえて もどす（かえた ステップで 名前が 出る）
@@ -72,8 +76,8 @@ export async function openDuoHalfAll(page: Page): Promise<void> {
     h.inventory.select(1);
     h.duo.select(2, 1);
     h.step(1);
-    h.inventory.select(0);
-    h.duo.select(2, 0);
+    h.inventory.select(2);
+    h.duo.select(2, 2); // 最後は 風神剣を 手に もつ（バフの 札）
     h.step(1);
     // ふち: 当たった ステップから 少し 進めて いちばん 濃い あたりで 止める
     h.duo.hurt(1, 1);
