@@ -167,3 +167,43 @@ E2E は 1 本（`e2e/house2.spec.ts`。`e2e/shard-times.json` に 入れて あ�
 - 三角形の 上限は **1 けん 3,000**（数の 表と 06-housing §21.7 を 直す）。
 - 順番: ① tester が AC10〜AC13 の テスト（ユニット ＋ AC11 の E2E 1 つ）を 先に 書いて 赤を 確かめる ‖ pixel-artist が ゲームに 入れる 絵（ブロックの 面・ボタンの 絵）を 作る → ② code-reviewer → ③ developer が 実装（仮の 絵 `// 仮（HOUSE-2B で かえる）` を ぜんぶ 本物に）→ ④ レビュー・UI 検査 → yuzu が 見る（AC14）。
 - E2E は 手元で 回さない（CI）。
+
+## 2B の テストの 準備（tester。2026-11-11。仕様 3.3 版 AC10〜AC13。**実装の 前**。新しい テストは ぜんぶ 赤）
+
+**約束**（名前の 本文は `src/house/recipes/lookKit.ts` 先頭の「2B の 約束」。変えるなら その ファイルと 下の テストを 一緒に 直す）:
+
+| 窓口 | 置く 所 | 約束 |
+|---|---|---|
+| `houseShape(bp)` | `src/house/shape.ts` | bp の `roof`・`wall`・`windowKind`・`door`・`deco`・`light` を 読む。cells は 箱（よこ・たて・高さ）の ぜんぶの マスを 1 回ずつ。やね なしは 高さ 4 |
+| `houseBox(bp)` → `{ w, d, h }` | 同上 | §4.2 の 表（なし 4／たいら 5・6／ななめ 7・8。かざりは えんとつ・しゃちほこ だけ）。案・かべ・まどの なしで かわらない |
+| `houseTriangles(bp)` → 数 | 同上 | 家の 三角形（家具を のぞく）。上限 3,000 |
+| `kindBlocks(part, kind)` → `BlockId[]` | `src/house/recipes/kinds.ts` | その しゅるいが 世界に 置く ブロックぜんぶ。同じ ばしょの しゅるい どうしで 重ならない。やね・まどの `none` は `[]`、かべの `none` は 柱 |
+| `kindItem(part, kind)` → `ItemId｜null` | 同上 | ほると 手に 入る アイテム（`dugItemOf` と 同じ 答え）。しゅるいごとに 別・名前は `kindName` |
+| `siteOk(…, doorX, h = 5)`・`findSites(…, used, limit, h = 5)` | `src/house/build/sites.ts` | 床の 上 `h − 1` 段を しらべる |
+| `HouseBuilder.locked` | `src/house/build/builder.ts` | 高さは `houseBox(bp).h` |
+| `previewDrawCalls(state, mode)` → 数 | `src/house/preview/mesh.ts` | 見本 1 コマの 描画回数（光りは のぞく・材料ごとに まとめる） |
+
+| 基準 | テスト | ふくむ もの |
+|---|---|---|
+| AC10 | `src/house/lookBox.test.ts` | 高さの 表〔やね ぜんぶ × かざり〔なし・1 つずつ・ぜんぶ〕× 3 つの 大きさ。表は テストの 中の 計算で、実装の 表を 写さない〕・のれん／はなだんでは かわらない・やね なしは 4・**案で かわらない**・かべ・まどの なしと 案で かわらない・**箱の 外に ない／箱の ぜんぶの マスが 1 回ずつ**〔3 案 それぞれ・おしろの のき・しゃちほこ・やね なし・かべ なし〕・**建てられる 場所**〔6 段目に 石: H 7 は 置けない・H 5 は 置ける・7 段目は H 8 だけ・H を わたさない 呼び方は 今まで どおり・findSites も〕・**建築中の 守り**〔locked の いちばん 上の 段 ＝ H − 1〕 |
+| AC11 | `src/house/lookShape.test.ts` | しゅるいごとに ブロックが ある・いつもの 物と 形が ちがう・3 案が ちがう 形・**案を まぜた せっけいず**〔えらんだ しゅるいの ブロックだけ・床と 家具のぞく〕・**てつの と**〔戸の 下と 上が 戸の ブロック・記録の 戸の 場所・ほると その アイテム〕・**ほると その しゅるいの アイテム 1 こ**〔ブロックごと〕・**なしの 家**〔やね なし＝4・ちょうちんは いつもの 場所・かざり つかない／かべ なし＝4 すみの 柱 3 段 と 戸 だけ・窓・はなだん なし／まど なし＝窓の マスが 空気〕 |
+| AC11（夜の 湧き） | `src/house/lookDark.test.ts` | あかり 3 つ とも 中の どの マスも `darkForSpawn` が false・あかりを ほると 湧く・やね なし／かべ なし／まど なし／ななめの やね でも false。1C の `houseLight.test.ts` と 同じ 手順 |
+| AC11（アイテム） | `src/content/items/houseLooks.test.ts` | 新しい アイテムの 登録〔件数は 表から〕・名前・めずらしさ・色分け・絵・説明の 行・図鑑の 文〔ルビ〕・しゅるいごとに 別。**値の 写し `content.json` は 実装で `npx vitest run -u src/content` して 差分を 読む** |
+| AC11（E2E 1 つ） | `e2e/house1cBuild.spec.ts` の さいごの step〔`e2e/helpers/houseLook.ts`〕 | おしろの かわらの やね〔`kawara_shiro`〕の せっけいずを 作る → `buildNow` → 箱の ぜんぶの マスが `houseShape` どおり・箱の 外は 空気・やねの ブロックが 建って いて item が ある・`houses()` に のる |
+| AC12 | `src/house/lookTriangles.test.ts` | 外 11×11・窓 いっぱいで 各 ばしょの いちばん 重い しゅるい〔案 まぜ〕＋ かざり ぜんぶ ＋ あかり ≦ 3,000／3 案 それぞれ だけの いちばん 重い 家 ≦ 3,000／家具は のぞく。いちばん 重い しゅるいは 窓口から 探す〔数を 書かない〕 |
+| AC13 | `src/house/preview/lookDraws.test.ts` | 9×9・窓 いっぱい・ななめの やね ぜんぶ × かべ・まど・と ぜんぶ〔3 案 それぞれ・① ②〕・案まぜ ＜ 24／かざり 0→4 では かざりの 数 まで しか ふえない／ブロック 256 こえない・id 重ならない・しゅるいの ブロックが 登録表に ある |
+
+**直した 既存テスト**: なし（`grep` で 2,000・三角形・`houseShape`・`ROOF_Y`・`KEEP_OUT` を 探した。家の 三角形の 2,000 を 見る テストは なかった〔2,000 は 文書だけ: `docs/art/requests/HOUSE-1-house-blocks.md`・`06-housing.md` §21.7・数の 表。開発が 3,000 に 直す〕。`build/plan.test.ts` の 足場 2,000 は 別の 数で そのまま）。いつもの 物の 家〔やね・かたちを 渡さない〕は 今まで どおり なので `shape.test.ts`・`houseLight.test.ts`・`sites.test.ts`・`builder.test.ts` は 緑の まま。消した テストは なし。
+
+**赤の 結果**: `npm run typecheck` は 緑。`npx vitest run src/house/lookBox.test.ts src/house/lookShape.test.ts src/house/lookDark.test.ts src/house/lookTriangles.test.ts src/house/preview/lookDraws.test.ts src/content/items/houseLooks.test.ts` → 99 こ 中 94 こ 赤〔`houseBox`・`houseTriangles`・`kindBlocks`・`kindItem`・`previewDrawCalls` が まだ 無い ほか、`siteOk` の h・やね しゅるいを 読む 形が まだ 無い〕。のこりの 5 こ（ブロックの 数 ≦ 256 と id 重ならない・ちょうちんは どの やねでも いつもの 場所・草花は H に よらず 場所・h を わたさない siteOk・今までの 形の locked）は 今の 実装でも 通る 守り〔実装が こわしたら 落ちる〕。`src/debug` は 緑。E2E は 回して いない〔CI〕。
+
+**仕様で あいまい だった 所（PO・開発に 聞きたい）**:
+
+1. **`houseBox` ・`houseTriangles` の 置き場**: 仕様 §6.1 は「`blueprints()` に … `houseBox(blueprint)`」と 書く が、窓口か 関数か 決まって いない。テストは 純粋な 関数（`shape.ts`）に した。`window.__rikkun.house` に も 出す なら 足す だけ（テストは かえない）。
+2. **かべ なしの 柱**: 柱の ブロック（art の 1 つだけ の 物）を `kindBlocks('wall', 'none')` に した。柱を ほると 何が 出るかは 仕様に ない〔き 12 を 使う ので き？〕。テストは 「あれば `dugItemOf` と 同じ」だけ 見る。
+3. **やねの 上の かざり**: 高さが 1 段 ふえる のは えんとつ・しゃちほこ だけ（のれん・はなだんは かわらない）と 読んだ。やね なしの ときは かざりが あっても 4。
+4. **同じ ばしょの しゅるいは ブロックを 共有 しない**: ほると「その しゅるいの アイテム」に する ために 3 案は 別の ブロックと 読んだ（art README の「やね むら 約 20・おしろ 約 20・こうざん 約 12」と 合う）。共有する 作りなら 3 つの テストを 直す。
+5. **家の 三角形の 数え方**: 「区の メッシュの 三角形」（art 依頼）と 読み、`houseTriangles` は 実際に 描く 三角形。面の 数では ない。
+6. **AC13 の 描画回数**: ユニットは `previewDrawCalls`（GPU なしで 数える 約束）。本物の レンダラーの 数は 既存の `e2e/house1b.spec.ts` AC34 ③〔いちばん 大きい 形〕に 任せる。かざり・案まぜで 本物を 数える E2E は 足して いない〔レシピを ぜんぶ おぼえて から 開く 手順が 要る ため。足すなら 1 本だけ〕。
+7. **宝箱の くじ**: 仕様 §4.2「図鑑と 宝箱の くじの 箱にも 入る」は、新しい アイテムを `chestPool()` に 入れるか 決まって いない〔MINE-1 の 当たり方が かわる〕。テストは 見て いない。
+8. **アイテムの 作り方**: 2B では 作れない〔「つくる」は 2C〕。`recipe` を 持つか どうかは 見て いない。

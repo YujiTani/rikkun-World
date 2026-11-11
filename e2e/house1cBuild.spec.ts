@@ -1,10 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { doorIndex } from '../src/house/editor/model';
+import { houseShape } from '../src/house/shape';
 import { menuState, openHouse, press, shownTid, stepUi, talkTo } from './helpers/house';
 import { blueprints, clickDisabled, firstArchitect, needOf, plainText, reopenHouse, squash } from './helpers/houseEditor';
 import {
   aimBlock,
   bandOf,
+  buildNow,
+  prepareYard,
   emptyHand,
   enterThroughDoor,
   houses,
@@ -20,6 +23,8 @@ import {
   type HouseForm,
   type Pt,
 } from './helpers/houseBuilt';
+import { learn } from './helpers/houseRecipe';
+import { kindBlocksOf, lookBlueprint, lookMismatches, makeLookBlueprint, scanLook } from './helpers/houseLook';
 import {
   BUILD_WORDS,
   HAMMER_RE,
@@ -421,6 +426,34 @@ test.describe('HOUSE-1C PR-2 建築', () => {
       const rows = await needOf(page, slot);
       expect(rows.find((r) => r.item === 'cloth'), '2 けん目から ぬの 3').toMatchObject({ need: 3, bonus: 0 });
       expect(rows.find((r) => r.item === 'string'), '2 けん目から いと 1').toMatchObject({ need: 1, bonus: 0 });
+    });
+
+    // ---- HOUSE-2B AC11（仕様 3.3 版 §2.4・§6.2）: おしろの かわらの やね〔kawara_shiro〕の せっけいずも せっけいず どおりに 建つ
+    // ブロックの id・高さは 書かない: 期待は src の houseShape〔形の 式〕と kindBlocks〔しゅるいの ブロック〕。建った 世界を house.blockAt で 読んで くらべる。ユニットは src/house/look*.test.ts
+    await test.step('AC11 おしろの かわらの やねの せっけいず → 建てた 家が せっけいず どおり（箱の 外には 何も ない・戸は houses() に のる）', async () => {
+      expect(await learn(page, 'roof_kawara'), 'かわらの やねの レシピ（テスト用の 近道。まきものの 通しは house2.spec.ts）').toBe(true);
+      const kind = 'kawara_shiro';
+      const picks = { roof: kind };
+      const lookNumber = await makeLookBlueprint(page, 'しろ', picks);
+      const want = lookBlueprint(picks);
+      const shape = houseShape(want);
+      const h = Math.max(...shape.cells.map((c) => c.y)) + 1; // 箱の 高さ（houseBox〔ユニット〕と 同じに なる はず。ここでは 形の 式の 答えを 使う）
+      expect(h, 'ななめの やねの 家は たいらより 高い').toBeGreaterThan(5);
+      const x0 = Math.floor(first.x) - 12 - shape.outerW;
+      const z0 = Math.floor(first.z) - 4;
+      const gy = await prepareYard(page, x0, z0, shape.outerW, shape.outerD);
+      const at2: Pt = { x: x0, y: gy, z: z0 };
+      const rec = await buildNow(page, lookNumber, at2);
+      expect(rec, '家の 記録（外の 寸法・戸の 場所は 形から）').toMatchObject({ number: lookNumber, outer: { w: shape.outerW, d: shape.outerD }, door: { x: at2.x + shape.door.x, y: at2.y + shape.door.y, z: at2.z + shape.door.z } });
+      await settleWorld(page);
+      const got = await scanLook(page, at2, shape.outerW, shape.outerD, h);
+      const bad = lookMismatches(shape, h, at2, got);
+      expect(bad.slice(0, 10), `ちがう マスが ${bad.length} こ（箱の ぜんぶの マスは houseShape どおり・箱の 外は 空気）`).toEqual([]);
+      const roofBlocks = new Set<string>(kindBlocksOf('roof', kind));
+      const placed = Object.values(got).filter((c) => roofBlocks.has(c.id));
+      expect(placed.length, 'おしろの かわらの やねの ブロックが 建って いる').toBeGreaterThan(0);
+      expect(placed.every((c) => c.item !== null), 'ほると その しゅるいの アイテム（blockAt の item）').toBe(true);
+      expect((await houses(page)).some((r) => r.number === lookNumber), '戸が あるので houses() に のる').toBe(true);
     });
   });
 });
