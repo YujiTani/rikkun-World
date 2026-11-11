@@ -86,5 +86,5 @@ export function yakataPlanIn(world: ShaftWorld, seed: number, shaftId: string, o
 
 /** 窓口の 外から〔モジュールの 入口〕: 古い 列の 一覧の ない 世界で 計画する */
 export function yakataPlanFor(seed: number, shaftId: string, opt?: { looks?: Record<Look, number> }): YakataPlan | null {
-  return yakataPlanIn(shaftWorldFor(seed), seed, shaftId, opt);
+  return yakataPlanIn(shaftWorldFor(seed, undefined), seed, shaftId, opt);
 }

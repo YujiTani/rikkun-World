@@ -178,7 +178,8 @@ export function createYakataRun(d: RunDeps) {
   function watch(r: Run, players: ReturnType<YakataPorts['players']>): void {
     const left = alive(r);
     if (left.length === 0) return win(r);
-    if (!players.some((p) => r.members.has(p.who) && !p.dead)) return lose(r);
+    for (const p of players) if (p.dead) r.members.delete(p.who); // やられた 人は 復活しても なかまに もどらない〔中に だれも いなければ まけ〕
+    if (r.members.size === 0 || !players.some((p) => r.members.has(p.who) && !p.dead)) return lose(r);
     if (left.length !== r.lastLeft) {
       r.lastLeft = left.length;
       d.ports!.emit({ type: 'count', left: left.length });

@@ -94,8 +94,7 @@ export function wireYakata(deps: WiredDuo, router: Router) {
           celebrateAt(e.what);
           return;
         case 'sfx':
-          if (e.name === 'titleAppear') titleSound.play('oyabun');
-          return; // 門の 音・ファンファーレは 場面の 係の 頼みで 鳴らす
+          return; // 音は ぜんぶ 場面の 頼み〔drain〕で 1 回だけ 鳴らす
         case 'locked':
           notice.showSignal('yakataLocked');
           return;
@@ -143,7 +142,7 @@ export function wireYakata(deps: WiredDuo, router: Router) {
       case 'sfx':
         if (r.name === 'yakataGateClose') sound.playOnce('gate_close');
         else if (r.name === 'yakataGateOpen') sound.playOnce('gate_open');
-        else if (r.name === 'title') titleSound.play('oyabun');
+        else if (r.name === 'title') titleSound.play('taisho'); // 仕様 §3.4: いちばん 強い たいしょうの 版
         else if (r.name === 'chest') fxSound.playTones(CHEST_SOUNDS.chestOpen4);
         else if (r.name === 'fanfare') fxSound.playTones(CRAFT_SOUNDS.fanfare as readonly Tone[]);
         else if (r.name === 'achievement') fxSound.playTones(CRAFT_SOUNDS.modalSparkle as readonly Tone[]);
