@@ -1,4 +1,6 @@
 import { SEA_Y, WORLD_HEIGHT } from '../../contracts';
+import { MAX_BLOCK_KINDS } from '../blocks/maxBlockKinds';
+import type { BlockArray } from '../../contracts';
 import { GEN_CONFIG as C } from './config';
 import { mouthAirRange, mouthsNear } from './mouths';
 import { terrainFor, type Terrain } from './terrain';
@@ -40,7 +42,7 @@ const K_LOG = 2;
 const K_LEAVES = 3;
 const K_FLORA = 6;
 const K_SOLID = 7;
-const KIND_OF = new Uint8Array(256).fill(K_SOLID);
+const KIND_OF = new Uint8Array(MAX_BLOCK_KINDS).fill(K_SOLID);
 /** 種類ごとの ブロック id（水の 量ちがいは 名前の 形で 見分ける） */
 const KIND_IDS: readonly (readonly string[])[] = [['air'], ['magma'], ['log'], [], ['start_torch'], ['flower_y', 'flower_o', 'flower_p', 'susuki', 'bamboo'], ['nobana', 'kusa']];
 KIND_IDS.forEach((ids, k) => {
@@ -59,7 +61,7 @@ class SurfaceImpl implements Surface {
   private readonly treeCache = new Map<number, Tree[]>();
   private readonly plantCache = new Map<number, Map<number, number>>();
   /** 坑道が かかる 列の ブロック（本当の 列。かからない 列は null） */
-  private readonly shaftCols = new Map<number, Uint8Array | null>();
+  private readonly shaftCols = new Map<number, BlockArray | null>();
   private readonly seed: number;
 
   /** flora = false: くさ・のばな を 数えない（ふるい はたけ・やせいの やさい の 場所を 決めるときの 答え。くさ・のばな は その場所を よけるので 循環しない） */
@@ -116,13 +118,13 @@ class SurfaceImpl implements Surface {
   }
 
   /** 坑道が かかる 列なら 本当の 列の ブロック（かからなければ null） */
-  private shaftCol(x: number, z: number): Uint8Array | null {
+  private shaftCol(x: number, z: number): BlockArray | null {
     const cx = x >> 4;
     const cz = z >> 4;
     const k = cx * 1000003 + cz;
     let b = this.shaftCols.get(k);
     if (b === undefined) {
-      b = this.shafts.opsFor(cx, cz) ? Uint8Array.from(buildBlocks(this.seed, cx, cz, undefined, this.shafts.oldCols).blocks.subarray(0, COL_VOLUME)) : null;
+      b = this.shafts.opsFor(cx, cz) ? Uint16Array.from(buildBlocks(this.seed, cx, cz, undefined, this.shafts.oldCols).blocks.subarray(0, COL_VOLUME)) : null;
       if (this.shaftCols.size > 64) this.shaftCols.clear();
       this.shaftCols.set(k, b);
     }
@@ -130,13 +132,13 @@ class SurfaceImpl implements Surface {
   }
 
   /** 本当の 列の (x, y, z) の 種類 */
-  private kindIn(b: Uint8Array, x: number, y: number, z: number): number {
+  private kindIn(b: BlockArray, x: number, y: number, z: number): number {
     const kind = KIND_OF[b[y * LAYER + (z & 15) * 16 + (x & 15)]!]!;
     return kind === K_FLORA && !this.flora ? K_AIR : kind;
   }
 
   /** 本当の 列で いちばん 上の 固い ブロックの y */
-  private solidTop(b: Uint8Array, x: number, z: number): number {
+  private solidTop(b: BlockArray, x: number, z: number): number {
     for (let y = AIR_Y - 1; y > 0; y--) if (this.kindIn(b, x, y, z) === K_SOLID) return y;
     return 0;
   }

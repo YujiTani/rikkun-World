@@ -2,7 +2,7 @@ import type { BlockId, ChunkColumn, Inventory, PlayerState, ScreenSettings, Spaw
 import { BOKEN_GEN, HEYA_GEN, KODO_GEN, OLDEST_READABLE_GEN, SAVE_GEN } from './gens';
 import { packColumn, SAVE_ID, type PersistBackend, type StoredChunk, type StoredMeta } from './backend';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
-import { encodeSections } from './chunkCodec';
+import { encodeSectionsV } from './chunkCodec';
 import { columnForSave, pendingCellsForSave, type SaveBlockOverride } from './saveOverride';
 import { colKey } from '../world/stream/ring';
 import { bodyInWall } from '../world/wall';
@@ -627,7 +627,7 @@ export class SaveManager {
       const takenKeys = taken.map((col) => colKey(col.cx, col.cz));
       for (const k of takenKeys) this.writingKeys.add(k);
       const ov = this.d.saveOverrides?.() ?? [];
-      const raws = taken.map((col) => ({ cx: col.cx, cz: col.cz, h: col.sections.length, raw: encodeSections(columnForSave(col, ov).sections) }));
+      const raws = taken.map((col) => ({ cx: col.cx, cz: col.cz, h: col.sections.length, ...encodeSectionsV(columnForSave(col, ov).sections) }));
       const logEnd = w.changeLogEnd();
       this.lastKey = key;
       this.lastTimeKey = timeKey;
@@ -637,7 +637,7 @@ export class SaveManager {
       this.inFlight++;
       const run = async () => {
         try {
-          const recs: StoredChunk[] = await Promise.all(raws.map((r) => packColumn(r.cx, r.cz, r.raw, SAVE_GEN, r.h)));
+          const recs: StoredChunk[] = await Promise.all(raws.map((r) => packColumn(r.cx, r.cz, r.raw, SAVE_GEN, r.h, r.v)));
           await db.write(this.saveId, recs, meta);
           this.writtenGen = SAVE_GEN;
           w.dropChangeLogTo(logEnd);

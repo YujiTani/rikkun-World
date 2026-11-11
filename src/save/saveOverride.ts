@@ -32,7 +32,7 @@ export function columnForSave(col: ChunkColumn, overrides: readonly SaveBlockOve
     if (live < 0 || save < 0 || sectionGet(src, i) !== live) continue;
     if (!sections) sections = col.sections.slice();
     // 写して 書きかえる（元の セクションは かえない。palette・uniform も full に して 1 マスだけ かえる）
-    const data = Uint8Array.from(sectionToArray(src));
+    const data = Uint16Array.from(sectionToArray(src));
     data[i] = save;
     sections[sy] = { kind: 'full', data };
   }

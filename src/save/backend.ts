@@ -1,5 +1,5 @@
 import type { ChunkColumn, ChunkStore } from '../contracts';
-import { CHUNK_FORMAT_VERSION, decodeSections, deflateRaw, encodeSections, inflateRaw, padSections } from './chunkCodec';
+import { CHUNK_FORMAT_VERSION, CHUNK_FORMAT_VERSION_WIDE, decodeSections, deflateRaw, encodeSectionsV, inflateRaw, padSections } from './chunkCodec';
 
 /** 1 列の保存（IndexedDB の `chunks` の値）。data = encodeSections を deflate-raw したもの */
 export interface StoredChunk {
@@ -185,16 +185,16 @@ export async function openIdb(): Promise<IdbBackend | null> {
   }
 }
 
-/** 縮めた record にする（縮めるのは非同期） */
-export async function packColumn(cx: number, cz: number, raw: Uint8Array, gen: number, h: number): Promise<StoredChunk> {
-  return { cx, cz, v: CHUNK_FORMAT_VERSION, gen, h, data: await deflateRaw(raw) };
+/** 縮めた record にする（縮めるのは非同期）。v = raw を 書いた 版（encodeSectionsV が 返す。省略 = 2） */
+export async function packColumn(cx: number, cz: number, raw: Uint8Array, gen: number, h: number, v: number = CHUNK_FORMAT_VERSION): Promise<StoredChunk> {
+  return { cx, cz, v, gen, h, data: await deflateRaw(raw) };
 }
 
-/** record を列にする（版 1 は凍らせた BLOCK_IDS_V1 の番号、版 2 は列の頭の id の一覧で読む）。版が新しすぎる・こわれている → Error。高さが低い保存は上を空気で足す */
+/** record を列にする（版 1 は凍らせた BLOCK_IDS_V1 の番号、版 2・3 は列の頭の id の一覧で読む）。版が新しすぎる・こわれている → Error。高さが低い保存は上を空気で足す */
 export async function unpackColumn(rec: StoredChunk, nSections: number): Promise<ChunkColumn> {
   if (!Number.isInteger(rec.cx) || !Number.isInteger(rec.cz)) throw new Error('列の場所がおかしい');
-  if (typeof rec.v === 'number' && rec.v > CHUNK_FORMAT_VERSION) throw new NewerFormatError(`形式の版 ${rec.v} は新しい`);
-  if (rec.v !== CHUNK_FORMAT_VERSION && rec.v !== 1) throw new Error(`形式の版 ${String(rec.v)} は読めない`);
+  if (typeof rec.v === 'number' && rec.v > CHUNK_FORMAT_VERSION_WIDE) throw new NewerFormatError(`形式の版 ${rec.v} は新しい`);
+  if (rec.v !== CHUNK_FORMAT_VERSION && rec.v !== CHUNK_FORMAT_VERSION_WIDE && rec.v !== 1) throw new Error(`形式の版 ${String(rec.v)} は読めない`);
   if (!Number.isInteger(rec.h) || rec.h < 1 || rec.h > nSections) throw new Error('高さがおかしい');
   if (!(rec.data instanceof Uint8Array)) throw new Error('data がおかしい');
   const raw = await inflateRaw(rec.data);
@@ -214,7 +214,8 @@ export function createChunkStore(backend: PersistBackend, saveId: string, nSecti
       }
     },
     async save(column) {
-      const rec = await packColumn(column.cx, column.cz, encodeSections(column.sections), gen, column.sections.length);
+      const { raw, v } = encodeSectionsV(column.sections);
+      const rec = await packColumn(column.cx, column.cz, raw, gen, column.sections.length, v);
       await backend.write(saveId, [rec], null);
     },
   };

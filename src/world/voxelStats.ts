@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, SECTION_SIZE, type BlockId } from '../contracts';
+import { CHUNK_SIZE, SECTION_SIZE, type BlockArray, type BlockId } from '../contracts';
 import { BLOCK_TYPES } from './blocks/blockTypes';
 import { SECTION_VOLUME, sectionToArray } from './sections';
 import type { Column } from './voxelColumn';
@@ -16,7 +16,7 @@ interface HashSource {
  * 原点から (sx, size.y, sz) の四角の全ブロック番号を、平らな番号 (y * sz + z) * sx + x で out に写す
  * （テスト用。保存は VOX-F から さわった列だけを書くので、これは使わない。読みこんでいない所は書きかえない）
  */
-export function fillFlat(columns: ReadonlyMap<number, Column>, sizeY: number, out: Uint8Array, sx: number, sz: number): void {
+export function fillFlat(columns: ReadonlyMap<number, Column>, sizeY: number, out: BlockArray, sx: number, sz: number): void {
   for (const c of columns.values()) {
     const bx = c.cx * CHUNK_SIZE;
     const bz = c.cz * CHUNK_SIZE;

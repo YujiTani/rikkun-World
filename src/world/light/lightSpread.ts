@@ -5,20 +5,23 @@ import { EMISSION, OPACITY } from './opacity';
  * 計算の 置き場（blk・sky・block）は WorldLight が 持ち、ここへは 配列と 箱の 大きさを わたすだけ。
  */
 
+/** 表の長さ。番号は Uint16（0〜65535）なので どの値でも 表の 中を 読む（番号の外・UNKNOWN_BLOCK は OPAQ 15・EMIT 0・TRIV 0） */
+const TABLE_LEN = 0x10000;
+
 /** 光を弱める量（番号の外は 15）と、出す光 */
-export const OPAQ = new Uint8Array(256).fill(15);
+export const OPAQ = new Uint8Array(TABLE_LEN).fill(15);
 OPAQ.set(OPACITY);
-export const EMIT = new Uint8Array(256);
+export const EMIT = new Uint8Array(TABLE_LEN);
 EMIT.set(EMISSION);
 /** 光を通し、光も出さない（このブロックの上は空の光 15） */
-export const TRIV = new Uint8Array(256);
+export const TRIV = new Uint8Array(TABLE_LEN);
 for (let i = 0; i < OPACITY.length; i++) TRIV[i] = OPACITY[i] === 0 && EMISSION[i] === 0 ? 1 : 0;
 
 /**
  * q に 入れた マスから、1 マスずつ 弱めながら 6 方向に 広げる（arr は 光の 値、blk は ブロックの 番号。箱は 横 rx × 縦 ry × 奥 rz）。
  * 光を 通さない ブロック〔OPAQ 15〕には 広げない。q は 使いおわったら 空に する。広げて 書いた マスの 数を 返す。
  */
-export function spreadLight(arr: Uint8Array, q: number[], blk: Uint8Array, rx: number, rz: number, ry: number): number {
+export function spreadLight(arr: Uint8Array, q: number[], blk: Uint16Array, rx: number, rz: number, ry: number): number {
   let written = 0;
   const RL = rx * rz;
   for (let h = 0; h < q.length; h++) {

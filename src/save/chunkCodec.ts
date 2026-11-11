@@ -1,10 +1,12 @@
 import type { SectionData } from '../contracts';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 import { BLOCK_IDS_V1 } from './blockIdsV1';
+import { MAX_BLOCK_KINDS } from '../world/blocks/maxBlockKinds';
 import { SECTION_VOLUME, compactSection } from '../world/sections';
 
 /**
- * 列の保存の形（VOX-plan §7、SAVE-30 で版 2）。縮める前のバイト列は
+ * 列の保存の形（VOX-plan §7、SAVE-30 で版 2、BLOCK-ID16 で版 3）。縮める前のバイト列は
+ *   版 3: 版 2 と 同じ 並びで、id の数と セクションの中の番号が 2 バイト（下の バイトが先）。1 列に 256 種類以上あるときだけ 書く。
  *   版 2: [id の数 n][各 id: 長さ 1 B + ASCII] のあとに セクションを下から並べる。
  *   版 1: セクションだけ（番号は BLOCK_IDS_V1 の番号。読むだけ）。
  * セクションは 頭の 1 バイトで形をしめす。番号は 版 2 では「頭の一覧の中の番号」（0〜n-1）。
@@ -13,40 +15,80 @@ import { SECTION_VOLUME, compactSection } from '../world/sections';
  * ここは「縮める前」の並び。縮める（deflate-raw）のは backend の側。光・見えない印・小ブロックの形は保存しない。
  */
 
-/** 形式の版（record.v） */
+/** 形式の版（record.v）。列の 種類が 255 以下なら この版（バイト列は BLOCK-ID16 の前と 1 バイトも 同じ） */
 export const CHUNK_FORMAT_VERSION = 2;
+/** 1 列の 種類が 256 以上のときの 版（BLOCK-ID16）。一覧の数と 一覧の中の番号が 2 バイト（下の バイトが先） */
+export const CHUNK_FORMAT_VERSION_WIDE = 3;
+/** 版 2 の 一覧に 入れられる 種類の 数（一覧の 数が 1 バイト） */
+const MAX_LIST_V2 = 255;
 
 /** 今の BLOCK_TYPES の id の並び（番号 → id） */
 const currentIds = (): readonly string[] => BLOCK_TYPES.map((t) => t.id);
 
+/** 縮めたあとの 区画（形が 小さい順）の 列の 使う 番号の 表と、一覧に した 数 */
+interface Used {
+  parts: SectionData[];
+  used: Uint8Array;
+  count: number;
+}
+
+function collectUsed(sections: readonly SectionData[]): Used {
+  const parts: SectionData[] = sections.map((s) => compactSection(s));
+  const used = new Uint8Array(MAX_BLOCK_KINDS);
+  let count = 0;
+  const mark = (b: number): void => {
+    if (b >= MAX_BLOCK_KINDS) throw new Error('番号が 上限を こえている');
+    if (used[b] === 0) {
+      used[b] = 1;
+      count++;
+    }
+  };
+  for (const s of parts) {
+    if (s.kind === 'uniform') mark(s.block);
+    else if (s.kind === 'palette') for (const b of s.palette) mark(b);
+    else for (let i = 0; i < SECTION_VOLUME; i++) mark(s.data[i]);
+  }
+  return { parts, used, count };
+}
+
+/** 列を 書くときの 版: 使う 種類が 255 以下 → 2、256 以上 → 3 */
+export function sectionsFormatVersion(sections: readonly SectionData[]): 2 | 3 {
+  return collectUsed(sections).count > MAX_LIST_V2 ? CHUNK_FORMAT_VERSION_WIDE : CHUNK_FORMAT_VERSION;
+}
+
 /**
  * 列をバイト列にする（同期。保存の瞬間のコピーなので、このあと世界が変わっても影響しない）。
  * table = sections の番号が指す id の表（省略 = 今の BLOCK_TYPES。テストで並びのちがう表を渡せる）。
+ * 版は sectionsFormatVersion と同じ（255 種類以下 = 版 2、256 以上 = 版 3）。
  */
 export function encodeSections(sections: readonly SectionData[], table: readonly string[] = currentIds()): Uint8Array {
-  const parts: SectionData[] = sections.map((s) => compactSection(s));
-  // 使う番号を集める
-  const used = new Uint8Array(256);
-  for (const s of parts) {
-    if (s.kind === 'uniform') used[s.block] = 1;
-    else if (s.kind === 'palette') for (const b of s.palette) used[b] = 1;
-    else for (let i = 0; i < SECTION_VOLUME; i++) used[s.data[i]] = 1;
-  }
-  const local = new Uint8Array(256); // 表の番号 → 一覧の中の番号
+  return encodeSectionsV(sections, table).raw;
+}
+
+/** encodeSections と 同じ。バイト列に 加えて 書いた 版も 返す（record.v に 入れる） */
+export function encodeSectionsV(sections: readonly SectionData[], table: readonly string[] = currentIds()): { raw: Uint8Array; v: 2 | 3 } {
+  const { parts, used, count } = collectUsed(sections);
+  const v = count > MAX_LIST_V2 ? CHUNK_FORMAT_VERSION_WIDE : CHUNK_FORMAT_VERSION;
+  const w = v === CHUNK_FORMAT_VERSION_WIDE ? 2 : 1; // 一覧の数・一覧の中の番号の バイト数
+  const local = new Uint16Array(MAX_BLOCK_KINDS); // 表の番号 → 一覧の中の番号
   const ids: string[] = [];
-  for (let b = 0; b < 256; b++) {
+  for (let b = 0; b < MAX_BLOCK_KINDS; b++) {
     if (used[b] === 0) continue;
     const id = table[b];
     if (id === undefined) throw new Error('表にない番号');
     local[b] = ids.length;
     ids.push(id);
   }
-  let size = 1;
+  let size = w;
   for (const id of ids) size += 1 + id.length;
-  for (const s of parts) size += s.kind === 'uniform' ? 2 : s.kind === 'palette' ? 2 + s.palette.length + s.packed.length : 1 + SECTION_VOLUME;
+  for (const s of parts) size += s.kind === 'uniform' ? 1 + w : s.kind === 'palette' ? 2 + s.palette.length * w + s.packed.length : 1 + SECTION_VOLUME * w;
   const out = new Uint8Array(size);
   let o = 0;
-  out[o++] = ids.length;
+  const put = (n: number): void => {
+    out[o++] = n & 255;
+    if (w === 2) out[o++] = n >> 8;
+  };
+  put(ids.length);
   for (const id of ids) {
     out[o++] = id.length;
     for (let i = 0; i < id.length; i++) out[o++] = id.charCodeAt(i);
@@ -54,34 +96,40 @@ export function encodeSections(sections: readonly SectionData[], table: readonly
   for (const s of parts) {
     if (s.kind === 'uniform') {
       out[o++] = 0;
-      out[o++] = local[s.block];
+      put(local[s.block]);
     } else if (s.kind === 'palette') {
       out[o++] = 1;
       out[o++] = s.palette.length;
-      for (let i = 0; i < s.palette.length; i++) out[o++] = local[s.palette[i]];
+      for (let i = 0; i < s.palette.length; i++) put(local[s.palette[i]]);
       out.set(s.packed, o);
       o += s.packed.length;
     } else {
       out[o++] = 2;
-      for (let i = 0; i < SECTION_VOLUME; i++) out[o + i] = local[s.data[i]];
-      o += SECTION_VOLUME;
+      if (w === 1) for (let i = 0; i < SECTION_VOLUME; i++) out[o++] = local[s.data[i]];
+      else for (let i = 0; i < SECTION_VOLUME; i++) put(local[s.data[i]]);
     }
   }
-  return out;
+  return { raw: out, v };
 }
 
 /**
  * バイト列を sections にもどす。こわれていたら Error（呼ぶ側が その列だけ生成に戻す）。
- * version 1 = 凍らせた BLOCK_IDS_V1 の番号 / 2 = 頭の一覧。table = 戻す先の id の表（省略 = 今の BLOCK_TYPES）。
- * 一覧の id が table にない（ゲームから消えたブロック）ときも Error。
+ * version 1 = 凍らせた BLOCK_IDS_V1 の番号 / 2 = 頭の一覧（番号 1 バイト）/ 3 = 頭の一覧（数・番号が 2 バイト）。
+ * table = 戻す先の id の表（省略 = 今の BLOCK_TYPES）。一覧の id が table にない（ゲームから消えたブロック）ときも Error。
  */
 export function decodeSections(raw: Uint8Array, count: number, version: number = CHUNK_FORMAT_VERSION, table: readonly string[] = currentIds()): SectionData[] {
   let o = 0;
   let source: readonly string[];
+  const w = version === CHUNK_FORMAT_VERSION_WIDE ? 2 : 1; // 一覧の数・一覧の中の番号の バイト数
+  const get = (): number => {
+    const lo = raw[o++];
+    return w === 2 ? lo | (raw[o++] << 8) : lo;
+  };
   if (version === 1) source = BLOCK_IDS_V1;
-  else if (version === 2) {
-    const m = raw[o++];
-    if (m === undefined) throw new Error('id の一覧がない');
+  else if (version === CHUNK_FORMAT_VERSION || version === CHUNK_FORMAT_VERSION_WIDE) {
+    if (raw.length < w) throw new Error('id の一覧がない');
+    const m = get();
+    if (!(m >= 0)) throw new Error('id の一覧がない');
     const list: string[] = [];
     for (let i = 0; i < m; i++) {
       const len = raw[o++];
@@ -95,39 +143,40 @@ export function decodeSections(raw: Uint8Array, count: number, version: number =
   } else throw new Error(`形式の版 ${version} は読めない`);
   const n = source.length;
   // 一覧の番号 → table の番号
-  const map = new Uint8Array(Math.max(n, 1));
+  const map = new Uint16Array(Math.max(n, 1));
   for (let i = 0; i < n; i++) {
     const j = table.indexOf(source[i]);
-    if (j < 0 || j > 255) throw new Error(`知らない id: ${source[i]}`);
+    if (j < 0 || j >= MAX_BLOCK_KINDS) throw new Error(`知らない id: ${source[i]}`);
     map[i] = j;
   }
   const out: SectionData[] = [];
   for (let k = 0; k < count; k++) {
     const kind = raw[o++];
     if (kind === 0) {
-      const block = raw[o++];
-      if (block === undefined || block >= n) throw new Error('uniform の番号がおかしい');
+      if (o + w > raw.length) throw new Error('uniform が短い');
+      const block = get();
+      if (block >= n) throw new Error('uniform の番号がおかしい');
       out.push({ kind: 'uniform', block: map[block] });
     } else if (kind === 1) {
       const len = raw[o++];
-      if (!(len >= 1 && len <= 16) || o + len + SECTION_VOLUME / 2 > raw.length) throw new Error('palette の長さがおかしい');
-      const palette = raw.slice(o, o + len);
-      o += len;
+      if (!(len >= 1 && len <= 16) || o + len * w + SECTION_VOLUME / 2 > raw.length) throw new Error('palette の長さがおかしい');
+      const palette = new Uint16Array(len);
       for (let i = 0; i < len; i++) {
-        if (palette[i] >= n) throw new Error('palette の番号がおかしい');
-        palette[i] = map[palette[i]];
+        const b = get();
+        if (b >= n) throw new Error('palette の番号がおかしい');
+        palette[i] = map[b];
       }
       const packed = raw.slice(o, o + SECTION_VOLUME / 2);
       o += SECTION_VOLUME / 2;
       for (let i = 0; i < packed.length; i++) if ((packed[i] & 15) >= len || (packed[i] >> 4) >= len) throw new Error('palette の添字がおかしい');
       out.push({ kind: 'palette', palette, packed });
     } else if (kind === 2) {
-      if (o + SECTION_VOLUME > raw.length) throw new Error('full が短い');
-      const data = raw.slice(o, o + SECTION_VOLUME);
-      o += SECTION_VOLUME;
+      if (o + SECTION_VOLUME * w > raw.length) throw new Error('full が短い');
+      const data = new Uint16Array(SECTION_VOLUME);
       for (let i = 0; i < SECTION_VOLUME; i++) {
-        if (data[i] >= n) throw new Error('full の番号がおかしい');
-        data[i] = map[data[i]];
+        const b = w === 1 ? raw[o++] : get();
+        if (b >= n) throw new Error('full の番号がおかしい');
+        data[i] = map[b];
       }
       out.push({ kind: 'full', data });
     } else throw new Error('セクションの形がおかしい');
