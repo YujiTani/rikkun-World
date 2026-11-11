@@ -35,9 +35,31 @@ const KOKURYU = [
   'LdK.............',
 ];
 
+/** 天使の弓: 白い つばさの ある 弓。32 マスの 絵（art/icons32/tenshi_yumi.png）を 16 点に 縮めた 物。K ふち・B/G/W 白・g/s 影・L 金・C/d つる */
+const PAL_TENSHI = { K: 0x2a1a24, B: 0xffffff, C: 0xfaecaa, L: 0xf8d458, s: 0x7a88b8, W: 0xf4f8ff, d: 0xfffbe0, G: 0xdce8f8, g: 0xb4c4e4, M: 0xfff8e6 };
+const TENSHI = [
+  '...........KdK..',
+  '..LL.LL..sBdKK..',
+  '.KKL.LL.sBGK.C..',
+  '.KKK....BGK..C..',
+  '.sKBK..sBK...C..',
+  'sKKBBKKBWK...C..',
+  '.KKBBBggGK...C..',
+  '..KKBBMMK....C..',
+  '..KKWBCKK....C..',
+  '...KKBKgWK...C..',
+  '..MBBWKKBK...C..',
+  '..sKKK..BWK..C..',
+  '..K.sK..KBK..C..',
+  '.........KBKKC..',
+  '..........KKdK..',
+  '................',
+];
+
 /** id ごとの 絵（`Record` なので 足し忘れは 型エラー。PR ごとに 1 つずつ 足す） */
 const ART = {
   kokuryu: { rows: KOKURYU, pal: PAL_KOKURYU },
+  tenshi_yumi: { rows: TENSHI, pal: PAL_TENSHI },
 } as const satisfies Record<L4ItemId, { rows: readonly string[]; pal: Readonly<Record<string, number>> }>;
 
 export function l4ItemPixels(item: L4ItemId): Rgba[] {

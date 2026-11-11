@@ -21,11 +21,21 @@ export const L4_BOW_DECOR: Partial<Record<ItemId, readonly Part[]>> = {
     P([0.02, 0.04, 0.16], [0, -0.04, -0.57], 0xc8e4f4),
     P([0.02, 0.03, 0.1], [0, -0.04, -0.7], 0xffffff),
   ],
+  // 天使の弓: にぎりの うえ・したに 白い 羽の 箱（ちいさな つばさ）と 金の かざり（6 箱）
+  tenshi_yumi: [
+    P([0.1, 0.012, 0.1], [0.05, -0.2, 0.06], 0xffffff),
+    P([0.07, 0.012, 0.08], [0.1, -0.2, 0.1], 0xdce8f8),
+    P([0.1, 0.012, 0.1], [0.05, -0.2, -0.06], 0xffffff),
+    P([0.07, 0.012, 0.08], [0.1, -0.2, -0.1], 0xdce8f8),
+    P([0.03, 0.03, 0.03], [0, -0.04, 0.47], 0xffe27a),
+    P([0.03, 0.03, 0.03], [0, -0.04, -0.47], 0xffe27a),
+  ],
 };
 
 /** ゆみの 色（形は 金と 同じ） */
 export const L4_BOW: Partial<Record<ItemId, BowPalette>> = {
   kokuryu: { grip: 0x2c3a5c, limb: 0x1c2238, band: 0x7ae8ff, tip: 0xc8e4f4 },
+  tenshi_yumi: { grip: 0xf4c850, limb: 0xf2f6ff, band: 0xe8b030, tip: 0xffffff },
 };
 
 /** HELD_MODELS に 入れる 箱（ゆみは かざりの 箱）。手に 持つ 模型が ある 目印 */

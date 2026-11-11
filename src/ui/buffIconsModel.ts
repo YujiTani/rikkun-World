@@ -5,7 +5,13 @@ import type { ItemId } from '../contracts';
  * 出る: 12 ステップで 大きさ 0.6 → 1.0。消える: 8 ステップで こさ 1 → 0。点滅しない。「動きを減らす」は すぐ 出て、次の ステップに 消える。
  */
 /** アイコンの しゅるい（`[data-buff="…"]`）。板の 中の 並び順は この 順（左から）。LEGEND-4: ジャンプ力アップ `jumpUp` を 足した（PR3 で `airJump`・`slowFall`・`safeLand`） */
-export type BuffId = 'speed' | 'jumpUp';
+export type BuffId = 'speed' | 'jumpUp' | 'airJump' | 'slowFall' | 'safeLand';
+/** 板の 中の 並び順（左から。LEGEND-4 §3.4） */
+export const BUFF_ORDER: readonly BuffId[] = ['speed', 'jumpUp', 'airJump', 'slowFall', 'safeLand'];
+/** 手に 持つ 物が 出す アイコン（倍率に よらない もの。LEGEND-4 PR3） */
+const HELD_BUFFS: Partial<Record<string, readonly BuffId[]>> = { tenshi_yumi: ['airJump', 'slowFall', 'safeLand'] };
+/** 足の そうびが 出す アイコン（忍びの 足袋 = 着地ダメージ 無効） */
+const LEGS_BUFFS: Partial<Record<string, readonly BuffId[]>> = { ninja_tabi: ['safeLand'] };
 export interface BuffWanted {
   id: BuffId;
   item: ItemId;
@@ -43,7 +49,10 @@ export function buffsOf(held: ItemId | null, legs: ItemId | null, src: BuffSourc
   const out = buffsOfHeld(held, (i) => src.moveMul(i));
   const jump = src.jumpMul(held, legs);
   if (jump > 1) out.push({ id: 'jumpUp', item: held !== null && src.jumpMul(held, null) >= jump ? held : (legs ?? held)!, mul: jump });
-  return out;
+  for (const [item, table] of [[held, HELD_BUFFS], [legs, LEGS_BUFFS]] as const) {
+    for (const id of (item !== null ? table[item] : undefined) ?? []) if (!out.some((o) => o.id === id)) out.push({ id, item: item!, mul: 1 });
+  }
+  return out.sort((a, b) => BUFF_ORDER.indexOf(a.id) - BUFF_ORDER.indexOf(b.id));
 }
 
 interface Entry {
@@ -64,6 +73,7 @@ export function createBuffModel(): BuffModel {
 
   function rebuild(): void {
     rows.length = 0;
+    entries.sort((a, b) => BUFF_ORDER.indexOf(a.row.id) - BUFF_ORDER.indexOf(b.row.id));
     for (const e of entries) rows.push(e.row);
   }
 

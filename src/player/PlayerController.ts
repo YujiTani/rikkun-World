@@ -1,5 +1,7 @@
 import type { LockStatus, LookSource, PlayerState, SpawnPoint, VoxelWorld, YokaiInfo } from '../contracts';
 import { KIND_AI } from '../yokai/ai/config';
+import { LEGEND4_TUNING } from '../content/items/legend4Tuning';
+import { AirJumpState } from './tenshiMove';
 import { WORLD_LIMIT } from '../contracts';
 import type { ActionState } from '../input/actions';
 import {
@@ -62,8 +64,10 @@ export class PlayerController {
   /** わらじ（ITEM-FX-1）: はいている 間の ジャンプの 高さ（null = 設定の jumpHeight） */
   private jumpOverride: number | null = null;
   /** WEAPON-2: 刀・弓が かける 歩く倍率と ジャンプ止め（つなぎ込みが 毎ステップ 書く） */
-  readonly motion: { speedMul: number; jumpLocked: boolean; faceDeg: number | null; stopNow: boolean; leftAims: boolean; noRun: boolean; hoverY: number | null; noMoveInput: boolean } = {
+  readonly motion: { speedMul: number; jumpLocked: boolean; faceDeg: number | null; stopNow: boolean; leftAims: boolean; noRun: boolean; hoverY: number | null; noMoveInput: boolean; tenshi: boolean } = {
     speedMul: 1,
+    /** LEGEND-4: 天使の弓を 持って いる（空中ジャンプ・ゆっくり 落ちる。tenshiMove.ts の applyTenshiMotion が 毎ステップ 書く） */
+    tenshi: false,
     jumpLocked: false,
     /** CHAR-2: null でない あいだ facing は これ（わざの向き）。回らない */
     faceDeg: null,
@@ -88,6 +92,11 @@ export class PlayerController {
   readonly tetherBody: TetherBody = { hanging: false, bouncing: false, calm: 0, hangLen: 0 };
   /** ROPE-1: 足もと か こしが ロープの マス（updateWater で 水と いっしょに 読む） */
   private ropeCell = false;
+  /** LEGEND-4: 天使の弓の 空中ジャンプ（のこりは 人ごと）。ジャンプの 押しなおしを 見分ける ため 前の ステップの 押しも 覚える */
+  private readonly airJump = new AirJumpState();
+  private prevJumpHeld = false;
+  /** LEGEND-4: 空中ジャンプが 出た ステップに 呼ぶ（何回目か = 1・2・3。足もとの 羽・音は つなぎ込みが 受ける） */
+  onAirJump: ((nth: number) => void) | null = null;
 
   constructor(
     private readonly world: VoxelWorld,
@@ -110,6 +119,11 @@ export class PlayerController {
       running: false,
     };
     this.respawn();
+  }
+
+  /** LEGEND-4: 空中ジャンプの のこり（`player.get().airJumpsLeft`） */
+  get airJumpsLeft(): number {
+    return this.airJump.left;
   }
 
   /** 体 の 当たり 用 の 固さ（LIVE-2: とりごやの さく は 高さ 2） */
@@ -314,16 +328,26 @@ export class PlayerController {
     p[1] = st.position.y;
     p[2] = st.position.z;
     let vy = st.velocity.y;
+    // LEGEND-4: 天使の弓 ── 地面・水・ロープで のこりを 3 に もどし、空中で 押しなおしたら 速さを 置きかえる。持って いる 間は 落ちる 速さを おさえる
+    const onTenshiGround = st.onGround || st.inWater || st.inMagma === true || climb || this.motion.hoverY !== null;
+    if (onTenshiGround) this.airJump.refill();
+    const airJumped = this.airJump.tryJump({ air: !onTenshiGround, pressed: jumpHeld && !this.prevJumpHeld, held: this.motion.tenshi, free: !this.motion.jumpLocked });
+    this.prevJumpHeld = jumpHeld;
     // ROPE-1: ロープの 上では 重力なし（なにも しないと その 場に とまる）
     if (climb) vy = climbDir * ROPE_TUNING.climbSpeed;
-    else if (st.onGround && !this.motion.jumpLocked && (jumpHeld || (wlen > 0 && cfg.autoJump && this.shouldAutoJump(wx, wz)))) {
+    else if (airJumped) {
+      vy = Math.sqrt(2 * cfg.gravity * (this.jumpOverride ?? cfg.jumpHeight)); // 今の ジャンプと 同じ 高さに なる 速さ（足し算 しない）
+      this.onAirJump?.(this.airJump.used);
+    } else if (st.onGround && !this.motion.jumpLocked && (jumpHeld || (wlen > 0 && cfg.autoJump && this.shouldAutoJump(wx, wz)))) {
       vy = Math.sqrt(2 * cfg.gravity * (this.jumpOverride ?? cfg.jumpHeight) * (st.inWater ? cfg.waterJumpMul : 1));
     }
 
     // 上下: はじめと終わりの速さの平均で動かす（§4.5）
     // WEAPON-9: うかぶ ときは 目標の 高さへ（1 ステップ 0.5 まで）。重力・ジャンプは 使わない
     const hover = this.motion.hoverY;
-    const vyNew = hover !== null ? 0 : climb ? vy : Math.max(vy - cfg.gravity * dt, -cfg.maxFallSpeed);
+    const fallMax = this.motion.tenshi ? Math.min(cfg.maxFallSpeed, LEGEND4_TUNING.tenshi.fallSpeedMax) : cfg.maxFallSpeed; // LEGEND-4: 天使の弓は ゆっくり 落ちる（上がる ときは かえない）
+    if (!climb && vy < -fallMax) vy = -fallMax;
+    const vyNew = hover !== null ? 0 : climb ? vy : Math.max(vy - cfg.gravity * dt, -fallMax);
     const moveY0 = hover !== null ? Math.max(-0.5, Math.min(0.5, hover - st.position.y)) : ((vy + vyNew) / 2) * dt;
 
     // ROPE-1 版 3（つなぎ）: くいから ロープの 長さより 先へ 行く うごきを けす（がけから 落ちたら ぶら下がる）

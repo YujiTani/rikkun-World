@@ -1,4 +1,6 @@
 // main.ts の 流れ 4: 戦い・道具・レジェンダリー・たんす・作る・農業・掘る。
+import { createTenshiWire } from './tenshiWire';
+import { tenshiNoFall } from '../../player/tenshiMove';
 import { BLOCK_INDEX } from '../../world/blocks/blockTypes';
 import { aimPivot } from '../../camera/pivot';
 import { PlayerCombatImpl } from '../../combat';
@@ -192,6 +194,8 @@ export function wireWeapons(deps: WiredDrops) {
   const windWaveFx = new WindWaveFx({ scene: game.scene, camera: game.camera });
   // LEGEND-4: 黒龍の 墨の すじ（矢の うしろ。1P の 矢。2P の 矢は duoPlay が 別に 持つ）
   const kokuryuInkFx = new KokuryuInkFx(game.scene);
+  // LEGEND-4: 天使の弓（つばさ・羽の すじ・空中ジャンプの 音と 羽）。1P の 体・1P の 矢
+  const tenshiWire = createTenshiWire(game.scene, controller, fxSound);
   // WEAPON-8: らせんの かぜ（S2）・土と 草の つぶ・手もとの 光・速さバフの アイコン
   const spiralFx = new SpiralFx({ scene: game.scene, camera: game.camera });
   // WEAPON-9: 虹の ドーム・かけら・すいよせの つぶ・斬撃（材質は 読みこみ中に ぜんぶ 作る）
@@ -229,7 +233,7 @@ export function wireWeapons(deps: WiredDrops) {
   controller.lungeYokai = () => (shared.yokaiManager ? shared.yokaiManager.list() : []);
   return {
     level, armor, tools, blade, legend, nijiCenter, waveSys, reducedMotionMq, parry, geta, parryFx,
-    sparkAt, thunderFx, rainbowFx, windWaveFx, kokuryuInkFx, spiralFx, nijiFx, domeGrains, slashFx, raijinFx, fujinFx,
+    sparkAt, thunderFx, rainbowFx, windWaveFx, kokuryuInkFx, tenshiWire, spiralFx, nijiFx, domeGrains, slashFx, raijinFx, fujinFx,
     spiralDebris, chargeLight, chargeLightFx, chargeChest, handInfo, handNow, buffModel,
   };
 }
@@ -279,7 +283,7 @@ export function wireFighters(deps: WiredWeapons) {
     // WEAPON-9: シャイニング中は 受ける ダメージ 1/3・落下ダメージなし
     takenMul: () => legend.takenMul(),
     // ROPE-1 版 3: ロープに つかまって いる 間は 落ちた 高さを ためない（ゆっくり おりて 着地しても・とちゅうで はなしても、はなした 所から 数える）
-    noFall: () => legend.noFall() || shared.protoNoFall || controller.onRope(),
+    noFall: () => legend.noFall() || shared.protoNoFall || controller.onRope() || tenshiNoFall(inventory.held()?.item ?? null), // 天使の弓: 持って いる 間 着地ダメージ なし
     // 妖怪のねらい（CHAR-1 第 5.2 版 §4.5）: 届く距離は P から。S からの線で当たらないときは やさしい ねらい補助
     reachOrigin: (out) => aimPivot(world, controller.state.position, out),
     assist: (eye, dir, reach) => aimAssistPick(eye, dir, reach),

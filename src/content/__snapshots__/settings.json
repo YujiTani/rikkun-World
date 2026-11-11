@@ -1025,6 +1025,7 @@
       "table": "common",
       "takitsubo": "uncommon",
       "tansu": "uncommon",
+      "tenshi_yumi": "legendary",
       "tomato": "common",
       "torch": "common",
       "toriya": "uncommon",
@@ -1724,6 +1725,11 @@
         3,
         4,
         7
+      ],
+      "tenshi_yumi": [
+        3,
+        5,
+        7
       ]
     },
     "bowKnock": [
@@ -1853,6 +1859,13 @@
           }
         ],
         "power": 10
+      },
+      {
+        "charge": null,
+        "item": "tenshi_yumi",
+        "onAttack": [],
+        "passive": [],
+        "power": 7
       }
     ],
     "legendaryChargeWalk": 0.5,
@@ -1871,6 +1884,10 @@
       },
       {
         "item": "kokuryu",
+        "weight": 1
+      },
+      {
+        "item": "tenshi_yumi",
         "weight": 1
       },
       {
@@ -1961,6 +1978,7 @@
       "stone_axe": 131,
       "stone_pickaxe": 131,
       "suneate": 195,
+      "tenshi_yumi": 10000,
       "wood_axe": 59,
       "wood_pickaxe": 59,
       "yoroi": 240,

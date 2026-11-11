@@ -1,6 +1,8 @@
 // main.ts の 流れ 9 の つづき: 2P の あそび（COOP-1 作業 3a。docs/design/COOP-1.md §2.5・§2.6・§9.5）。
 // 2P の ほる・おく・こうげき・ハート・たおれて もどる・けいけんち。歩く・カメラ・えらびは wire/duo.ts。
 // 2P が 参加する たびに 一式を 作り、やめる たびに 片づける（倒れたまま やめても 次は 元気）。
+import { createTenshiWire, type TenshiWire } from './tenshiWire';
+import { applyTenshiMotion, tenshiNoFall } from '../../player/tenshiMove';
 import type * as THREE from 'three';
 import type { PlayerCombatImpl as PlayerCombatT } from '../../combat';
 import { PlayerCombatImpl } from '../../combat';
@@ -123,6 +125,8 @@ interface Live {
   parryFx: ParryFx;
   /** LEGEND-4: 2P の 黒龍の 墨の すじ（1P の KokuryuInkFx と 別の 2 つ目。矢の id が 1P と ぶつからない ように）。やめる ときに 片づける */
   ink: KokuryuInkFx;
+  /** LEGEND-4: 2P の 天使の弓（つばさ・羽・空中ジャンプの 音。2P の 体に つなぐ） */
+  tenshi: TenshiWire;
   /** COOP-1 4d-3: がしゃどくろ・少女が 見る 2P の 口（参加ごとに 1 つ） */
   gasha: P2GashaPort;
   /** COOP-1 4d-2: 2P の レジェンダリーの わざ（1P と 同じ 部品の 2 つ目）と その 絵 */
@@ -237,7 +241,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       rng: createRng(seed ^ 0x2b2b),
       // シャイニング中は 受ける ダメージ 1/3・落下ダメージなし（1P と 同じ 部品の 口）。がしゃどくろの 間欠泉も 落ちない
       takenMul: () => legend.p2.combat.takenMul(),
-      noFall: () => gashaNoFall || legend.p2.combat.noFall(),
+      noFall: () => gashaNoFall || legend.p2.combat.noFall() || tenshiNoFall(p2.inventory.held()?.item ?? null),
       requestSave: () => shared.requestSave(),
     });
     // 倒れた 場所(AC44 の 待ちで ずれないように とめる)
@@ -381,7 +385,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       shake: (a) => { if (FX_SETTINGS.fxShake) shared.duoCamFx(2).addTrauma(a); },
       shakeTo: (l) => { const fx = shared.duoCamFx(2), d = l - fx.trauma(); if (d > 0 && FX_SETTINGS.fxShake) fx.addTrauma(d); },
     };
-    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, ink: new KokuryuInkFx(game.scene), gasha, legend, farm, feed, animals: ani, gadgets };
+    return { combat, life, dig, fx, tools, blade, sounds: createP2Sounds(fxSound, p2.armor), walkBody, ground, mate, yokai, wear, kodachi, parry, parryFx, ink: new KokuryuInkFx(game.scene), tenshi: createTenshiWire(game.scene, ctl, fxSound), gasha, legend, farm, feed, animals: ani, gadgets };
   }
 
   /** 2P の 足音。1P の step.ts と 同じ 決まり: 遊び画面が 開いて いない・やられて いない・ひるんで いない ときだけ 歩く */
@@ -412,6 +416,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     m.speedMul = p2SpeedMul(pm.speedMul, lm.speedMul, w2, p2.inventory.held()?.item ?? null); // 風神剣の 走る 1.2 倍も（1P の step.ts:73 と 同じ）
     m.jumpLocked = pm.jumpLocked || lm.jumpLocked;
     m.noRun = lm.noRun; m.hoverY = lm.hoverY ?? null;
+    applyTenshiMotion(m, p2.inventory.held()?.item ?? null); // LEGEND-4: 2P の 天使の弓（のこりは 2P の 体に 1 つ）
     m.faceDeg = pm.jumpLocked ? c.ctl2().state.yawDeg : (lm.faceDeg ?? null); // パリィの あいだは 今 向いている 方を向く。わざの あいだは わざの 向き
   }
   shared.preYokai = preYokai;
@@ -487,6 +492,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     l.combat.takeHookEvents();
     l.sounds.swings(l.tools.drainSwings(), p2.inventory.held()?.item ?? null);
     l.ink.step(l.tools.bow().arrows(), deps.reducedMotionMq?.matches ?? false); // LEGEND-4: 2P の 黒龍の 墨の すじ
+    l.tenshi.step(p2.inventory.held()?.item ?? null, l.tools.bow().arrows(), false, deps.reducedMotionMq?.matches ?? false); // LEGEND-4: 2P の 天使の弓（2P の 画面は 三人称の ことが ない ので 自分の つばさも 見える）
     const arrowEvents = l.tools.drainArrowEvents();
     l.sounds.arrows(arrowEvents);
     l.feed.arrows(arrowEvents);
@@ -666,6 +672,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       live?.fx.dispose();
       live?.parryFx.dispose();
       live?.ink.dispose();
+      live?.tenshi.dispose();
       live?.farm.dispose();
       live?.animals.dispose();
       live?.gadgets.dispose();
@@ -674,11 +681,12 @@ export function wireDuoPlay(c: DuoPlayCtx) {
     onLeave(): void {
       if (live) {
         // 2P の パリィの 体の 止めを もどす（2P の 体は 次の 参加でも 使いまわす）
-        Object.assign(c.ctl2().motion, { speedMul: 1, jumpLocked: false, faceDeg: null, noRun: false, hoverY: null });
+        Object.assign(c.ctl2().motion, { speedMul: 1, jumpLocked: false, faceDeg: null, noRun: false, hoverY: null, tenshi: false });
         live.legend.dispose(); // ためている・シャイニング中でも すぐ 消す（カメラの 口も 手ばなす）
         live.parry.cancel(game.tick);
         live.parryFx.dispose();
         live.ink.dispose();
+        live.tenshi.dispose();
       }
       live?.fx.dispose();
       live?.farm.dispose();

@@ -32,3 +32,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## pixelfx — 天使の弓の つばさ・羽の すじ（LEGEND-4 PR3）
+
+- 使った 場所: `public/models/fx/tenshi_wings.png`（背中の つばさ。pixelfx `holy/wings-large` の 90 コマから 6 コマおき 15 コマ）・`public/models/fx/tenshi_trail.png`（矢の うしろの 羽。`holy/feather-trail` の 36 コマから 3 コマおき 12 コマ）。シートを 板に はる 組み立ては `src/fx/tenshiFx.ts`（この リポジトリの 作り）。
+- 出どころ: https://github.com/patch-gg/pixelfx（MIT License, Copyright (c) 2026 Patch。全文は 上の 黒龍の 項と 同じ）の 書き方（`holy/_lib.js` の `feather()`）に そって 作った 新しい effect（共有フォルダ `legendary4/fx/tenshi/src-holy/`）を 書き出した 物。

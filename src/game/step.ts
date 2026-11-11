@@ -1,4 +1,5 @@
 // 毎ステップの 本体（main.ts から 移した）。順番は そのまま。まとまりは 最初に 1 回だけ 作る。
+import { applyTenshiMotion } from '../player/tenshiMove';
 import { isBladeItem } from '../tools/blade/BladeSystem';
 import { STEPS_PER_SECOND } from '../tools/config';
 import { parryGlowLevel } from '../combat/parry';
@@ -40,7 +41,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     screen, kodachi, geta, craft, furnaceWorld, storage, dropController, farm, renderer, m7, trackOldFarmSeeds,
     madeTracker, fxSound, pickupLog, log, celebrate, achievements, waterFx, farmFx, eyePos, sparkle,
     sparkleView, sprayFx, sprinklers, dropper, notice, impactBus, camFx1, camFx2, titleOfYokai, kodachiHookBuf,
-    arrowVisuals, stuckVisuals, kokuryuInkFx, wearNotice, weaponFx, thunderFx, windWaveFx, reducedMotionMq, spiralFx,
+    arrowVisuals, stuckVisuals, kokuryuInkFx, tenshiWire, wearNotice, weaponFx, thunderFx, windWaveFx, reducedMotionMq, spiralFx,
     spiralDebris, chargeLight, handNow, chargeLightFx, handInfo, chargeChest, domeGrains, nijiCenter,
     nijiFx, slashFx, kodachiFx, fujinFx, raijinFx, rainbowFx, buffIcons, buffModel, parryFx, combatUi,
     craftHud, fx, combatFx, level, levelHud, updateFurnaceFx, blockDollOnly, aimMarks, sky, crosshair,
@@ -92,6 +93,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       controller.motion.speedMul = bm.speedMul * wm.speedMul * (pmOn ? pm.speedMul : 1) * lm.speedMul * legendMoveMulOf(w2, inventory.held()?.item ?? null);
       controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked || pm.jumpLocked || lm.jumpLocked;
       controller.motion.noRun = lm.noRun;
+      applyTenshiMotion(controller.motion, inventory.held()?.item ?? null); // LEGEND-4: 天使の弓（空中ジャンプ・ゆっくり 落ちる）
       // WEAPON-9: シャイニングの うかぶ（重力を 使わず 目標の 高さへ）と カメラを 引く
       controller.motion.hoverY = lm.hoverY ?? null;
       rig.distanceOverride = legend.camDistance() ?? camFx1.override() ?? shared.duoCamDistance; // COOP-1: 2 人のときは 引く（4d-0: 1P の よせ・引きの 口 camFx1 が 次）
@@ -316,6 +318,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     }
     arrowVisuals.syncFlying(tools.bow().arrows());
     kokuryuInkFx.step(tools.bow().arrows(), reducedMotionMq?.matches ?? false); // LEGEND-4: 黒龍の 墨の すじ
+    tenshiWire.step(inventory.held()?.item ?? null, tools.bow().arrows(), rig.getInfo().hideChar, reducedMotionMq?.matches ?? false); // LEGEND-4: 天使の弓の つばさ・羽
     stuckVisuals.syncStuck(tools.bow().stuck());
     wearNotice.step();
     weaponFx.step();

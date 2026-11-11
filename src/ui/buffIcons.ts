@@ -1,10 +1,16 @@
 import './buffIcons.css';
 import { selfCluster } from './levelHud';
 import { halfId } from './duoHalfIds';
-import type { BuffRow } from './buffIconsModel';
+import { BUFF_ORDER, type BuffRow } from './buffIconsModel';
 
 /** 16×16 の 絵（相対パス。GitHub Pages の ため 絶対パスに しない）。字は 入れない */
-const ICON_URL: Record<BuffRow['id'], string> = { speed: './models/fx/buff_speed.png', jumpUp: './models/fx/buff_jump_up.png' };
+const ICON_URL: Record<BuffRow['id'], string> = {
+  speed: './models/fx/buff_speed.png',
+  jumpUp: './models/fx/buff_jump_up.png',
+  airJump: './models/fx/buff_air_jump.png',
+  slowFall: './models/fx/buff_slow_fall.png',
+  safeLand: './models/fx/buff_safe_land.png',
+};
 
 /**
  * WEAPON-8 §3.3: 速さバフの アイコンの 絵（HUD）。`#buff-plate` の 中に `[data-buff="speed"]`。字は 出さない。
@@ -49,7 +55,9 @@ export class BuffIcons {
         img.draggable = false;
         el.append(img);
         this.icons.set(r.id, el);
-        this.plate.append(el);
+        const later = [...this.icons].find(([id]) => id !== r.id && BUFF_ORDER.indexOf(id as BuffRow['id']) > BUFF_ORDER.indexOf(r.id));
+        if (later) this.plate.insertBefore(el, later[1]); // 並び順 = BUFF_ORDER
+        else this.plate.append(el);
       }
       el.style.transform = `scale(${r.scale.toFixed(3)})`;
       el.style.opacity = r.opacity.toFixed(3);

@@ -200,6 +200,8 @@ export interface ArrowInfo {
   straight?: boolean;
   /** LEGEND-4（黒龍）: もう 当てた 妖怪の id（1 本の や は 同じ 妖怪に 1 回だけ）。まっすぐな や だけ */
   hitIds?: number[];
+  /** LEGEND-4（天使の弓）: うしろに 白い 羽が 舞う や（見た目 だけ。当たりは ふつうの や と 同じ） */
+  feather?: boolean;
 }
 
 export interface StuckArrowInfo {

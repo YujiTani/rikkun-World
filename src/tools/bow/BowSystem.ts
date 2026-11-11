@@ -13,6 +13,7 @@ import type {
   YokaiRayHit,
   YokaiWorld,
 } from '../../contracts';
+import { isTenshi } from '../../player/tenshiMove';
 import { raycastBlocks } from '../../dig/raycast';
 import { cellInWall } from '../../world/wall';
 
@@ -148,6 +149,7 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
       info.hitIds = [];
       info.range = straightRange;
     }
+    if (isTenshi(ctx.item)) info.feather = true; // LEGEND-4: 天使の弓の や は 羽の すじ（見た目 だけ）
     flying.push(info);
     nockLeft = s.bowNockTicks;
     emit({

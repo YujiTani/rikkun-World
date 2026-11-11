@@ -36,4 +36,29 @@ export const LEGEND4 = {
       passive: [{ kind: 'moveMul', mul: LEGEND4_TUNING.kokuryu.moveMul }],
     },
   },
+  // 天使の弓: 持つと 背中に 白い つばさ。空中で あと 3 回 ジャンプ・ふわふわ ゆっくり おちる・着地しても いたく ない。や は ふつうの 放物線
+  tenshi_yumi: {
+    name: '［天使｜てんし］の［弓｜ゆみ］',
+    zukan: '［空｜そら］の ずっと ［上｜うえ］、［雲｜くも］の ［国｜くに］に すむ てんしが もって いた ［弓｜ゆみ］。エンジェルアロー とも よばれる。もつと せなかに ［白｜しろ］い ［羽｜はね］が はえて、［空｜そら］の ［上｜うえ］でも なんども ジャンプが できる。おちる ときは ［羽｜はね］の ように ふわふわ ゆっくりで、［高｜たか］い ところから おりても へっちゃら。［矢｜や］の とおった あとに ［白｜しろ］い ［羽｜はね］が まう とき、もう ようかいに かちめは ない。',
+    maxStack: 1,
+    rarity: 'legendary', // 7 段目
+    category: 'weapon',
+    info: {
+      use: 'や を とばして とおく の ようかい を たおす。や が いる',
+      special: 'せなか に つばさ が はえて、ふわふわ とべる ように なる',
+      how: BOW_HOW,
+      buttons: ['1-9', 'left'],
+      stats: 'bow',
+    },
+    wear: 10000,
+    // や の つよさ [3, 5, 7]（まっすぐ とぶ 距離は なし = ふつうの 放物線）。空中ジャンプ・ゆっくり 落ちる・着地ダメージ なしは player/tenshiMove.ts
+    bow: { damage: LEGEND4_TUNING.tenshi.damage },
+    // power は 刀の 表の 形を そろえる ための 値（ゆみは や の つよさを 使う ので 使われない）。passive なし
+    legend: {
+      power: LEGEND4_TUNING.tenshi.damage[2],
+      charge: null,
+      onAttack: [],
+      passive: [],
+    },
+  },
 } satisfies Record<Legend4Id, ItemDef>;
