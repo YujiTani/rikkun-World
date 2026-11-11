@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { BlockId, ItemId } from '../contracts';
-import { dugItemOf } from '../dig/dugItems';
 import { doorInfo } from '../world/blocks/houseBlocks';
 import { doorIndex, windowCells } from './editor/model';
 import { DOOR_TOP_Y, HEIGHT, WINDOW_Y } from './editor/tuning';
 import { houseShape, recordHouse } from './shape';
-import { ALL_KINDS, LIGHT_KINDS, PART_FORMS, PARTS, STYLES, kindsOfForm } from './recipes/kinds';
-import { allKindsOf, houseBox, kindBlocks, kindItem, lookBp, withKind, type LookPart } from './recipes/lookKit';
-import type { HouseBook } from './book';
+import { ALL_KINDS, LIGHT_KINDS, PART_FORMS, PARTS, STYLES, kindsOfForm, splitKind } from './recipes/kinds';
+import { allKindsOf, dugItemAt, houseBox, kindBlocks, kindItem, lookBp, withKind, type LookBook, type LookPart } from './recipes/lookKit';
+import { HouseBook } from './book';
 
 /**
  * HOUSE-2B AC11（仕様 3.3 版 §2.4・§4.2・§6.2）: 建てた 家が せっけいず どおり（えらんだ しゅるい〔案 こみ〕の ブロック。案を まぜた せっけいずでも）・てつの と・なしの 家・ほると その しゅるいの アイテム。
@@ -19,7 +18,9 @@ const LOOK_PARTS: readonly LookPart[] = [...PARTS, 'light'];
 type Shape = ReturnType<typeof houseShape>;
 const idsOf = (s: Shape): Set<string> => new Set(s.cells.map((c) => c.id));
 const cellAt = (s: Shape, x: number, y: number, z: number): string => s.cells.find((c) => c.x === x && c.y === y && c.z === z)!.id;
-const sig = (s: Shape): string => JSON.stringify(s.cells.map((c) => [c.x, c.y, c.z, c.id]));
+/** 形の しるし（案の ちがいを 見る ため look〔しゅるいの id〕も 入れる。cells の look は 2B の 約束） */
+const lookOf = (c: Shape['cells'][number]): string | undefined => (c as unknown as { look?: string }).look;
+const sig = (s: Shape): string => JSON.stringify(s.cells.map((c) => [c.x, c.y, c.z, c.id, lookOf(c) ?? null]));
 /** ふつうの 試し 家（よこ 7・たて 7・窓 2。かざり・窓・戸の かざりが つく 余裕が ある） */
 const BASE = { w: 7 as const, d: 7 as const, windows: 2 };
 /** その 家に ある なかまの ブロックが 1 つでも あるか */
@@ -37,13 +38,15 @@ describe('AC11: しゅるいごとの ブロック（kindBlocks）の きまり'
     }
   });
 
-  it('同じ ばしょの しゅるい どうしで ブロックが 1 つも 重ならない（ほると その しゅるいの アイテムに なる ため）', () => {
+  it('ブロックの 番号は 形ごと: ちがう 形の あいだでは 1 つも 重ならない（同じ 形の 3 案は 同じ id を 共有して よい）', () => {
     for (const part of LOOK_PARTS) {
       const seen = new Map<string, string>();
       for (const kind of allKindsOf(part)) {
+        const form = splitKind(kind).form;
         for (const b of kindBlocks(part, kind)) {
-          expect(seen.get(b), `${part}: ${b} が ${seen.get(b)} と ${kind} で 重なる`).toBeUndefined();
-          seen.set(b, kind);
+          const prev = seen.get(b);
+          expect(prev === undefined || prev === form, `${part}: ${b} が 形 ${prev} と 形 ${form} で 重なる`).toBe(true);
+          seen.set(b, form);
         }
       }
     }
@@ -63,7 +66,20 @@ describe('AC11: 建てた 家は えらんだ しゅるいの ブロックで �
     });
   }
 
-  it('同じ 形の 3 案は 3 つとも ちがう 形（やね・かべ・まど・と・かざり）', () => {
+  it('えらんだ しゅるいの ブロックの マスは look が その しゅるいの id（案こみ）', () => {
+    for (const part of LOOK_PARTS) {
+      for (const kind of allKindsOf(part)) {
+        if (kind === 'none') continue;
+        const s = houseShape(withKind(part, kind, BASE));
+        const mine = new Set<string>(kindBlocks(part, kind));
+        const cells = s.cells.filter((c) => mine.has(c.id));
+        expect(cells.length, `${part}-${kind}`).toBeGreaterThan(0);
+        expect(cells.filter((c) => lookOf(c) !== kind).map((c) => `${c.x},${c.y},${c.z} ${c.id} look=${lookOf(c)}`), `${part}-${kind}: look が ちがう マス`).toEqual([]);
+      }
+    }
+  });
+
+  it('同じ 形の 3 案は 3 つとも ちがう 形（look を ふくむ しるし。やね・かべ・まど・と・かざり）', () => {
     for (const part of PARTS) {
       for (const form of PART_FORMS[part]) {
         const kinds = kindsOfForm(form);
@@ -123,33 +139,86 @@ describe('AC11: てつの と の 家も 戸が houses() に のる', () => {
       const at = { x: 100, y: 20, z: 200 };
       recordHouse(book, bp, 1, at);
       expect(got.door, '記録の 戸').toEqual({ x: at.x + dx, y: at.y + HEIGHT.floor, z: at.z + dz });
-      // ほる
+      // ほる（場所で 引く）: 記録の 本を 作って 戸の 下と 上を ほる
+      const real = new HouseBook() as LookBook;
+      recordHouse(real, bp, 1, at);
       const item = kindItem('door', kind);
       expect(item, 'ほると 手に 入る アイテム').not.toBeNull();
-      for (const b of [low, up]) expect(dugItemOf(b as BlockId), `${b} を ほる`).toBe(item as ItemId);
+      for (const [b, dy] of [[low, 0], [up, 1]] as const) expect(dugItemAt(real, b as BlockId, at.x + dx, at.y + HEIGHT.floor + dy, at.z + dz), `${b} を ほる`).toBe(item as ItemId);
     });
   }
 });
 
-describe('AC11: ほると その しゅるいの アイテム 1 こ（ぜんぶの しゅるい。ブロックの 向き・半分ちがいも）', () => {
-  it('ブロックごとに dugItemOf が kindItem と 同じ・しゅるいごとに 別の アイテム', () => {
+describe('AC11: ほると その しゅるいの アイテム 1 こ（建てて から 場所ごとに ほる。ブロックの 番号は 形ごと・案は 家の 記録から 場所で 引く）', () => {
+  const AT = { x: 100, y: 20, z: 200 };
+  it('ぜんぶの しゅるい: 建てて、その しゅるいの マスを 1 つずつ ほると kindItem（案ごとに 別の アイテム）', () => {
     for (const part of LOOK_PARTS) {
       const items = new Map<string, string>();
       for (const kind of allKindsOf(part)) {
         const item = kindItem(part, kind);
         if (kind === 'none') {
-          // やね・まどの なしは アイテムなし。かべの なし（柱）は 柱の ブロックを ほった とき 手に 入る 物が あれば その アイテム（なくても よい）
           if (part !== 'wall') expect(item, `${part}-none`).toBeNull();
-          else if (item !== null) for (const b of kindBlocks(part, kind)) expect(dugItemOf(b), `柱 ${b}`).toBe(item);
           continue;
         }
         expect(item, `${part}-${kind}`).not.toBeNull();
-        for (const b of kindBlocks(part, kind)) expect(dugItemOf(b), `${part}-${kind} の ${b} を ほる`).toBe(item);
         expect(items.get(String(item)), `${part}: ${item} が ${items.get(String(item))} と ${kind} で 同じ`).toBeUndefined();
         items.set(String(item), kind);
+        const bp = withKind(part, kind, BASE);
+        const book = new HouseBook() as LookBook;
+        recordHouse(book, bp, 1, AT);
+        let dug = 0;
+        for (const c of houseShape(bp).cells) {
+          if (lookOf(c) !== kind) continue;
+          dug++;
+          expect(dugItemAt(book, c.id as BlockId, AT.x + c.x, AT.y + c.y, AT.z + c.z), `${part}-${kind} の (${c.x},${c.y},${c.z}) ${c.id} を ほる`).toBe(item as ItemId);
+        }
+        expect(dug, `${part}-${kind}: ほった マスの 数`).toBeGreaterThan(0);
       }
     }
   });
+
+  it('同じ 形の 3 案の ブロックは 同じ id でも、場所で 引くと 案ごとの アイテム（3 つの 家で 同じ id の マスを ほる）', () => {
+    for (const part of PARTS) {
+      for (const form of PART_FORMS[part]) {
+        const kinds = kindsOfForm(form);
+        if (kinds.length < STYLES.length) continue;
+        const got = kinds.map((k) => {
+          const bp = withKind(part, k, BASE);
+          const book = new HouseBook() as LookBook;
+          recordHouse(book, bp, 1, AT);
+          const c = houseShape(bp).cells.find((x) => lookOf(x) === k)!;
+          return dugItemAt(book, c.id as BlockId, AT.x + c.x, AT.y + c.y, AT.z + c.z);
+        });
+        expect(new Set(got).size, `${part}-${form}: 3 案の アイテム`).toBe(kinds.length);
+      }
+    }
+  });
+
+  it('記録の ない 場所（手で 置いた ブロック）は 形の もとの アイテム（案の 記録は 2C で 決める ので、ここでは 落ちない ことだけ）', () => {
+    const book = new HouseBook() as LookBook;
+    expect(() => dugItemAt(book, 'house_wall' as BlockId, 1, 2, 3)).not.toThrow();
+  });
+});
+
+describe('AC11: かべ なし・やね なしの 家も 戸が あれば 記録に のる（recordHouse → houses()）', () => {
+  const AT = { x: 100, y: 20, z: 200 };
+  const cases: Array<[string, Parameters<typeof lookBp>[0]]> = [
+    ['かべ なし', { wall: 'none' }],
+    ['やね なし', { roof: 'none' }],
+    ['かべ なし・やね なし', { wall: 'none', roof: 'none' }],
+    ['かべ なし・てつの と', { wall: 'none', door: 'tetsu_shiro' as never }],
+  ];
+  for (const [label, over] of cases) {
+    it(`${label}: 記録が 1 件・戸の 場所は 形から・外の 寸法は 箱`, () => {
+      const bp = lookBp({ ...BASE, ...over });
+      const book = new HouseBook();
+      const rec = recordHouse(book, bp, 7, AT);
+      const shape = houseShape(bp);
+      expect(book.list(), '家の 記録').toHaveLength(1);
+      expect(rec).toMatchObject({ number: 7, outer: { w: houseBox(bp).w, d: houseBox(bp).d }, door: { x: AT.x + shape.door.x, y: AT.y + shape.door.y, z: AT.z + shape.door.z } });
+      expect(doorInfo(cellAt(shape, shape.door.x, shape.door.y, shape.door.z)), '戸の マスは 戸').not.toBeNull();
+    });
+  }
 });
 
 describe('AC11: なしの 家（§2.4）', () => {

@@ -9,11 +9,19 @@
 //                          やねの 上の かざり ＝ えんとつ・しゃちほこ。やねが なしの ときは かざりが あっても 4。かべ・まどの なし と 案では かわらない）。
 //     houseTriangles(bp)   → 数（その 家の 三角形。家具は のぞく。建てた 家の 区の メッシュで 数える 見こみ。面の 数×2 では なく、実際に 描く 三角形）。
 //   src/house/recipes/kinds.ts
-//     kindBlocks(part, kind) → BlockId[]  part は 'roof'|'wall'|'window'|'door'|'deco'|'light'。その しゅるいを 建てた とき 世界に 置く ブロックの id ぜんぶ（向き・戸の 半分・マスごとの ちがいも）。
-//                              いつもの 物は 今の 家の ブロック（flat→['house_roof']・ki→['house_wall']・shoji→['shoji']・ie→ 戸の 4 つ・lantern→['lantern']）。
-//                              しゅるいが ちがえば ブロックは ちがう（同じ ばしょの しゅるい どうしで 1 つも 重ならない）。やね・まどの 'none' は []。
-//                              かべの 'none' は 4 すみの 柱の ブロック（かべ なしの 柱。1 つ 以上）。
-//     kindItem(part, kind)   → ItemId | null  ほると 手に 入る アイテム（`dugItemOf` の 答え）。しゅるいごとに 別の アイテム・名前は `kindName(kind)`（あかりは `LIGHT_NAME`）。やね・まどの 'none' は null。かべの 'none'（柱）は 柱を ほって 手に 入る 物が あれば その アイテム、なければ null。
+//     kindBlocks(part, kind) → BlockId[]  part は 'roof'|'wall'|'window'|'door'|'deco'|'light'。その しゅるいの **形**（かわら・しっくい・てつの と …）が 世界に 置く ブロックの id ぜんぶ（向き・戸の 半分・マスごとの ちがいも）。
+//                              **ブロックの 番号は 形ごと（PO 決め 2026-11-11。256 に おさめる ため）**: 同じ 形の 3 案（mura・shiro・kozan）は 同じ id を 共有して よい（同じ 答えで よい）。
+//                              ちがう 形の あいだでは 1 つも 重ならない。いつもの 物は 今の 家の ブロック（flat→['house_roof']・ki→['house_wall']・shoji→['shoji']・ie→ 戸の 4 つ・lantern→['lantern']）。
+//                              やね・まどの 'none' は []。かべの 'none' は 4 すみの 柱の ブロック（1 つ 以上）。
+//     kindItem(part, kind)   → ItemId | null  ほると 手に 入る アイテム（案ごとに 別。名前は `kindName(kind)`〔あかりは `LIGHT_NAME`〕）。やね・まどの 'none' は null。
+//                              かべの 'none'（柱）は 柱を ほって 手に 入る 物が あれば その アイテム、なければ null。
+//   src/house/shape.ts（つづき）
+//     houseShape の cells の 各 マスに `look?: string`（その マスを 建てた しゅるいの id。例 'kawara_shiro'・'ki'・'tetsu_mura'）。床・家具・空気には ない。
+//                          案が ちがえば sig（x・y・z・id・look）が ちがう。形が 案で ちがう 所（art）は ブロックの 位置も ちがう。
+//     recordHouse(book, bp, number, at)  記録に 「どの 場所が どの しゅるいか」を のこす（looks）。HouseBook に `lookAt(x, y, z): string | null`（world の 場所 → しゅるいの id。記録に ない 場所は null）。
+//                          かべ なし・やね なしの 家も 戸が あれば 記録に のる。
+//   src/dig/dugItems.ts
+//     dugItemAt(book, id, x, y, z) → ItemId  場所で 引く ほった アイテム。`book.lookAt(x, y, z)` が しゅるいの id なら その `kindItem`、なければ `dugItemOf(id)`（手で 置いた ブロック。案の 記録は 2C で 決める）。
 //   src/house/build/sites.ts
 //     siteOk(world, x, y, z, outW, outD, doorX, h = 5)       しらべる 段は 床の 上 1 〜 h − 1（h は houseBox の h）。h を 書かなければ 今まで どおり（5）。
 //     findSites(world, px, py, pz, outW, outD, doorX, used = [], limit = 400, h = 5)   同じく 最後に h。
@@ -33,6 +41,12 @@ import type { SiteWorld } from '../build/sites';
 import * as kindsMod from './kinds';
 import type { Part } from './kinds';
 import * as shapeMod from '../shape';
+import * as dugMod from '../../dig/dugItems';
+import type { HouseBook } from '../book';
+
+export interface LookAt {
+  lookAt(x: number, y: number, z: number): string | null;
+}
 
 export type LookPart = Part | 'light';
 export interface Box {
@@ -98,3 +112,14 @@ export function withKind(part: LookPart, kind: string, base: Partial<Blueprint> 
   else o.light = kind as Blueprint['light'];
   return lookBp(o);
 }
+
+/** 場所で 引く ほった アイテム（2B の 約束。dugItems.ts の dugItemAt） */
+export const dugItemAt = (book: LookAt, id: BlockId, x: number, y: number, z: number): ItemId =>
+  pick<(b: unknown, i: BlockId, x: number, y: number, z: number) => ItemId>(dugMod, 'dugItemAt', 'src/dig/dugItems.ts')(book, id, x, y, z);
+/** 家の 記録の 本（lookAt を つけて 呼ぶ ため 型の 上で ひろげる） */
+export type LookBook = HouseBook & LookAt;
+/** しゅるいの id → ばしょ（id は ばしょを またいで 重ならない） */
+export const partOfKind = (kind: string): LookPart => {
+  for (const part of ['roof', 'wall', 'window', 'door', 'deco', 'light'] as const) if (allKindsOf(part).includes(kind)) return part;
+  throw new Error(`しらない しゅるい ${kind}`);
+};
