@@ -53,6 +53,7 @@
 | 速いチェック（型＋ユニット） | `npm run check:fast` |
 | 速い E2E（smoke など） | `npm run test:e2e:fast` |
 | UI 検査（全画面×3 つの大きさ、約 30 秒） | `npm run check:ui` → 結果とスクショは `ui-gate-report/` |
+| CI のユニットテストを時間で 2 つに分ける表（#447。時間がずれたときだけ手で作りなおす） | `npx vitest run --reporter=json --outputFile=out.json` のあと `node scripts/unit-shard-times.mjs out.json` → `scripts/unit-shard-times.json` |
 | 全部（E2E 込み。手元では回さず CI にまかせる） | `npm run check` |
 | CI の E2E を時間で分ける表（ふだんは CI が前の main の時間を自動で使う。#311。手で作りなおすときだけ） | `node scripts/e2e-shard-times.mjs <全シャードのログか JSON>` → `e2e/shard-times.json` |
 
