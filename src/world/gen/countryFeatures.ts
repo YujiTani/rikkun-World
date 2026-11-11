@@ -4,6 +4,7 @@ import { GEN_CONFIG as C } from './config';
 import { nearMouth } from './mouths';
 import { bambooRawHit, plantsOfChunk } from './plants';
 import { hash01, subSeed } from './random';
+import { regionRect } from './region';
 import { terrainFor, type Terrain } from './terrain';
 
 /**
@@ -64,6 +65,8 @@ export const FEATURE_TUNE = {
   startClear: 20,
   rockClear: 4,
   mouthClear: 3,
+  /** はじまりの 範囲（regionRect 128×128。M7 の 農家・やせいの やさい・木・坑道の 口が 決まる 四角）の 中には 6 種とも 置かない。はたけあとは やせいの やさいを 持つので、M7 が 数える 読みこみの 輪に 入らないよう 四角の まわり さらに これだけ（ブロック）よける */
+  farmClearWild: 64,
   /** 置く 所の みきが この きょり 以内の 木は どける（はっぱが 大木で 4 まで 出る ぶん） */
   treeMargin: 4,
 } as const;
@@ -109,21 +112,28 @@ const range = (r: number, lo: number, hi: number): number => lo + Math.floor(r *
 
 /**
  * (x, z) の 地面の 高さ（置けない 所は -1）。陸・top の ブロック・いけ でない・スタート／岩山／洞くつの 口から はなれている・
- * その 国の 升目の 中（境目 e < blend は だめ）。minAbove = 海からの 最低の 高さ
+ * その 国の 升目の 中（境目 e < blend は だめ）・はじまりの 範囲（clear = さらに ひろげる ブロック数）。minAbove = 海からの 最低の 高さ
  */
-function groundAt(c: Ctx, x: number, z: number, top: BlockId, minAbove: number = C.strata.landFrom): number {
+function groundAt(c: Ctx, x: number, z: number, top: BlockId, minAbove: number = C.strata.landFrom, clear = 0): number {
   const T = c.T;
   const h = T.height(x, z);
   if (h < SEA_Y + minAbove || T.topBlock(x, z, h) !== top) return -1;
   if (T.map.pondAt(x, z) !== null || T.liquid.pondAt(x, z) !== null) return -1;
   const sp = T.spawn();
   if (Math.max(Math.abs(x - sp.x), Math.abs(z - sp.z)) <= FEATURE_TUNE.startClear) return -1;
+  if (inStartRegion(T, x, z, clear)) return -1;
   const rock = T.rock();
   if (Math.hypot(x - rock.cx, z - rock.cz) <= rock.r + FEATURE_TUNE.rockClear) return -1;
   if (nearMouth(T, x, z, FEATURE_TUNE.mouthClear)) return -1;
   const a = T.map.countryAt(x, z);
   if (a.kind !== c.kind || a.cx !== c.i || a.cz !== c.j || a.e < B.blend) return -1;
   return h;
+}
+
+/** はじまりの 範囲（regionRect）から margin だけ ひろげた 四角の 中か */
+function inStartRegion(T: Terrain, x: number, z: number, margin: number): boolean {
+  const r = regionRect(T.seed);
+  return x >= r.x0 - margin && x < r.x1 + margin && z >= r.z0 - margin && z < r.z1 + margin;
 }
 
 /** 海の 中（または ごく あさい）の 列か。平らさを 調べる 前の 安い ふるい（海の 升目は ほとんどが ここで おちる） */
@@ -162,7 +172,7 @@ function hatakeato(c: Ctx): FeatureSite[] {
     const hs: number[] = [];
     let ok = true;
     for (let dz = 0; dz < K.size && ok; dz++) for (let dx = 0; dx < K.size && ok; dx++) {
-      const h = groundAt(c, x0 + dx, z0 + dz, 'grass');
+      const h = groundAt(c, x0 + dx, z0 + dz, 'grass', C.strata.landFrom, FEATURE_TUNE.farmClearWild); // はたけあと = やせいの やさいを 持つ
       if (h < 0) ok = false;
       hs.push(h);
     }

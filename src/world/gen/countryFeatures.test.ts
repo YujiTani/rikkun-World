@@ -4,6 +4,7 @@ import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { SECTION_VOLUME, sectionToArray } from '../sections';
 import { clearCountryCache, countryAt, countryCell, takePath, type CountryKind } from './biome';
 import { generateChunk } from './chunk';
+import { regionRect } from './region';
 import { GEN_CONFIG as C } from './config';
 import { clearTerrainCache, terrainFor } from './terrain';
 
@@ -260,6 +261,25 @@ describe('生成とのずれ: features の場所に 本当に その物が あ�
         if (WILD.has(blockAt(seed, f.x + dx, f.y + dy, f.z + dz)) && blockAt(seed, f.x + dx, f.y + dy - 1, f.z + dz) === BLOCK_INDEX.dirt) onDirt++;
       }
       expect(onDirt, `(${f.x},${f.z}) つちの上の やさい`).toBeGreaterThanOrEqual(3);
+    }
+  });
+});
+
+describe('はじまりの 範囲（M7 の やせいの やさい・農家・木・坑道の口）には かぶらない', () => {
+  it('6 種は どれも はじまりの 範囲 128×128 の 中に 基準の マスを 置かない。はたけあと（やせいの やさい）は まわり 64 も よける', async () => {
+    const features = await load();
+    for (const seed of [20261012, 1, 7]) {
+      const r = regionRect(seed);
+      const all = features(seed, r.x0 - 400, r.z0 - 400, r.x1 + 400, r.z1 + 400);
+      expect(all.length).toBeGreaterThan(0);
+      for (const f of all) {
+        const inside = f.x >= r.x0 && f.x < r.x1 && f.z >= r.z0 && f.z < r.z1;
+        expect(inside, `${f.type} (${f.x},${f.z}) seed ${seed}`).toBe(false);
+        if (f.type === 'hatakeato') {
+          const m = 64;
+          expect(f.x >= r.x0 - m && f.x < r.x1 + m && f.z >= r.z0 - m && f.z < r.z1 + m, `hatakeato (${f.x},${f.z}) seed ${seed}`).toBe(false);
+        }
+      }
     }
   });
 });
