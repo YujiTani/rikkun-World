@@ -180,10 +180,16 @@ describe('#187-AC3: 作る順に関係なく 同じ', () => {
 });
 
 describe('生成とのずれ: features の場所に 本当に その物が ある', () => {
+  /** チャンクは 1 回だけ作って 覚える（作るのは 1 回 約 100ms。同じ列を 何度も作りなおすと 時間切れになる） */
+  const chunks = new Map<string, Uint8Array>();
   const blockAt = (seed: number, x: number, y: number, z: number): number => {
-    const col = generateChunk(seed, x >> 4, z >> 4);
-    const arr = new Uint8Array(WORLD_HEIGHT * 256);
-    col.sections.forEach((s, sy) => arr.set(sectionToArray(s), sy * SECTION_VOLUME));
+    const key = `${seed},${x >> 4},${z >> 4}`;
+    let arr = chunks.get(key);
+    if (!arr) {
+      arr = new Uint8Array(WORLD_HEIGHT * 256);
+      generateChunk(seed, x >> 4, z >> 4).sections.forEach((s, sy) => arr!.set(sectionToArray(s), sy * SECTION_VOLUME));
+      chunks.set(key, arr);
+    }
     return arr[(y * 16 + (z & 15)) * 16 + (x & 15)]!;
   };
   const pick = async (seed: number, type: string, n: number): Promise<Feature[]> => {
@@ -230,6 +236,14 @@ describe('生成とのずれ: features の場所に 本当に その物が あ�
       let n = 0;
       for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) for (let dy = 0; dy <= 4; dy++) if (blockAt(seed, f.x + dx, f.y + dy, f.z + dz) === S) n++;
       expect(n, `(${f.x},${f.z})`).toBeGreaterThanOrEqual(15);
+      // 偶然の いしの がけ では 通らない: まん中の 列に いしが 3 つ以上 つながって 上に のびる（まるい山の 高さ 3〜4）
+      let run = 0;
+      let best = 0;
+      for (let dy = 0; dy <= 5; dy++) {
+        run = blockAt(seed, f.x, f.y + dy, f.z) === S ? run + 1 : 0;
+        best = Math.max(best, run);
+      }
+      expect(best, `(${f.x},${f.z}) まん中の 列の いしの 高さ`).toBeGreaterThanOrEqual(3);
     }
   });
   it('hatakeato: まわり 4 以内に やせいの やさい が 3 本以上', async () => {
@@ -240,6 +254,12 @@ describe('生成とのずれ: features の場所に 本当に その物が あ�
       let n = 0;
       for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) for (let dy = -1; dy <= 2; dy++) if (WILD.has(blockAt(seed, f.x + dx, f.y + dy, f.z + dz))) n++;
       expect(n, `(${f.x},${f.z})`).toBeGreaterThanOrEqual(3);
+      // 自然の くさの 地面では 通らない: やさいの 下は つち（上を つちに そろえた はたけあと。§2.3）
+      let onDirt = 0;
+      for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) for (let dy = -1; dy <= 2; dy++) {
+        if (WILD.has(blockAt(seed, f.x + dx, f.y + dy, f.z + dz)) && blockAt(seed, f.x + dx, f.y + dy - 1, f.z + dz) === BLOCK_INDEX.dirt) onDirt++;
+      }
+      expect(onDirt, `(${f.x},${f.z}) つちの上の やさい`).toBeGreaterThanOrEqual(3);
     }
   });
 });
