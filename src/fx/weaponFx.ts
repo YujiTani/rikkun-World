@@ -120,7 +120,7 @@ export class WeaponFx {
       case 'techMiss':
         break;
       case 'sweepStart':
-        playBladeSound(s, e); // LEGEND-4: ノームの斧 gnomeSwing
+        playBladeSound(s, e); // LEGEND-4: ノームの斧（音は なし）
         break;
       case 'stance':
         playBladeSound(s, e);

@@ -170,6 +170,7 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
       speed,
       position: { ...info.position },
       velocity: { ...info.velocity },
+      ...(ctx.item !== null ? { item: ctx.item } : {}), // 音が 弓を 見分ける ため（LEGEND-4）
     });
     deps.onShot();
   }

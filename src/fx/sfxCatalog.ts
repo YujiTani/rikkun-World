@@ -81,7 +81,10 @@ export const SFX_CATALOG: readonly SfxCatalogEntry[] = [
     ['shoot3', 'とばす 3'],
     ['arrowHit', 'やが あたる'],
     ['arrowStick', 'やが ささる'],
-    ['yataBurst', 'やたがらすの ほのお（ボフッ）'],
+    ['yataBurst', 'やたがらすの ほのお（ばしゅうー）'],
+    ['kokuryuShot', 'こくりゅう うつ（じゅうー）'],
+    ['yataShot', 'やたがらす うつ（カン）'],
+    ['tenshiPaa', 'てんしの ゆみ うつ（パアッ）'],
   ]),
   ...fromTable('weapon', PARRY_SOUNDS, [
     ['parrySwing', 'パリィを はじめる'],

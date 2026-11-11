@@ -2,6 +2,8 @@ import type { BladeEvent, BowEvent, WearEvent } from '../contracts';
 import { playCombat } from './combatSounds';
 import type { SoundFx, Tone } from './sound';
 import { box, hz, mar, noise, powan, swish, wood, xylo } from './sfxVoices';
+import { LEGEND4_SOUNDS } from './legend4Sounds';
+import { LEGEND4_ID } from '../content/items/ids';
 import { logSound } from './soundLog';
 
 /**
@@ -27,8 +29,6 @@ export const WEAPON_SOUNDS = {
   combo2: [...box(hz('E6'), hz('E6') * 1.01, 0, 0.07, 0.2)],
   /** WEAPON-6: 3 段目を 始めた「ピッ」（combo2 より 少し 高い。5 度） */
   combo3: [...box(hz('G6'), hz('G6') * 1.01, 0, 0.08, 0.2)],
-  /** LEGEND-4 ノームの斧 よこなぎ「ブンッ」: 低めの シャカ（下がる）＋ ぽわん（小さく 短い。くりかえす 行動なので 控えめ） */
-  gnomeSwing: [swish(1100, 380, 0, 0.16, 0.3, 0.6), powan(220, 140, 0.03, 0.12, 0.18, 0.02)],
   /** たいきゅう のこり わずか「ピピッ」: オルゴール 2 音 */
   wearLow: [...box(hz('G6'), hz('G6'), 0, 0.07, 0.35), ...box(hz('C7'), hz('C7'), 0.1, 0.1, 0.35)],
   /** こわれた「パキ ポロロン」: 木の「パキ」＋ オルゴールで下がる 3 音（最後ははねて明るく） */
@@ -53,13 +53,11 @@ export const WEAPON_SOUNDS = {
   arrowHit: wood(320, 180, 0, 0.06, 0.4),
   /** や が ブロックに ささった「トン」 */
   arrowStick: wood(210, 150, 0, 0.07, 0.45),
-  /** LEGEND-4 八咫烏の ほのお「ボフッ」: まるい ぽわんと 低い ふくらみ ＋ ふわっと した 空気 ＋ 上で きらっと 2 音（やさしい。大きく しない） */
-  yataBurst: [
-    powan(180, 90, 0, 0.22, 0.4, 0.01),
-    noise(0, 0.18, 0.16, { type: 'lowpass', freq: 900, freq1: 300, q: 0.7 }, 0.01),
-    ...box(hz('E6'), hz('E6') * 1.01, 0.03, 0.1, 0.18),
-    ...box(hz('A6'), hz('A6') * 1.01, 0.08, 0.14, 0.16),
-  ],
+  /** LEGEND-4: 黒龍・八咫烏・天使の弓の 音（`legend4Sounds.ts`） */
+  kokuryuShot: LEGEND4_SOUNDS.kokuryuShot,
+  yataShot: LEGEND4_SOUNDS.yataShot,
+  yataBurst: LEGEND4_SOUNDS.yataBurst,
+  tenshiPaa: LEGEND4_SOUNDS.tenshiPaa,
 } as const satisfies Record<string, readonly Tone[]>;
 
 export type WeaponSoundName = keyof typeof WEAPON_SOUNDS;
@@ -112,9 +110,7 @@ export function playBladeSound(sound: Pick<SoundFx, 'playTones'>, e: BladeEvent)
     case 'stance':
       playWeapon(sound, 'stance');
       break;
-    case 'sweepStart':
-      playWeapon(sound, 'gnomeSwing');
-      break;
+    case 'sweepStart': // LEGEND-4 ノームの斧: 専用の 音は なし（オーナー 2026-11-12）。当たりは techHit の ふつうの 音
     case 'techMiss':
     case 'cancel':
       break;
@@ -128,7 +124,13 @@ export function playBowSound(sound: Pick<SoundFx, 'play' | 'playTones'>, e: BowE
       playWeapon(sound, e.stage === 1 ? 'drawStage1' : e.stage === 2 ? 'drawStage2' : 'drawStage3');
       break;
     case 'arrowShot':
-      playWeapon(sound, e.stage === 1 ? 'shoot1' : e.stage === 2 ? 'shoot2' : 'shoot3');
+      // LEGEND-4: 黒龍・八咫烏は 専用の 音（ふつうの ビュンの かわり）。天使の弓は ビュンの 上に パアッ
+      if (e.item === LEGEND4_ID.kokuryu) playWeapon(sound, 'kokuryuShot');
+      else if (e.item === LEGEND4_ID.yatagarasu) playWeapon(sound, 'yataShot');
+      else {
+        playWeapon(sound, e.stage === 1 ? 'shoot1' : e.stage === 2 ? 'shoot2' : 'shoot3');
+        if (e.item === LEGEND4_ID.tenshi_yumi) playWeapon(sound, 'tenshiPaa');
+      }
       break;
     case 'arrowHit':
       playWeapon(sound, 'arrowHit');

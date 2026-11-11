@@ -104,7 +104,7 @@ export type BladeEvent =
   | { type: 'techMiss'; tick: number; tech: BladeTech; step?: BladeStep }
   | { type: 'stance'; tick: number; from: BladeStance; to: BladeStance }
   | { type: 'cancel'; tick: number }
-  /** LEGEND-4: ノームの斧の よこなぎを はじめた（音 `gnomeSwing`）。当たりは `techHit` */
+  /** LEGEND-4: ノームの斧の よこなぎを はじめた（専用の 音は なし）。当たりは `techHit` */
   | { type: 'sweepStart'; tick: number };
 
 /** 刀に 毎ステップ わたすもの。ふりわけ（わざ か ほる か しゅうかく）は つなぎ込みの DigSystem が 決めて、わざ なら techPressed / techHeld を 立てる */
@@ -222,7 +222,7 @@ export interface StuckArrowInfo {
 export type BowEvent =
   | { type: 'drawStart'; tick: number }
   | { type: 'stage'; tick: number; stage: 1 | 2 | 3 }
-  | { type: 'arrowShot'; tick: number; stage: 1 | 2 | 3; speed: number; position: Vec3; velocity: Vec3 }
+  | { type: 'arrowShot'; tick: number; stage: 1 | 2 | 3; speed: number; position: Vec3; velocity: Vec3; item?: ItemId }
   | { type: 'arrowHit'; tick: number; yokaiId: number; damage: number; position: Vec3 }
   | { type: 'arrowStick'; tick: number; position: Vec3 }
   | { type: 'arrowEnd'; tick: number; position: Vec3 }
