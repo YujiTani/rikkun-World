@@ -7,13 +7,13 @@
  *  ・体力が 半分（1/2。調整表 girl.hpFraction）以下に なると 噴火を 出して 上を 向いた まま 固まる（BGM が ぶつっと 切れる）→ 少女（gashaGirl.ts）が 笑い声 → ワープで 飛びまわる → 決めポーズ → 魔法 5 回 →
  *    大きな 姿の かたに 座って 休む（なぐると 大ダメージ）→ また 魔法、を たおすまで くりかえす。大きな 姿は 固まった まま（登れる・なぐれる）。
  *    少女の しくみは 先に 読みこんで ねかせて おき、固まった しゅんかんに summon() する。
- *  ・とどめ（体力 0 の 一撃）: 少女は その場に 座りこんで 動かない（無敵）→ 大きな 姿が 倒れて 赤い コアが 出る → コアを たたく たびに アイテムが ばらまかれる（PSO ふう。
- *    1 回ごとに レア素材の 一部、レア度の 色の 光の 柱つき）→ コアを こわすと 実績を 記録して、足袋 ＋ レア素材の 大きな 一山 → 大きな 姿も 少女も ボロボロに くずれて 消える。宝箱は ない（オーナー 2026-10-24 15:19）。
+ *  ・とどめ（体力 0 の 一撃）: 少女は その場に 座りこんで 動かない（無敵）→ 大きな 姿が 倒れて 赤い コアが 出る → 倒れおわると 大きな コアが 体の 外の 地面（プレイヤーの 方）に 出る → コアを たたく たびに アイテムが ばらまかれる（PSO ふう。
+ *    1 回ごとに レア素材の 一部、虹色の 光の 柱つき）→ コアを こわすと 実績を 記録して、足袋 ＋ レア素材の 大きな 一山 → 大きな 姿も 少女も ボロボロに くずれて 消える。宝箱は ない（オーナー 2026-10-24 15:19）。
  *  ・遠くは 世界が 読みこまれて いない ので、体の 高さは 読みこみ済みなら 世界の 地面（置いた ブロック込み）、未読みこみなら 地形から。地ならしは しない（浮いて 進む ので いらない。プレイヤーの 家・畑を 消さない）。
  * 数は ぜんぶ releaseTuning.ts。ゲームとの つなぎは ReleaseEnv（main.ts が 渡す）。
  */
 import type { Object3D } from 'three';
-import type { ItemId, ItemStack } from '../contracts';
+import type { ItemId, ItemStack, Rarity } from '../contracts';
 import type { GashaBigDeps } from './gashaBig';
 import { TUNE as BIG } from './gashaBigTuning';
 import { rewardRng, rollReward } from './reward';
@@ -75,7 +75,7 @@ export interface ReleaseEnv {
   /** 少女の 形態を 読みこんで 作る（初めの 1 回だけ）。ねかせて おき、summon() で はじまる。なければ 少女は 出ない */
   startGirl?(hooks: GirlHooks): Promise<GirlControl>;
   /** 落ちた アイテムとして ばらまく（DropField.scatter。1 回の 呼び出しが 1 つの 山 = 1 本の 光の 柱） */
-  scatter(at: { x: number; y: number; z: number }, stacks: readonly ItemStack[], opts?: { speedMin?: number; speedMax?: number; upMin?: number; upMax?: number }): void;
+  scatter(at: { x: number; y: number; z: number }, stacks: readonly ItemStack[], opts?: { speedMin?: number; speedMax?: number; upMin?: number; upMax?: number; glow?: Rarity }): void;
   /** 実績の 記録（`defeat:gashadokuro`） */
   record(key: string): void;
   /** 画面の ログに 出す 一言 */
@@ -354,14 +354,15 @@ export class GashaRelease {
     return RELEASE.reward.rare.map((row) => ({ item: row.item, count: Math.max(1, Math.round(randInt(rng, row.min, Math.max(row.min, row.max)) * C.hitScale)) }));
   }
 
-  private scatterStacks(at: { x: number; y: number; z: number }, stacks: readonly ItemStack[]): void {
-    const C = RELEASE.core;
-    for (const st of stacks) this.env.scatter(at, [st], { speedMin: C.scatterSpeed[0], speedMax: C.scatterSpeed[1], upMin: C.scatterUp[0], upMax: C.scatterUp[1] });
+  /** 山ごとに 1 回 ばらまく（山 = 1 本の 柱）。柱・光は 虹色（RELEASE.core.glow。アイテムの めずらしさは そのまま） */
+  private scatterStacks(at: { x: number; y: number; z: number }, stacks: readonly ItemStack[], speed: readonly [number, number], up: readonly [number, number]): void {
+    for (const st of stacks) this.env.scatter(at, [st], { speedMin: speed[0], speedMax: speed[1], upMin: up[0], upMax: up[1], glow: RELEASE.core.glow });
   }
 
   private coreHit(e: { x: number; y: number; z: number; n: number; left: number }): void {
     if (this.st !== 'present') return;
-    this.scatterStacks({ x: e.x, y: e.y + RELEASE.core.dropUp, z: e.z }, this.hitStacks(e.n));
+    // e = 外へ 出た 大きな コアの 中心。その 上の 面から（地面より 下に ならない）
+    this.scatterStacks({ x: e.x, y: e.y + BIG.finish.core.size / 2 + RELEASE.core.dropUp, z: e.z }, this.hitStacks(e.n), RELEASE.core.scatterSpeed, RELEASE.core.scatterUp);
     this.env.sound?.('levelUp');
   }
 
@@ -375,7 +376,8 @@ export class GashaRelease {
     this.env.record('defeat:gashadokuro');
     this.env.say('がしゃどくろ を たおした！');
     const stacks = rollReward(rewardRng(this.env.seed, this.killCount), RELEASE.reward, this.env.ninja?.() ?? { book: [], have: [] });
-    this.scatterStacks({ x: e.x, y: e.y + RELEASE.core.dropUp, z: e.z }, stacks);
+    const P = RELEASE.core.pile;
+    this.scatterStacks({ x: e.x, y: e.y + BIG.finish.core.size / 2 + P.upBlocks, z: e.z }, stacks, P.scatterSpeed, P.scatterUp);
     for (const st of stacks) if (isNinjaGear(st.item)) this.env.dropped?.(st.item, 'gasha');
     this.env.sound?.('ready');
     this.girl?.crumble();

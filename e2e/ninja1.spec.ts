@@ -36,7 +36,7 @@ async function killAndCollect(page: Page) {
     const w = window as any, h = w.__rikkun, gt = w.__gt;
     const NINJA = ['ninja_zukin', 'ninja_shozoku', 'ninja_tekko', 'ninja_tabi'];
     h.combat.events();
-    w.__gashaBig.damage('core', 1e6);
+    w.__gashaBig.damage('outCore', 1e6);
     const telops = new Map<string, { item: string | null; text: string }>();
     const watch = (n: number) => {
       for (let i = 0; i < n; i++) {

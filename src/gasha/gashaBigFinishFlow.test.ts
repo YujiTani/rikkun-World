@@ -7,7 +7,7 @@ import { startGashaBig, type GashaBigDeps, type GashaBigHandle } from './gashaBi
 function rig() {
   const ups: ((dt: number) => void)[] = [];
   const st = { x: 0, y: 0, z: 0, yawDeg: 30 };
-  const log = { stops: [] as number[], shakes: [] as number[], vel: [] as { x: number; y: number; z: number }[], defeated: 0, hits: [] as { n: number; left: number }[], broken: 0, vanished: 0, nudged: 0 };
+  const log = { stops: [] as number[], shakes: [] as number[], vel: [] as { x: number; y: number; z: number }[], defeated: 0, hits: [] as { n: number; left: number; y: number }[], broken: 0, vanished: 0, nudged: 0 };
   let blockFn: () => boolean = () => false;
   const hooks: { vanished: (() => void) | null } = { vanished: null };
   const deps: GashaBigDeps = {
@@ -27,7 +27,7 @@ function rig() {
     hitStop: (n) => { log.stops.push(n); },
     shake: (a) => { log.shakes.push(a); },
     onDefeated: () => { log.defeated++; },
-    onCoreHit: (e) => { log.hits.push({ n: e.n, left: e.left }); },
+    onCoreHit: (e) => { log.hits.push({ n: e.n, left: e.left, y: e.y }); },
     onCoreBroken: () => { log.broken++; },
     onVanished: () => { log.vanished++; hooks.vanished?.(); },
   };
@@ -92,13 +92,15 @@ describe('とどめ → 倒れる → 赤い コア → たたく → くずれ�
     const topNow = Math.max(...r.h.colliders().map((c) => c.center[1] + Math.abs(c.axes[0][1]) * c.half[0] + Math.abs(c.axes[1][1]) * c.half[1] + Math.abs(c.axes[2][1]) * c.half[2]));
     expect(topNow).toBeLessThan(30);
     for (let k = 0; k < 3; k++) {
-      expect(r.h.damage('core', 5)).toBe(1);
+      expect(r.h.damage('outCore', 5)).toBe(1);
       r.step(T.finish.core.hitGapSec + 0.05);
     }
-    expect(r.log.hits).toEqual([{ n: 1, left: 2 }, { n: 2, left: 1 }, { n: 3, left: 0 }]);
+    expect(r.log.hits.map((h) => [h.n, h.left])).toEqual([[1, 2], [2, 1], [3, 0]]);
+    // 外へ 出た コア: 地面(groundY = 0。立つ 面 = 1)の 上に 乗って いて、地面から 刀で とどく 高さ（中心 = 面 ＋ size/2）
+    for (const h of r.log.hits) expect(h.y).toBeCloseTo(1 + T.finish.core.size / 2, 3);
     expect(r.log.broken).toBe(1);
     expect(r.h.finishInfo().phase).toBe('crumble');
-    expect(r.h.damage('core', 5)).toBe(0); // こわした あとは もう 数えない
+    expect(r.h.damage('outCore', 5)).toBe(0); // こわした あとは もう 数えない
     r.step(T.finish.crumble.sec * 0.5);
     expect(r.h.finishInfo().chunks).toBeGreaterThan(0); // かけらが 出ている
     expect(r.h.group.visible).toBe(true);
@@ -114,7 +116,7 @@ describe('とどめ → 倒れる → 赤い コア → たたく → くずれ�
     r.hooks.vanished = () => { r.h.despawn(); };
     r.h.damage('core', 1e6);
     r.step(T.finish.fall.delaySec + T.finish.fall.sec + T.finish.core.redSec + 0.2);
-    for (let k = 0; k < 3; k++) { r.h.damage('core', 5); r.step(T.finish.core.hitGapSec + 0.05); }
+    for (let k = 0; k < 3; k++) { r.h.damage('outCore', 5); r.step(T.finish.core.hitGapSec + 0.05); }
     expect(() => r.step(T.finish.crumble.sec + 1)).not.toThrow();
     expect(r.log.vanished).toBe(1);
     expect(r.h.finishInfo().phase).toBe('off');

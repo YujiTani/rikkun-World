@@ -38,7 +38,7 @@ const untilPhase = (page: Page, phase: string, max = 1500) =>
 const info = (page: Page) => page.evaluate(() => (window as any).__rikkun.gasha.info() as { state: string; form: string; kills: number });
 
 /** 落ちている 袋（ドロップ）の 一覧: id と 中身 */
-const bags = (page: Page) => page.evaluate(() => ((window as any).__rikkun.combat.bags() as { id: number; slots: { item: string; count: number }[] }[]).map((b) => ({ id: b.id, slots: b.slots.map((s) => ({ item: s.item, count: s.count })) })));
+const bags = (page: Page) => page.evaluate(() => ((window as any).__rikkun.combat.bags() as { id: number; rarity: string; slots: { item: string; count: number }[] }[]).map((b) => ({ id: b.id, rarity: b.rarity, slots: b.slots.map((s) => ({ item: s.item, count: s.count })) })));
 
 test.describe('とどめの 直後', () => {
   test('体力まんたんから 1 撃で とどめ（少女は 呼ばれて いない）→ 倒れて コア → こわすと 実績 1 回 → 消える', async ({ page }) => {
@@ -55,13 +55,13 @@ test.describe('とどめの 直後', () => {
     expect(mid.state, 'コアを こわす まで は 倒れた だけ').toBe('present');
     expect(mid.kills, 'こわす まで 数えない').toBe(pre.kills);
     expect(mid.ach, 'こわす まで 実績は つかない').toBe(pre.ach);
-    await page.evaluate(() => { const w = window as any; for (let k = 0; k < 2; k++) { w.__gashaBig.damage('core', 1e6); w.__rikkun.step(30); } w.__rikkun.achievements.flush(); w.__rikkun.step(2); });
+    await page.evaluate(() => { const w = window as any; for (let k = 0; k < 2; k++) { w.__gashaBig.damage('outCore', 1e6); w.__rikkun.step(30); } w.__rikkun.achievements.flush(); w.__rikkun.step(2); });
     const post = await page.evaluate(() => { const w = window as any; return { ach: w.__rikkun.achievements.stats()['defeat:gashadokuro'] ?? 0, kills: w.__rikkun.gasha.info().kills, state: w.__rikkun.gasha.info().state }; });
     expect(post.state).toBe('defeated');
     expect(post.kills).toBe(pre.kills + 1);
     expect(post.ach, '実績は ちょうど 1 回').toBe(pre.ach + 1);
     // こわれた あとの 余分な 一撃は 数えない
-    await page.evaluate(() => { const w = window as any; for (let k = 0; k < 5; k++) { w.__gashaBig.damage('core', 1e6); w.__rikkun.step(30); } w.__rikkun.achievements.flush(); });
+    await page.evaluate(() => { const w = window as any; for (let k = 0; k < 5; k++) { w.__gashaBig.damage('outCore', 1e6); w.__rikkun.step(30); } w.__rikkun.achievements.flush(); });
     expect((await info(page)).kills).toBe(pre.kills + 1);
     const st = await page.evaluate(() => { const w = window as any; return w.__gt.until(() => w.__rikkun.gasha.state() === 'idle', 1500, () => w.__gt.heal()) as number; });
     expect(st, 'くずれて 消える').toBeGreaterThan(0);
@@ -77,16 +77,16 @@ test.describe('とどめの 直後', () => {
       const o: any = {};
       w.__rikkun.gasha.defeat();
       w.__rikkun.step(2);
-      o.blow = g.finishInfo().phase; g.damage('core', 1e6); o.coreAtBlow = g.finishInfo().coreHp;
+      o.blow = g.finishInfo().phase; g.damage('outCore', 1e6); o.coreAtBlow = g.finishInfo().coreHp;
       gt.until(() => g.finishInfo().phase === 'fall', 600, () => gt.heal());
-      g.damage('core', 1e6); o.coreAtFall = g.finishInfo().coreHp;
+      g.damage('outCore', 1e6); o.coreAtFall = g.finishInfo().coreHp;
       gt.until(() => g.finishInfo().phase === 'lie', 900, () => gt.heal());
       o.lie = g.finishInfo().phase;
-      g.damage('core', 1e6); g.damage('core', 1e6); // 同じ コマの 2 回目
+      g.damage('outCore', 1e6); g.damage('outCore', 1e6); // 同じ コマの 2 回目
       o.afterTwo = g.finishInfo().coreHp;
-      gt.run(Math.ceil(0.15 * 60), () => gt.heal()); g.damage('core', 1e6); // 間かくの 半分
+      gt.run(Math.ceil(0.15 * 60), () => gt.heal()); g.damage('outCore', 1e6); // 間かくの 半分
       o.halfGap = g.finishInfo().coreHp;
-      gt.run(Math.ceil(0.3 * 60) + 2, () => gt.heal()); g.damage('core', 1e6); // 間かくが あいた
+      gt.run(Math.ceil(0.3 * 60) + 2, () => gt.heal()); g.damage('outCore', 1e6); // 間かくが あいた
       o.afterGap = g.finishInfo().coreHp;
       return o;
     });
@@ -135,10 +135,12 @@ test.describe('コアの ドロップ', () => {
     expect(seen.size, 'たたく 前は 何も おちて いない').toBe(0);
     const perHit: Record<string, number>[] = [];
     for (let k = 0; k < CORE.hits - 1; k++) {
-      await page.evaluate((gapFrames) => { const w = window as any; w.__gashaBig.damage('core', 1e6); w.__gt.run(gapFrames, () => w.__gt.heal()); }, Math.ceil(CORE.hitGapSec * 60) + 3);
+      await page.evaluate((gapFrames) => { const w = window as any; w.__gashaBig.damage('outCore', 1e6); w.__gt.run(gapFrames, () => w.__gt.heal()); }, Math.ceil(CORE.hitGapSec * 60) + 3);
       const now = await bags(page);
       const fresh = now.filter((b) => !seen.has(b.id));
       for (const b of now) seen.add(b.id);
+      expect(fresh.length, `${k + 1} 回目に 袋が 出る`).toBeGreaterThan(0);
+      expect(fresh.every((b) => b.rarity === 'legendary'), '柱・光は 虹色（7 段目）').toBe(true);
       const sum: Record<string, number> = {};
       for (const b of fresh) for (const s of b.slots) sum[s.item] = (sum[s.item] ?? 0) + s.count;
       perHit.push(sum);
@@ -153,7 +155,7 @@ test.describe('コアの ドロップ', () => {
     }
     expect((await info(page)).kills).toBe(0);
     // 最後の 一撃: こわれる → 大きな 一山
-    await page.evaluate((gapFrames) => { const w = window as any; w.__gashaBig.damage('core', 1e6); w.__gt.run(gapFrames, () => w.__gt.heal()); }, Math.ceil(CORE.hitGapSec * 60) + 3);
+    await page.evaluate((gapFrames) => { const w = window as any; w.__gashaBig.damage('outCore', 1e6); w.__gt.run(gapFrames, () => w.__gt.heal()); }, Math.ceil(CORE.hitGapSec * 60) + 3);
     const now = await bags(page);
     const big: Record<string, number> = {};
     for (const b of now.filter((b) => !seen.has(b.id))) for (const s of b.slots) big[s.item] = (big[s.item] ?? 0) + s.count;
@@ -224,7 +226,7 @@ test.describe('どの 場面で とどめを うけても', () => {
       if (stage !== 'freeze') expect(a.girl, '少女は 座りこむ').toBe('down');
       expect(await untilPhase(page, 'lie')).toBeGreaterThan(0);
       const takenBefore = await page.evaluate(() => { const gt = (window as any).__gt; gt.drain(); return gt.takenTotal() as number; });
-      await page.evaluate(() => { const w = window as any; for (let k = 0; k < 2; k++) { w.__gashaBig.damage('core', 1e6); w.__rikkun.step(30); } });
+      await page.evaluate(() => { const w = window as any; for (let k = 0; k < 2; k++) { w.__gashaBig.damage('outCore', 1e6); w.__rikkun.step(30); } });
       const b = await page.evaluate(() => { const w = window as any; return { girl: w.__gashaGirl.phase(), kills: w.__rikkun.gasha.info().kills, form: w.__rikkun.gasha.info().form }; });
       expect(b.kills).toBe(1);
       expect(b.form).toBe('crumble');
@@ -261,7 +263,7 @@ test.describe('とどめの 途中で 片づける（despawn）', () => {
       await page.evaluate(() => { const w = window as any; w.__rikkun.gasha.defeat(); w.__rikkun.step(2); });
       if (phase !== 'blow') {
         expect(await untilPhase(page, phase === 'crumble' ? 'lie' : phase)).toBeGreaterThanOrEqual(0);
-        if (phase === 'crumble') await page.evaluate(() => { const w = window as any; for (let k = 0; k < 2; k++) { w.__gashaBig.damage('core', 1e6); w.__rikkun.step(30); } });
+        if (phase === 'crumble') await page.evaluate(() => { const w = window as any; for (let k = 0; k < 2; k++) { w.__gashaBig.damage('outCore', 1e6); w.__rikkun.step(30); } });
       }
       const kills = (await info(page)).kills;
       expect(kills).toBe(phase === 'crumble' ? 1 : 0);
@@ -313,7 +315,7 @@ test.describe('たおした 数の 保存（v2）', () => {
     const kill = async () => {
       await page.evaluate(() => (window as any).__rikkun.gasha.defeat());
       expect(await untilPhase(page, 'lie')).toBeGreaterThanOrEqual(0);
-      await page.evaluate(() => { const w = window as any; w.__gashaBig.damage('core', 1e6); w.__rikkun.step(30); });
+      await page.evaluate(() => { const w = window as any; w.__gashaBig.damage('outCore', 1e6); w.__rikkun.step(30); });
       const gone = await page.evaluate(() => { const w = window as any; return w.__gt.until(() => w.__rikkun.gasha.state() === 'idle', 1500, () => w.__gt.heal()) as number; });
       expect(gone).toBeGreaterThan(0);
     };
@@ -361,7 +363,7 @@ test.describe('置いた ブロック', () => {
     await page.evaluate(() => { (window as any).__gashaGirl.tune({ eye: { turnsPerShow: 1, bigWaitSec: 600 }, timing: { goneSec: 0.2 } }); (window as any).__gg.hpTo(0.3); });
     await page.evaluate(() => { const w = window as any; w.__gg.untilForm('perch'); w.__gt.until(() => w.__gashaGirl.phase() === 'perch', 900, () => w.__gt.heal()); w.__rikkun.gasha.defeat(); });
     expect(await untilPhase(page, 'lie')).toBeGreaterThan(0);
-    await page.evaluate(() => { const w = window as any; for (let k = 0; k < 2; k++) { w.__gashaBig.damage('core', 1e6); w.__rikkun.step(30); } });
+    await page.evaluate(() => { const w = window as any; for (let k = 0; k < 2; k++) { w.__gashaBig.damage('outCore', 1e6); w.__rikkun.step(30); } });
     const gone = await page.evaluate(() => { const w = window as any; return w.__gt.until(() => w.__rikkun.gasha.state() === 'idle', 1500, () => w.__gt.heal()) as number; });
     expect(gone).toBeGreaterThan(0);
     await page.evaluate(() => (window as any).__rikkun.step(30));

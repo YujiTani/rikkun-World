@@ -148,7 +148,7 @@ test.describe('1. たおした 後は 動かない', () => {
     await quickCore(page, 3);
     await swordKill(page);
     expect(await untilLie(page)).toBeGreaterThanOrEqual(0);
-    await page.evaluate(() => { const w = window as any; w.__gashaBig.damage('core', 1); w.__rikkun.step(30); });
+    await page.evaluate(() => { const w = window as any; w.__gashaBig.damage('outCore', 1); w.__rikkun.step(30); });
     const bags = await page.evaluate(() => ((window as any).__rikkun.combat.bags() as { id: number; x?: number; y?: number; z?: number; position?: { x: number; y: number; z: number } }[]).length);
     expect(bags, 'ドロップが ばらまかれた').toBeGreaterThan(0);
     // 落ちた 場所へ 歩いて ひろう（袋の 場所へ プレイヤーを 立たせる）
@@ -452,7 +452,7 @@ test.describe('5. 少女の 間は 大きな 姿の 体・コアは ダメージ
     expect(big, '大きな 姿の 間').toBeGreaterThan(0);
     await page.evaluate(() => (window as any).__rikkun.gasha.defeat());
     expect(await untilLie(page)).toBeGreaterThanOrEqual(0);
-    await page.evaluate(() => { const w = window as any; w.__gashaBig.damage('core', 1); w.__rikkun.step(5); });
+    await page.evaluate(() => { const w = window as any; w.__gashaBig.damage('outCore', 1); w.__rikkun.step(5); });
     expect(await page.evaluate(() => (window as any).__gashaBig.finishInfo().coreHp), 'コアが たたける').toBe(2);
     expect(errs).toEqual([]);
   });
