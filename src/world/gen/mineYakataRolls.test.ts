@@ -6,7 +6,7 @@ import { spawnOf } from './terrain';
 /**
  * MINE-1F（docs/design/MINE-1F.md §4.1・§6.2 の F1・F20）: やかたの くじと 見た目の くじ〔計画だけ。ブロックは 作らない〕。
  *
- *   F1: シード いくつかの ふかい 1E の 坑道 **700 こ 以上**〔`yakataRolls`〕で `hit` の わりあいが 表の `chance` ± 0.06・当たりの 8 割 以上に 置ける〔`placed`〕。
+ *   F1: シード いくつかの ふかい 1E の 坑道 **700 こ 以上**〔`yakataRolls`〕で `hit` の わりあいが 表の `chance` ± 0.06・当たりの 7 割 以上に 置ける〔`placed`。標本 200 本・PO の 決め〕。
  *       はじまりの 坑道〔20 シード〕・`gen: 'c'` の 坑道・ふかく ない 坑道は いつも `yakata` が null。同じ シードは 同じ。
  *   F20: 当たり **1,000 こ 以上**で `look` が `maou` の わりあいが 表の `looks.maou` ± 0.05・当たりで ない 坑道は `look` null・同じ シードは 同じ `look`〔ほかの 列を 先に 作っても〕。
  *        見た目が ほかに ひびかない〔20 こ。モジュールの `yakataPlanFor(seed, id, { looks })` を `{ 1, 0 }` と `{ 0, 1 }` で くらべる〕。A・B の ブロックの id は かさならない。
@@ -19,6 +19,9 @@ vi.setConfig({ testTimeout: 900_000 });
 
 /** 仕様の 数の 下限〔F1 700・F20 1,000〕 */
 const NEED = { deep: 700, hits: 1000 } as const;
+/** 「当たりの うち 置けた」を 見る 標本の 数と しきい〔PO の 決め〕 */
+const PLACED_SAMPLE = 200;
+const PLACED_MIN = 0.7;
 
 const plans = import.meta.glob<{ yakataPlanFor?: (seed: number, shaftId: string, opt?: { looks?: Record<Look, number> }) => YakataPlan | null }>('./mineYakataPlan.ts', { eager: true });
 const planFor = (): NonNullable<(typeof plans)[string]['yakataPlanFor']> => {
@@ -42,13 +45,17 @@ describe('F1: くじ', () => {
     expect(all.length, `ふかい 1E の 坑道〔${used} シード〕`).toBeGreaterThanOrEqual(NEED.deep);
   });
 
-  it('当たりの わりあいが 表の chance ± 0.06・当たりの 8 割 以上に 置ける〔placed〕・置けた ものは 当たり', () => {
+  it('当たりの わりあいが 表の chance ± 0.06・当たりの 7 割 以上に 置ける〔placed。標本 200 本〕・置けた ものは 当たり', () => {
     const T = tableOf();
     expect(all.length, 'ふかい 1E の 坑道').toBeGreaterThanOrEqual(NEED.deep);
     const hit = all.filter((r) => r.roll.hit);
     expect(Math.abs(hit.length / all.length - T.chance), `当たり ${hit.length} / ${all.length}`).toBeLessThanOrEqual(0.06);
-    const placed = hit.filter((r) => r.roll.placed);
-    expect(placed.length / hit.length, `置けた ${placed.length} / 当たり ${hit.length}`).toBeGreaterThanOrEqual(0.8);
+    // 「置けた」は 計画が いる ので 標本は 先頭の 200 本。しきいは PO の 決めで 7 割 以上〔1D の D14 と 同じ あつかい。遊びの やかたの 数は chance を 上げて 合わせる〕
+    const head = all.slice(0, PLACED_SAMPLE);
+    const headHit = head.filter((r) => r.roll.hit);
+    const placed = headHit.filter((r) => r.roll.placed);
+    expect(headHit.length, `先頭 ${PLACED_SAMPLE} 本の 当たり`).toBeGreaterThan(0);
+    expect(placed.length / headHit.length, `置けた ${placed.length} / 当たり ${headHit.length}`).toBeGreaterThanOrEqual(PLACED_MIN);
     expect(all.filter((r) => r.roll.placed && !r.roll.hit).length, '当たりで ないのに 置けた').toBe(0);
   });
 
