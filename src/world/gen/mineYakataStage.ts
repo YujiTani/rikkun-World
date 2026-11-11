@@ -2,7 +2,7 @@ import { SEA_Y } from '../../contracts';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { chestBlockId } from '../blocks/chestBlock';
 import { colKey } from '../stream/ring';
-import { BOKEN_TUNING, SHAPE_TABLE } from './mineBokenConfig';
+import { SHAPE_TABLE } from './mineBokenConfig';
 import { roadSpots } from './mineBokenSides';
 import { keyOf } from './mineShaftBuild';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
@@ -41,6 +41,10 @@ const PATH_MARGIN = 2;
 /** 1D の 部屋・坑道の へやと の あいだ〔マス。箱どうし〕 */
 const CAVE_MARGIN = 4;
 const ROOM_MARGIN = 2;
+/** 同じ 階と みなす 高さの ちがい〔マス。以下〕 */
+const FLOOR_NEAR = 6;
+/** 同じ 口で ためす 横穴の 長さの 種類〔くじ・みじかい・ながい〕 */
+const LENGTHS = 3;
 
 /** 道の 足の マスが 大広間・横穴に ちかすぎないか〔yakataReport の placeProblemsF と 同じ きまり〕 */
 function pathClear(path: readonly PathCell[], sh: YakataShape): boolean {
@@ -65,11 +69,14 @@ function terrainOk(G: Geo, seed: number, sh: YakataShape): boolean {
   for (const x of [sh.hall.x1 + 3]) for (const z of [sh.hall.z1 + 3]) pts.push({ x, z, roof: hallRoof });
   for (const p of sh.passage) pts.push({ x: p.x, z: p.z, roof: p.y + T.passage.height + 1 });
   for (const q of pts) {
-    if (G.special(q.x, q.z, 2) || G.nearMouth(q.x, q.z, 3)) return false;
+    let thin = false;
     for (const ground of [G.h(q.x, q.z), heightAt(seed, q.x, q.z)]) {
       const need = ground <= SEA_Y - 1 ? C.sea : C.ground;
       if (ground - q.roof < need) return false;
+      if (ground - q.roof < TUNE.specialDepth) thin = true;
     }
+    // いけ・溶岩・はじまりの 岩山・洞くつの 口は 上の 石が うすい ときだけ さける〔ふかければ ひびかない〕
+    if (thin && (G.special(q.x, q.z, 2) || G.nearMouth(q.x, q.z, 3))) return false;
   }
   return true;
 }
@@ -84,26 +91,32 @@ export function* yakataStage(env: StageEnv, planned: Planned): Generator<void, b
   if (shaft.gen !== 'e' || shaft.style?.depth !== 'fukai' || !plan.boken || !yakataHit(seed, rx, rz)) return false;
   const bottom = plan.boken.bottom;
   const rng = createRng(hashInts(subSeed(seed, TUNE.tags.plan), rx, rz));
-  const cands = shuffle(rng, roadSpots(bottom).flatMap((sp) => [-1, 1].map((sgn) => ({ sp, sgn }))));
-  const others: Pt[] = [...shaft.sides.map((d) => d.from), ...(shaft.maze ? [shaft.maze.entrance] : []), ...(shaft.branches ?? []).map((b) => b.from)];
+  // 口の 候補: いちばん 下の 階の 本道
+  const spots = roadSpots(bottom).map((sp) => ({ hub: sp.hub, at: bottom.main[sp.i]! as { x: number; z: number } }));
+  const cands = shuffle(rng, spots.flatMap((sp) => [-1, 1].map((sgn) => ({ sp, sgn }))));
+  // 口の あいだは 同じ 階の 口だけ くらべる〔ほかの 階の 口は 高さが ちがい ぶつからない〕
+  const others: Pt[] = [...shaft.sides.map((d) => d.from), ...(shaft.maze ? [shaft.maze.entrance] : []), ...(shaft.branches ?? []).map((b) => b.from)].filter((p) => Math.abs(p.y - bottom.y) <= FLOOR_NEAR);
   const mouths = [...plan.boken.mouths, ...others.map((p) => ({ x: p.x, z: p.z }))];
-  const y = bottom.y;
   let tried = 0;
-  const lim = Math.min(SHAPE_TABLE.limit.tries.yakata, cands.length);
+  const lim = Math.min(SHAPE_TABLE.limit.tries.yakata, cands.length * LENGTHS);
   const work = shaft.work!;
   for (let i = 0; i < lim; i++) {
     tried++;
     work.yakata = tried;
     yield;
-    const { sp, sgn } = cands[i]!;
-    const o = bottom.main[sp.i]!;
+    const { sp, sgn } = cands[i % cands.length]!;
     const fr = sp.hub.frame;
+    const y = sp.hub.y;
     const t = { x: fr.lx * sgn, z: fr.lz * sgn };
     const w = { x: fr.ux, z: fr.uz };
+    const v = sgn > 0 ? sp.hub.vMax - 1 : sp.hub.vMin + 1; // 道は かべが ±2、ひろばは はしの かべ
+    const o = { x: sp.at.x + fr.lx * v, y, z: sp.at.z + fr.lz * v };
     const mouth = { x: o.x + t.x * 2, y, z: o.z + t.z * 2 };
-    if (mouths.some((m) => cheb(m, o) < BOKEN_TUNING.mouthGap || cheb(m, mouth) < BOKEN_TUNING.mouthGap)) continue;
-    const length = randInt(rng, T.passage.length[0], T.passage.length[1]);
-    const sh = yakataShape({ o: { x: o.x, y, z: o.z }, t, w, y, length, rng: createRng(hashInts(subSeed(seed, TUNE.tags.spots), rx, rz, i)) });
+    if (mouths.some((m) => cheb(m, mouth) < TUNE.mouthGap)) continue; // 口どうし〔テストも 口の 場所で くらべる〕
+    const [lo, hi] = T.passage.length;
+    const length = Math.floor(i / cands.length) === 0 ? randInt(rng, lo, hi) : Math.floor(i / cands.length) === 1 ? lo : hi; // 1 まわり目は くじ、2・3 まわり目は いちばん みじかい・ながい
+
+    const sh = yakataShape({ o, t, w, y, length, rng: createRng(hashInts(subSeed(seed, TUNE.tags.spots), rx, rz, i)) });
     if (sh.spawns.length < T.spawn.perZone * 3) continue;
     const box = yakataBoxOf(sh);
     if (box.x0 - rx * R < 2 || box.z0 - rz * R < 2 || (rx + 1) * R - 1 - box.x1 < 2 || (rz + 1) * R - 1 - box.z1 < 2) continue;
