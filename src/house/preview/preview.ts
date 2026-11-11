@@ -195,6 +195,11 @@ export class Preview3D implements PreviewPort {
     const v = this.views.outside;
     if (turn) v.turnTo(c.turn === 'back' ? cueTarget(v.yaw) : PREVIEW.stillYawDeg, reduced ? 1 : PREVIEW.turnFrames);
     if (c.parts.length === 0) {
+      // なし・はずす: 光る 物が ない。前の かわりで 光って いる 光りも 消す（回りは そのまま）
+      if (this.glow.cueing) {
+        this.glow.dropCue();
+        this.glowMesh.setCue([], s.w, s.d);
+      }
       this.builds++;
       return;
     }

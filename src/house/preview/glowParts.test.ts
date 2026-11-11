@@ -139,6 +139,19 @@ describe('AC8 ② あかりを かえると 見本の あかりが 1 回 光る'
   });
 });
 
+describe('AC8 なしに かえたら 前の 光りは 消える', () => {
+  it('やねを かわらに → すぐ なしに かえる と glow.parts は []（光りが 残らない）', () => {
+    const p = new Preview3D(fake, () => false);
+    p.setShape(st(), 'outside');
+    run(p, PREVIEW.glowFrames + 5);
+    p.setShape(st({ roof: 'kawara_mura' }), 'outside');
+    run(p, 5);
+    expect(glowOf(p)?.parts, 'かわらで 光る').toEqual(['roof']);
+    p.setShape(st({ roof: 'none' }), 'outside');
+    expect(glowOf(p)?.parts ?? [], 'なしで 光りは 消える').toEqual([]);
+  });
+});
+
 describe('AC8 ポップアップの しゅるいの ボタンに のせて いる 間は その ばしょが 光る（回らない）', () => {
   /** 光り 1 回が おわった そとの 見本を 作る */
   function shown(over: Record<string, unknown> = {}) {
