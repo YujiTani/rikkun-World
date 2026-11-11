@@ -56,7 +56,8 @@ function kill(r: Rig, kind: YokaiKind, title: 'none' | 'oyabun' | 'taisho' | 'nu
 /** PR2 で 表が 2 本（雷神剣・風神剣）に なった ので、「レジェンダリーが 1 本」は どちらかで 数える */
 // WEAPON-9 で 虹も 表に 入った（3 本）
 // SAMURAI-1（#300）: 表に 侍装備 4 つも 入った（帳が 空の この 準備では 7 行から 1 つ）。「レジェンダリーが 1 本」は 武器 3 ＋ 侍装備 4 の どれか 1 つで 数える
-const LEGENDS = ['raijin_ken', 'fujin_ken', 'niji', 'samurai_jingasa', 'samurai_haori', 'samurai_tekko', 'samurai_geta'] as ItemId[];
+// LEGEND-4 §9: 武器の 行は 設定の 表（nushiDrops）から 数える。武器が ふえても 直さない
+const LEGENDS = createW2Settings().nushiDrops.map((d) => d.item) as ItemId[];
 const isLegend = (x: ItemId) => LEGENDS.includes(x);
 
 describe('WEAPON-7 AC5: ヌシの 表（かならず 1 本）', () => {

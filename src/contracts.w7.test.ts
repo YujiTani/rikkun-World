@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { M6_SETTING_DEFAULTS, W2_SETTING_DEFAULTS, createW2Settings } from './contracts';
 import { ITEM_TYPES } from './inventory/items';
 import { itemRarity } from './drops/rarity';
-import { ACHIEVEMENT_DEFS } from './achievements/defs';
+import { ACHIEVEMENT_DEFS, LEGEND_NAMES } from './achievements/defs';
 import { BLADE_ITEMS } from './tools/blade/BladeSystem';
 import { bladeReachOf } from './tools/blade/advance';
 import { findUnrubiedKanji, ruby } from './ui/text';
@@ -36,8 +36,11 @@ describe('WEAPON-7 AC1: legendary の 初期値（雷神剣 ＋ PR2 の 風神�
   });
   it('nushiDrops の 初期値 = legendary の ぜんぶ ＋ 侍装備 4 つ・weight 1', () => {
     // SAMURAI-1（#300）で 期待が 変わった: 侍装備 4 行（weight 1）が 武器 3 行の あとに 足される（順は 雷神剣・風神剣・虹・陣笠・羽織・手甲・下駄）
+    // LEGEND-4 §9: 武器の 行は 登録表（legendary の 定義）から 数える（武器が ふえても 直さない）
+    const weapons = (S().legendary as unknown as Def[]).map((d) => ({ item: d.item, weight: 1 }));
+    expect(weapons.length).toBeGreaterThan(0);
     expect(S().nushiDrops).toEqual([
-      { item: 'raijin_ken', weight: 1 }, { item: 'fujin_ken', weight: 1 }, { item: 'niji', weight: 1 }, // PR2: 風神剣・WEAPON-9: 虹も
+      ...weapons,
       { item: 'samurai_jingasa', weight: 1 }, { item: 'samurai_haori', weight: 1 }, { item: 'samurai_tekko', weight: 1 }, { item: 'samurai_geta', weight: 1 },
     ]);
   });
@@ -128,9 +131,9 @@ describe('WEAPON-7 AC12: 実績', () => {
     expect(a!.small).toBe(false);
     expect(b!.small).toBe(false);
   });
-  it('PR3 まで（get.* は 雷神剣・風神剣・虹、legend.kinds は 1・2・3 の 段）', () => {
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('get.')).map((d) => d.id)).toEqual(['get.raijin_ken.1', 'get.fujin_ken.1', 'get.niji.1']);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('legend.kinds.')).map((d) => d.id)).toEqual(['legend.kinds.1', 'legend.kinds.2', 'legend.kinds.3']);
+  it('get.* は 登録表（LEGEND_NAMES）の 武器ごと、legend.kinds は 武器の 数だけの 段（LEGEND-4 §9 で 表から 数える 形に）', () => {
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('get.')).map((d) => d.id)).toEqual(LEGEND_NAMES.map(([id]) => `get.${id}.1`));
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('legend.kinds.')).map((d) => d.id)).toEqual(LEGEND_NAMES.map((_, i) => `legend.kinds.${i + 1}`)); // 表から 数える（LEGEND-4 §9・#311）
   });
   it('AC26: get.fujin_ken.1 と legend.kinds.2 の 名前・分類・小で ない・はば（§2.5）', () => {
     const a = def('get.fujin_ken.1');
