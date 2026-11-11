@@ -45,11 +45,20 @@ export function createYakataHook(o: YakataHookOptions, shafts: () => ShaftWorld)
     yakataTable: () => structuredClone(YAKATA_TABLE),
     yakataRolls(x0: number, z0: number, x1: number, z1: number): YakataRoll[] {
       const out: YakataRoll[] = [];
-      for (const s of shafts().shafts(x0, z0, x1, z1)) {
+      for (const s of shafts().shaftsLite(x0, z0, x1, z1)) {
         const r = regionOfShaftId(s.id);
         if (!r || s.gen !== 'e' || s.style?.depth !== 'fukai') continue;
         const hit = yakataHit(o.seed, r.rx, r.rz);
-        out.push({ shaft: s.id, hit, placed: hit && !!s.yakata, look: hit ? yakataLook(o.seed, r.rx, r.rz) : null });
+        // placed は 読んだ ときに はじめて やかたの 計画を すすめる〔くじだけ 数える ときは 軽い〕
+        out.push({
+          shaft: s.id,
+          hit,
+          get placed(): boolean {
+            if (!hit) return false;
+            return !!shafts().yakataOfShaft(s.id)?.yakata;
+          },
+          look: hit ? yakataLook(o.seed, r.rx, r.rz) : null,
+        });
       }
       return out;
     },

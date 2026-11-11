@@ -164,7 +164,9 @@ export function wireInput(deps: WiredRender) {
     audioSync();
     if (game.tick % 10 === 0) audioYokai = (['waiting', 'challenge'] as string[]).includes(yakataScene.state().scene) ? [] : shared.yokaiM.list().map((y) => ({ state: y.state, position: y.position })); // MINE-1F: やかたの 場面の 間は たたかいの 曲に しない
     const dead = shared.combat.dead();
-    if (shared.girlBgmOn) bgm.play(null, shared.gashaBgmFade); // #293 試作: 少女の 間は ふだんの BGM を 止める（「災厄」を 流す）
+    const ys = yakataScene.state();
+    if (ys.bgmDuck) mixer.duck(); // MINE-1F: 大きな 音の 間は BGM を 小さく
+    if (shared.girlBgmOn || ys.scene !== 'none') bgm.play(null, shared.gashaBgmFade); // MINE-1F: やかたの 場面の 間は ふだんの BGM を 入れかえる〔ふんいき・挑戦の 曲が 鳴る〕 // #293 試作: 少女の 間は ふだんの BGM を 止める（「災厄」を 流す）
     else { bgm.play(bgmScene.update({ tick: game.tick, phase: time.phase(), player: shared.controller.state.position, yokai: audioYokai, dead }), shared.gashaBgmFade); if (bgm.current() !== null) shared.gashaBgmFade = {}; }
     const mode = shared.screen.mode();
     mixer.setScreenLevel(screenLevel(mode, dead));

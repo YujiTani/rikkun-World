@@ -66,7 +66,7 @@ interface Shared {
   /** COOP-1 3d（AC71・AC72）: 2P を やめさせる（タイトルへ もどる・よみこむ で 読みなおす 直前に 呼ぶ。2P が いなければ 何もしない。wireDuo が 差しかえる） */
   leaveDuo: (reason: DuoLeaveReason) => void;
   /** COOP-1 3a: 仲間（2P）の 足もとと 持ち物（参加していなければ null。落とし物・動物・1P の 置く が 読む。wireDuo が 差しかえる。返す 物は いつも 同じ 1 つ） */
-  duoMate: () => { position: Vec3; inventory: Inventory } | null;
+  duoMate: () => { position: Vec3; inventory: Inventory; moveTo?(p: Vec3): void } | null;
   /** COOP-1 4d-3: 2P の がしゃどくろへの 口（参加している あいだだけ。なければ null。wireDuoPlay が 差しかえる。参加ごとに 同じ 1 つ） */
   p2Gasha: () => P2GashaPort | null;
   /** COOP-1 3a: 落とし物を ひろえる 仲間（倒れている あいだは null。DropField だけが 読む。wireDuo が 差しかえる） */

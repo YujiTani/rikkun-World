@@ -2,6 +2,8 @@
 // 挑戦の 係〔world/gen/mineYakataRun〕が 使う 出入り口 `YakataPorts` を 本物に つなぎ、出来事を 画面・音・実績・ログに 配る。
 import { FX_SETTINGS } from '../../fx/config';
 import { CHEST_SOUNDS } from '../../fx/chestSounds';
+import { CRAFT_SOUNDS } from '../../fx/craftSounds';
+import type { Tone } from '../../fx/sound';
 import { createBrowserYakataSound } from '../../fx/yakataSound';
 import type { YakataSceneReq } from '../../fx/bgm/yakataScene';
 import { YakataLeft } from '../../ui/yakataLeft';
@@ -55,7 +57,8 @@ export function wireYakata(deps: WiredDuo, router: Router) {
     },
     run: (who, fn) => router.run(who, fn),
     movePlayer(who, to) {
-      if (who === 1) controller.set({ position: { x: to.x, y: to.y, z: to.z }, velocity: { x: 0, y: 0, z: 0 } }); // 2P は 門に うまらない ように 1P 側の 押し出しだけ〔2P の 足は 窓口が ない〕
+      if (who === 1) controller.set({ position: { x: to.x, y: to.y, z: to.z }, velocity: { x: 0, y: 0, z: 0 } });
+      else shared.duoMate()?.moveTo?.({ x: to.x, y: to.y, z: to.z });
     },
     emit(e: YakataEvent) {
       switch (e.type) {
@@ -88,7 +91,8 @@ export function wireYakata(deps: WiredDuo, router: Router) {
           notice.showName(e.text === 'start' ? YAKATA_TEXT.start : YAKATA_TEXT.win);
           return;
         case 'celebrate':
-          return; // 紙ふぶき・花火は 実績の おめでとうが 出す〔別に 出さない〕
+          celebrateAt(e.what);
+          return;
         case 'sfx':
           if (e.name === 'titleAppear') titleSound.play('oyabun');
           return; // 門の 音・ファンファーレは 場面の 係の 頼みで 鳴らす
@@ -101,6 +105,28 @@ export function wireYakata(deps: WiredDuo, router: Router) {
         }
       }
     },
+  };
+
+  // かちの お祝い〔紙ふぶき・花火〕: 世界の つぶを 時間を ずらして 何回か。おわったら 空
+  const FIREWORKS_AT = [0, 25, 50, 80]; // 花火を 上げる ステップの ずれ
+  const CONFETTI_BURSTS = 3; // 紙ふぶきを まく 回数
+  const SHOW_BLOCKS = ['maou_taimatsu', 'onibi_taimatsu', 'maou_dan', 'otera_dan'] as const;
+  let showAt: { step: number; high: number; n: number }[] = [];
+  const celebrateAt = (what: 'confetti' | 'fireworks'): void => {
+    const s = game.tick;
+    if (what === 'confetti') for (let i = 0; i < CONFETTI_BURSTS; i++) showAt.push({ step: s + i * 10, high: 3, n: i });
+    else for (const d of FIREWORKS_AT) showAt.push({ step: s + d, high: 7, n: d });
+  };
+  const showStep = (): void => {
+    if (showAt.length === 0) return;
+    const p = controller.state.position;
+    showAt = showAt.filter((b) => {
+      if (b.step > game.tick) return true;
+      const id = SHOW_BLOCKS[b.n % SHOW_BLOCKS.length]!;
+      const dx = ((b.n * 7) % 5) - 2;
+      shared.fx.particles.burst({ x: Math.floor(p.x) + dx, y: Math.floor(p.y) + b.high, z: Math.floor(p.z) }, id as never, FX_SETTINGS);
+      return false;
+    });
   };
 
   const serve = (r: YakataSceneReq): void => {
@@ -119,6 +145,8 @@ export function wireYakata(deps: WiredDuo, router: Router) {
         else if (r.name === 'yakataGateOpen') sound.playOnce('gate_open');
         else if (r.name === 'title') titleSound.play('oyabun');
         else if (r.name === 'chest') fxSound.playTones(CHEST_SOUNDS.chestOpen4);
+        else if (r.name === 'fanfare') fxSound.playTones(CRAFT_SOUNDS.fanfare as readonly Tone[]);
+        else if (r.name === 'achievement') fxSound.playTones(CRAFT_SOUNDS.modalSparkle as readonly Tone[]);
         return;
       default: {
         const never: never = r;
@@ -130,6 +158,7 @@ export function wireYakata(deps: WiredDuo, router: Router) {
   /** 毎ステップ〔妖怪の 更新の あと〕 */
   const step = (mine: { yakataStep(): void; yakataStage(): { present: boolean; chosen: boolean; katta: boolean } }): void => {
     mine.yakataStep();
+    showStep();
     const st = mine.yakataStage();
     yakataScene.tick({ present: st.present, chosen: st.chosen, katta: st.katta, battle: false });
     for (const r of yakataScene.drain()) serve(r);

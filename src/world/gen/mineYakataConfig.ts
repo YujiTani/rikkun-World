@@ -13,8 +13,8 @@ export type Zone = 'left' | 'right' | 'front';
 export const ZONE_LIST: readonly Zone[] = ['left', 'right', 'front'];
 
 export const YAKATA_TABLE = {
-  /** やかたの くじに 当たる わりあい〔ふかい 1E の 坑道の 1/2。§4.1〕 */
-  chance: 0.5,
+  /** やかたの くじに 当たる わりあい〔ふかい 1E の 坑道の 約 0.5 ÷ 置ける 割合 0.7。置けない 当たりが あるので 上げて、遊びの 数を 区画 約 19 に 1 つに 近づける。PO の 決め〕 */
+  chance: 0.71,
   /** 見た目の くじ〔A「まおうの しろ」・B「よるの おてら」を 半分ずつ。合計 1〕 */
   looks: { maou: 0.5, otera: 0.5 } as Record<Look, number>,
   /** 組ごとの ブロック〔id を 書くのは src/world/blocks/mineYakata.ts 1 か所〕 */

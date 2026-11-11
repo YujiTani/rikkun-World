@@ -366,8 +366,13 @@ export class ShaftWorld implements CaveHost {
     return out;
   }
 
+  /** `shafts` と 同じ。ただし やかたの 計画は すすめない〔`yakata` は まだ 入って いない ことが ある。くじの 数えだけに 使う〕 */
+  shaftsLite(x0: number, z0: number, x1: number, z1: number): Shaft[] {
+    return this.shafts(x0, z0, x1, z1, false);
+  }
+
   /** 箱が 範囲に かかる 坑道ぜんぶ（はじまりの 坑道 ＋ 区画の 坑道） */
-  shafts(x0: number, z0: number, x1: number, z1: number): Shaft[] {
+  shafts(x0: number, z0: number, x1: number, z1: number, ensure = true): Shaft[] {
     const out: Shaft[] = [];
     const hit = (b: Shaft['box']): boolean => b.x0 <= x1 && b.x1 >= x0 && b.z0 <= z1 && b.z1 >= z0;
     const s = this.start()?.plan.shaft;
@@ -376,7 +381,7 @@ export class ShaftWorld implements CaveHost {
       for (let rx = regionOf(x0); rx <= regionOf(x1); rx++) {
         const p = this.region(rx, rz);
         if (p && hit(p.plan.shaft.box)) {
-          if (this.isDeepE(p.plan)) this.yakataEnsure(p);
+          if (ensure && this.isDeepE(p.plan)) this.yakataEnsure(p);
           out.push(p.plan.shaft);
         }
       }
