@@ -105,8 +105,10 @@ describe('E12: 新しい ブロックの 値', () => {
   });
 
   it('1E で 足した id は 10 こ 以下・合計は 256 以下', () => {
-    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1D, '1E で 足した id').toBeGreaterThanOrEqual(ROWS.length);
-    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1D, '1E で 足した id').toBeLessThanOrEqual(10);
+    // 1F 以降の id は 後ろに 足される ので、1E の id の いちばん 後ろ〔自分の 行の 最大の 番号〕までを 数える
+    const added = Math.max(...ROWS.map((r) => IDX[r.id]!)) + 1 - BLOCKS_THROUGH_1D;
+    expect(added, '1E で 足した id').toBeGreaterThanOrEqual(ROWS.length);
+    expect(added, '1E で 足した id').toBeLessThanOrEqual(10);
     expect(BLOCK_TYPES.length).toBeLessThanOrEqual(256);
   });
 });
