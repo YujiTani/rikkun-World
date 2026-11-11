@@ -1,0 +1,221 @@
+# #444 CI の 赤を 直す あいだは えらんだ spec だけ 回す ci.yml（これで .github/workflows/ci.yml を まるごと 置きかえる。yuzu が 画面で）。
+# 前と ちがう 所: pull_request の types に ready_for_review / 「変更の 中身」に「えらんだ spec」の step と pick の 出力 /
+# e2e-pick の ジョブ / E2E（6 シャード）は pick が ない ときだけ / 「E2E（全部）」は えらんだ 分だけの 回では いつも 赤。
+# しくみ: PR が draft で、先頭の コミットの メッセージに [e2e: e2e/a.spec.ts e2e/b.spec.ts] が あれば、その spec だけ 1 ジョブで 回す。
+# draft を やめる（ready）と、同じ コミットで 全部が 回る。draft でない PR・main への push は 今までどおり いつも 全部。
+name: CI
+
+on:
+  pull_request:
+    # ready_for_review: draft を やめた ときに 全部を 回す（#444）
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read # 前の main の E2E の 時間（e2e-times-*）を もらう
+
+jobs:
+  check-fast:
+    name: 型チェックとユニットテスト
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          check-latest: true
+          cache: npm
+      - run: npm ci
+      - run: npm run check:fast
+      # ラチェット（#310）: コードのきまり違反の数が ratchet.json の上限より ふえたら 失敗。約 25 秒
+      - name: コードのきまり（ラチェット）
+        run: npm run check:ratchet
+      # ICON-32: art/icons32/*.png から アトラスを 作りなおして 差分が ないか（作り忘れの 検出）
+      - name: アイコンの アトラス
+        run: |
+          python3 -m pip install --quiet --break-system-packages pillow
+          python3 art/ICON-32/pack.py --check
+
+  # PR の 変更が ドキュメントだけ（docs/・.md・.claude/）なら E2E を とばす。main への push は いつも 全部 回す
+  changes:
+    name: 変更の 中身
+    runs-on: ubuntu-24.04
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+      times: ${{ steps.times.outputs.times }}
+      pick: ${{ steps.pick.outputs.pick }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then echo "code=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
+          echo "$files"
+          if echo "$files" | grep -qvE '^docs/|\.md$|^\.claude/'; then echo "code=true" >> "$GITHUB_OUTPUT"; else echo "code=false" >> "$GITHUB_OUTPUT"; fi
+
+      # えらんだ spec（#444）: draft の PR で、先頭の コミットの メッセージに [e2e: e2e/a.spec.ts …] が ある ときだけ。
+      # 形が e2e/ の spec で、ファイルが ある 物だけ 通す（ほかは すてる。1 つも 残らなければ 全部 回す）
+      - id: pick
+        env:
+          DRAFT: ${{ github.event.pull_request.draft }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -f
+          pick=""
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "$DRAFT" = "true" ]; then
+            line=$(git log -1 --format=%B "$HEAD_SHA" | grep -m1 -oE '\[e2e: [^]]+\]' || true)
+            for s in $(printf '%s' "$line" | sed -e 's/^\[e2e: //' -e 's/\]$//'); do
+              if printf '%s' "$s" | grep -qE '^e2e/[A-Za-z0-9_/-]+\.spec\.ts(:[0-9]+)?$' && [ -f "${s%%:*}" ]; then pick="$pick $s"; fi
+            done
+          fi
+          echo "えらんだ spec: ${pick:-（なし。全部 回す）}"
+          echo "pick=${pick# }" >> "$GITHUB_OUTPUT"
+
+      # いちばん 新しい 緑の main の CI が 残した spec ごとの 時間（#311）。5 つの シャードが 同じ 表で 分けるよう、ここで 1 つに まとめて わたす
+      - id: last
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          run=""
+          for id in $(gh run list -R "$REPO" -w CI -b main -L 10 --json databaseId -q '.[].databaseId' || true); do
+            if gh api "repos/$REPO/actions/runs/$id/artifacts" -q '.artifacts[].name' 2>/dev/null | grep -q '^e2e-times-'; then run=$id; break; fi
+          done
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+      
+      - if: steps.last.outputs.run != ''
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: e2e-times-*
+          merge-multiple: true
+          path: e2e-times-prev
+          run-id: ${{ steps.last.outputs.run }}
+          github-token: ${{ github.token }}
+      - id: times
+        run: |
+          if ls e2e-times-prev/*.json >/dev/null 2>&1; then echo "times=$(jq -sc 'add' e2e-times-prev/*.json || true)" >> "$GITHUB_OUTPUT"; fi
+
+  e2e:
+    name: E2E（${{ matrix.shard }}/6）
+    needs: changes
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.pick == ''
+    runs-on: ubuntu-24.04
+    # Chromium と その部品が 入った Playwright の コンテナで 動かす（毎回 apt で 入れると ときどき 10 分 以上 かかる）。
+    # 版は package.json の @playwright/test と 同じに する（上げる ときは ここも 上げる）
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+      options: --ipc=host
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          check-latest: true
+          cache: npm
+      - run: npm ci
+      - name: 前の main の 時間を おく
+        env:
+          TIMES: ${{ needs.changes.outputs.times }}
+        run: |
+          mkdir -p e2e-times-prev
+          if [ -n "$TIMES" ]; then printf '%s' "$TIMES" > e2e-times-prev/main.json; fi
+      # 件数でなく 時間で 5 つに 分ける（scripts/e2e-shard.mjs）。前の main の 時間 → e2e/shard-times.json → テストの 本数で 見つもり の 順
+      - name: E2E（5 つに分けた ${{ matrix.shard }} つ目）
+        run: npx playwright test $(node scripts/e2e-shard.mjs ${{ matrix.shard }} 6) --reporter=list,html,json
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+          PLAYWRIGHT_JSON_OUTPUT_FILE: e2e-result.json
+          E2E_TIMES_DIR: e2e-times-prev
+      - name: この シャードの 時間を 作る（次の CI が 使う）
+        if: always()
+        run: mkdir -p e2e-times && node scripts/e2e-shard-times.mjs --out e2e-times/shard-${{ matrix.shard }}.json e2e-result.json || true
+      - name: この シャードの 時間を 残す
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-times-${{ matrix.shard }}
+          path: e2e-times/
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: 失敗したときのレポートとスクショ
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.shard }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+      - name: UI 検査の結果とスクショ
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-gate-report-${{ matrix.shard }}
+          path: ui-gate-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # CI の 赤を 直す あいだ（#444）: えらんだ spec だけを 1 ジョブで 回す（数分）
+  e2e-pick:
+    name: E2E（えらんだ spec）
+    needs: changes
+    if: needs.changes.outputs.pick != ''
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+      options: --ipc=host
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          check-latest: true
+          cache: npm
+      - run: npm ci
+      - name: えらんだ spec を 回す
+        run: npx playwright test $PICK --reporter=list,html
+        env:
+          PICK: ${{ needs.changes.outputs.pick }}
+          PLAYWRIGHT_HTML_OPEN: never
+      - name: 失敗したときのレポートとスクショ
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-pick
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # 5 つ全部が通ったかを、前と同じ名前の 1 つのチェックにまとめる（必須チェックの名前を変えないため）
+  e2e-all:
+    name: E2E（全部）
+    needs: [changes, e2e, e2e-pick]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      # ドキュメントだけの PR は E2E を とばして 緑（変更の 中身の ジョブが 落ちたら 赤）
+      - name: 5 つの結果をたしかめる
+        env:
+          PICK: ${{ needs.changes.outputs.pick }}
+        run: |
+          test "${{ needs.changes.result }}" = "success"
+          # えらんだ spec だけの 回は、通っても ここを 赤に する（全部を 回すまで マージ できない ように。#444）
+          if [ -n "$PICK" ]; then echo "えらんだ spec だけを 回した（結果: ${{ needs.e2e-pick.result }}）。全部は まだ。PR の draft を やめると 全部 回る"; exit 1; fi
+          if [ "${{ needs.changes.outputs.code }}" = "true" ]; then test "${{ needs.e2e.result }}" = "success"; fi
