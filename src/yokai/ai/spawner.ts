@@ -123,6 +123,7 @@ export class YokaiSpawner {
       searchSteps: 0,
       lastSeenX: x,
       lastSeenZ: z,
+      unseenSteps: 0,
       knockLeft: 0,
       knockStep: 0,
       knockUpV: 0,

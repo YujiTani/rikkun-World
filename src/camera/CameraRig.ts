@@ -3,6 +3,7 @@ import { isBowItem } from '../content/items/ids';
 import type { Vec3, WeaponVisualSource, ArmorSlot, CombatEvent, CraftEvent, ItemId, PlayerState, SwingAnim, VoxelWorld } from '../contracts';
 import type { ActionState } from '../input/actions';
 import { aimPivot } from './pivot';
+import { clearDistance, firstSolidDistance, pushOutOfSolids } from './clearance';
 import { SHAKE, shakeAngles } from '../fx/impact';
 import { BlockDoll } from './BlockDoll';
 import { bladePoseAt, bowDollAt, bowHandAt, newBladePose } from './weaponPose';
@@ -12,12 +13,10 @@ import {
   DOLL_HIDE_DISTANCE,
   OVERVIEW_POSITION,
   OVERVIEW_TARGET,
-  RAY_STEP,
   SHOULDER_DROP,
   SHOULDER_OFFSET,
   SHOULDER_RECOVER_SECONDS,
   SHOULDER_WALL_MARGIN,
-  WALL_MARGIN,
   WALL_RECOVER_SECONDS,
   type CameraConfig,
 } from './config';
@@ -68,6 +67,8 @@ export class CameraRig {
     this.doll.setMode('hidden');
     this.apply(0);
   }
+
+  private readonly isSolid = (x: number, y: number, z: number): boolean => this.world.isSolid(x, y, z);
 
   private shakeYaw = 0;
   private shakePitch = 0;
@@ -401,7 +402,7 @@ export class CameraRig {
     const full = SHOULDER_OFFSET * Math.cos(pitch);
     const base = { x: P.x, y: by, z: P.z };
     const reachLen = full + SHOULDER_WALL_MARGIN;
-    const hit = this.firstSolidDistance(base, rx, 0, rz, reachLen);
+    const hit = firstSolidDistance(this.isSolid, base.x, base.y, base.z, rx, 0, rz, reachLen);
     const target = hit !== null ? Math.max(0, hit - SHOULDER_WALL_MARGIN) : Infinity;
     if (target < this.shoulderCap) {
       this.shoulderCap = target; // 小さくするのは一瞬
@@ -414,6 +415,8 @@ export class CameraRig {
     this.shoulder.x = P.x + rx * sOff;
     this.shoulder.y = by;
     this.shoulder.z = P.z + rz * sOff;
+    // S 自身の まわりに すきまが たりないとき、近くの マスから 押し出す（SIGHT-1）
+    pushOutOfSolids(this.isSolid, this.shoulder);
   }
 
   /** HOUSE-1D: カメラの 目を さげる 高さ（マス。座って いる 間だけ > 0。つなぎ込みが SeatSystem.eyeDrop を わたす） */
@@ -438,12 +441,8 @@ export class CameraRig {
     const dz = -dist * this.dir.z;
     const full = Math.hypot(dx, dy, dz);
 
-    // S からカメラへの線分で最初にぶつかるブロック
-    let allowed = full;
-    if (full > 1e-6) {
-      const hit = this.firstSolidDistance(P, dx / full, dy / full, dz / full, full);
-      if (hit !== null) allowed = Math.max(0, hit - WALL_MARGIN);
-    }
+    // S からカメラへの線分で、まわり CAMERA_CLEARANCE に 固いブロックが ない いちばん遠い所まで（SIGHT-1）
+    const allowed = full > 1e-6 ? clearDistance(this.isSolid, P.x, P.y, P.z, dx / full, dy / full, dz / full, full) : 0;
     if (this.current < 0 || allowed < this.current) {
       this.current = allowed; // 寄せるのは一瞬
     } else {
@@ -451,28 +450,6 @@ export class CameraRig {
     }
     const k = full > 1e-6 ? this.current / full : 0;
     this.camPos.set(P.x + dx * k, P.y + dy * k, P.z + dz * k);
-  }
-
-  /** o から (ux,uy,uz) の向きへ進んで、固いブロックに入る最初の距離。なければ null */
-  private firstSolidDistance(o: Vec3, ux: number, uy: number, uz: number, maxLen: number): number | null {
-    const w = this.world;
-    const solidAt = (t: number) =>
-      w.isSolid(Math.floor(o.x + ux * t), Math.floor(o.y + uy * t), Math.floor(o.z + uz * t));
-    if (solidAt(0)) return 0;
-    for (let t = RAY_STEP; t < maxLen; t += RAY_STEP) {
-      if (solidAt(t)) {
-        // 刻みのあいだを 二分して 面の位置を細かく出す
-        let lo = t - RAY_STEP;
-        let hi = t;
-        for (let i = 0; i < 8; i++) {
-          const mid = (lo + hi) / 2;
-          if (solidAt(mid)) hi = mid;
-          else lo = mid;
-        }
-        return hi;
-      }
-    }
-    return solidAt(maxLen) ? maxLen : null;
   }
 
   dispose(): void {

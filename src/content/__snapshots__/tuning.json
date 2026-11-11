@@ -371,6 +371,7 @@
     }
   },
   "SENSE": {
+    "eyeFrac": 0.8,
     "giveUpDyMul": 2,
     "kinds": {
       "chochin": {
@@ -399,8 +400,13 @@
         "sight": 12
       }
     },
+    "loseSightSteps": 60,
     "shinobiSightMul": 0.5,
-    "sightDy": 6
+    "sightDy": 6,
+    "targetHeights": [
+      0.9,
+      1.5
+    ]
   },
   "STRENGTH_MUL": {
     "easy": {

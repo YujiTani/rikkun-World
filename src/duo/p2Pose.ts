@@ -1,4 +1,5 @@
-import { DEFAULT_CAMERA_CONFIG, RAY_STEP, SHOULDER_DROP, SHOULDER_OFFSET, WALL_MARGIN } from '../camera/config';
+import { clearDistance, firstSolidDistance, pushOutOfSolids } from '../camera/clearance';
+import { DEFAULT_CAMERA_CONFIG, SHOULDER_DROP, SHOULDER_OFFSET, SHOULDER_WALL_MARGIN } from '../camera/config';
 import type { DuoVec3 } from './types';
 
 /**
@@ -7,6 +8,8 @@ import type { DuoVec3 } from './types';
  * 向きの 決まりは PlayerController と 同じ（yaw 0 = 北 -Z・90 = +X が 前。pitch + は 上）。
  */
 const DEG = Math.PI / 180;
+
+const shoulderScratch = { x: 0, y: 0, z: 0 };
 
 export interface P2Pose {
   x: number;
@@ -28,18 +31,21 @@ export function p2CameraPose(feet: DuoVec3, yawDeg: number, pitchDeg: number, di
   const dz = -Math.cos(yaw) * Math.cos(pitch);
   // 肩の点 S: 目の 高さ + 少し 上 - 肩の 落ち、カメラの 右へ 少し
   const sy = feet.y - eyeDrop + DEFAULT_CAMERA_CONFIG.eyeHeight + DEFAULT_CAMERA_CONFIG.thirdPersonHeight - SHOULDER_DROP;
-  const sx = feet.x + Math.cos(yaw) * SHOULDER_OFFSET * Math.cos(pitch);
-  const sz = feet.z + Math.sin(yaw) * SHOULDER_OFFSET * Math.cos(pitch);
-  let allowed = distance;
-  for (let t = RAY_STEP; t <= distance; t += RAY_STEP) {
-    if (isSolid(Math.floor(sx - dx * t), Math.floor(sy - dy * t), Math.floor(sz - dz * t))) {
-      allowed = Math.max(0, t - RAY_STEP - WALL_MARGIN);
-      break;
-    }
-  }
-  out.x = sx - dx * allowed;
-  out.y = sy - dy * allowed;
-  out.z = sz - dz * allowed;
+  // 肩の ずらし s: 1P と 同じく 壁ぎわで 小さくする
+  const rx = Math.cos(yaw);
+  const rz = Math.sin(yaw);
+  const full = SHOULDER_OFFSET * Math.cos(pitch);
+  const hit = firstSolidDistance(isSolid, feet.x, sy, feet.z, rx, 0, rz, full + SHOULDER_WALL_MARGIN);
+  const s = hit !== null ? Math.max(0, Math.min(full, hit - SHOULDER_WALL_MARGIN)) : full;
+  const S = shoulderScratch;
+  S.x = feet.x + rx * s;
+  S.y = sy;
+  S.z = feet.z + rz * s;
+  pushOutOfSolids(isSolid, S);
+  const allowed = clearDistance(isSolid, S.x, S.y, S.z, -dx, -dy, -dz, distance);
+  out.x = S.x - dx * allowed;
+  out.y = S.y - dy * allowed;
+  out.z = S.z - dz * allowed;
   out.yawDeg = yawDeg;
   out.pitchDeg = pitchDeg;
   return out;

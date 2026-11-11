@@ -70,6 +70,8 @@ export interface Ent {
   searchSteps: number;
   lastSeenX: number;
   lastSeenZ: number;
+  /** SIGHT-1: 追いかけ中に 見えない 状態が 続いた ステップ数（見えたら 0） */
+  unseenSteps: number;
   knockLeft: number;
   /** ノックバックの 1 ステップ あたりの 水平の 距離 */
   knockStep: number;

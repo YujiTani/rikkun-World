@@ -15,10 +15,16 @@ export const SENSE: {
   sightDy: number;
   giveUpDyMul: number;
   shinobiSightMul: number;
+  eyeFrac: number;
+  targetHeights: readonly number[];
+  loseSightSteps: number;
 } = {
   // 妖怪ごとの 数は content/yokai/<kind>.ts（登録表の 複製。開発用に その場で 書きかえて よい）
   kinds: yokaiSense(),
   sightDy: 6, // ブロック: 気づく 高さの 差（これ 以内の 高さの 妖怪だけ 気づく）
   giveUpDyMul: 2, // 倍: あきらめる 高さの 差 = sightDy × これ（追って いる とき）
   shinobiSightMul: 0.5, // 倍: 忍び装束を 着て いる とき、気づく 距離に かける（0.5 = 半分。あきらめる 距離・高さの 差は かえない）
+  eyeFrac: 0.8, // 割合: 妖怪の 目の 高さ = 足もと + 体の 高さ（dims.height）× これ（SIGHT-1 #446）
+  targetHeights: [0.9, 1.5], // ブロック: 見る 相手の 点 = 足もと + これ。どちらか 1 本でも 通れば 見える
+  loseSightSteps: 60, // ステップ: 追いかけ中に 見えない が これだけ 続いたら さがす に かわる（60 = 1 秒）
 };

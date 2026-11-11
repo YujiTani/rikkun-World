@@ -322,6 +322,8 @@ export class YokaiManager implements YokaiWorld {
 
   // ---------------------------------------------------------------- 1 ステップ
 
+  private readonly noticeableFn = (e: Ent, p: { x: number; y: number; z: number }): boolean => this.chaser.noticeable(e, p);
+
   update(dt: number = DT): void {
     const f = this.f;
     f.steps++;
@@ -333,7 +335,7 @@ export class YokaiManager implements YokaiWorld {
     aim(f, 1);
     const p1Alive = !this.opts.combat.dead();
     // ねらう 相手: ねらえる 人のうち 近い方（攻撃中は かえない）
-    for (const e of f.ents) if (e.state !== 'attack') e.target = pickTarget(f, p1Alive, e);
+    for (const e of f.ents) if (e.state !== 'attack') e.target = pickTarget(f, p1Alive, e, this.noticeableFn);
 
     this.spawner.spawnTick();
     this.spawner.leaveTick();
