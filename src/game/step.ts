@@ -1,6 +1,9 @@
 // 毎ステップの 本体（main.ts から 移した）。順番は そのまま。まとまりは 最初に 1 回だけ 作る。
 import { applyTenshiMotion } from '../player/tenshiMove';
 import { isBladeItem } from '../tools/blade/BladeSystem';
+import { isGnomeAxe } from '../dig/gnomeChop';
+import { gnomeSpriteBlade } from '../char/gnomeSprite';
+import { GNOME_SKIN } from '../char/techCurves';
 import { STEPS_PER_SECOND } from '../tools/config';
 import { parryGlowLevel } from '../combat/parry';
 import { isParrySound, playParry } from '../fx/parrySounds';
@@ -196,7 +199,8 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       const held = inventory.held()?.item ?? null;
       const hv = hammer.view();
       const hammerHeld = held === LEGEND4_ID.daichi_hammer; // LEGEND-4: 手に 持つ 絵は 刀の組の 板に ハンマーの 絵（skin 'hammer'）を 入れて 使う
-      const weapon = bs.item !== null || hammerHeld ? 'katana' : isBowItem(held) ? 'bow' : 'none';
+      const gnomeSwing = isGnomeAxe(held) ? gnomeSpriteBlade(blade.sweep?.()) : null; // LEGEND-4: ノームの斧（刀の 絵の 組に スキン gnome）
+      const weapon = bs.item !== null || hammerHeld || gnomeSwing !== null ? 'katana' : isBowItem(held) ? 'bow' : 'none';
       sprite?.step({
         position: st.position,
         velocity: st.velocity,
@@ -208,12 +212,14 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
         // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
         bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
         // WEAPON-9: 手に 持つ 絵は 虹・雷神剣・風神剣が 専用（女の子）。シャイニング F1〜240 は ため の 形（おおげさぎり コマ 5）を 止める
-        weaponSkin: hammerHeld ? 'hammer' : held === 'niji' ? 'niji' : held === 'raijin_ken' ? 'raijin' : held === 'fujin_ken' ? 'fujin' : null,
+        weaponSkin: hammerHeld ? 'hammer' : held === 'niji' ? 'niji' : held === 'raijin_ken' ? 'raijin' : held === 'fujin_ken' ? 'fujin' : gnomeSwing !== null ? GNOME_SKIN : null,
         legendCharge: weapon === 'katana' && !hammerHeld && (legend.view().charging || shiningBody),
         hammer: hammerHeld && hv.phase !== 'idle' ? { phase: hv.phase, f: hv.f } : null,
         blade:
           hammerHeld
             ? { stance: 'jodan' as const, tech: null, phase: 'idle' as const, frame: 0, lengths: null } // かついで あるく（上段）
+            : gnomeSwing !== null
+            ? gnomeSwing
             : weapon === 'katana'
             ? lstrike && !shiningNow
               ? { stance: bs.stance, tech: 'kesa' as const, ...lightningPoseFrame(lstrike.F, lstrike.total), lengths: null }

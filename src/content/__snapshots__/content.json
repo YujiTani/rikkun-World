@@ -5002,6 +5002,32 @@
       "rarity": "legendary",
       "recipes": []
     },
+    "gnome_axe": {
+      "ITEM_INFO.gnome_axe": {
+        "buttons": [
+          "1-9",
+          "leftHold"
+        ],
+        "how": "えらんで、ブロック に むけて ひだりクリック を おしつづける。ようかい に むけて ひだりクリック で よこに ふる",
+        "special": "き を きれば 2 だん いっきに まっぷたつ！ よこなぎ で ようかい を なぎはらう",
+        "stats": "pickaxe",
+        "use": "き を はやく きれる。ようかい も たたける"
+      },
+      "TOOL_DEFAULTS.toolLevel.gnome_axe": 0,
+      "TOOL_DEFAULTS.toolPower.gnome_axe": 6,
+      "TOOL_DEFAULTS.weaponDamage.gnome_axe": 7,
+      "TOOL_NUMBERS.toolLevel.gnome_axe": 0,
+      "TOOL_NUMBERS.toolPower.gnome_axe": 6,
+      "TOOL_NUMBERS.weaponDamage.gnome_axe": 7,
+      "W2.toolDurability.gnome_axe": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "ノームの［斧｜おの］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
     "daichi_hammer": {
       "ITEM_INFO.daichi_hammer": {
         "buttons": [

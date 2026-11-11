@@ -111,7 +111,7 @@ export interface DigM4Deps {
   /** M7-2: 出来事 の `tick`（なければ この 係 の 歩数） */
   nowTick?: () => number;
   /** WEAPON-2: 刀（ひだりクリックの ふりわけ §2.1-6 で わざを 渡す）。なければ 刀も ほるだけ */
-  blade?: Pick<BladeSystem, 'update' | 'state' | 'dropBuffer' | 'busyNext' | 'nextStart' | 'yieldToParry'>;
+  blade?: Pick<BladeSystem, 'update' | 'state' | 'dropBuffer' | 'busyNext' | 'nextStart' | 'yieldToParry' | 'sweep'>;
   /** WEAPON-7: レジェンダリー武器の ため・ためわざ。なければ 今のまま（レジェンダリーは ふつうの 刀と 同じ） */
   legend?: Pick<LegendSystem, 'step' | 'busyNext' | 'dropBuffer' | 'chargeable'>;
   /** WEAPON-5: パリィ（刀の Shift＋クリック）。なければ 今のまま */

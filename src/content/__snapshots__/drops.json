@@ -228,6 +228,7 @@
     "furnace": "uncommon",
     "futon": "uncommon",
     "geyser_dirt": "uncommon",
+    "gnome_axe": "legendary",
     "grass": "common",
     "haniwa": "uncommon",
     "harapan_mimizu": "epic",
@@ -372,6 +373,10 @@
     },
     {
       "item": "tenshi_yumi",
+      "weight": 1
+    },
+    {
+      "item": "gnome_axe",
       "weight": 1
     },
     {

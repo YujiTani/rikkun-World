@@ -98,11 +98,33 @@ const DAICHI = [
   '...KK...........',
 ];
 
+/** ノームの 斧: 銅色の 大きな 両刃・まん中に 菱形の かざり・黒い 柄 */
+const PAL_GNOME_AXE = { K: 0x2a1608, d: 0x7a3c12, b: 0xc4772a, L: 0xf0b25a, r: 0x8c4a1c, G: 0xffe08a, N: 0x24202c, n: 0x5a5470, g: 0xb8860b };
+const GNOME_AXE = [
+  '.......KLLK.....',
+  '......KLbLK.....',
+  '.....KbbbLLK....',
+  '....KbbbbbLK....',
+  '...KbbbbbrrKK...',
+  '....KdddbrGrLKKK',
+  '.....KKKdrGrLLLL',
+  '......KnNNrrbbbL',
+  '.....KnNNKdbbbbL',
+  '....KnNNKKdbbbLK',
+  '...KnNNK..KdbbK.',
+  '..KnNNK...KdbK..',
+  'KKnNNK....KbK...',
+  'NnNNK......K....',
+  'gNNK............',
+  'GgK.............',
+];
+
 /** id ごとの 絵（`Record` なので 足し忘れは 型エラー。PR ごとに 1 つずつ 足す） */
 const ART = {
   kokuryu: { rows: KOKURYU, pal: PAL_KOKURYU },
   yatagarasu: { rows: YATAGARASU, pal: PAL_YATAGARASU },
   tenshi_yumi: { rows: TENSHI, pal: PAL_TENSHI },
+  gnome_axe: { rows: GNOME_AXE, pal: PAL_GNOME_AXE },
   daichi_hammer: { rows: DAICHI, pal: PAL_DAICHI },
 } as const satisfies Record<L4ItemId, { rows: readonly string[]; pal: Readonly<Record<string, number>> }>;
 

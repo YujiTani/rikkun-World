@@ -2,6 +2,7 @@ import type { PlayerState, Vec3 } from '../contracts';
 import type { Action, ActionState } from '../input/actions';
 import { routeAttackInput } from '../combat/parry';
 import { isBladeItem } from '../tools/blade/BladeSystem';
+import { isGnomeAxe } from './gnomeChop';
 import type { DigAttack } from './digAttack';
 import type { DigCore } from './digCore';
 
@@ -74,14 +75,15 @@ export class DigInput {
     const dec = enabled && !bow ? this.attack.buildDecision(p, d, o, tgt, list) : null;
     if (blade) {
       const held = c.inventory.held()?.item ?? null;
-      const bladeItem = isBladeItem(held) ? held : null;
+      // LEGEND-4: ノームの斧も 刀と 同じ ふりわけ（妖怪・空 = よこなぎ、ブロック = ほる）。よこなぎは BladeSystem の 中の gnomeSweep
+      const bladeItem = isBladeItem(held) || isGnomeAxe(held) ? held : null;
       let tech = false;
       /** ふりわけが わざ（ほるでは ない）か */
       let furiTech = false;
       if (bladeItem && enabled) {
         if (parryBusy) tech = false;
         else if (pendingNow) tech = true;
-        else if (blade.state().phase !== 'idle') tech = true;
+        else if (blade.state().phase !== 'idle' || (blade.sweep?.().phase ?? 'idle') !== 'idle') tech = true;
         else if (primaryRaw) {
           if (dec) tech = dec.use === 'attack' || dec.use === 'whiff';
           else {

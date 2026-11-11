@@ -102,7 +102,6 @@ export interface CharSprite {
 /** ダメージの赤み（12 ステップ。もとの色 × 1.0・0.6・0.6） */
 export const HURT_STEPS = 12;
 export const HURT_TINT = { r: 1.0, g: 0.6, b: 0.6 } as const;
-
 export type SpriteStatus = 'none' | 'loading' | 'ready' | 'failed';
 
 const VERT = /* glsl */ `

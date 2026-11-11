@@ -167,6 +167,7 @@ describe('WEAPON-7 PR2・PR3 AC21: ヌシの 既定の 表（雷神剣・風神�
       expect(got, `${i} 回目`).toHaveLength(1);
       n[got[0]!] = (n[got[0]!] ?? 0) + 1;
     }
+    // LEGEND-4: 行の 数は 武器が ふえるたびに かわる ので 3,000 ÷ 行の 数 の ±23% で 見る（7 行 = 330〜530）
     for (const k of LEGENDS) {
       const even = 3000 / LEGENDS.length; // 行が ふえても 直さない（もとは 7 行で 330〜530 = 429 の ±23%）
       expect(n[k], k).toBeGreaterThanOrEqual(Math.floor(even * 0.74));
