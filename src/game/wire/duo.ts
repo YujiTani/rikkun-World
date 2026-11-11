@@ -363,7 +363,10 @@ export function wireDuo(deps: WiredLoop) {
       armor: p2.armor,
       isOpen: () => inv2?.isOpen() === true,
       focus: () => screen2.focusKey(),
-      throwItem: (st) => deps.drops.throwItem(st, (ctl2 ?? controller).state.yawDeg, controller.settings.eyeHeight),
+      throwItem: (st) => {
+        const s2 = (ctl2 ?? controller).state; // 2P の 足もと・向きから 投げる（1P の 所に 出さない）
+        deps.drops.throwItem(st, s2.yawDeg, controller.settings.eyeHeight, s2.position);
+      },
       tick: () => game.tick,
       onThrown: () => playStorage(deps.fxSound, 'throw'),
     });
