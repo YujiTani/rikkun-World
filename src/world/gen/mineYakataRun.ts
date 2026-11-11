@@ -1,3 +1,4 @@
+import { YAKATA_TEXT } from '../../ui/yakataText';
 import type { BlockId } from '../../contracts';
 import { chestBlockId, chestBlockInfo } from '../blocks/chestBlock';
 import { giveChest, type ChestPorts, type ChestWorld } from './mineHookShaft';
@@ -26,9 +27,9 @@ export interface YakataStateInfo {
 
 /** 宝箱を さわった ときの 言葉〔6 歳向け: ひらがな・カタカナ〕 */
 const SAY = {
-  locked: 'ようかい を ぜんぶ たおすと もらえる よ',
+  locked: YAKATA_TEXT.chestLocked,
   empty: 'からっぽ だよ',
-  afterLose: 'やかた の たからばこ は しまった。また ちょうせん しよう！',
+  afterLose: YAKATA_TEXT.afterLose,
 } as const;
 
 export interface RunDeps {
@@ -97,9 +98,18 @@ export function createYakataRun(d: RunDeps) {
   const pendingSay = new Set<string>();
   /** 人ごとに 今 入って いる 大広間 */
   const inHall = new Map<1 | 2, string | null>();
+  /** 人ごとに 今 いる やかた〔大広間か 横穴。場面の 材料〕 */
+  const nearOf = new Map<1 | 2, Yakata | null>();
 
   const inHallRect = (y: Yakata, p: { x: number; y: number; z: number }): boolean =>
     Math.floor(p.x) >= y.hall.x0 && Math.floor(p.x) <= y.hall.x1 && Math.floor(p.z) >= y.hall.z0 && Math.floor(p.z) <= y.hall.z1 && p.y >= y.hall.y - 1 && p.y < y.hall.y + T.hall.height + HALL_PAD_Y;
+
+  const inPassage = (y: Yakata, p: { x: number; y: number; z: number }): boolean => {
+    if (p.y < y.hall.y - 1 || p.y >= y.hall.y + T.passage.height + HALL_PAD_Y) return false;
+    const half = Math.floor(T.passage.width / 2);
+    for (const c of y.passage) if (Math.abs(Math.floor(p.x) - c.x) <= half && Math.abs(Math.floor(p.z) - c.z) <= half) return true;
+    return false;
+  };
 
   const chestOpen = (y: Yakata): boolean => {
     const c = y.chest.cells[0]!;
@@ -122,10 +132,20 @@ export function createYakataRun(d: RunDeps) {
     for (const c of gateOf(y)) d.world.setBlock(c.x, c.y, c.z, id);
   }
 
+  /** その 妖怪は 生きて いるか〔`has` が なければ 一覧から〕 */
+  const isAlive = (id: number): boolean => {
+    const y = d.ports?.yokai;
+    if (!y) return false;
+    return y.has ? y.has(id) : y.list().some((q) => q.id === id);
+  };
   function alive(r: Run): number[] {
-    const rows = d.ports?.yokai.list() ?? [];
-    const set = new Set(rows.map((q) => q.id));
-    return r.ids.filter((id) => set.has(id));
+    return r.ids.filter(isAlive);
+  }
+  /** 生きて いる 数〔毎ステップ。何も 作らない〕 */
+  function aliveCount(r: Run): number {
+    let n = 0;
+    for (const id of r.ids) if (isAlive(id)) n++;
+    return n;
   }
 
   function start(plan: YakataPlan, who: 1 | 2): void {
@@ -135,7 +155,9 @@ export function createYakataRun(d: RunDeps) {
     const players = ports.players();
     const me = players.find((p) => p.who === who);
     const members = new Set<1 | 2>([who]);
-    for (const p of players) if (inHallRect(y, p)) members.add(p.who);
+    const gateCells = gateOf(y);
+    const onGate = (p: { x: number; y: number; z: number }): boolean => gateCells.some((c) => c.x === Math.floor(p.x) && c.z === Math.floor(p.z) && Math.floor(p.y) === c.y);
+    for (const p of players) if (inHallRect(y, p) || onGate(p)) members.add(p.who); // 大広間・門に いた 人 みんな〔§5〕
     // 大広間の ふつうの 妖怪は そっと 去る〔二つ名の 妖怪は まだ いない〕
     const leave = ports.yokai.list().filter((q) => q.title !== 'oyabun' && q.title !== 'taisho' && inHallRect(y, q)).map((q) => q.id);
     if (leave.length > 0) ports.yokai.leave(leave);
@@ -201,13 +223,13 @@ export function createYakataRun(d: RunDeps) {
   }
 
   function watch(r: Run, players: ReturnType<YakataPorts['players']>): void {
-    const left = alive(r);
-    if (left.length === 0) return win(r);
+    const left = aliveCount(r);
+    if (left === 0) return win(r);
     for (const p of players) if (p.dead) r.members.delete(p.who); // やられた 人は 復活しても なかまに もどらない〔中に だれも いなければ まけ〕
     if (r.members.size === 0 || !players.some((p) => r.members.has(p.who) && !p.dead)) return lose(r);
-    if (left.length !== r.lastLeft) {
-      r.lastLeft = left.length;
-      d.ports!.emit({ type: 'count', left: left.length });
+    if (left !== r.lastLeft) {
+      r.lastLeft = left;
+      d.ports!.emit({ type: 'count', left });
     }
   }
 
@@ -229,6 +251,7 @@ export function createYakataRun(d: RunDeps) {
       const players = ports.players();
       for (const p of players) {
         const b = d.builtReady(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z));
+        nearOf.set(p.who, b && (inHallRect(b.yakata, p) || inPassage(b.yakata, p)) ? b.yakata : null);
         const now = b && inHallRect(b.yakata, p) ? b.yakata.id : null;
         if (now !== (inHall.get(p.who) ?? null)) {
           inHall.set(p.who, now);
@@ -238,7 +261,7 @@ export function createYakataRun(d: RunDeps) {
           }
         }
       }
-      for (const r of [...runs.values()]) watch(r, players);
+      for (const r of runs.values()) watch(r, players); // 終わった 挑戦を 消しながら 回って よい〔Map〕
       if (pendingSay.size > 0 && players.length > 0 && players.every((p) => !p.dead)) {
         pendingSay.clear();
         ports.emit({ type: 'say', text: SAY.afterLose });
@@ -256,10 +279,10 @@ export function createYakataRun(d: RunDeps) {
     stage(): { present: boolean; chosen: boolean; katta: boolean } {
       let present = false;
       let katta = false;
-      for (const id of inHall.values()) {
-        if (!id) continue;
+      for (const y of nearOf.values()) {
+        if (!y) continue;
         present = true;
-        if (won.has(id)) katta = true;
+        if (stateOf(y) === 'katta') katta = true; // 読みこみ なおしても かった やかたは 鳴らさない
       }
       return { present, chosen: runs.size > 0, katta };
     },

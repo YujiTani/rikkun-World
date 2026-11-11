@@ -41,6 +41,8 @@ export interface YakataPorts {
     spawn(kind: string, x: number, y: number, z: number, o: { title: YakataRank; free: true; graceSteps: number }): number;
     /** 今 生きて いる 妖怪〔たおされた・消えた 妖怪は 入らない〕 */
     list(): YakataYokaiRow[];
+    /** その id の 妖怪が 今 生きて いるか〔毎ステップ よぶ ので 何も 作らない〕 */
+    has?(id: number): boolean;
     /** そっと 去らせる〔おとし物 なし〕 */
     leave(ids: readonly number[]): void;
   };

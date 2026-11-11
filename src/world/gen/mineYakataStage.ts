@@ -124,6 +124,7 @@ export function* yakataStage(env: StageEnv, planned: Planned): Generator<void, b
     if (!pathClear(plan.path, sh)) continue;
     let hit = false;
     for (const set of [sh.air, sh.ring, sh.roles.keys()]) for (const k of set) if (plan.b.air.has(k)) hit = true;
+    for (const k of sh.air) if (plan.b.put.has(k)) hit = true; // 1E の たいまつ・わくを つぶさない〔口は かべの いしを あける だけ。仕様 §4.1〕
     if (hit) continue;
     if (plan.rooms.some((r) => overlaps(r.box, box, ROOM_MARGIN))) continue;
     const caves = yield* env.caveBoxes(box.x0 - 16, box.z0 - 16, box.x1 + 16, box.z1 + 16);

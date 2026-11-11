@@ -58,6 +58,7 @@ export function wireYakata(deps: WiredDuo, router: Router) {
     yokai: {
       spawn: (kind, x, y, z, o) => yokaiM.spawn(kind as YokaiKind, x, y, z, o),
       list: (): YakataYokaiRow[] => yokaiM.list().map((q) => ({ id: q.id, kind: q.kind, title: q.title, x: q.position.x, y: q.position.y, z: q.position.z })),
+      has: (id) => yokaiM.has(id),
       leave: (ids) => yokaiM.leave(ids),
     },
     run: (who, fn) => router.run(who, fn),

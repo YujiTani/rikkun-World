@@ -155,6 +155,12 @@ export class YokaiManager implements YokaiWorld {
     return this.ents.find((q) => q.id === id)?.model ?? null;
   }
 
+  /** 生きて いる 妖怪の id か〔作らない。やかたの 挑戦が 毎ステップ 見る〕 */
+  has(id: number): boolean {
+    for (const e of this.ents) if (e.id === id) return true;
+    return false;
+  }
+
   list(): YokaiInfo[] {
     return this.ents.map((e) => this.presenter.infoOf(e));
   }
