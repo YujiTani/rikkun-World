@@ -266,7 +266,7 @@ export const VOX_I = {
   },
   kaigara: {
     name: blockName('kaigara'),
-    zukan: 'すなはまで ［見｜み］つかる かいがら。ちいさな やどかりが ひょっこり ［顔｜かお］を だして いる ことも あるよ。',
+    zukan: 'すなはまで ［見｜み］つかる オウムガイの かいがら。くるくる まいた もようが かわいいよ。',
     maxStack: BLOCK_STACK,
     placeBlock: 'kaigara',
     rarity: blockRarity('kaigara'),
