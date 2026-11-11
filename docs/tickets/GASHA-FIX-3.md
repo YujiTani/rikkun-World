@@ -3,27 +3,29 @@
 ブランチ `claude/project-thread-jyxail`。数はすべて調整表（`src/gasha/gashaBigTuning*.ts`・`releaseTuning.ts`・`gashaGirlTuning.ts`）に単位つきの日本語コメントで置く。コードに数を直接書かない。
 
 ## オーナーの ことば（要点）
-1. 倒したあと、体の中のコアを壊しにいく流れは やめる（体内に行きにくい・殴っている間のドロップがカメラで見えない・地中に埋まるバグ）。**倒したら がしゃどくろの近くにドロップ。虹色に光りかがやき、虹色の光の柱、アイテムは飛び散る**。
+1. 倒したあと、体の中のコアを壊しにいく流れは やめる（体内に行きにくい・殴っている間のドロップがカメラで見えない・地中に埋まるバグ）。**倒れ終わったら、大きな心臓のコアが体の外へ出て、がしゃどくろの近くの地面の上に置かれる。地面に立った刀でたたいて壊す。たたくたびに虹色の小さなばらまき、壊すと虹の柱・虹の光で大きな一山が勢いよく飛び散る**。（2026-11-10 オーナー変更: 最初は「自動でこわれる」案だったが、コアをたたいてこわす流れは残す）
 2. 少女は 5 回の魔法のあと 大きな姿の上で休む → わかりにくい。**プレイヤーの近くで疲れている演出**に。**座るとグラフィックが崩れるので、立ったままうなだれる**。
 3. 大きな姿の体を登るのが難しすぎる（とくに **肩**）。**コアを足元から刀でたたける**問題。コアは地面から刀でとどかない高さに。弓は OK。
-4. 噴火の火の粉（燃えかす）は もっと早く自然に消える。
+4. 噴火の火の粉（燃えかす）は もっと早く自然に消える（10 秒）。
 5. 遠くに見えるときは もっとぼやける。山の上などで浮いて見える。
 
 ## やること
 
-### 1. とどめのあと（`gashaBigFinish.ts`・`gashaBigFinishStep.ts`・`release.ts`・`DropField.ts`・`bagVisuals.ts`）
-- 流れ: blow → fall → lie（コアが赤くなる見た目は残してよい）→ `finish.drop.delaySec` 秒たったら **自動で** 「こわれた」扱い（今の coreBroken と同じ: 実績・say・忍者くじ・少女 crumble・体が crumble）。コアをたたく段（hitCore・coreHit のたびのばらまき）は なくす。`setFinish('core')` も不要（lock のまま）。
-- ドロップの場所: 体の中心からプレイヤーの方向へ `drop.outBlocks`（体の外。目安 18）の点。プレイヤーがそれより近ければプレイヤーの足もと付近。高さは **その点の地面（env.groundY、読みこみ前なら terrainTop）＋ `drop.upBlocks`**。コアの位置からは出さない（埋まり防止）。
-- 量: 今の「こわした一山」＋ 今までたたく回数ぶん出ていたレア素材（rare × hitScale × hits 回）の合計と同じくらい。`releaseTuning.ts` の core を整理（例 `bonusRareMul`）。
-- 飛び散る: 1 つの点から いきおいよく 散らす（`scatterSpeed`・`scatterUp` を大きめに、たとえば 横 4〜9・上 8〜12）。
-- 虹色: `ScatterOptions` に「柱と光の見た目のめずらしさの上書き」（例 `glow?: Rarity`）を足し、がしゃどくろのドロップは `'legendary'` 扱いで **虹の柱・虹のリング** が出るようにする（アイテム自体のめずらしさの値は変えない。保存 DropSave にも上書きを残す）。今の 7 段目の虹の柱（`bagVisuals.ts` PILLAR_RAINBOW_TEX・rainbowHue）を使う。
-- ドロップの瞬間に派手さ: 既存の `bh.burst` と `sfx`（ready）でよい。新しい音は作らない。
+### 1. とどめのあと（`gashaBigFinish*.ts`・`gashaBigCoreOut.ts`・`gashaBigHit.ts`・`release.ts`・`DropField.ts`）
+- 流れ: blow → fall → lie → コアをたたく（今のまま `finish.core.hits` 回）→ こわれたら実績・say・忍者くじ・少女 crumble・体が crumble（今の coreBroken と同じ）。自動ではこわれない。
+- **大きな心臓のコアが体の外へ出る**: 倒れ終わった（lie）ら、体の中のコアの見た目を消し（`setCoreShown(false)`）、体の中心からプレイヤー側へ `finish.core.outBlocks`（18）の地面の上（プレイヤーがそれより近ければ足もと）に、一辺 `finish.core.size`（3 ブロック）のコアを置く（`coreSpot`・`CoreOut`）。底は地面の上の面。赤く光る・脈打つのは今のまま。
+- 当たりの箱（名前 `outCore`）をワールドの位置に置き（`BigHit.setExtra`）、地面に立った刀で普通にたたける。体の中の `core` の箱は、とどめのあとは数えない。
+- たたくたびの小さなばらまきは今のまま（コアの上の面から、`glow='legendary'` の虹の見た目）。こわすと大きな一山（`RELEASE.core.pile`: 横 4〜9・上 8〜12 で勢いよく）を虹の柱・虹の光で。ばらまく高さはコアの上の面＋足し（地面より下にならない）。
+- 虹色: `ScatterOptions.glow?: Rarity`（柱と光の輪の見た目のめずらしさの上書き。アイテム自体の値は変えない。保存 DropSave の `rarity` に残る）。7 段目の虹の柱（`bagVisuals.ts`）を使う。
+- 新しい音は作らない（既存の `bh.burst` と `sfx`）。
 
-### 2. 少女の休み（`gashaGirl.ts`・`gashaGirlTuning.ts`・`gashaGirlPoseData.ts`）
-- 5 回の魔法のあと（perchgo）: 大きな姿の肩ではなく **プレイヤーの前 `rest.dist` ブロック（目安 4）の地面** にワープして出る（地面の高さは今のワープと同じやり方で求める）。プレイヤーの方を向く。
-- ポーズ: **立ったまま うなだれる**（新しいポーズ `pose_slump`: 頭を深く下げ、背中を少し丸め、腕はだらんと下げる。足は立ったまま）。肩で息をする小さな上下（`rest.breathDeg`・`rest.breathSec`）。座りポーズ（腰を落とす・hipUp）は使わない → 崩れない。
-- 当たりの箱（setHitBox）は今と同じしくみで、立った少女の体に合わせる（`rest.hitHalf`・`rest.hitUp`）。休む秒・大ダメージは今のまま（eye.bigWaitSec）。
-- とどめのあとの `down`（その場に座りこむ）も 同じ **立ってうなだれる** ポーズにする（座ると崩れるため）。
+### 2. 少女の休み（`gashaGirl.ts`・`gashaGirlTuning.ts`・`gashaGirlPose.ts`）（オーナー 2026-11-11 に「ぺたん座り」へ変更）
+- 5 回の魔法のあと（perchgo）: 大きな姿の肩ではなく **プレイヤーの前 `rest.dist` ブロック（目安 4）の地面** にワープして出る。プレイヤーの方を向く。
+- ポーズ: **ぺたん座り**（女の子座り。ひざは前で左右に開き、すねと足は外向きに後ろへ M 字、お尻が地面に乗る）。頭は少しうなだれる。肩で息の小さな上下（`rest.breathDeg`・`rest.breathSec`）は残す。正座のような今の座りは使わない。
+- 腰の高さはお尻が地面につく高さに合わせる（`rest.buttDrop`）。めりこまない・浮かないをユニットテストで確かめる。骨のねじれで崩れるなら回転を小さくして形を優先。
+- 予備: どうしても崩れるときは `rest.pose: 'slump'`（立ったままうなだれる）に表で切りかえ。既定は `'petan'`。
+- 当たりの箱（setHitBox）は座った体に合わせる（`rest.hit.petan` / `rest.hit.slump`）。休む秒・大ダメージは今のまま（eye.bigWaitSec）。
+- とどめのあとの `down`（その場に座りこむ）も同じポーズ。
 - stage() の名前 'perch' は そのまま使ってよい（テスト・2 人あそびが読んでいる）。
 
 ### 3. 登りやすさとコアの高さ（`gashaBigTuningBody.ts` ほか体の組み立て）
@@ -33,7 +35,7 @@
 - 間欠泉で飛んだ高さが肩より低くならないこと（肩の上に乗れること）もテストに。
 
 ### 4. 燃えかす（`gashaBigTuningFar.ts` eruption.ember）
-- `ember.sec` 300 → **20 秒**（目安）。消えるときは 急に消さず、最後の `ember.fadeSec`（目安 2 秒）で 炎が小さくなって消える（`gashaBigEruption.ts` / `gashaBigEruptFx.ts` の燃えかすの大きさに反映）。殴ると消えるのは そのまま。
+- `ember.sec` 300 → **10 秒**。消えるときは急に消さず、最後の `ember.fadeSec`（2 秒）で炎が小さくなって消える（`emberScale`、`gashaBigEruptFx.ts` に反映）。殴ると消えるのはそのまま。
 
 ### 5. 遠くのぼやけ（`silhouette.ts`・`releaseTuning.ts` silhouette・`gashaBigHaze.ts`）
 - いまは 遠いと暗い単色のシルエットになり（strength 0.88、霞み 0）、山の上から見ると空の前に黒く浮いて見える。

@@ -30,12 +30,13 @@ export interface BoxLike {
   half: ArrayLike<number>;
 }
 
-export type Part = 'hand' | 'foreArm' | 'upperArm' | 'head' | 'core' | 'ribbon' | 'cloud' | 'body' | 'girl';
+export type Part = 'hand' | 'foreArm' | 'upperArm' | 'head' | 'core' | 'ribbon' | 'cloud' | 'body' | 'girl' | 'outCore';
 
 /** 箱の 名前 → 部位（gashaBig.ts の 当たりの 名前: hand*（指・親指も）・foreArm・upperArm・skull*（頭がいの よこ・ほお・あご・てっぺんも）・ribbon*・torso/spine/chest/neck/collar/shoulderCloth/hair* は 胴体・それ以外は 雲） */
 export function partOf(name: string): Part {
   if (name === 'core') return 'core';
   if (name === 'girl') return 'girl';
+  if (name === 'outCore') return 'outCore'; // とどめの あと 体の 外へ 出た 大きな コア（FIX-3）
   if (name.startsWith('hand')) return 'hand';
   if (name.startsWith('foreArm')) return 'foreArm';
   if (name.startsWith('upperArm')) return 'upperArm';
@@ -251,7 +252,7 @@ export class BigHit {
   private boxes: readonly BoxLike[] = [];
   /** からだの 箱（bind で わたされた もの）。boxes = これ ＋ extra */
   private base: readonly BoxLike[] = [];
-  /** 足す 箱 1 つ（座っている 少女。名前 girl。外から 毎コマ 場所を 更新される） */
+  /** 足す 箱 1 つ（座っている 少女 girl か、とどめの あと 体の 外へ 出た コア outCore。外から 毎コマ 場所を 更新される） */
   private extra: BoxLike | null = null;
   private parts: Part[] = [];
   private mats: { m: MeshBasicMaterial; r: number; g: number; b: number }[] = [];
@@ -265,7 +266,7 @@ export class BigHit {
   private bar: HpBar | null = null;
   /** 今の ray の 当たりが 矢か（パンチは knock を わたさない・矢は わたす） */
   private viaArrow = false;
-  /** とどめの あとの モード: off = ふつう / lock = どこに 当たっても ダメージ 0 / core = コアだけ onCoreHit に 知らせる */
+  /** とどめの あとの モード: off = ふつう / lock = どこに 当たっても ダメージ 0 / core = 外の コア(outCore)だけ onCoreHit に 知らせる */
   private finish: 'off' | 'lock' | 'core' = 'off';
   /** コアの 当たりを 太らせる ぶん（ブロック。たおれた あと） */
   private coreReach = 0;
@@ -396,7 +397,7 @@ export class BigHit {
       const i = this.parts.indexOf(part as Part);
       if (i >= 0) at = { x: this.boxes[i]!.c[0]!, y: this.boxes[i]!.c[1]!, z: this.boxes[i]!.c[2]! };
     }
-    if (this.finish === 'core' && part === 'core' && this.env.onCoreHit?.(at)) {
+    if (this.finish === 'core' && part === 'outCore' && this.env.onCoreHit?.(at)) {
       if (at) this.spark(at, 0xff8a60, 1.5);
       this.flash = 1;
       this.env.sources?.sound?.();
@@ -498,7 +499,7 @@ export class BigHit {
   }
 
   private reachOf(i: number): number {
-    return this.coreReach > 0 && this.parts[i] === 'core' ? this.coreReach : 0;
+    return this.coreReach > 0 && this.parts[i] === 'outCore' ? this.coreReach : 0;
   }
 
   private stepBlade(s: HitSources, mem: HitMemory, who: 1 | 2): void {

@@ -3,6 +3,7 @@ import { Scene } from 'three';
 import { BigHit, type BoxLike } from './gashaBigHit';
 
 const core = (): BoxLike => ({ name: 'core', c: [0, 5, 0], ax: [1, 0, 0, 0, 1, 0, 0, 0, 1], half: [1, 1, 1] });
+const outCore = (): BoxLike => ({ name: 'outCore', c: [0, 5, 0], ax: [1, 0, 0, 0, 1, 0, 0, 0, 1], half: [1, 1, 1] });
 const hand = (): BoxLike => ({ name: 'handL', c: [8, 5, 0], ax: [1, 0, 0, 0, 1, 0, 0, 0, 1], half: [1, 1, 1] });
 
 describe('とどめの あとの 当たり（体力 0 のあと: コアだけ 数える）', () => {
@@ -18,20 +19,22 @@ describe('とどめの あとの 当たり（体力 0 のあと: コアだけ �
     expect(bh.hp).toBe(hp);
   });
 
-  it('core モード: コアだけ onCoreHit に 知らせる（受け入れられたら 1 を 返す）。怒らせず・ふり落としも しない。ほかの 部位は 0', () => {
+  it('core モード: 外の コア(outCore)だけ onCoreHit に 知らせる（受け入れられたら 1 を 返す）。怒らせず・ふり落としも しない。ほかの 部位は 0', () => {
     let angry = 0, thrown = 0, hits = 0, accept = true;
     const bh = new BigHit({
       scene: new Scene(), angry: () => { angry++; }, onCore: () => { thrown++; },
       onCoreHit: () => { hits++; return accept; },
     });
     bh.bind([core(), hand()], null);
+    bh.setExtra(outCore()); // FIX-3: 体の 外へ 出た 大きな コア
     bh.setFinish('core');
     expect(bh.damage('hand', 1000)).toBe(0);
+    expect(bh.damage('core', 1000)).toBe(0); // 体の 中の コアは もう 数えない
     expect(hits).toBe(0);
-    expect(bh.damage('core', 5)).toBe(1);
+    expect(bh.damage('outCore', 5)).toBe(1);
     expect(hits).toBe(1);
     accept = false;
-    expect(bh.damage('core', 5)).toBe(0); // 間かくが あいて いない など
+    expect(bh.damage('outCore', 5)).toBe(0); // 間かくが あいて いない など
     expect(angry + thrown).toBe(0);
     expect(bh.hp).toBe(bh.maxHp);
   });
@@ -49,7 +52,8 @@ describe('とどめの あとの 当たり（体力 0 のあと: コアだけ �
     const mk = () => {
       const got: number[] = [];
       const bh = new BigHit({ scene: new Scene(), angry: () => undefined, onCoreHit: () => { got.push(1); return true; }, sources: { blade: () => blade as never } });
-      bh.bind([core()], null);
+      bh.bind([hand()], null);
+      bh.setExtra(outCore());
       bh.setFinish('core');
       return { bh, got };
     };

@@ -131,6 +131,16 @@ describe('DropField', () => {
     expect(g.f.list().map((d) => [d.batch, d.rarity])).toEqual(l.map((d) => [d.batch, d.rarity]));
   });
 
+  it('glow: 柱・光の めずらしさを 上書き（虹色）。アイテム自体の めずらしさは かえない。保存しても のこる', () => {
+    const r = rig();
+    r.f.scatter({ x: 10.5, y: 9, z: 10.5 }, [{ item: 'dirt', count: 2 }, { item: 'iron_ore', count: 1 }], { glow: 'legendary' });
+    expect(r.f.list().map((d) => d.rarity)).toEqual(['legendary', 'legendary']);
+    expect(r.f.list().map((d) => d.slots[0]!.item)).toEqual(['dirt', 'iron_ore']); // 中身は そのまま
+    const g = rig();
+    g.f.deserialize(JSON.parse(JSON.stringify(r.f.serialize())));
+    expect(g.f.list().map((d) => d.rarity)).toEqual(['legendary', 'legendary']);
+  });
+
   it('AC11 セーブ: 7 つの id はそのまま、ほかの文字は アイテムの段階', () => {
     const r = rig();
     r.f.scatter({ x: 10.5, y: 9, z: 10.5 }, [{ item: 'iron_ore', count: 1 }]);

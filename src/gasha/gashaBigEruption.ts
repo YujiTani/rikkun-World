@@ -260,6 +260,12 @@ export class MeteorRain {
 /** 燃えかす。from = どの 隕石の もの か（着地点・飛び散った 火の 粉。テスト・デバッグ用。なければ -1） */
 export interface Ember { id: number; x: number; y: number; z: number; age: number; body: boolean; from: number }
 
+/** 燃えかすの 大きさ 0〜1（年れい age 秒）。生まれて 0.3 秒で 大きく なり、消える 前の ember.fadeSec で 小さく なって 消える */
+export function emberScale(age: number): number {
+  const K = T.eruption.ember;
+  return Math.max(0, Math.min(1, age / 0.3, (K.sec - age) / Math.max(1e-3, K.fadeSec)));
+}
+
 export class Embers {
   list: Ember[] = [];
   /** ならびや 場所が かわる たびに ふえる（描く 側が こげ跡を 書きなおす か 決める） */

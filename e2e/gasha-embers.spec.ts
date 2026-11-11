@@ -5,8 +5,8 @@ import { takeKatana, runTech, settle } from './helpers/blade';
 import { TUNE } from '../src/gasha/gashaBigTuning';
 
 /**
- * #293 噴火の 燃えかす: 約 5 分で 消える・殴ると 消える・触れると ドットダメージ・灰が 落ちた 点の 植物が 燃える。
- * 時間では 待たず、コマで 進める（5 分 = 18000 コマ）。
+ * #293 噴火の 燃えかす: 約 10 秒（FIX-3）で 消える・殴ると 消える・触れると ドットダメージ・灰が 落ちた 点の 植物が 燃える。
+ * 時間では 待たず、コマで 進める（10 秒 = 600 コマ）。
  */
 test.describe.configure({ timeout: 300_000 });
 
@@ -35,7 +35,7 @@ const flatOf = (page: Page, list: Ember[]) => page.evaluate((l) => l.map((e: Emb
 const nearestOther = (list: Ember[], e: Ember): Ember => list.filter((o) => o !== e && !o.body).sort((a, b) => Math.hypot(a.x - e.x, a.z - e.z) - Math.hypot(b.x - e.x, b.z - e.z))[0]!;
 
 test.describe('燃えかす', () => {
-  test('約 5 分（調整表の sec）のこって、そのあと 消える。5 分 たつ 前に 消えない', async ({ page }) => {
+  test('約 10 秒（調整表の sec）のこって、そのあと 消える。sec 秒 たつ 前に 消えない（最後の fadeSec で 小さく なる）', async ({ page }) => {
     const errs = await openGasha(page);
     await setupBoss(page);
     const list = await erupt(page);
@@ -224,30 +224,35 @@ test.describe('燃えかす', () => {
     expect(errs).toEqual([]);
   });
 
-  test('プレイヤーが 遠く（80 ブロック いじょう）へ いって もどっても、燃えかすは のこって いる（約 5 分 のこる 決まり）', async ({ page }) => {
+  test('プレイヤーが 遠く（80 ブロック いじょう）へ いって もどっても、燃えかすは のこって いる（sec 秒 の あいだ のこる 決まり）', async ({ page }) => {
     const errs = await openGasha(page);
     await setupBoss(page);
     const list = await erupt(page);
     const n0 = list.length;
     expect(n0).toBeGreaterThan(20);
+    const young = list.filter((e) => e.age < EM.sec - 3).length;
+    expect(young).toBeGreaterThan(5);
     const r = await page.evaluate((far) => {
       const gt = (window as any).__gt, g = gt.big();
-      gt.run(600, () => { gt.put(far.x, far.z); gt.heal(); }); // 体から 100 ブロック以上 はなれて 10 秒
+      gt.run(60, () => { gt.put(far.x, far.z); gt.heal(); }); // 体から 100 ブロック以上 はなれて 1 秒（sec = 10 秒 なので 短く）
       const dist = Math.hypot(far.x - gt.boss().x, far.z - gt.boss().z);
       gt.run(60, () => { gt.put(64.5, 64.5, 30); gt.heal(); }); // もどる
       return { dist, left: g.attackInfo().eruption.embers as number };
     }, { x: 64.5, z: 170.5 });
     expect(r.dist).toBeGreaterThan(80);
-    expect(r.left, '遠くへ いって もどっても 燃えかすは のこる').toBe(n0);
+    // 寿命（sec）が 近い 古い ものは 消えて よい。まだ 若い（のこり 3 秒 より 多い）ものは ぜんぶ のこる
+    expect(r.left, '遠くへ いって もどっても 燃えかすは のこる').toBeGreaterThanOrEqual(young);
     expect(errs).toEqual([]);
   });
 
-  test('攻撃の 途中で 休んでも（tired）、燃えかすは 消えない（約 5 分 のこる 決まり）', async ({ page }) => {
+  test('攻撃の 途中で 休んでも（tired）、燃えかすは 消えない（sec 秒 の あいだ のこる 決まり）', async ({ page }) => {
     const errs = await openGasha(page);
     await setupBoss(page);
     const list = await erupt(page);
     const n0 = list.length;
     expect(n0).toBeGreaterThan(20);
+    const young = list.filter((e) => e.age < EM.sec - 3).length;
+    expect(young).toBeGreaterThan(5);
     const r = await page.evaluate(() => {
       const gt = (window as any).__gt, g = gt.big();
       g.attack('slam2');
@@ -258,7 +263,7 @@ test.describe('燃えかす', () => {
       return { mode, left: g.attackInfo().eruption.embers as number };
     });
     expect(r.mode, '攻撃の 途中だった').toBe('attack');
-    expect(r.left, '休んでも 燃えかすは のこる').toBe(n0);
+    expect(r.left, '休んでも 燃えかすは のこる（寿命が 近い ものは 消えて よい）').toBeGreaterThanOrEqual(young);
     expect(errs).toEqual([]);
   });
 });

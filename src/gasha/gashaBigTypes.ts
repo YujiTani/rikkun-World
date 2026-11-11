@@ -59,6 +59,8 @@ export interface BigModel {
   mossHidden(): number;
   /** コアの 見た目を ずらす（胴体の 座標の ずれ x, y, z・大きさの 倍・透明度の 倍）。もどす ときは (0,0,0,1,1) */
   setCoreFx(jx: number, jy: number, jz: number, scale: number, alphaK: number): void;
+  /** 体の 中の コアの 見た目を 出す / 消す（倒れたら 消す。FIX-3） */
+  setCoreShown(on: boolean): void;
   /** コアの 色を 赤く する(0 = ふだんの 水色、1 = 赤。とどめの あと)。pulse = 明るさの ゆらぎ(0〜1)。0, 0 で もどす */
   setCoreRed(k: number, pulse?: number): void;
   eyes: MeshBasicMaterial;

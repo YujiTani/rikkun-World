@@ -33,7 +33,7 @@ export function buildBig(): BigModel {
   buildClouds(c, armEnds);
 
   const { group, joints, meshes, matOf, brow, glassMeshes } = buildMeshes(b, rest);
-  const { setCoreFx, setCoreRed } = buildCoreVis(c, joints, meshes);
+  const { setCoreFx, setCoreRed, setCoreShown } = buildCoreVis(c, joints, meshes);
   const plantCount = buildBodyPlants(c, joints, meshes);
   // 体の 外がわの こけ・くさ（まばらな かたまり）。3 つの InstancedMesh を からだの 親に つけ、毎コマ 関節の 行列から 位置を 作りなおす
   const outsidePm = plantMaterial();
@@ -54,6 +54,6 @@ export function buildBig(): BigModel {
   const swirl = buildSwirlEyes(new Quaternion().setFromEuler(new Euler(0.17, headYaw, 0, 'YXZ')));
   joints.Head.add(swirl.root);
   return {
-    group, joints, rest, hits: b.hits, glass: b.glass, setGlass, plants: plantCount, mossOutside: { clumps: outside.clumps, count: outside.count }, updateMoss: outside.update, burnMoss: outside.burn, restoreMoss: outside.restore, mossHidden: outside.hiddenCount, setCoreFx, setCoreRed, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), swirl, brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
+    group, joints, rest, hits: b.hits, glass: b.glass, setGlass, plants: plantCount, mossOutside: { clumps: outside.clumps, count: outside.count }, updateMoss: outside.update, burnMoss: outside.burn, restoreMoss: outside.restore, mossHidden: outside.hiddenCount, setCoreFx, setCoreRed, setCoreShown, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), swirl, brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
   };
 }

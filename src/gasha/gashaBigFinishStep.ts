@@ -1,5 +1,5 @@
 /**
- * #308 gashaBig.ts を 分けた もの: とどめの あと(FIX-BRIEF-2 §5)の 世界との つなぎ。一撃 → 倒れる → 赤い コア → たたくと ばらまく → こわすと くずれて 消える。
+ * #308 gashaBig.ts を 分けた もの: とどめの あと(FIX-BRIEF-2 §5)の 世界との つなぎ。一撃 → 倒れる → 大きな コアが 体の 外の 地面へ 出て 赤く なる(FIX-3) → たたくと ばらまく → こわすと くずれて 消える。
  * 場面の 進み方は gashaBigFinish.ts、くずれる かけらは gashaBigCrumbleFx.ts。
  */
 import type { Vector3 } from 'three';
@@ -10,6 +10,7 @@ import type { BigHit } from './gashaBigHit';
 import type { BigSfx } from './gashaBigSfx';
 import type { CoreThrow } from './gashaBigCoreThrow';
 import { FinishSeq, type FinishEvent, type FinishPhase } from './gashaBigFinish';
+import { CoreOut, coreSpot } from './gashaBigCoreOut';
 import { CRUMBLE_ORDER, CrumbleFx, crumbleSchedule } from './gashaBigCrumbleFx';
 import { TUNE as T } from './gashaBigTuning';
 
@@ -27,7 +28,7 @@ export interface FinishEnv {
   clearFx(): void;
   /** 怒りの BGM を 止める 頼み */
   stopBgm(): void;
-  deps: Pick<GashaBigDeps, 'scene' | 'player' | 'hitStop' | 'shake' | 'setPlayerVelocity' | 'onCoreHit' | 'onCoreBroken' | 'onVanished'>;
+  deps: Pick<GashaBigDeps, 'scene' | 'player' | 'groundY' | 'hitStop' | 'shake' | 'setPlayerVelocity' | 'onCoreHit' | 'onCoreBroken' | 'onVanished'>;
 }
 
 export interface FinishStep {
@@ -50,10 +51,12 @@ export function createFinishStep(env: FinishEnv): FinishStep {
   const { deps, sfx, hit: bh } = env;
   const fin = new FinishSeq();
   let crumbleFx: CrumbleFx | null = null;
+  let coreOut: CoreOut | null = null;
   let crumbleSched: { joint: JointName; at: number }[] = [];
   let crumbleNext = 0;
   let finClock = 0;
   const coreCenter = (): { x: number; y: number; z: number } => {
+    if (coreOut?.visible()) return { ...coreOut.center }; // 外へ 出た 大きな コア
     const actor = env.actor(), pos = env.pos();
     const i = actor ? actor.boxList.findIndex((b) => b.name === 'core') : -1;
     const b = i >= 0 ? actor!.boxList[i] : undefined;
@@ -62,7 +65,14 @@ export function createFinishStep(env: FinishEnv): FinishStep {
   const onFinishEvent = (e: FinishEvent): void => {
     if (!env.actor()) return;
     if (e.kind === 'lie') {
-      bh.setFinish('core'); bh.setCoreReach(T.finish.core.reach);
+      // 倒れおわった: 体の 中の コアを 消し、大きな コアを 体の 外の 地面（プレイヤーの 方）に 置く。当たりの 箱は ワールドの 位置
+      const K = T.finish.core, pos = env.pos(), p = deps.player();
+      env.model()?.setCoreShown(false);
+      if (!coreOut) coreOut = new CoreOut(deps.scene);
+      coreOut.place(coreSpot(pos, p, (x, z) => deps.groundY(Math.floor(x), Math.floor(z)), K.outBlocks, K.size), K.size);
+      coreOut.setRed(0, 0);
+      bh.setExtra(coreOut.box());
+      bh.setFinish('core'); bh.setCoreReach(K.reach);
     } else if (e.kind === 'coreHit') {
       const c = coreCenter();
       bh.burst(c, 3, 0xff6a40);
@@ -70,6 +80,7 @@ export function createFinishStep(env: FinishEnv): FinishStep {
     } else if (e.kind === 'crumble') {
       const c = coreCenter();
       bh.setFinish('lock'); bh.setCoreReach(0);
+      bh.setExtra(null); coreOut?.clear();
       sfx.crumble();
       bh.burst(c, 6, 0xff6a40);
       crumbleSched = crumbleSchedule(); crumbleNext = 0;
@@ -132,7 +143,7 @@ export function createFinishStep(env: FinishEnv): FinishStep {
       const sink = F.fall.sinkBlocks * k + (ph === 'crumble' || ph === 'gone' ? F.crumble.sinkBlocks * fin.crumbleK : 0);
       actor.setTilt(F.fall.rollDeg * (Math.PI / 180) * k, F.fall.pitchDeg * (Math.PI / 180) * k, F.fall.pivotY, sink);
     }
-    if (ph === 'lie' || ph === 'crumble') model.setCoreRed(fin.redK, 0.5 + 0.5 * Math.sin(finClock * F.core.pulseHz * Math.PI * 2));
+    if (ph === 'lie') coreOut?.setRed(fin.redK, 0.5 + 0.5 * Math.sin(finClock * F.core.pulseHz * Math.PI * 2));
     if (ph === 'crumble') {
       const k = fin.crumbleK;
       while (crumbleNext < crumbleSched.length && crumbleSched[crumbleNext]!.at <= k) {
@@ -145,6 +156,7 @@ export function createFinishStep(env: FinishEnv): FinishStep {
   const reset = (): void => {
     fin.cancel(); finClock = 0; crumbleNext = 0; crumbleSched = [];
     crumbleFx?.clear();
+    coreOut?.clear(); bh.setExtra(null); env.model()?.setCoreShown(true);
     bh.setFinish('off'); bh.setCoreReach(0);
   };
   return {

@@ -21,6 +21,8 @@ export interface MeshParts {
 export interface CoreVis {
   setCoreFx: (jx: number, jy: number, jz: number, scale: number, alphaK: number) => void;
   setCoreRed: (k: number, pulse?: number) => void;
+  /** 体の 中の コアの 見た目を 出す / 消す（倒れたら 消す。FIX-3） */
+  setCoreShown: (on: boolean) => void;
 }
 
 /** 関節の Group と メッシュ（ためた 箱を 関節ごとに 1 つの メッシュに する） */
@@ -109,7 +111,8 @@ export function buildCoreVis(c: Pick<BuildCtx, 'rest' | 'torso' | 'K'>, joints: 
     });
   };
   meshes.push(...(coreVis.children as Mesh[]));
-  return { setCoreFx, setCoreRed };
+  const setCoreShown = (on: boolean): void => { coreVis.visible = on; };
+  return { setCoreFx, setCoreRed, setCoreShown };
 }
 
 /** 体の 中の 道に 生い茂る こけ・くさ（十字の ドット絵の 板。InstancedMesh）。くさの 数を 返す */

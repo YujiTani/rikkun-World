@@ -47,6 +47,8 @@ export interface ScatterOptions {
   /** 上向きの速さの最小〜最大。なければ DROP.popUpSpeed */
   upMin?: number;
   upMax?: number;
+  /** 柱・光の 輪の 見た目の めずらしさを これに する（アイテム自体の めずらしさは かえない。保存の rarity に のこる）。なければ いちばん めずらしい アイテムの もの */
+  glow?: Rarity;
 }
 
 /** 外から見える 1 つ（`combat.bags()` の 1 件。slots は 1 つだけ） */
@@ -179,7 +181,7 @@ export class DropField {
     const slice = (Math.PI * 2) / Math.max(1, n);
     let idx = 0;
     const batch = this.nextBatch++;
-    const rarity = topRarity(stacks.filter((x) => x.count >= 1).map((x) => x.item));
+    const rarity = opts.glow ?? topRarity(stacks.filter((x) => x.count >= 1).map((x) => x.item));
     for (const st of stacks) {
       if (st.count < 1) continue;
       // 向きを 360°/こ数 で分けて、ゆらぎを足す（となりと重ならない）
