@@ -52,7 +52,7 @@ export function installGameHook(deps: WiredMine): void {
     craftHook, craftPanel, achievementsHook, storageHook, farm, farmVisual, sparkle, facingTmp, sprayFx,
     waterFx, drops, store, level, yokaiM, blade, weaponFx, animals, deliverAnimalEvents, animalEvents,
     currentKitRows, animalFx, animalHint, aimPointInto, combat, lockHook, book, look, wheel, mixer, bgm,
-    bgmScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
+    bgmScene, yakataScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
     m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets, seat, water,
     gamepadApi, duo, mine,
   } = deps;
@@ -341,6 +341,7 @@ export function installGameHook(deps: WiredMine): void {
       mixer,
       bgm,
       tracker: bgmScene,
+      yakata: yakataScene,
       audio: audioSettings,
       fx: FX_SETTINGS,
       // contract 3.: chord は { root, minor }、t は秒（ゲームの時間）

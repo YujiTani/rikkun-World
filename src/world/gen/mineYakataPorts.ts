@@ -44,6 +44,8 @@ export interface YakataPorts {
   };
   /** その 人の 手に して fn を 呼ぶ〔`createChestRouter().run`〕 */
   run(who: 1 | 2, fn: () => void): void;
+  /** 門を とじた とき 門の マスに いる 人を 大広間の 中へ 押し出す〔足の 位置を おく。なければ 何も しない〕 */
+  movePlayer?(who: 1 | 2, to: { x: number; y: number; z: number }): void;
   /** できごと〔画面・音・実績は つなぎ込みが これを 見て 出す〕 */
   emit(e: YakataEvent): void;
 }

@@ -1,3 +1,4 @@
+import { yakataSoundTable, type YakataSoundTable } from '../../fx/yakataSoundTable';
 import type { SaveBlockOverride } from '../../save/saveOverride';
 import { YAKATA_TABLE } from './mineYakataConfig';
 import { yakataHit, yakataLook } from './mineYakataRoll';
@@ -61,6 +62,9 @@ export function createYakataHook(o: YakataHookOptions, shafts: () => ShaftWorld)
     },
     yakataPlanFor: (id: string, opt?: Parameters<typeof yakataPlanIn>[3]): YakataPlan | null => yakataPlanIn(shafts(), o.seed, id, opt),
     yakataStep: (): void => run.step(),
+    yakataStage: (): { present: boolean; chosen: boolean; katta: boolean } => run.stage(),
+    yakataQuiet: (who: 1 | 2): boolean => run.quiet(who),
+    yakataSoundTable: (): YakataSoundTable => yakataSoundTable(),
     yakataLocked: (x: number, y: number, z: number): boolean => run.locked(Math.floor(x), Math.floor(y), Math.floor(z)),
     yakataSaveOverrides: (): SaveBlockOverride[] => run.saveOverrides(),
     /** やかたの 宝箱なら 挑戦の 係が あつかう〔true〕 */

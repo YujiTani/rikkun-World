@@ -3,7 +3,7 @@ import { buildOps, buildOpsSteps, type ColOps, type OldCols } from './mineShaftO
 import type { Planned } from './mineShaftPlanned';
 import { yakataStage } from './mineYakataStage';
 import { regionOfShaftId } from './mineYakataRoll';
-import type { Box3 } from './mineYakataTypes';
+import type { Box3, Yakata } from './mineYakataTypes';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import { planShaft, type PlanEnv, type ShaftPlan } from './mineShaftPlan';
 import { LINK_TRIES, type StartLink } from './mineShaftHeya';
@@ -464,6 +464,13 @@ export class ShaftWorld implements CaveHost {
     const k = keyOf(x, y, z);
     for (const plan of this.plansNear(x >> 4, z >> 4)) if (plan.yakata?.air.has(k)) return true;
     return false;
+  }
+
+  /** 近くの 区画〔(cx, cz) の まわり〕の やかた〔計画の 済んだ ものだけ。光の 箱に 使う〕 */
+  yakataNear(cx: number, cz: number): Yakata[] {
+    const out: Yakata[] = [];
+    for (const plan of this.plansNear(cx, cz)) if (plan.yakata) out.push(plan.yakata.yakata);
+    return out;
   }
 
   /** (x, y, z) を ふくむ やかたの 計画〔なければ null〕。箱の 中だけ 見る */

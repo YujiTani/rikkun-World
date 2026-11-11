@@ -40,7 +40,7 @@ export function charBasePath(kind: 'girl' | 'boy'): string {
 
 export function wireInput(deps: WiredRender) {
   const {
-    shared, game, fxSound, hud, startPlan, audioSettings, mixer, audioPersist, bgm, bgmScene, time,
+    shared, game, fxSound, hud, startPlan, audioSettings, mixer, audioPersist, bgm, bgmScene, yakataScene, time,
   } = deps;
 
   // 入力・スタート画面
@@ -162,7 +162,7 @@ export function wireInput(deps: WiredRender) {
   /** 毎ステップ: 場面 → BGM、画面の倍率、おめでとう画面のあいだ BGM を下げたまま */
   function audioStep(): void {
     audioSync();
-    if (game.tick % 10 === 0) audioYokai = shared.yokaiM.list().map((y) => ({ state: y.state, position: y.position }));
+    if (game.tick % 10 === 0) audioYokai = (['waiting', 'challenge'] as string[]).includes(yakataScene.state().scene) ? [] : shared.yokaiM.list().map((y) => ({ state: y.state, position: y.position })); // MINE-1F: やかたの 場面の 間は たたかいの 曲に しない
     const dead = shared.combat.dead();
     if (shared.girlBgmOn) bgm.play(null, shared.gashaBgmFade); // #293 試作: 少女の 間は ふだんの BGM を 止める（「災厄」を 流す）
     else { bgm.play(bgmScene.update({ tick: game.tick, phase: time.phase(), player: shared.controller.state.position, yokai: audioYokai, dead }), shared.gashaBgmFade); if (bgm.current() !== null) shared.gashaBgmFade = {}; }

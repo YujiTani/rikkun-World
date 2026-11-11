@@ -167,6 +167,12 @@ interface Shared {
   requestSave: () => void;
   /** MINE-1E: キャンプの たんすを はじめて あける ときの 中身〔wireMine が つなぐ。つなぐ 前は null〕。`StorageSystem` の firstFill が 読む */
   campFill: (x: number, y: number, z: number) => ItemStack[] | null;
+  /** MINE-1F: やかたの ブロック〔まだ・挑戦の 間〕か。ほる係・ぬりかべが 読む〔wireMine が つなぐ。つなぐ 前は いつも false〕 */
+  yakataLocked: (x: number, y: number, z: number) => boolean;
+  /** MINE-1F §4.5: 挑戦の 間の 人〔1 = 1P・2 = 2P〕か。そこでは 自動の 出現を しない */
+  yakataQuiet: (who: 1 | 2) => boolean;
+  /** MINE-1F: 保存にだけ 元の ブロックで 書く マス〔挑戦の 間の 門・宝箱〕 */
+  yakataSaveOverrides: () => Array<{ x: number; y: number; z: number; live: string; save: string }>;
   skipSignalLog: boolean;
   onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
   yokaiManager: YokaiManager | null;
@@ -262,6 +268,9 @@ export function createShared(): Shared {
     modalCloseNow: () => {},
     requestSave: () => {},
     campFill: () => null,
+    yakataLocked: () => false,
+    yakataQuiet: () => false,
+    yakataSaveOverrides: () => [],
     skipSignalLog: false,
     onDropPicked: () => {},
     yokaiManager: null,

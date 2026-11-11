@@ -13,6 +13,9 @@ import type { Pt } from './mineShaftTypes';
  * 状態は このセッションの 中だけ おぼえる〔保存した 世界を 開くと「まだ」。かった 宝箱は あいた まま なので「かった」〕。
  */
 
+/** 門から 大広間の 中へ 押し出す 長さ〔マス〕 */
+const PUSH_OUT = 2;
+
 export type YakataStateName = 'mada' | 'chosen' | 'katta';
 export interface YakataStateInfo {
   state: YakataStateName;
@@ -58,6 +61,16 @@ const gateOf = (y: Yakata): Pt[] => {
   for (let k = 0; k < T.gate.height; k++) for (let x = y.gate.x0; x <= y.gate.x1; x++) for (let z = y.gate.z0; z <= y.gate.z1; z++) out.push({ x, y: y.gate.y + k, z });
   return out;
 };
+
+export /** 門の 内がわ〔大広間の 側〕の 立つ 場所: 門の まん中から 大広間の まん中へ 2 マス */
+function pushOut(y: Yakata, footY: number): { x: number; y: number; z: number } {
+  const gx = (y.gate.x0 + y.gate.x1 + 1) / 2;
+  const gz = (y.gate.z0 + y.gate.z1 + 1) / 2;
+  const hx = (y.hall.x0 + y.hall.x1 + 1) / 2;
+  const hz = (y.hall.z0 + y.hall.z1 + 1) / 2;
+  const alongX = Math.abs(hx - gx) >= Math.abs(hz - gz);
+  return { x: alongX ? gx + Math.sign(hx - gx) * PUSH_OUT : gx, y: footY, z: alongX ? gz : gz + Math.sign(hz - gz) * PUSH_OUT };
+}
 
 export function createYakataRun(d: RunDeps) {
   const runs = new Map<string, Run>();
@@ -109,6 +122,12 @@ export function createYakataRun(d: RunDeps) {
     if (leave.length > 0) ports.yokai.leave(leave);
     setChest(y, true);
     setGate(y, true);
+    // 門の マスに いた 人は 大広間の 中へ 押し出す〔門に うまらない〕
+    const gate = gateOf(y);
+    for (const p of players) {
+      if (!gate.some((c) => c.x === Math.floor(p.x) && c.z === Math.floor(p.z) && Math.floor(p.y) >= c.y && Math.floor(p.y) < c.y + T.gate.height)) continue;
+      ports.movePlayer?.(p.who, pushOut(y, p.y));
+    }
     const ox = me ? me.x : y.chest.x + 0.5;
     const oz = me ? me.z : y.chest.z + 0.5;
     const away = T.spawn.awayFromOpener;
@@ -206,6 +225,22 @@ export function createYakataRun(d: RunDeps) {
         return { state: 'chosen', left: ids.length, foes: ids, floating: r.floating.map((i) => ({ ...i })) };
       }
       return { state: y ? stateOf(y) : 'mada', left: 0, foes: [], floating: null };
+    },
+    /** 場面の 材料: だれかが やかたに いる・挑戦の 間・かった あと〔その やかたの 中の 人だけ〕 */
+    stage(): { present: boolean; chosen: boolean; katta: boolean } {
+      let present = false;
+      let katta = false;
+      for (const id of inHall.values()) {
+        if (!id) continue;
+        present = true;
+        if (won.has(id)) katta = true;
+      }
+      return { present, chosen: runs.size > 0, katta };
+    },
+    /** その 人〔1 = 1P・2 = 2P〕は 挑戦の 間の なかまか〔自動の 出現を しない〕 */
+    quiet(who: 1 | 2): boolean {
+      for (const r of runs.values()) if (r.members.has(who)) return true;
+      return false;
     },
     /** その マスの ブロックは 今 こわせないか */
     locked(x: number, y: number, z: number): boolean {

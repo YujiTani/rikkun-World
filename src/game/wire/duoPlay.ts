@@ -300,6 +300,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       config: digCfg,
       rng: createRng(20240602),
       m4: {
+        yakata: { locked: (x, y, z) => shared.yakataLocked(x, y, z) },
         tools,
         blade,
         w2,
