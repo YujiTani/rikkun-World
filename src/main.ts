@@ -14,6 +14,7 @@ import { installGameHook } from './debug/installTestHook';
 import { wireGasha } from './game/wire/gasha';
 import { wireDuo } from './game/wire/duo';
 import { wireMine } from './game/wire/mine';
+import { installDrift, wantsDrift } from './game/wire/drift';
 import { buildMagmaDemo, wantsMagmaDemo } from './debug/magmaDemo';
 
 await loadIconAtlas().catch(() => undefined); // ICON-32: 32×32 の アイコン（失敗しても 16×16 で 動く）
@@ -40,6 +41,8 @@ const w18 = Object.assign(w17, wireDuo(w17)); // 2 人で あそぶ（COOP-1。2
 const w19 = Object.assign(w18, wireMine(w18)); // 坑道の 宝箱（MINE-1C）
 installGameHook(w19);
 wireGasha(w19);
+// ?drift=1 の ときだけ: ゆきやまの 雪・もみじやまの 紅葉の 舞い（試作）
+if (wantsDrift(location.search)) installDrift(w19);
 // MAGMA-SPAWN: ?demo=magma の ときだけ、はじめの 場所の 前に マグマの 見本を 1 回 置く（列が 読みこまれた ステップで）
 if (wantsMagmaDemo(location.search)) {
   let done = false;
