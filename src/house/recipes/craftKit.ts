@@ -259,6 +259,9 @@ export function craftViewCards(craft: UnlockCraft, inv: { count(item: ItemId): n
 }
 export interface PlacedPieces {
   pos: number[];
+  /** 絵の 座標・色（LookPiece と 同じ。案の ちがいを 見る ため） */
+  uv?: number[];
+  rgb?: readonly number[] | null;
 }
 export function placedLookPieces(id: string, placed: PlacedLookRec | null): readonly PlacedPieces[] {
   const f = (renderMod as unknown as Record<string, unknown>).placedLookPieces;

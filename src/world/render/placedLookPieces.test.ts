@@ -9,9 +9,12 @@ import { lookPieces } from './houseLookPieces';
  * 面の 角は 1 マス ぶんの 0〜1 の 座標（pos ＝ x,y,z × 4 つ）。ブロックの 向き: n ＝ −z・s ＝ ＋z・e ＝ ＋x・w ＝ −x（前・のきが その がわ）。形・数は 表から（#311）。
  */
 
-type Piece = { pos: number[] };
+type Piece = { pos: number[]; uv?: number[]; rgb?: readonly number[] | null };
 const verts = (ps: readonly Piece[]): Array<[number, number, number]> => ps.flatMap((p) => [0, 3, 6, 9].map((i): [number, number, number] => [p.pos[i]!, p.pos[i + 1]!, p.pos[i + 2]!]));
-const key = (ps: readonly Piece[]): string => JSON.stringify(ps.map((p) => p.pos.map((v) => Math.round(v * 1000) / 1000)).sort());
+const r3 = (v: number): number => Math.round(v * 1000) / 1000;
+const key = (ps: readonly Piece[]): string => JSON.stringify(ps.map((p) => p.pos.map(r3)).sort());
+/** 見た目（形 ＋ 絵 ＋ 色）。2B の 建てた 家でも 3 案は 形が 同じ 物が ある（さんかく・かわら・きん は 絵と 色で ちがう）ので、案の ちがいは これで 見る */
+const lookKey = (ps: readonly Piece[]): string => JSON.stringify(ps.map((p) => JSON.stringify([p.pos.map(r3), (p.uv ?? []).map(r3), p.rgb ?? null])).sort());
 /** 立方体か（6 つの 面が ぜんぶ 軸に そろって いる ＝ どの 面も 4 つの 角の x・y・z の どれかが ぜんぶ 同じ） */
 const flatFace = (p: Piece): boolean =>
   [0, 1, 2].some((k) => [0, 3, 6, 9].every((i) => Math.abs(p.pos[i + k]! - p.pos[k]!) < 1e-6));
@@ -60,9 +63,9 @@ describe('手で 置いた ななめの やね: 置いた ときの 記録の �
     }
   });
 
-  it('3 案で 形が ちがう（同じ 向きでも 案が ちがえば 面が ちがう）', () => {
+  it('3 案で 見た目が ちがう（同じ 向きでも 案が ちがえば 面の 形・絵・色の どれかが ちがう）', () => {
     for (const f of roofs) {
-      const keys = STYLES.map((style) => key(placedLookPieces(f.blocks[0]!, { style, facing: 's' })));
+      const keys = STYLES.map((style) => lookKey(placedLookPieces(f.blocks[0]!, { style, facing: 's' })));
       expect(new Set(keys).size, `${f.form}: 3 案`).toBe(STYLES.length);
     }
   });

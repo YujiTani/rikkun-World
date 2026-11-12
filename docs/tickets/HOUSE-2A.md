@@ -234,4 +234,4 @@ E2E は 1 本（`e2e/house2.spec.ts`。`e2e/shard-times.json` に 入れて あ�
 | AC20 | e2e/ui-gate.spec.ts（craft-house・duo-inv-craft-house） | 画面の 数・大きさ |
 | AC21 | 既存の 件数・スナップショット | content.json は 実装側で `-u` |
 
-直した 既存テスト: craft2.test（canCraftAny は 木 1 で true）・houseBlocks.test（source 文）・live3-text.spec（やく 5 → 6 まい）。
+直した 既存テスト: craft2.test（canCraftAny は 木 1 で true）・houseBlocks.test（source 文）・live3-text.spec は 5 まいの まま（まねきねこ は おぼえる まで 出ない。code-reviewer で 6 → 5 に もどした）。placedLookPieces.test の「3 案で ちがう」は 形 だけで なく 絵・色 も 見る（2B の 建てた 家でも さんかく・かわら・きん は 3 案で 形が 同じ）。
