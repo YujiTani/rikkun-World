@@ -1,4 +1,4 @@
-import { ARA, ARA_MOSSY } from './stoneLegend';
+import { ARA, ARA_MOSSY, STONE_BASE } from './stoneLegend';
 import type { StructureShape } from './types';
 
 /**
@@ -41,6 +41,6 @@ export const HOKORA: StructureShape = {
     G: 'kawara_kasa',
   },
   anchor: { x: 4, z: 4 },
-  base: { id: 'ara_ishi', maxFill: 5 },
+  base: { ...STONE_BASE, maxFill: 5, cap: 'renga_ishi' },
   maxSlope: 4,
 };

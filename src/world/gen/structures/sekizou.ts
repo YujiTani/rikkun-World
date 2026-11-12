@@ -1,4 +1,4 @@
-import { ARA, ARA_MOSSY } from './stoneLegend';
+import { ARA, ARA_MOSSY, STONE_BASE } from './stoneLegend';
 import type { StructureShape } from './types';
 
 /**
@@ -97,6 +97,6 @@ export const SEKIZOU: StructureShape = {
     T: 'koke_ara_ishi',
   },
   anchor: { x: 6, z: 8 },
-  base: { id: 'ishidatami', maxFill: 10 },
+  base: { ...STONE_BASE, maxFill: 10, cap: 'ishidatami' },
   maxSlope: 10,
 };

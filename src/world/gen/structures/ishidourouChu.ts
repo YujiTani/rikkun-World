@@ -1,3 +1,4 @@
+import { STONE_BASE } from './stoneLegend';
 import type { StructureShape } from './types';
 
 /**
@@ -23,6 +24,6 @@ export const ISHIDOUROU_CHU: StructureShape = {
     T: 'koke_ara_ishi_hashira',
   },
   anchor: { x: 1, z: 1 },
-  base: { id: 'koke_ishi', maxFill: 4 },
+  base: { ...STONE_BASE, maxFill: 4, cap: 'renga_ishi' },
   maxSlope: 3,
 };

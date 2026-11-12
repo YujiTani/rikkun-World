@@ -99,7 +99,22 @@ export function placeStructure(shape: StructureShape, ax: number, az: number, ro
   for (const f of feet) {
     if (f.ch === '.') continue;
     if (baseY - 1 - f.h > shape.base.maxFill) return null;
-    for (let y = f.h + 1; y < baseY; y++) blocks.push({ x: f.x, y, z: f.z, id: shape.base.id });
+    const e = entryOf(shape.base);
+    const depth = Math.max(1, baseY - 1 - f.h);
+    for (let y = f.h + 1; y < baseY; y++) {
+      if (y === baseY - 1 && shape.base.cap) { blocks.push({ x: f.x, y, z: f.z, id: shape.base.cap }); continue; }
+      const pMoss = e.moss + e.mossLow * ((baseY - 1 - y) / depth); // 地面に 近い 段ほど こけが 多い
+      let id: BlockId = e.id;
+      if (pMoss > 0 && hash01(seed, f.x, y, f.z, SALT_MOSS) < pMoss) id = e.mossId;
+      else if (e.mix.length > 0) {
+        let r = hash01(seed, f.x, y, f.z, SALT_MIX);
+        for (const [mid, p] of e.mix) {
+          if (r < p) { id = mid; break; }
+          r -= p;
+        }
+      }
+      blocks.push({ x: f.x, y, z: f.z, id });
+    }
   }
   for (const c of cells) {
     const [dx, dz] = rotate(c.rx, c.rz, rot);

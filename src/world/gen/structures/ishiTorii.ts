@@ -1,4 +1,4 @@
-import { ARA, ARA_MOSSY } from './stoneLegend';
+import { ARA, ARA_MOSSY, STONE_BASE } from './stoneLegend';
 import { TORII } from './torii';
 import type { StructureShape } from './types';
 
@@ -9,6 +9,7 @@ import type { StructureShape } from './types';
 export const ISHI_TORII: StructureShape = {
   ...TORII,
   id: 'ishi_torii',
+  base: { ...STONE_BASE, maxFill: 3, cap: 'ishidatami' },
   legend: {
     S: ARA_MOSSY,
     K: 'kizami_ishi', // 柱の 根もとの かざり（きざみいし）
