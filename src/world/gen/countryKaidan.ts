@@ -27,7 +27,7 @@ function walk(c: Ctx, sx: number, sz: number, dx: number, dz: number): Step[] | 
   const T = c.T;
   const steps: Step[] = [];
   let y = 0;
-  for (let k = 0; k <= K.maxSteps; k++) {
+  for (let k = 0; k < K.maxSteps; k++) {
     const ax = sx + k * dx;
     const az = sz + k * dz;
     // 2 マス めは 道の よこ（東西 = 南へ、南北 = 東へ、ななめ = 進む 向きの 東西がわ）

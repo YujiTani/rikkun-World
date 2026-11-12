@@ -125,7 +125,8 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
         if (now !== h) bad.push(`seed ${seed} 列 (${cx}, ${cz}): ${h} → ${now}`);
       }
     }
-    expect(n).toBeGreaterThan(0);
+    const total = G.seeds.reduce((a, seed) => a + G.columns[String(seed)]!.length, 0);
+    expect(n, '比べた 列（のぞいた 列が 多すぎない）').toBeGreaterThan(total / 2);
     expect(bad.slice(0, 8), `${bad.length} / ${n} 列が 前と ちがう`).toEqual([]);
   }, 540_000); // 列を 作る 時間は 手元でも 2 秒。回す 数が 多い ときの ゆとり（おそくて 落ちない）。1D の 部屋の 計画〔区画ごとに 初めの 1 回〕の 分を ふくめて 60 秒から ふやした
 
