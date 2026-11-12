@@ -51,7 +51,7 @@ export interface HammerFocus {
 }
 
 /** がしゃどくろへの 当たりの 球（世界の 座標・ダメージ） */
-export interface BigHit {
+interface BigHit {
   center: Vec3;
   radius: number;
   damage: number;
