@@ -3,13 +3,13 @@ import { T, TAU, type MountainKind } from './mountainV2Table';
 
 /** 山 1 つの 数（シードと 山の点で 決まる）。形の 計算は mountainV2.ts・mountainV2Parts.ts */
 
-export interface Item {
+interface Item {
   a: number;
   r: number;
   h: number;
 }
 
-export interface Pillar {
+interface Pillar {
   x: number;
   z: number;
   rad: number;
