@@ -1,13 +1,13 @@
 import type { CountryKind } from './config';
+import { LOOK } from './lookFlags';
 
 /**
  * 木の形のバリエーション（試作。URL に ?trees=v2 を付けたときだけ）。
  * 形は (木の位置) だけで決まる → 列の境目をまたいでも切れない。数は ここの表の 1 か所。
  */
 
-/** URL の ?trees=v2 のときだけ true（テスト・サーバーでは location が ないので false） */
-export const TREES_V2: boolean =
-  typeof location !== 'undefined' && typeof location.search === 'string' && new URLSearchParams(location.search).get('trees') === 'v2';
+/** 木 v2 か（既定は true。URL の ?trees=v1 で 古い 木。lookFlags.ts） */
+export const TREES_V2: boolean = LOOK.treesV2;
 
 /** 大きさ: 小（今くらい）・中・大（みき 2×2） */
 export type TreeSize = 's' | 'm' | 'l';

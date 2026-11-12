@@ -41,7 +41,7 @@ const w18 = Object.assign(w17, wireDuo(w17)); // 2 人で あそぶ（COOP-1。2
 const w19 = Object.assign(w18, wireMine(w18)); // 坑道の 宝箱（MINE-1C）
 installGameHook(w19);
 wireGasha(w19);
-// ?drift=1 の ときだけ: ゆきやまの 雪・もみじやまの 紅葉の 舞い（試作）
+// ゆきやまの 雪・もみじやまの 紅葉の 舞い（既定で 出す。?drift=0 で 出さない）
 if (wantsDrift(location.search)) installDrift(w19);
 // MAGMA-SPAWN: ?demo=magma の ときだけ、はじめの 場所の 前に マグマの 見本を 1 回 置く（列が 読みこまれた ステップで）
 if (wantsMagmaDemo(location.search)) {

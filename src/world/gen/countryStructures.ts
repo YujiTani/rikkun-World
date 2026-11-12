@@ -5,17 +5,18 @@ import { placeStairs, type Dir4 } from './structures/ishidan';
 import { placeStructure } from './structures/place';
 import { STRUCTURES } from './structures/registry';
 import type { Rot, StructureShape } from './structures/types';
+import { LOOK } from './lookFlags';
 
 /**
- * 山の上の 目じるし（試作。URL に `?structures=1` が ある ときだけ。既定の 世界は かわらない）。
+ * 山の上の 目じるし（既定で 置く。URL に `?structures=0` で 置かない）。
  * てんぐの やま: 頂上の ちかくに お堂 → そこから のぼる 石段（両わきに いしどうろう）→ 石段の 下に とりい。お堂の ちかくに かねの やぐら、石段の とちゅうに おじぞうさん、すそに いど。
  * もみじやま: 頂上の ちかくに あずまや、すこし 下の たいらな 広場に とりいと ほこら、すそに いど。
  * いわやま: かべの 前の 平らな 所に 大きな 石ぞう（0〜1）と いしの とりい。
  * 場所は (シード, 升目) の 乱数と 地形だけで 決まる（国だけの 物と 同じ。作る 順に 関係ない）。形は structures/ の 図。
  */
 
-/** `?structures=1` か（Node の テストでは location が ないので false。テストは 下の 関数を 直接 よぶ） */
-export const STRUCTURES_ON: boolean = typeof location !== 'undefined' && new URLSearchParams(location.search).get('structures') === '1';
+/** 山の 目じるしを 置くか（既定は true。URL の ?structures=0 で 置かない。lookFlags.ts） */
+export const STRUCTURES_ON: boolean = LOOK.structures;
 
 /** 数の表（単位は ブロック／歩） */
 const STRUCTURE_TUNE = {

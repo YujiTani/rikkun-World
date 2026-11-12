@@ -4,9 +4,10 @@ import { cone, paramsFor, smooth, type Params } from './mountainV2Params';
 import { choosePath, buildPath, pathAt, pathCell } from './mountainV2Path';
 import { buildBridges, pillarsAt, splineOf, stairOf, wallLift } from './mountainV2Parts';
 import { T, TAU, type MountainKind } from './mountainV2Table';
+import { LOOK } from './lookFlags';
 
 /**
- * 山の形 v2（試作。URL `?mountain=v2` のときだけ。既定の山は biome.ts の円すいのまま）。
+ * 山の形 v2（既定で 出る。URL `?mountain=v1` で biome.ts の円すいの 古い 山）。
  * 山の種類（いわやま・てんぐ・もみじ・ゆき）では 形を分けない。形の部品 a〜e を 山 1 つずつ シードで ちがう強さに まぜる（2〜3 こが 強く、のこりは 弱い）。
  * 種類の ちがいは 表面（ゆき・使うブロック・木）で 出す（mountainV2Table.ts の V2_SURFACE。使うのは biome.ts の topBlock）。
  * 部品: a 段々・b 岩の柱の群れ・c 大きな垂直のかべ・d するどい峰と尾根と谷・e ゆるい こぶ（部品の 中身は mountainV2Parts.ts）。
@@ -14,8 +15,8 @@ import { T, TAU, type MountainKind } from './mountainV2Table';
  * 返す値 = 海からの高さ（ざらざら 前）。
  */
 
-/** `?mountain=v2` か（Node のテストでは location が ないので false） */
-export const MOUNTAIN_V2: boolean = typeof location !== 'undefined' && new URLSearchParams(location.search).get('mountain') === 'v2';
+/** 山 v2 か（既定は true。URL の ?mountain=v1 で 古い 山。lookFlags.ts） */
+export const MOUNTAIN_V2: boolean = LOOK.mountainV2;
 
 /** ためし・図 用: 頂上（山の点）の 高さと、橋で つながった 柱の てっぺん（x, z, 高さ） */
 export function v2Landmarks(seed: number, kind: CountryKind, px: number, pz: number): { apex: number; bank: number; bridged: { x: number; z: number; h: number }[] } {
