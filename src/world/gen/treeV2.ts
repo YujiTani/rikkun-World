@@ -42,22 +42,22 @@ export const TREE_MIX: Readonly<Record<CountryKind, TreeMix>> = {
 
 /** みきの高さ（マス）[最小, 最大]。形ごと・大きさごと */
 export const TREE_TRUNK: Record<TreeForm, Record<TreeSize, readonly [number, number]>> = {
-  round: { s: [4, 5], m: [9, 12], l: [14, 20] },
-  maple: { s: [4, 5], m: [9, 12], l: [14, 20] },
+  round: { s: [4, 5], m: [9, 12], l: [18, 26] },
+  maple: { s: [4, 5], m: [8, 11], l: [11, 14] },
   pine: { s: [5, 6], m: [9, 12], l: [14, 18] },
   conifer: { s: [12, 14], m: [15, 17], l: [18, 20] },
 };
 
 /** はっぱの広がり（みきから 何マス。木どうしの あきの計算に使う） */
 export const TREE_REACH: Record<TreeForm, Record<TreeSize, number>> = {
-  round: { s: 2, m: 4, l: 6 },
-  maple: { s: 3, m: 6, l: 8 },
-  pine: { s: 3, m: 4, l: 6 },
-  conifer: { s: 2, m: 3, l: 4 },
+  round: { s: 2, m: 3, l: 5 },
+  maple: { s: 3, m: 4, l: 6 },
+  pine: { s: 3, m: 4, l: 5 },
+  conifer: { s: 2, m: 3, l: 3 },
 };
 
 /** はっぱ・えだが みきの根もとから いちばん遠くまで出る マス（これ以上は 出ない）。列を作るとき 木を さがす はば */
-export const TREE_MAX_EXTENT = 14;
+export const TREE_MAX_EXTENT = 16;
 
 /** 大きさを 決める（roll は 0〜1 の 乱数。大木に できないときは 呼ぶ側で 中にする） */
 export function pickSize(mix: TreeMix, roll: number): TreeSize {
@@ -73,5 +73,5 @@ export function trunkOf(form: TreeForm, size: TreeSize, roll: number): number {
 }
 
 /** 大木は「まわりより高い所」だけ: 根もとの高さが、まわり（4 方向 PROMINENCE_DIST マス先）の へいきんより これ以上 高い */
-export const PROMINENCE_MIN = 1;
+export const PROMINENCE_MIN = 0.3;
 export const PROMINENCE_DIST = 7;

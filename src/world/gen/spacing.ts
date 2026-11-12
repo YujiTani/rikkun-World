@@ -143,8 +143,12 @@ function isStartTree(T: Terrain, t: { x: number; z: number }): boolean {
 }
 
 /** 木の順番（小さい方が 早い。スタートの木は いちばん早い）。位置と シードだけで決まる */
-export function treeOrder(T: Terrain, t: { x: number; z: number }): number {
-  return isStartTree(T, t) ? -1 : hash01(subSeed(T.seed, 1402), t.x, t.z, 7);
+export function treeOrder(T: Terrain, t: { x: number; z: number; size?: string }): number {
+  if (isStartTree(T, t)) return -1;
+  const h = hash01(subSeed(T.seed, 1402), t.x, t.z, 7);
+  if (t.size === undefined) return h;
+  // ?trees=v2: 大木が いちばん 早い（かつ）、中、小の順。大きい木が 小さい木に 負けない
+  return t.size === 'l' ? h * 0.1 : t.size === 'm' ? 0.1 + h * 0.5 : 0.6 + h * 0.4;
 }
 
 /** a は b より 早いか（同じ数なら x が小さい方、それも同じなら z が小さい方が 早い） */

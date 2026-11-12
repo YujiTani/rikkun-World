@@ -44,7 +44,7 @@ export function shapeTree(t: ShapedTree, log: LogFn | null, leaf: LeafFn | null)
   const top = t.y + trunk;
 
   // ---- みきの 曲がり（高さ k ごとの よこずれ）
-  const nBend = form === 'pine' ? (size === 's' ? 1 : 3) : form === 'maple' ? (size === 's' ? 1 : 3) : size === 's' ? 0 : size === 'm' ? 1 + Math.floor(R(1) * 2) : 2;
+  const nBend = form === 'pine' ? (size === 's' ? 1 : 3) : form === 'maple' ? (size === 's' ? 1 : 2) : size === 's' ? 0 : size === 'm' ? 1 + Math.floor(R(1) * 2) : 2;
   const ox = new Array<number>(trunk + 1).fill(0);
   const oz = new Array<number>(trunk + 1).fill(0);
   if (form !== 'conifer') {
@@ -103,6 +103,7 @@ export function shapeTree(t: ShapedTree, log: LogFn | null, leaf: LeafFn | null)
           const d2 = (x - cx) * (x - cx) + (z - cz) * (z - cz);
           const lim = dy < 0 ? (r - 0.7) * (r - 0.7) : r * r + 0.3 - dy * dy * squash * squash;
           if (d2 > lim) continue;
+          if (Math.abs(x - cx) + Math.abs(z - cz) > r * 1.3) continue; // かどを 落とす
           if (d2 > (r - 1) * (r - 1) && hf(x, y, z) < 0.22) continue;
           put(x, y, z);
         }
@@ -126,27 +127,33 @@ export function shapeTree(t: ShapedTree, log: LogFn | null, leaf: LeafFn | null)
   };
 
   if (form === 'conifer') {
-    // 細くて高い: うすい 1 段の はっぱ ＋ そのうえに ゆき。段と段の あいだは あいて、みきが 見える
+    // 円すい: 6〜9 段（下は はば 7〜9、上は 3）。段の厚さ 1〜2、すき間 1。各段の上は ゆき
     if (!leaf) return;
     const y0 = t.y + 2;
-    const span = top + 1 - y0 + 1;
-    const want = size === 's' ? 4 : size === 'm' ? 5 : 6 + Math.floor(R(7) * 2);
-    const n = Math.min(want, Math.floor(span / 3));
-    const rMax = size === 's' ? 2 : size === 'm' ? 2.6 : 3.4;
+    const span = top - y0 + 1;
+    const n = size === 's' ? 6 : size === 'm' ? 7 : 8 + Math.floor(R(7) * 2);
+    const rBot = size === 's' ? 3.5 : size === 'm' ? 4 : 4.5;
+    const rTop = 1.5;
     const cx = (w - 1) / 2;
     const cz = cx;
-    const disk = (y: number, rr: number, snow: boolean): void => {
+    const disk = (y: number, rr: number, snowR: number): void => {
       for (let z = Math.floor(cz - rr - 1); z <= Math.ceil(cz + rr + 1); z++) {
         for (let x = Math.floor(cx - rr - 1); x <= Math.ceil(cx + rr + 1); x++) {
-          if ((x - cx) * (x - cx) + (z - cz) * (z - cz) <= rr * rr + 0.2) put(x, y, z, snow);
+          const d2 = (x - cx) * (x - cx) + (z - cz) * (z - cz);
+          if (d2 > rr * rr + 0.2) continue;
+          put(x, y, z, d2 <= snowR * snowR);
         }
       }
     };
     for (let i = 0; i < n; i++) {
-      const r = rMax - (i * (rMax - 1)) / Math.max(1, n - 1);
+      const r = rBot - (i * (rBot - rTop)) / (n - 1);
       const a = y0 + Math.floor((i * span) / n);
-      disk(a, r + 0.3, false);
-      disk(a + 1, r - 0.9, true);
+      const next = y0 + Math.floor(((i + 1) * span) / n);
+      const thick = Math.max(1, Math.min(2, next - a - 1));
+      for (let k = 0; k < thick; k++) {
+        const top1 = k === thick - 1;
+        disk(a + k, k === 0 ? r + 0.3 : r - 0.4, top1 ? Math.max(0, r - 1.3) : -1);
+      }
     }
     put(0, top + 1, 0, false);
     put(0, top + 2, 0, true); // てっぺんにも ゆき
@@ -168,28 +175,28 @@ export function shapeTree(t: ShapedTree, log: LogFn | null, leaf: LeafFn | null)
     }
   };
 
-  const topR = size === 's' ? 2.3 : size === 'm' ? 3 : 3.6;
+  const topR = size === 's' ? 2.3 : size === 'm' ? 3.4 : form === 'round' ? 5.4 : 3.6;
   const wide = form === 'maple';
   const sq = wide ? 1.5 : 1;
   const draw = (cx: number, cy: number, cz: number, r: number, i = 0): void => {
     if (form === 'pine') pad(cx, cy, cz, r * 0.95);
-    else if (wide) slab(cx, cy, cz, size === 'l' ? 3.4 + R(40 + i) * 1.1 : size === 'm' ? 2.6 + R(40 + i) * 0.8 : 2.2, size === 's' ? 2 : 2 + Math.floor(R(50 + i) * 2));
-    else blob(cx, cy, cz, r, sq);
+    else if (wide) slab(cx, cy, cz, size === 'l' ? 3.5 + R(40 + i) * 2 : size === 'm' ? 3.5 + R(40 + i) : 2.2, size === 's' ? 2 : 2 + Math.floor(R(50 + i) * 2));
+    else blob(cx, cy, cz, size === 'l' ? r + 0.4 : r, sq);
   };
 
   draw(ctrX(trunk), top + (form === 'pine' ? 0 : 1), ctrZ(trunk), topR);
   let made = 1;
   const target = size === 's' ? 2 : size === 'm' ? 3 + Math.floor(R(8) * 2) : 5 + Math.floor(R(8) * 2);
   // えだ（中・大）: ななめに のびて、先に もこもこ
-  const nBr = size === 's' ? 0 : wide ? (size === 'm' ? 2 : 3 + Math.floor(R(9) * 2)) : size === 'm' ? 1 + Math.floor(R(9) * 2) : 2 + Math.floor(R(9) * 3);
+  const nBr = size === 's' ? 0 : wide ? (size === 'm' ? 2 + Math.floor(R(9) * 2) : 3 + Math.floor(R(9) * 4)) : size === 'm' ? 1 + Math.floor(R(9) * 2) : 2 + Math.floor(R(9) * 3);
   const baseDir = Math.floor(R(10) * 8);
   const used: number[] = [];
   for (let i = 0; i < nBr; i++) {
     const di = (baseDir + Math.round((i * 8) / nBr) + (R(11 + i) < 0.5 ? 0 : 1)) % 8;
     used.push(di);
     const [dx, dz] = DIRS[di]!;
-    const k = Math.max(3, Math.round(trunk * (0.5 + 0.35 * ((i + 0.5) / nBr))));
-    const len = wide ? (size === 'm' ? 3 + (R(16 + i) < 0.5 ? 0 : 1) : 4) : (size === 'm' ? 2 : 3) + (R(16 + i) < 0.5 ? 0 : 1);
+    const k = Math.max(3, Math.round(trunk * ((wide ? 0.35 : 0.5) + (wide ? 0.55 : 0.35) * ((i + 0.5) / nBr))));
+    const len = !wide && size === 'l' && form === 'round' ? 4 + (R(16 + i) < 0.5 ? 0 : 1) : wide ? (size === 'm' ? 3 + (R(16 + i) < 0.5 ? 0 : 1) : 4 + (R(16 + i) < 0.5 ? 0 : 1)) : (size === 'm' ? 2 : 3) + (R(16 + i) < 0.5 ? 0 : 1);
     const ax = (dx > 0 ? w - 1 : 0) + ox[k]!;
     const az = (dz > 0 ? w - 1 : 0) + oz[k]!;
     let ex = ax;
