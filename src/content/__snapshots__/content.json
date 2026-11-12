@@ -80,6 +80,51 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "roof_wara_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "grass"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "roof_wara_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "roof_wara_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "grass"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "roof_wara_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "roof_wara_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "grass"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "roof_wara_kozan"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -295,6 +340,85 @@
           "output": {
             "count": 1,
             "item": "magma_wakimizu"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "house_floor",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "house_floor"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "ofuro",
+          "inputs": [
+            {
+              "count": 6,
+              "item": "stone"
+            },
+            {
+              "count": 4,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "ofuro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "wall_ishi_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_ishi_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "wall_ishi_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_ishi_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "wall_ishi_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_ishi_kozan"
           },
           "station": "craft",
           "works": true
@@ -935,6 +1059,346 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "house_wall",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "house_wall"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "house_roof",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "house_roof"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "house_door",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "house_door"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "table",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "table"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "long_table",
+          "inputs": [
+            {
+              "count": 6,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "long_table"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "round_table",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "round_table"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "chair",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "chair"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "stool",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "stool"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "andon",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "paper"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "oil"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "andon"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "shelf",
+          "inputs": [
+            {
+              "count": 6,
+              "item": "log"
+            },
+            {
+              "count": 3,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "shelf"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "ofuro",
+          "inputs": [
+            {
+              "count": 6,
+              "item": "stone"
+            },
+            {
+              "count": 4,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "ofuro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "roof_sankaku_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "roof_sankaku_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "roof_sankaku_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "roof_sankaku_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "roof_sankaku_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "roof_sankaku_kozan"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "window_maru_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_maru_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "window_maru_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_maru_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "window_maru_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_maru_kozan"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "deco_hanadan_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "flower_y"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_hanadan_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "deco_hanadan_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "flower_y"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_hanadan_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "deco_hanadan_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "flower_y"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_hanadan_kozan"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -1157,6 +1621,120 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "shoji",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "shoji"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "andon",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "paper"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "oil"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "andon"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "shelf",
+          "inputs": [
+            {
+              "count": 6,
+              "item": "log"
+            },
+            {
+              "count": 3,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "shelf"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "window_maru_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_maru_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "window_maru_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_maru_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "window_maru_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_maru_kozan"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -1214,6 +1792,29 @@
           "output": {
             "count": 1,
             "item": "lantern"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "andon",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "paper"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "oil"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "andon"
           },
           "station": "craft",
           "works": true
@@ -1804,6 +2405,51 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "deco_noren_mura",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_noren_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "deco_noren_shiro",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_noren_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "deco_noren_kozan",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_noren_kozan"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -1863,6 +2509,25 @@
           "output": {
             "count": 1,
             "item": "haniwa"
+          },
+          "station": "furnace",
+          "works": true
+        },
+        {
+          "id": "maneki",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "clay"
+            },
+            {
+              "count": 1,
+              "item": "kin"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "maneki"
           },
           "station": "furnace",
           "works": true
@@ -1972,6 +2637,70 @@
           "output": {
             "count": 1,
             "item": "magma_wakimizu"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "window_suisho_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_suisho_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "window_suisho_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_suisho_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "window_suisho_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_suisho_kozan"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "light_suisho",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "crystal"
+            },
+            {
+              "count": 1,
+              "item": "hotaruishi"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "light_suisho"
           },
           "station": "craft",
           "works": true
@@ -2138,6 +2867,51 @@
       "rarity": "uncommon",
       "recipes": [
         {
+          "id": "roof_kawara_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kawara"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "roof_kawara_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "roof_kawara_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kawara"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "roof_kawara_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "roof_kawara_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kawara"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "roof_kawara_kozan"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
           "id": "kawara",
           "inputs": [
             {
@@ -2174,6 +2948,96 @@
       "placeBlock": "brick",
       "rarity": "uncommon",
       "recipes": [
+        {
+          "id": "wall_renga_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "brick"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_renga_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "wall_renga_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "brick"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_renga_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "wall_renga_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "brick"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_renga_kozan"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "deco_entotsu_mura",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "brick"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_entotsu_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "deco_entotsu_shiro",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "brick"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_entotsu_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "deco_entotsu_kozan",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "brick"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_entotsu_kozan"
+          },
+          "station": "craft",
+          "works": true
+        },
         {
           "id": "brick",
           "inputs": [
@@ -2896,6 +3760,51 @@
           "output": {
             "count": 1,
             "item": "bucket"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "door_tetsu_mura",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "door_tetsu_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "door_tetsu_shiro",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "door_tetsu_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "door_tetsu_kozan",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "door_tetsu_kozan"
           },
           "station": "craft",
           "works": true
@@ -4489,7 +5398,65 @@
       "name": "はな",
       "placeBlock": "flower_y",
       "rarity": "common",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "deco_hanadan_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "flower_y"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_hanadan_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "deco_hanadan_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "flower_y"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_hanadan_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "deco_hanadan_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "flower_y"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_hanadan_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "flower_o": {
       "DIG_DEFAULTS.hardness.flower_o": 0.05,
@@ -5141,6 +6108,66 @@
           "works": true
         },
         {
+          "id": "roof_kin_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "roof_kin_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "roof_kin_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "roof_kin_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "roof_kin_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "roof_kin_kozan"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "deco_shachi",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_shachi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
           "id": "kin",
           "inputs": [
             {
@@ -5166,6 +6193,25 @@
           "output": {
             "count": 1,
             "item": "kin"
+          },
+          "station": "furnace",
+          "works": true
+        },
+        {
+          "id": "maneki",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "clay"
+            },
+            {
+              "count": 1,
+              "item": "kin"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "maneki"
           },
           "station": "furnace",
           "works": true
@@ -6192,7 +7238,42 @@
       "name": "ほたるいし",
       "placeBlock": "hotaruishi",
       "rarity": "rare",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "light_hotaru",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "hotaruishi"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "light_hotaru"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "light_suisho",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "crystal"
+            },
+            {
+              "count": 1,
+              "item": "hotaruishi"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "light_suisho"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "kin_ore": {
       "DIG_DEFAULTS.hardness.kin_ore": 15,
@@ -6266,6 +7347,51 @@
           "output": {
             "count": 2,
             "item": "shikkui"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "wall_shikkui_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "shikkui"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_shikkui_mura"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "wall_shikkui_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "shikkui"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_shikkui_shiro"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "wall_shikkui_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "shikkui"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_shikkui_kozan"
           },
           "station": "craft",
           "works": true
@@ -6409,7 +7535,23 @@
       "name": "テーブル",
       "placeBlock": "table",
       "rarity": "common",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "table",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "table"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "chair": {
       "DIG_DEFAULTS.hardness.chair": 5,
@@ -6429,7 +7571,23 @@
       "name": "いす",
       "placeBlock": "chair",
       "rarity": "common",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "chair",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "chair"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "andon": {
       "DIG_DEFAULTS.hardness.andon": 5,
@@ -6449,7 +7607,31 @@
       "name": "あんどん",
       "placeBlock": "andon",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "andon",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "paper"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "oil"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "andon"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "shelf": {
       "DIG_DEFAULTS.hardness.shelf": 5,
@@ -6469,7 +7651,27 @@
       "name": "ほんだな",
       "placeBlock": "shelf",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "shelf",
+          "inputs": [
+            {
+              "count": 6,
+              "item": "log"
+            },
+            {
+              "count": 3,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "shelf"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "ofuro": {
       "DIG_DEFAULTS.hardness.ofuro": 5,
@@ -6489,7 +7691,27 @@
       "name": "おふろ",
       "placeBlock": "ofuro",
       "rarity": "rare",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "ofuro",
+          "inputs": [
+            {
+              "count": 6,
+              "item": "stone"
+            },
+            {
+              "count": 4,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "ofuro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "long_table": {
       "DIG_DEFAULTS.hardness.long_table": 5,
@@ -6509,7 +7731,23 @@
       "name": "ながい テーブル",
       "placeBlock": "long_table",
       "rarity": "common",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "long_table",
+          "inputs": [
+            {
+              "count": 6,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "long_table"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "round_table": {
       "DIG_DEFAULTS.hardness.round_table": 5,
@@ -6529,7 +7767,23 @@
       "name": "まるい テーブル",
       "placeBlock": "round_table",
       "rarity": "common",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "round_table",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "round_table"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "stool": {
       "DIG_DEFAULTS.hardness.stool": 5,
@@ -6549,7 +7803,23 @@
       "name": "まるいす",
       "placeBlock": "stool",
       "rarity": "common",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "stool",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "stool"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "maneki": {
       "DIG_DEFAULTS.hardness.maneki": 5,
@@ -6569,7 +7839,27 @@
       "name": "まねきねこ",
       "placeBlock": "maneki",
       "rarity": "rare",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "maneki",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "clay"
+            },
+            {
+              "count": 1,
+              "item": "kin"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "maneki"
+          },
+          "station": "furnace",
+          "works": true
+        }
+      ]
     },
     "sekkeizu": {
       "ITEM_INFO.sekkeizu": {
@@ -6603,7 +7893,23 @@
       "name": "いえの ゆか",
       "placeBlock": "house_floor",
       "rarity": "common",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "house_floor",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "house_floor"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "house_wall": {
       "DIG_DEFAULTS.hardness.house_wall": 5,
@@ -6623,7 +7929,23 @@
       "name": "いえの かべ",
       "placeBlock": "house_wall",
       "rarity": "common",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "house_wall",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "house_wall"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "house_roof": {
       "DIG_DEFAULTS.hardness.house_roof": 5,
@@ -6643,7 +7965,23 @@
       "name": "いえの やね",
       "placeBlock": "house_roof",
       "rarity": "common",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "house_roof",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "house_roof"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "shoji": {
       "DIG_DEFAULTS.hardness.shoji": 0.05,
@@ -6663,7 +8001,23 @@
       "name": "しょうじ",
       "placeBlock": "shoji",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "shoji",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "shoji"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "house_door": {
       "DIG_DEFAULTS.hardness.house_door": 5,
@@ -6683,679 +8037,1437 @@
       "name": "いえの と",
       "placeBlock": "house_door",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "house_door",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "house_door"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "roof_sankaku_mura": {
       "ITEM_INFO.roof_sankaku_mura": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の やね に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "むらの さんかくの やね",
-      "placeBlock": null,
+      "placeBlock": "lk_roof_sankaku",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "roof_sankaku_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "roof_sankaku_mura"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "roof_sankaku_shiro": {
       "ITEM_INFO.roof_sankaku_shiro": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の やね に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "おしろの さんかくの やね",
-      "placeBlock": null,
+      "placeBlock": "lk_roof_sankaku",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "roof_sankaku_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "roof_sankaku_shiro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "roof_sankaku_kozan": {
       "ITEM_INFO.roof_sankaku_kozan": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の やね に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "こうざんの さんかくの やね",
-      "placeBlock": null,
+      "placeBlock": "lk_roof_sankaku",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "roof_sankaku_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "roof_sankaku_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "roof_kawara_mura": {
       "ITEM_INFO.roof_kawara_mura": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の やね に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "むらの かわらの やね",
-      "placeBlock": null,
+      "placeBlock": "lk_roof_kawara",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "roof_kawara_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kawara"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "roof_kawara_mura"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "roof_kawara_shiro": {
       "ITEM_INFO.roof_kawara_shiro": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の やね に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "おしろの かわらの やね",
-      "placeBlock": null,
+      "placeBlock": "lk_roof_kawara",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "roof_kawara_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kawara"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "roof_kawara_shiro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "roof_kawara_kozan": {
       "ITEM_INFO.roof_kawara_kozan": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の やね に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "こうざんの かわらの やね",
-      "placeBlock": null,
+      "placeBlock": "lk_roof_kawara",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "roof_kawara_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kawara"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "roof_kawara_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "roof_wara_mura": {
       "ITEM_INFO.roof_wara_mura": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の やね に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "むらの わらぶきの やね",
-      "placeBlock": null,
+      "placeBlock": "lk_roof_wara",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "roof_wara_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "grass"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "roof_wara_mura"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "roof_wara_shiro": {
       "ITEM_INFO.roof_wara_shiro": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の やね に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "おしろの わらぶきの やね",
-      "placeBlock": null,
+      "placeBlock": "lk_roof_wara",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "roof_wara_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "grass"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "roof_wara_shiro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "roof_wara_kozan": {
       "ITEM_INFO.roof_wara_kozan": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の やね に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "こうざんの わらぶきの やね",
-      "placeBlock": null,
+      "placeBlock": "lk_roof_wara",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "roof_wara_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "grass"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "roof_wara_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "roof_kin_mura": {
       "ITEM_INFO.roof_kin_mura": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の やね に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "むらの きんの やね",
-      "placeBlock": null,
+      "placeBlock": "lk_roof_kin",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "roof_kin_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "roof_kin_mura"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "roof_kin_shiro": {
       "ITEM_INFO.roof_kin_shiro": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の やね に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "おしろの きんの やね",
-      "placeBlock": null,
+      "placeBlock": "lk_roof_kin",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "roof_kin_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "roof_kin_shiro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "roof_kin_kozan": {
       "ITEM_INFO.roof_kin_kozan": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の やね に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "こうざんの きんの やね",
-      "placeBlock": null,
+      "placeBlock": "lk_roof_kin",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "roof_kin_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "roof_kin_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "wall_shikkui_mura": {
       "ITEM_INFO.wall_shikkui_mura": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かべ に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "むらの しっくいの かべ",
-      "placeBlock": null,
+      "placeBlock": "lk_wall_shikkui",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "wall_shikkui_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "shikkui"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_shikkui_mura"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "wall_shikkui_shiro": {
       "ITEM_INFO.wall_shikkui_shiro": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かべ に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "おしろの しっくいの かべ",
-      "placeBlock": null,
+      "placeBlock": "lk_wall_shikkui",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "wall_shikkui_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "shikkui"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_shikkui_shiro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "wall_shikkui_kozan": {
       "ITEM_INFO.wall_shikkui_kozan": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かべ に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "こうざんの しっくいの かべ",
-      "placeBlock": null,
+      "placeBlock": "lk_wall_shikkui",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "wall_shikkui_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "shikkui"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_shikkui_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "wall_renga_mura": {
       "ITEM_INFO.wall_renga_mura": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かべ に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "むらの レンガの かべ",
-      "placeBlock": null,
+      "placeBlock": "lk_wall_renga",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "wall_renga_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "brick"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_renga_mura"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "wall_renga_shiro": {
       "ITEM_INFO.wall_renga_shiro": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かべ に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "おしろの レンガの かべ",
-      "placeBlock": null,
+      "placeBlock": "lk_wall_renga",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "wall_renga_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "brick"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_renga_shiro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "wall_renga_kozan": {
       "ITEM_INFO.wall_renga_kozan": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かべ に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "こうざんの レンガの かべ",
-      "placeBlock": null,
+      "placeBlock": "lk_wall_renga",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "wall_renga_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "brick"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_renga_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "wall_ishi_mura": {
       "ITEM_INFO.wall_ishi_mura": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かべ に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "むらの いしの かべ",
-      "placeBlock": null,
+      "placeBlock": "lk_wall_ishi",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "wall_ishi_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_ishi_mura"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "wall_ishi_shiro": {
       "ITEM_INFO.wall_ishi_shiro": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かべ に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "おしろの いしの かべ",
-      "placeBlock": null,
+      "placeBlock": "lk_wall_ishi",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "wall_ishi_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_ishi_shiro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "wall_ishi_kozan": {
       "ITEM_INFO.wall_ishi_kozan": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かべ に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "こうざんの いしの かべ",
-      "placeBlock": null,
+      "placeBlock": "lk_wall_ishi",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "wall_ishi_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wall_ishi_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "window_suisho_mura": {
       "ITEM_INFO.window_suisho_mura": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の まど に なる ブロック。ひかり が とおる"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "むらの すいしょうの まど",
-      "placeBlock": null,
+      "placeBlock": "lk_window_suisho",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "window_suisho_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_suisho_mura"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "window_suisho_shiro": {
       "ITEM_INFO.window_suisho_shiro": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の まど に なる ブロック。ひかり が とおる"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "おしろの すいしょうの まど",
-      "placeBlock": null,
+      "placeBlock": "lk_window_suisho",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "window_suisho_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_suisho_shiro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "window_suisho_kozan": {
       "ITEM_INFO.window_suisho_kozan": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の まど に なる ブロック。ひかり が とおる"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "こうざんの すいしょうの まど",
-      "placeBlock": null,
+      "placeBlock": "lk_window_suisho",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "window_suisho_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "crystal"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_suisho_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "window_maru_mura": {
       "ITEM_INFO.window_maru_mura": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の まど に なる ブロック。ひかり が とおる"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "むらの まるい しょうじ",
-      "placeBlock": null,
+      "placeBlock": "lk_window_maru",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "window_maru_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_maru_mura"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "window_maru_shiro": {
       "ITEM_INFO.window_maru_shiro": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の まど に なる ブロック。ひかり が とおる"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "おしろの まるい しょうじ",
-      "placeBlock": null,
+      "placeBlock": "lk_window_maru",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "window_maru_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_maru_shiro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "window_maru_kozan": {
       "ITEM_INFO.window_maru_kozan": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の まど に なる ブロック。ひかり が とおる"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "こうざんの まるい しょうじ",
-      "placeBlock": null,
+      "placeBlock": "lk_window_maru",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "window_maru_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "window_maru_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "door_tetsu_mura": {
       "ITEM_INFO.door_tetsu_mura": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の と に なる ブロック。ひらいたり しめたり できる"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "むらの てつの と",
-      "placeBlock": null,
+      "placeBlock": "lk_door_tetsu",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "door_tetsu_mura",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "door_tetsu_mura"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "door_tetsu_shiro": {
       "ITEM_INFO.door_tetsu_shiro": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の と に なる ブロック。ひらいたり しめたり できる"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "おしろの てつの と",
-      "placeBlock": null,
+      "placeBlock": "lk_door_tetsu",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "door_tetsu_shiro",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "door_tetsu_shiro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "door_tetsu_kozan": {
       "ITEM_INFO.door_tetsu_kozan": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の と に なる ブロック。ひらいたり しめたり できる"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "こうざんの てつの と",
-      "placeBlock": null,
+      "placeBlock": "lk_door_tetsu",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "door_tetsu_kozan",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "door_tetsu_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "deco_entotsu_mura": {
       "ITEM_INFO.deco_entotsu_mura": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かざり に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "むらの レンガの えんとつ",
-      "placeBlock": null,
+      "placeBlock": "lk_deco_entotsu",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "deco_entotsu_mura",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "brick"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_entotsu_mura"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "deco_entotsu_shiro": {
       "ITEM_INFO.deco_entotsu_shiro": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かざり に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "おしろの レンガの えんとつ",
-      "placeBlock": null,
+      "placeBlock": "lk_deco_entotsu",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "deco_entotsu_shiro",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "brick"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_entotsu_shiro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "deco_entotsu_kozan": {
       "ITEM_INFO.deco_entotsu_kozan": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かざり に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "こうざんの レンガの えんとつ",
-      "placeBlock": null,
+      "placeBlock": "lk_deco_entotsu",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "deco_entotsu_kozan",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "brick"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_entotsu_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "deco_noren_mura": {
       "ITEM_INFO.deco_noren_mura": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かざり に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "むらの のれん",
-      "placeBlock": null,
+      "placeBlock": "lk_deco_noren",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "deco_noren_mura",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_noren_mura"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "deco_noren_shiro": {
       "ITEM_INFO.deco_noren_shiro": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かざり に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "おしろの のれん",
-      "placeBlock": null,
+      "placeBlock": "lk_deco_noren",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "deco_noren_shiro",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_noren_shiro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "deco_noren_kozan": {
       "ITEM_INFO.deco_noren_kozan": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かざり に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "こうざんの のれん",
-      "placeBlock": null,
+      "placeBlock": "lk_deco_noren",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "deco_noren_kozan",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_noren_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "deco_hanadan_mura": {
       "ITEM_INFO.deco_hanadan_mura": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かざり に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "むらの はなだん",
-      "placeBlock": null,
+      "placeBlock": "lk_deco_hanadan",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "deco_hanadan_mura",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "flower_y"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_hanadan_mura"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "deco_hanadan_shiro": {
       "ITEM_INFO.deco_hanadan_shiro": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かざり に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "おしろの はなだん",
-      "placeBlock": null,
+      "placeBlock": "lk_deco_hanadan",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "deco_hanadan_shiro",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "flower_y"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_hanadan_shiro"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "deco_hanadan_kozan": {
       "ITEM_INFO.deco_hanadan_kozan": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かざり に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "こうざんの はなだん",
-      "placeBlock": null,
+      "placeBlock": "lk_deco_hanadan",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "deco_hanadan_kozan",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "flower_y"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_hanadan_kozan"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "deco_shachi": {
       "ITEM_INFO.deco_shachi": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の かざり に なる ブロック"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "きんの しゃちほこ",
-      "placeBlock": null,
+      "placeBlock": "lk_deco_shachi",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "deco_shachi",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "deco_shachi"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "light_hotaru": {
       "ITEM_INFO.light_hotaru": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の なか を あかるく する あかり"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "ほたるいしの あかり",
-      "placeBlock": null,
+      "placeBlock": "lk_light_hotaru",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "light_hotaru",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "hotaruishi"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "light_hotaru"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "light_suisho": {
       "ITEM_INFO.light_suisho": {
         "buttons": [
-          "1-9"
+          "1-9",
+          "right"
         ],
-        "how": "たてた いえ を ほる と てに はいる",
+        "how": "てに もって みぎクリック で おく",
         "use": "いえ の なか を あかるく する あかり"
       },
       "category": "home",
       "durabilityClass": "consumable",
       "maxStack": 64,
       "name": "すいしょう ランプ",
-      "placeBlock": null,
+      "placeBlock": "lk_light_suisho",
       "rarity": "uncommon",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "light_suisho",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "crystal"
+            },
+            {
+              "count": 1,
+              "item": "hotaruishi"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "light_suisho"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "rope": {
       "DIG_DEFAULTS.hardness.rope": 0.05,

@@ -45,7 +45,7 @@ describe('説明の表（M6 §2.2）', () => {
     }
   });
   it('U4・U14: usedIn は材料にするレシピ（たんす をふくむ 9 こ）', () => {
-    expect(src.info('iron_ingot').usedIn).toEqual(['iron_pickaxe', 'iron_axe', 'katana', 'naginata', 'crystal_katana', 'kabuto', 'yoroi', 'kote', 'suneate', 'tansu', 'watering_can', 'long_watering_can', 'sprinkler', 'bucket']);
+    expect(src.info('iron_ingot').usedIn).toEqual(['iron_pickaxe', 'iron_axe', 'katana', 'naginata', 'crystal_katana', 'kabuto', 'yoroi', 'kote', 'suneate', 'tansu', 'watering_can', 'long_watering_can', 'sprinkler', 'bucket', 'door_tetsu_mura', 'door_tetsu_shiro', 'door_tetsu_kozan']); // HOUSE-2C: てつの と（てつの かたまり 2）の 作り方 3 つが 一番 うしろ
     for (const id of src.items()) {
       const used = src.info(id as ItemId).usedIn;
       for (const r of RECIPES) expect(used.includes(r.id) === r.inputs.some((i) => i.item === id), `${id}/${r.id}`).toBe(true);
@@ -64,7 +64,7 @@ describe('説明の表（M6 §2.2）', () => {
     }
   });
   it('レシピのできるものは かならず「つくる」の文が source に入る', () => {
-    for (const r of RECIPES) expect(src.info(r.output.item).source, r.id).toMatch(/で つくる|を かまど で やく/);
+    for (const r of RECIPES) expect(src.info(r.output.item).source, r.id).toMatch(/で つくる|を かまど で やく|つくる で つくれる|かまど で やける/);
   });
 });
 

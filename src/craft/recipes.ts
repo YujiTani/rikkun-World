@@ -1,4 +1,5 @@
 import type { ItemId, Recipe } from '../contracts';
+import { HOUSE_BAKE_RECIPES, HOUSE_CRAFT_RECIPES } from './houseCraft';
 import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, KONGO_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, MINE_DEFS, ROPE_DEFS, WATERFALL_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, pickDefs, recipesOf } from '../content/items/registry';
 
 const r = (
@@ -79,6 +80,8 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   ...CRAFT_BASE,
   // ROPE-1: あさの 足した作り方（いちばん うしろ。番号を ずらさない）。カードは もとの 1 枚の まま（たいまつと 同じ しくみ）
   ...hempAlts(CRAFT_BASE),
+  // HOUSE-2C: 家の 物（1 版の 13・レシピで ふえる 物。材料は エディターの 表から。craft/houseCraft.ts）。いちばん うしろ
+  ...HOUSE_CRAFT_RECIPES,
 ];
 
 /** やく 8 こ（カードは 7 枚。M4 §4.2 の 4 こ ＋ LIVE-3 の やいた もも にく ＋ GOLD-1 の きん ＋ MINE-1B の いしばい と きんの いしから 作る きん。かまど で。ねんりょう 1 こ・60 ステップ） */
@@ -94,6 +97,8 @@ export const BAKE_RECIPES: readonly Recipe[] = [
   // MINE-1B（#349 §4.4）: きんの いし 1 → きん 1（きんの カードに まとまる 2 つ目の 作り方）→ せっかいせき 1 → いしばい 2（やく カードの いちばん うしろ）
   { ...r('kin', 1, [['kin_ore', 1]], true, 'furnace'), id: KIN_FROM_ORE },
   ...recipesOf(pickDefs(MINE_DEFS, ['ishibai']), 'furnace'),
+  // HOUSE-2C: まねきねこ（レシピを おぼえると やける。いちばん うしろ）
+  ...HOUSE_BAKE_RECIPES,
 ];
 
 export const ALL_RECIPES: readonly Recipe[] = [...CRAFT_RECIPES, ...BAKE_RECIPES];

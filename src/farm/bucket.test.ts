@@ -176,7 +176,7 @@ describe('BUCKET-1 アイテム・レシピ・説明・実績（AC1・2・11・1
     expect(w.use).toBe('はたけ の そば に みず を おく');
     expect(w.how).toContain('もって みぎクリック で おく');
     for (const t of [b.use, b.how, w.use, w.how]) expect(findUnrubiedKanji(t)).toEqual([]);
-    expect(src.info('iron_ingot').usedIn.at(-1)).toBe('bucket');
+    expect(src.info('iron_ingot').usedIn, 'バケツ').toContain('bucket');
   });
   it('AC12 実績: craft.bucket(小)・farm.bucket(小でない)。224・小 79', () => {
     const c = ACHIEVEMENT_DEFS.find((d) => d.id === 'craft.bucket.1');

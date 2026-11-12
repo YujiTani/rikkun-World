@@ -64,6 +64,7 @@ export function createCraftPanelHook(
     info(): { info(item: ItemId): unknown };
     page(): unknown;
     pageGo(delta: -1 | 1): boolean;
+    pickLook(item: ItemId): boolean;
   },
 ) {
   return {
@@ -75,5 +76,7 @@ export function createCraftPanelHook(
     page: () => panel.page(),
     /** CRAFT-PAGE: ◀ ▶ を 押したのと 同じ。はしで 動かなければ false */
     pageGo: (delta: -1 | 1) => panel.pageGo(delta),
+    /** HOUSE-2C: 案の ボタンを 押したのと 同じ（作らない）。今 出て いる カードの 案で なければ false */
+    pickLook: (item: ItemId) => panel.pickLook(item),
   };
 }

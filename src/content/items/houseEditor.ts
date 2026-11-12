@@ -1,10 +1,15 @@
 import type { HouseFurnitureId, HousePlanId } from './ids';
 import { DIG_DEFAULTS } from '../../dig/config';
+import { recipeName } from '../../house/recipes/table';
 import { PLACE_HOW } from './howText';
 import type { ItemDef } from './types';
 
-/** 家の ブロック（houseBlocks.ts）も 同じ 文 */
+/** 図鑑の てにいれかた（AC19）の 前半。家の ブロック（houseBlocks.ts）・しゅるい（houseLooks.ts）も 同じ 文 */
 export const FURN_SOURCE = 'けんちくし が たてた いえ を ほる';
+/** はじめから 「つくる」で 作れる 物（家の ブロック 5・家具 7。HOUSE-2C §2.6） */
+export const FURN_SOURCE_CRAFT = `${FURN_SOURCE}。つくる で つくれる`;
+/** まねきねこ: レシピを おぼえると かまど で やける（名前は レシピの 表から） */
+const MANEKI_SOURCE = `${FURN_SOURCE}。まきもの を よんで ${recipeName('furniture_maneki')}の レシピを おぼえると かまど で やける`;
 
 /**
  * 家の 新しい 家具（HOUSE-1B #339。案 A「ごつごつの くりの 木」。どれが あるかは ids.ts の HOUSE_FURNITURE_IDS。docs/design/HOUSE-1.md §4.3）。
@@ -21,7 +26,7 @@ export const HOUSE_FURNITURE = {
     rarity: DIG_DEFAULTS.rarity.table,
     category: 'home',
     info: { use: 'いえの なかに おく ざぶとん つきの つくえ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
-    source: FURN_SOURCE,
+    source: FURN_SOURCE_CRAFT,
     wear: 'permanent',
   },
   chair: {
@@ -32,7 +37,7 @@ export const HOUSE_FURNITURE = {
     rarity: DIG_DEFAULTS.rarity.chair,
     category: 'home',
     info: { use: 'いえの なかに おく すわる ところ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
-    source: FURN_SOURCE,
+    source: FURN_SOURCE_CRAFT,
     wear: 'permanent',
   },
   andon: {
@@ -43,7 +48,7 @@ export const HOUSE_FURNITURE = {
     rarity: DIG_DEFAULTS.rarity.andon,
     category: 'home',
     info: { use: 'いえの なかに おく やさしい あかり', how: PLACE_HOW, buttons: ['1-9', 'right'] },
-    source: FURN_SOURCE,
+    source: FURN_SOURCE_CRAFT,
     wear: 'permanent',
   },
   shelf: {
@@ -54,7 +59,7 @@ export const HOUSE_FURNITURE = {
     rarity: DIG_DEFAULTS.rarity.shelf,
     category: 'home',
     info: { use: 'いえの なかに おく ほんを しまう たな', how: PLACE_HOW, buttons: ['1-9', 'right'] },
-    source: FURN_SOURCE,
+    source: FURN_SOURCE_CRAFT,
     wear: 'permanent',
   },
   ofuro: {
@@ -65,7 +70,7 @@ export const HOUSE_FURNITURE = {
     rarity: DIG_DEFAULTS.rarity.ofuro,
     category: 'home',
     info: { use: 'いえの なかに おく あったかい おふろ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
-    source: FURN_SOURCE,
+    source: FURN_SOURCE_CRAFT,
     wear: 'permanent',
   },
   long_table: {
@@ -76,7 +81,7 @@ export const HOUSE_FURNITURE = {
     rarity: DIG_DEFAULTS.rarity.long_table,
     category: 'home',
     info: { use: 'いえの なかに おく みんなで つかう ながい つくえ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
-    source: FURN_SOURCE,
+    source: FURN_SOURCE_CRAFT,
     wear: 'permanent',
   },
   round_table: {
@@ -87,7 +92,7 @@ export const HOUSE_FURNITURE = {
     rarity: DIG_DEFAULTS.rarity.round_table,
     category: 'home',
     info: { use: 'いえの なかに おく まるい つくえ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
-    source: FURN_SOURCE,
+    source: FURN_SOURCE_CRAFT,
     wear: 'permanent',
   },
   stool: {
@@ -98,7 +103,7 @@ export const HOUSE_FURNITURE = {
     rarity: DIG_DEFAULTS.rarity.stool,
     category: 'home',
     info: { use: 'いえの なかに おく まるい こしかけ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
-    source: FURN_SOURCE,
+    source: FURN_SOURCE_CRAFT,
     wear: 'permanent',
   },
   // HOUSE-2A（#364）まねきねこ（案 B の 形）。レシピ（まねきねこ）を おぼえると エディターの ② で 置ける。見た目は アートの 案 B の 形と 絵（HOUSE-2B。world/blocks/furnitureArt.ts）
@@ -110,7 +115,7 @@ export const HOUSE_FURNITURE = {
     rarity: DIG_DEFAULTS.rarity.maneki,
     category: 'home',
     info: { use: 'いえの なかに かざる ねこ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
-    source: FURN_SOURCE,
+    source: MANEKI_SOURCE,
     wear: 'permanent',
   },
 } satisfies Record<HouseFurnitureId, ItemDef>;
