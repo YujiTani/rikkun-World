@@ -1,4 +1,5 @@
 import type { ItemId } from '../../contracts';
+import { LEGEND4_TUNING } from './legend4Tuning';
 
 /**
  * 小物 6 つ（ITEM-FX-1・issue #342）の 数。戦闘・調整の数は この 1 つの表に（ルール #304）。
@@ -62,7 +63,14 @@ export const GADGET_ID = {
   waraji: 'waraji',
 } as const satisfies Record<string, ItemId>;
 
-/** はいている 足の 防具（なければ null）から ジャンプの 高さを きめる。waraji なら 表の 高さ、ほかは base */
-export function jumpHeightWith(legs: ItemId | null, base: number): number {
-  return legs === GADGET_ID.waraji ? GADGET_TUNING.waraji.jumpHeight : base;
+/**
+ * ジャンプの 高さを きめる。足の 防具（なければ null）が waraji なら 表の 高さ、ほかは base。
+ * LEGEND-4: 手に 持つ 物（なければ null）が 黒龍なら base × 2（`LEGEND4_TUNING.kokuryu.jumpMul`）。足の 防具と 重なったら 高い ほう
+ */
+export function jumpHeightWith(legs: ItemId | null, base: number, held: ItemId | null = null): number {
+  const feet = legs === GADGET_ID.waraji ? GADGET_TUNING.waraji.jumpHeight : base;
+  return held !== null && held in HELD_JUMP_MUL ? Math.max(feet, base * HELD_JUMP_MUL[held as keyof typeof HELD_JUMP_MUL]) : feet;
 }
+
+/** 手に 持つと ジャンプが 高く なる 物の 倍率（LEGEND-4。武器を 足す PR は ここに 1 行） */
+const HELD_JUMP_MUL = { kokuryu: LEGEND4_TUNING.kokuryu.jumpMul } as const satisfies Partial<Record<ItemId, number>>;

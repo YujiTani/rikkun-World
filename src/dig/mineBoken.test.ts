@@ -106,8 +106,10 @@ describe('E12: 新しい ブロックの 値', () => {
   });
 
   it('1E で 足した id は 10 こ 以下・合計は 256 以下', () => {
-    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1D, '1E で 足した id').toBeGreaterThanOrEqual(ROWS.length);
-    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1D, '1E で 足した id').toBeLessThanOrEqual(10 + 5 + 20 + 5 + 3 + 4 + 2 + 2 + 20 + 4); // WAFU-3 の 模様つきの 石 4 つ・ 2 = WAFU-1 の あらいし 2 こ・20 = WAFU-2 の 形つきブロック。 20 ＝ HOUSE-2B の 形ごとの ブロック 20 ＋ 5 ＝ HOUSE-2A（#364）が 後ろに 足した まきもの 1 ＋ まねきねこ 4（向き）＋ 最後の 5 ＝ VOX-I-4a（#187）の 国だけの 物 5 こ ＋ 4 ＝ WAFU-1 の わふうの ブロック 4 こ ＋ 3 ＝ VOX-I-4b（#187）の 山の 物 3 こ（すいしょう・とうろう・おちば）
+    // 1F 以降の id は 後ろに 足される ので、1E の id の いちばん 後ろ〔自分の 行の 最大の 番号〕までを 数える
+    const added = Math.max(...ROWS.map((r) => IDX[r.id]!)) + 1 - BLOCKS_THROUGH_1D;
+    expect(added, '1E で 足した id').toBeGreaterThanOrEqual(ROWS.length);
+    expect(added, '1E で 足した id').toBeLessThanOrEqual(10 + 5 + 20); // 20 ＝ HOUSE-2B の 形ごとの ブロック 20 ＋ 5 ＝ HOUSE-2A（#364）が 後ろに 足した まきもの 1 ＋ まねきねこ 4（向き）。やかたと それより 後ろは その あと
     expect(BLOCK_TYPES.length).toBeLessThanOrEqual(MAX_BLOCK_KINDS); // 256 を こえても よい（BLOCK-ID16）
   });
 });

@@ -2,6 +2,7 @@ import { Data3DTexture, MeshBasicMaterial, NearestFilter, RedIntegerFormat, Unsi
 import { TILE_NAMES, ATLAS_COLS } from '../../blocks/textures';
 import { BLOCK_INDEX } from '../../blocks/blockTypes';
 import { skyDarkness } from '../../light/skyDarkness';
+import { yakataUniforms } from '../../light/yakataLight';
 import { AO_LEVELS, FACE_SHADE_BY_INDEX } from '../config';
 import { LIGHT_GLSL_FUNCS, LIGHT_GLSL_LIT } from '../lightShader';
 import { patchVoxelShader, shadowCacheKey, shadowPatch } from '../shadow/shadowPatch';
@@ -257,6 +258,10 @@ export function createVoxelMaterial(shared: VoxelShared, ao: Data3DTexture | nul
     shader.uniforms.uViewport = seamViewport;
     shader.uniforms.uDarken = skyDarkness.uniform;
     shader.uniforms.uNight = skyDarkness.nightUniform;
+    shader.uniforms.uYakataMin = yakataUniforms.min; // MINE-1F: やかたの 中の 見え方の 箱
+    shader.uniforms.uYakataMax = yakataUniforms.max;
+    shader.uniforms.uYakataN = yakataUniforms.count;
+    shader.uniforms.uYakataSway = yakataUniforms.sway;
     shader.uniforms.uAtlas = { value: shared.atlas };
     shader.uniforms.uTileOf = { value: t.of };
     shader.uniforms.uTileAvg = { value: t.avg };

@@ -4,6 +4,9 @@ import type { CaveKind } from '../world/gen/mineCaveConfig';
 import { COUNTRY_TABLE } from '../world/gen/countryTable';
 import { CROP_KINDS, type AchievementCategory, type AchievementDef, type CropKind, type MedalTier, type StatKey } from '../contracts';
 
+/** MINE-1F: ようかいの やかたの 実績の 種類（found = はじめて 大広間に 入った〔小〕・won = はじめて かちぬいた〔大〕） */
+export type YakataAchKind = 'found' | 'won';
+
 /** MINE-1E: 足が はじめて 入った 坑道の 場所（かくしべや・むかしの えだ道・迷路の いちばん おく の 行きどまり〔へやが あれば へや〕・キャンプあと） */
 export type MineAreaKind = 'kakushi' | 'mukashi' | 'meiro' | 'camp';
 
@@ -72,11 +75,16 @@ export const BAKE_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
 
 export const AXE_RECIPES = ['wood_axe', 'stone_axe', 'iron_axe'] as const;
 export const PICKAXE_RECIPES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe'] as const;
-/** WEAPON-7: レジェンダリー武器の 名前（［漢字｜よみ］）。順番 = 実績の 段の 順。PR2 で 風神剣・PR3 で 虹を 足す */
+/** WEAPON-7: レジェンダリー武器の 名前（［漢字｜よみ］）。順番 = 実績の 段の 順。PR2 で 風神剣・PR3 で 虹・LEGEND-4 で 黒龍 …（5 つ）を 足す */
 export const LEGEND_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['raijin_ken', '［雷神剣｜らいじんけん］'],
   ['fujin_ken', '［風神剣｜ふうじんけん］'],
   ['niji', '［虹｜にじ］'],
+  ['kokuryu', '［黒龍｜こくりゅう］'], // LEGEND-4 PR1
+  ['yatagarasu', '［八咫烏｜やたがらす］'], // LEGEND-4 PR2
+  ['tenshi_yumi', '［天使｜てんし］の［弓｜ゆみ］'], // LEGEND-4 PR3
+  ['daichi_hammer', '［大地｜だいち］のハンマー'], // LEGEND-4 PR5
+  ['gnome_axe', 'ノームの［斧｜おの］'], // LEGEND-4 PR4
 ];
 
 export const WEAPON_RECIPES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'yumi'] as const;
@@ -393,6 +401,16 @@ function build(): AchievementDef[] {
     const { name, small } = AREA_ACH[kind];
     // 「めいろ の いちばん おく に ついた！」だけ 「に」が つく（ほかは「を みつけた！」）
     add({ series: `mine.area.${kind}`, category: 'adventure', stat: `area:${kind}`, tiers: [t(1, small)], name: () => (kind === 'meiro' ? `はじめて ${name} に ${AREA_VERB[kind]}！` : `はじめて ${name} を ${AREA_VERB[kind]}！`) });
+  }
+
+  // MINE-1F §4.8: ようかいの やかた。はじめて 大広間に 入った（小）・はじめて かちぬいた（大。紙ふぶき ＋ 花火）
+  const YAKATA_ACH = {
+    found: { name: 'はじめて ようかいの やかた を みつけた！', small: true },
+    won: { name: 'ようかいの やかた を かちぬいた！', small: false },
+  } satisfies Record<YakataAchKind, { name: string; small: boolean }>; // 種類を 足したら ここも 足す
+  for (const kind of Object.keys(YAKATA_ACH) as YakataAchKind[]) {
+    const { name, small } = YAKATA_ACH[kind];
+    add({ series: `mine.yakata.${kind}`, category: 'adventure', stat: `yakata:${kind}`, tiers: [t(1, small)], name: () => name });
   }
 
   // MINE-1E §4.12: かびた パンを たべた（小さな 実績。じょうだんの 一品）

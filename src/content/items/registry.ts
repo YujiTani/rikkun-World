@@ -6,6 +6,7 @@ import { ARMOR } from './armor';
 import { GEYSER, M4_BLOCKS, MINE_BLOCKS, PLACEABLE, VOX_I } from './blocks';
 import { ROPE_BLOCKS } from './rope';
 import { WATERFALL_BLOCKS } from './waterfall';
+import { YAKATA_ITEMS } from './yakata';
 import { BUCKETS, FARM_TOOLS, SEEDS, SPRINKLER, VEGGIES } from './farm';
 import { GOLD } from './gold';
 import { HOUSE_TOOLS } from './house';
@@ -13,6 +14,7 @@ import { HOUSE_BLOCKS } from './houseBlocks';
 import { HOUSE_LOOKS } from './houseLooks';
 import { HOUSE_FURNITURE, HOUSE_PLANS } from './houseEditor';
 import { LEGEND } from './legend';
+import { LEGEND4 } from './legend4';
 import { KONGO } from './kongo';
 import { KOTATSU, LIVE } from './live';
 import { INGOT, MATERIALS, ORB } from './materials';
@@ -110,9 +112,13 @@ export const HOUSE_LOOK_DEFS: ItemDefs = HOUSE_LOOKS;
 export const ROPE_DEFS: ItemDefs = ROPE_BLOCKS;
 /** WATERFALL-1: わきどころ・マグマの わきどころ・こくようせき（ITEM_TYPES・色分けでは いちばん うしろ） */
 export const WATERFALL_DEFS: ItemDefs = WATERFALL_BLOCKS;
+/** MINE-1F: ようかいの やかたの ブロック 8 つ（ITEM_TYPES・色分けでは いちばん うしろ） */
+export const YAKATA_DEFS: ItemDefs = YAKATA_ITEMS;
 
 /** レジェンダリー武器（ITEM_TYPES・武器の 色分けでは これまでと 同じ 位置（crystal_katana の 次）に 入れる） */
 export const LEGEND_DEFS: ItemDefs = LEGEND;
+/** LEGEND-4: 新しい レジェンダリー武器（黒龍 …）。ITEM_TYPES・武器の 色分けでは LEGEND の すぐ 次 */
+export const LEGEND4_DEFS: ItemDefs = LEGEND4;
 
 /**
  * MINE-1B（#349）: せっかいせき・しっくい・ほたるいし・きんの いし（置ける）・チョーク・いしばい。
@@ -129,10 +135,11 @@ export const ITEM_DEFS: Readonly<Record<ItemDefId, ItemDef>> = {
   ...PLACEABLE, ...M4_BLOCKS, ...GEYSER, ...VOX_I,
   ...TOOLS, ...SWORDS, ...BOWS, ...ARMOR, ...NINJA, ...SAMURAI,
   ...SEEDS, ...VEGGIES, ...FARM_TOOLS, ...SPRINKLER, ...BUCKETS,
-  ...ORB, ...MATERIALS, ...INGOT, ...GADGETS, ...LIVE, ...KOTATSU, ...LEGEND, ...GOLD, ...KONGO, ...HOUSE_TOOLS,
+  ...ORB, ...MATERIALS, ...INGOT, ...GADGETS, ...LIVE, ...KOTATSU, ...LEGEND, ...LEGEND4, ...GOLD, ...KONGO, ...HOUSE_TOOLS,
   ...MINE_BLOCKS, ...MINE_ITEMS, ...HOUSE_FURNITURE, ...HOUSE_PLANS, ...HOUSE_BLOCKS, ...HOUSE_LOOKS,
   ...ROPE_BLOCKS,
   ...WATERFALL_BLOCKS,
+  ...YAKATA_ITEMS,
 };
 
 /** 登録の 中から、ids の 順に 取り出した 登録（並びを 呼び出し側で 決めたい とき。登録に 無い id は 書きまちがいなので 投げる） */
@@ -261,6 +268,16 @@ export function registryTrailOnlyIds(): ItemId[] {
 /** ゆみ: 段ごとの ダメージ（W2 bowDamageByItem） */
 export function registryBowDamage(): Partial<Record<ItemId, [number, number, number]>> {
   return pickAll(ITEM_DEFS, (d) => (d.bow ? ([...d.bow.damage] as [number, number, number]) : undefined));
+}
+
+/** ゆみ: 重力なしで まっすぐ とぶ ゆみの きょり（W2 bowStraightByItem。LEGEND-4 黒龍） */
+export function registryBowStraight(): Partial<Record<ItemId, number>> {
+  return pickAll(ITEM_DEFS, (d) => d.bow?.straightRange);
+}
+
+/** ゆみ: 当たった 点で ほのおが はじける ゆみ（W2 bowBurstByItem。LEGEND-4 八咫烏） */
+export function registryBowBurst(): Partial<Record<ItemId, true>> {
+  return pickAll(ITEM_DEFS, (d) => d.bow?.burst);
 }
 
 /** 防具: ふせぐ量（CraftConfig.armorValue） */

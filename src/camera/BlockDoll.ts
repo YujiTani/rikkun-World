@@ -21,7 +21,7 @@ import {
 import { DollAnimator, newBodyPose, type ArmAnim, type BodyAnim } from './dollAnim';
 import { ShiverAnim } from './dollShiver';
 import { buildKabuto, buildKote, buildSuneate, buildYoroiBody, buildYoroiShoulder } from './dollArmor';
-import { buildHeldModel, createBendableBow, hasHeldModel, isLeftHanded, BOW_PALETTES, type BendableBow } from './heldTools';
+import { buildHeldModel, createBendableBow, hasHeldModel, isLeftHanded, BOW_PALETTES, BOW_DECOR, type BendableBow } from './heldTools';
 import {
   BOW_ARROW_TIP_FULL,
   BOW_LEFT_HAND,
@@ -327,7 +327,7 @@ export class BlockDoll {
       let m = this.heldModels.get(item);
       if (!m) {
         if (isBowItem(item)) {
-          const bow = createBendableBow(BOW_PALETTES[item]);
+          const bow = createBendableBow(BOW_PALETTES[item], BOW_DECOR[item]);
           this.bowModels.set(item, bow);
           m = bow.group;
         } else m = buildHeldModel(item)!;

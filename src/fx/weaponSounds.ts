@@ -2,6 +2,8 @@ import type { BladeEvent, BowEvent, WearEvent } from '../contracts';
 import { playCombat } from './combatSounds';
 import type { SoundFx, Tone } from './sound';
 import { box, hz, mar, noise, powan, swish, wood, xylo } from './sfxVoices';
+import { LEGEND4_SOUNDS } from './legend4Sounds';
+import { LEGEND4_ID } from '../content/items/ids';
 import { logSound } from './soundLog';
 
 /**
@@ -51,6 +53,11 @@ export const WEAPON_SOUNDS = {
   arrowHit: wood(320, 180, 0, 0.06, 0.4),
   /** や が ブロックに ささった「トン」 */
   arrowStick: wood(210, 150, 0, 0.07, 0.45),
+  /** LEGEND-4: 黒龍・八咫烏・天使の弓の 音（`legend4Sounds.ts`） */
+  kokuryuShot: LEGEND4_SOUNDS.kokuryuShot,
+  yataShot: LEGEND4_SOUNDS.yataShot,
+  yataBurst: LEGEND4_SOUNDS.yataBurst,
+  tenshiPaa: LEGEND4_SOUNDS.tenshiPaa,
 } as const satisfies Record<string, readonly Tone[]>;
 
 export type WeaponSoundName = keyof typeof WEAPON_SOUNDS;
@@ -103,6 +110,7 @@ export function playBladeSound(sound: Pick<SoundFx, 'playTones'>, e: BladeEvent)
     case 'stance':
       playWeapon(sound, 'stance');
       break;
+    case 'sweepStart': // LEGEND-4 ノームの斧: 専用の 音は なし（オーナー 2026-11-12）。当たりは techHit の ふつうの 音
     case 'techMiss':
     case 'cancel':
       break;
@@ -116,7 +124,13 @@ export function playBowSound(sound: Pick<SoundFx, 'play' | 'playTones'>, e: BowE
       playWeapon(sound, e.stage === 1 ? 'drawStage1' : e.stage === 2 ? 'drawStage2' : 'drawStage3');
       break;
     case 'arrowShot':
-      playWeapon(sound, e.stage === 1 ? 'shoot1' : e.stage === 2 ? 'shoot2' : 'shoot3');
+      // LEGEND-4: 黒龍・八咫烏は 専用の 音（ふつうの ビュンの かわり）。天使の弓は ビュンの 上に パアッ
+      if (e.item === LEGEND4_ID.kokuryu) playWeapon(sound, 'kokuryuShot');
+      else if (e.item === LEGEND4_ID.yatagarasu) playWeapon(sound, 'yataShot');
+      else {
+        playWeapon(sound, e.stage === 1 ? 'shoot1' : e.stage === 2 ? 'shoot2' : 'shoot3');
+        if (e.item === LEGEND4_ID.tenshi_yumi) playWeapon(sound, 'tenshiPaa');
+      }
       break;
     case 'arrowHit':
       playWeapon(sound, 'arrowHit');
@@ -134,8 +148,12 @@ export function playBowSound(sound: Pick<SoundFx, 'play' | 'playTones'>, e: BowE
     case 'pickup':
       sound.play('pickup');
       break;
+    case 'yataBurst':
+      playWeapon(sound, 'yataBurst');
+      break;
     case 'drawStart':
     case 'arrowEnd':
+    case 'arrowSaved': // 弓の 宝石が きらりと する だけ（音なし。2 回に 1 回 くり返すので 足さない）
       break;
   }
 }

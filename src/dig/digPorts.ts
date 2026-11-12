@@ -69,6 +69,8 @@ export interface DigM4Deps {
   partner?: () => Vec3 | null;
   /** HOUSE-1C PR-2: 家を 建てる 場所の 守りと みずもり・どうづき */
   build?: DigBuildPort;
+  /** MINE-1F: やかたの ブロック・ふさいだ かべは まだ・挑戦の 間は こわせない（`hook.yakataLocked` が 合う）。true の マスは ひびが 進まず ログ「いまは ほれない よ」 */
+  yakata?: { locked(x: number, y: number, z: number): boolean };
   /** #293 試作: 大きい がしゃどくろの 体の 上に ブロックを 置く・こわす（ワールドの ブロックと 同じ ねらい・置き方。なければ 何も しない） */
   bodyBlocks?: BodyBlocksPort;
   tools?: DigToolPort;
@@ -112,7 +114,7 @@ export interface DigM4Deps {
   /** M7-2: 出来事 の `tick`（なければ この 係 の 歩数） */
   nowTick?: () => number;
   /** WEAPON-2: 刀（ひだりクリックの ふりわけ §2.1-6 で わざを 渡す）。なければ 刀も ほるだけ */
-  blade?: Pick<BladeSystem, 'update' | 'state' | 'dropBuffer' | 'busyNext' | 'nextStart' | 'yieldToParry'>;
+  blade?: Pick<BladeSystem, 'update' | 'state' | 'dropBuffer' | 'busyNext' | 'nextStart' | 'yieldToParry' | 'sweep'>;
   /** WEAPON-7: レジェンダリー武器の ため・ためわざ。なければ 今のまま（レジェンダリーは ふつうの 刀と 同じ） */
   legend?: Pick<LegendSystem, 'step' | 'busyNext' | 'dropBuffer' | 'chargeable'>;
   /** WEAPON-5: パリィ（刀の Shift＋クリック）。なければ 今のまま */

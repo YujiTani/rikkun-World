@@ -51,9 +51,10 @@ export function mountStartMenu(model: () => StartModel, parent: HTMLElement = do
       : ''
   }
   <div class="sm-row" style="margin-top:${charRow ? 16 : 24}px"><span class="sm-lab">おもさ</span>
-    <button type="button" class="sm-btn" data-g="w" data-testid="start-weight-light" data-press="weight-light" aria-pressed="false">${weightMarks(1)}<span>かるい</span></button>
-    <button type="button" class="sm-btn" data-g="w" data-testid="start-weight-normal" data-press="weight-normal" aria-pressed="false">${weightMarks(2)}<span>ふつう</span></button>
-    <button type="button" class="sm-btn" data-g="w" data-testid="start-weight-fine" data-press="weight-fine" aria-pressed="false">${weightMarks(3)}<span>きれい</span></button>
+    <button type="button" class="sm-btn" data-g="w" data-testid="start-weight-xlight" data-press="weight-xlight" aria-pressed="false">${weightMarks(1)}<span>とてもかるい</span></button>
+    <button type="button" class="sm-btn" data-g="w" data-testid="start-weight-light" data-press="weight-light" aria-pressed="false">${weightMarks(2)}<span>かるい</span></button>
+    <button type="button" class="sm-btn" data-g="w" data-testid="start-weight-normal" data-press="weight-normal" aria-pressed="false">${weightMarks(3)}<span>ふつう</span></button>
+    <button type="button" class="sm-btn" data-g="w" data-testid="start-weight-fine" data-press="weight-fine" aria-pressed="false">${weightMarks(4)}<span>きれい</span></button>
   </div>
 </div>
 <div class="sm-panel" data-testid="start-new-screen" hidden>
@@ -116,6 +117,7 @@ export function mountStartMenu(model: () => StartModel, parent: HTMLElement = do
       setPressed('start-char-girl', s.char === 'girl');
       setPressed('start-char-boy', s.char === 'boy');
     }
+    setPressed('start-weight-xlight', s.weight === 'xlight');
     setPressed('start-weight-light', s.weight === 'light');
     setPressed('start-weight-normal', s.weight === 'normal');
     setPressed('start-weight-fine', s.weight === 'fine');

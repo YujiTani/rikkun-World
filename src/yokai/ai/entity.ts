@@ -123,6 +123,10 @@ export interface Ent {
   foundAt: number;
   /** COOP-1: ねらっている 相手（1 = 1P・2 = 2P。ステップの はじめに 近い方から 決める） */
   target: 1 | 2;
+  /** MINE-1F §4.5: やかたの 二つ名〔ふつうの きまりの 外: 地下の 上限・横 64・夜明け・見つけられない で 消えない〕 */
+  free: boolean;
+  /** MINE-1F §4.5: この ステップ（YokaiField.steps）まで 攻撃しない・体当たりしない〔あらわれた ゆとり〕。0 ＝ なし */
+  graceUntil: number;
 }
 
 export interface LiveFireball {

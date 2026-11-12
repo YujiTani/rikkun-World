@@ -1,4 +1,6 @@
 // main.ts の 流れ 4: 戦い・道具・レジェンダリー・たんす・作る・農業・掘る。
+import { createTenshiWire } from './tenshiWire';
+import { tenshiNoFall } from '../../player/tenshiMove';
 import { BLOCK_INDEX } from '../../world/blocks/blockTypes';
 import { aimPivot } from '../../camera/pivot';
 import { PlayerCombatImpl } from '../../combat';
@@ -18,6 +20,12 @@ import { createSpiralDebris } from '../../legend/spiralDebris';
 import { createChargeLight } from '../../legend/chargeLight';
 import { pointOnScreen, FIRST_DEPTH, CHEST_UP, newHandInfo, computeHand } from '../../legend/handPos';
 import { WindWaveFx } from '../../fx/windWaveFx';
+import { KokuryuInkFx } from '../../fx/kokuryuInkFx';
+import { YatagarasuFx } from '../../fx/yatagarasuFx';
+import { HammerSlamFx } from '../../fx/hammerSlamFx';
+import { playHammer } from '../../fx/hammerSounds';
+import { LEGEND4_TUNING } from '../../content/items/legend4Tuning';
+import { createHammerSystem, type HammerSystem } from '../../tools/hammer/HammerSystem';
 import { SpiralFx } from '../../fx/spiralFx';
 import { createWaveView3D } from '../../legend/waveView';
 import { ChargeLightFx } from '../../fx/chargeLightFx';
@@ -57,6 +65,7 @@ import { wireSeat } from './seat';
 import { playSleepJingle } from '../../fx/sleepJingle';
 import type { WiredDrops } from './inventory';
 import { createScrollPort } from './scrollPort';
+import { bladeWearPerHit } from '../../content/items/legend4Wear';
 
 const KOGETA = BLOCK_INDEX.kogeta;
 const SIDES: readonly (readonly [number, number])[] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -118,7 +127,7 @@ export function wireWeapons(deps: WiredDrops) {
     // SAMURAI-1 §4.5: 明珍手甲を 着ていれば 刀の 強さ × 1.5（わざの 倍率の 前に かける）
     weaponDamage: createWeaponDamage({ settings: w2, base: toolConfig.weaponDamage, held: () => inventory.held(), armor }),
     onHit: () => {
-      inventory.wearHeld(w2.toolWear.blade.hit);
+      inventory.wearHeld(bladeWearPerHit(inventory.held()?.item, w2.toolWear.blade.hit));
     },
     lunge: (dx, dz) => controller.lunge(dx, dz),
     tick: () => game.tick,
@@ -189,6 +198,13 @@ export function wireWeapons(deps: WiredDrops) {
   });
   thunderFx.warmUp(game.renderer, game.camera); // 読みこみ中に 雷 B の プログラムを 作る
   const windWaveFx = new WindWaveFx({ scene: game.scene, camera: game.camera });
+  // LEGEND-4: 黒龍の 墨の すじ（矢の うしろ。1P の 矢。2P の 矢は duoPlay が 別に 持つ）
+  const kokuryuInkFx = new KokuryuInkFx(game.scene);
+  const yatagarasuFx = new YatagarasuFx(game.scene); // LEGEND-4: 八咫烏（1P。2P は duoPlay が 別に 持つ）
+  // LEGEND-4: 天使の弓（つばさ・羽の すじ・空中ジャンプの 音と 羽）。1P の 体・1P の 矢
+  const tenshiWire = createTenshiWire(game.scene, controller, fxSound);
+  // LEGEND-4: 大地のハンマーの 地面の われ・光（H1。1P の 振り。2P の 振りは duoPlay が 別に 持つ）
+  const hammerSlamFx = new HammerSlamFx(game.scene);
   // WEAPON-8: らせんの かぜ（S2）・土と 草の つぶ・手もとの 光・速さバフの アイコン
   const spiralFx = new SpiralFx({ scene: game.scene, camera: game.camera });
   // WEAPON-9: 虹の ドーム・かけら・すいよせの つぶ・斬撃（材質は 読みこみ中に ぜんぶ 作る）
@@ -226,7 +242,7 @@ export function wireWeapons(deps: WiredDrops) {
   controller.lungeYokai = () => (shared.yokaiManager ? shared.yokaiManager.list() : []);
   return {
     level, armor, tools, blade, legend, nijiCenter, waveSys, reducedMotionMq, parry, geta, parryFx,
-    sparkAt, thunderFx, rainbowFx, windWaveFx, spiralFx, nijiFx, domeGrains, slashFx, raijinFx, fujinFx,
+    sparkAt, thunderFx, rainbowFx, windWaveFx, kokuryuInkFx, yatagarasuFx, tenshiWire, hammerSlamFx, spiralFx, nijiFx, domeGrains, slashFx, raijinFx, fujinFx,
     spiralDebris, chargeLight, chargeLightFx, chargeChest, handInfo, handNow, buffModel,
   };
 }
@@ -260,6 +276,8 @@ export function wireFighters(deps: WiredWeapons) {
   // COOP-1 3a: 1P の 妖怪の 世界は 「1P の こうげき」と 名前を つけた 物（けいけんちは 当てた 人に）。妖怪の 係は あとで 作るので 初めて 使う とき 包む
   let yokai1: YokaiWorld | null = null;
   const yokaiOf1 = (): YokaiWorld => (yokai1 ??= bindWho(shared.yokaiManager!, 1));
+  /** LEGEND-4: 大地のハンマー（dig を 作った あとで 入れる。急降下の 間は 落下ダメージを 見ない） */
+  let hammer: HammerSystem | null = null;
   const combat = new PlayerCombatImpl({
     config: combatCfg,
     tool: tools,
@@ -276,7 +294,7 @@ export function wireFighters(deps: WiredWeapons) {
     // WEAPON-9: シャイニング中は 受ける ダメージ 1/3・落下ダメージなし
     takenMul: () => legend.takenMul(),
     // ROPE-1 版 3: ロープに つかまって いる 間は 落ちた 高さを ためない（ゆっくり おりて 着地しても・とちゅうで はなしても、はなした 所から 数える）
-    noFall: () => legend.noFall() || shared.protoNoFall || controller.onRope(),
+    noFall: () => legend.noFall() || shared.protoNoFall || controller.onRope() || tenshiNoFall(inventory.held()?.item ?? null) || (hammer?.noFall() ?? false), // 天使の弓: 持って いる 間 着地ダメージ なし
     // 妖怪のねらい（CHAR-1 第 5.2 版 §4.5）: 届く距離は P から。S からの線で当たらないときは やさしい ねらい補助
     reachOrigin: (out) => aimPivot(world, controller.state.position, out),
     assist: (eye, dir, reach) => aimAssistPick(eye, dir, reach),
@@ -426,6 +444,7 @@ export function wireFighters(deps: WiredWeapons) {
     createRng(20240601),
     combat,
     {
+      yakata: { locked: (x, y, z) => shared.yakataLocked(x, y, z) }, // MINE-1F §4.3: やかたの ブロックは かつ まで こわせない
       bodyBlocks: {
         aim: (o, d, reach) => shared.gashaBodyBlocks?.aim(o, d, reach) ?? null,
         canPlace: (cell, block) => shared.gashaBodyBlocks?.canPlace(cell, block) ?? false,
@@ -485,6 +504,14 @@ export function wireFighters(deps: WiredWeapons) {
       scroll: createScrollPort(() => shared.house, 1), // HOUSE-2A: レシピの まきもの（もって 右クリックで よむ）
     },
   );
+  hammer = createHammerSystem({
+    world,
+    yokai: yokaiOf1,
+    focus: () => (dig.aimedYokaiId() !== null ? null : dig.target()), // ねらいが 妖怪の ときは ブロックを こわさない
+    breakAt: (x, y, z) => dig.breakExternal(x, y, z),
+    wear: () => inventory.wearHeld(LEGEND4_TUNING.daichi.wearPerSwing),
+    sound: (n) => playHammer(fxSound, n),
+  });
   // ねらいの線・矢・刀・パンチの出どころは 目でなく 回転の中心 P（CHAR-1 §4.5）
   dig.aimOrigin = (_p, out) => rig.aimOrigin(out); // ねらいの線の出どころは 肩の点 S
   dig.reachOrigin = (p, out) => aimPivot(world, p.position, out); // 届く距離は P から
@@ -516,12 +543,13 @@ export function wireFighters(deps: WiredWeapons) {
   }
   /** ねらいの点 X（S から D の線で 最初に当たる 固いブロックか 妖怪の箱の点。なければ S + D × 64） */
   const AIM_FAR = 64;
-  function aimPointInto(out: { x: number; y: number; z: number }): { x: number; y: number; z: number } {
+  function aimPointInto(out: { x: number; y: number; z: number }, ignoreYokai = false): { x: number; y: number; z: number } {
     const st = controller.state;
     const S = rig.aimOrigin(assistShoulder);
     const D = lookDirection(st.yawDeg, st.pitchDeg, assistDir);
     const b = raycastBlocks(world, S.x, S.y, S.z, D.x, D.y, D.z, AIM_FAR, true);
-    const y = shared.yokaiM.raycast(S, D, b ? b.distance : AIM_FAR);
+    // LEGEND-4: 黒龍の や は 妖怪を つらぬく ので、ねらいの 点は 妖怪で 止めず 最初の ブロック（か 遠く）に する（肩から の 線が 手前の 1 体で 中心線を はなれない ように）
+    const y = ignoreYokai ? null : shared.yokaiM.raycast(S, D, b ? b.distance : AIM_FAR);
     const t = y ? y.distance : b ? b.distance : AIM_FAR;
     out.x = S.x + D.x * t;
     out.y = S.y + D.y * t;
@@ -536,7 +564,8 @@ export function wireFighters(deps: WiredWeapons) {
     const aimV = { x: 0, y: 0, z: 0 };
     tools.step = (primary, _eye, dir) => {
       const pv = aimPivot(world, controller.state.position, aimPv);
-      aimPointInto(aimX);
+      const held = inventory.held()?.item;
+      aimPointInto(aimX, held !== undefined && w2.bowStraightByItem[held] !== undefined);
       const dx = aimX.x - pv.x, dy = aimX.y - pv.y, dz = aimX.z - pv.z;
       const len = Math.hypot(dx, dy, dz);
       if (len < 1e-3) toolStep(primary, pv, dir);
@@ -548,6 +577,7 @@ export function wireFighters(deps: WiredWeapons) {
   }
   return {
     combat, storage, craft, furnaceWorld, dropper, dropController, sprinklers, pet, farm, dig, aimCfg, aimPointInto, gadgets,
+    hammer,
     seat: furniture.seat,
     /** COOP-1 5e: 2P の いす・おふろ（参加する たびに attach、やめる たびに detach） */
     seatFor: furniture.seatFor,

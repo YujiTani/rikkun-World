@@ -25,7 +25,8 @@ import { pickSamuraiGear, rollSamuraiChest, samuraiChestHit, samuraiSelectable }
  */
 const ALL = Object.values(SAMURAI_GEAR) as ItemId[];
 const isSamurai = (i: ItemId) => ALL.includes(i);
-const W3: ItemId[] = ['raijin_ken', 'fujin_ken', 'niji'] as ItemId[];
+// LEGEND-4 §9: 武器の 行は 設定の 表から（武器が ふえても 直さない。3 → 4 → …）
+const W3: ItemId[] = createW2Settings().legendary.map((d) => d.item);
 
 describe('AC15 ヌシの 表（侍装備 4 行）', () => {
   const rows = () => createW2Settings().nushiDrops;
@@ -38,16 +39,17 @@ describe('AC15 ヌシの 表（侍装備 4 行）', () => {
     expect(isSamuraiGear('ninja_tekko' as ItemId)).toBe(false);
     expect(isSamuraiGear('katana' as ItemId)).toBe(false);
   });
-  it('侍帳が 空で 乱数 0.1 → 雷神剣、0.5 → 陣笠、0.99 → 下駄', () => {
+  it('侍帳が 空で 乱数 先頭の 行の 中 → 雷神剣、0.5 → まんなかの 行、0.99 → 下駄', () => {
     const sel = samuraiSelectable([], []);
-    expect(pickNushiDrop(rows(), () => 0.1, sel)).toBe('raijin_ken');
-    expect(pickNushiDrop(rows(), () => 0.5, sel)).toBe('samurai_jingasa');
+    expect(pickNushiDrop(rows(), () => 0.5 / rows().length, /* 先頭の 行 */ sel)).toBe('raijin_ken');
+    expect(pickNushiDrop(rows(), () => 0.5, sel)).toBe(rows()[Math.floor(0.5 * rows().length)]!.item); // 行の 数に 合わせる（武器が ふえても 直さない）
     expect(pickNushiDrop(rows(), () => 0.99, sel)).toBe('samurai_geta');
   });
   it('帳に 陣笠が ある（持って いる）と 6 行で 0.5 → 羽織', () => {
     const sel = samuraiSelectable(['samurai_jingasa' as ItemId], ['samurai_jingasa' as ItemId]);
-    expect(pickNushiDrop(rows(), () => 0.5, sel)).toBe('samurai_haori');
-    expect(pickNushiDrop(rows(), () => 0.1, sel)).toBe('raijin_ken');
+    const live = rows().filter((r) => r.item !== 'samurai_jingasa'); // 武器 ＋ 侍装備 3 行
+    expect(pickNushiDrop(rows(), () => 0.5, sel)).toBe(live[Math.floor(0.5 * live.length)]!.item);
+    expect(pickNushiDrop(rows(), () => 0.5 / rows().length, /* 先頭の 行 */ sel)).toBe('raijin_ken');
     expect(pickNushiDrop(rows(), () => 0.99, sel)).toBe('samurai_geta');
   });
   it('帳に 4 つ ＋ ぜんぶ もちものに ある → 侍装備は 出ず、武器 3 行から（今と 同じ）', () => {
@@ -55,11 +57,11 @@ describe('AC15 ヌシの 表（侍装備 4 行）', () => {
     const seen = new Set<ItemId>();
     for (let i = 0; i < 60; i++) seen.add(pickNushiDrop(rows(), createRng(i), sel)!);
     expect([...seen].sort()).toEqual([...W3].sort());
-    expect(pickNushiDrop(rows(), () => 0.5, sel)).toBe('fujin_ken'); // 0.5 × 3 = 1.5
+    expect(pickNushiDrop(rows(), () => 0.5, sel)).toBe(W3[Math.floor(0.5 * W3.length)]); // 0.5 × 武器の 数
   });
   it('選べない 行を 入れて も 武器の 行は 帳を 見ない（持って いる 雷神剣も 出る）。selectable を 省くと 全部 選べる', () => {
-    expect(pickNushiDrop(rows(), () => 0.1, samuraiSelectable(ALL, ALL))).toBe('raijin_ken');
-    expect(pickNushiDrop(rows(), () => 0.5)).toBe('samurai_jingasa');
+    expect(pickNushiDrop(rows(), () => 0.5 / rows().length, /* 先頭の 行 */ samuraiSelectable(ALL, ALL))).toBe('raijin_ken');
+    expect(pickNushiDrop(rows(), () => 0.5)).toBe(rows()[Math.floor(0.5 * rows().length)]!.item);
   });
   it('乱数は 表で ちょうど 1 つ（侍装備でも 強さの くじを 使わない）。選べない 行だけで 空なら null', () => {
     let n = 0;
@@ -74,12 +76,13 @@ describe('AC15 ヌシの 表（侍装備 4 行）', () => {
     expect(run(1)).toEqual(run(1));
     expect(new Set(run(1)).size).toBeGreaterThan(3);
   });
-  it('はじめての ヌシで 侍装備が 出る 割合は 4/7（3,000 回で 1,560〜1,860）', () => {
+  it('はじめての ヌシで 侍装備が 出る 割合は 4 ÷ 行の 数（3,000 回で ±9%。武器 3 本の ときは 4/7 = 1,560〜1,860）', () => {
     const rng = createRng(77);
     let n = 0;
     for (let i = 0; i < 3000; i++) if (isSamurai(pickNushiDrop(rows(), rng, samuraiSelectable([], []))!)) n++;
-    expect(n).toBeGreaterThanOrEqual(1560);
-    expect(n).toBeLessThanOrEqual(1860);
+    const want = (3000 * 4) / rows().length;
+    expect(n).toBeGreaterThanOrEqual(want * 0.91);
+    expect(n).toBeLessThanOrEqual(want * 1.09);
   });
 });
 

@@ -30,6 +30,7 @@ import { createTetherLine } from '../../world/render/tetherLine';
 import { runTitleReturn } from '../../ui/menu/titleReturn';
 import { runImport } from '../../save/importFlow';
 import { wireShadow } from './shadow';
+import { wireGfx } from './gfx';
 import { START_PITCH_DEG } from '../../player/config';
 import { computeFarmPlacement, applyFarmPlacement } from '../../world/gen/farmPlacement';
 import { createFarmVisual } from '../../world/render/farmVisual';
@@ -64,7 +65,7 @@ export function wireSave(deps: WiredAchievements) {
       // 読みこんだら 向きはカメラの yaw と同じ（背中が見える）
       set: (v) => controller.set({ position: v.position, velocity: v.velocity, yawDeg: v.yawDeg, pitchDeg: START_PITCH_DEG, facingDeg: v.yawDeg }),
     },
-    saveOverrides: () => shared.gashaSaveOverrides(),
+    saveOverrides: () => [...shared.gashaSaveOverrides(), ...shared.yakataSaveOverrides()],
     spawn: spawnPlain, // 保存の meta に 書くだけ（スタートへ もどす動きは しない）
     store,
     tick: () => game.tick,
@@ -427,7 +428,7 @@ export function wireLoop(deps: WiredFrame) {
     shared, game, rig, overlay, frameClock, host, streamFrame, controller, renderer, world, blobShadow,
     lock, screen, parry, tools, craft, log, inventoryScreen, inventory, pickupLog, armor, storage,
     achievements, pageModel, syncPages, celebrate, dig, actionHint, yokaiFocus, combat, store, weighted,
-    startBoot, strengthLevel, timeSettings, time, playOverlay,
+    startBoot, strengthLevel, timeSettings, time, playOverlay, startPlan,
   } = deps;
   // ヒットストップで 世界が 止まっている 間も カメラの ゆれだけは 動く
   game.onFrozenUpdate((dt) => rig.updateFrozen(dt));
@@ -521,9 +522,14 @@ export function wireLoop(deps: WiredFrame) {
   const combatHook = createCombatHook(combat);
   const shadowStart = weighted.shadow;
   startBoot.setInfo({ strength: strengthLevel, microR: weighted.microR, ring: weighted.ring, shadowBuilt: shadowStart.build });
-  const { system, setShadow } = wireShadow({
+  const { setShadow, isOn } = wireShadow({
     game,
     start: shadowStart,
+    allowed: weighted.shadowAllowed,
+    envOff: import.meta.env.VITE_SHADOW_DEFAULT === 'off',
+    onBuilt: (sys) => {
+      shared.shadowSystem = sys;
+    },
     store,
     parent: playOverlay.el,
     deps: () => ({
@@ -538,7 +544,8 @@ export function wireLoop(deps: WiredFrame) {
     }),
     sprite: () => rig.doll.group.getObjectByName('charSprite'),
   });
-  shared.shadowSystem = system;
+  // GFX-1: せっていの「がめん」の 窓口（おもさ・かげ・がめんの こまかさ・ちかくの こまかさ）
+  shared.gfx = wireGfx({ game, renderer, store, weighted, weight: startPlan.weight, setShadow, shadowOn: isOn });
   return {
     cameraHook, toolHook, craftHook, logHook, craftUiHook, storageHook, achievementsHook, facingTmp,
     hudHook, lockHook, combatHook, setShadow,

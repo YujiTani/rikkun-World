@@ -45,7 +45,7 @@ const samples: Sample[] = [];
 beforeAll(() => {
   for (const seed of SEEDS_20) {
     const s = sampleShafts(seed, 2, { legacy: true });
-    for (const shaft of s.shafts) samples.push({ seed, shaft, path: s.hook.shaftPath(shaft.id), g: s.g });
+    for (const shaft of s.shafts) samples.push({ seed, shaft, path: s.hook.shaftPath(shaft.id).filter((c) => (c.part as string) !== 'yakata'), g: s.g });
   }
 }, 720_000);
 

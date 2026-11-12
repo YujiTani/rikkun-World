@@ -2,6 +2,7 @@ import type { PlayerState, Vec3 } from '../contracts';
 import type { Action, ActionState } from '../input/actions';
 import { routeAttackInput } from '../combat/parry';
 import { isBladeItem } from '../tools/blade/BladeSystem';
+import { isGnomeAxe } from './gnomeChop';
 import type { DigAttack } from './digAttack';
 import type { DigCore } from './digCore';
 
@@ -64,7 +65,7 @@ export class DigInput {
     const secondary = enabled && (actions.isHeld('secondary') || actions.wasPressed('secondary'));
     const tools = c.m4.tools;
     const eye = { x: o.x, y: o.y, z: o.z };
-    const bow = tools?.current().kind === 'bow';
+    const bow = tools?.current().kind === 'bow' || tools?.current().kind === 'hammer'; // ゆみ・ハンマーは ほる・たたくを しない（LEGEND-4: ハンマーは 専用の 係が 振る）
     // ゆみ を持っているあいだは ほる・たたく をしない（や は tools が飛ばす）
     let primary = primaryRaw && !bow;
     // 刀（WEAPON-2 §2.1-6・WEAPON-3 §4.4）: 向いている方の 妖怪（1）・＋マークで ねらった 妖怪（2）・何もない（4）→ わざ。作物・ブロック → しゅうかく・ほる
@@ -74,14 +75,15 @@ export class DigInput {
     const dec = enabled && !bow ? this.attack.buildDecision(p, d, o, tgt, list) : null;
     if (blade) {
       const held = c.inventory.held()?.item ?? null;
-      const bladeItem = isBladeItem(held) ? held : null;
+      // LEGEND-4: ノームの斧も 刀と 同じ ふりわけ（妖怪・空 = よこなぎ、ブロック = ほる）。よこなぎは BladeSystem の 中の gnomeSweep
+      const bladeItem = isBladeItem(held) || isGnomeAxe(held) ? held : null;
       let tech = false;
       /** ふりわけが わざ（ほるでは ない）か */
       let furiTech = false;
       if (bladeItem && enabled) {
         if (parryBusy) tech = false;
         else if (pendingNow) tech = true;
-        else if (blade.state().phase !== 'idle') tech = true;
+        else if (blade.state().phase !== 'idle' || (blade.sweep?.().phase ?? 'idle') !== 'idle') tech = true;
         else if (primaryRaw) {
           if (dec) tech = dec.use === 'attack' || dec.use === 'whiff';
           else {

@@ -16,6 +16,7 @@ import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { hash01, randInt, type Rng } from '../world/gen/random';
 import { DUG_ALWAYS_ONE, FARM_BREAK_DROP, HEMP_DROP, NO_DROP_BLOCKS } from './config';
 import { dropBlockOf, dugItemAt, dugItemOf } from './dugItems';
+import { chopPartner } from './gnomeChop';
 import { COOP_BLOCKS, HANGING_SUPPORT, TORCH_NEIGHBORS, type DigCore } from './digCore';
 
 /** MINE-1D: つらら（天井の 下に さがる。ブロック id） */
@@ -56,9 +57,11 @@ export class BlockBreaker {
     private readonly rng: Rng,
   ) {}
 
-  breakBlock(t: TargetInfo, bodyGlass: boolean): BreakEnd {
+  /** ignoreAim = 今の ねらい（体）を 見ず 渡された ブロックを こわす（ハンマー）。
+   *  extra = ノームの斧で いっしょに きった 上の マス（たいきゅうは 数えない） */
+  breakBlock(t: TargetInfo, bodyGlass: boolean, extra = false, ignoreAim = false): BreakEnd {
     const c = this.c;
-    if (c.bodyTgt()) return this.breakBodyBlock(t, bodyGlass);
+    if (!ignoreAim && c.bodyTgt()) return this.breakBodyBlock(t, bodyGlass);
     if (isMakimonoId(t.id)) return this.breakMakimono(t); // HOUSE-2A: まきもの。ほっても 右クリックでも 持ち物へ
     if (COOP_BLOCKS.has(t.id)) return this.breakCoopBlock(t);
     if (isChalkMarkId(t.id)) return this.breakChalkMark(t);
@@ -109,7 +112,10 @@ export class BlockBreaker {
       }
     }
     c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: houseDrop ?? t.id, gotItem: got > 0, count: got });
-    this.wearForBlock();
+    if (!extra) this.wearForBlock();
+    // LEGEND-4 ノームの斧: つながる 同じ ブロック 1 つも いっしょに（ふつうに ほった ときと 同じ 道。1 回だけ）
+    const up = extra ? null : chopPartner(c.inventory.held()?.item, t, c.world);
+    if (up) this.breakBlock(up, false, true);
     return 'done';
   }
 

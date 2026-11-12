@@ -12,7 +12,8 @@ import type { BodyPlaced, PlacedBlock } from './gashaBigPlaced';
 import type { BigSfx } from './gashaBigSfx';
 import { Embers, MeteorRain, burnPlants, craterCells, inBlast, type Ember, type LandInfo, type Meteor, type Spark } from './gashaBigEruption';
 import { EruptFx } from './gashaBigEruptFx';
-import { boxTouchesCapsule, boxTouchesFan, distToBox, rayBox, type BoxLike } from './gashaBigHit';
+import { boxTouchesCapsule, boxTouchesFan, distToBox, RayAllMerge, rayBox, type BoxLike } from './gashaBigHit';
+import type { Vec3, YokaiRayHit } from '../contracts';
 import { crushable } from './gashaBigCrush';
 import { TUNE as T } from './gashaBigTuning';
 import { targetsOf, type TargetSource } from './gashaTargets';
@@ -149,8 +150,7 @@ export function createEruptionStep(env: EruptionEnv): EruptionStep {
     if (ym && douseYm !== ym) {
       douseYm = ym;
       const rayPrev = ym.raycast.bind(ym), dmgPrev = ym.damage.bind(ym);
-      ym.raycast = (origin, dir, max) => {
-        const real = rayPrev(origin, dir, max);
+      const emberHit = (origin: Vec3, dir: Vec3, max: number, real: YokaiRayHit | null): YokaiRayHit | null => {
         if (!embers.list.length) return real;
         const len = Math.hypot(dir.x, dir.y, dir.z) || 1;
         let best: Ember | null = null, bt = real ? real.distance : max;
@@ -162,6 +162,12 @@ export function createEruptionStep(env: EruptionEnv): EruptionStep {
         }
         return best ? { id: EMBER_ID_BASE + best.id, kind: 'nurikabe', distance: bt } : real;
       };
+      ym.raycast = (origin, dir, max) => emberHit(origin, dir, max, rayPrev(origin, dir, max));
+      // 黒龍の や（raycastAll）にも 燃えかすを 重ねる
+      if (ym.raycastAll) {
+        const allPrev = ym.raycastAll.bind(ym), merge = new RayAllMerge();
+        ym.raycastAll = (origin, dir, max) => merge.merge(allPrev(origin, dir, max), emberHit(origin, dir, max, null));
+      }
       // 引数は ぜんぶ そのまま わたす（6 番目の who を 落とさない）
       ym.damage = (...a: Parameters<typeof dmgPrev>) => {
         const id = a[0];

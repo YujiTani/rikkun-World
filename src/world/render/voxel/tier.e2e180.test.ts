@@ -10,7 +10,7 @@ import { BOX_OUTER, DEFAULT_MICRO_R, MICRO_RADII, nextTier, normalizeMicroR, typ
  *  - `normalizeMicroR(0)` は 0 のまま。F4 の切りかえ（MICRO_RADII）は 今のまま 16 → 24 → 28。
  *  - 半径 0 の `nextTier` は micro を返さない（近くも 箱の段。箱の外側 48 の前後と LOD は 今のまま）。
  *  - はじめの半径は `decideMicroR(search, envDefault)`（tier.ts に作って export する。main.ts が `location.search` と
- *    `import.meta.env.VITE_MICRO_DEFAULT` を渡す。影の decideShadowStart と同じ形）:
+ *    `import.meta.env.VITE_MICRO_DEFAULT` を渡す。影の かげの 決め方（weightPref.ts）と同じ形）:
  *      URL の `?microR=0|16|24|28` が いちばん強い（環境変数より強い。`?microR=0` も 0 として受けつける）
  *      > 環境変数 `off` なら 0（E2E のサーバー）> なし・ほかの値なら 28（2026-10-18 から）。
  */
@@ -24,13 +24,13 @@ describe('#180 normalizeMicroR(0) と 切りかえ', () => {
     expect(normalizeMicroR(16)).toBe(16);
     expect(normalizeMicroR(24)).toBe(24);
     expect(normalizeMicroR(32)).toBe(28);
-    expect(normalizeMicroR(10)).toBe(16);
+    expect(normalizeMicroR(10)).toBe(8); // GFX-1: 8・12 を 足した ので 10 は 8（同じ ときは 小さい 方）
     expect(normalizeMicroR(21)).toBe(24);
     expect(normalizeMicroR(1000)).toBe(28);
   });
 
-  it('F4 の切りかえは 16 → 24 → 28。ふつうに遊ぶときの既定は 28', () => {
-    expect([...MICRO_RADII]).toEqual([16, 24, 28]);
+  it('F4 の切りかえは 8 → 12 → 16 → 24 → 28（GFX-1）。ふつうに遊ぶときの既定は 28', () => {
+    expect([...MICRO_RADII]).toEqual([8, 12, 16, 24, 28]);
     expect(DEFAULT_MICRO_R).toBe(28);
   });
 });

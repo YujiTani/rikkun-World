@@ -9,6 +9,8 @@ export interface GashaGirlDeps {
   scene: Scene;
   camera: Camera;
   onUpdate(fn: (dt: number) => void): void;
+  /** 今の 画面の こまかさ（renderer の pixelRatio。GFX-1 で かわる）。なければ min(devicePixelRatio, 2) */
+  pixelRatio?(): number;
   /** 描く 直前（カメラを 上書きする 用） */
   onBeforeRender(fn: () => void): void;
   player(): { x: number; y: number; z: number; yawDeg: number; vx: number; vz: number };

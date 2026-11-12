@@ -28,9 +28,11 @@ describe('AC21: 風神剣の データを defs から 引く', () => {
     }
     // WEAPON-9 で 期待が 変わった（理由: 虹が 表に 入って 3 本。weight 1 ずつ → 3,000 回で 900〜1,100 ずつ。AC6 と 同じ）
     // SAMURAI-1（#300）で 期待が 変わった（理由: 表に 侍装備 4 行が 入って 7 行。帳を 見ない この 引き方では 3,000 ÷ 7 ≒ 429 ずつ → 330〜530）
+    // LEGEND-4 §9: 行の 数は 表から（1 行あたり 3,000 ÷ 行数。±23% 以内）。武器が ふえても 直さない
+    const per = 3000 / S.nushiDrops.length;
     for (const k of ['raijin_ken', 'fujin_ken', 'niji']) {
-      expect(n[k]).toBeGreaterThanOrEqual(330);
-      expect(n[k]).toBeLessThanOrEqual(530);
+      expect(n[k]).toBeGreaterThanOrEqual(per * 0.77);
+      expect(n[k]).toBeLessThanOrEqual(per * 1.23);
     }
   });
 });

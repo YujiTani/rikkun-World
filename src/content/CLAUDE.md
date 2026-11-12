@@ -4,7 +4,7 @@
 
 ## アイテム
 
-**ぜんぶ 登録表に 入っている**（`src/content/items/`）。シリーズ: 金・忍者・侍・伝説の武器・ふつうの道具／武器／防具 17 個（`tools.ts`・`weapons.ts`・`armor.ts`。ふで = TAKO-1。2D の 絵は `ui/itemArtTako.ts`）・畑 14 個（`farm.ts`。じょうろの水の数は `can` 部品）・ざいりょう 9 個（`materials.ts`。すみ = TAKO-1）・小物 7 個（`misc.ts`。ちょうちん・たこ・ふとん・おまもり・やぶれた おまもり・わらじ・はにわ。働きの数 = 光・半径・高さ・時間・持てる数は `gadgetTuning.ts` の 1 つの表 `GADGET_TUNING`。ちょうちん・ふとん・はにわは 置けるブロックでもある = `BLOCK_TYPES` にも入っていて、`placeBlock` で つながる）・生き物 8 個（`live.ts`。たべた ときの 回復量は `food` 部品）・家づくりの道具 2 個（`house.ts`。みずもり・どうづき。建築士さんが はじめて 話した ときに くれる 物で、作れない ので レシピは なし。`wear: 'permanent'`〔こわれない〕。id は `ids.ts` の `HOUSE_TOOL_IDS`、働きは HOUSE-1C〔#340〕で 入る）・置けるブロック 22 個（`blocks.ts`）。`ITEM_DEFS` は `Record<ItemDefId, ItemDef>`（全件を型で強制）。`ItemDefId` は `ItemId` から「アイテムにならないブロック」（`types.ts` の `BLOCK_ONLY_IDS`。みず・そこいし・作物・小屋の部品など）を除いたもの。窓口の表・関数（`ITEM_TYPES`・`itemRarity`・`itemCategory`・`ITEM_INFO`・`TOOL_DEFAULTS`・`toolDurability`・`CRAFT_RECIPES` …）は登録表だけから作る。古い表は無い。
+**ぜんぶ 登録表に 入っている**（`src/content/items/`）。シリーズ: 金・忍者・侍・伝説の武器（`legend.ts` = 雷神剣・風神剣・虹。LEGEND-4 の 新しい 5 つは `legend4.ts`。数は `legend4Tuning.ts` の `LEGEND4_TUNING` 1 か所）・ふつうの道具／武器／防具 17 個（`tools.ts`・`weapons.ts`・`armor.ts`。ふで = TAKO-1。2D の 絵は `ui/itemArtTako.ts`）・畑 14 個（`farm.ts`。じょうろの水の数は `can` 部品）・ざいりょう 9 個（`materials.ts`。すみ = TAKO-1）・小物 7 個（`misc.ts`。ちょうちん・たこ・ふとん・おまもり・やぶれた おまもり・わらじ・はにわ。働きの数 = 光・半径・高さ・時間・持てる数は `gadgetTuning.ts` の 1 つの表 `GADGET_TUNING`。ちょうちん・ふとん・はにわは 置けるブロックでもある = `BLOCK_TYPES` にも入っていて、`placeBlock` で つながる）・生き物 8 個（`live.ts`。たべた ときの 回復量は `food` 部品）・家づくりの道具 2 個（`house.ts`。みずもり・どうづき。建築士さんが はじめて 話した ときに くれる 物で、作れない ので レシピは なし。`wear: 'permanent'`〔こわれない〕。id は `ids.ts` の `HOUSE_TOOL_IDS`、働きは HOUSE-1C〔#340〕で 入る）・置けるブロック 22 個（`blocks.ts`）。`ITEM_DEFS` は `Record<ItemDefId, ItemDef>`（全件を型で強制）。`ItemDefId` は `ItemId` から「アイテムにならないブロック」（`types.ts` の `BLOCK_ONLY_IDS`。みず・そこいし・作物・小屋の部品など）を除いたもの。窓口の表・関数（`ITEM_TYPES`・`itemRarity`・`itemCategory`・`ITEM_INFO`・`TOOL_DEFAULTS`・`toolDurability`・`CRAFT_RECIPES` …）は登録表だけから作る。古い表は無い。
 
 **置けるブロックのアイテムは `blocks.ts`。ブロックとしての性質（固さ・見た目・id の番号）は `BLOCK_TYPES`（`world/blocks/blockTypes.ts`）と `DIG_DEFAULTS`（`dig/config.ts`。ほる固さ・道具・ブロックのレア度）に残る。** アイテムの名前の出どころが BLOCK_TYPES の物と、レア度の出どころが DIG_DEFAULTS の物は、`blocks.ts` からそこを読む（2 か所に書かない）。ブロック id の型は `contracts.ts` の `BlockId`。
 
@@ -14,6 +14,8 @@
 2. `content/items/<シリーズ>.ts` — 名前・**ずかんの 読み物の 文 `zukan`（必須。本の「どんな もの」に 出る。できる ことを 楽しく・内部の 数は 書かない。漢字は 小 1・小 2 の 漢字だけ ＋ ［漢字｜よみ］。足し忘れは 型エラー、漢字の きまりは `ui/book/zukan.test.ts` が 落とす）**・重ね数・レア度・分類・説明・耐久・レシピ・部品（`blade`／`bow`／`tool`／`armor`）を 1 行に。戦闘の数は日本語の単位つきコメントで。`satisfies Record<…Id, ItemDef>` なので書き忘れは型エラー（置けるブロックでもある物は `Partial<Record<BlockId, ItemDef>>` だが、抜けは `ITEM_DEFS` の型が捕まえる）。新しいシリーズのファイルなら `registry.ts` の `ITEM_DEFS` に 1 行（`Record<ItemDefId, …>` なので入れ忘れも型エラー）。作り方（レシピ）・妖怪のドロップ・ほる の どれでも 手に入らない 物（建築士さんが くれる 道具 など）は、任意の 項目 `source`（ずかんの「てにいれかた」の 文。ひらがな・漢字は ルビ記法）を 1 行 書く（`craft/info/build.ts` の `sourceText` が 最初に 使う。書かないと レシピ・ドロップ・ほる から 自動で 文が できる。`house.ts` が 例）。
 3. 並び: 持ち物の順は `inventory/items.ts` の `ITEM_TYPES`、作業台のカードの順は `craft/recipes.ts`、色分けの順は `ui/itemCategory.ts`（`registry.test.ts`・`itemCategory.test.ts` が全アイテムが 1 回ずつ入っているか確かめる。順番は画面の順なので変えない）。
 4. 絵: `ui/itemArt<シリーズ>.ts`（`Record<…Id>` なので書き忘れは型エラー）。手に持つ形がある物だけ `camera/held<シリーズ>.ts`。2D の絵が無くて石の絵に落ちると `registry.test.ts` が落とす。
+
+**新しい レジェンダリー武器を 足す（LEGEND-4。黒龍 = PR1 が 見本）**: `ids.ts` の `LEGEND4_IDS`（名前が `ゆみ` で おわらない 弓は `LEGEND4_BOW_IDS` にも）→ `legend4Tuning.ts` に キーを 1 つ（単位つきコメント）→ `legend4.ts` に 1 レコード（`legend` 部品が あると ヌシの 表・宝箱・ずかんの 図鑑帳〔LegendBook〕に 自動で 入る。ためわざの ない 物は `charge: null`）→ `achievements/defs.ts` の `LEGEND_NAMES` → 2D の 古い 絵 `ui/itemArtL4.ts`・32 マスの 絵 `art/ICON-32/legend4.py` を `build.py` に 登録 → `pack.py`・手に 持つ 形 `camera/heldL4.ts`。ゆみの まっすぐ・つらぬく は `bow.straightRange`（設定 `bowStraightByItem`）。
 
 **家具のアイテムを足す（HOUSE-1B。`houseEditor.ts`）**: 登録表の外に、エディターの表が 2 つ ある。足し忘れは型で落ちる。
 1. `ids.ts` の `HOUSE_FURNITURE_IDS` に id を足す → `houseEditor.ts` の `HOUSE_FURNITURE`（`satisfies Record<HouseFurnitureId, ItemDef>`）に名前・説明を 1 件。並びは `ITEM_TYPES`・色分けとも登録表から自動（`inventory/items.ts`・`ui/itemCategory.ts` は触らない）。
@@ -37,7 +39,7 @@
 | 何 | 場所 |
 |---|---|
 | ヌシのドロップ | `contracts.ts` の `nushiDrops`（伝説の武器の強さ・ためわざは `content/items/legend.ts` の `legend` 部品。`LEGENDARY_DEFAULTS` はそこから作る） |
-| 実績の名前 | `achievements/defs.ts` |
+| 実績の名前 | `achievements/defs.ts`（レジェンダリーを 足す PR は `LEGEND_NAMES` に 1 行。`get.<id>.1` と `legend.kinds` の 段が 自動で ふえる） |
 | 忍者・侍の装備の部位 | `craft/config.ts` の `NINJA_GEAR`・`SAMURAI_GEAR`（部位は登録表の `armor.slot` とそろう。`registry.test.ts` が確かめる） |
 | たいまつの足した作り方 | `craft/recipes.ts` の `TORCH_COAL`・`TORCH_LOG`（カードは元の `torch` の 1 枚のまま） |
 

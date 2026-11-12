@@ -11,6 +11,8 @@ import { box, hz, mar, noise, sine, tri, WHIFF_TONES, wood, xylo } from './sfxVo
 import { levelOf, makeRng, newVaryState, variation, varyOf } from './sfxVary';
 import { STORAGE_SOUNDS } from './storageSounds';
 import { WEAPON_SOUNDS } from './weaponSounds';
+import { LEGEND4_SOUNDS } from './legend4Sounds';
+import { HAMMER_SOUNDS } from './hammerSounds';
 import { PARRY_SOUNDS } from './parrySounds';
 
 /** WebAudio の必要な部分だけ（テストで差しかえられる）。足したものは省略可 */
@@ -185,7 +187,7 @@ function register(name: string, tones: readonly Tone[]): void {
   ALL.set(name, tones);
   NAME_OF.set(tones, name);
 }
-for (const table of [SOUNDS, COMBAT_SOUNDS, CRAFT_SOUNDS, FARM_SOUNDS, STORAGE_SOUNDS, WEAPON_SOUNDS, ANIMAL_SOUNDS, PARRY_SOUNDS, LEGEND_SOUNDS, ARCHITECT_SOUNDS, HOUSE_SOUNDS, CHEST_SOUNDS] as const) {
+for (const table of [SOUNDS, COMBAT_SOUNDS, CRAFT_SOUNDS, FARM_SOUNDS, STORAGE_SOUNDS, WEAPON_SOUNDS, LEGEND4_SOUNDS, HAMMER_SOUNDS, ANIMAL_SOUNDS, PARRY_SOUNDS, LEGEND_SOUNDS, ARCHITECT_SOUNDS, HOUSE_SOUNDS, CHEST_SOUNDS] as const) {
   for (const [name, tones] of Object.entries(table)) register(name, tones as readonly Tone[]);
 }
 register('whiff', WHIFF_TONES);

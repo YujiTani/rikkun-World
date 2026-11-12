@@ -69,6 +69,8 @@ export class Game {
   private modalAcc = 0;
   /** 本が 出ている 間に 画面の 大きさが かわって、世界の 絵が きえた */
   private worldStale = false;
+  /** pixelRatio の 上限（ふだん 2。せっていの「がめんの こまかさ」で かわる） */
+  private resMax = 2;
   private viewPass: { active(): boolean; render(): void } | null = null;
   /** 全面の 光の 道（worldPass）で 描いた コマの 数（COOP-1 4d-0 の 試験の 口 `duo.state().fullPass` が 引き算で 読む） */
   worldPassFrames = 0;
@@ -79,7 +81,7 @@ export class Game {
     // 描く順番を セクションの場所で決める（機械の速さで つなぎ目の 1 ピクセルが かわらないように）
     this.renderer.setOpaqueSort(stableOpaqueSort);
     this.renderer.setTransparentSort(stableTransparentSort);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.resMax));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(this.renderer.domElement);
 
@@ -320,6 +322,13 @@ export class Game {
   /** 今の 画面の 大きさ（CSS px）。resize を 待たずに わかる（キャンバスの style は あとから かわる） */
   viewSize(out?: { w: number; h: number }): { w: number; h: number } {
     return liveViewSize(this.container, window, out);
+  }
+
+  /** がめんの こまかさ: pixelRatio の 上限を かえて、画面の 大きさの 作りなおしと 同じ 流れで 描きなおす（GFX-1） */
+  setResolution(max: number): void {
+    this.resMax = max;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, max));
+    this.onResize();
   }
 
   private readonly onResize = () => {

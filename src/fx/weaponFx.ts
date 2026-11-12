@@ -119,6 +119,9 @@ export class WeaponFx {
         break;
       case 'techMiss':
         break;
+      case 'sweepStart':
+        playBladeSound(s, e); // LEGEND-4: ノームの斧（音は なし）
+        break;
       case 'stance':
         playBladeSound(s, e);
         this.d.bladeHud.stanceChanged(e.to);

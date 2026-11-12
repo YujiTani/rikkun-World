@@ -18,7 +18,7 @@ export interface DigFxDeps {
   /** カメラのごく弱いゆれ（ラジアン） */
   view: { setShake(yaw: number, pitch: number): void };
   /** 合図のアイコン */
-  notice: { showSignal(kind: 'needTool' | 'needIron' | 'full'): void };
+  notice: { showSignal(kind: 'needTool' | 'needIron' | 'full' | 'yakataLocked'): void };
   /** アイテムが入った（ホットバーの「ぽよん」や飛ぶ絵） */
   onPickup?: (item: ItemId, count: number) => void;
   settings?: FxSettings;
@@ -110,11 +110,11 @@ export class DigFx {
         const mark = isChalkMarkId(ev.id); // MINE-1B: しるしは うすい 絵なので ぷくっと ふくらませず、こなの つぶだけ。何も 出なくても「いっぱい」では ない
         if (mark) this.particles.burst(ev.block, ev.id, c);
         else this.puffs.start(ev.block, ev.id, 1, c.puffScale, c.puffSeconds, () => this.particles.burst(ev.block, ev.id, c));
-        sound.play('break');
+        if (!ev.silent) sound.play('break');
         if (hadItem) {
           // 続けて取ると、和音の音を 1 つずつ上がる（comboStep。1 オクターブで止まる）。数が多いほど少し高く（0.5 半音ずつ）
           this.combo.hit(ev.id);
-          sound.play('pickup', (ev.count - 1) * 0.5, { comboStep: this.combo.chain });
+          if (!ev.silent) sound.play('pickup', (ev.count - 1) * 0.5, { comboStep: this.combo.chain });
           this.d.onPickup?.(ev.id, ev.count);
         } else if (!mark) {
           notice.showSignal('full');
@@ -134,6 +134,7 @@ export class DigFx {
         sound.play('clink');
         this.flashRed();
         if (ev.reason === 'needTool' || ev.reason === 'needIron') notice.showSignal(ev.reason);
+        else if (ev.reason === 'yakata') notice.showSignal('yakataLocked'); // MINE-1F: ログ「いまは ほれない よ」
       }
     }
 

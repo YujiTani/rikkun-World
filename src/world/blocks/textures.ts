@@ -12,6 +12,7 @@ import { LIVE_TILE_NAMES, paintLiveTile, type LiveTileName } from './liveTexture
 import { MINE_TILE_NAMES, isMineTile, paintMineTile, type MineTileName } from './mineTextures';
 import { KODO_TILE_NAMES, isKodoTile, paintKodoTile, type KodoTileName } from './mineTexturesWaku';
 import { MAKIMONO_TILE, paintMakimonoTile } from './makimonoTexture';
+import { YAKATA_TILE_NAMES, isYakataTile, paintYakataTile, type YakataTileName } from './mineYakataTextures';
 import { BOKEN_TILE_NAMES, isBokenTile, paintBokenTile, type BokenTileName } from './mineBokenTextures';
 import { ROPE_TILE_NAMES, isRopeTile, paintRopeTile, type RopeTileName } from './ropeTextures';
 import { BOIL_NAMES, WATERFALL_BLOCK_TILES, WATERFALL_TILE_NAMES, isWaterfallTile, paintWaterfallTile, type WaterfallTileName } from './waterfallTextures';
@@ -57,6 +58,7 @@ export type TileName =
   | KodoTileName
   | BokenTileName
   | typeof MAKIMONO_TILE
+  | YakataTileName
   | HouseAtlasTile
   | RopeTileName
   | WaterfallTileName;
@@ -132,6 +134,8 @@ export const TILE_NAMES: readonly TileName[] = [
   ...BOKEN_TILE_NAMES,
   // HOUSE-2A（#364）: まきものの 絵（仮）。さいごに 足す
   MAKIMONO_TILE,
+  // MINE-1F: ようかいの やかた（かべ・ゆか・だん・たいまつ × 2 組）の 絵 10 まい。さいごに 足す
+  ...YAKATA_TILE_NAMES,
   // VOX-I-4b（#187）: 山の物の 絵 6 まい。さいごに 足す
   ...VOX_I4B_TILES,
   // WAFU-1: わふうの 絵 4 まい。さいごに 足す
@@ -381,6 +385,7 @@ function paintTile(name: TileName): Tile {
   if (isKodoTile(name)) return paintKodoTile(name).slice(); // MINE-1C: わく・宝箱
   if (isBokenTile(name)) return paintBokenTile(name).slice(); // MINE-1E: 坑道の 冒険
   if (name === MAKIMONO_TILE) return paintMakimonoTile().slice(); // HOUSE-2A: まきもの
+  if (isYakataTile(name)) return paintYakataTile(name).slice(); // MINE-1F: ようかいの やかた
   if (isRopeTile(name)) return paintRopeTile(name).slice(); // ROPE-1
   if (isWaterfallTile(name)) return paintWaterfallTile(name).slice(); // WATERFALL-1
   const grid = (VOX_I4A_GRIDS as Readonly<Record<string, Parameters<typeof paintGrid>[0]>>)[name] ?? (VOX_I4B_GRIDS as Readonly<Record<string, Parameters<typeof paintGrid>[0]>>)[name] ?? (WAFU_GRIDS as Readonly<Record<string, Parameters<typeof paintGrid>[0]>>)[name]; // VOX-I-4a: すきまの ある 十字の 板は calm() を かけない（はな・すすきと 同じ）
@@ -641,6 +646,15 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   taoreta_hashigo_x: ['boken_hashigo_top_x', 'boken_hashigo_side', 'boken_hashigo_side'],
   taoreta_hashigo_z: ['boken_hashigo_top_z', 'boken_hashigo_side', 'boken_hashigo_side'],
   takibi_ato: ['boken_takibi_top', 'boken_takibi_side', 'boken_takibi_side'],
+  // MINE-1F: ようかいの やかた。[上, 下, 横]。たいまつは 細い 棒の 絵（pushTorch が id を 絵の 名前に つかう）
+  maou_kabe: ['maou_kabe', 'maou_kabe', 'maou_kabe'],
+  maou_yuka: ['maou_yuka', 'maou_yuka', 'maou_yuka'],
+  maou_dan: ['maou_dan_top', 'maou_dan_top', 'maou_dan_side'],
+  maou_taimatsu: ['maou_taimatsu', 'maou_taimatsu', 'maou_taimatsu'],
+  otera_ishigaki: ['otera_ishigaki', 'otera_ishigaki', 'otera_ishigaki'],
+  otera_ishidatami: ['otera_ishidatami', 'otera_ishidatami', 'otera_ishidatami'],
+  otera_dan: ['otera_dan_top', 'otera_dan_top', 'otera_dan_side'],
+  onibi_taimatsu: ['onibi_taimatsu', 'onibi_taimatsu', 'onibi_taimatsu'],
   ...CHEST_BLOCK_TILES,
   // チョークの しるし 12 こ: 立方体では ない（面に はる 板。render/chalkMesh.ts）。ここは かけらの 色・アイテムの 絵などの ため
   ...CHALK_BLOCK_TILES,

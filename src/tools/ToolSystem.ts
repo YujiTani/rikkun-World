@@ -14,12 +14,15 @@ import type {
   YokaiWorld,
 } from '../contracts';
 import { createW2Settings } from '../contracts';
-import { isBowItem } from '../content/items/ids';
+import { isBowItem, LEGEND4_ID } from '../content/items/ids';
 import { createBowSystem } from './bow/BowSystem';
 import { BLADE_LIKE_ITEMS } from './bladeSets';
 import { createToolConfig, type ToolConfig } from './config';
+import { bowWearPerShot } from '../content/items/legend4Wear';
 
 const MAX_QUEUE = 256;
+/** hitIds が ない や 用の 空の 配列（使いまわす） */
+const NO_IDS: readonly number[] = [];
 
 /** すで・ほかのもの の基本の値（dig / combat の設定を参照する。設定を変えるとここにも効く） */
 export interface ToolBase {
@@ -36,6 +39,10 @@ export interface ArrowView {
   position: Vec3;
   dir: Vec3;
   traveled: number;
+  /** LEGEND-4: まっすぐに とぶ や（黒龍）。ふつうの や は false */
+  straight: boolean;
+  /** LEGEND-4: もう 当てた 妖怪の id（まっすぐな や だけ。ふつうは 空） */
+  hitIds: readonly number[];
 }
 
 export interface ToolDeps {
@@ -50,6 +57,8 @@ export interface ToolDeps {
   settings?: W2Settings;
   /** や を 1 本 うった とき。なければ `inventory.wearHeld(toolWear.bow.shot)` */
   onBowShot?: () => void;
+  /** 1P か 2P（八咫烏の くじの 乱数の 列を 人ごとに 分ける。なければ 1） */
+  who?: 1 | 2;
 }
 
 /** 手に持っているものの働き（M4 §2.4〜§2.6・§4.3）。`DigSystem` が毎ステップ step() を呼ぶ */
@@ -90,9 +99,10 @@ export class ToolSystemImpl implements ToolSystem {
       inventory: d.inventory,
       onShot: () => {
         if (d.onBowShot) d.onBowShot();
-        else d.inventory.wearHeld?.(this.settings.toolWear.bow.shot);
+        else d.inventory.wearHeld?.(bowWearPerShot(d.inventory.held()?.item, this.settings.toolWear.bow.shot));
       },
       tick: () => this.tickCount,
+      who: d.who,
       onEvent: (e) => {
         if (e.type === 'drawStart') this.pushSwing('draw');
         else if (e.type === 'arrowShot') this.pushSwing('release');
@@ -217,7 +227,7 @@ export class ToolSystemImpl implements ToolSystem {
     for (const a of src) {
       let v = seen.get(a.id);
       if (!v) {
-        v = { id: a.id, position: a.position, dir: { x: 0, y: 0, z: 1 }, traveled: 0 };
+        v = { id: a.id, position: a.position, dir: { x: 0, y: 0, z: 1 }, traveled: 0, straight: false, hitIds: NO_IDS };
         seen.set(a.id, v);
       }
       const len = Math.hypot(a.velocity.x, a.velocity.y, a.velocity.z) || 1;
@@ -225,6 +235,8 @@ export class ToolSystemImpl implements ToolSystem {
       v.dir.y = a.velocity.y / len;
       v.dir.z = a.velocity.z / len;
       v.traveled = a.age;
+      v.straight = a.straight === true;
+      v.hitIds = a.hitIds ?? NO_IDS;
       out.push(v);
     }
     if (seen.size > src.length) {
@@ -258,6 +270,7 @@ const NO_YOKAI = {
 function kindOf(item: ItemId | null, c: ToolConfig): ToolKind {
   if (item === null) return 'hand';
   if (isBowItem(item)) return 'bow';
+  if (item === LEGEND4_ID.daichi_hammer) return 'hammer'; // LEGEND-4
   if (BLADE_LIKE_ITEMS.has(item as ItemId)) return 'blade';
   // おの・つるはし は 「ほる道具」。くわ は toolPower を 持つが たがやす 道具なので 今までどおり 'other'
   // （GOLD-1: きんの つるはし・おの は たたく つよさ 5 を もつ ので、weaponDamage より 先 に 見る）

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>やかたの 音（B よるの おてら）</title>
+<style>
+  body { margin: 0; background: #19161d; color: #ece6f2; font: 16px/1.6 system-ui, "Hiragino Sans", sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  p, small { color: #a69cb1; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  button { font: inherit; padding: 10px 14px; border-radius: 10px; border: 1px solid #3a3242; background: #241f2a; color: inherit; cursor: pointer; min-width: 120px; }
+  button.playing { outline: 2px solid #c19be6; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ようかいの やかたの 音（MINE-1F）</h1>
+  <p>ゲームと 同じ 大きさ なので 小さめです（音量を 上げて ください）。「ふんいき」「挑戦の 曲」は ループ（とめるまで くり返す。つなぎ目も 聞けます）。</p>
+  <div class="row" id="row"></div>
+  <button id="stop">■ とめる</button>
+  <p><small>音の 出どころ・規約は README.md。</small></p>
+</main>
+<script>
+  const ITEMS = [
+    ['ふんいき', 'ambience.ogg', true],
+    ['挑戦の 曲', 'challenge.ogg', true],
+    ['ずずん（ふさがる）', 'gate_close.ogg', false],
+    ['ひらく', 'gate_open.ogg', false],
+  ];
+  let cur = null, curBtn = null;
+  function stop() { if (cur) { cur.pause(); cur.currentTime = 0; } if (curBtn) curBtn.classList.remove('playing'); cur = null; curBtn = null; }
+  document.getElementById('stop').onclick = stop;
+  for (const [label, src, loop] of ITEMS) {
+    const b = document.createElement('button');
+    b.textContent = label + (loop ? ' ⟳' : '');
+    b.onclick = () => { stop(); cur = new Audio(src); cur.loop = loop; curBtn = b; b.classList.add('playing'); cur.onended = () => b.classList.remove('playing'); cur.play(); };
+    document.getElementById('row').append(b);
+  }
+</script>
+</body>
+</html>

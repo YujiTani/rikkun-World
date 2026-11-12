@@ -5,6 +5,7 @@ import { NIJI_TACHI, PAL_NIJI } from '../ui/itemArtW7';
 import { BUG_HELD_PARTS, NET_HELD_PARTS } from './heldLive';
 import { GOLD_BOW, GOLD_HELD_PARTS, type BowPalette } from './heldGold';
 import { KONGO_BOW, KONGO_HELD_PARTS } from './heldKongo';
+import { L4_BOW, L4_BOW_DECOR, L4_HELD_PARTS } from './heldL4';
 import { isBowItem } from '../content/items/ids';
 
 /**
@@ -78,6 +79,7 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
   ...AXE_HELD_PARTS,
   ...GOLD_HELD_PARTS,
   ...KONGO_HELD_PARTS,
+  ...L4_HELD_PARTS, // LEGEND-4（黒龍）
   // LIVE-1 版 3.2
   mushi_ami: NET_HELD_PARTS,
   mushi: BUG_HELD_PARTS,
@@ -371,9 +373,11 @@ const rot = (a: number, y: number, z: number): [number, number] => [y * Math.cos
 
 /** 左手で持つ弓。まん中（にぎり）が原点、のびる向きは Z、ふくらみは -Y、つるは +Y 側 */
 /** 色つきの ゆみ の 色（item → 色。ゆみ は 木の まま）。形は 金と 同じ（箱 10） */
-export const BOW_PALETTES: Partial<Record<ItemId, BowPalette>> = { ...GOLD_BOW, ...KONGO_BOW };
+export const BOW_PALETTES: Partial<Record<ItemId, BowPalette>> = { ...GOLD_BOW, ...KONGO_BOW, ...L4_BOW };
+/** ゆみの かざりの 箱（LEGEND-4。しなりに ついて いかない） */
+export const BOW_DECOR: Partial<Record<ItemId, readonly Part[]>> = L4_BOW_DECOR;
 
-export function createBendableBow(pal?: BowPalette): BendableBow {
+export function createBendableBow(pal?: BowPalette, decor?: readonly Part[]): BendableBow {
   const g = new THREE.Group();
   const mk = (w: number, h: number, d: number, color: number, parent: THREE.Object3D, x: number, y: number, z: number) => {
     const m = new THREE.Mesh(sharedGeometry(w, h, d), sharedMaterial(color));
@@ -398,6 +402,8 @@ export function createBendableBow(pal?: BowPalette): BendableBow {
     g.add(a);
     halves.push({ a, b, s });
   }
+  // LEGEND-4: かざりの 箱（しなりに ついて いかない）
+  for (const p of decor ?? []) mk(p.size[0], p.size[1], p.size[2], p.color, g, p.pos[0], p.pos[1], p.pos[2]);
   const strings = [0, 1].map(() => {
     const m = new THREE.Mesh(sharedGeometry(0.012, 0.012, 1), sharedMaterial(BOW_STRING));
     m.userData.shared = true;

@@ -34,7 +34,7 @@ interface SpawnerDeps {
   config: YokaiConfig;
   events: Pick<YokaiEvents, 'emit' | 'tick'>;
   /** countryTable・countryOf・canSpawnAt・light・groundY を 使うときに 読む */
-  opts: Pick<YokaiManagerOptions, 'countryTable' | 'countryOf' | 'canSpawnAt' | 'noSpawnAt' | 'light' | 'groundY'>;
+  opts: Pick<YokaiManagerOptions, 'countryTable' | 'countryOf' | 'canSpawnAt' | 'noSpawnAt' | 'quietFor' | 'light' | 'groundY'>;
   /** 出した妖怪の 見た目・体力のバーを 入れる 入れ物 */
   group: THREE.Group;
   rng: Rng;
@@ -71,6 +71,8 @@ interface SpawnHow {
 }
 const BY_HAND: SpawnHow = { appear: false, auto: false };
 const BY_AUTO: SpawnHow = { appear: true, auto: true };
+/** やかたの 二つ名（MINE-1F）: ふくらんで 出てくる が 自動では ない */
+const FREE: SpawnHow = { appear: true, auto: false };
 
 export class YokaiSpawner {
   private nextId = 1;
@@ -82,12 +84,17 @@ export class YokaiSpawner {
   /** テスト用の出し方（決まった数にする）。出た id を返す */
   spawnByHand(kind: YokaiKind, x: number, y: number, z: number, opts: SpawnOptions): number {
     const { events } = this.d;
-    const e = this.create(kind, x, y, z, (opts.yawDeg ?? 0) * DEG, BY_HAND);
+    const free = opts.free === true;
+    const e = this.create(kind, x, y, z, (opts.yawDeg ?? 0) * DEG, free ? FREE : BY_HAND);
     e.ai = opts.ai ?? true;
-    e.age = 1000;
+    if (free) {
+      // やかたの 二つ名: 0.5 秒で あらわれ〔state appear〕、graceSteps の 間は 攻撃しない
+      e.free = true;
+      e.graceUntil = this.d.f.steps + (opts.graceSteps ?? 0);
+    } else e.age = 1000;
     events.emit({ type: 'spawn', tick: events.tick(), id: e.id, kind, position: { x, y, z } });
     // テスト用の出し方は 決まった数にする（m を省くと 1・title を省くと なし）。出た場所で決めるのは 自動の出現だけ
-    this.d.placement.decidePlace(e, opts.title ?? 'none', opts.m === 'auto' ? undefined : (opts.m ?? 1));
+    this.d.placement.decidePlace(e, opts.title ?? 'none', opts.m === 'auto' ? undefined : (opts.m ?? 1), free);
     return e.id;
   }
 
@@ -158,6 +165,8 @@ export class YokaiSpawner {
       auto: how.auto,
       foundAt: f.steps,
       target: 1,
+      free: false,
+      graceUntil: 0,
     };
     model.onHit = (ev) => this.d.onModelHit(e, ev.box);
     model.root.scale.setScalar(Math.max(e.appearScale, 1e-4));
@@ -197,19 +206,29 @@ export class YokaiSpawner {
    * 出せる 人が いなければ 0
    */
   private pickSpawnCenter(): 0 | 1 | 2 {
-    const { f, config } = this.d;
-    if (!f.p2.on) return f.ents.length >= (this.isUnder(f.p1) ? config.yokaiMaxUnder : config.yokaiMax) ? 0 : 1;
-    if (f.ents.length >= config.yokaiMaxTotal) return 0;
+    const { f, config, opts } = this.d;
+    // やかたの 二つ名〔free〕は 上限に 数えない（MINE-1F §4.5）。挑戦して いる 人〔quietFor〕の まわりには 出さない
+    const quiet1 = opts.quietFor?.(1) === true;
+    if (!f.p2.on) return quiet1 || this.countOrdinary() >= (this.isUnder(f.p1) ? config.yokaiMaxUnder : config.yokaiMax) ? 0 : 1;
+    if (this.countOrdinary() >= config.yokaiMaxTotal) return 0;
     let n1 = 0;
     let n2 = 0;
     for (const e of f.ents) {
+      if (e.free) continue;
       if (nearestWho(f, e.x, e.y, e.z) === 2) n2++;
       else n1++;
     }
-    const ok1 = n1 < (this.isUnder(f.p1) ? config.yokaiMaxUnder : config.yokaiMax);
-    const ok2 = n2 < (this.isUnder(f.p2) ? config.yokaiMaxUnder : config.yokaiMax);
+    const ok1 = !quiet1 && n1 < (this.isUnder(f.p1) ? config.yokaiMaxUnder : config.yokaiMax);
+    const ok2 = opts.quietFor?.(2) !== true && n2 < (this.isUnder(f.p2) ? config.yokaiMaxUnder : config.yokaiMax);
     if (ok1 && ok2) return n2 < n1 ? 2 : 1;
     return ok1 ? 1 : ok2 ? 2 : 0;
+  }
+
+  /** やかたの 二つ名〔free〕を のぞいた 妖怪の 数 */
+  private countOrdinary(): number {
+    let n = 0;
+    for (const e of this.d.f.ents) if (!e.free) n++;
+    return n;
   }
 
   /** COUNTRY-1: その場所の 国の行（行 × 倍率の 合計が 0 なら ものさしの行 = はらっぱ） */
@@ -331,7 +350,7 @@ export class YokaiSpawner {
     const { world, f } = this.d;
     const lim = AI_CONST.farRemoveDist;
     for (const e of f.ents) {
-      if (e.remove) continue;
+      if (e.remove || e.free) continue;
       // 気づける 全員（1P と ねらえる 2P）から 遠いとき
       const dx = e.x - f.p1.x;
       const dz = e.z - f.p1.z;
@@ -349,7 +368,7 @@ export class YokaiSpawner {
     const { world, time, f, config, rng, stag } = this.d;
     if (time.phase() !== 'dawn') return;
     for (const e of f.ents) {
-      if (KIND_TRAITS[e.kind].swims) continue; // 水の 中の 妖怪は ひるも いる（あさに 帰らない）
+      if (KIND_TRAITS[e.kind].swims || e.free) continue; // 水の 中の 妖怪は ひるも いる（あさに 帰らない）。やかたの 二つ名も 去らない（MINE-1F）
       if (e.leaveAt < 0 && e.state !== 'dying' && e.state !== 'leaving') {
         if (isRoofed(world, e.x, e.y, e.z, e.dims.height)) {
           e.leaveAt = -2; // 屋根の下の妖怪は残ってよい
@@ -384,7 +403,14 @@ export class YokaiSpawner {
     }
   }
 
-  private startLeave(e: Ent, why: 'dawn' | 'forget'): void {
+  /** MINE-1F: やかたの 係が 指す 妖怪を そっと 去らせる〔おとし物 なし。夜明けと 同じ 去りかた〕 */
+  leaveIds(ids: readonly number[]): void {
+    for (const e of this.d.f.ents) {
+      if (ids.includes(e.id) && e.state !== 'dying' && e.state !== 'leaving') this.startLeave(e, 'yakata');
+    }
+  }
+
+  private startLeave(e: Ent, why: 'dawn' | 'forget' | 'yakata'): void {
     const { events } = this.d;
     e.state = 'leaving';
     e.model.die();
