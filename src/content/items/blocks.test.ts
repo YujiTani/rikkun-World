@@ -58,7 +58,7 @@ const IDS = Object.keys(EXPECT);
 /** VOX-I-4a（#187）で 足した 4 つ（きのこ・ひまわり・かいがら・たけのこ）。説明は なし（かざり）。値は voxI4a の 専用テストで 見る */
 const VOX_I_4A = ['kinoko', 'himawari', 'kaigara', 'takenoko'];
 /** VOX-I-4b（#187）で 足した 2 つ（すいしょう・おちば）。説明は あり。値は voxI4b の 専用テストで 見る（とうろうは 持てないので アイテムに ならない） */
-const VOX_I_4B = ['suisho', 'ochiba'];
+const VOX_I_4B = ['suisho', 'ochiba', 'shu_ita', 'ishidatami', 'koke_ishi', 'chouchin']; // 後ろの 4 つは WAFU-1（わふう。説明は あり）
 
 describe('登録表（置けるブロック 22 個）', () => {
   it('22 個すべてに ItemDef が ある（8 + 5 + 1 + 8）', () => {

@@ -141,6 +141,11 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     suisho: 3,
     touro: null,
     ochiba: 0.5,
+    // WAFU-1（わふう。き = log と 同じ、いし = stone と 同じ、ちょうちん = ほぼ すぐ）
+    shu_ita: WOOD_HARDNESS,
+    ishidatami: 6,
+    koke_ishi: 6,
+    chouchin: 0.05,
     // MINE-1B（#349。仕様 §4.4。素手の 秒数。時間 = 固さ ÷ 道具の 強さ）
     nendo: 1, // つち より 少し かたい（すでで 1 秒）
     sekkaiseki: 5, // いしの つるはし（強さ 4）で 1.25 秒
@@ -271,6 +276,10 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     suisho: 0,
     touro: 0,
     ochiba: 0,
+    shu_ita: 0,
+    ishidatami: 0,
+    koke_ishi: 0,
+    chouchin: 0,
     // MINE-1B（0 = すで・1 = いしの つるはし・2 = てつの つるはし から）
     nendo: 0,
     sekkaiseki: 1,
@@ -391,6 +400,10 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     suisho: 'rare',
     touro: 'common',
     ochiba: 'common',
+    shu_ita: 'uncommon', // log と 同じ
+    ishidatami: 'common', // stone と 同じ
+    koke_ishi: 'common',
+    chouchin: 'common',
     // MINE-1B（ほると 手に 入る 数の 上限を きめる。しるしは 何も 出ない ので 使わない）
     nendo: 'uncommon',
     sekkaiseki: 'uncommon',

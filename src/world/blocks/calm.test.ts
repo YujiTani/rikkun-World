@@ -209,6 +209,8 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
     kinoko: '4b272997', himawari_ue: 'e8750110', himawari_shita: 'f33d35c1', kaigara: '3442b0bb', takenoko: 'd37c2893',
     // VOX-I-4b（#187）: 山の物の 3 ブロック（6 まい）。絵は voxI4bTiles.ts。今の 絵を 守るだけ
     suisho_top: '633d5d4d', suisho_side: '432a5080', touro_top: 'a6e5081e', touro_side: 'b514d7c4', ochiba_top: '11465b83', ochiba_side: '83e8cd33',
+    // WAFU-1: わふうの 4 ブロックの 絵（wafuTiles.ts）。今の 絵を 守るだけ
+    shu_ita: '846605', ishidatami: '9d044030', koke_ishi: '71be253b', chouchin: 'fc2abd55',
     // はっぱ 3 まい: もこもこの 新しい 絵（2026-11-10 オーナー OK。leafTextures.ts）。今の 絵を 守るだけ
     leaves: 'ef89d522', matsu_leaves: '55235a61', momiji_leaves: '6d479be2', snow: 'b5d0ee8f', susuki: '58e578b5',
     // LIVE-2（こたつ・とりごや。ふつうの 絵。今の 絵を 守るだけ）

@@ -5,3 +5,7 @@ kaigara
 takenoko
 suisho
 ochiba
+shu_ita
+ishidatami
+koke_ishi
+chouchin
