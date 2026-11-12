@@ -610,6 +610,8 @@
 }
 .cp-press {
   width: 100%;
+  white-space: nowrap; /* 「ざいりょう が たりない」は 1 行（字体が ちがう 機械でも 折り返さない よう よこの よゆうも 広げる） */
+  padding-inline: var(--rk-sp-2);
 }
 
 .craft-fly {

@@ -161,6 +161,8 @@ export class CraftPanel {
   private craftViews: CardView[] = [];
   private bakeViews: CardView[] = [];
   private selected_: Record<CraftTab, string | null> = { craft: null, bake: null };
+  /** 自分で クリックして えらんだ カード（自動で えらばれた だけの カードは 1 回目の クリックで えらぶだけ） */
+  private chosen_: Record<CraftTab, string | null> = { craft: null, bake: null };
   private hovered_: string | null = null;
   private readonly madeLocal = new Set<string>();
   /** さいごに スクロールで 見せた カード（えらびが 見えない 段に 入ったら 見える まで スクロールする） */
@@ -232,6 +234,7 @@ export class CraftPanel {
 
     parent.append(this.el);
     this.off = deps.inv.onChange(() => (this.dirty = true));
+    window.addEventListener('resize', this.onResize);
   }
 
   /** つなぎ込みが 設定とつないだ説明のデータや、カーソル・記録の口を渡す */
@@ -244,6 +247,7 @@ export class CraftPanel {
   /** かくれていた 画面を 見せたとき（2 人用の ページ切りかえ）: せつめいの 分け方を 実際の 大きさで 測りなおす */
   relayout(): void {
     this.detailKey = '';
+    this.scrolledTo = null; // かくれていた 間は スクロールできない ので、見せた とき えらびを 見える 所へ
     this.dirty = true;
   }
 
@@ -306,7 +310,7 @@ export class CraftPanel {
     const st = this.furnaceState();
     const bakeAll = buildCards(this.usable(this.bakeAll), this.d.craft, this.counter(), { ...this.cardOpt(), bake: true, queued: this.bakeQueued(st), cfg: this.cfg });
     const variants = new Map<string, CardView[]>();
-    const craft = craftViewCards(this.d.craft, this.counter(), this.looks, this.cardOpt(), variants); // 本物の 道（テストも これを 通す）
+    const craft = craftViewCards(this.d.craft, this.counter(), this.looks, this.cardOpt(), variants, false); // 本物の 道（テストも これを 通す）
     const b = mergeGroups(bakeAll, this.groups);
     this.variantViews = new Map([...variants, ...b.variants]);
     return { craft, bake: b.cards };
@@ -634,8 +638,10 @@ export class CraftPanel {
     if (!this.d.isOpen()) return { action: 'select', ok: false, reason: 'closed' };
     if (!station) return { action: 'select', ok: false, reason: 'unknown' };
     if (!visibleCards(this.views()[station]).some((c) => c.id === id)) return { action: 'select', ok: false, reason: 'hidden' };
-    if (this.selected_[station] !== id) {
+    if (this.selected_[station] !== id || this.chosen_[station] !== id) {
+      // 開いた とき 自動で えらばれた カードでも、はじめての クリックは「えらぶ」だけ（作らない）
       this.selected_[station] = id;
+      this.chosen_[station] = id;
       this.hovered_ = id; // 最後の 操作（クリック・B）の マスが せつめいに 出る
       this.d.onSelect?.(id);
       this.dirty = true;
@@ -730,7 +736,14 @@ export class CraftPanel {
     return buildCards(this.craftRecipes, this.d.craft, this.counter(), this.cardOpt()).some((c) => c.glowing);
   }
 
+  /** 画面の 大きさが かわると 一覧の 見える 高さも かわる: えらびを もう 一度 見える 所へ */
+  private readonly onResize = (): void => {
+    this.scrolledTo = null;
+    this.dirty = true;
+  };
+
   dispose(): void {
+    window.removeEventListener('resize', this.onResize);
     this.off();
     this.el.remove();
   }

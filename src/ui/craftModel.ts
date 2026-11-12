@@ -142,12 +142,13 @@ export function craftViewCards(
   looks?: LooksPort,
   opt: CardOptions = {},
   variantsOut?: Map<string, CardView[]>,
+  onlyOwned = true,
 ): CardView[] {
   const all = craft.recipes();
   const cards = buildCards(all.filter((r) => r.station === 'craft' && (craft.unlocked?.(r.id) ?? true)), craft, inv, opt);
   const merged = mergeGroups(cards, groupRecipes(all), looks);
   merged.variants.forEach((v, k) => variantsOut?.set(k, v)); // せつめいの ページ（作り方ごとの カード）
-  return visibleCards(merged.cards);
+  return onlyOwned ? visibleCards(merged.cards) : merged.cards; // 画面は 材料の ない カードも 数える（絞りは 塗る ときに visibleCards）
 }
 
 /** 「つくれる マーク」を出すか: つくる のカードが 1 まい以上 光っている */
