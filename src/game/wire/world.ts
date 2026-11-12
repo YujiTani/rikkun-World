@@ -20,7 +20,7 @@ import { BgmPlayer } from '../../fx/bgm/BgmPlayer';
 import { BgmSceneTracker } from '../../fx/bgm/scene';
 import { createAudioPersistence } from '../../ui/soundSettingsModel';
 import { parseSaveOptions, compressionAvailable, openIdb, SAVE_ID, requestPersist, shouldReset } from '../../save';
-import { openStoredKeys, emptyStreamRestore } from '../../save/streamRestore';
+import { openWorldKeys, emptyStreamRestore } from '../../save/streamRestore';
 import { setRing } from '../../world/stream/ring';
 import { createWorldInfo } from '../../world/gen/worldInfo';
 import { bindFarmShafts } from '../../world/gen/farmPlacement';
@@ -127,7 +127,7 @@ export async function wireBoot() {
   // 公開したゲームの ?reset=1 は 何もしない（いたずらのリンクで 世界が消えないように。#169）
   const doReset = shouldReset(saveOptions.reset, import.meta.env.DEV);
   // 起動で読むのは meta と 列のキーの一覧だけ（列の中身は いるときに 1 列ずつ。VOX-D D1）
-  let restored = await Promise.race([openStoredKeys({ db: idb, store, seed, saveId, reset: doReset, signal: bootSignal }), sleepNull()]);
+  let restored = await Promise.race([openWorldKeys({ db: idb, store, seed, saveId, reset: doReset, signal: bootSignal }), sleepNull()]);
   if (restored === null) {
     bootSignal.aborted = true;
     idb = null;

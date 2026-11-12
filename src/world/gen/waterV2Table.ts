@@ -1,4 +1,5 @@
 import type { BlockId } from '../../contracts';
+import { LOOK } from './lookFlags';
 
 /**
  * 水の 景色 v2（試作。URL に `?water=v2` が ある ときだけ。既定の 世界は かわらない）の 数の 表（1 か所）。
@@ -10,7 +11,7 @@ import type { BlockId } from '../../contracts';
  */
 
 /** `?water=v2` か（Node の テストでは location が ないので false。テストは vi.mock で 差しかえる） */
-export const WATER_V2: boolean = typeof location !== 'undefined' && typeof location.search === 'string' && new URLSearchParams(location.search).get('water') === 'v2';
+export const WATER_V2: boolean = LOOK.waterV2; // 既定 切。?water=v2 のときだけ 入る（lookFlags と 同じ 読み方）
 
 /** 滝つぼ・川・池に 使う ブロックの 名前（id の 直書きを ここに あつめる） */
 export const WATER_BLOCKS = {

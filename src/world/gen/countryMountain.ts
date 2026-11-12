@@ -36,19 +36,23 @@ export function iwayama(c: Ctx): FeatureSite[] {
   };
   for (let k = 0; k < K.tries; k++) tryAt(k, want, true);
   for (let k = 0; k < K.fillTries; k++) tryAt(K.tries + k, K.count[0], false);
-  return withWater(c, STRUCTURES_ON ? [...out, ...iwayamaStructures(c)] : out); // ?structures=1: 大きな 石ぞう・いしの とりいも
+  return withWater(c, STRUCTURES_ON ? [...out, ...iwayamaStructures(c)] : out); // 目じるし: 大きな 石ぞう・いしの とりいも
 }
 
 /** てんぐの やま: 頂上に とうろう、そばから すそへ かいだん */
 export function tengu(c: Ctx): FeatureSite[] {
   const s = summitOf(c);
   if (s === null) return [];
-  if (STRUCTURES_ON) return withWater(c, tenguStructures(c, s)); // ?structures=1: お堂・石段・とりい（とうろう・かいだんの かわり）
+  if (STRUCTURES_ON) {
+    // お堂が 置ける 山は お堂・石段・とりい・石どうろう（とうろう・かいだんの かわり）。置けない 山（頂上が 急）だけ 下の とうろう・かいだん
+    const st = tenguStructures(c, s);
+    if (st.some((f) => f.type === 'odou')) return withWater(c, st);
+  }
   const out: FeatureSite[] = [];
   const t = standingSpot(c, s, 1, M.fallback.touro);
   if (t !== null) out.push(site(c, 'touro', t.x, t.h + 1, t.z, [{ x: t.x, y: t.h + 1, z: t.z, id: 'touro' }], [t.x, t.z, t.x, t.z]));
   out.push(...kaidan(c, s));
-  return out;
+  return withWater(c, out);
 }
 
 /** 2×2（北西 = x, z）の みきを たてられる 所の 地面の 高さ（4 列とも 置ける・平ら 1 以下）。だめなら null */
@@ -105,7 +109,7 @@ export function momiji(c: Ctx): FeatureSite[] {
     }
   }
   const tree = site(c, 'oomomiji', x, y0, z, blocks, [x, z, x + 1, z + 1], { margin: K.treeMargin });
-  return withWater(c, STRUCTURES_ON ? [tree, ...momijiStructures(c, s)] : [tree]); // ?structures=1: あずまや・とりいも
+  return withWater(c, STRUCTURES_ON ? [tree, ...momijiStructures(c, s)] : [tree]); // 目じるし: あずまや・とりいも
 }
 
 /** ゆきやま: 頂上に ゆきだるま（高さ 3。下から 大きい まる・ふつう・あたま。あたまの 手前に 目の いし 2 こ） */

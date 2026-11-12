@@ -1,4 +1,5 @@
 // main.ts の 流れ 7: 保存と 世界の 読みこみ・毎ステップの 準備・ゲームの 毎コマの 登録と 影。
+import { showWorldRenewedNotice } from '../../ui/worldRenewedNotice';
 import type { CountryWatch } from '../../achievements/countryWatch';
 import { createPlaceWatch, type PlaceWatch } from '../../duo/p2Place';
 import { owned2 } from '../../duo/p2Feed';
@@ -126,6 +127,11 @@ export function wireSave(deps: WiredAchievements) {
   shared.requestSave = () => save.saveIfChanged();
   if (saveOptions.reset) history.replaceState(null, '', stripResetParam(location.href));
   const loadedSave = save.load();
+  // 古い 世代の セーブを 新しい 地形で 開いた: はじめの 1 回だけ おしらせ（持ち物などは のこして 地形だけ 新しく した）
+  if (restored.terrainRenewed) {
+    const renewed = showWorldRenewedNotice(hud);
+    game.onUpdate((dt) => renewed.update(dt));
+  }
   // 列の出どころ・保存先（VOX-D D1〜D5）。保存できない（?nosave=1・IndexedDB なし・読むだけ）ときは 捨てる列を ページの中に預ける
   const columnIO = new ColumnIO({
     db: idb,

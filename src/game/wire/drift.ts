@@ -1,5 +1,6 @@
 // ゆきやまの 雪・もみじやまの 紅葉の 舞い（試作。URL `?drift=1` の ときだけ。既定は 出さない）のつなぎ。
 // プレイヤー（2 人なら 2P の 足もとも）の まわりに 出す。2P は shared.duoMate() が 返す 間だけ。
+import { parseLookFlags } from '../../world/gen/lookFlags';
 import type { Game } from '../Game';
 import { DriftFx, type DriftFocus } from '../../fx/driftFx';
 
@@ -12,8 +13,9 @@ interface DriftDeps {
   shared: { duoMate: () => { position: DriftFocus } | null };
 }
 
+/** 雪・紅葉の 舞いを 出すか（既定は 出す。?drift=0 で 出さない。lookFlags.ts） */
 export function wantsDrift(search: string): boolean {
-  return new URLSearchParams(search).get('drift') === '1';
+  return parseLookFlags(search).drift;
 }
 
 export function installDrift(d: DriftDeps): DriftFx {
