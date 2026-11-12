@@ -11,7 +11,9 @@ import type { Terrain } from './terrain';
  * 山の物（countryMountain.ts・countryKaidan.ts）が 同じ 道具を 使う ために、ここに おく（ほかの ファイルを import しない = 輪に ならない）。
  */
 
-export const FEATURE_TYPES = ['hatakeato', 'kinokoNoWa', 'himawari', 'kaigara', 'takenoko', 'tsukimiIwa', 'suisho', 'touro', 'kaidan', 'oomomiji', 'yukidaruma'] as const;
+export const FEATURE_TYPES = ['hatakeato', 'kinokoNoWa', 'himawari', 'kaigara', 'takenoko', 'tsukimiIwa', 'suisho', 'touro', 'kaidan', 'oomomiji', 'yukidaruma',
+  // 山の上の 目じるし（`?structures=1` の ときだけ。うしろに 足す = 乱数の 番号を ずらさない）
+  'torii', 'odou', 'ishidan', 'azumaya'] as const;
 export type FeatureType = (typeof FEATURE_TYPES)[number];
 
 /** `window.__rikkun.biome.features` の 1 こ。x, y, z = その物の 基準の マス（§8.3） */
