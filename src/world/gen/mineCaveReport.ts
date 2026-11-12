@@ -1,5 +1,6 @@
 import { SEA_Y } from '../../contracts';
 import { Walk, CAVE_RULES, CAVE_SPEC, type Cave, type HiroiTable, type MineHook1D } from './mineCaveKit';
+import { CAVE_SUISHO } from './mineCaveConfig';
 import { GenCols, isBodyIndex, isSolidIndex, ptKey, standable, stepTo, type Layer, type Pt } from './mineShaftKit';
 import { isWaterIndex } from '../blocks/water';
 import { heightAt, spawnOf } from './terrain';
@@ -358,7 +359,7 @@ export function contentProblems(r: RoomReport, rate: Record<Layer, OreRate> | nu
       if (x('hotaruishi') < lo || x('hotaruishi') > hi) bad.push(`ほたるいし ${x('hotaruishi')}`);
       break;
     }
-    case 'suisho': {
+    case CAVE_SUISHO: {
       const [lo, hi] = CAVE_RULES.suisho.visible;
       if (x('suisho_ore') < lo || x('suisho_ore') > hi) bad.push(`すいしょう ${x('suisho_ore')}`);
       break;

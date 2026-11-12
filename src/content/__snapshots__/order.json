@@ -582,10 +582,12 @@
       "dirt",
       "sand",
       "snow",
-      "geyser_dirt"
+      "geyser_dirt",
+      "ochiba"
     ],
     "stone": [
-      "stone"
+      "stone",
+      "suisho"
     ],
     "tool": [
       "wood_pickaxe",
@@ -908,6 +910,8 @@
     "himawari",
     "kaigara",
     "takenoko",
+    "suisho",
+    "ochiba",
     "egg",
     "mushi",
     "mushi_ami",

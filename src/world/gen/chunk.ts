@@ -12,10 +12,13 @@ import { shaftWorldFor } from './mineShafts';
 import { defOf } from './biome';
 import { featuresNearChunk, writeFeatureBlocks } from './countryFeatureBlocks';
 import { floraOfChunk } from './flora';
+import { placeOchiba } from './ochiba';
 import { plantsOfChunk } from './plants';
 import { hash01, subSeed, valueNoise3 } from './random';
 import { Terrain, terrainFor } from './terrain';
 import { treesInRect } from './trees';
+import { TREES_V2, TREE_MAX_EXTENT } from './treeV2';
+import { writeShapedTrees, type ShapedTree } from './treeShapes';
 import { fallBlocks } from './liquidPonds';
 
 /**
@@ -195,9 +198,14 @@ const inRects = (rs: readonly (readonly [number, number, number, number])[], x: 
 
 function placeTrees(out: BlockArray, T: Terrain, x0: number, z0: number, skip?: readonly (readonly [number, number, number, number])[]): void {
   // 大木のはっぱは みきから 4 マスまで出る
-  let trees = treesInRect(T, x0 - 5, z0 - 5, x0 + CHUNK_SIZE + 4, z0 + CHUNK_SIZE + 4);
+  const m = TREES_V2 ? TREE_MAX_EXTENT : 5;
+  let trees = treesInRect(T, x0 - m, z0 - m, x0 + CHUNK_SIZE + m - 1, z0 + CHUNK_SIZE + m - 1);
   if (skip && skip.length > 0) trees = trees.filter((t) => !inRects(skip, t.x, t.z));
   if (trees.length === 0) return;
+  if (TREES_V2) {
+    writeShapedTrees(out, trees as ShapedTree[], x0, z0, (t) => LEAF_BLOCK[t.leaves]);
+    return;
+  }
   // みきを先に書く（はっぱは 空気のところだけ。みきの勝ち）
   for (const t of trees) {
     const w = t.big ? 2 : 1;
@@ -365,7 +373,9 @@ export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCl
   const zones = shafts.zones(cx, cz);
   // 国だけの物（VOX-I-4a）: 置く 所の 木・草花は どける → 木・草花の あとに ブロックを 書く
   const feat = featuresNearChunk(seed, x0, z0);
-  placeTrees(out, T, x0, z0, zones?.trees ? [...zones.trees, ...feat.trees] : feat.trees.length > 0 ? feat.trees : undefined);
+  const treeSkip = zones?.trees ? [...zones.trees, ...feat.trees] : feat.trees.length > 0 ? feat.trees : undefined;
+  placeTrees(out, T, x0, z0, treeSkip);
+  placeOchiba(out, T, x0, z0, H, treeSkip); // もみじやま: もみじの 木の まわりの くさ → おちば（VOX-I-4b）
   placePlants(out, T, cx, cz, H, zones?.plants ? [...zones.plants, ...feat.plants] : feat.plants.length > 0 ? feat.plants : undefined);
   writeFeatureBlocks(out, feat, x0, z0);
   const shaftOps = shafts.opsFor(cx, cz);

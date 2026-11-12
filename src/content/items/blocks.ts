@@ -280,6 +280,23 @@ export const VOX_I = {
     rarity: blockRarity('takenoko'),
     category: 'plant',
   },
+  // VOX-I-4b（#187）: 山の物 2 つ（とうろう touro は こわせない・持てない ので アイテムに ならない）
+  suisho: {
+    name: blockName('suisho'),
+    zukan: 'いわやまの くぼみで ひかる すいしょう。ほり［出｜だ］して おけば、よるでも まわりが ほんのり あかるいよ。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'suisho',
+    rarity: blockRarity('suisho'),
+    category: 'stone',
+  },
+  ochiba: {
+    name: blockName('ochiba'),
+    zukan: 'もみじの ［木｜き］の したに つもった あかい おちば。ふむと ふかふか して いそう。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'ochiba',
+    rarity: blockRarity('ochiba'),
+    category: 'soil',
+  },
 } satisfies Partial<Record<BlockId, ItemDef>>;
 
 /**

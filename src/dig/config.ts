@@ -137,6 +137,10 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     himawari_top: 0.05,
     kaigara: 0.05,
     takenoko: 0.05,
+    // VOX-I-4b（山の物。すいしょう = 3 秒、おちば = つちと 同じ、とうろう = こわせない）
+    suisho: 3,
+    touro: null,
+    ochiba: 0.5,
     // MINE-1B（#349。仕様 §4.4。素手の 秒数。時間 = 固さ ÷ 道具の 強さ）
     nendo: 1, // つち より 少し かたい（すでで 1 秒）
     sekkaiseki: 5, // いしの つるはし（強さ 4）で 1.25 秒
@@ -264,6 +268,9 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     himawari_top: 0,
     kaigara: 0,
     takenoko: 0,
+    suisho: 0,
+    touro: 0,
+    ochiba: 0,
     // MINE-1B（0 = すで・1 = いしの つるはし・2 = てつの つるはし から）
     nendo: 0,
     sekkaiseki: 1,
@@ -381,6 +388,9 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     himawari_top: 'common',
     kaigara: 'common',
     takenoko: 'common',
+    suisho: 'rare',
+    touro: 'common',
+    ochiba: 'common',
     // MINE-1B（ほると 手に 入る 数の 上限を きめる。しるしは 何も 出ない ので 使わない）
     nendo: 'uncommon',
     sekkaiseki: 'uncommon',

@@ -4607,6 +4607,30 @@
       "rarity": "common",
       "recipes": []
     },
+    "suisho": {
+      "DIG_DEFAULTS.hardness.suisho": 3,
+      "DIG_DEFAULTS.harvestLevel.suisho": 0,
+      "DIG_DEFAULTS.rarity.suisho": "rare",
+      "category": "stone",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "すいしょう",
+      "placeBlock": "suisho",
+      "rarity": "rare",
+      "recipes": []
+    },
+    "ochiba": {
+      "DIG_DEFAULTS.hardness.ochiba": 0.5,
+      "DIG_DEFAULTS.harvestLevel.ochiba": 0,
+      "DIG_DEFAULTS.rarity.ochiba": "common",
+      "category": "soil",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おちば",
+      "placeBlock": "ochiba",
+      "rarity": "common",
+      "recipes": []
+    },
     "egg": {
       "ITEM_INFO.egg": {
         "buttons": [
