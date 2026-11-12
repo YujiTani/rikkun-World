@@ -22,6 +22,8 @@ export const STRUCTURES_ON: boolean = LOOK.structures;
 const STRUCTURE_TUNE = {
   /** 頂上の まわりで 建物を さがす はんい（頂上から。チェビシェフ） */
   summitSearch: 7,
+  /** てんぐの やまの 頂上が 急で 近くに お堂が 置けない とき: 頂上の まわりを 格子で くまなく さがす きょり（from, to, step。山 v2 は 頂上が 急） */
+  odouWide: { from: 8, to: 24, step: 2 },
   /** あずまやは 大木（頂上）から これ 以上 はなす */
   azumayaFrom: 5,
   /** お堂の 正面の はしから 石段の はじめまで（お堂の 半分 4 ＋ 1） */
@@ -99,6 +101,11 @@ export function tenguStructures(c: Ctx, s: Summit): FeatureSite[] {
       }
     });
     break;
+  }
+  if (anchor === null && fallback === null) {
+    // 近くに 置けない（山 v2 は 頂上が 急）: 頂上の まわりを くまなく さがして お堂だけ 置く（頂上の ほうを 向く）
+    const w = gridSearch(STRUCTURES.odou, s.x, s.z, T.odouWide.from, T.odouWide.to, T.odouWide.step, c.i * 7 + c.j, ground, (x, z) => facing(x, z, s.x, s.z), () => true);
+    if (w !== null) fallback = w;
   }
   if (anchor === null && fallback !== null) {
     anchor = fallback;
