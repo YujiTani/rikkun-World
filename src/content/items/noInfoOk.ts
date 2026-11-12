@@ -16,4 +16,6 @@ export const NO_INFO_OK: Readonly<Record<string, string>> = {
   himawari: 'かざりのブロック',
   kaigara: 'かざりのブロック',
   takenoko: 'かざりのブロック',
+  suisho: '山の かざりの ブロック',
+  ochiba: '地形のブロック',
 };

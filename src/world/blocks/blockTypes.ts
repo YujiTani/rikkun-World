@@ -157,6 +157,10 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'himawari_top', name: 'ひまわり', solid: false, breakable: true },
   { id: 'kaigara', name: 'かいがら', solid: false, breakable: true },
   { id: 'takenoko', name: 'たけのこ', solid: false, breakable: true },
+  // VOX-I-4b（#187。番号は 後ろに 足す。242〜244）: 山の物。固い 箱（とうろうだけ こわせない）
+  { id: 'suisho', name: 'すいしょう', solid: true, breakable: true },
+  { id: 'touro', name: 'とうろう', solid: true, breakable: false },
+  { id: 'ochiba', name: 'おちば', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(

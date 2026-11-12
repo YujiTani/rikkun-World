@@ -106,7 +106,7 @@ describe('E12: 新しい ブロックの 値', () => {
 
   it('1E で 足した id は 10 こ 以下・合計は 256 以下', () => {
     expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1D, '1E で 足した id').toBeGreaterThanOrEqual(ROWS.length);
-    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1D, '1E で 足した id').toBeLessThanOrEqual(10 + 5 + 20 + 5); // 20 ＝ HOUSE-2B の 形ごとの ブロック 20 ＋ 5 ＝ HOUSE-2A（#364）が 後ろに 足した まきもの 1 ＋ まねきねこ 4（向き）＋ 最後の 5 ＝ VOX-I-4a（#187）の 国だけの 物 5 こ
+    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1D, '1E で 足した id').toBeLessThanOrEqual(10 + 5 + 20 + 5 + 3); // 20 ＝ HOUSE-2B の 形ごとの ブロック 20 ＋ 5 ＝ HOUSE-2A（#364）が 後ろに 足した まきもの 1 ＋ まねきねこ 4（向き）＋ 最後の 5 ＝ VOX-I-4a（#187）の 国だけの 物 5 こ ＋ 3 ＝ VOX-I-4b（#187）の 山の 物 3 こ（すいしょう・とうろう・おちば）
     expect(BLOCK_TYPES.length).toBeLessThanOrEqual(256);
   });
 });

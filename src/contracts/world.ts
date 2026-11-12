@@ -145,7 +145,11 @@ export type BlockId =
   | 'himawari' // ひまわり（はなばたけ。2 段の 下の 段 = くき。ほると himawari 1 こ）
   | 'himawari_top' // ひまわり の 上の 段（花）。持ち物に 入らない（ほると himawari）
   | 'kaigara' // かいがら（すなはま。すなの 上の 小さな 板）
-  | 'takenoko'; // たけのこ（たけやぶ）
+  | 'takenoko' // たけのこ（たけやぶ）
+  // VOX-I-4b（#187。うしろに足す。242〜244）: 山の物（固い 箱）
+  | 'suisho' // すいしょう（いわやま。光 9。ほれる・持てる・置ける）。炭鉱の suisho_ore・アイテム crystal とは べつ
+  | 'touro' // とうろう（てんぐの やま の 頂上。光 14。こわせない・持てない）
+  | 'ochiba'; // おちば（もみじやま の もみじの木の まわりの 地面。ほれる・持てる・置ける）
 
 export interface BlockType {
   id: BlockId;

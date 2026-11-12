@@ -207,6 +207,8 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
     bamboo: 'bcd51113', flower_o: '2fbe135', flower_p: '7f48c5f5', flower_y: 'e647bd15',
     // VOX-I-4a（#187）: 国だけの物 その 1 の 4 ブロック（5 まい）の 1 コマめ。絵は voxI4aTiles.ts（calm は かけない）。今の 絵を 守るだけ
     kinoko: '4b272997', himawari_ue: 'e8750110', himawari_shita: 'f33d35c1', kaigara: '3442b0bb', takenoko: 'd37c2893',
+    // VOX-I-4b（#187）: 山の物の 3 ブロック（6 まい）。絵は voxI4bTiles.ts。今の 絵を 守るだけ
+    suisho_top: '633d5d4d', suisho_side: '432a5080', touro_top: 'a6e5081e', touro_side: 'b514d7c4', ochiba_top: '11465b83', ochiba_side: '83e8cd33',
     // はっぱ 3 まい: もこもこの 新しい 絵（2026-11-10 オーナー OK。leafTextures.ts）。今の 絵を 守るだけ
     leaves: 'ef89d522', matsu_leaves: '55235a61', momiji_leaves: '6d479be2', snow: 'b5d0ee8f', susuki: '58e578b5',
     // LIVE-2（こたつ・とりごや。ふつうの 絵。今の 絵を 守るだけ）

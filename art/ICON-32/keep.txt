@@ -3,3 +3,5 @@ kinoko
 himawari
 kaigara
 takenoko
+suisho
+ochiba
