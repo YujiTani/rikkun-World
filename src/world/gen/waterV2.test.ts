@@ -16,6 +16,7 @@ import { regionRect } from './region';
 import { terrainFor } from './terrain';
 import { waterSites } from './waterV2';
 import { waterV2SpringsIn } from './waterV2Hook';
+import { splashSpotsNear } from './waterV2Splash';
 import { waterLeaks } from './waterV2Kit';
 
 const seed = 20261012;
@@ -50,6 +51,13 @@ describe('水の 景色 v2（?water=v2）', () => {
     const takis = all.flatMap((a) => a.sites.filter((s) => s.type === 'taki'));
     expect(takis.filter((s) => stages(s) >= 2).length, '段々の 滝').toBeGreaterThanOrEqual(1);
     expect(Math.max(...takis.map(stages))).toBeLessThanOrEqual(4);
+  });
+
+  it('しぶきの 場所: 滝ごとに 1 つ 以上（落差 4 以上）・段々の 滝は 段の 数だけ', () => {
+    const s = all.flatMap((a) => a.sites).find((q) => q.type === 'taki')!;
+    const spots = splashSpotsNear(seed, s.x, s.z, 48, []);
+    expect(spots.length).toBeGreaterThanOrEqual(1);
+    for (const p of spots) expect(p.drop).toBeGreaterThanOrEqual(4);
   });
 
   it('水は 外へ もれない（水の マスの よこは 水・いし・地面）', () => {
