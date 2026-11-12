@@ -5,7 +5,8 @@ const chromiumArgs = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', 
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 60_000, // 重いテストが同じ CPU で並ぶと 30 秒をこえることがある
+  // 重いテストが同じ CPU で並ぶと 30 秒をこえることがある。CI の おそい ランナーでは ブラウザの 用意（context）や スクショだけで 60 秒 切れる ことが あるので 120 秒（yuzu 2026-11-12、PR #459）
+  timeout: process.env.CI ? 120_000 : 60_000,
   fullyParallel: true,
   // CPU 4 コア。多いと SwiftShader 同士が取りあって、かえって遅くなる。
   // CI は 2 本（#451）: CI の ランナーが 前より 約 1.5 倍 おそく なり、3 本だと 重い 2 人プレイの テストが 取りあいで 60 秒を こえた。

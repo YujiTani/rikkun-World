@@ -12,4 +12,8 @@ export const NO_INFO_OK: Readonly<Record<string, string>> = {
   flower_p: 'かざりのブロック',
   bamboo: 'かざりのブロック',
   nobana: 'かざりのブロック',
+  kinoko: 'かざりのブロック',
+  himawari: 'かざりのブロック',
+  kaigara: 'かざりのブロック',
+  takenoko: 'かざりのブロック',
 };

@@ -121,6 +121,7 @@
   "e2e/voxE-mesh.spec.ts": 162,
   "e2e/voxF-save.spec.ts": 92,
   "e2e/voxI1-biome.spec.ts": 22,
+  "e2e/voxI4a-features.spec.ts": 22,
   "e2e/w2.spec.ts": 100,
   "e2e/water1.spec.ts": 150,
   "e2e/weapon3.spec.ts": 30,

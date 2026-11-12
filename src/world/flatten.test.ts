@@ -105,8 +105,8 @@ describe('LIVE-2.1 AC1 たいら の 判定', () => {
     expect(planFlatten(w, { x0: 19, z0: 10, w: 2, d: 2, y: Y, h: 1 })).toBeNull();
     expect(planFlatten(w, { x0: 10, z0: 10, w: 2, d: 2, y: 15, h: 4 })).toBeNull();
   });
-  it('消える なかま は 16 種', () => {
-    expect(FLATTEN_CLEAR.size).toBe(16);
+  it('消える なかま は 21 種（地面 7 ＋ はっぱ 3 ＋ 草花 6 ＋ 国の 草花 5）', () => {
+    expect(FLATTEN_CLEAR.size).toBe(21);
   });
   it('つぶ は 1 列 に 1 つ・25 まで', () => {
     const w = mk();

@@ -14,6 +14,7 @@ import { BoxMesher } from './sectionBox';
 import * as K from './sectionConsts';
 import { emitGreedy } from './sectionGreedy';
 import { QuadBuilder, type VoxelPiece } from './sectionQuads';
+import { BLOCK_INDEX } from '../../blocks/blockTypes';
 import { isWaterIndex } from '../../blocks/water';
 
 // vitest の import は 読むたびに getter を通って 遅い。内側のループが読む定数は このファイルの const に写す（本番のビルドでは同じ）
@@ -457,7 +458,7 @@ export class SectionMesher {
           let wet = false;
           for (let f = 0; f < 6; f++) {
             const n = cube.kindNear(bxi, byi, bzi, f);
-            if (n >= 0 && OCC[n] === 0) e |= 1 << f;
+            if (n >= 0 && OCC[n] === 0 && !(f === 0 && n === k && k === BLOCK_INDEX.bamboo)) e |= 1 << f; // たけの 上が たけなら 「上が あいて いる」に しない（てっぺんだけ 葉の ふさ）
             if (isWaterIndex(n)) wet = true;
           }
           this.uniq[i] = e === 0 ? 0 : wet ? 1 : LEAF[k] === 0 && kataOf(k) > 0 && this.underground(bxi, byi, bzi, e) ? 2 : 0;

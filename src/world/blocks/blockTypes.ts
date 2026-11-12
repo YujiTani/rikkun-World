@@ -151,6 +151,12 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   ...NEW_FURN_BLOCK_IDS.filter((id) => LATE_FURN.has(furnInfo(id)!.kind)).map(furnBlockType),
   // HOUSE-2B（#364。番号は 後ろに 足す。217〜236）: 家の しゅるいの ブロック 20 こ（形ごと。あけた 戸だけ 通れる。あかり・のれんも 当たりは 箱）
   ...LOOK_BLOCK_IDS.map((id): BlockType => ({ id, name: LOOK_PILLAR_NAME[id] ?? 'いえの ブロック', solid: !(id in LOOK_DOOR_INFO && LOOK_DOOR_INFO[id as keyof typeof LOOK_DOOR_INFO].open) && id !== 'lk_deco_noren' && id !== 'lk_deco_hanadan', breakable: true })),
+  // VOX-I-4a（#187。番号は 後ろに 足す。237〜241）: 国だけの物 その 1。どれも 固くない・こわせる・十字の 板で 描く
+  { id: 'kinoko', name: 'きのこ', solid: false, breakable: true },
+  { id: 'himawari', name: 'ひまわり', solid: false, breakable: true },
+  { id: 'himawari_top', name: 'ひまわり', solid: false, breakable: true },
+  { id: 'kaigara', name: 'かいがら', solid: false, breakable: true },
+  { id: 'takenoko', name: 'たけのこ', solid: false, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -214,6 +220,7 @@ const CROSS_IDS: ReadonlySet<string> = new Set([
   'kakashi', 'kakashi_head', 'saku',
   'toriya_fence', 'toriya_gate', // LIVE-2.1: とりごや の さく・もん（当たり は 今 の まま ブロック）
   'flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana',
+  'kinoko', 'himawari', 'himawari_top', 'kaigara', 'takenoko', // VOX-I-4a
   'rope', 'rope_coil', 'rope_stake', 'rope_fence', 'rope_fence_post', // ROPE-1: ロープ（たてに たれる なわ）・ロープだまり（下の まき）
   'tsurara', // MINE-1D: つらら（天井の 下に さがる 十字の 板。ゆれない = swayDriver が のぞく）
   'makimono', // HOUSE-2A: まきもの（床に 置く 十字の 板。ゆれない）

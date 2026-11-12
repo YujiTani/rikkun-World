@@ -1,5 +1,6 @@
 import type { BlockId, VoxelWorld } from '../contracts';
 import { isChalkMarkId } from './blocks/chalkMark';
+import { COUNTRY_PLANT_IDS } from './blocks/countryPlants';
 import { isWater } from './blocks/water';
 
 /**
@@ -14,10 +15,10 @@ export const PLACE_STEP_MAX = 2;
 /** つぶ（土けむり）の 上限 */
 export const FLATTEN_DUST_MAX = 25;
 
-/** 消える（地面・草木）。16 種 */
+/** 消える（地面・草木）。21 種 */
 const GROUND: readonly BlockId[] = ['grass', 'dirt', 'stone', 'sand', 'snow', 'coal_ore', 'iron_ore'];
 const LEAVES: readonly BlockId[] = ['leaves', 'momiji_leaves', 'matsu_leaves'];
-const FLORA: readonly BlockId[] = ['flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana'];
+const FLORA: readonly BlockId[] = ['flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana', ...COUNTRY_PLANT_IDS];
 export const FLATTEN_CLEAR: ReadonlySet<string> = new Set<string>([...GROUND, ...LEAVES, ...FLORA]);
 const GROUND_SET: ReadonlySet<string> = new Set<string>(GROUND);
 

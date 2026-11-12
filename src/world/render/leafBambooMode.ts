@@ -1,6 +1,6 @@
 /**
- * はっぱと たけの 見た目の 試し（オーナーが 選ぶまで 本番の 既定は 変えない）。
- * URL: `?leaf=shell|cross` `?bamboo=voxel|sprite`。無い・知らない値は いまの まま。
+ * はっぱと たけの 見た目。はっぱの 既定は いまの まま。たけの 既定は 細い 小ブロックの 形 `voxel`（VOX-I-4a。2026-11-11 オーナー。当たりは 1 ブロックの まま）。
+ * URL: `?leaf=shell|cross` `?bamboo=current|voxel|sprite`（`?bamboo=current` で 前の 太い 形）。無い・知らない値は 既定の まま。
  * 計測だけ `setLeafBamboo({ leaf: 'none' })`（はっぱを 描かない）。URL からは 選べない。
  */
 
@@ -8,7 +8,7 @@ export type LeafMode = 'current' | 'shell' | 'cross' | 'none';
 export type BambooMode = 'current' | 'voxel' | 'sprite';
 
 let leaf: LeafMode = 'current';
-let bamboo: BambooMode = 'current';
+let bamboo: BambooMode = 'voxel';
 
 function searchOf(): string {
   const loc = (globalThis as { location?: { search?: string } }).location;
@@ -20,7 +20,7 @@ function readUrl(): void {
   const l = q.get('leaf');
   const b = q.get('bamboo');
   if (l === 'shell' || l === 'cross') leaf = l;
-  if (b === 'voxel' || b === 'sprite') bamboo = b;
+  if (b === 'current' || b === 'voxel' || b === 'sprite') bamboo = b;
 }
 
 readUrl();
