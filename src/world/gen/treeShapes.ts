@@ -37,7 +37,7 @@ type LogFn = (dx: number, y: number, dz: number, root: boolean) => void;
 type LeafFn = (dx: number, y: number, dz: number, snow?: boolean) => void;
 
 /** 木 t の ブロックを 出す（log か leaf の どちらかだけ 渡してよい） */
-export function shapeTree(t: ShapedTree, log: LogFn | null, leaf: LeafFn | null): void {
+function shapeTree(t: ShapedTree, log: LogFn | null, leaf: LeafFn | null): void {
   const R = (k: number): number => hash01(SEED, t.x, t.z, k);
   const w = t.big === true ? 2 : 1;
   const { size, form, trunk } = t;

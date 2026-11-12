@@ -41,7 +41,7 @@ export const TREE_MIX: Readonly<Record<CountryKind, TreeMix>> = {
 };
 
 /** みきの高さ（マス）[最小, 最大]。形ごと・大きさごと */
-export const TREE_TRUNK: Record<TreeForm, Record<TreeSize, readonly [number, number]>> = {
+const TREE_TRUNK: Record<TreeForm, Record<TreeSize, readonly [number, number]>> = {
   round: { s: [4, 5], m: [9, 12], l: [18, 26] },
   maple: { s: [4, 5], m: [8, 11], l: [11, 14] },
   pine: { s: [5, 6], m: [9, 12], l: [14, 18] },
