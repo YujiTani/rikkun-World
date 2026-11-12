@@ -74,6 +74,8 @@ export const WATER_TUNE = {
     /** 川の 長さ（マス。滝つぼの 中も 数える）の 下限（0 = みじかくても 滝つぼで 終わって よい） */
     riverMin: 0,
   },
+  /** 段々の 滝: 落差が min 以上の かべは 段に わける（段の 落差 stageMin〜 、段の 数は 2〜maxStages）。たな（たまり）の 半径・ふかさ・落ち口の よこずらし（±shift）・ためす 回数 */
+  tier: { min: 10, maxStages: 4, stageMin: 5, shelfRadius: [3, 4] as const, shelfDepth: [1, 2] as const, shift: 4, attempts: 8, walk: 14, apart: 1.9 },
   river: {
     /** 川の はば（2 か 3）・ふかさ（1〜2） */
     /** 上流の はば（下流ほど 広がる: widen マスごとに 1 ずつ、最大 maxWidth）・ふかさ */

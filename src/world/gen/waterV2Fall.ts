@@ -1,4 +1,6 @@
 import { hash01 } from './random';
+import type { FallPlan } from './waterV2Types';
+import { tierUp } from './waterV2Tier';
 import { basinCells, basinFits, basinNorm, buildBasin, depthAt, DIR4, makeBasin, rimColumn, waterColumn, type Basin, type Dir, type Edit, type Ground, type Rect } from './waterV2Kit';
 import { WATER_BLOCKS as B, WATER_TUNE as T } from './waterV2Table';
 
@@ -8,22 +10,6 @@ import { WATER_BLOCKS as B, WATER_TUNE as T } from './waterV2Table';
  *   下: 滝つぼ（直径 7〜11・ふかさ 2〜3）。落ちる 列の 底に たきつぼ。わきどころは たきつぼと つながると、池の 水を 1 つぶ ぬいて 出口に 出す
  *       （量が かわらない）ので ずっと 流れる。作ったままの 水は ねむって いる（計算に のらない）。
  */
-
-export interface FallPlan {
-  /** 落ちる 向き（かべから はなれる 方） */
-  d: Dir;
-  /** へりの 列（わきどころを 置く） */
-  lip: [number, number][];
-  /** 落ちる 先の 列（へりの すぐ 前） */
-  front: [number, number][];
-  /** わきどころの 高さ・滝つぼの 水面（いちばん 上の 水の マス） */
-  top: number;
-  level: number;
-  pool: Basin;
-  /** 水源の 池の 列（うしろ）と まわり */
-  source: [number, number][];
-  sourceRing: [number, number][];
-}
 
 const FALL = T.fall;
 /** 候補の 数（ふるい用の 上限）。これ以上 見つかっても 乱数の 順で 先頭 から 使う */
@@ -115,7 +101,8 @@ function planW(g: Ground, seed: number, c: Cand, w: number, free: (x: number, z:
       } else sourceRing.push([x, z]);
     }
   }
-  return { d, lip, front, top, level, pool, source, sourceRing };
+  const base: FallPlan = { d, stages: [{ lip, front, top, pool }], lip, front, top, level, pool, source, sourceRing };
+  return tierUp(g, seed, base, free, buildFall) ?? base;
 }
 
 /** 滝を count 本まで えらぶ（川が 長く のびる 方を 優先。たがいに はなす）。river(p) = その 滝の 川の 長さ */
@@ -151,7 +138,7 @@ export function planFalls(g: Ground, px: number, pz: number, seed: number, count
 
 /** 滝の 足もとの 四角（池・水源の 池・まわりを ふくむ。1 マス ひろげる） */
 export function footOf(p: FallPlan): Rect {
-  const cells: [number, number][] = [...basinCells(p.pool).map((q): [number, number] => [q.x, q.z]), ...p.source, ...p.sourceRing, ...p.lip];
+  const cells: [number, number][] = [...p.stages.flatMap((s) => basinCells(s.pool)).map((q): [number, number] => [q.x, q.z]), ...p.source, ...p.sourceRing, ...p.lip];
   let x0 = Infinity;
   let z0 = Infinity;
   let x1 = -Infinity;
@@ -165,21 +152,19 @@ export function footOf(p: FallPlan): Rect {
   return [x0 - 1, z0 - 1, x1 + 1, z1 + 1];
 }
 
-/** 滝の ブロックを 書く（川の 前に 書く。川は 滝つぼから はじまる） */
+/** 滝の ブロックを 書く（川の 前に 書く。川は 滝つぼから はじまる）。段ごとに 「たまり → 底の たきつぼ → へりの わきどころ」 */
 export function buildFall(ed: Edit, g: Ground, seed: number, p: FallPlan): void {
-  // 滝つぼ（まわりは あらいし・こけの あらいし）
-  buildBasin(ed, g, seed, p.pool, B.rim, false);
-  for (const [x, z] of p.front) ed.set(x, pitY(p, x, z), z, B.pit); // 落ちる 列の 底 = たきつぼ
-  // 水源の 池と まわりの いし
+  p.stages.forEach((st, s) => {
+    // うける たまり（まわりは あらいし・こけの あらいし）と、落ちる 列の 底 = たきつぼ
+    buildBasin(ed, g, seed + s, st.pool, B.rim, false);
+    for (const [x, z] of st.front) ed.set(x, st.pool.level - depthAt(st.pool, basinNorm(st.pool, x, z)), z, B.pit);
+    // へりの わきどころ（その 上は あける）
+    for (const [x, z] of st.lip) {
+      ed.set(x, st.top, z, B.spring);
+      for (let y = st.top + 1; y <= Math.max(g(x, z), ed.topOf(x, z)); y++) ed.set(x, y, z, B.air);
+    }
+  });
+  // 水源の 池と まわりの いし（いちばん 上。滝つぼが かかる 所は こちらが 勝つ = 池の かべを けずらない）
   for (const [x, z] of p.source) waterColumn(ed, seed + 7, x, z, g(x, z), p.top, FALL.sourceDepth);
   for (const [x, z] of p.sourceRing) rimColumn(ed, seed + 7, x, z, g(x, z), p.top, B.rim, false);
-  // へりの わきどころ（その 上は あける）
-  for (const [x, z] of p.lip) {
-    ed.set(x, p.top, z, B.spring);
-    for (let y = p.top + 1; y <= g(x, z); y++) ed.set(x, y, z, B.air);
-  }
 }
-
-
-/** 落ちる 列の 底（たきつぼ）の y。池の ふかさは ふちほど あさい */
-export const pitY = (p: FallPlan, x: number, z: number): number => p.pool.level - depthAt(p.pool, basinNorm(p.pool, x, z));

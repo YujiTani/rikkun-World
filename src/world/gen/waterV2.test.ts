@@ -45,6 +45,13 @@ describe('水の 景色 v2（?water=v2）', () => {
     for (const a of all) expect(a.sites.filter((s) => s.type === 'taki').length, '1 つの 山に 0〜2 本').toBeLessThanOrEqual(2);
   });
 
+  it('高い かべの 滝は 段々に なる（わきどころの 高さが 2 つ 以上）', () => {
+    const stages = (s: FeatureSite): number => new Set(s.blocks.filter((b) => b.id === 'wakimizu').map((b) => b.y)).size;
+    const takis = all.flatMap((a) => a.sites.filter((s) => s.type === 'taki'));
+    expect(takis.filter((s) => stages(s) >= 2).length, '段々の 滝').toBeGreaterThanOrEqual(1);
+    expect(Math.max(...takis.map(stages))).toBeLessThanOrEqual(4);
+  });
+
   it('水は 外へ もれない（水の マスの よこは 水・いし・地面）', () => {
     for (const a of all) {
       const g = groundFn(a.c);

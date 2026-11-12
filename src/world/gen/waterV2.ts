@@ -1,7 +1,8 @@
 import { cheb, site, type Ctx, type FeatureSite } from './countryKit';
 import { groundFn } from './countryStructureKit';
 import { hashInts } from './random';
-import { buildFall, footOf, planFalls, type FallPlan } from './waterV2Fall';
+import { buildFall, footOf, planFalls } from './waterV2Fall';
+import type { FallPlan } from './waterV2Types';
 import { clearRects, Edit, type Ground, type Rect } from './waterV2Kit';
 import { planPonds, buildPond } from './waterV2Pond';
 import { buildRiver, planRiver } from './waterV2River';
@@ -56,7 +57,7 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
   const footsOf = falls.map(footOf);
   falls.forEach((p, k) => {
     const ed = new Edit();
-    buildFall(ed, gb, seed + k, p);
+    buildFall(ed, gb, seed, p); // 組めたかの 確認（waterV2Tier）と 同じ 種で 作る
     out.push(blocksSite(c, 'taki', ed, p.lip[0]![0], p.top, p.lip[0]![1]));
     // 川: ほかの 滝・目じるし・ほかの 川は よける
     const others2 = footsOf.filter((_, j) => j !== k);
