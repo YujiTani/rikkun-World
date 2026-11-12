@@ -3,13 +3,17 @@ import { itemType } from '../inventory/items';
 import { FUTON_HEAD, futonDirFromYaw, futonPartner } from '../world/blocks/futon';
 import { HIMAWARI, HIMAWARI_TOP } from '../world/blocks/himawari';
 import { KOTATSU_CELLS } from '../world/blocks/kotatsu';
-import { K_TANSU, doorId, doorIdLike, doorInfo, furnInfo, furnPlaceCells, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
+import { K_TANSU, doorIdLike, doorInfo, furnInfo, furnPlaceCells, furnRotFromYaw, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
+import { styleOfItem, type Facing } from '../house/placedLooks';
 import { applyFlatten, planFlatten, type FlattenPlan } from '../world/flatten';
 import { HANGING_SUPPORT, isReplaceable, overlapsBody, type DigCore } from './digCore';
 import { isWater } from '../world/blocks/water';
 import { ROPE, ROPE_FENCE, ROPE_FENCE_POST, ROPE_STAKE, isFenceBlock, planRopeHere } from '../world/blocks/rope';
 import { tetherOf } from '../world/blocks/ropeTether';
 import { planFence, type FenceWorld } from '../world/blocks/ropeFence';
+
+/** 家具と 同じ 向きの 数（0〜3。前が プレイヤーの ほう）→ 前が 向く 方位 */
+const FACING_OF_ROT: Readonly<Record<0 | 1 | 2 | 3, Facing>> = { 0: 's', 1: 'w', 2: 'n', 3: 'e' };
 
 /** 置く場所とブロック（置けないなら null）。tryPlace とヒントが同じ判定を使う */
 export interface PlaceSpot {
@@ -67,7 +71,7 @@ export class BlockPlacer {
     }
     // HOUSE-1C: 向きの ある 家具（プレイヤーの ほうを 向く）・戸（2 マス。いつも 南向き）
     if (furnInfo(block)) return this.furnSpot(block, x, y, z);
-    if (doorInfo(block)) return this.doorSpot(x, y, z);
+    if (doorInfo(block)) return this.doorSpot(x, y, z, block);
     if (block === HIMAWARI) return this.himawariSpot(x, y, z);
     if (block === 'nobana') {
       // のばな は くさ・つち の上だけ
@@ -171,13 +175,13 @@ export class BlockPlacer {
   }
 
   /** 戸 2 マス（下〔ねらった マス〕と その 上）を 置く 場所。2 マスとも あいて いて、体に 重ならない ところ だけ */
-  private doorSpot(x: number, y: number, z: number): PlaceSpot | null {
+  private doorSpot(x: number, y: number, z: number, like: BlockId): PlaceSpot | null {
     const c = this.c;
     const upper = c.world.getBlock(x, y + 1, z);
     if (upper !== 'air' && !isWater(upper)) return null;
     for (const yy of [y, y + 1]) if (this.overlapsBody(x, yy, z) || c.gate?.placeBlocked(x, yy, z) || this.lockedCell(x, yy, z)) return null;
-    const lo = doorId(false, false);
-    return { x, y, z, block: lo, cells: [{ x, z, block: lo }, { x, y: y + 1, z, block: doorId(true, false) }] };
+    const lo = doorIdLike(like, false, false); // いえの と も てつの と も 持った 物の なかま
+    return { x, y, z, block: lo, cells: [{ x, z, block: lo }, { x, y: y + 1, z, block: doorIdLike(like, true, false) }] };
   }
 
   /** ひまわり 2 段（下〔ねらった マス〕と その 上）を 置く 場所。上の 1 マスが ふさがって いたら 置けない（VOX-I §2.5） */
@@ -255,6 +259,23 @@ export class BlockPlacer {
     if (doorInfo(w.getBlock(x, loY + 1, z))?.top === true) w.setBlock(x, loY + 1, z, doorIdLike(t.id, true, open));
   }
 
+  /**
+   * HOUSE-2C §2.7: 案の ある 形の アイテム（`roof_kawara_shiro` など）を 置いた とき、その マスに 案と 向きを 書く（てつの とは 下・上 とも。むら でも 書く）。
+   * 向きは 家具と 同じ きめ方（置く マスから 見て プレイヤーが いる 方位を 4 つに まるめる）。案の ない 物は 書かない。置いた あと（setBlock の 知らせの あと）に 呼ぶ
+   */
+  private writePlacedLook(spot: PlaceSpot): void {
+    const c = this.c;
+    const placed = c.m4.placedLooks?.();
+    const held = c.inventory.held();
+    const style = placed && held ? styleOfItem(held.item) : null;
+    if (!placed || style === null) return;
+    const facing = FACING_OF_ROT[furnRotFromYaw(c.player().yawDeg)];
+    for (const k of spot.cells ?? [{ x: spot.x, y: spot.y, z: spot.z, block: spot.block }]) {
+      const y = k.y ?? spot.y;
+      placed.set(k.x, y, k.z, style, facing, c.world.getBlock(k.x, y, k.z) as BlockId);
+    }
+  }
+
   tryPlace(): void {
     const c = this.c;
     const spot = this.spot();
@@ -269,6 +290,7 @@ export class BlockPlacer {
     } else if (c.bodyTgt()) {
       if (!c.m4.bodyBlocks?.place({ x, y, z }, block)) return;
     } else if (!c.world.setBlock(x, y, z, block)) return;
+    this.writePlacedLook(spot);
     for (let i = 0; i < (spot.use ?? 1); i++) c.inventory.consumeHeld();
     spot.after?.();
     if (isFurnKind(block, K_TANSU)) c.m4.storage?.placed(x, y, z, c.player().yawDeg);

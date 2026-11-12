@@ -10,6 +10,7 @@ import type { HouseWorld } from './ground';
 import type { BlockWatcher } from './blockWatch';
 import { ArchitectManager, type ArchitectInfo } from './manager';
 import { HouseBook, type HouseView } from './book';
+import { PlacedLooks, resolveLook } from './placedLooks';
 import { bagVia, type Who } from './whoPort';
 import { cellInfo, type CellInfo } from './cell';
 import { HoverTip, glowPartOf, tipLines } from './recipes/hoverTip';
@@ -103,6 +104,8 @@ export class HouseSystem {
   readonly state = new HouseState();
   /** 建てた 家の 記録（戸で おぼえる。保存に 入る） */
   readonly book = new HouseBook();
+  /** 手で 置いた 家の 物の 案の 記録（HOUSE-2C §2.7。世界に 1 つ。保存キー placedLooks） */
+  readonly placedLooks = new PlacedLooks();
   /** 窓口 settings の houseBuildTicks（HOUSE-1C PR-2 のテスト用） */
   readonly settings: HouseSettings = { houseBuildTicks: 0 };
   /** 家を 建てる 流れ（建築中の 家・一覧・上空の 視点・みずもり・どうづき・完成の 盛り上げ） */
@@ -123,8 +126,14 @@ export class HouseSystem {
       this.manager.blocksChanged(x0, z0, x1, z1);
       this.build.level.blocksChanged(x0, z0, x1, z1);
     },
-    cellChanged: (x, y, z, id) => this.book.cellChanged(x, y, z, id),
-    boxFilled: (x0, y0, z0, x1, y1, z1, id) => this.book.boxFilled(x0, y0, z0, x1, y1, z1, id),
+    cellChanged: (x, y, z, id) => {
+      this.book.cellChanged(x, y, z, id);
+      this.placedLooks.cellChanged(x, y, z, id);
+    },
+    boxFilled: (x0, y0, z0, x1, y1, z1, id) => {
+      this.book.boxFilled(x0, y0, z0, x1, y1, z1, id);
+      this.placedLooks.boxFilled(x0, y0, z0, x1, y1, z1, id);
+    },
   };
   /** レシピの まきもの: 手に 入れる・使って おぼえる（3.3 版）。おぼえた 記録は state.recipes（保存） */
   readonly recipes: RecipeKeeper;
@@ -185,6 +194,7 @@ export class HouseSystem {
       consume: (item, n) => this.materials.consume(item, n),
       buildTicks: () => this.settings.houseBuildTicks,
       book: this.book,
+      erasePlaced: (x, y, z) => this.placedLooks.erase(x, y, z),
       manager: this.manager,
       speaker: () => this.talk.current(),
       fallbackArchitect: () => this.manager.all()[0]?.id ?? null,
@@ -341,12 +351,13 @@ export class HouseSystem {
     this.editor.loaded();
     const d = (typeof data === 'object' && data !== null ? data : {}) as Record<string, unknown>;
     this.book.restore(d.houses);
+    this.placedLooks.restore(d.placedLooks, (x, y, z) => this.d.world.getBlock(x, y, z)); // 今の ブロックと 合わない 行は すてる
     this.build.load(d.build);
   }
 
   /** 保存（せっけいず ＋ まだ かえして いない くらの 物 ＋ 建てた 家の 記録 ＋ 建築中の 家。HOUSE-1C PR-2） */
-  serialize(): ReturnType<HouseState['serialize']> & { houses: ReturnType<HouseBook['serialize']>; build: ReturnType<BuildGlue['serialize']> } {
-    return { ...this.state.serialize(), houses: this.book.serialize(), build: this.build.serialize() };
+  serialize(): ReturnType<HouseState['serialize']> & { houses: ReturnType<HouseBook['serialize']>; build: ReturnType<BuildGlue['serialize']>; placedLooks: ReturnType<PlacedLooks['save']> } {
+    return { ...this.state.serialize(), houses: this.book.serialize(), build: this.build.serialize(), placedLooks: this.placedLooks.save() };
   }
 
   /** 1 ステップ（1/60 秒。ゲームの 時間が 止まって いても すすむ）: エディターの ふきだしの 時間 */
@@ -428,6 +439,11 @@ export class HouseSystem {
     return (part === 'roof' && e.roof === 'none') || (part === 'wall' && e.wall === 'none') || (part === 'window' && e.windowKind === 'none');
   }
 
+  /** おぼえた レシピの id（「つくる」が 家の 物の 作り方を 解禁する ときに 読む。毎回 配列を 作らない） */
+  learnedRecipes(): readonly string[] {
+    return this.state.recipes.learnedIds();
+  }
+
   /** 窓口 `recipes()`・`learn(id)`・`found(at, who)`・`read(who)`・`recipeBand()`・`recipeKinds(id)`（HOUSE-2A。テスト用の 窓口と 手に 入れる・使う 入口） */
   recipeKinds(id: string): string[] {
     return isRecipeId(id) ? recipeButtons(id) : [];
@@ -488,7 +504,7 @@ export class HouseSystem {
     const bp = this.state.blueprint(number);
     if (!bp) return null;
     // 記録は 書きおわってから 足す（書く 途中の blockWatch の 知らせで、まだ 戸が 無い マスを 記録が 見て 消えたり しない ように）
-    writeShape(this.d.world, bp, at);
+    writeShape(this.d.world, bp, at, (x, y, z) => this.placedLooks.erase(x, y, z)); // 置きかえた マスの 手置きの 記録は 消す
     const rec = recordHouse(this.book, bp, number, at);
     return this.book.view(rec);
   }
@@ -496,6 +512,16 @@ export class HouseSystem {
   /** 戸で おぼえた 記録（できた 順） */
   houses(): HouseView[] {
     return this.book.list().map((r) => this.book.view(r));
+  }
+
+  /** 場所 (x, y, z) の しゅるいの id（置いた 記録 → 家の 記録 → むら。見た目・ほった アイテムと 同じ 答え）。案の ある 形の ブロックで なければ null */
+  lookOf(x: number, y: number, z: number): string | null {
+    return resolveLook({ block: this.d.world.getBlock(x, y, z), placed: this.placedLooks, book: this.book }, x, y, z);
+  }
+
+  /** 置いた ときの 記録（なければ null） */
+  placedLook(x: number, y: number, z: number): ReturnType<PlacedLooks['get']> {
+    return this.placedLooks.get(x, y, z);
   }
 
   /** マス 1 つの ようす（ほると 手に 入る アイテム・家具の 向き） */

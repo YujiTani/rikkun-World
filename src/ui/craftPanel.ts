@@ -8,7 +8,9 @@ import {
   packDesc,
   type DescPage,
   buildCards,
+  craftViewCards,
   buildDetail,
+  mergeGroups,
   buildTiles,
   nextFuel,
   visibleCards,
@@ -19,12 +21,12 @@ import {
   type TileView,
 } from './craftModel';
 import { fingerUrl } from './craftPanel.art';
+import { makeTile, paintTile, type TileEls } from './craftPanel.tiles';
 import { el, fly, rectOf, shake, type Rect } from './craftPanel.fx';
 import { renderDetail, renderDetailEmpty, createDetailEls, EMPTY_TEXT, type DetailEls } from './craftPanel.detail';
-import { drawPixels, extraIconUrl, itemIconPixels, itemIconUrl } from './itemIcon';
-import { itemRarity } from '../drops/rarity';
-import { itemCategory, rarityIndex } from './itemCategory';
-import { createBar, createSlot, createTab, setBar, setTabState } from './theme';
+import { drawPixels, itemIconPixels, itemIconUrl } from './itemIcon';
+import { createTab, setTabState } from './theme';
+import { CraftLooks, houseCardOf, isAltLook } from './craftLooks';
 import './craftPanel.css';
 
 /** 開いている かまど の中（A の `furnace.get` と同じ形） */
@@ -113,15 +115,6 @@ export interface PanelMaterials {
   refresh(): void;
 }
 
-interface TileEls {
-  root: HTMLDivElement;
-  art: HTMLImageElement;
-  count: HTMLSpanElement;
-  queue: HTMLSpanElement;
-  barFill: ReturnType<typeof createBar>;
-  recipe: Recipe;
-}
-
 export { EMPTY_TEXT };
 
 /**
@@ -155,6 +148,8 @@ export class CraftPanel {
   private pageSel: { id: string; index: number; recipe: string } | null = null;
   private readonly tileEls = new Map<string, TileEls>();
   private readonly cfg: CraftUiSettings;
+  /** HOUSE-2C: 案の ボタンの えらび（このパネルだけ。保存しない） */
+  readonly looks = new CraftLooks();
   private d: CraftPanelDeps;
   private matVer = 0;
   private info_: ItemInfoSource;
@@ -166,8 +161,12 @@ export class CraftPanel {
   private craftViews: CardView[] = [];
   private bakeViews: CardView[] = [];
   private selected_: Record<CraftTab, string | null> = { craft: null, bake: null };
+  /** 自分で クリックして えらんだ カード（自動で えらばれた だけの カードは 1 回目の クリックで えらぶだけ） */
+  private chosen_: Record<CraftTab, string | null> = { craft: null, bake: null };
   private hovered_: string | null = null;
   private readonly madeLocal = new Set<string>();
+  /** さいごに スクロールで 見せた カード（えらびが 見えない 段に 入ったら 見える まで スクロールする） */
+  private scrolledTo: string | null = null;
   private detailKey = '';
   private readonly off: () => void;
 
@@ -179,7 +178,7 @@ export class CraftPanel {
     this.craftAll = all.filter((r) => r.station === 'craft');
     this.bakeAll = all.filter((r) => r.station === 'furnace');
     this.groups = groupRecipes(all);
-    this.craftRecipes = this.craftAll.filter((r) => this.groups.has(r.id));
+    this.craftRecipes = this.craftAll.filter((r) => this.groups.has(r.id) && !isAltLook(r.id)); // 案の ある 形は むらの カード 1 まい
     this.bakeRecipes = this.bakeAll.filter((r) => this.groups.has(r.id));
 
     this.el = el('div', 'craft-panel');
@@ -225,6 +224,8 @@ export class CraftPanel {
       onPress: () => void this.detailPress(),
       onEnter: () => this.hover(null),
       onPage: (d) => void this.pageGo(d),
+      onLook: (item) => void this.pickLook(item),
+      onLookHover: (item) => this.d.hover?.(item === null ? null : `look:${item}`),
     });
 
     // ゆびの印（つくれる えらんでいるマスにだけ付ける。ひとつを使いまわす）
@@ -233,6 +234,7 @@ export class CraftPanel {
 
     parent.append(this.el);
     this.off = deps.inv.onChange(() => (this.dirty = true));
+    window.addEventListener('resize', this.onResize);
   }
 
   /** つなぎ込みが 設定とつないだ説明のデータや、カーソル・記録の口を渡す */
@@ -245,6 +247,7 @@ export class CraftPanel {
   /** かくれていた 画面を 見せたとき（2 人用の ページ切りかえ）: せつめいの 分け方を 実際の 大きさで 測りなおす */
   relayout(): void {
     this.detailKey = '';
+    this.scrolledTo = null; // かくれていた 間は スクロールできない ので、見せた とき えらびを 見える 所へ
     this.dirty = true;
   }
 
@@ -253,39 +256,13 @@ export class CraftPanel {
   }
 
   private makeTile(r: Recipe): HTMLDivElement {
-    const slot = createSlot({ art: itemIconUrl(r.output.item) });
-    const root = slot.root;
-    // 色分け（§3.5 (7)）: 背景 = カテゴリーの色、ふち = めずらしさ（印は出さない。2026-10-30）
-    const rar = rarityIndex(itemRarity(r.output.item));
-    root.dataset.cat = itemCategory(r.output.item);
-    root.dataset.rarity = String(rar);
-    root.classList.add('cp-tile');
-    root.dataset.menuItem = ''; // コントローラーの 十字で 動ける（もちものの マスと おなじ）
-    root.tabIndex = 0;
-    root.dataset.id = r.id;
-    root.dataset.station = r.station;
-    root.dataset.works = String(r.works);
-    const made = el('span', 'cp-made', root);
-    made.textContent = '✓';
-    el('span', 'cp-later', root).style.backgroundImage = `url(${extraIconUrl('clock')})`;
-    const mark = el('span', 'cp-mark', root);
-    mark.textContent = '▼';
-    const queue = el('span', 'card-queue cp-queue', root);
-    const barFill = createBar('bake', 0);
-    barFill.root.classList.add('cp-bar');
-    barFill.root.hidden = true;
-    root.append(barFill.root);
-    root.addEventListener('mouseenter', () => this.hover(r.id));
-    root.addEventListener('mouseleave', () => { if (this.hovered_ === r.id) this.hover(null); }); // 十字で 別の マスに 来たあとの 古い mouseleave で 消さない
-    // 十字で マスに フォーカスが 来たら、マウスを 合わせたのと おなじに せつめいを 切りかえる（のこった マウスの hovered_ も ここで 上書き）。
-    // blur では 消さない: せつめい パネルへ 十字で 移っても、直前の マスの せつめいの まま
-    root.addEventListener('focus', () => this.hover(r.id));
-    root.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.tileClick(r.id);
+    const e = makeTile(r, {
+      hover: (id) => this.hover(id),
+      leave: (id) => { if (this.hovered_ === id) this.hover(null); },
+      click: (id) => this.tileClick(id),
     });
-    this.tileEls.set(r.id, { root, art: slot.art, count: slot.count, queue, barFill, recipe: r });
-    return root;
+    this.tileEls.set(r.id, e);
+    return e.root;
   }
 
   // ---- 状態
@@ -324,33 +301,19 @@ export class CraftPanel {
   /** カードごとの 作り方のカード（たいまつ は 3 つ。ほかは 1 つ） */
   private variantViews = new Map<string, CardView[]>();
 
+  /** まだ おぼえて いない 家の 物の 作り方を のぞく（HOUSE-2C） */
+  private usable(list: Recipe[]): Recipe[] {
+    return list.filter((r) => this.d.craft.unlocked?.(r.id) ?? true);
+  }
+
   private views(): { craft: CardView[]; bake: CardView[] } {
     const st = this.furnaceState();
-    const craftAll = buildCards(this.craftAll, this.d.craft, this.counter(), this.cardOpt());
-    const bakeAll = buildCards(this.bakeAll, this.d.craft, this.counter(), { ...this.cardOpt(), bake: true, queued: this.bakeQueued(st), cfg: this.cfg });
+    const bakeAll = buildCards(this.usable(this.bakeAll), this.d.craft, this.counter(), { ...this.cardOpt(), bake: true, queued: this.bakeQueued(st), cfg: this.cfg });
     const variants = new Map<string, CardView[]>();
-    const merge = (list: CardView[]): CardView[] => {
-      const byId = new Map(list.map((c) => [c.id, c]));
-      const out: CardView[] = [];
-      for (const [primary, ids] of this.groups) {
-        const vs = ids.map((id) => byId.get(id)).filter((c): c is CardView => !!c);
-        if (vs.length === 0) continue;
-        variants.set(primary, vs);
-        const first = vs[0];
-        if (vs.length === 1) {
-          out.push(first);
-          continue;
-        }
-        // 3 つの どれかが 作れれば「作れる」。材料の赤・まるは 作れる作り方（無ければ 材料を もっている いちばん前の作り方）で見る
-        const def = vs.find((v) => v.glowing) ?? vs.find((v) => v.materials.some((m) => m.have > 0)) ?? first;
-        out.push({ ...def, id: first.id, output: first.output, countLabel: first.countLabel, glowing: vs.some((v) => v.glowing) });
-      }
-      return out;
-    };
-    const craft = merge(craftAll);
-    const bake = merge(bakeAll);
-    this.variantViews = variants;
-    return { craft, bake };
+    const craft = craftViewCards(this.d.craft, this.counter(), this.looks, this.cardOpt(), variants, false); // 本物の 道（テストも これを 通す）
+    const b = mergeGroups(bakeAll, this.groups);
+    this.variantViews = new Map([...variants, ...b.variants]);
+    return { craft, bake: b.cards };
   }
 
   private currentTab(): CraftTab {
@@ -391,6 +354,7 @@ export class CraftPanel {
         this.tab_ = this.furnacePos() ? 'bake' : 'craft';
         this.hovered_ = null;
         this.pageSel = null;
+        this.scrolledTo = null;
         this.ensureSelection();
       } else this.hovered_ = null;
       this.dirty = true;
@@ -455,7 +419,7 @@ export class CraftPanel {
     const tiles = buildTiles(vis, sel, (id) => this.made(tab, id));
     const shown = new Set(tiles.map((t) => t.id));
     const grid = tab === 'craft' ? this.craftGrid : this.bakeGrid;
-    for (const c of views) this.tileEls.get(c.id)!.root.hidden = !shown.has(c.id);
+    for (const r of tab === 'craft' ? this.craftRecipes : this.bakeRecipes) this.tileEls.get(r.id)!.root.hidden = !shown.has(r.id); // 出ない（まだ おぼえて いない・材料なし）カードは かくす
     // 作れる → 足りない の順に ならべる（同じ順なら DOM は動かさない）
     tiles.forEach((t, i) => {
       const r = this.tileEls.get(t.id)!.root;
@@ -464,18 +428,13 @@ export class CraftPanel {
     let fingerOn: HTMLElement | null = null;
     for (const t of tiles) {
       const e = this.tileEls.get(t.id)!;
-      const r = e.root;
-      r.dataset.glow = String(t.glowing);
-      r.dataset.dim = String(t.dim);
-      r.dataset.made = String(t.made);
-      r.dataset.later = String(t.later);
-      r.dataset.selected = String(t.selected);
-      e.count.textContent = t.count >= 2 ? `×${t.count}` : '';
-      e.queue.textContent = t.queued > 0 ? `あと ${t.queued}` : '';
-      const progress = st?.current && st.current.id === t.id ? st.current.progress : null;
-      e.barFill.root.hidden = progress === null;
-      if (progress !== null) setBar(e.barFill, progress);
-      if (t.selected && t.glowing) fingerOn = r;
+      paintTile(e, t, st?.current && st.current.id === t.id ? st.current.progress : null);
+      if (t.selected && t.glowing) fingerOn = e.root;
+    }
+    const selEl = sel ? this.tileEls.get(sel)?.root : null;
+    if (selEl && sel !== this.scrolledTo && !selEl.hidden) {
+      this.scrolledTo = sel;
+      selEl.scrollIntoView?.({ block: 'nearest' }); // 一覧の 中で えらびが 見える まで
     }
     if (fingerOn) {
       if (this.finger.parentElement !== fingerOn) fingerOn.append(this.finger);
@@ -537,7 +496,7 @@ export class CraftPanel {
     const countOf = (i: ItemId) => this.counter().count(i);
     const fuelCounts: Record<string, number> = {};
     for (const f of this.cfg.fuelOrder) fuelCounts[f] = countOf(f as ItemId);
-    return buildDetail({
+    const d = buildDetail({
       shown,
       selected: sel,
       info: this.info_.info(shown.output.item),
@@ -550,6 +509,19 @@ export class CraftPanel {
       selectedCard: selVariants.find((v) => v.id === selPage.recipe) ?? sel,
       desc: this.descPlans.get(this.descKey(shown.output.item)),
     });
+    // HOUSE-2C: 案の ある カードは 案の ボタンと、えらんで いる 案の 作り方（recipe・ページの 作り方）
+    const rec = (r: string): string => this.looks.recipeOf(r);
+    return { ...d, looks: this.looks.view(shown.id), recipe: rec(d.recipe), pages: d.pages.map((p) => (p.recipe ? { ...p, recipe: rec(p.recipe) } : p)) };
+  }
+
+  /** 案の ボタンを 押した（今 出て いる カードの 案の 1 つ。作らない）。今 出て いる カードの 案で なければ false */
+  pickLook(item: ItemId): boolean {
+    const card = this.detail()?.id;
+    if (!card || !this.looks.pick(card, item)) return false;
+    this.d.onSelect?.(item);
+    this.dirty = true;
+    this.sync();
+    return true;
   }
 
   // ---- ページ（CRAFT-PAGE）
@@ -572,7 +544,7 @@ export class CraftPanel {
   /** 「つくる」が 今 使う 作り方（作り方のページを見ていれば そのページ、せつめい・つよさ なら さいごに見た作り方） */
   private currentRecipe(id: string): string {
     const v = this.variantViews.get(id) ?? [];
-    return this.pageSel?.id === id ? this.pageSel.recipe : this.pageFor(id, v).recipe;
+    return this.looks.recipeOf(this.pageSel?.id === id ? this.pageSel.recipe : this.pageFor(id, v).recipe);
   }
 
   /** ◀ ▶ を 押したのと同じ。はしで 動かなければ false */
@@ -666,12 +638,15 @@ export class CraftPanel {
     if (!this.d.isOpen()) return { action: 'select', ok: false, reason: 'closed' };
     if (!station) return { action: 'select', ok: false, reason: 'unknown' };
     if (!visibleCards(this.views()[station]).some((c) => c.id === id)) return { action: 'select', ok: false, reason: 'hidden' };
-    if (this.selected_[station] !== id) {
+    if (this.selected_[station] !== id || this.chosen_[station] !== id) {
+      // 開いた とき 自動で えらばれた カードでも、はじめての クリックは「えらぶ」だけ（作らない）
       this.selected_[station] = id;
+      this.chosen_[station] = id;
       this.hovered_ = id; // 最後の 操作（クリック・B）の マスが せつめいに 出る
       this.d.onSelect?.(id);
       this.dirty = true;
       this.sync();
+      this.tileEls.get(id)?.root.focus({ preventScroll: true }); // 十字は えらんだ マスから つづけて 動く
       return { action: 'select', ok: true, reason: null };
     }
     const r = this.click(this.currentRecipe(id));
@@ -692,7 +667,7 @@ export class CraftPanel {
     if (!this.d.isOpen()) return { ok: false, reason: 'closed' };
     const station = this.stationOf(id);
     const isBake = station === 'bake';
-    const base = baseRecipeId(id); // 足した作り方も カードは 元のマス
+    const base = houseCardOf(baseRecipeId(id)); // 足した作り方も カードは 元のマス（案の ある 形は むらの カード）
     const tile = this.tileEls.get(base);
     if (station) this.selected_[station] = base;
     const r = this.d.craft.make(id);
@@ -721,7 +696,7 @@ export class CraftPanel {
 
   /** そのレシピの マスの DOM（B の演出の出どころ） */
   tileElFor(recipe: string): HTMLElement | null {
-    return this.tileEls.get(baseRecipeId(recipe))?.root ?? null;
+    return this.tileEls.get(houseCardOf(baseRecipeId(recipe)))?.root ?? null;
   }
 
   /** せつめい パネルの つくる ボタンの DOM（B の「できた！」ハンコの場所） */
@@ -761,7 +736,14 @@ export class CraftPanel {
     return buildCards(this.craftRecipes, this.d.craft, this.counter(), this.cardOpt()).some((c) => c.glowing);
   }
 
+  /** 画面の 大きさが かわると 一覧の 見える 高さも かわる: えらびを もう 一度 見える 所へ */
+  private readonly onResize = (): void => {
+    this.scrolledTo = null;
+    this.dirty = true;
+  };
+
   dispose(): void {
+    window.removeEventListener('resize', this.onResize);
     this.off();
     this.el.remove();
   }

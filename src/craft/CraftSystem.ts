@@ -5,6 +5,8 @@ import { maxOwnedOf } from '../content/items/registry';
 import { itemType } from '../inventory/items';
 import { PickupLog } from '../inventory/pickupLog';
 import { ALL_RECIPES, BAKE_RECIPES, CRAFT_RECIPES } from './recipes';
+import { houseUnlocked } from './houseCraft';
+import { FLOWER_IDS, FLOWER_ROW, materialCount } from '../house/recipes/mats';
 import { createCraftConfig, type CraftConfig } from './config';
 import { FurnaceWorld, type FurnaceFxEntryLike, type FurnaceView, type FurnaceWho } from './FurnaceWorld';
 
@@ -34,6 +36,8 @@ export interface CraftDeps {
    * 渡さない ときは 自分だけの かまどを 内に 持つ（1 人の 遊びは 今の まま。`update()` で すすむ）
    */
   furnaces?: FurnaceWorld;
+  /** HOUSE-2C: おぼえた 家の レシピの id（`house.recipes().learned`。なければ 1 つも おぼえて いない）。レシピで ふえる 家の 物の 作り方が 使える かを 見る */
+  houseLearned?: () => readonly string[];
   /** COOP-1 4c: この つくる の 持ち主（かまどに 入れる「入れた 人」。既定 1） */
   who?: FurnaceWho;
 }
@@ -254,6 +258,13 @@ export class CraftSystemImpl implements CraftSystem {
       return n;
     };
     for (const i of inputs) {
+      if (i.item === FLOWER_ROW) {
+        // HOUSE-2C: はな（はなだん）は 3 いろの どれでも。きいろ → オレンジ → ピンク の 順に へらす
+        let rem = i.count;
+        for (const f of FLOWER_IDS) rem = take(f, rem);
+        if (rem > 0) missing.push({ item: i.item, count: rem });
+        continue;
+      }
       const rem = take(i.item, i.count);
       if (rem > 0) missing.push({ item: i.item, count: rem });
     }
@@ -300,6 +311,11 @@ export class CraftSystemImpl implements CraftSystem {
 
   // ---------------------------------------------------------- レシピ
 
+  /** その 作り方が 使えるか（HOUSE-2C。家の 物 以外は いつも true、はじめからの 13 も true、レシピで ふえる 物は その レシピを おぼえた あとだけ） */
+  unlocked(recipeId: string): boolean {
+    return houseUnlocked(recipeId, this.d.houseLearned?.() ?? []);
+  }
+
   recipes(): Recipe[] {
     return ALL_RECIPES.map((r) => ({ ...r, output: { ...r.output }, inputs: r.inputs.map((i) => ({ ...i })) }));
   }
@@ -311,6 +327,7 @@ export class CraftSystemImpl implements CraftSystem {
   status(recipeId: string): { craftable: boolean; missing: ItemStack[]; /** ITEM-FX-1: 持ち物 全体で 1 つだけの 物（おまもり）を もう 持っている */ limit?: 'haveOne' } {
     const r = this.recipe(recipeId);
     if (!r) return { craftable: false, missing: [] };
+    if (!this.unlocked(r.id)) return { craftable: false, missing: r.inputs.map((i) => ({ item: i.item, count: i.count })) }; // HOUSE-2C: まだ おぼえて いない 家の 物（作れない。材料は ぜんぶ たりない 扱い）
     const missing: ItemStack[] = this.plan(r.inputs, false).missing.map((m) => ({ item: m.item, count: m.count }));
     if (this.haveOne(r)) return { craftable: false, missing, limit: 'haveOne' };
     return { craftable: missing.length === 0, missing };
@@ -322,9 +339,9 @@ export class CraftSystemImpl implements CraftSystem {
     return cap !== null && this.total(r.output.item) + r.output.count > cap;
   }
 
-  /** `craft.list()`（M4 §6.1）: つくる 18 こ */
+  /** `craft.list()`（M4 §6.1）: つくる 18 こ（おぼえて いない 家の 物は 出ない） */
   list() {
-    return CRAFT_RECIPES.map((r) => {
+    return CRAFT_RECIPES.filter((r) => this.unlocked(r.id)).map((r) => {
       const st = this.status(r.id);
       return {
         id: r.id,
@@ -387,6 +404,7 @@ export class CraftSystemImpl implements CraftSystem {
       this.emit({ type: 'craftFail', tick: this.tickCount, recipe: recipeId, reason: 'unknown' }, 'craft');
       return { ok: false, reason: 'unknown', used: null };
     }
+    if (!this.unlocked(r.id)) return { ok: false, reason: 'unknown', used: null }; // HOUSE-2C: まだ おぼえて いない（持ち物 そのまま）
     if (r.station === 'furnace') {
       const o = this.opened;
       if (!o) return { ok: false, reason: 'unknown', used: null };
@@ -468,7 +486,7 @@ export class CraftSystemImpl implements CraftSystem {
   bake(recipeId: string, x: number, y: number, z: number): { ok: boolean; reason: BakeReason; used: MaterialUse | null } {
     if (!this.isFurnace(x, y, z)) return { ok: false, reason: 'notFurnace', used: null };
     const r = BAKE_RECIPES.find((b) => b.id === recipeId);
-    if (!r) return { ok: false, reason: 'unknown', used: null };
+    if (!r || !this.unlocked(r.id)) return { ok: false, reason: 'unknown', used: null }; // HOUSE-2C: まだ おぼえて いない まねきねこも やけない
     const p = this.plan(r.inputs, true);
     if (p.missing.length > 0) return { ok: false, reason: 'missing', used: null };
     const fuel = p.fuel;
@@ -501,10 +519,10 @@ export class CraftSystemImpl implements CraftSystem {
     if (ver !== -2 && key === this.hint.key) return this.hint.value;
     let any = false;
     for (const r of ALL_RECIPES) {
-      if (r.station !== 'craft' || this.haveOne(r)) continue;
+      if (r.station !== 'craft' || this.haveOne(r) || !this.unlocked(r.id)) continue;
       let ok = true;
       for (const inp of r.inputs) {
-        if (this.total(inp.item) < inp.count) {
+        if (materialCount(inp.item, (i) => this.total(i)) < inp.count) {
           ok = false;
           break;
         }

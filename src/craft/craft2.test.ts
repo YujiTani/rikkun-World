@@ -60,7 +60,10 @@ describe('たんす の素材（CRAFT-2 §2.2〜§2.4）', () => {
     expect(craft.sources('wood_pickaxe')).toMatchObject({ ok: true, inv: [{ item: 'log', count: 1 }], tansu: [{ x: 3, y: 5, z: 0, item: 'log', count: 2 }] });
     put(3, 5, 0, 0, null);
     expect(row()).toMatchObject({ craftable: false, missing: [{ item: 'log', count: 2 }] });
-    expect(craft.canCraftAny()).toBe(false);
+    // HOUSE-2C（仕様 3.4 版 §2.6）: はじめから 作れる 家の 物 13 は かなづち の 印に 数える。き 1 こ で いえの かべ（き 1 → 1）が 作れる ので 印は 出る
+    expect(craft.canCraftAny()).toBe(true);
+    inv.setSlot(0, null);
+    expect(craft.canCraftAny(), 'なにも 持たなければ 印は 出ない').toBe(false);
   });
 
   it('AC2: もちもの が先（うしろのマスから）、たんす は足りない分だけ', () => {

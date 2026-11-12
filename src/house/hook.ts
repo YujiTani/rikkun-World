@@ -119,6 +119,10 @@ export interface HouseHook {
   buildNow(number: number, at: Vec3): HouseView | null;
   houses(): HouseView[];
   blockAt(x: number, y: number, z: number): CellInfo;
+  /** HOUSE-2C: 場所の しゅるいの id（`kawara_shiro`。置いた 記録 → 家の 記録 → むら。案の ある 形の ブロックで なければ null） */
+  lookOf(x: number, y: number, z: number): string | null;
+  /** HOUSE-2C: 手で 置いた ときの 記録（案・向き。なければ null） */
+  placedLook(x: number, y: number, z: number): { style: string; facing: string } | null;
   renaming(): ReturnType<HouseSystem['renaming']>;
   /** 1D（#341）: 座って いる／おふろに 入って いる あいだだけ { kind: 'sit' | 'bath', block, position }。立つと null */
   seat(): SeatInfo | null;
@@ -130,7 +134,7 @@ export interface HouseHook {
   celebrate(): ReturnType<HouseSystem['celebrate']>;
 }
 
-type HookSystem = Pick<HouseSystem, 'architects' | 'talkTo' | 'menu' | 'press' | 'legacyKura' | 'editor' | 'editing' | 'edit' | 'need' | 'blueprints' | 'preview' | 'previewDrag' | 'previewWheel' | 'hover' | 'recipes' | 'recipeKinds' | 'hoverTip' | 'buildNow' | 'houses' | 'blockAt' | 'renaming' | 'level' | 'sites' | 'cursor' | 'building' | 'firstBonus' | 'celebrate'>;
+type HookSystem = Pick<HouseSystem, 'architects' | 'talkTo' | 'menu' | 'press' | 'legacyKura' | 'editor' | 'editing' | 'edit' | 'need' | 'blueprints' | 'preview' | 'previewDrag' | 'previewWheel' | 'hover' | 'recipes' | 'recipeKinds' | 'hoverTip' | 'buildNow' | 'houses' | 'blockAt' | 'lookOf' | 'placedLook' | 'renaming' | 'level' | 'sites' | 'cursor' | 'building' | 'firstBonus' | 'celebrate'>;
 
 export function createHouseHook(sys: HookSystem, seat: { seat(): SeatInfo | null } = { seat: () => null }): HouseHook {
   const editor = (): EditorInfo | null => {
@@ -190,6 +194,8 @@ export function createHouseHook(sys: HookSystem, seat: { seat(): SeatInfo | null
     buildNow: (number, at) => sys.buildNow(number, at),
     houses: () => sys.houses(),
     blockAt: (x, y, z) => sys.blockAt(x, y, z),
+    lookOf: (x, y, z) => sys.lookOf(x, y, z),
+    placedLook: (x, y, z) => sys.placedLook(x, y, z),
     renaming: () => sys.renaming(),
     seat: () => seat.seat(),
     level: () => sys.level(),

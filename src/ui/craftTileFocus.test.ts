@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 
 describe('レシピの マスは コントローラーの 十字で 動ける', () => {
   it('makeTile が data-menu-item と tabIndex 0 を つける（もちものの マスと おなじ）', () => {
-    const src = readFileSync(new URL('./craftPanel.ts', import.meta.url), 'utf8');
-    const body = src.slice(src.indexOf('private makeTile'), src.indexOf('// ---- 状態'));
+    const src = readFileSync(new URL('./craftPanel.tiles.ts', import.meta.url), 'utf8');
+    const body = src.slice(src.indexOf('export function makeTile'), src.indexOf('export function paintTile'));
     expect(body).toContain("root.classList.add('cp-tile')");
     expect(body).toContain("root.dataset.menuItem = ''");
     expect(body).toContain('root.tabIndex = 0');
@@ -12,11 +12,13 @@ describe('レシピの マスは コントローラーの 十字で 動ける', 
 
   it('マスに フォーカスが 来たら hover(id) で せつめいを 切りかえる（のこった マウスの hovered_ に まけない）。blur では 消さない', () => {
     const src = readFileSync(new URL('./craftPanel.ts', import.meta.url), 'utf8');
-    const body = src.slice(src.indexOf('private makeTile'), src.indexOf('// ---- 状態'));
-    expect(body).toContain("root.addEventListener('focus', () => this.hover(r.id))");
+    const tiles = readFileSync(new URL('./craftPanel.tiles.ts', import.meta.url), 'utf8');
+    const body = tiles.slice(tiles.indexOf('export function makeTile'), tiles.indexOf('export function paintTile'));
+    expect(body).toContain("root.addEventListener('focus', () => on.hover(r.id))");
     // マウス・十字・B の いちばん 最後が かつ: mouseenter / focus は どちらも hovered_ を 上書きし、mouseleave は 自分の マスの ときだけ 消す
-    expect(body).toContain("root.addEventListener('mouseenter', () => this.hover(r.id))");
-    expect(body).toContain('if (this.hovered_ === r.id) this.hover(null)');
+    expect(body).toContain("root.addEventListener('mouseenter', () => on.hover(r.id))");
+    expect(body).toContain("root.addEventListener('mouseleave', () => on.leave(r.id))");
+    expect(src.slice(src.indexOf('private makeTile'), src.indexOf('// ---- 状態'))).toContain('if (this.hovered_ === id) this.hover(null)');
     expect(src.slice(src.indexOf('tileClick(id: string): TileClickResult'), src.indexOf('detailPress(): CraftClickResult'))).toContain('this.hovered_ = id');
     expect(body).not.toContain("'blur'");
     expect(body).not.toContain("'focusout'");

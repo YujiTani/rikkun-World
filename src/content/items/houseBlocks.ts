@@ -4,7 +4,7 @@ import { BLOCK_TYPES } from '../../world/blocks/blockTypes';
 import type { HouseBlockId } from '../../world/blocks/houseBlocks';
 import { BLOCK_STACK } from './blocks';
 import { PLACE_HOW } from './howText';
-import { FURN_SOURCE } from './houseEditor';
+import { FURN_SOURCE_CRAFT } from './houseEditor';
 import type { ItemDef } from './types';
 
 /**
@@ -25,7 +25,7 @@ export const HOUSE_BLOCKS = {
     rarity: blockRarity('house_floor'),
     category: 'build',
     info: info('いえの ゆか。いしだたみ'),
-    source: FURN_SOURCE,
+    source: FURN_SOURCE_CRAFT,
   },
   house_wall: {
     name: blockName('house_wall'),
@@ -35,7 +35,7 @@ export const HOUSE_BLOCKS = {
     rarity: blockRarity('house_wall'),
     category: 'build',
     info: info('いえの かべ。ふとい いたの かべ'),
-    source: FURN_SOURCE,
+    source: FURN_SOURCE_CRAFT,
   },
   house_roof: {
     name: blockName('house_roof'),
@@ -45,7 +45,7 @@ export const HOUSE_BLOCKS = {
     rarity: blockRarity('house_roof'),
     category: 'build',
     info: info('いえの やね。いしの おもしが のって いる'),
-    source: FURN_SOURCE,
+    source: FURN_SOURCE_CRAFT,
   },
   shoji: {
     name: blockName('shoji'),
@@ -55,7 +55,7 @@ export const HOUSE_BLOCKS = {
     rarity: blockRarity('shoji'),
     category: 'build',
     info: info('あかるい かみの まど。ひかりは とおすが、とおれない'),
-    source: FURN_SOURCE,
+    source: FURN_SOURCE_CRAFT,
   },
   house_door: {
     name: blockName('house_door'),
@@ -65,6 +65,6 @@ export const HOUSE_BLOCKS = {
     rarity: blockRarity('house_door'),
     category: 'build',
     info: info('いえの と。2 マス。みぎクリックで あけたり しめたり できる', 'てに もって ゆかに みぎクリック（うえ・した 2 マス）'),
-    source: FURN_SOURCE,
+    source: FURN_SOURCE_CRAFT,
   },
 } satisfies Record<HouseBlockId, ItemDef>;

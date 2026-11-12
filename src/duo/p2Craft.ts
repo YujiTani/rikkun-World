@@ -20,6 +20,8 @@ export interface P2CraftDeps {
   config?: CraftDeps['config'];
   /** COOP-1 4c: 世界の かまど（1P と 共有。2P の「やく」は ここへ 入れる。すすめるのは FurnaceWorld.update だけ） */
   furnaces?: FurnaceWorld;
+  /** HOUSE-2C: おぼえた 家の レシピの id（世界で 1 つ。1P と 同じ） */
+  houseLearned?: CraftDeps['houseLearned'];
   /** 実績へ（`achievements.feedCraft`。実績は 2 人で 共有） */
   feedCraft: (events: CraftEvent[]) => void;
   /** 音など 2P の 側の 受け手（任意。出来事が あった ステップに 1 回） */
@@ -44,6 +46,7 @@ export function createP2Craft(d: P2CraftDeps): P2Craft {
     player: d.position,
     tansuRange: d.tansuRange,
     furnaces: d.furnaces,
+    houseLearned: d.houseLearned,
     who: 2,
   });
   return {

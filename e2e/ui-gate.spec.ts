@@ -16,6 +16,7 @@ import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid
 import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house';
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
 import { RECIPE_GATE, openRecipeScreen, recipeGateIssues } from './helpers/houseRecipe';
+import { craftHouseIssues, openCraftHouse, openDuoCraftHouse } from './helpers/houseCraft';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
 import { duoInvIssues, duoInvStationIssues, openDuoInv } from './helpers/duoInv';
 import { duoParryEdgeIssues, openDuoParryEdge } from './helpers/duoParry';
@@ -191,6 +192,14 @@ const SCREENS: Screen[] = [
         h.step(3);
       });
     },
+  },
+  {
+    // HOUSE-2C AC20（仕様 3.4 版 §3.5）: レシピを ぜんぶ おぼえ・材料を ぜんぶ 1 こ 以上（カードが ぜんぶ 出る）で 案の ある カード（えんとつ）を えらんだ 形。
+    // 一覧は 7 段の 高さで 中だけ スクロール・画面ぜんたいは ちぢまない・案の ボタン 3 つは 1 行で せつめいの 中（検査は e2e/helpers/houseCraft.ts の craftHouseIssues）
+    id: 'craft-house',
+    roots: ['#inventory-screen', '#tooltip', '#hud'],
+    open: openCraftHouse,
+    extra: (page) => craftHouseIssues(page, false),
   },
   {
     // RARITY-7 AC16: 7 段目（★7・いちばん長いことば・いちばん長い名前）の物を、ホットバー・つくる画面・ツールチップに出す
@@ -615,6 +624,13 @@ SCREENS.push(
     roots: DUO_INV_ROOTS,
     open: (page: Page) => openDuoInv(page, 'craft'),
     extra: (page: Page) => duoInvIssues(page, 'craft'),
+  },
+  {
+    // HOUSE-2C AC20: 2 人用の「つくる」。レシピを ぜんぶ おぼえ・材料を ぜんぶ 1 こ 以上（カードが ぜんぶ 出る）で 案の ある カード（えんとつ）を えらんだ 形
+    id: 'duo-inv-craft-house',
+    roots: DUO_INV_ROOTS,
+    open: openDuoCraftHouse,
+    extra: async (page: Page) => [...(await duoInvIssues(page, 'craft')), ...(await craftHouseIssues(page, true))],
   },
   {
     id: 'duo-inv-furnace',

@@ -328,6 +328,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         furniture: { use: (kind, x, y, z) => deps.furniture.use(kind, x, y, z, 2) },
         gadgets: { sleep: () => void deps.gadgets.port.sleep(2), kite: gadgets.useKite }, // COOP-1 5e: ふとん（1P と 同じ 1 つ）・たこ（2P の）
         houseLook: () => shared.house?.book ?? null,
+        placedLooks: () => shared.house?.placedLooks ?? null,
         scroll: createScrollPort(() => shared.house, 2), // HOUSE-2A: 2P の まきもの（2P の もちものから へらして おぼえる。記録は 世界に 1 つ）
         architects: {
           rayHit: (origin, dir, reach) => shared.house?.manager.rayHit(origin, dir, reach) ?? null,

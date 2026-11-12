@@ -212,3 +212,26 @@ E2E は 1 本（`e2e/house2.spec.ts`。`e2e/shard-times.json` に 入れて あ�
 8. **アイテムの 作り方**: 2B では 作れない〔「つくる」は 2C〕。`recipe` を 持つか どうかは 見て いない。
 
 **PO 決め 2026-11-11: ブロックの 番号は 形ごと。案は 家の 記録から 場所で 引く。手で 置いた ブロックの 案の 記録は 2C で 決める**（ブロックは 217 使用・のこり 39 で、案ごとの id は 76 以上 いる ため）。これで 上の 表を 直した。
+
+## 2C の 進め方（PO 決め 2026-11-12。2B は PR #458 で main）
+
+- yuzu 2026-11-12「はじめていいよ」。2C ＝ 仕様 **3.4 版**の AC15〜AC21（AC17b 案の ボタン・AC18b 手で 置いた 物の 案 を ふくむ）、§2.5〜§2.7・§3.5。ブランチ `claude/house-2c`。
+- 1 版の 家の 物 13（ブロック 5・家具 8）は はじめから「つくる」に 出る。yuzu の「レシピを 持っていないと 解禁されない」は レシピで ふえる 物の こと（2026-11-10 の 決め）と 読む。
+- 「つくる」の 一覧を 中で スクロールに する 変え方（§7 の 22）は 2C の PR に 入れる（PO）。
+- 手で 置いた ななめの やね・のれん・はなだんは 向き（`placedLook.facing`）で 描く。2B の `lookPieces(id, null)` は 立方体 なので、2C で 置いた 記録から 描く 道を 足す（ユニットで 向きごとの 形を 見る）。
+- 順番: yuzu が §7 の 4 つを 見る → tester（AC15〜AC21・E2E 1 本）→ code-reviewer → developer → レビュー・UI 検査（AC20）→ yuzu（AC21）。E2E は 手元で 回さない。
+
+## 2C の テストの 準備（tester 2026-11-12。窓口の 名前は src/house/recipes/craftKit.ts の「2C の 約束」）
+
+| AC | ファイル | 確かめる こと |
+|---|---|---|
+| AC15 | src/dig/houseDig2C.test.ts | 家の ブロック・家具・HOUSE-2 の しゅるい ぜんぶ・記録 なしの lk_ を ほると その 物 1 こ（log に ならない）。いまは 緑（もどり防止） |
+| AC16・AC17 | src/craft/houseCraft.test.ts | 1 版 13 物の 作り方・レシピ ゲート・3 案 同じ 材料・まねきねこ（かまど）・はなだんの 花の 順・実績名の 除外 |
+| AC17b | src/ui/craftHouseCards.test.ts | カードの 出方・並び・案の ボタン（CraftLooks） |
+| AC18 | src/dig/placedLooksDig.test.ts・e2e/house2c.spec.ts | 置く→ほる 通し・戸は 家の 記録を ふやさない・あかりの 湧かない 範囲。E2E は 本物の クリックで 1 本 |
+| AC18b | src/house/placedLooks.test.ts・src/dig/placedLooksDig.test.ts・src/world/render/placedLookPieces.test.ts | 置いた 記録の 保存・向き・消え方・2 人・向きごとの 描き分け |
+| AC19 | src/content/items/houseCraftText.test.ts | 図鑑の source 文 |
+| AC20 | e2e/ui-gate.spec.ts（craft-house・duo-inv-craft-house） | 画面の 数・大きさ |
+| AC21 | 既存の 件数・スナップショット | content.json は 実装側で `-u` |
+
+直した 既存テスト: craft2.test（canCraftAny は 木 1 で true）・houseBlocks.test（source 文）・live3-text.spec は 5 まいの まま（まねきねこ は おぼえる まで 出ない。code-reviewer で 6 → 5 に もどした）。placedLookPieces.test の「3 案で ちがう」は 形 だけで なく 絵・色 も 見る（2B の 建てた 家でも さんかく・かわら・きん は 3 案で 形が 同じ）。

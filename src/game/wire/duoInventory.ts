@@ -42,6 +42,7 @@ export function createDuoInventory(deps: WiredLoop, position: () => Vec3, onClos
     drops,
     config: craftConfig,
     furnaces: furnaceWorld, // 世界の かまど（1P と 1 つ）
+    houseLearned: () => shared.house?.learnedRecipes() ?? [], // おぼえた 家の レシピは 世界で 1 つ（2P の「つくる」も 同じ）
     tansu: storage,
     position,
     tansuRange: () => craft2Settings.craftTansuRange,

@@ -39,6 +39,8 @@ export interface CraftSystem {
   tansuInRange(): (TansuPos & { dist: number })[];
   /** CRAFT-2: テスト用の数（AC9b） */
   debugCounts(): { tansuFilterCount: number };
+  /** HOUSE-2C: その 作り方が 使えるか（なければ ぜんぶ 使える。レシピで ふえる 家の 物は おぼえた あとだけ） */
+  unlocked?(recipeId: string): boolean;
   /** いま えらんでいる ねんりょう（0 こなら 自動の順の次。なければ null） */
   fuel?(): ItemId | null;
   /** ねんりょう を えらぶ（せきたん・あぶら・き のどれか。持っていなくてもよい） */

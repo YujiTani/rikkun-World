@@ -11,7 +11,7 @@ import { doorBoxes, shojiBoxes, type BoxFace, type HouseBox } from '../blocks/ho
 import { furnitureQuads } from '../blocks/furnitureQuads';
 import { FURN_LEN, doorInfo, furnCellOffset, furnInfo, type FurnRot } from '../blocks/houseBlocks';
 import { isLookBlock } from '../blocks/houseLookBlocks';
-import { lookPieces, type LookCtx, type LookPiece } from './houseLookPieces';
+import { lookPieces, placedLookPieces, type LookCtx, type LookPiece, type PlacedLookView } from './houseLookPieces';
 import type { MeshData } from './meshChunk';
 import { FACE_SHADE_BY_INDEX } from './config';
 
@@ -150,6 +150,12 @@ export function setHouseLookSource(src: ((x: number, y: number, z: number) => Lo
   lookSource = src;
 }
 
+/** 手で 置いた 物の 案・向きの 記録を 引く 口（HOUSE-2C。家の 記録より 先。なければ 家の 記録・むら） */
+let placedSource: ((x: number, y: number, z: number) => PlacedLookView | null) | null = null;
+export function setPlacedLookSource(src: ((x: number, y: number, z: number) => PlacedLookView | null) | null): void {
+  placedSource = src;
+}
+
 /** 区の メッシュに 足す 面 1 まいぶん（Piece と 同じ 形に そろえる） */
 function pushPieces(mesh: MeshData, x: number, y: number, z: number, pieces: readonly LookPiece[], sky: number, block: number): void {
   for (const p of pieces) {
@@ -172,7 +178,8 @@ function pushPieces(mesh: MeshData, x: number, y: number, z: number, pieces: rea
 /** 家の 戸・しょうじ・家具・足場なら 描いて true（そうでなければ false）。shojiAxis は しょうじの ときだけ 使う（shojiAxisAt） */
 export function pushHouseProp(mesh: MeshData, x: number, y: number, z: number, id: string, sky: number, block: number, shojiAxis: 'x' | 'z' = 'z'): boolean {
   if (isLookBlock(id)) {
-    pushPieces(mesh, x, y, z, lookPieces(id, lookSource?.(x, y, z) ?? null), sky, block);
+    const placed = placedSource?.(x, y, z) ?? null; // HOUSE-2C: 置いた ときの 記録が 先（案・向き）
+    pushPieces(mesh, x, y, z, placed ? placedLookPieces(id, placed) : lookPieces(id, lookSource?.(x, y, z) ?? null), sky, block);
     return true;
   }
   const pieces = piecesOf(id, shojiAxis);

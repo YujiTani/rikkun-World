@@ -197,6 +197,7 @@ test.describe('LIVE-3 文字', () => {
         h.step(3);
         return h.craft.ui().tiles.length;
       });
+      // HOUSE-2C: まねきねこ（かまど で やく）は レシピを おぼえる まで 出ない（仕様 §2.6・AC17）。この 世界は おぼえて いない ので 5 まいの まま
       expect(n, `${w}x${hgt} やく 5 まい`).toBe(5);
       const bad = (await checkLayout(page, ['#inventory-screen'])).filter((i) => i.kind === 'offscreen');
       expect(bad, `${w}x${hgt} やく タブ の はみ出し`).toEqual([]);

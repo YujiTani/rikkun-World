@@ -1,7 +1,7 @@
 /**
  * やかたの 挑戦の 係の 出入り口（MINE-1F §4.7・§6.1）。つなぎ込み〔src/game/wire〕が 本物を わたす。形は テストの 道具〔mineYakataKit.ts〕と 同じ。
  */
-export type YakataRank = 'oyabun' | 'taisho';
+type YakataRank = 'oyabun' | 'taisho';
 
 export interface YakataPlayer {
   who: 1 | 2;

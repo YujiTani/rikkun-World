@@ -159,8 +159,11 @@ export function houseTriangles(bp: ShapeBp): number {
 }
 
 /** 家の 形を 外の 箱ぜんぶに 書く（足場は 空気で きえる）。at ＝ 外の 箱の 北西の すみの 床の 高さ */
-export function writeShape(world: { setBlock(x: number, y: number, z: number, id: BlockId): boolean }, bp: ShapeBp, at: Vec3): void {
-  for (const c of houseShape(bp).cells) world.setBlock(at.x + c.x, at.y + c.y, at.z + c.z, c.id);
+export function writeShape(world: { setBlock(x: number, y: number, z: number, id: BlockId): boolean }, bp: ShapeBp, at: Vec3, erase?: (x: number, y: number, z: number) => void): void {
+  for (const c of houseShape(bp).cells) {
+    erase?.(at.x + c.x, at.y + c.y, at.z + c.z); // HOUSE-2C: 置きかえた マスの 手置きの 案の 記録は 同じ id でも 消す
+    world.setBlock(at.x + c.x, at.y + c.y, at.z + c.z, c.id);
+  }
 }
 
 /** 家の 記録に のこす 形（recordHouse が 作る。book.ts の HouseRec.spec。場所ごとの しゅるいは ここから 引く） */

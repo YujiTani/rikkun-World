@@ -363,7 +363,7 @@ export function wireFighters(deps: WiredWeapons) {
     config: craftConfig,
     requestSave: () => shared.requestSave(),
   });
-  const craft = new CraftSystemImpl({ world, inventory, drops, requestSave: () => shared.requestSave(), config: craftConfig, tansu: storage, player: () => controller.state.position, tansuRange: () => craft2Settings.craftTansuRange, furnaces: furnaceWorld, who: 1 });
+  const craft = new CraftSystemImpl({ world, inventory, drops, requestSave: () => shared.requestSave(), config: craftConfig, tansu: storage, player: () => controller.state.position, tansuRange: () => craft2Settings.craftTansuRange, furnaces: furnaceWorld, who: 1, houseLearned: () => shared.house?.learnedRecipes() ?? [] });
   const dropper = new ItemDropper({
     inventory,
     storage,
@@ -501,6 +501,7 @@ export function wireFighters(deps: WiredWeapons) {
       gadgets: gadgets.port,
       furniture: furniture.port,
       houseLook: () => shared.house?.book ?? null,
+      placedLooks: () => shared.house?.placedLooks ?? null,
       scroll: createScrollPort(() => shared.house, 1), // HOUSE-2A: レシピの まきもの（もって 右クリックで よむ）
     },
   );

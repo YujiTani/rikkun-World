@@ -179,6 +179,11 @@
   min-height: 0;
 }
 .inv-root[data-layout='duo'] .craft-grid {
+  /* 2 人用は 7 段の きまりを つかわず 半分の 高さに 合わせて 中で スクロール（COOP-1 §9.8） */
+  width: auto;
+  height: auto;
+  margin-right: 0;
+  box-sizing: border-box;
   flex: 1;
   min-height: 0;
   overflow-x: hidden;

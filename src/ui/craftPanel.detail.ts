@@ -13,6 +13,8 @@ export interface DetailEls {
   root: HTMLDivElement;
   headArt: HTMLImageElement;
   name: HTMLDivElement;
+  /** HOUSE-2C: 案の ボタンの 行（案の ある カードだけ。絵と 名前の 行の かわり） */
+  looks: HTMLDivElement;
   stars: HTMLSpanElement;
   word: HTMLSpanElement;
   /** CRAFT-PAGE: ページの 中身を 入れる 欄（スクロールしない） */
@@ -60,7 +62,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parent?:
 export const EMPTY_TEXT = 'ざいりょう を あつめよう！';
 
 
-export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnter(): void; onPage(delta: -1 | 1): void }): DetailEls {
+export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnter(): void; onPage(delta: -1 | 1): void; onLook(item: ItemId): void; onLookHover(item: ItemId | null): void }): DetailEls {
   const root = el('div', 'rk-card cp-detail', parent);
   root.dataset.focusGroup = 'cp-detail';
   root.addEventListener('mouseenter', h.onEnter);
@@ -68,6 +70,17 @@ export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnt
   const headArt = el('img', 'cp-head-art rk-art', head);
   headArt.alt = '';
   const name = el('div', 'cp-name rk-fs-title', head);
+  const looks = el('div', 'cp-looks', head);
+  looks.setAttribute('data-testid', 'cp-looks');
+  looks.hidden = true;
+  looks.addEventListener('click', (ev) => {
+    const b = (ev.target as HTMLElement).closest<HTMLElement>('.cp-look');
+    if (!b) return;
+    ev.stopPropagation();
+    h.onLook(b.dataset.item as ItemId);
+  });
+  looks.addEventListener('mouseover', (ev) => h.onLookHover((ev.target as HTMLElement).closest<HTMLElement>('.cp-look')?.dataset.item as ItemId | undefined ?? null));
+  looks.addEventListener('mouseleave', () => h.onLookHover(null));
   const rarity = el('div', 'cp-rarity', root);
   const stars = el('span', 'cp-stars', rarity);
   const word = el('span', 'cp-word', rarity);
@@ -147,7 +160,7 @@ export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnt
   });
   root.append(button);
   return {
-    root, headArt, name, stars, word, body, pageMake, pageDesc, pageStats, pager, prev, next, pageName, pageDots,
+    root, headArt, name, looks, stars, word, body, pageMake, pageDesc, pageStats, pager, prev, next, pageName, pageDots,
     useRow, useText, specialRow, specialText, howRow, howButtons, howText, stats, classEl, mats, fuel, out, outNum, outArt, count, hint, button, empty, emptyArt,
   };
 }
@@ -186,6 +199,29 @@ function addTansuMini(chip: HTMLElement, iconOf: (item: ItemId) => string): void
   chip.append(img);
 }
 
+/** HOUSE-2C: 案の ボタン 3 つ（絵 だけ・名前は マウスを のせた ツールチップ）。案の ある カードは 絵と 名前の 行の かわりに 出す */
+function paintLooks(e: DetailEls, d: DetailView, iconOf: (item: ItemId) => string): void {
+  const v = d.looks;
+  e.looks.hidden = v === null;
+  e.headArt.hidden = v !== null;
+  e.name.hidden = v !== null;
+  e.looks.replaceChildren();
+  if (!v) return;
+  for (const item of v.items) {
+    const b = el('button', 'cp-look', e.looks);
+    b.type = 'button';
+    b.dataset.item = item;
+    b.dataset.menuItem = ''; // 十字で 動ける
+    b.dataset.selected = String(item === v.selected);
+    b.setAttribute('data-testid', `cp-look-${item}`);
+    b.setAttribute('aria-pressed', String(item === v.selected));
+    const art = el('img', 'cp-look-art rk-art', b);
+    art.alt = '';
+    art.src = iconOf(item);
+    if (item === v.selected) el('span', 'cp-look-mark', b).textContent = '✓';
+  }
+}
+
 /** 中身を入れる（d が null なら かくす）。iconOf はアイテムの絵の URL */
 export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: ItemId) => string, onFuel?: (item: ItemId) => void): void {
   e.root.hidden = d === null;
@@ -196,6 +232,7 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
   e.root.classList.toggle('cp-detail--legendary', rarityIndex(d.rarity) === 6);
   e.headArt.src = iconOf(d.item);
   e.name.innerHTML = withRuby(d.name); // 名前は ［漢字｜よみ］ → ふりがなつき（WEAPON-7 §2.7）
+  paintLooks(e, d, iconOf);
   e.stars.textContent = starText(d.stars);
   e.word.textContent = d.rarityWord;
   e.root.dataset.id = d.id;
