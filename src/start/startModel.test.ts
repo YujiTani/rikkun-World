@@ -132,9 +132,9 @@ describe('AC8 1 枚目 ― はじめの 状態', () => {
     await flush();
     expect(t.s()).toMatchObject({ checking: false, continue: null, focus: 'new' });
   });
-  it('はじめの キャラ・おもさ: 何も おぼえていなければ 女の子・きれい', () => {
+  it('はじめの キャラ・おもさ: 何も おぼえていなければ 女の子・かるい（GFX-1。?nosave=1 は きれい）', () => {
     const t = setup();
-    expect(t.s()).toMatchObject({ char: 'girl', charRow: true, weight: 'fine' });
+    expect(t.s()).toMatchObject({ char: 'girl', charRow: true, weight: 'light' });
   });
   it('おぼえた キャラ・おもさ（boy・light）が はじめの 値', () => {
     const store = new Store();
@@ -201,7 +201,7 @@ describe('AC8 1 枚目 ― フォーカスと Enter', () => {
     const t = setup({ cont: { seed: 5, strength: 'easy' } });
     await flush();
     t.model.key('Enter');
-    expect(t.begins).toEqual([{ kind: 'continue', seed: 5, strength: 'easy', char: 'girl', weight: 'fine' }]);
+    expect(t.begins).toEqual([{ kind: 'continue', seed: 5, strength: 'easy', char: 'girl', weight: 'light' }]);
   });
   it('調べおわった あと Enter: フォーカスが はじめから（保存なし）なら 2 枚目へ', async () => {
     const t = setup({ cont: null });
@@ -252,6 +252,8 @@ describe('AC8 1 枚目 ― キャラ・おもさ', () => {
   });
   it('おもさ: かるい・ふつう・きれい', () => {
     const t = setup();
+    t.press('weight-xlight');
+    expect(t.s().weight).toBe('xlight');
     t.press('weight-light');
     expect(t.s().weight).toBe('light');
     t.press('weight-normal');
@@ -352,12 +354,12 @@ describe('AC9 2 枚目', () => {
     b.type('7');
     await flush();
     b.press('go');
-    expect(b.begins).toEqual([{ kind: 'new', seed: 7, strength: 'normal', char: 'girl', weight: 'fine' }]);
+    expect(b.begins).toEqual([{ kind: 'new', seed: 7, strength: 'normal', char: 'girl', weight: 'light' }]);
   });
   it('何も 変えずに スタート: ふだんの 世界（20261012）・ふつう', async () => {
     const t = await ready();
     t.press('new', 'go');
-    expect(t.begins).toEqual([{ kind: 'new', seed: 20261012, strength: 'normal', char: 'girl', weight: 'fine' }]);
+    expect(t.begins).toEqual([{ kind: 'new', seed: 20261012, strength: 'normal', char: 'girl', weight: 'light' }]);
   });
   it('char=block のまま 始める → char は block のまま', async () => {
     const t = await ready({ search: '?menu=1&char=block' });

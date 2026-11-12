@@ -10,6 +10,8 @@ import { ruby } from '../text';
 import type { DialogStack } from '../menu/choiceDialog';
 import { CONTROL_ROWS, rowKeys, type ControlRow } from './controlRows';
 import { createPadScreen } from './padScreen';
+import { createGraphicsPanel } from './graphicsPanel';
+import type { GfxPort } from '../../start/gfxController';
 import { helpFor } from './helpText';
 import { createUsePadPanel, useHelpKey, type UsePadPanel } from './usePadPanel';
 import './settingsPanel.css';
@@ -38,6 +40,8 @@ export function createSettingsPanel(
     router?: DuoPadRouter;
     /** 開いて いた せっていを 閉じた とき 1 回（閉じる ボタン・scrim・Esc の どれでも）。COOP-1 5f-2 */
     onClosed?: () => void;
+    /** 「がめん」タブの 窓口（GFX-1）。後の 段で 作る ので 呼ぶ ときに 読む */
+    gfx?: () => GfxPort | null;
   },
   anchor?: HTMLElement,
 ): SettingsPanel {
@@ -61,6 +65,7 @@ export function createSettingsPanel(
     `<div class="set-tabs" role="tablist" aria-label="せってい">` +
     `<button type="button" class="set-tab" role="tab" id="tab-sound" data-testid="tab-sound" data-help="ui:tabSound" data-menu-item aria-selected="true" aria-controls="panel-sound">${ruby('音', 'おと')}</button>` +
     `<button type="button" class="set-tab" role="tab" id="tab-camera" data-testid="tab-camera" data-help="ui:tabCamera" data-menu-item aria-selected="false" aria-controls="panel-camera">カメラ</button>` +
+    `<button type="button" class="set-tab" role="tab" id="tab-screen" data-testid="tab-screen" data-help="ui:tabScreen" data-menu-item aria-selected="false" aria-controls="panel-screen">${ruby('画面', 'がめん')}</button>` +
     `<button type="button" class="set-tab" id="tab-controls" data-testid="tab-controls" data-help="ui:tabControls" data-menu-item>コントローラー</button>` +
     `</div>` +
     `<div data-help-slot></div>` +
@@ -78,6 +83,7 @@ export function createSettingsPanel(
     `</div>` +
     `<button type="button" class="set-text-btn" data-testid="look-reset" data-help="ui:lookReset" data-menu-item>はやさを もとにもどす</button>` +
     `</div>` +
+    `<div id="panel-screen" class="set-tabpanel" role="tabpanel" data-testid="panel-screen" aria-labelledby="tab-screen" hidden></div>` +
     `</div>` +
     // 2 だん目: キーボード/マウス・ゲームパッド（ゲームパッドを おすと 3 だん目へ）
     `<div data-screen="controls" hidden>` +
@@ -97,6 +103,10 @@ export function createSettingsPanel(
 
   const soundPanel = general.querySelector<HTMLElement>('[data-testid="panel-sound"]')!;
   const cameraPanel = general.querySelector<HTMLElement>('[data-testid="panel-camera"]')!;
+  const screenPanel = general.querySelector<HTMLElement>('[data-testid="panel-screen"]')!;
+  const tabScreen = general.querySelector<HTMLButtonElement>('[data-testid="tab-screen"]')!;
+  const gfxPanel = createGraphicsPanel(() => opts.gfx?.() ?? null);
+  screenPanel.append(gfxPanel.el);
   const tabSound = general.querySelector<HTMLButtonElement>('[data-testid="tab-sound"]')!;
   const tabCamera = general.querySelector<HTMLButtonElement>('[data-testid="tab-camera"]')!;
   const lookInput = general.querySelector<HTMLInputElement>('[data-testid="look-speed"]')!;
@@ -117,7 +127,7 @@ export function createSettingsPanel(
   type Screen = keyof typeof screens;
   const TITLES: Record<Screen, string> = { top: ruby('設定', 'せってい'), controls: 'コントローラー', pad: 'ゲームパッド' };
   /** 1 だん目で えらんでいる中身（コントローラーは 中身ではなく 2 だん目への入り口） */
-  type Tab = 'sound' | 'camera';
+  type Tab = 'sound' | 'camera' | 'screen';
   let tab: Tab = 'sound';
   let screen: Screen = 'top';
   /** 2 だん目で えらんでいる中身（キーボード/マウス か つかう コントローラー） */
@@ -132,11 +142,15 @@ export function createSettingsPanel(
     tab = next;
     soundPanel.hidden = next !== 'sound';
     cameraPanel.hidden = next !== 'camera';
+    screenPanel.hidden = next !== 'screen';
     tabSound.setAttribute('aria-selected', String(next === 'sound'));
     tabCamera.setAttribute('aria-selected', String(next === 'camera'));
+    tabScreen.setAttribute('aria-selected', String(next === 'screen'));
     tabSound.classList.toggle('is-on', next === 'sound');
     tabCamera.classList.toggle('is-on', next === 'camera');
+    tabScreen.classList.toggle('is-on', next === 'screen');
     if (next === 'camera') paintLook();
+    if (next === 'screen') gfxPanel.refresh();
     showHelp(null);
   };
   /** 画面を 1 だん切りかえる。タブの段は 1 つだけ見える */
@@ -166,7 +180,7 @@ export function createSettingsPanel(
   helpBand.dataset.testid = 'settings-help';
   helpBand.setAttribute('role', 'status');
   const defaultHelp = (): string =>
-    screen === 'top' ? (tab === 'sound' ? 'ui:tabSound' : 'ui:tabCamera') : screen === 'controls' ? (sub === 'use' && use ? useHelpKey(use.notice(), use.isNone()) : 'ui:tabControls') : pad.mode() === 'menu' ? 'ui:tabMenu' : 'ui:tabPad';
+    screen === 'top' ? (tab === 'sound' ? 'ui:tabSound' : tab === 'camera' ? 'ui:tabCamera' : 'ui:tabScreen') : screen === 'controls' ? (sub === 'use' && use ? useHelpKey(use.notice(), use.isNone()) : 'ui:tabControls') : pad.mode() === 'menu' ? 'ui:tabMenu' : 'ui:tabPad';
   const showHelp = (key: string | null): void => {
     helpBand.innerHTML = helpFor(key ?? defaultHelp());
   };
@@ -275,6 +289,7 @@ export function createSettingsPanel(
 
   tabSound.addEventListener('click', () => showTab('sound'));
   tabCamera.addEventListener('click', () => showTab('camera'));
+  tabScreen.addEventListener('click', () => showTab('screen'));
   tabControls.addEventListener('click', () => goTo('controls'));
   subPad.addEventListener('click', () => goTo('pad'));
   subKeys.addEventListener('click', () => {
@@ -305,9 +320,10 @@ export function createSettingsPanel(
       });
     });
   };
-  arrowTabs([tabSound, tabCamera, tabControls], (b) => {
+  arrowTabs([tabSound, tabCamera, tabScreen, tabControls], (b) => {
     if (b === tabSound) showTab('sound');
     else if (b === tabCamera) showTab('camera');
+    else if (b === tabScreen) showTab('screen');
   });
   arrowTabs(subUse ? [subKeys, subPad, subUse] : [subKeys, subPad]);
   lookInput.addEventListener('input', () => {

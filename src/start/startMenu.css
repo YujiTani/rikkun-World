@@ -32,7 +32,10 @@
 .sm-face{width:40px;height:40px;object-fit:contain;image-rendering:auto}
 .sm-mk{width:20px;height:20px;image-rendering:pixelated;margin-right:-2px}
 .sm-btn[data-g="w"],.sm-btn[data-g="s"]{padding:0 12px;gap:8px}
+/* GFX-1: おもさは 4 つ。はばが 足りないので ✦ を 文字の 上に ならべ、文字を 少し 小さく する */
+.sm-btn[data-g="w"]{flex-direction:column;gap:0;padding:0 8px;line-height:1.1}
 .sm-w{font-size:20px;letter-spacing:0}
+.sm-btn[data-g="w"] .sm-w{font-size:16px;line-height:1}
 .sm-seed{box-sizing:border-box;width:240px;height:72px;line-height:68px;border:2px solid var(--rk-accent,#ffc83d);border-radius:var(--rk-r-m,16px);
   background:var(--rk-bg-800,#1a2132);text-align:center;font-size:32px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .sm-seed.ph{color:#ffffff66}

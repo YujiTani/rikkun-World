@@ -7,7 +7,7 @@ import { expect, type Page } from '@playwright/test';
  * 画面の決まり（仕様書 §4.7 の data-testid。ここで次のように 読む。開発はこれに合わせる）:
  *   start-menu        1 枚目の パネルそのもの（はば 648、画面の まん中）。2 枚目の あいだは 見えない
  *   start-new-screen  2 枚目の パネルそのもの。1 枚目の あいだは 見えない
- *   start-continue / start-new / start-char-girl|boy / start-weight-light|normal|fine
+ *   start-continue / start-new / start-char-girl|boy / start-weight-xlight|light|normal|fine
  *   start-seed（まど）/ start-key-0〜9 / start-key-back / start-random / start-existing（おしらせ）
  *   start-strength-easy|normal|hard / start-back / start-go
  *   えらんでいる 方は aria-pressed="true"、押せない 物は disabled 属性
@@ -25,14 +25,14 @@ export interface StartState {
   existing: boolean;
   strength: Strength;
   char: 'girl' | 'boy' | 'block';
-  weight: 'light' | 'normal' | 'fine';
+  weight: 'xlight' | 'light' | 'normal' | 'fine';
 }
 
 export interface StartInfo {
   from: 'menu' | 'url';
   seed: number;
   strength: Strength;
-  weight: 'light' | 'normal' | 'fine';
+  weight: 'xlight' | 'light' | 'normal' | 'fine';
   microR: number;
   ring: 'small' | 'full';
   shadowBuilt: boolean;
@@ -118,7 +118,7 @@ export async function settleWorld(page: Page): Promise<void> {
 
 export interface NewWorldOptions {
   char?: 'girl' | 'boy';
-  weight?: 'light' | 'normal' | 'fine';
+  weight?: 'xlight' | 'light' | 'normal' | 'fine';
   /** 数字ボタンで 入れる 字（省くと 空 = ふだんの シード） */
   digits?: string;
   /** 省くと ふつう（押さない）。同じ シードの 保存が あると 押せない */

@@ -623,7 +623,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   deps.onBeforeRender(() => {
     if (phase === 'dormant') return;
     const cam = deps.camera as PerspectiveCamera;
-    const px = (window.innerHeight * Math.min(window.devicePixelRatio, 2)) / (2 * Math.tan((cam.fov * D2R) / 2));
+    const px = (window.innerHeight * (deps.pixelRatio?.() ?? Math.min(window.devicePixelRatio, 2))) / (2 * Math.tan((cam.fov * D2R) / 2));
     add.mat.uniforms.uPx!.value = px; smoke.mat.uniforms.uPx!.value = px;
     const wantFov = baseFov;
     if (camMode === 'idleSide') { const q = pivot.rotation.y; cam.position.set(pivot.position.x + Math.cos(q) * 4.6, pivot.position.y + 1.7, pivot.position.z - Math.sin(q) * 4.6); cam.lookAt(pivot.position.x, pivot.position.y + 1.5, pivot.position.z); cam.updateMatrixWorld(true); }
