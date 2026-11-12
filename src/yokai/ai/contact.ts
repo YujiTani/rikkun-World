@@ -48,6 +48,7 @@ export class YokaiContact {
     for (const e of f.ents) {
       if (e.target === 2 ? done2 : done1) continue;
       if (KIND_TRAITS[e.kind].swims) continue; // およぐ 妖怪は 体当たりしない（ぺちんだけ）
+      if (f.steps < e.graceUntil) continue; // やかたの 二つ名は あらわれて しばらく 当たらない（MINE-1F）
       if (e.state === 'dying' || e.state === 'leaving' || e.state === 'appear' || e.state === 'attack' || e.stag) continue; // 攻撃中は攻撃のダメージだけ。よろけ中は 体当たりしない
       aimAt(f, e);
       if (combat.dead()) continue;

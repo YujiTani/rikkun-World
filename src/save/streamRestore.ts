@@ -22,7 +22,7 @@ export interface PendingColumn {
 export interface StreamRestore extends RestoredSave {
   /** 保存にある列（colKey） */
   keys: Set<number>;
-  /** 古い 列の 一覧（colKey。MINE-1C §4.8）: 坑道（kodo）を かかない 列。開いた とき 決まり、増やさず 減らさない。部屋（heya）は 1D・1E の 坑道（boken）は 1E。kodo ⊆ heya ⊆ boken */
+  /** 古い 列の 一覧（colKey。MINE-1C §4.8）: 坑道（kodo）を かかない 列。開いた とき 決まり、増やさず 減らさない。部屋（heya）は 1D・1E の 坑道（boken）は 1E。kodo ⊆ heya ⊆ boken ⊆ yakata（やかたは 1F） */
   oldCols: OldColSets;
   /** はじまりの 坑道の 入口 (x, z)（MINE-1C §4.8）。null ＝ さがしたが 置ける 所が なかった〔meta に 書いて 次から さがさない〕。キーが ない ＝ まだ さがして いない */
   shaftStart?: { x: number; z: number } | null;
@@ -32,7 +32,7 @@ export interface StreamRestore extends RestoredSave {
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-export const emptyStreamRestore = (base: RestoredSave = NO_SAVE): StreamRestore => ({ ...base, keys: new Set(), pending: new Map(), oldCols: { kodo: new Set(), heya: new Set(), boken: new Set() } });
+export const emptyStreamRestore = (base: RestoredSave = NO_SAVE): StreamRestore => ({ ...base, keys: new Set(), pending: new Map(), oldCols: { kodo: new Set(), heya: new Set(), boken: new Set(), yakata: new Set() } });
 
 /** はじまりの 坑道を 計画して 入口を 返す（置けなければ なし）。世界は 一覧ごとに 1 つ 作って、あとで ゲームが 同じ ものを 使う */
 function startOf(seed: number, oldCols: OldColSets, hint?: { x: number; z: number } | null): { x: number; z: number } | null {

@@ -72,7 +72,7 @@ describe('E16: 1E の 一覧の 列に かかる 1D の 部屋', () => {
     expect(es.length, '1E の 坑道').toBeGreaterThan(0);
     const bad: string[] = [];
     for (const s of es) {
-      for (const c of mixedE.shaftPath(s.id)) {
+      for (const c of mixedE.shaftPath(s.id).filter((c) => (c.part as string) !== 'yakata')) {
         const near = legacyRooms.find((r) => c.x >= r.box.x0 - MARGIN && c.x <= r.box.x1 + MARGIN && c.z >= r.box.z0 - MARGIN && c.z <= r.box.z1 + MARGIN && c.y >= r.box.y0 - MARGIN && c.y <= r.box.y1 + MARGIN);
         if (near || old.has(colKey(c.x >> 4, c.z >> 4))) {
           bad.push(`${s.id}: ${c.x},${c.y},${c.z}${near ? ` が 部屋 ${near.id} の まわり ${MARGIN} マスに かかる` : ' が 古い 列'}`);

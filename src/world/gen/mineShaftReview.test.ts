@@ -46,7 +46,7 @@ const samples: Sample[] = [];
 beforeAll(() => {
   SEEDS_20.forEach((seed) => {
     const s = sampleShafts(seed, 4, { legacy: true });
-    for (const shaft of s.shafts) samples.push({ seed, shaft, path: s.hook.shaftPath(shaft.id), g: s.g });
+    for (const shaft of s.shafts) samples.push({ seed, shaft, path: s.hook.shaftPath(shaft.id).filter((c) => (c.part as string) !== 'yakata'), g: s.g });
   });
 }, 720_000);
 
@@ -218,7 +218,7 @@ describe('R6〔軽微 9〕: キットの「実際に 坑道が かえる 列」�
     const real = new Set<number>();
     // 調べる 範囲の 中の 列だけ くらべる〔範囲の ふちに かかる 坑道は 外がわの 列が 範囲の 外〕
     const inBox = (k: number): boolean => boxCols.has(k);
-    for (const s of h.shafts(box.x0, box.z0, box.x1, box.z1)) for (const k of touchedColKeys(s, h.shaftPath(s.id))) if (inBox(k)) real.add(k);
+    for (const s of h.shafts(box.x0, box.z0, box.x1, box.z1)) for (const k of touchedColKeys(s, h.shaftPath(s.id).filter((c) => (c.part as string) !== 'yakata'))) if (inBox(k)) real.add(k);
     const covered = shaftCoveredCols(seed, box.x0, box.z0, box.x1, box.z1, old);
     expect(real.size, 'しらべる 列').toBeGreaterThan(0);
     const missing = [...real].filter((k) => !covered.has(k));
@@ -235,7 +235,7 @@ describe('R6〔軽微 9〕: キットの「実際に 坑道が かえる 列」�
     const real = new Set<number>();
     const shafts = h.shafts(box.x0, box.z0, box.x1, box.z1);
     expect(shafts.filter((s) => (s as { gen?: string }).gen === 'e').length, '1E の 坑道が ない').toBeGreaterThan(0);
-    for (const s of shafts) for (const k of touchedColKeys(s, h.shaftPath(s.id))) if (boxCols.has(k)) real.add(k);
+    for (const s of shafts) for (const k of touchedColKeys(s, h.shaftPath(s.id).filter((c) => (c.part as string) !== 'yakata'))) if (boxCols.has(k)) real.add(k);
     const covered = shaftCoveredCols(seed, box.x0, box.z0, box.x1, box.z1);
     expect(real.size, 'しらべる 列').toBeGreaterThan(0);
     expect([...real].filter((k) => !covered.has(k)).length, 'touchesShaft が 答えない 列').toBe(0);

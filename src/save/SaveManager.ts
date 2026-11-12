@@ -591,11 +591,12 @@ export class SaveManager {
   }
 
   /** meta に 書く 古い 列の 一覧・はじまりの 坑道の 場所（MINE-1C §4.8）。開いた とき 決まり、増やさず 減らさない。ない／空の ときは 書かない */
-  private shaftMeta(): { oldCols?: { cols: number[] }; shaftStart?: { x: number; z: number } | null } {
-    const o = this.restored.oldCols;
+  private shaftMeta(): { oldCols?: { cols16: number[] }; shaftStart?: { x: number; z: number } | null } {
+    const o0 = this.restored.oldCols;
+    const o = o0 ? { kodo: o0.kodo, heya: o0.heya, boken: o0.boken, yakata: o0.yakata ?? new Set<number>() } : undefined;
     const st = this.restored.shaftStart;
     return {
-      ...(o && (o.kodo.size > 0 || o.heya.size > 0 || o.boken.size > 0) ? { oldCols: { cols: packOldCols(o) } } : {}),
+      ...(o && (o.kodo.size > 0 || o.heya.size > 0 || o.boken.size > 0 || o.yakata.size > 0) ? { oldCols: { cols16: packOldCols(o) } } : {}),
       ...(st === undefined ? {} : { shaftStart: st === null ? null : { x: st.x, z: st.z } }), // null ＝ さがしたが 置けなかった
     };
   }

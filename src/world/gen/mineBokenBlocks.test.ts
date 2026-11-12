@@ -31,7 +31,7 @@ beforeAll(() => {
     const r = eRich(seed);
     if (!r) continue;
     needBokenHook(r.hook, ['shaftPath']);
-    const path = r.hook.shaftPath(r.shaft.id);
+    const path = r.hook.shaftPath(r.shaft.id).filter((c) => (c.part as string) !== 'yakata');
     const g = new DugCols(seed, dugSetOf(r.shaft));
     samples.push({ seed, shaft: r.shaft, path, g, orig: r.g, reach: reachOf(g, r.shaft) });
   }

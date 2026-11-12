@@ -40,6 +40,8 @@ const CHEST_TABLES = {
   kodo_eda: withChances(1, [0.7, 0.25, 0.05, 0]),
   /** MINE-1E: ひびの 奥の かくしべやの 大当たり〔40・35・20・5%〕 */
   kodo_kakushi: withChances(1, [0.4, 0.35, 0.2, 0.05]),
+  /** MINE-1F: ようかいの やかたの 宝箱〔かならず 段 4。7 ひき たおすと もらえる〕 */
+  yakata: withChances(1, [0, 0, 0, 1]),
 } as const satisfies Record<string, ChestTable>;
 
 

@@ -197,6 +197,8 @@
     "mine.area.mukashi.1",
     "mine.area.meiro.1",
     "mine.area.camp.1",
+    "mine.yakata.found.1",
+    "mine.yakata.won.1",
     "mine.kabitaPan.1",
     "defeat.gashadokuro.1",
     "level.2",
@@ -449,7 +451,13 @@
       "magma_wakimizu",
       "kokuyouseki",
       "takitsubo",
-      "magma_takitsubo"
+      "magma_takitsubo",
+      "maou_kabe",
+      "maou_yuka",
+      "maou_dan",
+      "otera_ishigaki",
+      "otera_ishidatami",
+      "otera_dan"
     ],
     "food": [
       "onion",
@@ -528,7 +536,9 @@
     ],
     "light": [
       "torch",
-      "lantern"
+      "lantern",
+      "maou_taimatsu",
+      "onibi_taimatsu"
     ],
     "material": [
       "paper",
@@ -1010,7 +1020,15 @@
     "magma_wakimizu",
     "kokuyouseki",
     "takitsubo",
-    "magma_takitsubo"
+    "magma_takitsubo",
+    "maou_kabe",
+    "maou_yuka",
+    "maou_dan",
+    "maou_taimatsu",
+    "otera_ishigaki",
+    "otera_ishidatami",
+    "otera_dan",
+    "onibi_taimatsu"
   ],
   "RARITY_ORDER": [
     "common",
