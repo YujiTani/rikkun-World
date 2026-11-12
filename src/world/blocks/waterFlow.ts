@@ -18,7 +18,7 @@ export const FLOW_STRIPE = {
 } as const;
 
 /** 列の 番号から きまる 0〜1 の ちらばり（GLSL の `fract(sin(c * 12.9898) * 43758.5453)` と 同じ） */
-export function flowHash(c: number): number {
+function flowHash(c: number): number {
   const s = Math.sin(c * 12.9898) * 43758.5453;
   return s - Math.floor(s);
 }
