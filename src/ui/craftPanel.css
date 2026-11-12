@@ -42,8 +42,17 @@
   justify-content: start;
 }
 /* M7-2 §4.2: つくる は 4 列 × 7 段（マス 28、あき 3）の 場所を とっておく */
+/* HOUSE-2C §2.6・§3.5: 一覧の 見える 高さは カードの 数で かわらず 7 段。こえた 段は 一覧の 中で たてに スクロール（画面ぜんたいは ちぢめない）。
+   スクロールの 帯（thin）は 一覧と せつめいの あき（--rk-sp-4）の 中に 入れる（はばを 帯の ぶん ふやし、同じ だけ 右の よゆうを 引く） */
 .craft-grid {
-  min-height: calc(var(--rk-slot-inv) * 7 + var(--rk-sp-2) * 6);
+  --cp-bar: min(12px, var(--rk-sp-4));
+  box-sizing: content-box;
+  width: calc(var(--rk-slot-inv) * 4 + var(--rk-sp-2) * 3 + var(--cp-bar));
+  margin-right: calc(-1 * var(--cp-bar));
+  height: calc(var(--rk-slot-inv) * 7 + var(--rk-sp-2) * 6);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
   align-content: start;
 }
 .cp-tile {
@@ -655,4 +664,44 @@
 }
 .bake-fuel .fuel {
   cursor: pointer;
+}
+
+/* ---- 案の ボタン（HOUSE-2C §3.5。むら・おしろ・こうざん の ある カードだけ。絵と 名前の 行の かわり。絵 だけ・正方形・名前は ツールチップ） ---- */
+.cp-looks {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+}
+.cp-look {
+  position: relative;
+  box-sizing: border-box;
+  flex: none;
+  width: max(var(--rk-slot-inv), calc(56px / var(--rk-fit, 1))); /* 画面を ちぢめても 見た目で 56 */
+  height: max(var(--rk-slot-inv), calc(56px / var(--rk-fit, 1)));
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: var(--rk-bw-rarity) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+  background: var(--rk-cat-build);
+  cursor: pointer;
+}
+.cp-look-art {
+  width: 86%;
+  height: 86%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.cp-look[data-selected='true'] {
+  border: var(--rk-bw-sel) solid var(--rk-text);
+}
+.cp-look-mark {
+  position: absolute;
+  right: var(--rk-sp-1);
+  top: 0;
+  font-size: var(--rk-fs-rt);
+  font-weight: 800;
+  color: var(--rk-text);
+  text-shadow: 0 0 2px var(--rk-bg-900);
+  pointer-events: none;
 }

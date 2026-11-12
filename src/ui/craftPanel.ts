@@ -9,6 +9,7 @@ import {
   type DescPage,
   buildCards,
   buildDetail,
+  mergeGroups,
   buildTiles,
   nextFuel,
   visibleCards,
@@ -25,6 +26,7 @@ import { drawPixels, extraIconUrl, itemIconPixels, itemIconUrl } from './itemIco
 import { itemRarity } from '../drops/rarity';
 import { itemCategory, rarityIndex } from './itemCategory';
 import { createBar, createSlot, createTab, setBar, setTabState } from './theme';
+import { CraftLooks, houseCardOf, isAltLook } from './craftLooks';
 import './craftPanel.css';
 
 /** 開いている かまど の中（A の `furnace.get` と同じ形） */
@@ -155,6 +157,8 @@ export class CraftPanel {
   private pageSel: { id: string; index: number; recipe: string } | null = null;
   private readonly tileEls = new Map<string, TileEls>();
   private readonly cfg: CraftUiSettings;
+  /** HOUSE-2C: 案の ボタンの えらび（このパネルだけ。保存しない） */
+  readonly looks = new CraftLooks();
   private d: CraftPanelDeps;
   private matVer = 0;
   private info_: ItemInfoSource;
@@ -168,6 +172,8 @@ export class CraftPanel {
   private selected_: Record<CraftTab, string | null> = { craft: null, bake: null };
   private hovered_: string | null = null;
   private readonly madeLocal = new Set<string>();
+  /** さいごに スクロールで 見せた カード（えらびが 見えない 段に 入ったら 見える まで スクロールする） */
+  private scrolledTo: string | null = null;
   private detailKey = '';
   private readonly off: () => void;
 
@@ -179,7 +185,7 @@ export class CraftPanel {
     this.craftAll = all.filter((r) => r.station === 'craft');
     this.bakeAll = all.filter((r) => r.station === 'furnace');
     this.groups = groupRecipes(all);
-    this.craftRecipes = this.craftAll.filter((r) => this.groups.has(r.id));
+    this.craftRecipes = this.craftAll.filter((r) => this.groups.has(r.id) && !isAltLook(r.id)); // 案の ある 形は むらの カード 1 まい
     this.bakeRecipes = this.bakeAll.filter((r) => this.groups.has(r.id));
 
     this.el = el('div', 'craft-panel');
@@ -225,6 +231,8 @@ export class CraftPanel {
       onPress: () => void this.detailPress(),
       onEnter: () => this.hover(null),
       onPage: (d) => void this.pageGo(d),
+      onLook: (item) => void this.pickLook(item),
+      onLookHover: (item) => this.d.hover?.(item === null ? null : `look:${item}`),
     });
 
     // ゆびの印（つくれる えらんでいるマスにだけ付ける。ひとつを使いまわす）
@@ -324,33 +332,19 @@ export class CraftPanel {
   /** カードごとの 作り方のカード（たいまつ は 3 つ。ほかは 1 つ） */
   private variantViews = new Map<string, CardView[]>();
 
+  /** まだ おぼえて いない 家の 物の 作り方を のぞく（HOUSE-2C） */
+  private usable(list: Recipe[]): Recipe[] {
+    return list.filter((r) => this.d.craft.unlocked?.(r.id) ?? true);
+  }
+
   private views(): { craft: CardView[]; bake: CardView[] } {
     const st = this.furnaceState();
-    const craftAll = buildCards(this.craftAll, this.d.craft, this.counter(), this.cardOpt());
-    const bakeAll = buildCards(this.bakeAll, this.d.craft, this.counter(), { ...this.cardOpt(), bake: true, queued: this.bakeQueued(st), cfg: this.cfg });
-    const variants = new Map<string, CardView[]>();
-    const merge = (list: CardView[]): CardView[] => {
-      const byId = new Map(list.map((c) => [c.id, c]));
-      const out: CardView[] = [];
-      for (const [primary, ids] of this.groups) {
-        const vs = ids.map((id) => byId.get(id)).filter((c): c is CardView => !!c);
-        if (vs.length === 0) continue;
-        variants.set(primary, vs);
-        const first = vs[0];
-        if (vs.length === 1) {
-          out.push(first);
-          continue;
-        }
-        // 3 つの どれかが 作れれば「作れる」。材料の赤・まるは 作れる作り方（無ければ 材料を もっている いちばん前の作り方）で見る
-        const def = vs.find((v) => v.glowing) ?? vs.find((v) => v.materials.some((m) => m.have > 0)) ?? first;
-        out.push({ ...def, id: first.id, output: first.output, countLabel: first.countLabel, glowing: vs.some((v) => v.glowing) });
-      }
-      return out;
-    };
-    const craft = merge(craftAll);
-    const bake = merge(bakeAll);
-    this.variantViews = variants;
-    return { craft, bake };
+    const craftAll = buildCards(this.usable(this.craftAll), this.d.craft, this.counter(), this.cardOpt());
+    const bakeAll = buildCards(this.usable(this.bakeAll), this.d.craft, this.counter(), { ...this.cardOpt(), bake: true, queued: this.bakeQueued(st), cfg: this.cfg });
+    const c = mergeGroups(craftAll, this.groups, this.looks);
+    const b = mergeGroups(bakeAll, this.groups);
+    this.variantViews = new Map([...c.variants, ...b.variants]);
+    return { craft: c.cards, bake: b.cards };
   }
 
   private currentTab(): CraftTab {
@@ -391,6 +385,7 @@ export class CraftPanel {
         this.tab_ = this.furnacePos() ? 'bake' : 'craft';
         this.hovered_ = null;
         this.pageSel = null;
+        this.scrolledTo = null;
         this.ensureSelection();
       } else this.hovered_ = null;
       this.dirty = true;
@@ -477,6 +472,11 @@ export class CraftPanel {
       if (progress !== null) setBar(e.barFill, progress);
       if (t.selected && t.glowing) fingerOn = r;
     }
+    const selEl = sel ? this.tileEls.get(sel)?.root : null;
+    if (selEl && sel !== this.scrolledTo && !selEl.hidden) {
+      this.scrolledTo = sel;
+      selEl.scrollIntoView?.({ block: 'nearest' }); // 一覧の 中で えらびが 見える まで
+    }
     if (fingerOn) {
       if (this.finger.parentElement !== fingerOn) fingerOn.append(this.finger);
     } else this.finger.remove();
@@ -537,7 +537,7 @@ export class CraftPanel {
     const countOf = (i: ItemId) => this.counter().count(i);
     const fuelCounts: Record<string, number> = {};
     for (const f of this.cfg.fuelOrder) fuelCounts[f] = countOf(f as ItemId);
-    return buildDetail({
+    const d = buildDetail({
       shown,
       selected: sel,
       info: this.info_.info(shown.output.item),
@@ -550,6 +550,19 @@ export class CraftPanel {
       selectedCard: selVariants.find((v) => v.id === selPage.recipe) ?? sel,
       desc: this.descPlans.get(this.descKey(shown.output.item)),
     });
+    // HOUSE-2C: 案の ある カードは 案の ボタンと、えらんで いる 案の 作り方（recipe・ページの 作り方）
+    const rec = (r: string): string => this.looks.recipeOf(r);
+    return { ...d, looks: this.looks.view(shown.id), recipe: rec(d.recipe), pages: d.pages.map((p) => (p.recipe ? { ...p, recipe: rec(p.recipe) } : p)) };
+  }
+
+  /** 案の ボタンを 押した（今 出て いる カードの 案の 1 つ。作らない）。今 出て いる カードの 案で なければ false */
+  pickLook(item: ItemId): boolean {
+    const card = this.detail()?.id;
+    if (!card || !this.looks.pick(card, item)) return false;
+    this.d.onSelect?.(item);
+    this.dirty = true;
+    this.sync();
+    return true;
   }
 
   // ---- ページ（CRAFT-PAGE）
@@ -572,7 +585,7 @@ export class CraftPanel {
   /** 「つくる」が 今 使う 作り方（作り方のページを見ていれば そのページ、せつめい・つよさ なら さいごに見た作り方） */
   private currentRecipe(id: string): string {
     const v = this.variantViews.get(id) ?? [];
-    return this.pageSel?.id === id ? this.pageSel.recipe : this.pageFor(id, v).recipe;
+    return this.looks.recipeOf(this.pageSel?.id === id ? this.pageSel.recipe : this.pageFor(id, v).recipe);
   }
 
   /** ◀ ▶ を 押したのと同じ。はしで 動かなければ false */
@@ -692,7 +705,7 @@ export class CraftPanel {
     if (!this.d.isOpen()) return { ok: false, reason: 'closed' };
     const station = this.stationOf(id);
     const isBake = station === 'bake';
-    const base = baseRecipeId(id); // 足した作り方も カードは 元のマス
+    const base = houseCardOf(baseRecipeId(id)); // 足した作り方も カードは 元のマス（案の ある 形は むらの カード）
     const tile = this.tileEls.get(base);
     if (station) this.selected_[station] = base;
     const r = this.d.craft.make(id);
@@ -721,7 +734,7 @@ export class CraftPanel {
 
   /** そのレシピの マスの DOM（B の演出の出どころ） */
   tileElFor(recipe: string): HTMLElement | null {
-    return this.tileEls.get(baseRecipeId(recipe))?.root ?? null;
+    return this.tileEls.get(houseCardOf(baseRecipeId(recipe)))?.root ?? null;
   }
 
   /** せつめい パネルの つくる ボタンの DOM（B の「できた！」ハンコの場所） */

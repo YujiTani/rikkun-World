@@ -1,5 +1,7 @@
 import type { CraftSystem, Inventory, ItemId, ItemStack, Recipe } from '../contracts';
+import { groupRecipes } from '../craft/recipes';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings } from '../fx/craftConfig';
+import { houseCardOf } from './craftLooks';
 
 /** 材料 1 種: 要る数だけ「まる」。持っている数だけ みどり、足りない分は 赤いわくの白いまる */
 export interface MaterialView {
@@ -96,6 +98,53 @@ export function buildCards(
       ...(st.limit ? { limit: st.limit } : {}),
     };
   });
+}
+
+/** 案の ボタンの えらびを 聞く 口（CraftLooks が 合う） */
+interface LooksPort {
+  view(card: string): { items: ItemId[]; selected: ItemId } | null;
+}
+
+/**
+ * 作り方ごとの カードを「カード 1 まい」に まとめる（たいまつ・ロープ ＝ 同じ 台・同じ できる物の 作り方 ／ HOUSE-2C: 案の ある 形の 3 つの 作り方 ＝ むらの カード）。
+ * variants ＝ カードの id → その カードの 作り方ごとの カード（せつめいの ページ）。案の ある 形は カードの 絵が えらんで いる 案の アイテム（材料・光りは 3 案 同じ）
+ */
+export function mergeGroups(list: readonly CardView[], groups: ReadonlyMap<string, string[]>, looks?: LooksPort): { cards: CardView[]; variants: Map<string, CardView[]> } {
+  const byId = new Map(list.map((c) => [c.id, c]));
+  const variants = new Map<string, CardView[]>();
+  const cards: CardView[] = [];
+  for (const [primary, ids] of groups) {
+    if (houseCardOf(primary) !== primary) continue; // おしろ・こうざんの 作り方は むらの カードに まとまる
+    const vs = ids.map((id) => byId.get(id)).filter((c): c is CardView => !!c);
+    if (vs.length === 0) continue;
+    variants.set(primary, vs);
+    const first = vs[0]!;
+    if (vs.length === 1) {
+      const picked = looks?.view(primary)?.selected;
+      cards.push(picked ? { ...first, output: { ...first.output, item: picked } } : first);
+      continue;
+    }
+    // 3 つの どれかが 作れれば「作れる」。材料の赤・まるは 作れる作り方（無ければ 材料を もっている いちばん前の作り方）で見る
+    const def = vs.find((v) => v.glowing) ?? vs.find((v) => v.materials.some((m) => m.have > 0)) ?? first;
+    cards.push({ ...def, id: first.id, output: first.output, countLabel: first.countLabel, glowing: vs.some((v) => v.glowing) });
+  }
+  return { cards, variants };
+}
+
+/**
+ * 「つくる」の 一覧に 出る カード（`craft.ui().tiles` の もと。HOUSE-2C）。おぼえて いない 家の 物は 出ない・材料を 1 しゅるい 以上 持つ 物だけ・
+ * 並びは 作れる → 足りない（その 中は 作り方の 表の 順。家の 物は いちばん うしろ）。案の ある 形は カード 1 まい
+ * @public テストの 窓口（house/recipes/craftKit.ts）が 名前で 呼ぶ ので、使われない export に 数えない
+ */
+export function craftViewCards(
+  craft: Pick<CraftSystem, 'recipes' | 'status'> & { unlocked?(id: string): boolean },
+  inv: Pick<Inventory, 'count'>,
+  looks?: LooksPort,
+  opt: CardOptions = {},
+): CardView[] {
+  const all = craft.recipes();
+  const cards = buildCards(all.filter((r) => r.station === 'craft' && (craft.unlocked?.(r.id) ?? true)), craft, inv, opt);
+  return visibleCards(mergeGroups(cards, groupRecipes(all), looks).cards);
 }
 
 /** 「つくれる マーク」を出すか: つくる のカードが 1 まい以上 光っている */
@@ -218,6 +267,8 @@ export interface DetailView {
   /** いつも えらんでいるマスのもの */
   button: { enabled: boolean; label: string };
   hint: string | null;
+  /** HOUSE-2C: 案の ボタン（案の ある 形の カードだけ。むら → おしろ → こうざん と えらんで いる 案。ない カードは null） */
+  looks: { items: ItemIdM6[]; selected: ItemIdM6 } | null;
   /** CRAFT-PAGE: ページの 一覧（順に ◀ ▶ で めくる） */
   pages: PageDef[];
   /** 今のページ（`pages` の 何番目か） */
@@ -390,6 +441,7 @@ export function buildDetail(o: {
     count: cur.output.count,
     button: buttonState(o.selectedCard ?? selected, o.bake, o.fuelNext),
     hint: shown.id !== selected.id ? HINT_SELECT : null,
+    looks: null,
     pages,
     page: Math.max(0, Math.min(pages.length - 1, pg.index)),
     recipe: cur.id,

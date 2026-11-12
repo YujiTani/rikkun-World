@@ -635,7 +635,8 @@ export class InventoryScreen {
     if (typeof t === 'number') return this.inv.slots()[t]?.item ?? null;
     if (t === 'head' || t === 'body' || t === 'arms' || t === 'legs') return this.m4?.armor.equipped(t) ?? null;
     const [kind, a, b] = t.split(':');
-    if (kind === 'card') return this.m4?.craft.recipes().find((r) => r.id === a)?.output.item ?? null;
+    if (kind === 'card') return this.m4?.craft.recipes().find((r) => r.id === (this.craftPanel?.looks.recipeOf(a) ?? a))?.output.item ?? null; // 案の ある カードは えらんで いる 案の 名前
+    if (kind === 'look') return (a as ItemId) || null; // HOUSE-2C: 案の ボタン
     if (kind === 'material') return (b as ItemId) || null;
     if (kind === 'fuel') return (a as ItemId) || null;
     return null;

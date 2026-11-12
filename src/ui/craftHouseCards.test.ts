@@ -99,7 +99,7 @@ describe('§2.6: カードの ならび（作れる → 足りない・その �
 
   it('家の 物の 中の 順: 1 版の 家の ブロック 5 → 家具 8（エディターの ② の 順）→ レシピで ふえる 形（§4.1 の 表の 順）', () => {
     const r = craftRig(ALL_LEARNED);
-    richBag(r, 99);
+    richBag(r); // 1 こずつ（99 こずつ だと 36 マスに 入りきらず、後ろの 材料が 持てなくて カードが 出ない）
     const cards = ids(craftViewCards(r.view, r.inv)).filter(isHouse);
     expect(cards).toEqual([...FIRST, ...GATED_CARDS]);
   });
