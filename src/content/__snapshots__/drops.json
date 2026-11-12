@@ -214,6 +214,7 @@
     "coal_ore": "uncommon",
     "crystal": "superRare",
     "crystal_katana": "superRare",
+    "daichi_hammer": "legendary",
     "deco_entotsu_kozan": "uncommon",
     "deco_entotsu_mura": "uncommon",
     "deco_entotsu_shiro": "uncommon",
@@ -240,6 +241,7 @@
     "furnace": "uncommon",
     "futon": "uncommon",
     "geyser_dirt": "uncommon",
+    "gnome_axe": "legendary",
     "grass": "common",
     "haniwa": "uncommon",
     "harapan_mimizu": "epic",
@@ -273,6 +275,7 @@
     "kin_yumi": "epic",
     "kinoko": "common",
     "kite": "uncommon",
+    "kokuryu": "legendary",
     "kokuyouseki": "rare",
     "kongo_axe": "mythic",
     "kongo_kabuto": "mythic",
@@ -369,6 +372,7 @@
     "takenoko": "common",
     "takitsubo": "uncommon",
     "tansu": "uncommon",
+    "tenshi_yumi": "legendary",
     "tomato": "common",
     "torch": "common",
     "toriya": "uncommon",
@@ -395,6 +399,7 @@
     "wood_axe": "common",
     "wood_pickaxe": "common",
     "ya": "common",
+    "yatagarasu": "legendary",
     "yokai_orb": "uncommon",
     "yoroi": "rare",
     "yumi": "uncommon"
@@ -410,6 +415,26 @@
     },
     {
       "item": "niji",
+      "weight": 1
+    },
+    {
+      "item": "kokuryu",
+      "weight": 1
+    },
+    {
+      "item": "yatagarasu",
+      "weight": 1
+    },
+    {
+      "item": "tenshi_yumi",
+      "weight": 1
+    },
+    {
+      "item": "gnome_axe",
+      "weight": 1
+    },
+    {
+      "item": "daichi_hammer",
       "weight": 1
     },
     {

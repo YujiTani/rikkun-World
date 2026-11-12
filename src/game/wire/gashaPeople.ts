@@ -26,8 +26,12 @@ export interface P2GashaPort {
   onBigHit(part: string): void;
   /** COOP-1 4d-2: 2P の わざ（雷・ドームの 当たり。AC110）。出来事の 窓口と ドームの 球だけ */
   legend?: { peekEvents(): readonly { type: string; tick: number }[]; dome(): { x: number; y: number; z: number; r: number } | null };
+  /** 八咫烏の ほのお用: 2P の 弓の 出来事の 窓口（yataBurst の 位置・damage） */
+  bow?: { peekEvents(): readonly { type: string; tick: number; position?: Vec3; damage?: number }[] };
   /** COOP-1 4d-2: 2P の 飛んで いる 波（真空波・らせん。半径・ダメージは 波が もっている 数） */
   waves?: () => readonly { id: number; position: Vec3 }[];
+  /** 2P の 大地のハンマーの 当たり球（HammerSystem.bigHits） */
+  hammer?: () => readonly { center: Vec3; radius: number; damage: number }[];
   /** COOP-1 4d-1 のあと: 少女の 弾を 2P の パリィで うける（判定は 1P と 同じ 部品〈P2Parry.hit〉・2P の 向き） */
   parry?: (h: { dirDeg: number | null; by: 'attack' | 'fireball'; amount: number }) => { result: 'success' | 'early' | 'fail' | 'none'; amount: number };
   /** 2P の 半分の カメラ（いつも 同じ 1 つ。板の 絵・少女の 目が 向く 先） */

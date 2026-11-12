@@ -7,7 +7,8 @@ import type { PlayerMotionMod } from './player';
 import type { Vec3, VoxelWorld } from './world';
 import type { YokaiWorld } from './yokai';
 
-export type ToolKind = 'hand' | 'pickaxe' | 'blade' | 'bow' | 'other';
+/** `hammer` = 大地のハンマー（LEGEND-4）。左クリックで ほる・パンチは せず、ハンマーの 係が 振る */
+export type ToolKind = 'hand' | 'pickaxe' | 'blade' | 'bow' | 'hammer' | 'other';
 
 export interface ToolInfo {
   item: ItemId | null;
@@ -102,7 +103,9 @@ export type BladeEvent =
   | { type: 'techHit'; tick: number; tech: BladeTech; yokaiId: number; damage: number; knock: number; up: number; position: Vec3; step?: BladeStep }
   | { type: 'techMiss'; tick: number; tech: BladeTech; step?: BladeStep }
   | { type: 'stance'; tick: number; from: BladeStance; to: BladeStance }
-  | { type: 'cancel'; tick: number };
+  | { type: 'cancel'; tick: number }
+  /** LEGEND-4: ノームの斧の よこなぎを はじめた（専用の 音は なし）。当たりは `techHit` */
+  | { type: 'sweepStart'; tick: number };
 
 /** 刀に 毎ステップ わたすもの。ふりわけ（わざ か ほる か しゅうかく）は つなぎ込みの DigSystem が 決めて、わざ なら techPressed / techHeld を 立てる */
 export interface BladeStepContext {
@@ -166,6 +169,8 @@ export interface BladeSystem {
   nextStart?(): { tech: BladeTech; step: BladeStep };
   /** WEAPON-6: パリィが 始まった ステップに、つなぎの窓の わざを やめる（イベントは 出さない） */
   yieldToParry?(): void;
+  /** LEGEND-4: ノームの斧の よこなぎの ようす（絵・DigInput が 見る）。idle なら frame 0 */
+  sweep?(): { phase: 'idle' | 'startup' | 'active' | 'recovery'; frame: number; dirDeg: number | null };
 }
 
 // ---------------------------------------------------------------- 弓（B）
@@ -196,6 +201,14 @@ export interface ArrowInfo {
   velocity: Vec3;
   /** 飛んでから の ステップ */
   age: number;
+  /** LEGEND-4（黒龍）: 重力なしで まっすぐ とび 妖怪を つらぬく や。ふつうの や は 書かない */
+  straight?: boolean;
+  /** LEGEND-4（黒龍）: もう 当てた 妖怪の id（1 本の や は 同じ 妖怪に 1 回だけ）。まっすぐな や だけ */
+  hitIds?: number[];
+  /** LEGEND-4（八咫烏）: 当たった 点で ほのおが はじける や（金の 光の すじの 目印）。ふつうの や は 書かない */
+  burst?: boolean;
+  /** LEGEND-4（天使の弓）: うしろに 白い 羽が 舞う や（見た目 だけ。当たりは ふつうの や と 同じ） */
+  feather?: boolean;
 }
 
 export interface StuckArrowInfo {
@@ -209,13 +222,17 @@ export interface StuckArrowInfo {
 export type BowEvent =
   | { type: 'drawStart'; tick: number }
   | { type: 'stage'; tick: number; stage: 1 | 2 | 3 }
-  | { type: 'arrowShot'; tick: number; stage: 1 | 2 | 3; speed: number; position: Vec3; velocity: Vec3 }
+  | { type: 'arrowShot'; tick: number; stage: 1 | 2 | 3; speed: number; position: Vec3; velocity: Vec3; item?: ItemId }
   | { type: 'arrowHit'; tick: number; yokaiId: number; damage: number; position: Vec3 }
   | { type: 'arrowStick'; tick: number; position: Vec3 }
   | { type: 'arrowEnd'; tick: number; position: Vec3 }
   | { type: 'dryRelease'; tick: number }
   | { type: 'noArrow'; tick: number }
-  | { type: 'pickup'; tick: number };
+  | { type: 'pickup'; tick: number }
+  /** LEGEND-4 八咫烏: 当たった 点で ほのおが はじけた（hits = ほのおが 当たった 体と ダメージ） */
+  | { type: 'yataBurst'; tick: number; position: Vec3; /** ほのおの ダメージ（その 矢の ダメージと 同じ）。がしゃどくろの 当たりが 読む */ damage: number; hits: { id: number; damage: number }[] }
+  /** LEGEND-4 八咫烏: 矢が へらなかった（うった ステップ） */
+  | { type: 'arrowSaved'; tick: number };
 
 export interface BowStepContext {
   /** 手に 持っているのが ゆみ なら その アイテム、ちがえば null（ひくのを やめる。や は へらない） */
@@ -324,6 +341,10 @@ export interface W2Settings {
   bowDamage: [number, number, number];
   /** GOLD-1 §4.3: ゆみ ごと の や の つよさ（段 1・2・3）。なければ `bowDamage`。きんの ゆみ = 2・3・5 */
   bowDamageByItem: Partial<Record<ItemId, [number, number, number]>>;
+  /** LEGEND-4 §4: 重力なしで まっすぐ とび、妖怪を ぜんぶ つらぬく ゆみ（黒龍）。値 = うった 所から 消える きょり（マス）。なければ ふつうの や */
+  bowStraightByItem: Partial<Record<ItemId, number>>;
+  /** LEGEND-4 §5: 当たった 点で ほのおが はじける ゆみ（八咫烏）。なければ ふつうの や */
+  bowBurstByItem: Partial<Record<ItemId, true>>;
   bowKnock: [number, number, number];
   arrowGravity: number;
   arrowLifeTicks: number;

@@ -200,6 +200,8 @@ export interface TestHook {
   legend: {
     state(): unknown;
     events(): unknown[];
+    /** LEGEND-4 PR5: 大地のハンマーの 状態 `{ phase: 'idle'|'swing'|'hover'|'dive'; f; diveFrom: number | null; last: { h; damage; depth; broken: {x,y,z}[] } | null }` */
+    hammer(): unknown;
     waves(): unknown[];
     /** WEAPON-8 §7 */
     debris(): unknown;

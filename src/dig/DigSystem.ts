@@ -485,6 +485,24 @@ export class DigSystemImpl implements DigSystem {
     this.ready = false;
   }
 
+  /**
+   * LEGEND-4 大地のハンマー: (x, y, z) を ふつうに ほった ときと 同じに こわす（持ち物・ドロップ・出来事・上の 草花の きまり）。
+   * ひびも 道具の レベルも 見ない。こわせたら true。音は 出来事の `silent` で ハンマーに まとめる
+   */
+  breakExternal(x: number, y: number, z: number): boolean {
+    const id = this.world.getBlock(x, y, z);
+    if (id === 'outside') return false;
+    const from = this.drainQueue.length;
+    const t: TargetInfo = { block: { x, y, z }, id, face: { x: 0, y: 1, z: 0 }, place: { x, y: y + 1, z }, distance: 0 };
+    const end = this.breaker.breakBlock(t, false, false, true);
+    for (let i = from; i < this.drainQueue.length; i++) {
+      const e = this.drainQueue[i]!;
+      if (e.type === 'break') e.silent = true;
+    }
+    if (end === 'done') this.toolHintModel.forget(`${x},${y},${z}`);
+    return end === 'done';
+  }
+
   /** ひびが MAX の ブロックを こわす（世界の書きかえ・ドロップは BlockBreaker）。こわしたあとの しめくくりは ここ */
   private breakBlock(t: TargetInfo): void {
     const end = this.breaker.breakBlock(t, this.aim.bodyGlass);
@@ -676,6 +694,7 @@ export class DigSystemImpl implements DigSystem {
     if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return null;
     const tool = this.m4.tools?.current();
     if (tool?.kind === 'bow') return 'shoot';
+    if (tool?.kind === 'hammer') return 'hit'; // LEGEND-4: ハンマーは ふる（ほらない）
     const t = this.aim.tgt;
     if (this.aimedYokaiId() !== null) return 'hit';
     // HOUSE-1A: 建築士さんを ねらって いる 間は 後ろの ブロックを ほらない ので「ほる」は 出さない

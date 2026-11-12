@@ -102,7 +102,6 @@ export interface CharSprite {
 /** ダメージの赤み（12 ステップ。もとの色 × 1.0・0.6・0.6） */
 export const HURT_STEPS = 12;
 export const HURT_TINT = { r: 1.0, g: 0.6, b: 0.6 } as const;
-
 export type SpriteStatus = 'none' | 'loading' | 'ready' | 'failed';
 
 const VERT = /* glsl */ `
@@ -255,28 +254,27 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
   // ---- WEAPON-9: 手に 持つ 絵の 差しかえ（虹の 太刀）。刀の組 6 まいを 入れかえる（足さない）
   interface SkinAtlas {
     extras: PaletteRgb;
-    motions: Record<string, { frames: number; packed?: Packed }>;
+    motions: Record<string, { frames: number; packed?: Packed }>; partial: boolean; // partial = 一部の 絵だけの 差しかえ（ハンマー）。ない 絵は ふつうの 絵
   }
   const skinAtlases = new Map<string, Promise<SkinAtlas | null>>();
   const loadedSkin = {} as Record<SpriteMotion, string | null | undefined>;
   let wantSkin: string | null = null;
   const KATANA_SET: ReadonlySet<SpriteMotion> = new Set(KATANA_MOTIONS);
+  /** 板の 色見本の 席(23〜)に スキンの 色を 書く（絵を 入れかえる たびに。持ちかえても 前の スキンの 色に ならない） */
+  const writeExtras = (extras: PaletteRgb): void => extras.forEach((c, i) => (uniforms.uPalette!.value as THREE.Vector3[])[PALETTE_RGB.length + 1 + i]!.set(srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2])));
   const skinAtlas = (name: string): Promise<SkinAtlas | null> => {
     let p = skinAtlases.get(name);
     if (!p) {
       p = loadJson(`${base}${name}/atlas.json`)
         .then((raw) => {
-          const o = (raw ?? {}) as { extras?: unknown; motions?: Record<string, { frames?: number; packed?: unknown }> };
+          const o = (raw ?? {}) as { extras?: unknown; partial?: unknown; motions?: Record<string, { frames?: number; packed?: unknown }> };
           const extras = (Array.isArray(o.extras) ? o.extras : []).slice(0, EXTRA_COLORS_MAX).map((c) => [Number((c as number[])[0]), Number((c as number[])[1]), Number((c as number[])[2])] as [number, number, number]);
           const motions: SkinAtlas['motions'] = {};
           for (const [k, v] of Object.entries(o.motions ?? {})) {
             const packed = parsePacked(v?.packed);
             motions[k] = { frames: Number(v?.frames) || 8, ...(packed ? { packed } : {}) };
           }
-          // 板の 色見本の 席(23〜)に 書く
-          const u = uniforms.uPalette!.value as THREE.Vector3[];
-          extras.forEach((c, i) => u[PALETTE_RGB.length + 1 + i]!.set(srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2])));
-          return { extras, motions };
+          return { extras, motions, partial: o.partial === true };
         })
         .catch(() => null);
       skinAtlases.set(name, p);
@@ -347,10 +345,10 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
     if (!had) status[m] = 'loading';
     const myBase = base;
     const myAtlasP = atlasP;
-    const sk = kind === 'girl' && KATANA_SET.has(m) ? wantSkin : null;
+    let sk = kind === 'girl' && KATANA_SET.has(m) ? wantSkin : null;
     try {
       const skinA = sk ? await skinAtlas(sk) : null;
-      if (sk && !skinA?.motions[m]) throw new Error(`${sk} の 絵の 表が ありません`);
+      if (sk && !skinA?.motions[m]) { if (skinA?.partial) sk = null; else throw new Error(`${sk} の 絵の 表が ありません`); }
       const url = sk ? `${myBase}${sk}/${m}.png` : `${myBase}${m}.png`;
       const [img] = await Promise.all([loadImage(url), myAtlasP]);
       if (disposed || g !== gen) return; // 切りかえの 前に 始めた読みこみ: すてる
@@ -398,6 +396,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       loadedInfo[m] = { width: a.width, height: a.height, cols: a.cols, ...(a.packed ? { packed: a.packed } : {}) };
       textures[m] = tex;
       loadedSkin[m] = sk;
+      if (sk) writeExtras(skinA!.extras);
       gpuBytes += a.width * a.height;
       status[m] = 'ready';
       // 手に 持つ 絵で 上限(64 MiB)を こえる とき: 弓の組を おろす（弓を 持った とき また 読む）

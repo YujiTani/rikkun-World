@@ -1007,6 +1007,7 @@
       "coal_ore": "uncommon",
       "crystal": "superRare",
       "crystal_katana": "superRare",
+      "daichi_hammer": "legendary",
       "deco_entotsu_kozan": "uncommon",
       "deco_entotsu_mura": "uncommon",
       "deco_entotsu_shiro": "uncommon",
@@ -1033,6 +1034,7 @@
       "furnace": "uncommon",
       "futon": "uncommon",
       "geyser_dirt": "uncommon",
+      "gnome_axe": "legendary",
       "grass": "common",
       "haniwa": "uncommon",
       "harapan_mimizu": "epic",
@@ -1066,6 +1068,7 @@
       "kin_yumi": "epic",
       "kinoko": "common",
       "kite": "uncommon",
+      "kokuryu": "legendary",
       "kokuyouseki": "rare",
       "kongo_axe": "mythic",
       "kongo_kabuto": "mythic",
@@ -1162,6 +1165,7 @@
       "takenoko": "common",
       "takitsubo": "uncommon",
       "tansu": "uncommon",
+      "tenshi_yumi": "legendary",
       "tomato": "common",
       "torch": "common",
       "toriya": "uncommon",
@@ -1188,6 +1192,7 @@
       "wood_axe": "common",
       "wood_pickaxe": "common",
       "ya": "common",
+      "yatagarasu": "legendary",
       "yokai_orb": "uncommon",
       "yoroi": "rare",
       "yumi": "uncommon"
@@ -1406,6 +1411,7 @@
     "arrowRange": 24,
     "naginataComboReset": 60,
     "toolLevel": {
+      "gnome_axe": 0,
       "iron_axe": 0,
       "iron_pickaxe": 2,
       "kin_axe": 0,
@@ -1418,6 +1424,7 @@
       "wood_pickaxe": 0
     },
     "toolPower": {
+      "gnome_axe": 6,
       "iron_axe": 6,
       "iron_pickaxe": 6,
       "kin_axe": 6,
@@ -1433,6 +1440,7 @@
     "weaponDamage": {
       "bokuto": 2,
       "crystal_katana": 4,
+      "gnome_axe": 7,
       "katana": 4,
       "kin_axe": 5,
       "kin_katana": 5,
@@ -1856,6 +1864,9 @@
         1
       ]
     },
+    "bowBurstByItem": {
+      "yatagarasu": true
+    },
     "bowDamage": [
       1,
       2,
@@ -1867,10 +1878,25 @@
         3,
         5
       ],
+      "kokuryu": [
+        4,
+        6,
+        10
+      ],
       "kongo_yumi": [
         3,
         4,
         7
+      ],
+      "tenshi_yumi": [
+        3,
+        5,
+        7
+      ],
+      "yatagarasu": [
+        4,
+        6,
+        10
       ]
     },
     "bowKnock": [
@@ -1890,6 +1916,9 @@
       25,
       40
     ],
+    "bowStraightByItem": {
+      "kokuryu": 48
+    },
     "legendary": [
       {
         "charge": {
@@ -1985,6 +2014,46 @@
           4,
           10
         ]
+      },
+      {
+        "charge": null,
+        "item": "kokuryu",
+        "onAttack": [],
+        "passive": [
+          {
+            "kind": "moveMul",
+            "mul": 1.2
+          }
+        ],
+        "power": 10
+      },
+      {
+        "charge": null,
+        "item": "yatagarasu",
+        "onAttack": [],
+        "passive": [],
+        "power": 10
+      },
+      {
+        "charge": null,
+        "item": "tenshi_yumi",
+        "onAttack": [],
+        "passive": [],
+        "power": 7
+      },
+      {
+        "charge": null,
+        "item": "gnome_axe",
+        "onAttack": [],
+        "passive": [],
+        "power": 7
+      },
+      {
+        "charge": null,
+        "item": "daichi_hammer",
+        "onAttack": [],
+        "passive": [],
+        "power": 20
       }
     ],
     "legendaryChargeWalk": 0.5,
@@ -1999,6 +2068,26 @@
       },
       {
         "item": "niji",
+        "weight": 1
+      },
+      {
+        "item": "kokuryu",
+        "weight": 1
+      },
+      {
+        "item": "yatagarasu",
+        "weight": 1
+      },
+      {
+        "item": "tenshi_yumi",
+        "weight": 1
+      },
+      {
+        "item": "gnome_axe",
+        "weight": 1
+      },
+      {
+        "item": "daichi_hammer",
         "weight": 1
       },
       {
@@ -2050,8 +2139,10 @@
     "toolDurability": {
       "bokuto": 59,
       "crystal_katana": 400,
+      "daichi_hammer": 10000,
       "fude": 5,
       "fujin_ken": 10000,
+      "gnome_axe": 10000,
       "iron_axe": 250,
       "iron_pickaxe": 250,
       "kabuto": 165,
@@ -2064,6 +2155,7 @@
       "kin_suneate": 500,
       "kin_yoroi": 500,
       "kin_yumi": 500,
+      "kokuryu": 10000,
       "kongo_axe": 1500,
       "kongo_kabuto": 1500,
       "kongo_katana": 1500,
@@ -2088,8 +2180,10 @@
       "stone_axe": 131,
       "stone_pickaxe": 131,
       "suneate": 195,
+      "tenshi_yumi": 10000,
       "wood_axe": 59,
       "wood_pickaxe": 59,
+      "yatagarasu": 10000,
       "yoroi": 240,
       "yumi": 384
     },

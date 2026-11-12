@@ -24,6 +24,7 @@ export function bindWho(y: YokaiWorld, who: 1 | 2): YokaiWorld {
   return {
     list: () => y.list(),
     raycast: (o, d, max) => y.raycast(o, d, max),
+    raycastAll: y.raycastAll ? (o, d, max) => y.raycastAll!(o, d, max) : undefined,
     damage: (id, amount, from, knock, by) => y.damage(id, amount, from, knock, by, who),
     occupies: (x, yy, z) => y.occupies(x, yy, z),
     pull: y.pull ? (id, x, z, dist) => y.pull?.(id, x, z, dist) : undefined,

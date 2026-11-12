@@ -20,6 +20,8 @@ export function createPlayerHook(controller: PlayerController): HookNamespace {
         pitch: s.pitchDeg,
         forward: { x: Math.sin(yaw), z: -Math.cos(yaw) },
         onGround: s.onGround,
+        /** LEGEND-4: 天使の弓の 空中ジャンプの のこり（人ごと） */
+        airJumpsLeft: controller.airJumpsLeft,
         facing: normalizeYaw(s.facingDeg),
         running: s.running,
       };

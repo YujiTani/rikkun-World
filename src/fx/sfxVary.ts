@@ -44,6 +44,14 @@ export const VARY: Readonly<Record<string, Vary>> = {
   parryEarly: plain(),
   staggerBreak: plain(),
   parrySwing: plain({ cents: 60, gain: 0.15 }),
+  // LEGEND-4: くり返す うつ・とぶ 音は ゆらぎを 大きめに（毎回 少し ちがう）。高い 音は 和音の 根音に 合わせる
+  kokuryuShot: plain({ cents: 180, gain: 0.15, dur: 0.15 }),
+  yataShot: plain({ cents: 120, gain: 0.12, dur: 0.1 }),
+  yataBurst: plain({ cents: 120, gain: 0.12, dur: 0.12 }),
+  tenshiPaa: root({ gain: 0.12, dur: 0.1 }),
+  airJump: root({ gain: 0.12, dur: 0.1 }),
+  hammerSlam: plain({ cents: 60, gain: 0.08, dur: 0.05 }),
+  hammerDive: plain({ cents: 120, gain: 0.1, dur: 0.1 }),
   // たたかう・妖怪・時間
   hit: plain({ cents: 80, gain: 0.15 }),
   defeat: root(),
@@ -123,6 +131,8 @@ export const LEVEL: Readonly<Record<string, number>> = {
   notRipe: 0.52, seedFound: 1.08, eat: 1.21, fill: 1.15, fullCan: 1.52, pour: 0.47,
   empty: 1.22, sprinklerPlace: 0.45, pet: 1.15, petAgain: 1.22, throw: 1.02, drawerOpen: 1.53,
   drawerClose: 0.9, parrySwing: 1.43, parry: 0.73, parryEarly: 1.16, staggerBreak: 0.69,
+  // LEGEND-4: 夜の BGM の いちばん大きい 50ms との差が +2〜+5 dB（ハンマーの ゴォンだけ +9 dB）に なるよう そろえた（legend4Sounds.measure.run.test.ts）。くり返す 音は 控えめ
+  kokuryuShot: 1.2, yataShot: 1.3, yataBurst: 0.85, tenshiPaa: 1.1, airJump: 1.3, hammerSlam: 1, hammerDive: 0.95,
   // MINE-1C: 宝箱が あく 音（K 重み 400 ms の めあて 段 1 -26.0・2 -25.5・3 -25.0・4 -24.5 dB に そろえた 値。/mnt/project-files/mine-sound/chest）
   chestOpen1: 0.7, chestOpen2: 0.65, chestOpen3: 0.66, chestOpen4: 0.55,
 };

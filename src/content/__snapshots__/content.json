@@ -4973,6 +4973,129 @@
       "rarity": "legendary",
       "recipes": []
     },
+    "kokuryu": {
+      "ITEM_INFO.kokuryu": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ",
+        "special": "や が つよく なり、すべて を つらぬく！ もてば かぜ の ように はやく、そら たかく とべる",
+        "stats": "bow",
+        "use": "や を とばして とおく の ようかい を たおす。や が いる"
+      },
+      "W2.bowDamageByItem.kokuryu": [
+        4,
+        6,
+        10
+      ],
+      "W2.bowStraightByItem.kokuryu": 48,
+      "W2.toolDurability.kokuryu": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［黒龍｜こくりゅう］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "yatagarasu": {
+      "ITEM_INFO.yatagarasu": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ",
+        "special": "ひかり の や が あたると むらさき の ほのお が だいばくはつ！ ときどき や が へらない",
+        "stats": "bow",
+        "use": "や を とばして とおく の ようかい を たおす。や が いる"
+      },
+      "W2.bowBurstByItem.yatagarasu": true,
+      "W2.bowDamageByItem.yatagarasu": [
+        4,
+        6,
+        10
+      ],
+      "W2.toolDurability.yatagarasu": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［八咫烏｜やたがらす］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "tenshi_yumi": {
+      "ITEM_INFO.tenshi_yumi": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ",
+        "special": "せなか に つばさ が はえて、ふわふわ とべる ように なる",
+        "stats": "bow",
+        "use": "や を とばして とおく の ようかい を たおす。や が いる"
+      },
+      "W2.bowDamageByItem.tenshi_yumi": [
+        3,
+        5,
+        7
+      ],
+      "W2.toolDurability.tenshi_yumi": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［天使｜てんし］の［弓｜ゆみ］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "gnome_axe": {
+      "ITEM_INFO.gnome_axe": {
+        "buttons": [
+          "1-9",
+          "leftHold"
+        ],
+        "how": "えらんで、ブロック に むけて ひだりクリック を おしつづける。ようかい に むけて ひだりクリック で よこに ふる",
+        "special": "き を きれば 2 だん いっきに まっぷたつ！ よこなぎ で ようかい を なぎはらう",
+        "stats": "pickaxe",
+        "use": "き を はやく きれる。ようかい も たたける"
+      },
+      "TOOL_DEFAULTS.toolLevel.gnome_axe": 0,
+      "TOOL_DEFAULTS.toolPower.gnome_axe": 6,
+      "TOOL_DEFAULTS.weaponDamage.gnome_axe": 7,
+      "TOOL_NUMBERS.toolLevel.gnome_axe": 0,
+      "TOOL_NUMBERS.toolPower.gnome_axe": 6,
+      "TOOL_NUMBERS.weaponDamage.gnome_axe": 7,
+      "W2.toolDurability.gnome_axe": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "ノームの［斧｜おの］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "daichi_hammer": {
+      "ITEM_INFO.daichi_hammer": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで、ようかい に むけて ひだりクリック。そら で ふると まっすぐ おちて たたきつける",
+        "special": "だいち を くだく いちげき！ ジャンプ こうげき は はかいりょく ばつぐん",
+        "stats": "hammer",
+        "use": "ようかい を つよく たたく。ねらった ところ の まわり の つち や いし も こわす"
+      },
+      "W2.toolDurability.daichi_hammer": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［大地｜だいち］のハンマー",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
     "harapan_mimizu": {
       "ITEM_INFO.harapan_mimizu": {
         "buttons": [

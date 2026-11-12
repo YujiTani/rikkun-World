@@ -1,3 +1,4 @@
+import { isGnomeAxe } from '../dig/gnomeChop';
 import { isBowItem } from '../content/items/ids';
 import { LIVE_SETTING_DEFAULTS, seedKindOfItem, vegKindOfItem, type ItemId, type ItemStack, type Rarity, type Recipe } from '../contracts';
 import { CRAFT_UI_SETTINGS, TOOL_NUMBERS, type CraftUiSettings, type ToolNumbers } from '../fx/craftConfig';
@@ -70,6 +71,7 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
   if (isAxe(item)) {
     add(`ほる つよさ ${tools.toolPower[item] ?? 1}`, item);
     add('き に つよい', item);
+    if (isGnomeAxe(item) && tools.weaponDamage[item] !== undefined) add(`たたく つよさ ${tools.weaponDamage[item]}`, item); // LEGEND-4: ノームの斧（よこなぎ）だけ（きんの おのには 出さない）
   }
   if (BLADE_LIKE_ITEMS.has(item)) {
     // WEAPON-7 PR3: 虹は その 1 本の つよさ（ヌシが おとした ときに 決まる）
