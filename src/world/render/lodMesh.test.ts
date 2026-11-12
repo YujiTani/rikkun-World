@@ -72,6 +72,28 @@ describe('LOD メッシュ（遠くのかんたんメッシュ）', () => {
     expect(r2.opaque.faceCount).toBe(2);
   });
 
+  // #475 seam E4: 木のはっぱの下が空いているとき、チャンクの縁の柱は となりがわの 面を 空きの底まで 描く（描かないと 空きごしに 向こうの空が見える）
+  it('縁の柱: となりの柱の下が空いている（はっぱの下）と、となりがわの横の面を 地面まで 描く。つまっていれば 描かない', () => {
+    const eastFaces = (leafY0: number, leafY1: number): { lo: number; hi: number }[] => {
+      const w = new ArrayVoxelWorld({ x: 32, y: 32, z: 32 });
+      w.fill(0, 0, 0, 31, 9, 31, 'stone');
+      // x=15（このチャンクの東の縁）と x=16（となり）の 2 本の柱。ブロック y=leafY0〜leafY1 の はっぱ
+      w.fill(15, leafY0, 5, 16, leafY1, 5, 'leaves');
+      const r = meshChunkLod(w, 0, 0);
+      const out: { lo: number; hi: number }[] = [];
+      for (let q = 0; q < r.opaque.faceCount; q++) {
+        const px = [0, 1, 2, 3].map((k) => r.opaque.positions[(q * 4 + k) * 3]);
+        const py = [0, 1, 2, 3].map((k) => r.opaque.positions[(q * 4 + k) * 3 + 1]);
+        if (px.every((v) => v === 16)) out.push({ lo: Math.min(...py), hi: Math.max(...py) });
+      }
+      return out;
+    };
+    // 下が空いている（y=10〜14 は空気、はっぱは 15〜16）: 東の面が 地面（y=10）から はっぱの上（y=17）まで
+    expect(eastFaces(15, 16)).toContainEqual({ lo: 10, hi: 17 });
+    // つまっている（はっぱが 地面の すぐ上から）: 東の面は 出ない（となりも 同じ高さの 柱）
+    expect(eastFaces(10, 16).filter((f) => f.hi > 10)).toEqual([]);
+  });
+
   // TEX-A（#146）: 横の明るさは 面の向きで 2 つ（南北・東西）。数は config の FACE_SHADE_BY_INDEX（#309 で 南北 0.68・東西 0.5）
   it('横の面の明るさは 南北・東西で ちがい（東西 < 南北 < 上 1.0）、比は config の表どおり（TEX-A）', () => {
     const w = new ArrayVoxelWorld({ x: 48, y: 16, z: 48 });

@@ -31,6 +31,11 @@ export function rebuildLodOf(c: LodCtx, col: ColState): void {
   const data = meshChunkLod(c.world, col.cx, col.cz, c.light);
   dropLodOf(c.group, col);
   col.lodOpaque = data.opaque.faceCount > 0 ? c.store.atlasMesh(data.opaque, c.mats.lodOpaqueMaterial, 0, lodSortKey(col.cx, col.cz, false)) : null;
+  const box = col.lodOpaque?.geometry.boundingBox;
+  if (box && data.cullMinY > box.min.y && data.cullMinY < box.max.y) {
+    box.min.y = data.cullMinY; // 視錐台の 判定は ふつうの 面の 下はしで（#475）
+    box.getBoundingSphere(col.lodOpaque!.geometry.boundingSphere!);
+  }
   col.lodWater = data.water.faceCount > 0 ? c.store.atlasMesh(data.water, c.mats.lodWaterMaterial, RENDER_CONFIG.waterRenderOrder, lodSortKey(col.cx, col.cz, true)) : null;
   col.lodStale = false;
   c.changed(col.cx, col.cz);
