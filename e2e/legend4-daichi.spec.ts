@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { openBladeWorld, stage } from './helpers/blade';
+import { installAimHelpers } from './helpers/aim';
 import { spawnAt } from './helpers/legend';
 import { feet, holdLegend, playerHp, stepCollect, yokaiHp } from './helpers/legend4';
 
@@ -32,11 +33,13 @@ test.describe('LEGEND-4 PR5 大地のハンマー（D9）', () => {
     const fy = floorY + 1; // 足の 段
 
     // 北（z が へる 向き）3 マス 先に 5 × 5 の 石の かべ（z-3）と その うしろ（z-4）。目の 高さの まん中の ブロックを ねらう
+    // ねらいは 肩の 点から（足もとの 真北では ない）。ねらいの 道具で (cx, fy + 1, cz - 3) の 横の 面を ねらう
+    await installAimHelpers(page);
     await page.evaluate(
       ({ cx, cz, fy }) => {
         const h = window.__rikkun as any;
         h.world.fill(cx - 2, fy, cz - 4, cx + 2, fy + 4, cz - 3, 'stone');
-        h.player.set({ yaw: 0, pitch: 0 });
+        (window as any).__aim.solve(cx, fy + 1, cz - 3, 0.5);
         h.step(1);
       },
       { cx, cz, fy },

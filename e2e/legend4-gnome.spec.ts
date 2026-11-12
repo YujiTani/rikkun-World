@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { openBladeWorld, stage } from './helpers/blade';
-import { aimAtBlock } from './helpers/aim';
+import { aimAtBlock, installAimHelpers } from './helpers/aim';
 import { spawnAt } from './helpers/legend';
 import { feet, holdLegend, stepCollect, yokaiHp } from './helpers/legend4';
 
@@ -38,6 +38,7 @@ test.describe('LEGEND-4 PR4 ノームの斧（G6）', () => {
       ({ tx, tz, base }) => (window.__rikkun as any).world.fill(tx, base, tz, tx, base + 3, tz, 'log'),
       { tx, tz, base },
     );
+    await installAimHelpers(page);
     await aimAtBlock(page, tx, base, tz, 0.5);
     const tgt = await page.evaluate(() => (window.__rikkun as any).target.get() as { x: number; y: number; z: number } | null);
     expect(tgt, '根もとを ねらえて いる').toMatchObject({ x: tx, y: base, z: tz });
