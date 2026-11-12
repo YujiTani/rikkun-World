@@ -1,4 +1,4 @@
-import { AIR } from '../blocks/blockTypes';
+import { AIR, isWaterLookIndex } from '../blocks/blockTypes';
 import { MAGMA_TUNING, liquidAmountOf, magmaBoilsAt } from '../blocks/liquids';
 import { tileUv } from '../blocks/textures';
 import { magmaAmount } from '../blocks/magma';
@@ -48,8 +48,10 @@ function freeSurface(aboveIdx: number, amount: number): boolean {
  * nIdx = その 向きの となりの 番号（0 以上。世界の 外は 呼ぶ 前に 外す）。
  */
 function spanOf(world: { getIndex(x: number, y: number, z: number): number }, x: number, y: number, z: number, b: number, face: { readonly dir: readonly number[] }, nIdx: number): boolean {
-  const amt = liquidAmountOf(b);
+  const base = liquidAmountOf(b);
   const mark = magmaAmount(b) > 0 ? MAGMA_TUNING.waveAmpMul : 1;
+  // わきどころ・たきつぼは 満水の 水と 同じ 見た目（となりの 水との 面も かくれる）
+  const amt = mark === 1 ? (i: number): number => (isWaterLookIndex(i) ? 8 : base(i)) : base;
   const same = (i: number): boolean => amt(i) > 0;
   const a = amt(b);
   const s = WATER_SPAN;

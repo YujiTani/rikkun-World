@@ -282,3 +282,19 @@ describe('§4.6 遠景（lodMesh）・ミクロ・光: 量 1〜7 も みな 水�
     expect(l.skyLight(20, 4, 20)).toBe(12);
   });
 });
+
+describe('わきどころ・たきつぼの 見た目（水と 同じ）', () => {
+  it('となりの 水との 間に 面が 出ず、水の メッシュで 描く（ふつうの 箱の 面は 出ない）', () => {
+    const w = pond();
+    w.setBlock(10, Y, 10, 'water');
+    w.setBlock(11, Y, 10, 'wakimizu');
+    const ex = meshSectionExtras(w, 0, 0, 0, undefined);
+    const alone = pond();
+    alone.setBlock(11, Y, 10, 'wakimizu');
+    const exAlone = meshSectionExtras(alone, 0, 0, 0, undefined);
+    expect(ex.opaque.faceCount, '箱の 面は 無い').toBe(0);
+    expect(exAlone.water.faceCount, '1 つだけなら 上と 横 4 つ（下は 床）').toBe(5);
+    expect(ex.water.faceCount, '水と の 間の 2 面が 消える').toBe(8);
+    expect(isOpaqueIndex(BLOCK_INDEX.wakimizu) || isOpaqueIndex(BLOCK_INDEX.takitsubo)).toBe(false);
+  });
+});

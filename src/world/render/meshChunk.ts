@@ -1,4 +1,4 @@
-import { AIR, BLOCK_TYPES, isCrossIndex, isFloorDecoIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../blocks/blockTypes';
+import { AIR, BLOCK_TYPES, isCrossIndex, isFloorDecoIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWaterLookIndex, isWildIndex } from '../blocks/blockTypes';
 import { BLOCK_TILES, TORCH_PX, tileSubUv, tileUv, type TileName } from '../blocks/textures';
 import { FURN_FACE_TILES } from '../blocks/houseTextures';
 import type { CropStageSource } from '../../contracts';
@@ -11,6 +11,7 @@ import type { WorldLight } from '../light/WorldLight';
 import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
 import { AO_LEVELS, FACE_SHADE_BY_INDEX } from './config';
 import { isLiquidIndex } from '../blocks/liquids';
+import { WATER_FULL_INDEX } from '../blocks/water';
 import { WATER_SPAN, waterFaceSpan } from './waterFaces';
 
 /** メッシュの材料（three に依存しない。テストしやすい） */
@@ -503,15 +504,17 @@ export function meshChunk(
           continue;
         }
         if (isFloorDecoIndex(b)) continue; // 床の 飾り（MINE-1E）は ひくい 小ブロックの 形だけ。この 段では 描かない
-        const uv = TILE_UV[b];
+        const look = isWaterLookIndex(b); // わきどころ・たきつぼ: 見た目だけ 満水の 水
+        const isWater = look || isLiquidIndex(b); // WATERFALL-1: マグマも 水と 同じ 液体の 面
+        const wb = look ? WATER_FULL_INDEX : b;
+        const uv = TILE_UV[wb];
         if (!uv) continue;
-        const isWater = isLiquidIndex(b); // WATERFALL-1: マグマも 水と 同じ 液体の 面
         for (const face of FACES) {
           const n = world.getIndex(x + face.dir[0], y + face.dir[1], z + face.dir[2]);
           if (n < 0) continue; // 世界の外へ向く面は見えない
           if (isWater) {
-            if (!waterFaceSpan(world, x, y, z, b, face, n)) continue;
-            pushFace(water, world, light, x, y, z, face, WATER_SPAN.uv ?? FACE_UV[b]?.[face.index] ?? uv[face.kind], false, WATER_SPAN.lo, WATER_SPAN.hi, WATER_SPAN.waveLo, WATER_SPAN.waveHi);
+            if (!waterFaceSpan(world, x, y, z, wb, face, n)) continue;
+            pushFace(water, world, light, x, y, z, face, WATER_SPAN.uv ?? FACE_UV[wb]?.[face.index] ?? uv[face.kind], false, WATER_SPAN.lo, WATER_SPAN.hi, WATER_SPAN.waveLo, WATER_SPAN.waveHi);
             continue;
           }
           if (isOpaqueIndex(n)) continue;
