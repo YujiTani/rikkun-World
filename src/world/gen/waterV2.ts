@@ -7,6 +7,7 @@ import type { BlockId } from '../../contracts';
 import type { FallPlan } from './waterV2Types';
 import { clearRects, Edit, snowCap, waterLeaks, windowMemo, type Ground, type Rect } from './waterV2Kit';
 import { buildPond } from './waterV2Pond';
+import { shaftKeepOut } from './waterV2Shaft';
 import { findPlateaus, plateauPonds } from './waterV2Flat';
 import { highSpots, sourceSpots, type SourceSpot } from './waterV2Source';
 import { flowField } from './waterV2Flow';
@@ -46,7 +47,9 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
   // 列の 高さ・置ける 列かは 1 回だけ 読む（山の まわり 四角 = LIMIT + 3 の 中。読むのは 高さが いちばん 重い）
   const R = LIMIT + 3;
   const hAt = windowMemo((x, z) => c.T.height(x, z), c.px, c.pz, R);
-  const plainMemo = windowMemo((x, z) => (plainAt(c, x, z) ? 1 : 0), c.px, c.pz, R);
+  // 坑道の 入口の まわりは 置けない 列（入口の 前を 水で ふさがない）
+  const shaftRects = shaftKeepOut(c.T.seed, c.px - R, c.pz - R, c.px + R, c.pz + R);
+  const plainMemo = windowMemo((x, z) => (plainAt(c, x, z) && !shaftRects.some((r) => inside(r, x, z)) ? 1 : 0), c.px, c.pz, R);
   const plain = (x: number, z: number): boolean => plainMemo(x, z) === 1;
   // 山の 点から はなれすぎた 所は 置けない（-1）
   const gb: Ground = windowMemo((x, z) => (cheb(x, z, c.px, c.pz) > LIMIT ? -1 : groundFrom(c, x, z, hAt(x, z), () => plain(x, z))), c.px, c.pz, R);
