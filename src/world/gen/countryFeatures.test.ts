@@ -45,6 +45,7 @@ const OWNER: Record<string, CountryKind> = {
   tsukimiIwa: 'susuki',
 };
 const TYPES = Object.keys(OWNER);
+// 時間上限（it の 3 つめ）: 山 v2・水 v2 の 最初の 計画が 重い。単体 2〜11 秒（CI は 2〜3 倍 おそい）→ 単体の 4 倍（最低 20 秒）
 
 /** その国の升目（山でない・点が 陸 = 海面より上。§2.3「水の上には 置かない」）を 20 こ。番号の小さい順に 間をあけて ひろう */
 function cellsOf(seed: number, kind: CountryKind): { i: number; j: number; px: number; pz: number }[] {
@@ -82,7 +83,7 @@ describe('#187-AC1: 数（§2.3 の表）', () => {
         }
         expect(rows.filter((r) => r.list.length === 0).length, `${type} seed ${seed} 置けない升目`).toBeLessThanOrEqual(4);
       }
-    });
+    }, 25_000);
   }
 
   it('himawari: 1 升目に 5 こ まで・ひまわりどうし 4 以上はなす・点から 40 以内。8 割の升目で 3 以上', async () => {
@@ -96,7 +97,7 @@ describe('#187-AC1: 数（§2.3 の表）', () => {
       }
       expect(rows.filter((r) => r.list.length >= 3).length, `seed ${seed} 3 以上の升目`).toBeGreaterThanOrEqual(16);
     }
-  });
+  }, 20_000);
 
   it('kaigara: 1 列（16×16）に 4 こ まで。すなはま に ある', async () => {
     const fn = await load();
@@ -112,7 +113,7 @@ describe('#187-AC1: 数（§2.3 の表）', () => {
       for (const [k, n] of cols) expect(n, `列 ${k}`).toBeLessThanOrEqual(4);
       expect([...cols.values()].filter((n) => n >= 2).length, `seed ${seed} 2 こ以上ある列`).toBeGreaterThan(0);
     }
-  });
+  }, 25_000);
 
   it('takenoko: 1 升目に 3 こ まで。たけやぶの 道の上。たけのこ どうし 8 以上はなす。20 升目の 合計で 1 こ以上（見つかった数だけ）', async () => {
     const fn = await load();
@@ -126,7 +127,7 @@ describe('#187-AC1: 数（§2.3 の表）', () => {
       }
       expect(rows.reduce((n, r) => n + r.list.length, 0), `seed ${seed} 合計`).toBeGreaterThanOrEqual(1);
     }
-  });
+  }, 20_000);
 });
 
 describe('#187-AC2: 国の外・境目には 0 こ', () => {
@@ -216,7 +217,7 @@ describe('生成とのずれ: features の場所に 本当に その物が あ�
       expect(list.length, type).toBeGreaterThan(0);
       for (const f of list) expect(blockAt(seed, f.x, f.y, f.z), `${type} (${f.x},${f.y},${f.z})`).toBe(id(block));
     }
-  });
+  }, 20_000);
   it('kinokoNoWa: まん中から 半径 3 の 8 か所に きのこが 6 本以上', async () => {
     const list = await pick(seed, 'kinokoNoWa', 3);
     expect(list.length).toBeGreaterThan(0);
@@ -228,7 +229,7 @@ describe('生成とのずれ: features の場所に 本当に その物が あ�
       }
       expect(n, `(${f.x},${f.z})`).toBeGreaterThanOrEqual(6);
     }
-  });
+  }, 20_000);
   it('tsukimiIwa: まわりに いしの かたまり（15 こ以上）', async () => {
     const list = await pick(seed, 'tsukimiIwa', 3);
     expect(list.length).toBeGreaterThan(0);
@@ -281,5 +282,5 @@ describe('はじまりの 範囲（M7 の やせいの やさい・農家・木�
         }
       }
     }
-  });
+  }, 45_000);
 });

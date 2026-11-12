@@ -38,13 +38,15 @@ function typesOfMountains(kind: Kind): Set<string>[] {
 }
 
 describe('山 v2（既定）の 山の物', () => {
-  it('どの 山にも: いわやま = すいしょう、もみじやま = おおもみじ、ゆきやま = ゆきだるま', () => {
-    for (const [kind, type] of [['iwayama', 'suisho'], ['momiji', 'oomomiji'], ['yuki', 'yukidaruma']] as const) {
+  // 時間上限（it の 3 つめ）: 山 v2・水 v2 の 最初の 計画が 重い（山の 数 × 道えらび・水の 計画）。
+  // 種類ごとに 分けて 単体 約 10〜15 秒（CI は 2〜3 倍 おそい）→ 65 秒。てんぐ 単体 12 秒 → 50 秒
+  for (const [kind, type] of [['iwayama', 'suisho'], ['momiji', 'oomomiji'], ['yuki', 'yukidaruma']] as const) {
+    it(`どの 山にも: ${kind} = ${type}（いわやま = すいしょう、もみじやま = おおもみじ、ゆきやま = ゆきだるま）`, () => {
       const list = typesOfMountains(kind);
       expect(list.length, `${kind} の 山の 数`).toBeGreaterThan(0);
       for (const s of list) expect(s.has(type), `${kind} に ${type}`).toBe(true);
-    }
-  });
+    }, 65_000);
+  }
 
   it('てんぐの やま: お堂か とうろうの どちらか 1 つだけ（お堂が ある 山に とうろう・かいだんを 重ねない）', () => {
     const list = typesOfMountains('tengu');
@@ -53,10 +55,10 @@ describe('山 v2（既定）の 山の物', () => {
       expect(s.has('odou') !== s.has('touro'), `お堂 ${s.has('odou')} とうろう ${s.has('touro')}`).toBe(true);
       if (s.has('odou')) expect(s.has('kaidan')).toBe(false);
     }
-  });
+  }, 50_000);
 
   it('いわやま・もみじやまの 目じるし（いしの とりい・ほこら）も 出る', () => {
     expect(typesOfMountains('iwayama').some((s) => s.has('ishi_torii'))).toBe(true);
     expect(typesOfMountains('momiji').some((s) => s.has('hokora'))).toBe(true);
-  });
+  }, 65_000);
 });
