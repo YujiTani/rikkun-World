@@ -285,6 +285,7 @@ describe('AC18b: 窓口 house.lookOf・house.placedLook と 保存（HouseSystem
     const r = houseRig();
     const placed = placedOf(r);
     watchPlaced(r.world, placed);
+    r.talk(); // 話しかけて から せっけいずを 作る（make の 前提）
     r.make();
     const number = r.hook.blueprints().at(-1)!.number;
     const AT = { x: 20, y: 11, z: 20 };

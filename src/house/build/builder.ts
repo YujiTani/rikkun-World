@@ -55,6 +55,8 @@ export interface BuilderDeps {
   shape(b: Pick<ActiveBuild, 'number' | 'bp' | 'at'>): void;
   /** 完成の 記録（houses()・紙ふぶき・ファンファーレ）。完成した ステップで 1 回。読みこみ前でも 同じ ステップ（AC21） */
   record(b: Pick<ActiveBuild, 'number' | 'bp' | 'at'>): void;
+  /** HOUSE-2C: 建築士さんが マスを 置きかえる とき（手置きの 案の 記録を 消す。同じ id を 置く ときも） */
+  erase?(x: number, y: number, z: number): void;
 }
 
 /** 場所が 読みこまれて いるかを 見直す 間かく（ステップ） */
@@ -238,6 +240,7 @@ export class HouseBuilder {
     const x = at.x + c.x;
     const y = at.y + c.y;
     const z = at.z + c.z;
+    this.d.erase?.(x, y, z);
     if (this.d.world.getBlock(x, y, z) !== c.id) this.d.world.setBlock(x, y, z, c.id);
   }
 

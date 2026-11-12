@@ -26,6 +26,15 @@ export const FLOWER_ROW: ItemId = 'flower_y';
 /** はなの 3 いろ（ある ＝ 3 つの 合計。つかう ときは 手前から） */
 export const FLOWER_IDS: readonly ItemId[] = ['flower_y', 'flower_o', 'flower_p'];
 
+/**
+ * 手で つくる とき の 材料（HOUSE-2C §2.6。エディターでは 材料 0 の 2 つ〔たいらの やね・いえの と〕だけ。「つくる」の 作り方〔craft/houseCraft.ts〕が 読む）。
+ * たいらの やね: き 1 → 1 マス。いえの と: き 2 → 1 こ（2 マス）
+ */
+export const HAND_MATS = {
+  house_roof: { item: 'log' as ItemId, count: 1 },
+  house_door: { item: 'log' as ItemId, count: 2 },
+} as const satisfies Record<string, { item: ItemId; count: number }>;
+
 /** 材料の 数（数は ここに 1 か所。単位は 下の コメント） */
 const MATS = {
   /** かべ なし: 4 すみの 柱 ＝ 4 本 × 3 段（き） */

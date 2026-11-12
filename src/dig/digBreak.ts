@@ -66,6 +66,8 @@ export class BlockBreaker {
     const { x, y, z } = t.block;
     // こたつ 2×2: どの マス を こわして も 4 マス ぜんぶ 消える（`nukunuku` 1 と 中 の たまご は 1 回 だけ）
     if (isKotatsuBlock(t.id)) this.clearKotatsuCells(t);
+    // HOUSE-2B・2C: ほった アイテムは 消す 前に 決める（手で 置いた 記録は ブロックが かわると 消える）。順は 置いた 記録 → 家の 記録 → いつもの
+    const dropItem: ItemId = dugItemAt(c.m4.houseLook?.(), t.id, x, y, z, c.m4.placedLooks?.());
     // HOUSE-1C: 戸は 上下 2 マス・長い 家具は ぜんぶの マスが 消えて、もとの アイテム 1 こ（向き・マス ちがいの id は もとの id に もどす）
     const houseDrop = houseDropOf(t.id);
     this.clearHouseCells(t);
@@ -85,7 +87,6 @@ export class BlockBreaker {
     this.dropHangingTsurara(x, y, z); // MINE-1D: 上の ブロックを こわすと 下に さがる つららも こわれる
     const farmDrop = FARM_BREAK_DROP[t.id] ?? (houseDrop || isLookBlock(t.id) ? { item: houseDrop ?? ('log' as ItemId), count: 1 } : null); // 家の ものは いつも 1 こ（しゅるいの アイテムは dropItem で 場所から 引く）
     const fixed = farmDrop ? farmDrop.count : DUG_ALWAYS_ONE.has(dropId) ? 1 : (craft?.fixedDrop(dropId) ?? null);
-    const dropItem: ItemId = dugItemAt(c.m4.houseLook?.(), t.id, x, y, z); // HOUSE-2B: 家の 記録の しゅるい（なければ いつもの）
     const max = Math.max(1, c.config.dropMax[c.config.rarity[dropId]] ?? 1);
     const n = NO_DROP_BLOCKS.has(dropId) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
     const got = n - c.inventory.add(dropItem, n);

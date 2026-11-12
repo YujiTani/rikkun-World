@@ -1,7 +1,7 @@
 // HOUSE-2A（#364）レシピの 表（1 か所）。仕様 docs/design/HOUSE-2.md §4.1。DOM・three なし。
 // 1 まいの レシピで 出る 物（gives）を 決める。ボタンの id・名前・材料は ここと kinds.ts・mats.ts から 出る（足す ときは ここに 1 行 ＋ mats.ts）。
 // 並び ＝ 窓口 recipes().all の 並び（§4.1 の 表の 番号の 順）。かわらの やね（roof_kawara）が 1 まい目（pick.ts）。
-import { FORM_NAME, LIGHT_NAME, kindsOfForm, type LightKind, type Part } from './kinds';
+import { FORM_NAME, LIGHT_NAME, kindsOfForm, type LightKind, type LookPart, type Part } from './kinds';
 
 /** 1 まいで 出る 物 */
 type Gives =
@@ -78,3 +78,15 @@ export function recipeOfSuffix(index: number): RecipeId | null {
 }
 /** かざりの レシピ（おぼえた 物が 1 つでも あれば ばしょ「かざり」が 出る） */
 export const DECO_RECIPES: readonly RecipeId[] = RECIPE_IDS.filter((id) => { const g: Gives = def(id).gives; return g.t === 'form' && g.part === 'deco'; });
+
+/** そのレシピで「つくる」に ふえる 物（ばしょ・しゅるい id。むら・おしろ・こうざんの 順）。まねきねこ（かまどで やく）・後ろの 文字（作らない）は 空 */
+export function recipeLooks(id: RecipeId): Array<{ part: LookPart; kind: string }> {
+  const g: Gives = def(id).gives;
+  switch (g.t) {
+    case 'form': return kindsOfForm(g.form).map((kind) => ({ part: g.part, kind }));
+    case 'light': return [{ part: 'light', kind: g.kind }];
+    case 'furniture': return [];
+    case 'suffix': return [];
+    default: return g satisfies never;
+  }
+}

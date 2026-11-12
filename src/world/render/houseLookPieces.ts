@@ -186,8 +186,8 @@ function profile(kind: string, od: number): readonly Pt[] {
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 
 /** やね 1 マス（外の たて od の rz 列目・やねの 1 段目から ly 段目）。capL・capR ＝ よこの はし（しりの 面を 出す） */
-function roofPieces(kind: string, od: number, rz: number, ly: number, capL: boolean, capR: boolean, ceiling: boolean): LookPiece[] {
-  const P = profile(kind, od);
+function roofPieces(kind: string, od: number, rz: number, ly: number, capL: boolean, capR: boolean, ceiling: boolean, profKind: string = kind): LookPiece[] {
+  const P = profile(profKind, od); // 断面（かたむき）は profKind・絵は kind
   const geo = HOUSE_LOOK_GEOMETRY[`roof:${kind}`]?.find((g) => g.kind === 'prism' && g.tiles.top);
   const T = geo!.tiles;
   const top = surf(T.top!);
@@ -367,15 +367,16 @@ function doorPieces(style: string, d: { top: boolean; open: boolean }): LookPiec
   ];
 }
 
-function decoPieces(form: string, kind: string, c: LookCtx | null): LookPiece[] {
+function decoPieces(form: string, kind: string, c: LookCtx | null, turns?: number): LookPiece[] {
   if (form === 'hanadan') {
-    const q = c ? outTurns(c) : 0;
+    const q = turns ?? (c ? outTurns(c) : 0);
     const boxes = geoOf(`deco:${kind}`);
     // かべの わく（0〜3）は まえ・うしろ だけ、はこ（4・5）と 花（7・9・11・13）は 上と まえ、くき（6・8・10・12）は 出さない
     const faces: ReadonlyArray<ReadonlySet<FaceName>> = [new Set(['back']), new Set(['front']), new Set(['front']), new Set(['front']), new Set(['top', 'front']), new Set(['top', 'front'])];
     return boxes.flatMap((g, i) => (i >= 6 && i % 2 === 0 ? [] : boxPieces(g, { q, only: faces[Math.min(i, 5)], trim: true })));
   }
   if (form === 'noren') {
+    if (turns !== undefined) return geoOf(`deco:${kind}`).flatMap((g) => boxPieces(g, { clip: [16, 32], q: turns })); // 手で 置いた のれん: かべ なし・向きだけ
     const wall = c ? ringCube({ kind: 'cube', a: [0, 0, 0], b: [16, 16, 16], tiles: { side: 'base:wall', top: 'base:wall_top' } }, c) : [];
     return [...wall, ...geoOf(`deco:${kind}`).flatMap((g) => boxPieces(g, { clip: [16, 32] }))];
   }
@@ -401,4 +402,71 @@ export function lookPieces(id: string, c: LookCtx | null): readonly LookPiece[] 
     cache.set(key, p);
   }
   return p;
+}
+
+// ------------------------------------------------------------ 手で 置いた 物（HOUSE-2C §2.6・§2.7）
+
+/** 手で 置いた 物の 記録（house/placedLooks.ts の PlacedLook と 同じ 形。ここは 何も import しない） */
+export interface PlacedLookView {
+  style: string;
+  /** 前が 向く 方位（n ＝ −z・s ＝ ＋z・e ＝ ＋x・w ＝ −x） */
+  facing: 'n' | 'e' | 's' | 'w';
+}
+/** 絵の 向き（art は 南向き）から 方位への まわす 回数（家具と 同じ きめ。boxPieces の q） */
+const TURNS_OF_FACING: Readonly<Record<PlacedLookView['facing'], number>> = { s: 0, w: 1, n: 2, e: 3 };
+/** 北〔−z〕から 方位へ 時計まわりに まわす 回数（turnPieces） */
+const TURNS_FROM_NORTH: Readonly<Record<PlacedLookView['facing'], number>> = { n: 0, e: 1, s: 2, w: 3 };
+/** 手置きの ななめの やねに つかう 1 マス（外の たて 7 の 3 列目・やねの 2 段目 ＝ ななめの「なか」。のきは 北〔−z〕がわ） */
+const SLOPE_CELL = { od: 7, rz: 2, ly: 1 } as const;
+
+/** マスの まん中(0.5, 0.5) の まわりに 北を facing に むける ように まわす（北 → 東 → 南 → 西 の 順に 1 回ずつ） */
+function turnPieces(ps: readonly LookPiece[], n: number): LookPiece[] {
+  return ps.map((p) => {
+    const pos = [...p.pos];
+    for (let i = 0; i < 4; i++) {
+      let dx = pos[i * 3]! - 0.5;
+      let dz = pos[i * 3 + 2]! - 0.5;
+      for (let t = 0; t < n; t++) [dx, dz] = [-dz, dx];
+      pos[i * 3] = dx + 0.5;
+      pos[i * 3 + 2] = dz + 0.5;
+    }
+    return { ...p, pos };
+  });
+}
+
+/** 1 マスだけ 置く ななめの やねの 下の 面と うしろの 面を 足して とじる（北むきの 形。うしろ ＝ +z。高さは うしろの はしの いちばん 高い ところ） */
+function closeBottomBack(ps: readonly LookPiece[], kind: string): LookPiece[] {
+  const geo = HOUSE_LOOK_GEOMETRY[`roof:${kind}`]?.find((g) => g.kind === 'prism' && g.tiles.top);
+  const s = surf(geo!.tiles.front ?? geo!.tiles.top!);
+  const hb = Math.max(0, ...ps.flatMap((p) => [0, 1, 2, 3].filter((i) => Math.abs(p.pos[i * 3 + 2]! - 1) < 1e-6).map((i) => p.pos[i * 3 + 1]!)));
+  const r = tileSubUv(s.tile, 0, 0, 16, 16);
+  const uv = [r[0], r[1], r[2], r[1], r[2], r[3], r[0], r[3]];
+  return [...ps, mkPiece([0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1], uv, 1, s), mkPiece([0, 0, 1, 1, 0, 1, 1, hb, 1, 0, hb, 1], uv, 4, s)];
+}
+
+const placedCache = new Map<string, readonly LookPiece[]>();
+
+/**
+ * 手で 置いた 物 1 マスの 面（置いた ときの 記録の 案・向き）。ななめの やねは 「なか」の 形 1 マス（のきが facing がわ・上や 下の 面でも 同じ）、のれん・はなだんは 前が facing がわ。
+ * ほかの 形は 向きを 使わず 案だけ 変える。記録が null なら lookPieces(id, null)（立方体・むら）と 同じ
+ */
+export function placedLookPieces(id: string, placed: PlacedLookView | null): readonly LookPiece[] {
+  if (!placed) return lookPieces(id, null);
+  const key = `${id}|${placed.style}|${placed.facing}`;
+  let out = placedCache.get(key);
+  if (out) return out;
+  const { part, form } = idParts(id);
+  const kind = `${form}_${placed.style}`;
+  if (part === 'roof') {
+    const c = SLOPE_CELL;
+    // こうざんの かいだん（かたい 段）は 手置きの 1 マスでは ななめに ならない ので、かたむきだけ さんかくの やねの なかを つかい、絵は その 案の まま
+    const slope = kind.endsWith('_kozan') ? `${form}_mura` : kind;
+    out = turnPieces(closeBottomBack(roofPieces(kind, c.od, c.rz, c.ly, true, true, false, slope), kind), TURNS_FROM_NORTH[placed.facing]);
+  } else if (part === 'deco' && (form === 'noren' || form === 'hanadan')) {
+    out = decoPieces(form, kind, null, TURNS_OF_FACING[placed.facing]);
+  } else {
+    out = lookPieces(id, { look: id in LOOK_DOOR_INFO ? `tetsu_${placed.style}` : kind, rx: 0, ry: 0, rz: 0, ow: 1, od: 1, h: 1 });
+  }
+  placedCache.set(key, out);
+  return out;
 }

@@ -4,6 +4,7 @@ import type { BlockId, ItemId, LockStatus, PlayerState, VoxelWorld } from '../co
 import { ActionState } from '../input/actions';
 import { InventoryImpl } from '../inventory/Inventory';
 import { doorInfo } from '../world/blocks/houseBlocks';
+import { isWater } from '../world/blocks/water';
 import { createDigConfig } from './config';
 import { DigSystemImpl } from './DigSystem';
 import type { DigM4Deps } from './digPorts';
@@ -31,7 +32,7 @@ export class PlaceWorld implements VoxelWorld {
   }
   isSolid(x: number, y: number, z: number): boolean {
     const b = this.getBlock(x, y, z);
-    return b !== 'outside' && b !== 'air' && b !== 'water' && !(b.startsWith('house_door') && doorInfo(b)!.open);
+    return b !== 'outside' && b !== 'air' && !isWater(b) && !(b.startsWith('house_door') && doorInfo(b)!.open);
   }
   fill(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, id: BlockId) {
     for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) this.setBlock(x, y, z, id);

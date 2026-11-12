@@ -39,6 +39,8 @@ export interface GlueDeps {
   /** テスト用の 建築の 長さ（0 以下 ＝ 式） */
   buildTicks(): number;
   book: HouseBook;
+  /** HOUSE-2C: 建築士さんが 置きかえた マスの 手置きの 案の 記録を 消す（なければ 何も しない） */
+  erasePlaced?: (x: number, y: number, z: number) => void;
   manager: Pick<ArchitectManager, 'assignBuild' | 'finishBuild' | 'get'>;
   /** いま 話して いる 建築士さん（なければ null） */
   speaker(): string | null;
@@ -67,7 +69,7 @@ export class BuildGlue {
       return !isLeafId(id);
     });
     this.dozuki = new Dozuki(w);
-    this.builder = new HouseBuilder({ world: w, shape: (b) => writeShape(w, b.bp, b.at), record: (b) => this.record(b) });
+    this.builder = new HouseBuilder({ world: w, shape: (b) => writeShape(w, b.bp, b.at, d.erasePlaced), erase: d.erasePlaced, record: (b) => this.record(b) });
     this.flow = new BuildFlow({
       plans: () => this.cards(),
       findSites: (bp) => this.sitesFor(bp),

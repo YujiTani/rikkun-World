@@ -6,7 +6,7 @@ import { watchBlocks } from '../../house/blockWatch';
 import { houseKeyGuard } from '../../house/keyGuard';
 import { Preview3D } from '../../house/preview/preview';
 import { HouseSystem } from '../../house/system';
-import { setHouseLookSource } from '../../world/render/houseProp';
+import { setHouseLookSource, setPlacedLookSource } from '../../world/render/houseProp';
 import { setPlanNameSource } from '../../inventory/planName';
 import { EditorView } from '../../ui/houseEditor';
 import { HouseUi } from '../../ui/houseUi';
@@ -99,10 +99,12 @@ export function wireHouse(deps: WiredYokai) {
   shared.houseFrozen = () => house.frozen();
   // HOUSE-2B: 世界の 家の しゅるいの ブロックは 家の 記録から 場所ごとの 案・場所を 引いて 描く。読みこんだ あとは 家の 箱の ある 区を 描きなおす（記録が 先に 無いと むらの かんたんな 形に なる ため）
   setHouseLookSource((x, y, z) => house.book.cellOf(x, y, z));
+  setPlacedLookSource((x, y, z) => house.placedLooks.get(x, y, z)); // HOUSE-2C: 手で 置いた 物の 案・向き（家の 記録より 先）
   const loadHouse = house.load.bind(house);
   house.load = (data) => {
     loadHouse(data);
     // 家の 箱の 4 すみの 区を 描きなおす（まんなかの 1 点＋はんいでは 端の 区を とりこぼす）
+    for (const [x, , z] of house.placedLooks.save()) world.markDirty(x, z, 1); // 手で 置いた 物の 区も 描きなおす
     for (const s of house.book.specList()) {
       for (const x of [s.at.x, s.at.x + s.w + 1]) for (const z of [s.at.z, s.at.z + s.d + 1]) world.markDirty(x, z, 1);
     }

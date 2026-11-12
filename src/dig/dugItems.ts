@@ -2,6 +2,7 @@ import type { BlockId, ItemId } from '../contracts';
 import { GADGET_ID } from '../content/items/gadgetTuning';
 import { ITEM_DEFS } from '../content/items/registry';
 import { isFutonId } from '../world/blocks/futon';
+import { formOfBlock, type PlacedLooks } from '../house/placedLooks';
 import { firstKindOfBlock, kindBlocks, kindItem, partOfLook } from '../house/recipes/kinds';
 import { isLookBlock } from '../world/blocks/houseLookBlocks';
 import { houseDropOf } from '../world/blocks/houseBlocks';
@@ -41,10 +42,16 @@ export interface LookAt {
 }
 
 /**
- * 場所で 引く ほった アイテム（HOUSE-2B）。家の 記録に その 場所の しゅるい（案こみ）が あり、ブロックが その しゅるいの ブロックなら その しゅるいの アイテム 1 こ。
- * 記録が ない・ブロックが ちがう（手で 置いた）なら 今までの dugItemOf（案の 記録は 2C）
+ * 場所で 引く ほった アイテム（HOUSE-2B・2C）。順は ① 置いた ときの 記録（`placed`。その マスの ブロックが 案の ある 形の とき）→ ② 家の 記録に その 場所の しゅるい（案こみ）が あり、
+ * ブロックが その しゅるいの ブロックなら その しゅるいの アイテム 1 こ → ③ いままでの dugItemOf（その 形の むら）
  */
-export function dugItemAt(book: LookAt | null | undefined, id: BlockId, x: number, y: number, z: number): ItemId {
+export function dugItemAt(book: LookAt | null | undefined, id: BlockId, x: number, y: number, z: number, placed?: Pick<PlacedLooks, 'get'> | null): ItemId {
+  const rec = placed?.get(x, y, z) ?? null;
+  const f = rec ? formOfBlock(id) : null;
+  if (rec && f) {
+    const item = kindItem(f.part, `${f.form}_${rec.style}`);
+    if (item !== null) return item;
+  }
   const kind = book?.lookAt(x, y, z) ?? null;
   const part = kind === null ? null : partOfLook(kind);
   if (kind !== null && part !== null && kindBlocks(part, kind).includes(id)) {
