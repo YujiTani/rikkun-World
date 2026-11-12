@@ -12,6 +12,7 @@ import { shaftWorldFor } from './mineShafts';
 import { defOf } from './biome';
 import { featuresNearChunk, writeFeatureBlocks } from './countryFeatureBlocks';
 import { floraOfChunk } from './flora';
+import { placeOchiba } from './ochiba';
 import { plantsOfChunk } from './plants';
 import { hash01, subSeed, valueNoise3 } from './random';
 import { Terrain, terrainFor } from './terrain';
@@ -365,7 +366,9 @@ export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCl
   const zones = shafts.zones(cx, cz);
   // 国だけの物（VOX-I-4a）: 置く 所の 木・草花は どける → 木・草花の あとに ブロックを 書く
   const feat = featuresNearChunk(seed, x0, z0);
-  placeTrees(out, T, x0, z0, zones?.trees ? [...zones.trees, ...feat.trees] : feat.trees.length > 0 ? feat.trees : undefined);
+  const treeSkip = zones?.trees ? [...zones.trees, ...feat.trees] : feat.trees.length > 0 ? feat.trees : undefined;
+  placeTrees(out, T, x0, z0, treeSkip);
+  placeOchiba(out, T, x0, z0, H, treeSkip); // もみじやま: もみじの 木の まわりの くさ → おちば（VOX-I-4b）
   placePlants(out, T, cx, cz, H, zones?.plants ? [...zones.plants, ...feat.plants] : feat.plants.length > 0 ? feat.plants : undefined);
   writeFeatureBlocks(out, feat, x0, z0);
   const shaftOps = shafts.opsFor(cx, cz);
