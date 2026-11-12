@@ -4,7 +4,7 @@ import './worldRenewedNotice.css';
 /** 古い セーブを 新しい 地形で 開いた とき 1 回 だけ 出す おしらせ（画面の 文字は ひらがな・カタカナ。漢字は ［漢字｜よみ］） */
 export const WORLD_RENEWED_TEXT = 'せかいが あたらしく なったよ。もちものは そのままだよ';
 /** 出して おく 長さ（秒。固定ステップの 時間） */
-export const WORLD_RENEWED_SECONDS = 10;
+const WORLD_RENEWED_SECONDS = 10;
 
 /** おしらせの 要素を 作って 返す。毎ステップ update(dt) で 時間を 数え、すぎたら 消す */
 export function showWorldRenewedNotice(parent: HTMLElement): { el: HTMLDivElement; update(dt: number): void } {
