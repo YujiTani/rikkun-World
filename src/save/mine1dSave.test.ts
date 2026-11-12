@@ -1,3 +1,7 @@
+// 古い 形（v1）の 世界を 確かめる テスト: 既定は 新しい 景色（木 v2・山 v2・目じるし）なので、古い 形を はっきり 指定する（world/gen/lookFlags.ts。import より 前に きまる）
+vi.hoisted(() => {
+  (globalThis as { location?: unknown }).location = { search: '?trees=v1&mountain=v1&structures=0&drift=0' };
+});
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { sectionToArray } from '../world/sections';
