@@ -162,7 +162,7 @@ export function waterColumn(ed: Edit, seed: number, x: number, z: number, ground
 
 /**
  * ふちの 列（わくに しない）: 水面と 同じ 高さまで うめて、くじで 変える。
- * 岩（あらいし・こけの あらいし・いし の 1〜3 だん）・すなの あさせ・そのままの 地面（草）。高い 壁（水面 +1 より 上）は そのまま。
+ * 岩（あらいし・こけの あらいし・いし の 1〜2 だん）・すなの あさせ・そのままの 地面（草）。高い 壁（水面 +1 より 上）は そのまま。
  */
 export function rimColumn(ed: Edit, seed: number, x: number, z: number, ground: number, level: number, rim: readonly BlockId[], ochiba: boolean): void {
   if (ground > level + 1) return;
@@ -170,7 +170,7 @@ export function rimColumn(ed: Edit, seed: number, x: number, z: number, ground: 
   for (let y = ground + 1; y < top; y++) ed.set(x, y, z, B.fill);
   const roll = hash01(seed, x, z, 2);
   if (roll < T.rimRock) {
-    const h = 1 + Math.floor(hash01(seed, x, z, 3) * hash01(seed, x, z, 4) * T.rockHigh * 1.6); // 低い 岩が 多く、たまに 高い
+    const h = hash01(seed, x, z, 3) < T.rockTall ? 2 : 1; // ふつうは 1 だん、たまに 2 だん
     for (let k = 0; k < h; k++) ed.set(x, top + k, z, pick(seed, rim, x, z, 5 + k));
   } else if (roll < T.rimRock + T.rimSand) ed.set(x, top, z, B.shore);
   else if (ground < level) ed.set(x, top, z, B.shore); // うめた 所は すなに（岩に しない 所）

@@ -28,7 +28,7 @@ export function planPonds(g: Ground, px: number, pz: number, seed: number, count
     const steps = Math.round((P.radius[1] - P.radius[0]) * 2);
     const r = P.radius[0] + Math.floor(hash01(seed, c.x, c.z, 81) * (steps + 1)) / 2;
     const depth = P.depth[0] + Math.floor(hash01(seed, c.x, c.z, 82) * (P.depth[1] - P.depth[0] + 1));
-    const b: Basin = makeBasin(seed, c.x + 0.5, c.z + 0.5, r, h, depth);
+    const b: Basin = makeBasin(seed, c.x + 0.5, c.z + 0.5, r, h - 1, depth) // 水面は まわりの 地面より 1 ブロック ひくい;
     if (out.some((o) => Math.hypot(o.cx - b.cx, o.cz - b.cz) < 14)) continue;
     if (!flatAround(g, b, P.flat)) continue;
     if (!basinFits(g, b, P.flat, P.flat + 1, free)) continue;

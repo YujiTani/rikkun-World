@@ -24,8 +24,8 @@ export const WATER_BLOCKS = {
   rim: ['ara_ishi', 'koke_ara_ishi', 'ara_ishi', 'koke_ara_ishi', 'koke_ishi'] as readonly BlockId[],
   /** 浅瀬の すな（ふちの ところどころ） */
   shore: 'sand' as BlockId,
-  /** 池の ふち（いしれんがも まぜる） */
-  pondRim: ['ara_ishi', 'koke_ara_ishi', 'renga_ishi', 'koke_renga_ishi', 'ara_ishi'] as readonly BlockId[],
+  /** 池の ふち（しぜんの 岩だけ。いしれんがは 使わない） */
+  pondRim: ['ara_ishi', 'koke_ara_ishi', 'ara_ishi'] as readonly BlockId[],
   /** うめる ブロック（あらいし。いし・つちは 地面の 高さを 変えた ことに なる ので 使わない） */
   fill: 'ara_ishi' as BlockId,
   /** もみじやまの 池の 岸 */
@@ -121,10 +121,10 @@ export const WATER_TUNE = {
   },
   /** 池・滝つぼの ふちの 形のゆがみ（半径の ± 割合） */
   blob: 0.28,
-  /** ふちの 列の くじ: 岩を 置く 確率・すなの あさせ（のこりは そのままの 地面）・岩の 高さの 上限（だん） */
-  rimRock: 0.3,
-  rimSand: 0.2,
-  rockHigh: 3,
+  /** ふちの 列の くじ: 岩を 置く 確率（ふちの 3〜4 わり）・すなの あさせ（のこりは すな・草・そのままの 地面）・岩が 2 だんに なる 確率（ふつうは 1 だん。3 だんは 作らない） */
+  rimRock: 0.35,
+  rimSand: 0.25,
+  rockTall: 0.12,
   /** もみじやまの 池の 岸に おちばを しく 確率 */
   ochiba: 0.7,
 } as const;

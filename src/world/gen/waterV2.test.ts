@@ -60,6 +60,15 @@ describe('水の 景色 v2（?water=v2）', () => {
     for (const p of spots) expect(p.drop).toBeGreaterThanOrEqual(4);
   });
 
+  it('池の ふち（水面の 近く）に いしれんがは 使わない', () => {
+    for (const a of all) {
+      for (const s of a.sites.filter((q) => q.type === 'ike')) {
+        const water = Math.max(...s.blocks.filter((b) => b.id === 'water').map((b) => b.y));
+        expect(s.blocks.filter((b) => b.y <= water + 2 && (b.id === 'renga_ishi' || b.id === 'koke_renga_ishi')).length, `ike ${s.x},${s.z}`).toBe(0);
+      }
+    }
+  });
+
   it('水は 外へ もれない（水の マスの よこは 水・いし・地面）', () => {
     for (const a of all) {
       const g = groundFn(a.c);
