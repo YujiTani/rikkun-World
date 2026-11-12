@@ -82,7 +82,7 @@ function planW(g: Ground, seed: number, c: Cand, w: number, free: (x: number, z:
   }
   if (pool === null) return null;
   // 水源の 池: へりの うしろ
-  const src = sourceFor(g, c.lx, c.lz, d, w, top, free);
+  const src = sourceFor(g, seed, c.lx, c.lz, d, w, top, free);
   if (src === null) return null;
   const { source, sourceRing } = src;
   const base: FallPlan = { d, stages: [{ lip, front, top, pool, shelf: null }], lip, front, top, level, pool, source, sourceRing };

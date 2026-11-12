@@ -1,6 +1,6 @@
 import { hash01 } from './random';
 import type { FallPlan, Shelf, Stage } from './waterV2Types';
-import { basinCells, basinNorm, Edit, waterLeaks, type Dir, type Ground } from './waterV2Kit';
+import { basinCells, basinNorm, Edit, makeBasin, waterLeaks, type Dir, type Ground } from './waterV2Kit';
 import { WATER_TUNE as T } from './waterV2Table';
 
 /**
@@ -14,30 +14,54 @@ import { WATER_TUNE as T } from './waterV2Table';
 const TI = T.tier;
 const FALL = T.fall;
 
-/** 水源の 池（うしろ rows 列。ふちの 列つき）。lip 列の 先頭が (lx, lz)、向き d、はば w、水面 top。置けなければ null */
-export function sourceFor(g: Ground, lx: number, lz: number, d: Dir, w: number, top: number, free: (x: number, z: number) => boolean, hiSlack: number = FALL.sourceSlack[1], loSlack: number = FALL.sourceSlack[0]): { source: [number, number][]; sourceRing: [number, number][] } | null {
+/**
+ * 水源の 池: 落ち口の 列の うしろに ほる 大きな 池（半径 FALL.sourceRadius の 大きい 方から ためす。いびつな 形）。
+ * lip 列の 先頭が (lx, lz)、向き d、はば w、水面 top。山の 肩を ほって たいらに する。落ち口の 列より 前（がけの ふち）は 水に せず 岩の ふちに する。
+ * 池の まわりは ふち 1 だんを のこす（高い 壁は そのまま）。置けなければ null
+ */
+export function sourceFor(g: Ground, seed: number, lx: number, lz: number, d: Dir, w: number, top: number, free: (x: number, z: number) => boolean, hiSlack: number = FALL.sourceSlack[1], loSlack: number = FALL.sourceSlack[0]): { source: [number, number][]; sourceRing: [number, number][] } | null {
   const px = -d[1];
   const pz = d[0];
-  const source: [number, number][] = [];
-  const sourceRing: [number, number][] = [];
-  const rows = FALL.sourceRows;
-  const lo = loSlack;
-  const hi = hiSlack;
-  for (let r = 0; r <= rows + 1; r++) {
-    for (let k = -2; k <= w + 1; k++) {
-      const x = lx + k * px - r * d[0];
-      const z = lz + k * pz - r * d[1];
-      const inside = r >= 1 && r <= rows && k >= -1 && k <= w && !(r === rows && (k === -1 || k === w));
-      if (r === 0 && k >= 0 && k < w) continue; // 落ち口の 列
+  for (const r of FALL.sourceRadius) {
+    const mid = (w - 1) / 2;
+    const back = r * 0.8 + 0.5;
+    const b = makeBasin(seed, lx + 0.5 + mid * px - d[0] * back, lz + 0.5 + mid * pz - d[1] * back, r, top, FALL.sourceDepth);
+    const source: [number, number][] = [];
+    const ring = new Map<number, [number, number]>();
+    const key = (x: number, z: number): number => x * 100003 + z;
+    let ok = true;
+    const addRing = (x: number, z: number): void => {
       const h = g(x, z);
-      if (h < 0 || !free(x, z)) return null;
-      if (inside) {
-        if (h < top + lo || h > top + hi) return null;
+      if (h < 0 || !free(x, z)) ok = false;
+      ring.set(key(x, z), [x, z]);
+    };
+    for (const { x, z, n } of basinCells(b)) {
+      const u = (x - lx) * d[0] + (z - lz) * d[1];
+      const v = (x - lx) * px + (z - lz) * pz;
+      if (u > 0 || (u === 0 && v >= 0 && v < w)) continue; // 落ち口の 列と がけの 前
+      if (n <= 1 && u <= -1) {
+        const h = g(x, z);
+        if (h < 0 || !free(x, z) || h < top + loSlack || h > top + hiSlack) {
+          ok = false;
+          break;
+        }
         source.push([x, z]);
-      } else sourceRing.push([x, z]);
+      } else addRing(x, z);
     }
+    // 落ち口の 列の よこ（がけの ふち）と うしろの 列は いつも ふさぐ（水か 岩）
+    for (let v = -1; v <= w && ok; v++) {
+      const x = lx + v * px;
+      const z = lz + v * pz;
+      if (v < 0 || v >= w) addRing(x, z);
+      const bx = x - d[0];
+      const bz = z - d[1];
+      if (!source.some(([sx, sz]) => sx === bx && sz === bz)) addRing(bx, bz);
+    }
+    if (!ok || source.length < 8) continue;
+    const wet = new Set(source.map(([x, z]) => key(x, z)));
+    return { source, sourceRing: [...ring.values()].filter(([x, z]) => !wet.has(key(x, z))) };
   }
-  return { source, sourceRing };
+  return null;
 }
 
 /** base（1 段）を ひな段に した 滝。作れなければ null */
@@ -125,7 +149,7 @@ function carve(g: Ground, seed: number, key: number, base: FallPlan, n: number, 
     stages.push({ lip, front, top: levels[j]!, pool: j === n - 1 ? base.pool : null, shelf });
   }
   // いちばん 上の 落ち口の うしろに 水源の 池
-  const src = sourceFor(g, stages[0]!.lip[0]![0], stages[0]!.lip[0]![1], d, w, T0, free, TI.sourceHigh, TI.sourceLow);
+  const src = sourceFor(g, seed, stages[0]!.lip[0]![0], stages[0]!.lip[0]![1], d, w, T0, free, TI.sourceHigh, TI.sourceLow);
   if (src === null) return null;
   // 滝つぼ（下）が たなに かからない
   const wet = new Set(basinCells(base.pool).filter((q) => basinNorm(base.pool, q.x, q.z) <= 1).map((q) => q.x * 100003 + q.z));

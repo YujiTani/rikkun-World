@@ -47,7 +47,7 @@ export const WATER_TUNE = {
    * chainMax = 1 本の 流れの 滝の 数の 上限・near = つぎの 滝を さがす 川の 終わりからの きょり（チェビシェフ）・rise = つぎの へりが 川の 水面より 高くて よい 上限
    * topShare = 山の 高さの この 割合より 上を 「頂上の ほう」と する・topTries = 頂上の 段を 順に ためす 数・centers = 池の 中心を ためす 数
    */
-  plateau: { minSize: 60, ponds: [2, 5] as const, radius: [4, 12.5] as const, share: 0.45, chainMax: 6, near: 26, rise: 6, topShare: 2 / 3, topTries: 10, centers: 15 },
+  plateau: { minSize: 60, ponds: [0, 1] as const, radius: [4, 12.5] as const, share: 0.45, chainMax: 1, near: 26, rise: 6, topShare: 2 / 3, topTries: 10, centers: 15 },
   fall: {
     /** 落差（へりの 地面 − 滝つぼの 地面）の 下限と 上限（落ちる 長さは わきどころが とどく 32 まで） */
     drop: [6, 28] as const,
@@ -67,20 +67,20 @@ export const WATER_TUNE = {
     poolFill: 5,
     /** 上の 水源の 池: へりの うしろへ 3 マス・ふかさ 2・まわりの 地面の 高さの ゆるし（水面から） */
     sourceDepth: 2,
-    sourceRows: 3,
-    sourceSlack: [-3, 3] as const,
+    sourceRadius: [7, 6, 5, 4, 3] as const, // 水源の 池の 半径（大きい 方から ためす）
+    sourceSlack: [-10, 14] as const,
     /** さがす とき 山の 点から の はんい と、ほかの 滝の へりから はなす きょり */
     search: 62,
     apart: 20,
     /** 乱数の 順に 試して、そのうち 落差の 大きい 方を 選ぶ 候補の 数 */
-    pick: 30,
+    pick: 45,
     /** 川の 長さ（マス）が これ まで 長い ほど 先に えらぶ */
     riverGoal: 40,
     /** 川の 長さ（マス。滝つぼの 中も 数える）の 下限（0 = みじかくても 滝つぼで 終わって よい） */
-    riverMin: 10,
+    riverMin: 6,
   },
   /** 段々の 滝（ひな段）: 落差が min 以上の かべは 台地の ふちを けずって 2〜maxStages 段に わける。1 段の 落差 dropMin〜dropMax・たなの おく行き shelfRows（列）・たまりの ふかさ・ためす 回数・まわりを かさ上げ できる 高さの 上限・段が 1 つ ふえる ごとの 点数（川の 長さ・落差の 点に 足す。段々を えらびやすく）・水源の 池で ほれる 高さ・うめられる 深さの 上限 */
-  tier: { min: 10, maxStages: 4, dropMin: 4, dropMax: 10, shelfRows: [4, 6] as const, shelfDepth: [1, 2] as const, attempts: 8, rimFill: 8, bonus: 100, sourceHigh: 24, sourceLow: -6 },
+  tier: { min: 10, maxStages: 4, dropMin: 4, dropMax: 10, shelfRows: [4, 6] as const, shelfDepth: [1, 2] as const, attempts: 14, rimFill: 8, bonus: 100, sourceHigh: 32, sourceLow: -14 },
   /** 川の みちしるべ（Dijkstra）: ほれる 深さの 上限・上り 1 ブロックあたりの ねだん・下り 1 ブロックあたりの ねだん・たどる マスの 数の 上限 */
   flow: { maxCut: 6, cutCost: 6, dropCost: 0.15, maxCells: 120000 },
   river: {

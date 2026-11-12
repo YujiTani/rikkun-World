@@ -42,7 +42,7 @@ describe('水の 景色 v2（?water=v2）', () => {
   it('山に 滝・川・池が 出る（0 本の 山も ある）', () => {
     expect(count('taki')).toBeGreaterThan(3);
     expect(all.filter((a) => a.sites.some((q) => q.type === 'taki')).length, '山の 7 割に 滝').toBeGreaterThanOrEqual(Math.ceil(MOUNTS.length * 0.7));
-    expect(count('ike')).toBeGreaterThan(MOUNTS.length / 2);
+    expect(count('ike')).toBeGreaterThan(0);
     for (const a of all) expect(a.sites.filter((s) => s.type === 'taki').length, '1 つの 山に 0〜6 本（流れの 滝の 数の 上限）').toBeLessThanOrEqual(6);
   });
 
@@ -95,13 +95,45 @@ describe('水の 景色 v2（?water=v2）', () => {
     rev.forEach((r, k) => expect(JSON.stringify(r.sites)).toBe(JSON.stringify(all[k]!.sites)));
   });
 
-  it('てっぺんの 池・滝から すそ（海・すその 池）まで 1 本の 水が つながる（滝の ある 山の 7 割 以上）', () => {
+  it('いちばん 上の 水源の 池から すそ（海・すその 低い 所）まで 水の マスが つながる（滝の ある 山の 7 割 以上）。水源の 池は 滝の ある 山の ぜんぶ', () => {
     const withFall = all.filter((a) => a.sites.some((q) => q.type === 'taki'));
-    const wet = (a: (typeof all)[number]): number[] => a.sites.filter((q) => WATER.has(q.type) && q.type !== 'ike').flatMap((q) => q.blocks.filter((b) => b.id === 'water').map((b) => b.y - T.map.baseHeight(b.x, b.z)));
-    const reach = withFall.filter((a) => Math.min(...wet(a)) <= 6 && Math.max(...wet(a)) >= 8);
-    expect(reach.length / withFall.length, `${reach.length} / ${withFall.length}`).toBeGreaterThanOrEqual(0.7);
-    // 平らな 段の 池は 山に 2 こ ちかく（0 の 山は ない）
-    for (const a of all) expect(a.sites.filter((q) => q.type === 'ike').length, `ike ${a.c.px},${a.c.pz}`).toBeGreaterThanOrEqual(1);
+    const linked = withFall.filter((a) => {
+      const blocks = a.sites.flatMap((q) => q.blocks);
+      const key = (x: number, y: number, z: number): string => `${x},${y},${z}`;
+      const parent = new Map<string, string>();
+      const find = (k: string): string => {
+        let r = k;
+        while ((parent.get(r) ?? r) !== r) r = parent.get(r)!;
+        parent.set(k, r);
+        return r;
+      };
+      const union = (p: string, q: string): void => void parent.set(find(p), find(q));
+      const water = new Set(blocks.filter((b) => b.id === 'water').map((b) => key(b.x, b.y, b.z)));
+      for (const k of water) parent.set(k, k);
+      for (const b of blocks.filter((q) => q.id === 'water')) for (const [dx, dy, dz] of [[1, 0, 0], [0, 0, 1], [0, 1, 0]] as const) if (water.has(key(b.x + dx, b.y + dy, b.z + dz))) union(key(b.x, b.y, b.z), key(b.x + dx, b.y + dy, b.z + dz));
+      // わきどころ: となりの 水（同じ 高さ）と、となりの 列の たきつぼの 上の 水（落ちた 先）と つながる
+      const pits = blocks.filter((b) => b.id === 'takitsubo');
+      const springs = blocks.filter((b) => b.id === 'wakimizu');
+      for (const sp of springs) {
+        const sk = `s${sp.x},${sp.y},${sp.z}`;
+        parent.set(sk, sk);
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+          // となり（ひな段の 岩の ぜき を はさんだ 2 マス さきまで。ぜきの 上を 水が こえる）
+          for (const m of [1, 2]) if (water.has(key(sp.x + m * dx, sp.y, sp.z + m * dz))) union(sk, key(sp.x + m * dx, sp.y, sp.z + m * dz));
+          const below = pits.filter((q) => q.x === sp.x + dx && q.z === sp.z + dz && q.y < sp.y).sort((p, q) => q.y - p.y)[0];
+          if (below !== undefined && water.has(key(below.x, below.y + 1, below.z))) union(sk, key(below.x, below.y + 1, below.z));
+        }
+      }
+      const top = springs.filter((q) => a.sites.some((s) => s.type === 'taki' && s.blocks.includes(q))).sort((p, q) => q.y - p.y)[0];
+      if (top === undefined) return false;
+      const root = find(`s${top.x},${top.y},${top.z}`);
+      return [...water].some((k) => {
+        const [x, y, z] = k.split(',').map(Number) as [number, number, number];
+        return y - T.map.baseHeight(x, z) <= 4 && find(k) === root;
+      });
+    });
+    expect(linked.length / withFall.length, `つながる ${linked.length} / ${withFall.length}`).toBeGreaterThanOrEqual(0.7);
+    expect(withFall.length / all.length, '山の 8 割に 水源の 池（滝）').toBeGreaterThanOrEqual(0.8);
   });
 
   it('はじまりの 範囲（regionRect）には 置かない', () => {

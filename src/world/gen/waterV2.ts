@@ -1,4 +1,4 @@
-import { cheb, site, type Ctx, type FeatureSite } from './countryKit';
+import { cheb, plainAt, site, type Ctx, type FeatureSite } from './countryKit';
 import { groundFn } from './countryStructureKit';
 import { hashInts } from './random';
 import { buildFall, fallKeepOut, footOf, planFalls } from './waterV2Fall';
@@ -44,19 +44,28 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (gb(x + dx, z + dz) < 0) return -1;
     return gb(x, z);
   };
+  // 川用: 山の まわりの 自分の 国の そとも 地形の 高さ（heightAt）で 読む（山の ふちで 切れない ように）。start 近くなど 置けない 所は -1 のまま
+  const gh: Ground = (x, z) => {
+    const v = gb(x, z);
+    return v >= 0 || cheb(x, z, c.px, c.pz) > LIMIT || !plainAt(c, x, z) ? v : c.T.height(x, z);
+  };
+  const gr: Ground = (x, z) => {
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (gh(x + dx, z + dz) < 0) return -1;
+    return gh(x, z);
+  };
   const seed = hashInts(c.T.seed ^ 0x5a7e2, c.i, c.j);
   const used: Rect[] = keepOut(others);
   const out: FeatureSite[] = [];
   const hit = (x: number, z: number): boolean => used.some((r) => inside(r, x, z));
   const grassAt = (x: number, z: number): boolean => c.T.topBlock(x, z, c.T.height(x, z)) === B.grassTop;
-  const atFoot = (x: number, z: number): boolean => g(x, z) - c.T.map.baseHeight(x, z) <= T.river.footAbove;
+  const atFoot = (x: number, z: number): boolean => gr(x, z) - c.T.map.baseHeight(x, z) <= T.river.footAbove;
   // 川の みちしるべ（山 1 つに 1 回）: すその 平地・海から 地面を たどる。目じるしの 足もとは 通れない
-  const field = flowField(g, c.px, c.pz, LIMIT, atFoot, hit);
+  const field = flowField(gr, c.px, c.pz, LIMIT, atFoot, hit);
   const wet = new Set<number>();
   const wetHit = (x: number, z: number): boolean => hit(x, z) || wet.has(x * 100003 + z);
   const riverOf = (p: FallPlan, blocked: (x: number, z: number) => boolean) => {
     const own = fallKeepOut(p);
-    return planRiver(g, seed + 1, { x: Math.floor(p.pool.cx), z: Math.floor(p.pool.cz), d: p.d, pool: p.pool }, (x, z) => blocked(x, z) || own(x, z), atFoot, field);
+    return planRiver(gr, seed + 1, { x: Math.floor(p.pool.cx), z: Math.floor(p.pool.cz), d: p.d, pool: p.pool }, (x, z) => blocked(x, z) || own(x, z), atFoot, field);
   };
   // 平らな 段（高い 順）。山の 上 1/3 の 段から 滝を はじめて、海・すそへ くりかえす
   const plateaus = findPlateaus(g, c.px, c.pz, LIMIT, PL.minSize, (x, z) => !hit(x, z));
@@ -90,9 +99,9 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
     // 川: ほかの 滝・目じるし・ほかの 川は よける
     const others2 = footsOf.filter((_, j) => j !== k);
     const blocked = (x: number, z: number): boolean => wetHit(x, z) || others2.some((r) => inside(r, x, z));
-    const { ed: re, plan } = buildRiverChecked(gb, seed + k, riverOf(p, blocked), p.pool, grassAt);
+    const { ed: re, plan } = buildRiverChecked(gh, seed + k, riverOf(p, blocked), p.pool, grassAt);
     // 滝つぼと つなげて 水が もれる 川は 作らない（ほかの 滝の たまりに 近づきすぎた とき など）
-    const ground: Ground = (x, z) => (gb(x, z) >= 0 ? gb(x, z) : c.T.height(x, z));
+    const ground: Ground = (x, z) => (gh(x, z) >= 0 ? gh(x, z) : c.T.height(x, z));
     const leaks = waterLeaks([...out, ...rivers].flatMap((q) => q.blocks).concat(re.blocks()), ground).length > 0;
     used.push(footsOf[k]!);
     end = { x: Math.floor(p.pool.cx), z: Math.floor(p.pool.cz), level: p.level };
