@@ -27,6 +27,37 @@ function profileSamples(p: Params, px: number, pz: number, shape: (x: number, z:
   return out;
 }
 
+const samplesMemo = new WeakMap<Params, number[][]>();
+/** 段面の 標本（山 1 つに 1 回。道の とどく はんい と 道えらびで 使いまわす） */
+function samplesOf(p: Params, px: number, pz: number, shape: (x: number, z: number) => number): number[][] {
+  let s = samplesMemo.get(p);
+  if (!s) samplesMemo.set(p, (s = profileSamples(p, px, pz, shape)));
+  return s;
+}
+
+/**
+ * 道と 橋が とどく はんい（頂上からの きょり）。この 外の 列は 道・橋に 影響されない（高さは 山の 形そのまま）。
+ * 道の 半径は 段面から 決まる（どの 向きでも 同じ）ので、道えらびより ずっと 軽く 出せる。橋は 柱の 中心と 道の 点の 間の 線（くねり bend まで）
+ */
+export function pathReach(p: Params, px: number, pz: number, shape: (x: number, z: number) => number): number {
+  const P = T.path;
+  const apex = shape(px, pz);
+  const samples = samplesOf(p, px, pz, shape);
+  let rMax = 0;
+  for (const q of P.profQs) {
+    setProfile(p, samples, q);
+    const rs = spiralSteps(p, 1, (apex + 2) / P.k).rs;
+    rMax = Math.max(rMax, rs[rs.length - 1]!);
+  }
+  let reach = rMax + P.edge + 1;
+  if (p.pillars.length > 0) {
+    let far = rMax + T.bridge.joinLen;
+    for (const pl of p.pillars) far = Math.max(far, Math.hypot(pl.x - px, pl.z - pz));
+    reach = Math.max(reach, far + T.bridge.bend + T.bridge.edge + 1);
+  }
+  return reach;
+}
+
 /** 段面の 高さ（q = 低い ほうから 何わり め。標本は 山の 形から 1 回だけ 数えて、q ごとに えらぶ。結果は q ごとに 数えるのと 同じ） */
 function setProfile(p: Params, samples: readonly (readonly number[])[], q: number): void {
   p.prof = samples.map((hs) => hs[Math.floor(q * (hs.length - 1))]!);
@@ -84,7 +115,7 @@ export function choosePath(p: Params, px: number, pz: number, shape: (x: number,
   let bestScore = Infinity;
   const maxAlong = (p.apex + 2) / P.k;
   const stride = Math.round(2 / P.step);
-  const samples = profileSamples(p, px, pz, shape);
+  const samples = samplesOf(p, px, pz, shape);
   for (const q of P.profQs) {
     setProfile(p, samples, q);
     for (const dir of [1, -1]) {

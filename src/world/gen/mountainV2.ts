@@ -1,7 +1,7 @@
 import type { CountryKind } from './config';
 import { valueNoise } from './random';
 import { cone, paramsFor, smooth, type Params } from './mountainV2Params';
-import { choosePath, buildPath, pathAt, pathCell } from './mountainV2Path';
+import { choosePath, buildPath, pathAt, pathCell, pathReach } from './mountainV2Path';
 import { buildBridges, pillarsAt, splineOf, stairOf, wallLift } from './mountainV2Parts';
 import { T, TAU, type MountainKind } from './mountainV2Table';
 import { LOOK } from './lookFlags';
@@ -54,6 +54,8 @@ const cacheVal = new Float64Array(OFFSET_CACHE_SIZE);
 const PATH_CHOICE_MAX = 4096; // 覚える 山の 数（1 つ 数十 バイト）
 const pathChoice = new Map<string, { best: { a0: number; dir: number; bank: number }; prof: number[] }>();
 
+const reachMemo = new Map<string, number>();
+
 function chosenPath(seed: number, p: Params, px: number, pz: number): { a0: number; dir: number; bank: number } {
   const key = `${seed}:${px}:${pz}`;
   const hit = pathChoice.get(key);
@@ -70,6 +72,19 @@ function chosenPath(seed: number, p: Params, px: number, pz: number): { a0: numb
 function mountainOffsetV2Raw(seed: number, kind: CountryKind, px: number, pz: number, x: number, z: number): number {
   const p = paramsFor(seed, kind as MountainKind, px, pz);
   let h = shapeOf(p, px, pz, x, z);
+  if (Number.isNaN(p.apex)) {
+    // 道・橋の とどく はんいの 外の 列は 山の 形そのまま。道えらび（重い）を しないで 答える
+    const key = `${seed}:${px}:${pz}`;
+    let reach = reachMemo.get(key);
+    if (reach === undefined) {
+      reach = pathReach(p, px, pz, (sx, sz) => shapeOf(p, px, pz, sx, sz));
+      if (reachMemo.size >= PATH_CHOICE_MAX) reachMemo.clear();
+      reachMemo.set(key, reach);
+    }
+    const ddx = x - px;
+    const ddz = z - pz;
+    if (ddx * ddx + ddz * ddz > reach * reach) return h;
+  }
   if (Number.isNaN(p.apex)) {
     p.apex = shapeOf(p, px, pz, px, pz);
     const best = chosenPath(seed, p, px, pz);
