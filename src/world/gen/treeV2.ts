@@ -36,7 +36,7 @@ export const TREE_MIX: Readonly<Record<CountryKind, TreeMix>> = {
   kappa: { m: 0.3, l: 0, form: 'round' },
   iwayama: { m: 0.3, l: 0, form: 'round' },
   tengu: { m: 0.45, l: 0.15, form: 'pine' },
-  momiji: { m: 0.45, l: 0.15, form: 'maple' },
+  momiji: { m: 0.3, l: 0.1, form: 'maple' },
   yuki: { m: 0.45, l: 0.15, form: 'conifer', leaves: 'matsu_leaves' },
 };
 
@@ -51,7 +51,7 @@ export const TREE_TRUNK: Record<TreeForm, Record<TreeSize, readonly [number, num
 /** はっぱの広がり（みきから 何マス。木どうしの あきの計算に使う） */
 export const TREE_REACH: Record<TreeForm, Record<TreeSize, number>> = {
   round: { s: 2, m: 3, l: 5 },
-  maple: { s: 3, m: 4, l: 6 },
+  maple: { s: 2, m: 2, l: 6 },
   pine: { s: 3, m: 4, l: 5 },
   conifer: { s: 2, m: 3, l: 3 },
 };
@@ -75,3 +75,6 @@ export function trunkOf(form: TreeForm, size: TreeSize, roll: number): number {
 /** 大木は「まわりより高い所」だけ: 根もとの高さが、まわり（4 方向 PROMINENCE_DIST マス先）の へいきんより これ以上 高い */
 export const PROMINENCE_MIN = 0.3;
 export const PROMINENCE_DIST = 7;
+
+/** 国ごとの 木の数の 倍（v2。もみじやまを 赤く）。木になる区画の割合（config の trees）に かける */
+export const TREE_DENSITY: Partial<Record<CountryKind, number>> = { momiji: 2.4 };

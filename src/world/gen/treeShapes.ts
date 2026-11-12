@@ -137,11 +137,13 @@ export function shapeTree(t: ShapedTree, log: LogFn | null, leaf: LeafFn | null)
     const cx = (w - 1) / 2;
     const cz = cx;
     const disk = (y: number, rr: number, snowR: number): void => {
+      // snowR >= 0 の段は 上の面: 中ほどは ぜんぶ、外がわは 半分くらい ゆき
+      const ring = snowR >= 0;
       for (let z = Math.floor(cz - rr - 1); z <= Math.ceil(cz + rr + 1); z++) {
         for (let x = Math.floor(cx - rr - 1); x <= Math.ceil(cx + rr + 1); x++) {
           const d2 = (x - cx) * (x - cx) + (z - cz) * (z - cz);
           if (d2 > rr * rr + 0.2) continue;
-          put(x, y, z, d2 <= snowR * snowR);
+          put(x, y, z, ring && (d2 <= (snowR - 0.9) * (snowR - 0.9) || hf(x, y, z) < 0.5));
         }
       }
     };
@@ -152,7 +154,7 @@ export function shapeTree(t: ShapedTree, log: LogFn | null, leaf: LeafFn | null)
       const thick = Math.max(1, Math.min(2, next - a - 1));
       for (let k = 0; k < thick; k++) {
         const top1 = k === thick - 1;
-        disk(a + k, k === 0 ? r + 0.3 : r - 0.4, top1 ? Math.max(0, r - 1.3) : -1);
+        disk(a + k, k === 0 ? r + 0.3 : r - 0.4, top1 ? r : -1);
       }
     }
     put(0, top + 1, 0, false);
@@ -203,10 +205,15 @@ export function shapeTree(t: ShapedTree, log: LogFn | null, leaf: LeafFn | null)
     let ey = t.y + k;
     let ez = az;
     for (let j = 1; j <= len; j++) {
+      const py = ey;
       ex = ax + dx * j;
       ez = az + dz * j;
       ey = t.y + k + Math.ceil(j / 2);
-      if (log) log(ex, ey, ez, false);
+      if (log) {
+        log(ex, ey, ez, false);
+        if (ey > py) log(ex, py, ez, false); // 段差を つなぐ
+        if (dx !== 0 && dz !== 0) log(ex - dx, ey, ez, false); // ななめは 面で つなぐ
+      }
     }
     draw(ex, ey + 1, ez, topR - 0.6 - (size === 'm' ? 0.2 : 0), i + 1);
     made++;

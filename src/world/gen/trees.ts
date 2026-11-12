@@ -6,7 +6,7 @@ import { hash01, hashInts, subSeed } from './random';
 import { epochCache, inClearing, leafReach, treeGap, treeMinTrunkGap, treeOrder } from './spacing';
 import type { CountryKind } from './config';
 import type { Terrain } from './terrain';
-import { PROMINENCE_DIST, PROMINENCE_MIN, TREES_V2, TREE_MIX, TREE_REACH, pickSize, trunkOf, type TreeForm, type TreeSize } from './treeV2';
+import { TREE_DENSITY, PROMINENCE_DIST, PROMINENCE_MIN, TREES_V2, TREE_MIX, TREE_REACH, pickSize, trunkOf, type TreeForm, type TreeSize } from './treeV2';
 
 /**
  * 木（T1〜T4）。1 列を 4×4 の 16 区画に分け、区画ごとに 1 点（区画の中の 0〜1 ずらし）。
@@ -158,7 +158,8 @@ function startInfo(T: Terrain): { trees: Tree[]; keys: Set<number> } {
 /** x,z の木になる割合（国で変わる。境目は まぜる） */
 function treeChance(T: Terrain, x: number, z: number): number {
   const b = T.biome(x, z);
-  return defOf(b.kind).trees * b.a + defOf(b.kind2).trees * (1 - b.a);
+  const k = (kind: CountryKind): number => defOf(kind).trees * (TREES_V2 ? TREE_DENSITY[kind] ?? 1 : 1);
+  return k(b.kind) * b.a + k(b.kind2) * (1 - b.a);
 }
 
 /** 大木の割合（v2 は 国の表、ふだんは config の bigTree） */
