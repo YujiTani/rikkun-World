@@ -7,7 +7,21 @@ import type { BlockId } from '../../../contracts';
  */
 
 /** 凡例の 1 文字ぶん。BlockId だけなら ふつうの ブロック。ゆらぎ（任意）: skip = そのマスを 抜く 確率、moss = こけいしに 置きかえる 確率（0〜1） */
-export type LegendEntry = BlockId | { readonly id: BlockId; readonly skip?: number; readonly moss?: number };
+export type LegendEntry = BlockId | LegendFull;
+
+/**
+ * 凡例の くわしい 書き方。skip = 抜く 確率、moss = 苔に 置きかえる 確率（置きかえ先は mossId。既定 koke_ishi）、
+ * mossLow = 下の 段ほど 足す こけの 確率（いちばん 下で この 数、いちばん 上で 0）、
+ * mix = ゆらぎで ほかの ブロックに 置きかえる くじ（[ブロック, 確率] の 並び。足して 1 以下）。
+ */
+export interface LegendFull {
+  readonly id: BlockId;
+  readonly skip?: number;
+  readonly moss?: number;
+  readonly mossId?: BlockId;
+  readonly mossLow?: number;
+  readonly mix?: readonly (readonly [BlockId, number])[];
+}
 
 /** 土台: 建物の 下が あいて いたら この ブロックで 地面まで うめる。うめる 高さの 上限（マス）を こえる 列が あれば 置けない */
 interface BaseRule {

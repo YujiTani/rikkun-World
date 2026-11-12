@@ -16,8 +16,8 @@ export const ISHIDOUROU_DAI: StructureShape = {
     ['.....', '.....', '..T..', '.....', '.....'],
   ],
   legend: {
-    M: { id: 'ishidatami', moss: 0.5 },
-    I: { id: 'ishidatami', moss: 0.12 },
+    M: { id: 'ara_ishi', moss: 0.25, mossId: 'koke_ara_ishi', mossLow: 0.3, mix: [['koke_ishi', 0.1], ['hibi_ishi', 0.1]] },
+    I: { id: 'ara_ishi', moss: 0.12, mossId: 'koke_ara_ishi', mix: [['hibi_ishi', 0.1]] },
     C: 'chouchin',
     R: { id: 'kawara', moss: 0.3 },
     T: 'koke_ishi',

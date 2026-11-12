@@ -48,7 +48,7 @@ const blocksIn = (cat: ItemCategory, ids: readonly ItemDefId[]): string[] => reg
 const ORDER_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
   // 置ける ブロックの 分類は 登録表（content/items/blocks.ts）の category から
   soil: blocksIn('soil', ['dirt', 'sand', 'snow', 'geyser_dirt', 'ochiba']),
-  stone: blocksIn('stone', ['stone', 'suisho', 'koke_ishi']),
+  stone: blocksIn('stone', ['stone', 'suisho', 'koke_ishi', 'ara_ishi', 'koke_ara_ishi']),
   plant: [...blocksIn('plant', ['grass', 'log', 'leaves']), ...registryCategoryIds('plant', SEED_DEFS), ...blocksIn('plant', ['momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo']), ...registryCategoryIds('plant', LIVE_DEFS), ...blocksIn('plant', ['nobana', 'kinoko', 'himawari', 'kaigara', 'takenoko'])],
   ore: blocksIn('ore', ['coal_ore', 'iron_ore']),
   build: blocksIn('build', ['kawara', 'brick', 'shu_ita', 'ishidatami', 'chouchin']),

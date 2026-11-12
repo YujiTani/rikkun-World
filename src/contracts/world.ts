@@ -154,7 +154,10 @@ export type BlockId =
   | 'shu_ita' // しゅいろの き（とりい・お堂の 柱。固い・こわせる・持てる・置ける）
   | 'ishidatami' // いしだたみ（土台・石段・ゆか）
   | 'koke_ishi' // こけいし（古い いしの かざり）
-  | 'chouchin'; // ちょうちん（つるす あかり。通れる・光 12。十字の 板で 描く。ふつうの ちょうちん lantern とは べつ）
+  | 'chouchin' // ちょうちん（つるす あかり。通れる・光 12。十字の 板で 描く。ふつうの ちょうちん lantern とは べつ）
+  // WAFU-1 追加（うしろに足す。249〜250）: 石の ブロック（いし系。固い・こわせる・持てる・置ける）
+  | 'ara_ishi' // あらいし（大小の 丸い 石を つんだ 粗い 石）
+  | 'koke_ara_ishi'; // こけの あらいし（ひびの いしは MINE-1E の hibi_ishi が すでに ある）
 
 export interface BlockType {
   id: BlockId;

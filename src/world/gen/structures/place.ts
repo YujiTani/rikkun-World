@@ -1,6 +1,6 @@
 import type { BlockId } from '../../../contracts';
 import { hash01 } from '../random';
-import type { GroundFn, LegendEntry, Placed, PlacedCell, Rot, StructureShape } from './types';
+import type { GroundFn, LegendEntry, LegendFull, Placed, PlacedCell, Rot, StructureShape } from './types';
 
 /**
  * 建物を 置く 関数（structure kit の 心臓。何も 読みこまない 純粋な 関数 = Terrain も チャンクも 知らない）。
@@ -11,6 +11,7 @@ import type { GroundFn, LegendEntry, Placed, PlacedCell, Rot, StructureShape } f
 /** ゆらぎの 乱数の 番号（同じ 場所でも 目的ごとに ちがう 値に する） */
 const SALT_SKIP = 11;
 const SALT_MOSS = 12;
+const SALT_MIX = 13;
 
 /** 図の 中の 相対の マス (dx, dz)（基準の 点から）を 向き rot で まわす。1 = 時計まわりに 90°（東 → 南） */
 export function rotate(dx: number, dz: number, rot: Rot): readonly [number, number] {
@@ -23,8 +24,10 @@ export function rotate(dx: number, dz: number, rot: Rot): readonly [number, numb
   }
 }
 
-const entryOf = (e: LegendEntry): { id: BlockId; skip: number; moss: number } =>
-  typeof e === 'string' ? { id: e, skip: 0, moss: 0 } : { id: e.id, skip: e.skip ?? 0, moss: e.moss ?? 0 };
+const entryOf = (e: LegendEntry): Required<LegendFull> =>
+  typeof e === 'string'
+    ? { id: e, skip: 0, moss: 0, mossId: 'koke_ishi', mossLow: 0, mix: [] }
+    : { id: e.id, skip: e.skip ?? 0, moss: e.moss ?? 0, mossId: e.mossId ?? 'koke_ishi', mossLow: e.mossLow ?? 0, mix: e.mix ?? [] };
 
 /** 凡例に ない 文字は 図の 書きまちがい（無言で 空気に しない） */
 function legendOf(shape: StructureShape, ch: string): LegendEntry {
@@ -112,7 +115,16 @@ export function placeStructure(shape: StructureShape, ax: number, az: number, ro
       blocks.push({ x, y, z, id: 'air' });
       continue;
     }
-    const id: BlockId = e.moss > 0 && hash01(seed, x, y, z, SALT_MOSS) < e.moss ? 'koke_ishi' : e.id;
+    let id: BlockId = e.id;
+    const pMoss = e.moss + e.mossLow * (1 - c.y / Math.max(1, shape.layers.length - 1)); // 下の 段ほど こけが 多い
+    if (pMoss > 0 && hash01(seed, x, y, z, SALT_MOSS) < pMoss) id = e.mossId;
+    else if (e.mix.length > 0) {
+      let r = hash01(seed, x, y, z, SALT_MIX);
+      for (const [mid, p] of e.mix) {
+        if (r < p) { id = mid; break; }
+        r -= p;
+      }
+    }
     blocks.push({ x, y, z, id });
   }
   return { blocks, foot: footOf(shape, ax, az, rot), baseY };

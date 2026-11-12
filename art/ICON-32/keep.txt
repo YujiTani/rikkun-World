@@ -9,3 +9,5 @@ shu_ita
 ishidatami
 koke_ishi
 chouchin
+ara_ishi
+koke_ara_ishi

@@ -166,6 +166,9 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'ishidatami', name: 'いしだたみ', solid: true, breakable: true },
   { id: 'koke_ishi', name: 'こけいし', solid: true, breakable: true },
   { id: 'chouchin', name: 'わの ちょうちん', solid: false, breakable: true },
+  // WAFU-1 追加（249〜250）: 石の ブロック 2 つ
+  { id: 'ara_ishi', name: 'あらいし', solid: true, breakable: true },
+  { id: 'koke_ara_ishi', name: 'こけの あらいし', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(

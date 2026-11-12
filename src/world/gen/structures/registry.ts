@@ -1,3 +1,9 @@
+import { YAGURA } from './yagura';
+import { SEKIZOU } from './sekizou';
+import { OJIZOU } from './ojizou';
+import { ISHI_TORII } from './ishiTorii';
+import { IDO } from './ido';
+import { HOKORA } from './hokora';
 import { AZUMAYA } from './azumaya';
 import { HASHI } from './hashi';
 import { ISHIDOUROU_CHU } from './ishidourouChu';
@@ -13,6 +19,12 @@ export const STRUCTURES = {
   odou: ODOU,
   hashi: HASHI,
   azumaya: AZUMAYA,
+  hokora: HOKORA,
+  ido: IDO,
+  ishi_torii: ISHI_TORII,
+  ojizou: OJIZOU,
+  sekizou: SEKIZOU,
+  yagura: YAGURA,
   'ishidourou-dai': ISHIDOUROU_DAI,
   'ishidourou-chu': ISHIDOUROU_CHU,
   'ishidourou-sho': ISHIDOUROU_SHO,

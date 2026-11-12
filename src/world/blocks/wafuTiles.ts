@@ -89,10 +89,57 @@ const TILE_KOKE_ISHI: GridTile = {
   ],
 };
 
-/** わふうの 4 ブロックの 絵（かわら・しっくいは 今ある 絵を 使うので ここには 無い） */
+// WAFU-1 追加 3: 石の ブロック（あらいし・こけの あらいし・ひびの いし。今の こけいしより あらく・暗い）
+const TILE_ARA_ISHI: GridTile = {
+  pal: {d: '#34343E', a: '#80808C', b: '#9A9AA6', c: '#666672', h: '#B4B4BE'},
+  rows: [
+    'aaadcccdhbbbbdaa',
+    'addddcdhbbbbbdaa',
+    'dhhhddhbbbbbbdad',
+    'hbbbbdbbbbbbbddb',
+    'bbbbdddddbbddcdd',
+    'dbddhdchdddhhccd',
+    'ddhadhcccddccccc',
+    'dhaadcccccdccccc',
+    'daaadcccccddcccc',
+    'daaadccccdbddccc',
+    'dddddddddbbbdddd',
+    'ahadhhhddbbbbdad',
+    'aaadccccdbbbdhad',
+    'ddddccccdbdddaad',
+    'aahdccccddhhdaaa',
+    'aaadccccdhbbddaa',
+  ],
+};
+
+const TILE_KOKE_ARA_ISHI: GridTile = {
+  pal: {d: '#34343E', a: '#80808C', b: '#9A9AA6', c: '#666672', h: '#B4B4BE', G: '#5A9A3C', g: '#78B84A', n: '#3A7230'},
+  rows: [
+    'GnGdcGcdGGggGdaa',
+    'addddcdGngGgndaG',
+    'dggGddgGgggngdad',
+    'nGGgGdgnGngnGddn',
+    'GGGGdddddGnddgdd',
+    'dgddhdnGdddggGnd',
+    'ddhhdGggGddgggGG',
+    'daaadGGnGGdggnnG',
+    'dGaadGGGnGddGngG',
+    'dnaadGnngdhddnGG',
+    'dddddddddbbbdddd',
+    'ngGdhccddbbbbdad',
+    'gngdccccdbbgdhad',
+    'ddddccccdbdddaad',
+    'hhhdccccddngdaaa',
+    'aaadccccdgGGddaa',
+  ],
+};
+
+/** わふうの 6 ブロックの 絵（かわら・しっくいは 今ある 絵を 使うので ここには 無い。さいごの 2 つは あらい 石） */
 export const WAFU_GRIDS = {
   shu_ita: TILE_SHU_ITA,
   ishidatami: TILE_ISHIDATAMI,
   koke_ishi: TILE_KOKE_ISHI,
   chouchin: TILE_CHOUCHIN,
+  ara_ishi: TILE_ARA_ISHI,
+  koke_ara_ishi: TILE_KOKE_ARA_ISHI,
 } as const satisfies Record<string, GridTile>;

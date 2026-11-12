@@ -12,7 +12,7 @@ export const ISHIDOUROU_SHO: StructureShape = {
     ['RRRRR', 'RRRRR', 'RRRRR', 'RRRRR', 'RRRRR'],
   ],
   legend: {
-    M: 'koke_ishi',
+    M: { id: 'koke_ara_ishi', mix: [['koke_ishi', 0.3]] },
     C: 'chouchin',
     R: { id: 'kawara', moss: 0.4 },
   },

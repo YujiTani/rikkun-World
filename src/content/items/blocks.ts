@@ -330,6 +330,22 @@ export const VOX_I = {
     rarity: blockRarity('chouchin'),
     category: 'build',
   },
+  ara_ishi: {
+    name: blockName('ara_ishi'),
+    zukan: 'おおきい いしと ちいさい いしを つみあげた ごつごつの いし。ふるい いしがきや とうろうに ぴったり。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'ara_ishi',
+    rarity: blockRarity('ara_ishi'),
+    category: 'stone',
+  },
+  koke_ara_ishi: {
+    name: blockName('koke_ara_ishi'),
+    zukan: 'ごつごつの いしに こけが はえたよ。うえのほうが みどりいろ。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'koke_ara_ishi',
+    rarity: blockRarity('koke_ara_ishi'),
+    category: 'stone',
+  },
 } satisfies Partial<Record<BlockId, ItemDef>>;
 
 /**
