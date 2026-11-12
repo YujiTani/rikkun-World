@@ -1,5 +1,8 @@
 import { AZUMAYA } from './azumaya';
 import { HASHI } from './hashi';
+import { ISHIDOUROU_CHU } from './ishidourouChu';
+import { ISHIDOUROU_DAI } from './ishidourouDai';
+import { ISHIDOUROU_SHO } from './ishidourouSho';
 import { ODOU } from './odou';
 import { TORII } from './torii';
 import type { StructureShape } from './types';
@@ -10,4 +13,7 @@ export const STRUCTURES = {
   odou: ODOU,
   hashi: HASHI,
   azumaya: AZUMAYA,
+  'ishidourou-dai': ISHIDOUROU_DAI,
+  'ishidourou-chu': ISHIDOUROU_CHU,
+  'ishidourou-sho': ISHIDOUROU_SHO,
 } as const satisfies Record<string, StructureShape>;

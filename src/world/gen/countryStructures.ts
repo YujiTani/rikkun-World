@@ -86,7 +86,7 @@ export function tenguStructures(c: Ctx, s: Summit): FeatureSite[] {
     const stairs = placeStairs(odou.x + T.stairGap * d[0], odou.z + T.stairGap * d[1], d, c.i * 31 + c.j, ground, atFoot(c, ground));
     if (stairs === null) continue;
     const out: FeatureSite[] = [site(c, 'odou', odou.x, odou.placed.baseY, odou.z, odou.placed.blocks, odou.placed.foot)];
-    const rects = stairs.path.map((p) => (d[0] !== 0 ? ([p.x, p.z - 2, p.x, p.z + 2] as const) : ([p.x - 2, p.z, p.x + 2, p.z] as const))); // 1 歩ごとの 四角（はば 3 ＋ とうろう）
+    const rects = stairs.path.map((p) => (d[0] !== 0 ? ([p.x, p.z - 5, p.x, p.z + 5] as const) : ([p.x - 5, p.z, p.x + 5, p.z] as const))); // 1 歩ごとの 四角（はば 3 ＋ とうろう）
     const first = stairs.path[0]!;
     out.push(site(c, 'ishidan', first.x, first.y + 1, first.z, stairs.blocks, stairs.foot, { rects, path: stairs.path }));
     // とりい: 石段の おわりの さきに、近い 方から

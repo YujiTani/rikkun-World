@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ISHIDAN_TUNE, placeStairs, type Dir4 } from './ishidan';
-import { checkShape, footOf, placeStructure, rotate, shapeCells } from './place';
+import { checkShape, footOf, placeStructure, rotate, shapeCells, type ShapeCell } from './place';
 import { STRUCTURES } from './registry';
 import { ROTS, type PlacedCell, type Rot, type StructureShape } from './types';
 
@@ -29,11 +29,11 @@ describe('structure kit: 向き', () => {
   it('4 つの 向きで 足もとの はばと ふかさが 入れかわる・ブロックの 数は 同じ（ゆらぎが ない 図）', () => {
     const t = STRUCTURES.torii;
     const sizes = ROTS.map((r) => footOf(t, 100, 100, r)).map((f) => [f[2] - f[0] + 1, f[3] - f[1] + 1]);
-    expect(sizes[0]).toEqual([11, 4]);
-    expect(sizes[1]).toEqual([4, 11]);
-    expect(sizes[2]).toEqual([11, 4]);
-    expect(sizes[3]).toEqual([4, 11]);
-    const noRandom: StructureShape = { ...t, legend: { S: 'shu_ita', K: 'kawara', I: 'ishidatami', J: 'ishidatami' } };
+    expect(sizes[0]).toEqual([11, 3]);
+    expect(sizes[1]).toEqual([3, 11]);
+    expect(sizes[2]).toEqual([11, 3]);
+    expect(sizes[3]).toEqual([3, 11]);
+    const noRandom: StructureShape = { ...t, legend: { S: 'shu_ita', K: 'kawara', T: 'kawara', I: 'ishidatami', J: 'ishidatami' } };
     const counts = ROTS.map((r) => placeStructure(noRandom, 0, 0, r, 1, flat(5))!.blocks.length);
     expect(new Set(counts).size).toBe(1);
   });
@@ -100,17 +100,26 @@ describe('5 つの 目じるし: 大きさと 使う ブロック', () => {
   it('どの 図も 書きまちがいが ない（はばが そろう・凡例に ある）', () => {
     for (const s of Object.values(STRUCTURES)) expect(checkShape(s), s.id).toEqual([]);
   });
-  it('とりい: 高さ 9〜11・はば 9〜11。朱色の はしら・かわら・いしだたみ', () => {
-    const d = dims(STRUCTURES.torii);
-    expect(d.h).toBeGreaterThanOrEqual(9); expect(d.h).toBeLessThanOrEqual(11);
+  it('とりい: 高さ 13〜15・はば 9〜11・柱は 1×1。柱の あいだ 5 以上（たて長）・かさぎは 柱より 外へ 2・ぬきは 外へ 1 で かさぎの 2 段 下・かわらの 笠は 1 段・はしが 1 段 上がる', () => {
+    const s = STRUCTURES.torii;
+    const d = dims(s);
+    expect(d.h).toBeGreaterThanOrEqual(13); expect(d.h).toBeLessThanOrEqual(15); // yuzu: 細くて 高い
     expect(d.w).toBeGreaterThanOrEqual(9); expect(d.w).toBeLessThanOrEqual(11);
-    for (const id of used(STRUCTURES.torii)) expect(['shu_ita', 'kawara', 'ishidatami', 'air', 'koke_ishi']).toContain(id);
-    for (const id of ['shu_ita', 'kawara', 'ishidatami']) expect(used(STRUCTURES.torii).has(id), id).toBe(true);
-    // かさぎ（上の 横木）は しまき（下）より 広い ＝ 外へ のびる。はしが 1 段 そる
-    const cells = shapeCells(STRUCTURES.torii);
-    const row = (y: number) => cells.filter((c) => c.y === y && c.ch !== '.');
-    expect(Math.max(...row(8).map((c) => c.rx)) - Math.min(...row(8).map((c) => c.rx))).toBeGreaterThan(Math.max(...row(7).map((c) => c.rx)) - Math.min(...row(7).map((c) => c.rx)));
-    expect(row(9).length).toBeGreaterThan(0);
+    for (const id of ['shu_ita', 'kawara', 'ishidatami']) expect(used(s).has(id), id).toBe(true);
+    const cells = shapeCells(s);
+    expect(cells.filter((c) => c.y === 3 && c.ch === 'S').length).toBe(2); // 柱は 1×1 が 2 本
+    const pillars = [...new Set(cells.filter((c) => c.y === 3 && c.ch === 'S').map((c) => c.rx))].sort((p, q) => p - q);
+    expect(pillars.length).toBe(2);
+    expect(pillars[1]! - pillars[0]! - 1, '柱の あいだ').toBeGreaterThanOrEqual(5);
+    const span = (y: number, ch: string): [number, number] => { const v = cells.filter((c) => c.y === y && c.ch === ch).map((c) => c.rx); return [Math.min(...v), Math.max(...v)]; };
+    const [pl, pr] = span(3, 'S');
+    const kasagi = span(12, 'S');
+    expect([pl - kasagi[0], kasagi[1] - pr]).toEqual([2, 2]); // かさぎ（朱色）は 柱より 外へ 2
+    const nuki = span(10, 'S');
+    expect([pl - nuki[0], nuki[1] - pr]).toEqual([1, 1]); // ぬきは 外へ 1、かさぎの 2 段 下
+    expect(cells.filter((c) => c.ch === 'T').map((c) => c.y)).toEqual(cells.filter((c) => c.ch === 'T').map(() => 13)); // 笠は 1 段だけ
+    expect(cells.some((c) => c.y === 13 && c.ch === 'S' && c.rx === kasagi[0])).toBe(true); // はしが 1 段 上がる
+    expect(cells.some((c) => c.y === 1 && c.ch === 'K')).toBe(true); // 根もとは 黒い かわら
   });
   it('お堂: 7×7〜9×9・高さ 8〜10。屋根は かべより 2 外へ・3〜4 段・すみが 上がる・軒先に ちょうちん 2〜4', () => {
     const s = STRUCTURES.odou;
@@ -129,49 +138,79 @@ describe('5 つの 目じるし: 大きさと 使う ブロック', () => {
     const lamps = cells.filter((c) => c.ch === 'C').length;
     expect(lamps).toBeGreaterThanOrEqual(2); expect(lamps).toBeLessThanOrEqual(4);
   });
-  it('あずまや: 5×5・はしら 4 本・屋根は 2 段・張り出し 1・かべなし', () => {
+  it('あずまや: ゆか 7×7・はしら 4 本（高さ 4）・屋根 9×9 は 柱の 5×5 より 2 張り出し・3 段・すみが 上がる・入り口・ひくい らんかん・ちょうちん 2', () => {
     const s = STRUCTURES.azumaya;
     const d = dims(s);
-    expect([d.w, d.d]).toEqual([5, 5]);
+    expect(d.h).toBeGreaterThanOrEqual(8); expect(d.h).toBeLessThanOrEqual(9);
     const cells = shapeCells(s);
-    expect(cells.filter((c) => c.ch === 'S' && c.y === 1).length).toBe(4);
-    expect(new Set(cells.filter((c) => c.ch === 'K' || c.ch === 'T').map((c) => c.y)).size).toBe(2);
-    expect(cells.filter((c) => c.ch === 'K' && c.y === 5).length).toBe(25);
-    expect(cells.some((c) => c.ch === 'W')).toBe(false);
+    expect(cells.filter((c) => c.y === 0 && c.ch === 'I').length).toBe(49);
+    expect(cells.filter((c) => c.y === 4 && c.ch === 'S').length).toBe(4);
+    const ext = (pred: (c: ShapeCell) => boolean): number => { const v = cells.filter(pred).map((c) => c.rx); return Math.max(...v) - Math.min(...v) + 1; };
+    expect(ext((c) => c.y === 5 && c.ch === 'K') - ext((c) => c.y === 4 && c.ch === 'S')).toBe(4); // 両がわ 2
+    expect(new Set(cells.filter((c) => c.ch === 'K' || c.ch === 'T').map((c) => c.y)).size).toBe(3);
+    expect(cells.filter((c) => c.y === 6 && c.ch === 'T' && Math.abs(c.rx) === 4 && Math.abs(c.rz) === 4).length).toBe(4); // すみ
+    expect(cells.filter((c) => c.y === 1 && c.ch === 'S').length).toBeLessThan(cells.filter((c) => c.y === 0).length); // らんかんは ひくい（1 段）
+    expect(cells.some((c) => c.y === 1 && c.rz === 2 && c.rx === 0 && c.ch !== '.')).toBe(false); // 正面の まん中は あいている
+    expect(cells.filter((c) => c.ch === 'C').length).toBe(2);
+    expect(cells.some((c) => c.ch === 'W')).toBe(true); // てっぺんの かざり
   });
-  it('あかい はし: 長さ 9〜15・まん中が 1 段 高い・らんかんは 1 マスおき', () => {
+  it('あかい はし: 長さ 9〜15・5 段階で 上がって 下がる（差 2〜3）・らんかんは 2 マスおきの はしら（高さ 2）と 横木 1 本・両はしは 1 マス 高く 頭に こけいし', () => {
     const s = STRUCTURES.hashi;
     const d = dims(s);
     expect(d.w).toBeGreaterThanOrEqual(9); expect(d.w).toBeLessThanOrEqual(15);
     expect(d.d).toBe(5); // あるける 3 ＋ らんかん 2
     const cells = shapeCells(s);
-    const deckTop = (x: number): number => Math.max(...cells.filter((c) => c.rx === x && c.rz === 0 && c.ch === 'S').map((c) => c.y));
     const xs = [...new Set(cells.map((c) => c.rx))].sort((a, b) => a - b);
-    expect(deckTop(xs[Math.floor(xs.length / 2)]!)).toBeGreaterThan(deckTop(xs[0]!) - 1);
-    const posts = cells.filter((c) => c.rz === -2 && c.y === 1 && c.ch === 'S' && c.rx <= xs[0]! + 2).map((c) => c.rx);
-    expect(posts.length).toBe(2); // はしの 3 マスに 柱は 2 本（1 マスおき）
-    for (const id of used(s)) expect(['shu_ita', 'shikkui', 'air', 'ishidatami']).toContain(id);
+    const deck = xs.map((x) => Math.min(...cells.filter((c) => c.rx === x && c.rz === 0 && c.ch === 'S' && cells.some((q) => q.rx === x && q.rz === 1 && q.y === c.y && q.ch === 'S')).map((c) => c.y)));
+    expect(new Set(deck).size, '段の 数').toBe(3);
+    expect(Math.max(...deck) - Math.min(...deck)).toBeGreaterThanOrEqual(2);
+    expect(Math.max(...deck) - Math.min(...deck)).toBeLessThanOrEqual(3);
+    expect(deck.join()).toBe([...deck].reverse().join()); // 左右 そろって 上がって 下がる
+    const mid = deck.filter((v) => v === Math.max(...deck)).length;
+    expect(mid).toBe(5); // まん中 5 マスが いちばん 高い
+    // 左はしの はしら: 床の 上 3 マス（はしら 2 ＋ 横木）、頭（こけいし）が その 上
+    const x0 = xs[0]!;
+    const col = cells.filter((c) => c.rx === x0 && c.rz === -2 && c.ch !== '.').sort((a, b) => a.y - b.y);
+    expect(col.map((c) => c.ch).slice(-2)).toEqual(['S', 'M']);
+    const posts = cells.filter((c) => c.rz === -2 && c.y === deck[0]! + 1 && c.ch === 'S').map((c) => c.rx);
+    expect(posts.filter((x) => x < xs[2]!)).toEqual([x0, x0 + 2].filter((x) => x < xs[2]!)); // 2 マスおき
+    expect(cells.some((c) => c.ch === 'S' && c.y === deck[0]! + 1 && c.rz === -2 && c.rx === x0 + 1)).toBe(false); // はしらの あいだは すける
+    for (const id of used(s)) expect(['shu_ita', 'koke_ishi', 'air', 'ishidatami']).toContain(id);
   });
 });
 
 describe('石段（道に そって 置く）', () => {
   const east: Dir4 = [1, 0];
-  const slope = (x: number, _z: number): number => Math.max(0, 9 - Math.floor(x * 0.8));
-  it('はば 3・1 歩ごとの 高さの 差は 1 以下・地形に そう・両わきに 4〜6 歩ごとの とうろう', () => {
+  const slope = (x: number, _z: number): number => Math.max(0, 20 - Math.floor(x * 0.8));
+  it('はば 3・1 歩ごとの 高さの 差は 1 以下・地形に そう・4〜6 歩ごとに いしどうろうを 左右 たがいちがいに', () => {
     const st = placeStairs(0, 0, east, 3, slope, (x) => slope(x, 0) <= 1)!;
     expect(st).not.toBeNull();
     expect(st.path.length).toBeGreaterThanOrEqual(ISHIDAN_TUNE.minSteps);
     for (let i = 1; i < st.path.length; i++) expect(Math.abs(st.path[i]!.y - st.path[i - 1]!.y)).toBeLessThanOrEqual(1);
-    const floor = st.blocks.filter((b) => b.id === 'ishidatami' && b.y === st.path[1]!.y && b.x === st.path[1]!.x);
+    const floor = st.blocks.filter((b) => b.id === 'ishidatami' && b.y === st.path[1]!.y && b.x === st.path[1]!.x && Math.abs(b.z) <= 1);
     expect(floor.map((b) => b.z).sort((a, b) => a - b)).toEqual([-1, 0, 1]);
-    const steps = st.lanterns.filter((l) => l.z === 2).map((l) => l.x); // 片がわ
-    expect(steps.length).toBeGreaterThanOrEqual(1);
-    for (let i = 1; i < steps.length; i++) {
-      expect(steps[i]! - steps[i - 1]!).toBeGreaterThanOrEqual(ISHIDAN_TUNE.lanternEvery[0]);
-      expect(steps[i]! - steps[i - 1]!).toBeLessThanOrEqual(ISHIDAN_TUNE.lanternEvery[1]);
+    expect(st.lanterns.length).toBeGreaterThanOrEqual(2);
+    st.lanterns.forEach((l, i) => expect(l.z, `${i} 番めは たがいちがい`).toBe(i % 2 === 0 ? ISHIDAN_TUNE.lampOffset : -ISHIDAN_TUNE.lampOffset));
+    for (let i = 1; i < st.lanterns.length; i++) {
+      expect(st.lanterns[i]!.x - st.lanterns[i - 1]!.x).toBeGreaterThanOrEqual(ISHIDAN_TUNE.lanternEvery[0]);
+      expect(st.lanterns[i]!.x - st.lanterns[i - 1]!.x).toBeLessThanOrEqual(ISHIDAN_TUNE.lanternEvery[1]);
     }
-    expect(st.lanterns.filter((l) => l.z === -2).map((l) => l.x)).toEqual(steps); // 両わき そろう
-    expect(st.blocks.some((b) => b.id === 'touro')).toBe(true);
+    // 道の はば（z -1〜1）には いしどうろうの ブロックが かからない
+    expect(st.blocks.some((b) => Math.abs(b.z) <= 1 && (b.id === 'chouchin' || b.id === 'koke_ishi' && b.y > st.path[0]!.y + 10))).toBe(false);
+    expect(st.blocks.some((b) => b.id === 'chouchin')).toBe(true);
+    expect(st.blocks.some((b) => b.id === 'touro')).toBe(false);
+  });
+  it('いしどうろう 3 しゅ: 大 = 高さ 6〜7・台 3×3、中 = 高さ 4〜5、小 = 高さ 3 で 笠が 5×5。笠は 3×3 以上・光る 所（ちょうちん）が ある', () => {
+    for (const [name, h] of [['ishidourou-dai', [6, 7]], ['ishidourou-chu', [4, 5]], ['ishidourou-sho', [3, 3]]] as const) {
+      const s = STRUCTURES[name];
+      const d = dims(s);
+      expect(d.h, name).toBeGreaterThanOrEqual(h[0]); expect(d.h, name).toBeLessThanOrEqual(h[1]);
+      const cells = shapeCells(s);
+      const roofY = Math.max(...cells.filter((c) => c.ch === 'R').map((c) => c.y));
+      expect(cells.filter((c) => c.y === roofY && c.ch === 'R').length, name).toBeGreaterThanOrEqual(9);
+      expect(cells.some((c) => c.ch === 'C'), name).toBe(true);
+    }
+    expect(shapeCells(STRUCTURES['ishidourou-dai']).filter((c) => c.y === 0 && c.ch === 'M').length).toBe(9);
   });
   it('短すぎる 道は 作らない・同じ 入力なら 同じ 結果', () => {
     expect(placeStairs(0, 0, east, 3, () => 5, (x) => x >= 2)).toBeNull();
