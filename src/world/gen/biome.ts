@@ -1,7 +1,8 @@
 import { SEA_Y, type BlockId } from '../../contracts';
 import { GEN_CONFIG as C, COUNTRY_KINDS, MOUNTAIN_KINDS, type CountryDef, type CountryKind } from './config';
 import { hash01, subSeed, valueNoise } from './random';
-import { MOUNTAIN_V2, V2_SURFACE, mountainOffsetV2 } from './mountainV2';
+import { MOUNTAIN_V2, mountainOffsetV2 } from './mountainV2';
+import { v2TopBlock } from './mountainV2Surface';
 
 /**
  * 12 の国（VOX-I-1。docs/design/VOX-I.md §3）。升目の点（ボロノイ）・山のわく・国ごとの高さ・地面のブロック・かっぱの いけ・たけやぶ の道。
@@ -157,7 +158,6 @@ export class CountryMap {
   private topDef: (typeof DEFS)[CountryKind] | null = null;
   private readonly hOut: HeightOut = { h: 0, base: 0, lift: 0 };
   private readonly ptOut: HeightOut = { h: 0, base: 0, lift: 0 };
-  private sMix = NaN;
   private readonly slopeOut: HeightOut = { h: 0, base: 0, lift: 0 };
 
   constructor(readonly seed: number) {
@@ -525,7 +525,7 @@ export class CountryMap {
     }
     const def = this.topDef!;
     const rel = h - SEA_Y;
-    if (MOUNTAIN_V2 && def.mountain) return this.v2TopBlock(x, z, h, def.snowFrom, this.topKind);
+    if (MOUNTAIN_V2 && def.mountain) return v2TopBlock(this.seed, this.topKind, x, z, h, this.v2Height);
     if (def.snowFrom !== undefined) return rel >= def.snowFrom ? 'snow' : 'grass';
     if (rel >= (def.stoneFrom ?? C.strata.stoneTopFrom)) return 'stone';
     if (def.sandBelowOnMountain !== undefined) {
@@ -537,26 +537,11 @@ export class CountryMap {
     return 'grass';
   }
 
-  /**
-   * ?mountain=v2: かたむきで 材料を かえる。となりの列との高さの差が steepFrom 以上 = 岩、ゆるい・平ら = くさ（雪の線より上は ゆき）。
-   * 岩は 高さの帯と ノイズで いし・つち・せきたん を 2〜3 割 まぜる（新しいブロックは 足さない）
-   */
-  private v2TopBlock(x: number, z: number, h: number, snowFrom: number | undefined, kind: CountryKind): BlockId {
-    const S = V2_SURFACE[kind as keyof typeof V2_SURFACE];
-    const o = this.slopeOut;
-    let steep = 0;
-    for (let k = 0; k < 4; k++) {
-      this.groundInto(x + (k === 0 ? 1 : k === 1 ? -1 : 0), z + (k === 2 ? 1 : k === 3 ? -1 : 0), o, false);
-      steep = Math.max(steep, Math.abs(o.h - h));
-    }
-    const snowy = snowFrom !== undefined && h - SEA_Y >= snowFrom;
-    if (steep >= (snowy ? S.steepSnow : S.steep)) {
-      if (Number.isNaN(this.sMix)) this.sMix = subSeed(this.seed, 916);
-      const n = valueNoise(this.sMix, x + h * 2.3, z - h * 1.7, 9);
-      return n > 0.5 + S.rockHalf ? 'dirt' : n < 0.5 - S.rockHalf ? 'coal_ore' : 'stone';
-    }
-    return snowy ? 'snow' : 'grass';
-  }
+  /** ?mountain=v2: 山の 材料の 計算に 使う 高さ（となりの列） */
+  private readonly v2Height = (x: number, z: number): number => {
+    this.groundInto(x, z, this.slopeOut, false);
+    return this.slopeOut.h;
+  };
 
   groundAt(x: number, z: number): GroundInfo {
     this.groundInto(x, z, this.hOut, false);
