@@ -131,7 +131,7 @@ describe('B 斧が 得意な ブロックは ぜんぶ 2 マス（つながっ�
     expect(g.world.getBlock(8, 9, 5)).toBe('air');
     expect(left).toBe(1);
   });
-  it('真上が あれば 上が ゆうせん・真下は きらない', () => {
+  it('真上が あれば 上が ゆうせん（よこ・真下は のこる）', () => {
     const g = rig('gnome_axe');
     column(g, ['bamboo', 'bamboo']);
     at(g, 9, 9, 5, 'bamboo');
@@ -141,6 +141,15 @@ describe('B 斧が 得意な ブロックは ぜんぶ 2 マス（つながっ�
     expect(g.world.getBlock(8, 10, 5)).toBe('air');
     expect(g.world.getBlock(9, 9, 5)).toBe('bamboo');
     expect(g.world.getBlock(8, 8, 5)).toBe('bamboo');
+  });
+  it('上も よこも 無ければ 真下を きる', () => {
+    const g = rig('gnome_axe');
+    at(g, 8, 9, 5, 'bamboo');
+    at(g, 8, 8, 5, 'bamboo');
+    g.step(1);
+    g.cut();
+    expect(g.world.getBlock(8, 9, 5)).toBe('air');
+    expect(g.world.getBlock(8, 8, 5)).toBe('air');
   });
   it('ちがう しゅるい・つるはしの ブロックは きらない', () => {
     const g = rig('gnome_axe');
