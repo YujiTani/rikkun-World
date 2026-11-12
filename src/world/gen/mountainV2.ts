@@ -27,6 +27,30 @@ export function v2Landmarks(seed: number, kind: CountryKind, px: number, pz: num
 
 /** 海からの高さ（ざらざら 前）。kind は 山の 4 種のどれか。柱の 橋と、すそ → 頂上の 登れる道（坂 T.path.k）を 1 本 ほる */
 export function mountainOffsetV2(seed: number, kind: CountryKind, px: number, pz: number, x: number, z: number): number {
+  // 同じ 列の 高さは 何度も 聞かれる（高さ・上の ブロック〔となりの 列〕・地面の 答え）ので 覚える。直接 割りあて 表（場所が 同じなら 同じ 値 = 決まった 結果）
+  const slot = (Math.imul(x, 73856093) ^ Math.imul(z, 19349663) ^ Math.imul(px, 83492791) ^ Math.imul(pz, 2654435761) ^ seed) & OFFSET_CACHE_MASK;
+  if (cacheX[slot] === x && cacheZ[slot] === z && cachePx[slot] === px && cachePz[slot] === pz && cacheSeed[slot] === (seed | 0)) return cacheVal[slot]!;
+  const v = mountainOffsetV2Raw(seed, kind, px, pz, x, z);
+  cacheX[slot] = x;
+  cacheZ[slot] = z;
+  cachePx[slot] = px;
+  cachePz[slot] = pz;
+  cacheSeed[slot] = seed | 0;
+  cacheVal[slot] = v;
+  return v;
+}
+
+/** 覚える 数（2 の べき。1 つ 約 28 バイト → 約 3.6 MB） */
+const OFFSET_CACHE_SIZE = 1 << 17;
+const OFFSET_CACHE_MASK = OFFSET_CACHE_SIZE - 1;
+const cacheX = new Int32Array(OFFSET_CACHE_SIZE).fill(0x7fffffff);
+const cacheZ = new Int32Array(OFFSET_CACHE_SIZE);
+const cachePx = new Int32Array(OFFSET_CACHE_SIZE);
+const cachePz = new Int32Array(OFFSET_CACHE_SIZE);
+const cacheSeed = new Int32Array(OFFSET_CACHE_SIZE);
+const cacheVal = new Float64Array(OFFSET_CACHE_SIZE);
+
+function mountainOffsetV2Raw(seed: number, kind: CountryKind, px: number, pz: number, x: number, z: number): number {
   const p = paramsFor(seed, kind as MountainKind, px, pz);
   let h = shapeOf(p, px, pz, x, z);
   if (Number.isNaN(p.apex)) {
