@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { WORLD_HEIGHT, type BlockId } from '../../contracts';
 import { BLOCK_INDEX, blockIdFromIndex, BLOCK_TYPES } from '../blocks/blockTypes';
 import { SECTION_VOLUME, sectionToArray } from '../sections';
+import { COUNTRY_PLANT_IDS } from '../blocks/countryPlants';
 import { generateChunk } from './chunk';
 import { createMineHook, type MineHook } from './mineHook';
 import { underCoveredCols } from './mineShaftKit';
@@ -89,6 +90,10 @@ const stoneHash = (arr: Uint8Array): string => {
   return fnv(a);
 };
 
+/** たけ・国だけの 草花の ブロックが 1 つでも ある 列か */
+const PLANT_INDEXES: ReadonlySet<number> = new Set([BLOCK_INDEX.bamboo, ...COUNTRY_PLANT_IDS.map((b) => BLOCK_INDEX[b])]);
+const hasCountryPlants = (arr: Uint8Array): boolean => arr.some((v) => PLANT_INDEXES.has(v));
+
 // ------------------------------------------------------------------ A4: 形は かわらない
 
 describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列が MINE-1 の 前と 同じ）', () => {
@@ -117,6 +122,8 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
         if (coveredOf(seed).has(colKey(cx, cz))) continue;
         // MAGMA-SPAWN: 溶岩・滝の いけ（あとから 足した 地形）に かかる 列は くらべない（いけの ない 列は 前と 同じ）
         if (terrainFor(seed).liquid.pondsIn(cx * 16, cz * 16, cx * 16 + 15, cz * 16 + 15).length > 0) continue;
+        // VOX-I-4a: たけ（高さ 6〜10 に なった）と 国だけの 草花（きのこ・ひまわり・かいがら・たけのこ）が ある 列は くらべない（前の 見本には ない 物。鉱石・地形は 差が ない ことを 前の main との ブロックごとの くらべで 確かめた）
+        if (hasCountryPlants(col(seed, cx, cz))) continue;
         n++;
         const now = stoneHash(col(seed, cx, cz));
         if (now !== h) bad.push(`seed ${seed} 列 (${cx}, ${cz}): ${h} → ${now}`);

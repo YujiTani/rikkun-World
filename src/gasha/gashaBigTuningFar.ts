@@ -1,4 +1,5 @@
 /** #308 gashaBigTuning.ts を 分けた もの: 遠い 攻撃（ビーム・噴火・雷）。数も キーの 順も もとの まま（組み立ては gashaBigTuning.ts）。 */
+import { COUNTRY_PLANT_IDS } from '../world/blocks/countryPlants';
 export const TUNE_FAR = {
   /**
    * 攻撃 3「目から 光線」（絵コンテ attacks/3-beam-storyboard.jpg）。① 不気味な 音 → 両目が 赤黒く 光り輝く（十字の きらめき。予兆）→
@@ -148,7 +149,7 @@ export const TUNE_FAR = {
       douseSmokeSize: 0.55, // 【ブロック】その 煙の 玉の 大きさ
       douseSoundEverySec: 0.2, // 【秒】消した 音（じゅっ）を 鳴らす 間かくの 下限（まとめて 消えても 1 回）
     },
-    plants: ['kusa', 'flower_y', 'flower_o', 'flower_p', 'nobana', 'susuki', 'leaves', 'momiji_leaves', 'matsu_leaves', 'bamboo'] as string[], // 隕石・火の 粉で 燃えて 消える 植物の ブロック（落とし物なし。log = 家の 柱・かべに 使われる ので 燃やさない）
+    plants: ['kusa', 'flower_y', 'flower_o', 'flower_p', 'nobana', 'susuki', 'leaves', 'momiji_leaves', 'matsu_leaves', 'bamboo', ...COUNTRY_PLANT_IDS] as string[], // 隕石・火の 粉で 燃えて 消える 植物の ブロック（落とし物なし。log = 家の 柱・かべに 使われる ので 燃やさない）
     burnRadius: 1.8, // 【ブロック】隕石・火の 粉が 落ちた 点から この はんいの 植物が 燃える
     burnMax: 26, // 1 つの 点で 燃やす ブロックの 数の 上限
     burnFlameSec: 3, // 【秒】燃えている ブロックの あとに 炎の 板が 出ている 長さ

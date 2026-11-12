@@ -132,6 +132,12 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     susuki: 0.05,
     kusa: 0.05,
     nobana: 0.05,
+    // VOX-I-4a（国だけの物 その 1。すでで 0.05 秒。はなと 同じ）
+    kinoko: 0.05,
+    himawari: 0.05,
+    himawari_top: 0.05,
+    kaigara: 0.05,
+    takenoko: 0.05,
     // MINE-1B（#349。仕様 §4.4。素手の 秒数。時間 = 固さ ÷ 道具の 強さ）
     nendo: 1, // つち より 少し かたい（すでで 1 秒）
     sekkaiseki: 5, // いしの つるはし（強さ 4）で 1.25 秒
@@ -262,6 +268,11 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     susuki: 0,
     kusa: 0,
     nobana: 0,
+    kinoko: 0,
+    himawari: 0,
+    himawari_top: 0,
+    kaigara: 0,
+    takenoko: 0,
     // MINE-1B（0 = すで・1 = いしの つるはし・2 = てつの つるはし から）
     nendo: 0,
     sekkaiseki: 1,
@@ -382,6 +393,11 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     susuki: 'common',
     kusa: 'common',
     nobana: 'common',
+    kinoko: 'common',
+    himawari: 'common',
+    himawari_top: 'common',
+    kaigara: 'common',
+    takenoko: 'common',
     // MINE-1B（ほると 手に 入る 数の 上限を きめる。しるしは 何も 出ない ので 使わない）
     nendo: 'uncommon',
     sekkaiseki: 'uncommon',
@@ -470,6 +486,12 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   haniwa: { item: 'haniwa', count: 1 },
   // FLORA-75: のばな は いつも 1 こ（ランダムな数にしない）
   nobana: { item: 'nobana', count: 1 },
+  // VOX-I-4a: 国だけの物 その 1 は いつも 1 こ。ひまわりは どちらの 段でも himawari 1 こ
+  kinoko: { item: 'kinoko', count: 1 },
+  himawari: { item: 'himawari', count: 1 },
+  himawari_top: { item: 'himawari', count: 1 },
+  kaigara: { item: 'kaigara', count: 1 },
+  takenoko: { item: 'takenoko', count: 1 },
   // WATERFALL-1: こくようせきは いつも 1 こ。WAKIDOKORO: たきつぼ 2 つは その たきつぼ 1 こ（置き直せる）。わきどころ 2 つは 何も 落とさない（NO_DROP_BLOCKS。バケツ だけで 回収）
   kokuyouseki: { item: 'kokuyouseki', count: 1 },
   takitsubo: { item: 'takitsubo', count: 1 },

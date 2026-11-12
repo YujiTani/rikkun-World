@@ -55,6 +55,8 @@ const EXPECT: Record<string, Expect> = {
 };
 
 const IDS = Object.keys(EXPECT);
+/** VOX-I-4a（#187）で 足した 4 つ（きのこ・ひまわり・かいがら・たけのこ）。説明は なし（かざり）。値は voxI4a の 専用テストで 見る */
+const VOX_I_4A = ['kinoko', 'himawari', 'kaigara', 'takenoko'];
 
 describe('登録表（置けるブロック 22 個）', () => {
   it('22 個すべてに ItemDef が ある（8 + 5 + 1 + 8）', () => {
@@ -62,8 +64,8 @@ describe('登録表（置けるブロック 22 個）', () => {
     expect(Object.keys(PLACEABLE)).toHaveLength(8);
     expect(Object.keys(M4_BLOCKS)).toEqual(['furnace', 'kawara', 'brick', 'torch', 'tansu']);
     expect(Object.keys(GEYSER)).toEqual(['geyser_dirt']);
-    expect(Object.keys(VOX_I)).toHaveLength(8);
-    expect([...Object.keys(PLACEABLE), ...Object.keys(M4_BLOCKS), ...Object.keys(GEYSER), ...Object.keys(VOX_I)].sort()).toEqual([...IDS].sort());
+    expect(Object.keys(VOX_I)).toHaveLength(8 + VOX_I_4A.length);
+    expect([...Object.keys(PLACEABLE), ...Object.keys(M4_BLOCKS), ...Object.keys(GEYSER), ...Object.keys(VOX_I)].sort()).toEqual([...IDS, ...VOX_I_4A].sort());
     for (const id of IDS) expect(itemDef(id), id).toBeDefined();
   });
 
@@ -85,8 +87,8 @@ describe('登録表（置けるブロック 22 個）', () => {
   });
 
   it('説明が 無い 9 個は 地形・かざり（geyser_dirt と 12 の国の 8 つ。許可リストは noInfoOk.ts の 1 か所）', () => {
-    expect(IDS.filter((id) => !itemDef(id)!.info).sort()).toEqual(Object.keys(NO_INFO_OK).sort());
-    expect(Object.keys(NO_INFO_OK)).toHaveLength(9);
+    expect([...IDS, ...VOX_I_4A].filter((id) => !itemDef(id)!.info).sort()).toEqual(Object.keys(NO_INFO_OK).sort());
+    expect(Object.keys(NO_INFO_OK)).toHaveLength(9 + VOX_I_4A.length);
   });
 
   it('ITEM_TYPES の 並び: 先頭 8 → ざいりょう 7 → かまど・かわら・レンガ・たいまつ・たんす / 侍装備の 次に 間欠泉の つち / バケツの 次に 12 の国の 8 つ', () => {

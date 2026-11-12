@@ -65,4 +65,14 @@ describe('gashaBigCrush（#293 たたきつけた 手の 下と まわりを こ
     expect(w.get(Math.floor(s.x), 4, Math.floor(s.z))).toBe('air');
     expect(w.get(Math.floor(s.x), 3, Math.floor(s.z))).toBe('air');
   });
+
+  it('ひまわりは 下の 段だけ はんいに かかっても 上の 段も いっしょに 消える（2 段の かたほうが のこらない）', () => {
+    const w = world();
+    const hy = 5 + T.slam.crushUp - 1; // はんいの いちばん 上の 段
+    w.set(10, hy, 10, 'himawari'); w.set(10, hy + 1, 10, 'himawari_top');
+    const out = crushAt(10.5, 5, 10.5, w.io);
+    expect(w.get(10, hy, 10)).toBe('air');
+    expect(w.get(10, hy + 1, 10)).toBe('air');
+    expect(out.some((c) => c.y === hy + 1 && c.from === 'himawari_top')).toBe(true);
+  });
 });
