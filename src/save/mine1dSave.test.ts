@@ -1,13 +1,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { BLOCK_INDEX } from '../world/blocks/blockTypes';
-import { COUNTRY_PLANT_IDS } from '../world/blocks/countryPlants';
 import { sectionToArray } from '../world/sections';
 import type { PlayerState } from '../contracts';
 import { WORLD_HEIGHT } from '../contracts';
 import { InventoryImpl } from '../inventory/Inventory';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { columnHash } from '../world/gen/chunk';
+import { skipsColumnCopy } from '../world/gen/columnCopySkip';
 import { GEN_CONFIG } from '../world/gen/config';
 import { CAVE_RULES, hookCave, needCaveHook } from '../world/gen/mineCaveKit';
 import { GenCols, bothWays, genColumn, hook1c, type OldCols, type Shaft } from '../world/gen/mineShaftKit';
@@ -331,13 +330,12 @@ describe('D9: 版 5 の fixture で 1C の 形の まま', () => {
     }
     let compared = 0;
     let withPlants = 0;
-    const plantIdx = new Set<number>([BLOCK_INDEX.bamboo, ...COUNTRY_PLANT_IDS.map((b) => BLOCK_INDEX[b])]);
     for (const [k, want] of Object.entries(gold.columns)) {
       if (skip.has(k)) continue;
       const [cx, cz] = k.split(',').map(Number) as [number, number];
       const col = genColumn(SEED, cx, cz, legacy);
-      // VOX-I-4a: たけ（高さ 6〜10 に なった）と 国だけの 草花が ある 列は くらべない（見本は 書きかえない。ほかの ブロックは 前の main と 同じ ことを 列ごとの くらべで 確かめた）
-      if (col.sections.some((sec) => sectionToArray(sec).some((v) => plantIdx.has(v)))) { withPlants++; continue; }
+      // VOX-I-4a・4b: たけ・国だけの 物（草花・山の 物）が かかる 列は くらべない（見本は 書きかえない。ほかの ブロックは 前の main と 同じ ことを 列ごとの くらべで 確かめた。判定は columnCopySkip.ts の 1 か所）
+      if (skipsColumnCopy(SEED, cx, cz, { some: (f) => col.sections.some((sec) => sectionToArray(sec).some(f)) })) { withPlants++; continue; }
       expect(columnHash(col), `列 (${k}) が 1C の あとと ちがう`).toBe(want);
       compared++;
     }
