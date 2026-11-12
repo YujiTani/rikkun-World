@@ -438,6 +438,9 @@
     "build": [
       "kawara",
       "brick",
+      "shu_ita",
+      "ishidatami",
+      "chouchin",
       "shikkui",
       "house_floor",
       "house_wall",
@@ -587,7 +590,8 @@
     ],
     "stone": [
       "stone",
-      "suisho"
+      "suisho",
+      "koke_ishi"
     ],
     "tool": [
       "wood_pickaxe",
@@ -912,6 +916,10 @@
     "takenoko",
     "suisho",
     "ochiba",
+    "shu_ita",
+    "ishidatami",
+    "koke_ishi",
+    "chouchin",
     "egg",
     "mushi",
     "mushi_ami",

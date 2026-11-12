@@ -18,6 +18,7 @@ import { paintLeafTile } from './leafTextures';
 import { HOUSE_ATLAS_TILE_NAMES, HOUSE_BLOCK_TILES, isHouseTile, paintHouseTile, type HouseAtlasTile } from './houseTextures';
 import { VOX_I4A_GRIDS, paintGrid } from './voxI4aTiles';
 import { VOX_I4B_GRIDS } from './voxI4bTiles';
+import { WAFU_GRIDS } from './wafuTiles';
 import { protoBambooPixels, protoLeafPixels } from '../render/leafBambooArt';
 
 /** 16x16 ドット絵をコードで描く（M1-01 4-2 の色）。 */
@@ -64,10 +65,14 @@ export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y
   // VOX-I-4a（#187。国だけの物 その 1 の 1 コマめ。絵は voxI4aTiles.ts）
   | 'kinoko' | 'himawari_ue' | 'himawari_shita' | 'kaigara' | 'takenoko'
   // VOX-I-4b（#187。山の物の 1 コマめ。絵は voxI4bTiles.ts）
-  | 'suisho_top' | 'suisho_side' | 'touro_top' | 'touro_side' | 'ochiba_top' | 'ochiba_side';
+  | 'suisho_top' | 'suisho_side' | 'touro_top' | 'touro_side' | 'ochiba_top' | 'ochiba_side'
+  // WAFU-1（わふうの 4 ブロックの 1 コマめ。絵は wafuTiles.ts）
+  | 'shu_ita' | 'ishidatami' | 'koke_ishi' | 'chouchin' | 'ara_ishi' | 'koke_ara_ishi';
 const VOX_I_TILES: readonly VoxITileName[] = ['snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'susuki', 'kusa', 'nobana', 'kinoko', 'himawari_ue', 'himawari_shita', 'kaigara', 'takenoko'];
 /** VOX-I-4b（#187）の 6 まい。TILE_NAMES の いちばん うしろに 足す（今の 絵の 位置は かわらない。こたつの すきま〔4 の 倍数ぞろえ〕に ギャジェットの 絵が 入る 数も かわらない） */
 const VOX_I4B_TILES: readonly VoxITileName[] = ['suisho_top', 'suisho_side', 'touro_top', 'touro_side', 'ochiba_top', 'ochiba_side'];
+/** WAFU-1 の 4 まい。さいごに 足す */
+const WAFU_TILES: readonly VoxITileName[] = ['shu_ita', 'ishidatami', 'koke_ishi', 'chouchin', 'ara_ishi', 'koke_ara_ishi'];
 
 /** M7 農業の絵の名前（`farm.texture` の name と同じ） */
 export type FarmTileName =
@@ -128,6 +133,8 @@ export const TILE_NAMES: readonly TileName[] = [
   MAKIMONO_TILE,
   // VOX-I-4b（#187）: 山の物の 絵 6 まい。さいごに 足す
   ...VOX_I4B_TILES,
+  // WAFU-1: わふうの 絵 4 まい。さいごに 足す
+  ...WAFU_TILES,
 ];
 // WATERFALL-1 版 2: 煮えたぎる マグマの 4 コマは アトラスの 1 だんの 左から（shader が 1 コマ = 1/ATLAS_COLS だけ 横に ずらす）
 if (TILE_NAMES.indexOf(BOIL_NAMES[0]) % ATLAS_COLS !== 0 || BOIL_NAMES.length !== ATLAS_COLS) throw new Error('magma boil frames must fill one atlas row');
@@ -375,7 +382,7 @@ function paintTile(name: TileName): Tile {
   if (name === MAKIMONO_TILE) return paintMakimonoTile().slice(); // HOUSE-2A: まきもの
   if (isRopeTile(name)) return paintRopeTile(name).slice(); // ROPE-1
   if (isWaterfallTile(name)) return paintWaterfallTile(name).slice(); // WATERFALL-1
-  const grid = (VOX_I4A_GRIDS as Readonly<Record<string, Parameters<typeof paintGrid>[0]>>)[name] ?? (VOX_I4B_GRIDS as Readonly<Record<string, Parameters<typeof paintGrid>[0]>>)[name]; // VOX-I-4a: すきまの ある 十字の 板は calm() を かけない（はな・すすきと 同じ）
+  const grid = (VOX_I4A_GRIDS as Readonly<Record<string, Parameters<typeof paintGrid>[0]>>)[name] ?? (VOX_I4B_GRIDS as Readonly<Record<string, Parameters<typeof paintGrid>[0]>>)[name] ?? (WAFU_GRIDS as Readonly<Record<string, Parameters<typeof paintGrid>[0]>>)[name]; // VOX-I-4a: すきまの ある 十字の 板は calm() を かけない（はな・すすきと 同じ）
   if (grid !== undefined) return paintGrid(grid);
   if (isHouseTile(name)) return paintHouseTile(name).map((c): Rgba => [(c >> 16) & 255, (c >> 8) & 255, c & 255, 255]); // HOUSE-1C: 家の ブロック・家具
   switch (name) {
@@ -575,6 +582,13 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   suisho: ['suisho_top', 'suisho_side', 'suisho_side'],
   touro: ['touro_top', 'touro_side', 'touro_side'],
   ochiba: ['ochiba_top', 'dirt', 'ochiba_side'],
+  // WAFU-1: わふう（6 面 同じ絵）
+  shu_ita: ['shu_ita', 'shu_ita', 'shu_ita'],
+  ishidatami: ['ishidatami', 'ishidatami', 'ishidatami'],
+  koke_ishi: ['koke_ishi', 'koke_ishi', 'koke_ishi'],
+  chouchin: ['chouchin', 'chouchin', 'chouchin'],
+  ara_ishi: ['ara_ishi', 'ara_ishi', 'ara_ishi'],
+  koke_ara_ishi: ['koke_ara_ishi', 'koke_ara_ishi', 'koke_ara_ishi'],
   // #293 試作
   geyser_dirt: ['geyser_dirt_top', 'geyser_dirt_side', 'geyser_dirt_side'],
   // ITEM-FX-1: 置き物 3 つ（形は meshChunk の pushProp。ここは ひび・かけらの 色用）

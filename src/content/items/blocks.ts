@@ -297,6 +297,55 @@ export const VOX_I = {
     rarity: blockRarity('ochiba'),
     category: 'soil',
   },
+  // WAFU-1: わふうの 4 つ（かわら・しっくいは 前から ある）
+  shu_ita: {
+    name: blockName('shu_ita'),
+    zukan: 'とりいや おどうの はしらに なる、あかい き。ならべると ［山｜やま］の うえの じんじゃみたいに なるよ。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'shu_ita',
+    rarity: blockRarity('shu_ita'),
+    category: 'build',
+  },
+  ishidatami: {
+    name: blockName('ishidatami'),
+    zukan: 'しろっぽい いしを しきつめた みち。いしだんや おどうの どだいに ぴったり。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'ishidatami',
+    rarity: blockRarity('ishidatami'),
+    category: 'build',
+  },
+  koke_ishi: {
+    name: blockName('koke_ishi'),
+    zukan: 'こけが はえた ふるい いし。ひっそり して いて、むかしからの ばしょみたい。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'koke_ishi',
+    rarity: blockRarity('koke_ishi'),
+    category: 'stone',
+  },
+  chouchin: {
+    name: blockName('chouchin'),
+    zukan: 'のきさきに ぶらさげる あかい ちょうちん。ほんのり ひかって、とおくからでも めじるしに なるよ。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'chouchin',
+    rarity: blockRarity('chouchin'),
+    category: 'build',
+  },
+  ara_ishi: {
+    name: blockName('ara_ishi'),
+    zukan: 'おおきい いしと ちいさい いしを つみあげた ごつごつの いし。ふるい いしがきや とうろうに ぴったり。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'ara_ishi',
+    rarity: blockRarity('ara_ishi'),
+    category: 'stone',
+  },
+  koke_ara_ishi: {
+    name: blockName('koke_ara_ishi'),
+    zukan: 'ごつごつの いしに こけが はえたよ。うえのほうが みどりいろ。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'koke_ara_ishi',
+    rarity: blockRarity('koke_ara_ishi'),
+    category: 'stone',
+  },
 } satisfies Partial<Record<BlockId, ItemDef>>;
 
 /**

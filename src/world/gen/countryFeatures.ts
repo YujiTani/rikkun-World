@@ -28,9 +28,9 @@ const KIND_REACH = {
   susuki: FEATURE_TUNE.reach.tsukimiIwa,
   take: FEATURE_TUNE.reach.takenoko,
   kappa: 0,
-  iwayama: MOUNTAIN_TUNE.suisho.reach,
-  tengu: MOUNTAIN_TUNE.summitReach + Math.max(MOUNTAIN_TUNE.fallback.touro, MOUNTAIN_TUNE.kaidan.startGap), // 頂上（点から 6）＋ とうろうの さがす はんい 3 ／ かいだんの はじまり 2
-  momiji: MOUNTAIN_TUNE.summitReach + MOUNTAIN_TUNE.fallback.oomomiji, // 頂上 ＋ おおもみじの さがす はんい 6
+  iwayama: Math.max(MOUNTAIN_TUNE.suisho.reach, 40), // 40 = 目じるし（石ぞう・いしの とりい）の さがす はんい
+  tengu: MOUNTAIN_TUNE.summitReach + Math.max(MOUNTAIN_TUNE.fallback.touro, MOUNTAIN_TUNE.kaidan.startGap, 34), // 34 = 目じるし（お堂・やぐら・頂上から いどまで）の さがす はんい // 頂上（点から 6）＋ とうろうの さがす はんい 3 ／ かいだんの はじまり 2
+  momiji: MOUNTAIN_TUNE.summitReach + MOUNTAIN_TUNE.fallback.oomomiji + 30, // 30 = 目じるし（あずまや・広場の とりいと ほこら・すその いど。頂上から 34）の ぶん // 頂上 ＋ おおもみじの さがす はんい 6
   yuki: MOUNTAIN_TUNE.summitReach + MOUNTAIN_TUNE.fallback.yukidaruma,
 } as const satisfies Record<CountryKind, number>;
 
@@ -40,7 +40,7 @@ const KIND_EXTENT = {
   tengu: MOUNTAIN_TUNE.kaidan.maxSteps + MOUNTAIN_TUNE.kaidan.width,
 } as const satisfies Record<CountryKind, number>;
 /** 足もとの 四角の 半分の 大きさの 上限（つきみの いわ・きのこの わ 7×7 の 半分 3 ＋ よゆう）。基準の マスの 数との ちがい */
-const FOOT_HALF = 4;
+const FOOT_HALF = 6; // 目じるし（とりい 11 など）の 半分 5 ＋ よゆう。ひろげても 探す はんいが 広がるだけで 結果は かわらない
 const kinds = Object.keys(KIND_REACH) as CountryKind[];
 /** 基準の マスの 最大の きょり／足もとの 四角まで 入れた 最大の きょり（升目を 見る はばを きめる） */
 const REACH_MAX = Math.max(...kinds.map((k) => KIND_REACH[k]));

@@ -4631,6 +4631,54 @@
       "rarity": "common",
       "recipes": []
     },
+    "shu_ita": {
+      "DIG_DEFAULTS.hardness.shu_ita": 5,
+      "DIG_DEFAULTS.harvestLevel.shu_ita": 0,
+      "DIG_DEFAULTS.rarity.shu_ita": "uncommon",
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "しゅいろの き",
+      "placeBlock": "shu_ita",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "ishidatami": {
+      "DIG_DEFAULTS.hardness.ishidatami": 6,
+      "DIG_DEFAULTS.harvestLevel.ishidatami": 0,
+      "DIG_DEFAULTS.rarity.ishidatami": "common",
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "いしだたみ",
+      "placeBlock": "ishidatami",
+      "rarity": "common",
+      "recipes": []
+    },
+    "koke_ishi": {
+      "DIG_DEFAULTS.hardness.koke_ishi": 6,
+      "DIG_DEFAULTS.harvestLevel.koke_ishi": 0,
+      "DIG_DEFAULTS.rarity.koke_ishi": "common",
+      "category": "stone",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こけいし",
+      "placeBlock": "koke_ishi",
+      "rarity": "common",
+      "recipes": []
+    },
+    "chouchin": {
+      "DIG_DEFAULTS.hardness.chouchin": 0.05,
+      "DIG_DEFAULTS.harvestLevel.chouchin": 0,
+      "DIG_DEFAULTS.rarity.chouchin": "common",
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "わの ちょうちん",
+      "placeBlock": "chouchin",
+      "rarity": "common",
+      "recipes": []
+    },
     "egg": {
       "ITEM_INFO.egg": {
         "buttons": [

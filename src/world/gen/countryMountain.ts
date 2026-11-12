@@ -1,5 +1,6 @@
 import { groundAt, MOUNTAIN_TUNE, rnd, range, site, standingSpot, summitOf, cheb, flatness, type Ctx, type FeatureSite, type PlacedBlock, type Summit } from './countryKit';
 import { kaidan } from './countryKaidan';
+import { iwayamaStructures, momijiStructures, STRUCTURES_ON, tenguStructures } from './countryStructures';
 
 /**
  * 山の物（VOX-I-4b #187。docs/design/VOX-I.md §2.3）。国ごとに 1 つの 関数: いわやま = すいしょう、てんぐの やま = とうろう・かいだん、
@@ -28,13 +29,14 @@ export function iwayama(c: Ctx): FeatureSite[] {
   };
   for (let k = 0; k < K.tries; k++) tryAt(k, want, true);
   for (let k = 0; k < K.fillTries; k++) tryAt(K.tries + k, K.count[0], false);
-  return out;
+  return STRUCTURES_ON ? [...out, ...iwayamaStructures(c)] : out; // ?structures=1: 大きな 石ぞう・いしの とりいも
 }
 
 /** てんぐの やま: 頂上に とうろう、そばから すそへ かいだん */
 export function tengu(c: Ctx): FeatureSite[] {
   const s = summitOf(c);
   if (s === null) return [];
+  if (STRUCTURES_ON) return tenguStructures(c, s); // ?structures=1: お堂・石段・とりい（とうろう・かいだんの かわり）
   const out: FeatureSite[] = [];
   const t = standingSpot(c, s, 1, M.fallback.touro);
   if (t !== null) out.push(site(c, 'touro', t.x, t.h + 1, t.z, [{ x: t.x, y: t.h + 1, z: t.z, id: 'touro' }], [t.x, t.z, t.x, t.z]));
@@ -95,7 +97,8 @@ export function momiji(c: Ctx): FeatureSite[] {
       }
     }
   }
-  return [site(c, 'oomomiji', x, y0, z, blocks, [x, z, x + 1, z + 1], { margin: K.treeMargin })];
+  const tree = site(c, 'oomomiji', x, y0, z, blocks, [x, z, x + 1, z + 1], { margin: K.treeMargin });
+  return STRUCTURES_ON ? [tree, ...momijiStructures(c, s)] : [tree]; // ?structures=1: あずまや・とりいも
 }
 
 /** ゆきやま: 頂上に ゆきだるま（高さ 3。下から 大きい まる・ふつう・あたま。あたまの 手前に 目の いし 2 こ） */

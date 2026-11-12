@@ -161,6 +161,14 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'suisho', name: 'すいしょう', solid: true, breakable: true },
   { id: 'touro', name: 'とうろう', solid: true, breakable: false },
   { id: 'ochiba', name: 'おちば', solid: true, breakable: true },
+  // WAFU-1（番号は 後ろに 足す。245〜248）: わふうの ブロック。ちょうちんだけ 固くない（通れる）
+  { id: 'shu_ita', name: 'しゅいろの き', solid: true, breakable: true },
+  { id: 'ishidatami', name: 'いしだたみ', solid: true, breakable: true },
+  { id: 'koke_ishi', name: 'こけいし', solid: true, breakable: true },
+  { id: 'chouchin', name: 'わの ちょうちん', solid: false, breakable: true },
+  // WAFU-1 追加（249〜250）: 石の ブロック 2 つ
+  { id: 'ara_ishi', name: 'あらいし', solid: true, breakable: true },
+  { id: 'koke_ara_ishi', name: 'こけの あらいし', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -225,6 +233,7 @@ const CROSS_IDS: ReadonlySet<string> = new Set([
   'toriya_fence', 'toriya_gate', // LIVE-2.1: とりごや の さく・もん（当たり は 今 の まま ブロック）
   'flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana',
   'kinoko', 'himawari', 'himawari_top', 'kaigara', 'takenoko', // VOX-I-4a
+  'chouchin', // WAFU-1: つるす ちょうちん（十字の 板。光る）
   'rope', 'rope_coil', 'rope_stake', 'rope_fence', 'rope_fence_post', // ROPE-1: ロープ（たてに たれる なわ）・ロープだまり（下の まき）
   'tsurara', // MINE-1D: つらら（天井の 下に さがる 十字の 板。ゆれない = swayDriver が のぞく）
   'makimono', // HOUSE-2A: まきもの（床に 置く 十字の 板。ゆれない）
