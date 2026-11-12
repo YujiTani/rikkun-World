@@ -97,23 +97,25 @@ function carve(g: Ground, seed: number, key: number, base: FallPlan, n: number, 
       const level = levels[j + 1]!;
       const depth = TI.shelfDepth[0] + Math.floor(hash01(seed, key, j, 2) * (TI.shelfDepth[1] - TI.shelfDepth[0] + 1));
       const cells: [number, number][] = [];
-      for (let uu = u[j]! + 1; uu <= u[j + 1]! - 1; uu++) for (let v = -1; v <= w; v++) cells.push(at(uu, v));
+      // 落ち口の すぐ うしろ（わきどころの 列）は 水に せず 岩の ぜき: わきどころの うしろが たまりだと、水が へった ぶん わきどころが 勝手に 水を 足してしまう
+      const weir = (uu: number, v: number): boolean => uu === u[j + 1]! - 1 && v >= 0 && v < w;
+      for (let uu = u[j]! + 1; uu <= u[j + 1]! - 1; uu++) for (let v = -1; v <= w; v++) if (!weir(uu, v)) cells.push(at(uu, v));
       shelf = { cells, level, depth, rim: [] };
       shelfCells.push(...cells);
-      // たなの まわり（岩の ふち・落ち口の 列の よこ）: 水面より 高ければ もとの 岩、低ければ 岩で かさ上げ。水の 列は 台地を ほる ので 水面より 高い 地面
+      // たなの まわり（岩の ふち・落ち口の 列の よこ）: 水面より 高ければ もとの 岩、いつも 岩の かべを 置く（水面の 1 つ 上まで）。水の 列は 台地を ほる ので 水面より 高い 地面
       for (let uu = j === 0 ? u[0]! : u[j]! + 1; uu <= u[j + 1]!; uu++) {
         for (let v = -2; v <= w + 1; v++) {
           const [x, z] = at(uu, v);
           const h = g(x, z);
           if (h < 0 || !free(x, z)) return null;
           const lipRow = (uu === u[j + 1]! || (j === 0 && uu === u[0]!)) && v >= 0 && v < w;
-          const water = uu > u[j]! && uu < u[j + 1]! && v >= -1 && v <= w;
+          const water = uu > u[j]! && uu < u[j + 1]! && v >= -1 && v <= w && !weir(uu, v);
           if (lipRow) continue;
           if (water) {
             if (h < level + 1) return null;
-          } else if (h < level + 1) {
+          } else {
             if (h < level - TI.rimFill) return null;
-            shelf.rim.push([x, z]);
+            shelf.rim.push([x, z]); // 山の 中が ほら穴でも ぬけない ように、かべは 岩を 置く
           }
         }
       }

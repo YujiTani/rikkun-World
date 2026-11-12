@@ -5,7 +5,8 @@ import { buildFall, fallKeepOut, footOf, planFalls } from './waterV2Fall';
 import type { FallPlan } from './waterV2Types';
 import { clearRects, Edit, waterLeaks, type Ground, type Rect } from './waterV2Kit';
 import { planPonds, buildPond } from './waterV2Pond';
-import { buildRiver, planRiver } from './waterV2River';
+import { flowField } from './waterV2Flow';
+import { buildRiverChecked, planRiver } from './waterV2River';
 import { WATER_BLOCKS as B, WATER_TUNE as T, WATER_V2 } from './waterV2Table';
 
 /**
@@ -50,9 +51,11 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
   const roll = (hashInts(seed, 1, 0) >>> 0) / 4294967296;
   const n = roll < T.fallCount[0] ? 0 : roll < T.fallCount[0] + T.fallCount[1] ? 1 : 2;
   const atFoot = (x: number, z: number): boolean => g(x, z) - c.T.map.baseHeight(x, z) <= T.river.footAbove;
+  // 川の みちしるべ（山 1 つに 1 回）: すその 平地・海から 地面を たどる。目じるしの 足もとは 通れない
+  const field = flowField(g, c.px, c.pz, LIMIT, atFoot, hit);
   const riverOf = (p: FallPlan, blocked: (x: number, z: number) => boolean) => {
     const own = fallKeepOut(p);
-    return planRiver(g, seed + 1, { x: Math.floor(p.pool.cx), z: Math.floor(p.pool.cz), d: p.d, pool: p.pool }, (x, z) => blocked(x, z) || own(x, z), atFoot);
+    return planRiver(g, seed + 1, { x: Math.floor(p.pool.cx), z: Math.floor(p.pool.cz), d: p.d, pool: p.pool }, (x, z) => blocked(x, z) || own(x, z), atFoot, field);
   };
   const falls = planFalls(g, c.px, c.pz, seed, n, used, (p) => riverOf(p, hit).cells.length);
   const rivers: FeatureSite[] = [];
@@ -65,9 +68,7 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
     // 川: ほかの 滝・目じるし・ほかの 川は よける
     const others2 = footsOf.filter((_, j) => j !== k);
     const blocked = (x: number, z: number): boolean => hit(x, z) || wet.has(x * 100003 + z) || others2.some((r) => inside(r, x, z));
-    const plan = riverOf(p, blocked);
-    const re = new Edit();
-    buildRiver(re, gb, seed + k, plan, p.pool, grassAt);
+    const { ed: re, plan } = buildRiverChecked(gb, seed + k, riverOf(p, blocked), p.pool, grassAt);
     // 滝つぼと つなげて 水が もれる 川は 作らない（ほかの 滝の たまりに 近づきすぎた とき など）
     const ground: Ground = (x, z) => (gb(x, z) >= 0 ? gb(x, z) : c.T.height(x, z));
     const leaks = waterLeaks([...out, ...rivers].flatMap((q) => q.blocks).concat(re.blocks()), ground).length > 0;

@@ -150,11 +150,15 @@ export function buildBasin(ed: Edit, g: Ground, seed: number, b: Basin, rim: rea
   }
 }
 
+const FLOOR_LAYERS = 2;
+
 /** 水の 列: 底の 上から level まで 水。level の 上は 地面まで 空気（けずる）。底の 下が あいて いたら うめる */
 export function waterColumn(ed: Edit, seed: number, x: number, z: number, ground: number, level: number, depth: number): void {
   const bed = level - depth;
   for (let y = ground + 1; y < bed; y++) ed.set(x, y, z, B.fill);
   ed.set(x, bed, z, pick(seed, B.bed, x, z, 1));
+  // 底の 下 2 だんは 岩（山の 中が ほら穴で あいていても 水が ぬけない ように）
+  for (let y = bed - 1; y >= bed - FLOOR_LAYERS; y--) ed.set(x, y, z, B.fill);
   for (let y = bed + 1; y <= level; y++) ed.set(x, y, z, B.water);
   const top = Math.max(ground, ed.topOf(x, z));
   for (let y = level + 1; y <= top; y++) ed.set(x, y, z, B.air);

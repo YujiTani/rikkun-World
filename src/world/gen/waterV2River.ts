@@ -1,6 +1,7 @@
 import { SEA_Y } from '../../contracts';
 import { hash01 } from './random';
-import { basinFits, basinNorm, buildBasin, DIR4, makeBasin, pick, rimColumn, waterColumn, type Basin, type Dir, type Edit, type Ground } from './waterV2Kit';
+import type { FlowField } from './waterV2Flow';
+import { basinFits, basinNorm, buildBasin, DIR4, makeBasin, pick, rimColumn, waterColumn, Edit, type Basin, type Dir, type Ground } from './waterV2Kit';
 import { WATER_BLOCKS as B, WATER_TUNE as T } from './waterV2Table';
 
 /**
@@ -49,31 +50,23 @@ function crossOf(x: number, z: number, dir: Dir, width: number): [number, number
 const widthAt = (n: number): number => Math.min(R.maxWidth, R.width + Math.floor(n / R.widen));
 
 /** 川を 作る 前の 計画（ブロックは まだ 書かない）。blocked = ほかの 物・ほかの 川の 列、atFoot = 山の すその 平地か */
-export function planRiver(g: Ground, seed: number, start: { x: number; z: number; d: Dir; pool: Basin }, blocked: (x: number, z: number) => boolean, atFoot: (x: number, z: number) => boolean): RiverPlan {
+export function planRiver(g: Ground, seed: number, start: { x: number; z: number; d: Dir; pool: Basin }, blocked: (x: number, z: number) => boolean, atFoot: (x: number, z: number) => boolean, field: FlowField): RiverPlan {
   const depth = R.depth[0] + Math.floor(hash01(seed, start.x, start.z, 61) * (R.depth[1] - R.depth[0] + 1));
   const pool = start.pool;
   const inPool = (x: number, z: number): boolean => basinNorm(pool, x, z) <= 1;
   const cells: RiverCell[] = [];
   const seen = new Set<number>();
-  const key = (x: number, z: number): number => x * 100003 + z;
-  const blur = new Map<number, number>();
-  const bh = (x: number, z: number): number => {
-    const k = key(x, z);
-    let v = blur.get(k);
-    if (v === undefined) {
-      let sum = 0;
-      let n = 0;
-      for (let dz = -R.blur; dz <= R.blur; dz++) {
-        for (let dx = -R.blur; dx <= R.blur; dx++) {
-          const h = g(x + dx, z + dz);
-          sum += h < 0 ? g(x, z) + 20 : h; // 置けない 列は 高い あつかい（避ける）
-          n++;
-        }
-      }
-      blur.set(k, (v = sum / n));
-    }
-    return v;
+  // 少し 前までの 川の 列は 「いま」、それより 古い 列の となりへは 近づかない（折りかえして 水面が ちがう 川が となりあうと 水が ぬける）
+  const recent: number[][] = [];
+  const old = new Set<number>();
+  const mark = (cells: [number, number][]): void => {
+    const ks = cells.map(([a, b]) => a * 100003 + b);
+    for (const k of ks) seen.add(k);
+    recent.push(ks);
+    if (recent.length > R.recentSteps) for (const k of recent.shift()!) old.add(k);
   };
+  const key = (x: number, z: number): number => x * 100003 + z;
+  const bh = field; // 川の みちしるべ（小さい 方へ すすむ。waterV2Flow）
   /** (x, z) から dir の 向きの 列の 地面の 高さ（さいしょう・さいだい）。置けない 列が あれば null */
   const span = (x: number, z: number, dir: Dir, w: number): { lo: number; hi: number } | null => {
     let lo = Infinity;
@@ -81,6 +74,7 @@ export function planRiver(g: Ground, seed: number, start: { x: number; z: number
     for (const [cx, cz] of crossOf(x, z, dir, w)) {
       const h = g(cx, cz);
       if (h < 0 || blocked(cx, cz) || seen.has(key(cx, cz))) return null;
+      if (old.has(key(cx + 1, cz)) || old.has(key(cx - 1, cz)) || old.has(key(cx, cz + 1)) || old.has(key(cx, cz - 1))) return null;
       lo = Math.min(lo, h);
       hi = Math.max(hi, h);
     }
@@ -101,7 +95,7 @@ export function planRiver(g: Ground, seed: number, start: { x: number; z: number
       }
       const fx = ex + d[0] * 3;
       const fz = ez + d[1] * 3;
-      if (g(ex, ez) < 0 || g(fx, fz) < 0 || blocked(ex, ez)) continue;
+      if (g(ex, ez) < 0 || g(fx, fz) < 0 || blocked(ex, ez) || !Number.isFinite(bh(fx, fz))) continue;
       const score = bh(fx, fz) + Math.max(0, g(ex, ez) - pool.level) * 2 + Math.max(0, pool.level - g(ex, ez)) * 4 - (d === prefer ? 2 : 0); // 出口は 水面と 同じ くらいの 高さ（すぐ 下がる 所は さける）
       if (score < bestScore) {
         bestScore = score;
@@ -137,7 +131,7 @@ export function planRiver(g: Ground, seed: number, start: { x: number; z: number
           break;
         }
         const sp = span(nx, nz, dir, w);
-        if (sp === null) continue;
+        if (sp === null || !Number.isFinite(bh(nx, nz))) continue;
         // 池の すぐ 外が 少し 低いだけなら、水面を 池と 同じに して 土手で ささえる（出口の 段差を 作らない）
         const lv = wet === 0 && sp.lo < level && level - sp.lo <= R.exitHold ? level : Math.min(level, sp.lo);
         const cutMax = wet < R.exitSteps || desperate ? R.exitCut : R.maxCut; // 滝つぼの くぼ地から 出る ところは 深く ほる
@@ -162,7 +156,7 @@ export function planRiver(g: Ground, seed: number, start: { x: number; z: number
       continue;
     }
     if (best === null) {
-      stop = 'stuck';
+      stop = bh(x, z) <= R.arrive ? 'foot' : 'stuck'; // みちしるべの ゴールの すぐ そばなら すそに ついた ことに する
       break;
     }
     desperate = false;
@@ -179,13 +173,13 @@ export function planRiver(g: Ground, seed: number, start: { x: number; z: number
       cells.push(last);
       continue;
     }
-    for (const [cx, cz] of crossOf(x, z, dir, w)) seen.add(key(cx, cz));
+    mark(crossOf(x, z, dir, w));
     if (best.sill !== null) {
       last = { x, z, din: dir, dout: dir, level, kind: 'sill', afterSill: false, width: w };
       cells.push(last);
       x += dir[0];
       z += dir[1];
-      for (const [cx, cz] of crossOf(x, z, dir, w)) seen.add(key(cx, cz));
+      mark(crossOf(x, z, dir, w));
       level = best.sill.lv;
       last = { x, z, din: dir, dout: dir, level, kind: 'water', afterSill: true, width: w };
       cells.push(last);
@@ -225,7 +219,7 @@ export function planRiver(g: Ground, seed: number, start: { x: number; z: number
 }
 
 /** 川を 書く（終わりの 池 → 川の 水 → 岸 の 順。あとから 書いた 方が かつ） */
-export function buildRiver(ed: Edit, g: Ground, seed: number, p: RiverPlan, pool: Basin, grassAt: (x: number, z: number) => boolean): void {
+function buildRiver(ed: Edit, g: Ground, seed: number, p: RiverPlan, pool: Basin, grassAt: (x: number, z: number) => boolean): void {
   if (p.mouth !== null) buildBasin(ed, g, seed + 11, p.mouth, B.rim, false);
   const wet = new Set<number>();
   const key = (x: number, z: number): number => x * 100003 + z;
@@ -273,4 +267,49 @@ export function buildRiver(ed: Edit, g: Ground, seed: number, p: RiverPlan, pool
       ed.set(x, h + 1, z, hash01(seed, x, z, 71) < R.flower ? pick(seed, B.flowers, x, z, 72) : B.grass);
     }
   }
+}
+
+/** 水の 列（x, z）→ 水面（いちばん 上の 水の y）。川の 列だけ */
+function surfaces(ed: Edit): Map<number, number> {
+  const m = new Map<number, number>();
+  for (const b of ed.blocks()) if (b.id === B.water) m.set(b.x * 100003 + b.z, Math.max(m.get(b.x * 100003 + b.z) ?? -1, b.y));
+  return m;
+}
+
+/** となりあう 水の 列で 水面が ちがう 所（あれば その 列の 1 つ）。ちがうと ふちを こえて 流れる */
+function stepMismatch(ed: Edit): [number, number][] | null {
+  const m = surfaces(ed);
+  for (const [k, y] of m) {
+    const x = Math.round(k / 100003);
+    const z = k - x * 100003;
+    for (const [dx, dz] of [[1, 0], [0, 1]] as const) {
+      const n = m.get((x + dx) * 100003 + z + dz);
+      if (n !== undefined && n !== y) return [[x, z], [x + dx, z + dz]];
+    }
+  }
+  return null;
+}
+
+/**
+ * 川を 書いて、となりあう 水面が ちがう 所が あれば そこの 手前で 川を 切って 書きなおす（折れ曲がりの すぐ あとに 段差が きた とき など）。
+ * 書いた 結果（ブロックと 実際に 使った 計画）を 返す
+ */
+export function buildRiverChecked(g: Ground, seed: number, plan: RiverPlan, pool: Basin, grassAt: (x: number, z: number) => boolean): { ed: Edit; plan: RiverPlan } {
+  let cur = plan;
+  for (let t = 0; t < R.trimTries; t++) {
+    const ed = new Edit();
+    buildRiver(ed, g, seed, cur, pool, grassAt);
+    const bad = stepMismatch(ed);
+    if (bad === null) return { ed, plan: cur };
+    let at = -1;
+    cur.cells.forEach((c, i) => {
+      if (c.kind === 'pool') return;
+      const cols = crossOf(c.x, c.z, c.din, c.width);
+      if (c.dout !== c.din) cols.push(...crossOf(c.x, c.z, c.dout, c.width));
+      if (cols.some(([x, z]) => bad.some(([bx, bz]) => bx === x && bz === z))) at = Math.max(at, i);
+    });
+    if (at < 0) break;
+    cur = { ...cur, cells: cur.cells.slice(0, at), mouth: null, stop: 'stuck' };
+  }
+  return { ed: new Edit(), plan: { ...cur, cells: cur.cells.filter((c) => c.kind === 'pool'), mouth: null, stop: 'stuck' } };
 }

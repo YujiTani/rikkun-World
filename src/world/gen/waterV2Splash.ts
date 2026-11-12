@@ -54,7 +54,7 @@ export function splashSpotsNear(seed: number, px: number, pz: number, range: num
   for (let cz = Math.floor((pz - range) / CHUNK_SIZE); cz <= Math.floor((pz + range) / CHUNK_SIZE); cz++) {
     for (let cx = Math.floor((px - range) / CHUNK_SIZE); cx <= Math.floor((px + range) / CHUNK_SIZE); cx++) {
       for (const s of featuresNearChunk(seed, cx * CHUNK_SIZE, cz * CHUNK_SIZE).sites) {
-        if (s.type !== 'taki' || seen.has(s)) continue;
+        if ((s.type !== 'taki' && s.type !== 'kawa') || seen.has(s)) continue;
         seen.add(s);
         for (const p of spotsOf(s)) {
           const k = (p.x * 100003 + p.z) * 512 + p.y;

@@ -68,14 +68,16 @@ export const WATER_TUNE = {
     search: 62,
     apart: 20,
     /** 乱数の 順に 試して、そのうち 落差の 大きい 方を 選ぶ 候補の 数 */
-    pick: 12,
+    pick: 30,
     /** 川の 長さ（マス）が これ まで 長い ほど 先に えらぶ */
     riverGoal: 40,
     /** 川の 長さ（マス。滝つぼの 中も 数える）の 下限（0 = みじかくても 滝つぼで 終わって よい） */
     riverMin: 0,
   },
   /** 段々の 滝（ひな段）: 落差が min 以上の かべは 台地の ふちを けずって 2〜maxStages 段に わける。1 段の 落差 dropMin〜dropMax・たなの おく行き shelfRows（列）・たまりの ふかさ・ためす 回数・まわりを かさ上げ できる 高さの 上限・段が 1 つ ふえる ごとの 点数（川の 長さ・落差の 点に 足す。段々を えらびやすく）・水源の 池で ほれる 高さ・うめられる 深さの 上限 */
-  tier: { min: 10, maxStages: 4, dropMin: 4, dropMax: 10, shelfRows: [4, 6] as const, shelfDepth: [1, 2] as const, attempts: 8, rimFill: 8, bonus: 60, sourceHigh: 24, sourceLow: -6 },
+  tier: { min: 10, maxStages: 4, dropMin: 4, dropMax: 10, shelfRows: [4, 6] as const, shelfDepth: [1, 2] as const, attempts: 8, rimFill: 8, bonus: 100, sourceHigh: 24, sourceLow: -6 },
+  /** 川の みちしるべ（Dijkstra）: ほれる 深さの 上限・上り 1 ブロックあたりの ねだん・下り 1 ブロックあたりの ねだん・たどる マスの 数の 上限 */
+  flow: { maxCut: 6, cutCost: 6, dropCost: 0.15, maxCells: 120000 },
   river: {
     /** 川の はば（2 か 3）・ふかさ（1〜2） */
     /** 上流の はば（下流ほど 広がる: widen マスごとに 1 ずつ、最大 maxWidth）・ふかさ */
@@ -87,23 +89,29 @@ export const WATER_TUNE = {
     maxLen: 200,
     minLeg: 4,
     /** 段差（小さな 滝）を 作れる まっすぐな 長さの 下限（曲がり角の すぐ そばには 作らない） */
-    minSillLeg: 3,
+    minSillLeg: 2,
     maxDrop: 14,
     /** 川の 水面を 地面より 低く ほる 深さの 上限（ほりすぎの 谷に しない）・段差を まっすぐな 所に ずらす 上限 */
     maxCut: 4,
     /** 滝つぼから 出る ところ（はじめの exitSteps 列）だけは、くぼ地の 出口を 深く ほって よい（深さの 上限・列の 数） */
     exitCut: 7,
     /** 池の すぐ 外が 水面より これ 以下 低いだけなら 水面を 池と 同じに して すすむ（土手で ささえる） */
-    exitHold: 0,
-    /** すその 平地に ついても、川の 長さ（列の 数）が これに ならないうちは 流れ つづける */
-    footMinLen: 60,
+    exitHold: 2,
+    /** すその 平地に ついても、川の 長さ（列の 数）が これに ならないうちは 流れ つづける（すそに とどけば 終わり） */
+    footMinLen: 12,
+    /** 行きどまりでも、みちしるべの 数が これ いか（ゴールの すぐ そば）なら すそに ついた ことに する */
+    arrive: 3,
+    /** この 列の 数より 古い 川の 列には（となりまで）近づかない */
+    recentSteps: 4,
+    /** 水面が ちがう となりを 見つけて 川を 切る 回数の 上限 */
+    trimTries: 6,
     exitSteps: 8,
     shift: 3,
     /** 進む 向きを えらぶ とき の ぼかしの 半径（地面の 高さを ならす）・曲がる ときの ばつ（高さ 相当）・岸を うめる 数の 上限（それ以上は 止める） */
     blur: 2,
     turnCost: 0.6,
     /** 滝つぼから 1 マス とおい ほど 行き先の 点数を 下げる 量（高さ 相当。たいらな 所で ぐるぐる しない ように） */
-    outward: 0.08,
+    outward: 0.3,
     maxFill: 500,
     /** 川の 終わりの 池の 半径（大きい 方から ためす）・まわりを うめる 数の 上限 */
     mouthRadius: [8, 6.5, 4.5, 3] as const,

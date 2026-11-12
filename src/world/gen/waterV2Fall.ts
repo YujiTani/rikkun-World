@@ -159,12 +159,23 @@ export function buildFall(ed: Edit, g: Ground, seed: number, p: FallPlan): void 
       for (const [x, z] of st.front) ed.set(x, st.pool.level - depthAt(st.pool, basinNorm(st.pool, x, z)), z, B.pit);
     } else if (st.shelf !== null) {
       // ひな段の たな: 台地を ほって 浅い たまり。落ちる 列の 底に たきつぼ
-      for (const [x, z] of st.shelf.rim) rimColumn(ed, seed + s, x, z, g(x, z), st.shelf.level, B.rim, false);
+      for (const [x, z] of st.shelf.rim) {
+        // 水面の 1 つ 上まで 岩の かべ（底の 下 1 つ から。地面が ひくければ 地面から うめる）
+        for (let y = Math.min(g(x, z) + 1, st.shelf.level - st.shelf.depth - 1); y <= st.shelf.level + 1; y++) ed.set(x, y, z, B.fill);
+      }
       for (const [x, z] of st.shelf.cells) waterColumn(ed, seed + s, x, z, g(x, z), st.shelf.level, st.shelf.depth);
       for (const [x, z] of st.front) ed.set(x, st.shelf.level - st.shelf.depth, z, B.pit);
     }
-    // へりの わきどころ（その 上は あける）
+    // へりの わきどころ（その 上は あける）。両はしの よこ（列の 外）は わきどころの 高さまで 岩（そこへ 水が 出て いかない ように）
+    const base = st.shelf !== null ? st.shelf.level - st.shelf.depth - 1 : st.top - 3;
+    const l0 = st.lip[0]!;
+    const l1 = st.lip[st.lip.length - 1]!;
+    const sx = Math.sign(l1[0] - l0[0]) || 0;
+    const sz = Math.sign(l1[1] - l0[1]) || 0;
+    for (const [x, z] of [[l0[0] - sx, l0[1] - sz], [l1[0] + sx, l1[1] + sz]] as const) for (let y = base; y <= st.top; y++) ed.set(x, y, z, B.fill);
     for (const [x, z] of st.lip) {
+      // わきどころの 下は 岩（うしろが ほら穴でも ささえる。たなの 手前の かべに なる 所は たなの 底まで）
+      for (let y = base; y < st.top; y++) ed.set(x, y, z, B.fill);
       ed.set(x, st.top, z, B.spring);
       for (let y = st.top + 1; y <= Math.max(g(x, z), ed.topOf(x, z)); y++) ed.set(x, y, z, B.air);
     }
