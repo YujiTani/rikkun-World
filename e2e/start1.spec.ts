@@ -48,18 +48,18 @@ test.describe('START-1 画面の つなぎ（AC8・AC9）', () => {
     // 世界は まだ ない
     expect(await page.evaluate(() => (window as any).__rikkun.ready)).not.toBe(true);
     const st = await startState(page);
-    expect(st).toMatchObject({ shown: true, screen: 'menu', continue: null, checking: false, char: 'girl', weight: 'fine' });
+    expect(st).toMatchObject({ shown: true, screen: 'menu', continue: null, checking: false, char: 'girl', weight: 'light' }); // GFX-1: 保存が なければ かるい
 
     const text = noSpace((await tid(page, 'start-menu').textContent()) ?? '');
-    for (const w of ['りっくんワールド', 'つづきから', 'はじめから', 'キャラ', 'おんなのこ', 'おとこのこ', 'おもさ', 'かるい', 'ふつう', 'きれい']) {
+    for (const w of ['りっくんワールド', 'つづきから', 'はじめから', 'キャラ', 'おんなのこ', 'おとこのこ', 'おもさ', 'とてもかるい', 'かるい', 'ふつう', 'きれい']) {
       expect(text, w).toContain(w);
     }
     expect(await isDisabled(page, 'start-continue')).toBe(true);
     expect(await focusedTestId(page)).toBe('start-new');
 
-    // えらんでいる 方だけ aria-pressed=true（はじめ: 女の子・きれい）
+    // えらんでいる 方だけ aria-pressed=true（はじめ: 女の子・かるい。GFX-1）
     expect([await isPressed(page, 'start-char-girl'), await isPressed(page, 'start-char-boy')]).toEqual([true, false]);
-    expect([await isPressed(page, 'start-weight-light'), await isPressed(page, 'start-weight-normal'), await isPressed(page, 'start-weight-fine')]).toEqual([false, false, true]);
+    expect([await isPressed(page, 'start-weight-xlight'), await isPressed(page, 'start-weight-light'), await isPressed(page, 'start-weight-normal'), await isPressed(page, 'start-weight-fine')]).toEqual([false, true, false, false]);
 
     // 1 枚目で 数字キーは 何もしない
     await page.keyboard.press('5');
@@ -67,10 +67,10 @@ test.describe('START-1 画面の つなぎ（AC8・AC9）', () => {
 
     // 押すと すぐ えらんだ 方が かわる
     await tid(page, 'start-char-boy').click();
-    await tid(page, 'start-weight-light').click();
+    await tid(page, 'start-weight-xlight').click();
     expect([await isPressed(page, 'start-char-girl'), await isPressed(page, 'start-char-boy')]).toEqual([false, true]);
-    expect([await isPressed(page, 'start-weight-light'), await isPressed(page, 'start-weight-normal'), await isPressed(page, 'start-weight-fine')]).toEqual([true, false, false]);
-    expect(await startState(page)).toMatchObject({ char: 'boy', weight: 'light' });
+    expect([await isPressed(page, 'start-weight-xlight'), await isPressed(page, 'start-weight-light'), await isPressed(page, 'start-weight-normal'), await isPressed(page, 'start-weight-fine')]).toEqual([true, false, false, false]);
+    expect(await startState(page)).toMatchObject({ char: 'boy', weight: 'xlight' });
 
     // Enter で 選択中の ボタン（はじめから）→ 2 枚目
     await tid(page, 'start-new').focus();
@@ -231,8 +231,8 @@ test.describe('START-1 通し', () => {
     expect(info).toMatchObject({ from: 'menu', seed: 42, strength: 'easy', weight: 'light' });
     // E2E の サーバーは VITE_MICRO_DEFAULT=off・VITE_RING_DEFAULT=small・VITE_SHADOW_DEFAULT=off で 起動する。
     // 環境変数は おもさより 先（仕様 §4.4。台帳 START-1 の test-prep の 周 1）なので、かるい の 16・small・かげなし は ここでは 見えない
-    // （かるい → 16・small・かげなし は ユニット src/start/weightPref.test.ts が 見る）。
-    expect(info.microR, '環境変数 VITE_MICRO_DEFAULT=off が おもさ（16）より 先').toBe(0);
+    // （かるい → 12・small・かげなし は ユニット src/start/weightPref.test.ts が 見る）。
+    expect(info.microR, '環境変数 VITE_MICRO_DEFAULT=off が おもさ（12）より 先').toBe(0);
     expect(info.ring).toBe('small');
     expect(info.shadowBuilt).toBe(false);
     expect(await page.evaluate(() => (window as any).__rikkun.char.get().kind)).toBe('boy');

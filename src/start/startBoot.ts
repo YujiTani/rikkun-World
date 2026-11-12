@@ -9,6 +9,7 @@ import { mountStartMenu, type StartMenuView } from './startMenu';
 import { shouldShowStartMenu } from './startMenuPolicy';
 import { createStartModel, type StartChoice, type StartModel } from './startModel';
 import { decideWeight, type Weight } from './weightPref';
+import { DEFAULT_WEIGHT } from './gfxPref';
 
 export interface KeyValueStore {
   getItem(key: string): string | null;
@@ -90,7 +91,7 @@ export function createStartBoot(): StartBoot {
   const hook: StartHook = {
     state: () => {
       if (model) return snapshot(model);
-      return last ?? { shown: false, screen: null, continue: null, checking: false, seedText: '', existing: false, strength: 'normal', char: 'girl', weight: 'fine' };
+      return last ?? { shown: false, screen: null, continue: null, checking: false, seedText: '', existing: false, strength: 'normal', char: 'girl', weight: DEFAULT_WEIGHT };
     },
     info: () => (plan && infoRest ? { from: plan.from, seed: plan.seed, weight: plan.weight, strength: infoRest.strength, microR: infoRest.microR, ring: infoRest.ring === RING_SMALL ? 'small' : 'full', shadowBuilt: infoRest.shadowBuilt } : null),
   };

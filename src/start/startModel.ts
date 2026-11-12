@@ -36,7 +36,7 @@ export interface StartModelDeps {
 export type StartButton =
   | 'continue' | 'new' | 'back' | 'go' | 'random'
   | 'char-girl' | 'char-boy'
-  | 'weight-light' | 'weight-normal' | 'weight-fine'
+  | 'weight-xlight' | 'weight-light' | 'weight-normal' | 'weight-fine'
   | 'strength-easy' | 'strength-normal' | 'strength-hard'
   | 'key-0' | 'key-1' | 'key-2' | 'key-3' | 'key-4' | 'key-5' | 'key-6' | 'key-7' | 'key-8' | 'key-9' | 'key-back';
 
@@ -192,6 +192,7 @@ export function createStartModel(deps: StartModelDeps): StartModel {
         saveChar(store, char);
         break;
       }
+      case 'weight-xlight':
       case 'weight-light':
       case 'weight-normal':
       case 'weight-fine':

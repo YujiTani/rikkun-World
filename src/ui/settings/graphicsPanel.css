@@ -1,0 +1,45 @@
+/* せってい「がめん」タブ（GFX-1）。ボタンは せっていの .set-text-btn を ベースに、えらんでいる 物を 黄色に する */
+.gfx-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.gfx-lab {
+  min-width: 168px;
+  font-size: 20px;
+  font-weight: 800;
+}
+.gfx-btn {
+  min-width: 64px;
+  min-height: 56px;
+  font-size: 20px;
+}
+.gfx-btn[aria-pressed='true'] {
+  background: var(--rk-accent, #ffc83d);
+  color: var(--rk-ink, #141414);
+  text-shadow: none;
+}
+.gfx-marks {
+  margin-right: 6px;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+.gfx-detail {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 2px solid var(--rk-line, #3a4766);
+  border-radius: var(--rk-r-m, 14px);
+}
+.gfx-detail[hidden],
+.gfx-row[hidden],
+.gfx-note[hidden] {
+  display: none;
+}
+.gfx-note {
+  margin: 8px 0 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--rk-info, #4fc3f7);
+}

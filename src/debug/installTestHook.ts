@@ -72,9 +72,10 @@ export function installGameHook(deps: WiredMine): void {
       springCount: () => water.springCount(),
       springLink: (x, y, z) => water.springLink(x, y, z),
     },
+    gfx: { state: () => ({ ...shared.gfx!.state(), pixelRatio: game.renderer.getPixelRatio(), shadowBuilt: shared.shadowSystem !== null }) },
     char: charCtl,
     shadow: createShadowHook({
-      system: shared.shadowSystem,
+      system: () => shared.shadowSystem,
       renderer: game.renderer,
       scene: game.scene,
       camera: game.camera,

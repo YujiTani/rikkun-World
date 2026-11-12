@@ -1,13 +1,13 @@
 /**
  * 案内画面（左下の「おと」のとなり）の「かげ」の オン／オフ（SHADOW.md §8 の画面の配置、AC16）。
- * 文字はひらがな・カタカナだけ。影のしくみを作っていないとき（?shadow=0）は出さない。
+ * 文字はひらがな・カタカナだけ。出さないのは ?shadow=0 のときだけ（かるいで 作っていなくても 出す。押すと その場で 作る。GFX-1）。
  * 保存は shadowPref.ts（main.ts が呼ぶ）。
  */
 import './shadowSetting.css';
 
 export interface ShadowSettingUi {
   readonly el: HTMLDivElement;
-  /** 影のしくみがあるか・いまの オン／オフ・変えたときの呼び先 */
+  /** 出してよいか（?shadow=0 でない）・いまの オン／オフ・変えたときの呼び先 */
   bind(available: boolean, on: boolean, onChange: (on: boolean) => void): void;
   /** 画面のボタンの押された見た目を合わせる */
   refresh(on: boolean): void;

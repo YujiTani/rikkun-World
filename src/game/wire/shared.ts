@@ -20,6 +20,7 @@ import { Notice } from '../../ui/notice';
 import { PlayerController } from '../../player/PlayerController';
 import type { BossHandle, GashaRelease } from '../../gasha/release';
 import { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
+import type { GfxPort } from '../../start/gfxController';
 import type { HouseSystem } from '../../house/system';
 import { P2State } from '../../duo/p2State';
 import type { DuoLeaveReason, P2Save } from '../../duo/types';
@@ -198,6 +199,8 @@ interface Shared {
   /** 保存にだけ 元の ブロックで 書く マス（ボスの 間欠泉が 作った つち。ボスが 出て いなければ 空） */
   gashaSaveOverrides: () => Array<{ x: number; y: number; z: number; live: string; save: string }>;
   shadowSystem: ShadowSystem | null;
+  /** せっていの「がめん」が 使う 窓口（GFX-1。wireLoop が 作る。それまでは null） */
+  gfx: GfxPort | null;
   /** 実績に今の状態を渡す（画面ステップ: あそぶ 1・もちもの 1÷timeScale・止まっているとき 0） */
   achMuted: boolean;
   // 後の 段で 作る 物（作った 直後に 入る。それまでは 読まない）
@@ -295,6 +298,7 @@ export function createShared(): Shared {
     gashaSavedPending: null,
     gashaSaveOverrides: () => [],
     shadowSystem: null,
+    gfx: null,
     achMuted: false,
   } as unknown as Shared;
   s.modalOwner = createModalOwner({ joined: () => s.duoJoined(), setWait: (who, on) => s.duoSetWait(who, on), closeNow: () => s.modalCloseNow() });

@@ -129,6 +129,7 @@ export function wireInput(deps: WiredRender) {
       dialogs,
       router: gamepadApi.router,
       onClosed: () => shared.settingsClosed(),
+      gfx: () => shared.gfx,
     },
     playOverlay.el,
   );

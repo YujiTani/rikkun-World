@@ -44,6 +44,7 @@
   "e2e/gasha-ui.spec.ts": 74,
   "e2e/gashaFinish.spec.ts": 38,
   "e2e/gashaGirlIntro.spec.ts": 49,
+  "e2e/gfx1.spec.ts": 120,
   "e2e/gold1.spec.ts": 224,
   "e2e/hit1.spec.ts": 394,
   "e2e/house1a.spec.ts": 58,

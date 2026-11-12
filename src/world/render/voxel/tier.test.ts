@@ -71,7 +71,9 @@ describe('normalizeMicroR / columnDistance', () => {
   it('16 / 24 / 28 のどれかに直す', () => {
     expect(normalizeMicroR(16)).toBe(16);
     expect(normalizeMicroR(24)).toBe(24);
-    expect(normalizeMicroR(10)).toBe(16);
+    expect(normalizeMicroR(10)).toBe(8); // GFX-1: 8・12 を 足した
+    expect(normalizeMicroR(8)).toBe(8);
+    expect(normalizeMicroR(12)).toBe(12);
     expect(normalizeMicroR(1000)).toBe(28);
     expect(normalizeMicroR(32)).toBe(28); // 古い URL（?microR=32）もこわれない
     expect(normalizeMicroR(0)).toBe(0);
