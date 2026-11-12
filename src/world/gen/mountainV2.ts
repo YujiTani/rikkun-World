@@ -17,15 +17,25 @@ export const MOUNTAIN_V2: boolean =
 
 type MountainKind = "iwayama" | "tengu" | "momiji" | "yuki";
 
-/** 種類ごとの 表面（形とは べつ）。steep = 岩に する かたむき（となりの列との高さの差）。steepSnow = 雪の線より上で 岩に する かたむき。rockHalf = 岩はだの ぜんぶ 帯の はば（0 = ぜんぶ いし。大きいほど つち・せきたん が ふえる） */
+/**
+ * 種類ごとの 表面（形とは べつ）。steep = 岩に する かたむき（となりの列との高さの差）。steepSnow = 雪の線より上で 岩に する かたむき。
+ * rockFrom = これより 上（海から）は ゆるい面でも 岩（段の上の 広い 平らな所 = まわり flatR マスが 高さの差 1 以下 だけ くさ）。なし = 999。
+ * rockHalf = 岩はだの 帯の はば（0 = ぜんぶ いし。大きいほど つち・せきたん が ふえる）
+ */
 export const V2_SURFACE = {
-  iwayama: { steep: 2, steepSnow: 2, rockHalf: 0.16 },
-  tengu: { steep: 2, steepSnow: 2, rockHalf: 0.18 },
-  momiji: { steep: 4, steepSnow: 4, rockHalf: 0.18 },
-  yuki: { steep: 2, steepSnow: 3, rockHalf: 0.18 },
+  iwayama: { steep: 2, steepSnow: 2, rockFrom: 12, flatR: 3, rockHalf: 0.16 },
+  tengu: { steep: 2, steepSnow: 2, rockFrom: 999, flatR: 3, rockHalf: 0.18 },
+  momiji: { steep: 4, steepSnow: 4, rockFrom: 999, flatR: 3, rockHalf: 0.18 },
+  yuki: { steep: 2, steepSnow: 3, rockFrom: 999, flatR: 3, rockHalf: 0.18 },
 } as const satisfies Record<
   MountainKind,
-  { steep: number; steepSnow: number; rockHalf: number }
+  {
+    steep: number;
+    steepSnow: number;
+    rockFrom: number;
+    flatR: number;
+    rockHalf: number;
+  }
 >;
 
 /** 数の表（単位は ブロック。角度は ラジアン。高さは 海から） */
@@ -45,11 +55,37 @@ const T = {
   jag: { amp: 6, scale: 11, from: 0.55, to: 0.8 },
   /** 種類ごとの 主峰の高さ top・すその 坂 k・てっぺんの 平ら plateau（形の 部品とは べつ。ゆきやま は 高め） */
   base: {
-    iwayama: { top: 75, k: 0.8, plateau: 3 },
-    tengu: { top: 80, k: 0.9, plateau: 1 },
-    momiji: { top: 64, k: 0.6, plateau: 5 },
-    yuki: { top: 112, k: 0.75, plateau: 2 },
-  } satisfies Record<MountainKind, { top: number; k: number; plateau: number }>,
+    iwayama: { top: 75, k: 0.8, plateau: 3, spire: 0.1 },
+    tengu: { top: 75, k: 0.9, plateau: 1, spire: 0.9 },
+    momiji: { top: 64, k: 0.6, plateau: 5, spire: 0 },
+    yuki: { top: 80, k: 0.75, plateau: 2, spire: 0.9 },
+  } satisfies Record<
+    MountainKind,
+    { top: number; k: number; plateau: number; spire: number }
+  >,
+  /** 主峰（まわりより 25〜45 高い とがった 峰）: 高さの 上乗せ・峰の 坂（大きい = するどい） */
+  spire: { hMin: 25, hMax: 45, k: 1.6 },
+  /** 登れる道（すそ → 頂上）: 道の 坂（1 以下）・道の はば（まん中の 平ら / まわりへ なだらかに）・道の くねり（大きさ・格子） */
+  path: { k: 0.7, flat: 1.5, edge: 4.5, wiggle: 6, wiggleScale: 40 },
+  /** 柱の 橋（細い 岩の道）: つながる かくりつ・橋の はば（まん中の 平ら / まわりへ）・橋の 坂（1 以下）・くねり（大きさ・長さ）・さがす 長さの 上限 */
+  bridge: {
+    chance: 0.55,
+    flat: 1.2,
+    edge: 2.4,
+    k: 0.45,
+    bend: 5,
+    bendLen: 12,
+    maxLen: 110,
+  },
+  /** 段の かべの 下の がれ: かべの 下 この くらいの 高さ分（坂の 何倍）・高さ 1〜2・ところどころ（ノイズの しきい）・線を くずす ゆらぎ（マス・格子） */
+  rubble: {
+    foot: 1.6,
+    hMax: 2,
+    over: 0.45,
+    scale: 5,
+    wobble: 3,
+    wobbleScale: 7,
+  },
   /** 高さの 上限（海から。世界の 上限 270 − 海 144 = 126 の 中） */
   maxH: 120,
   /** きょりを ゆがめる: 大きさ（マス）・ノイズの格子（マス） */
@@ -60,22 +96,23 @@ const T = {
   mix: { strongMin: 0.7, weakMax: 0.25, strongN0: 2, strongN1: 3 },
   /** a 段々: 平らな所の はば（2〜4 から 広場 15〜30）・かべの高さ（3〜20）・せまい段が 多くなる ぶん（2 じょう） */
   stair: { runMin: 2, runMax: 30, wallMin: 3, wallMax: 20, runPow: 2 },
-  /** b 岩の柱: かたまりの格子・本数 2〜5・かたまりの はんい・太さ 3〜9・高さ 10〜40・立つ きょり・上の細り・断面の いびつさ（大きさ・格子） */
+  /** b 岩の柱: かたまり 2〜4 こ（1 かたまり 2〜5 本）・かたまりの はんい・太さ 6〜14（てっぺん 3×3 以上が 平ら）・高さ 12〜45・かたまりの 立つ きょり（頂上から）・上の細り（平らな 部分の わりあい）・断面の いびつさ（大きさ・格子）・柱が 立つ 山の 強さの 下限 */
   pillar: {
-    cell: 38,
+    clMin: 2,
+    clMax: 4,
     n0: 2,
     n1: 5,
-    spread: 13,
-    wMin: 3,
-    wMax: 9,
-    hMin: 10,
-    hMax: 40,
-    from: 24,
-    to: 100,
-    taper: 0.55,
-    wobble: 0.35,
-    wobbleScale: 5,
-    rateMax: 0.85,
+    spread: 12,
+    wMin: 6,
+    wMax: 14,
+    hMin: 12,
+    hMax: 45,
+    from: 30,
+    to: 75,
+    taper: 0.7,
+    wobble: 0.25,
+    wobbleScale: 6,
+    minStrength: 0.3,
   },
   /** c 垂直のかべ: かべの高さ 40〜80・かべが ある 中心からの きょり・かべの ざらざら・うらがわの 持ち上げが きえる きょり */
   wall: {
@@ -151,6 +188,25 @@ interface Params {
   ridges: Item[];
   subs: Item[];
   lumps: Item[];
+  /** 岩の柱（まとめて 作る）: 中心・はんけい・高さ・かたまりの 中心と はんい */
+  pillars: {
+    x: number;
+    z: number;
+    rad: number;
+    height: number;
+    cx: number;
+    cz: number;
+    cr: number;
+  }[];
+  /** 主峰の 上乗せ（0 = なし） */
+  spireH: number;
+  pathA: number;
+  sRub: number;
+  sPath: number;
+  /** 柱の 橋（はじめて 使うとき 作る。つながらない 柱は なし）: 道の 点 [x, z, 高さ, ...]・柱の てっぺんの 位置 */
+  bridges: { pts: number[]; px: number; pz: number }[] | null;
+  /** 頂上（山の点）の 高さ。はじめて 使うとき 計算する */
+  apex: number;
 }
 
 const cache = new Map<string, Params>();
@@ -223,7 +279,44 @@ function paramsFor(
       r: (i - (nL - 1) / 2) * L.spacing,
       h: i === Math.floor(nL / 2) ? 0 : L.drop * (0.6 + r(380 + i) * 0.8),
     });
+  const pillars: Params["pillars"] = [];
+  const Q = T.pillar;
+  if (w[1]! >= Q.minStrength) {
+    const nCl = Q.clMin + Math.floor(r(400) * (Q.clMax - Q.clMin + 1));
+    for (let c = 0; c < nCl; c++) {
+      const ca = r(410) * TAU + (c / nCl) * TAU;
+      const cd = Q.from + r(420 + c) * (Q.to - Q.from);
+      const cx = px + Math.cos(ca) * cd;
+      const cz = pz + Math.sin(ca) * cd;
+      const n = Q.n0 + Math.floor(r(430 + c) * (Q.n1 - Q.n0 + 1));
+      const cr = Q.spread + Q.wMax;
+      for (let m = 0; m < n; m++) {
+        const k = 500 + c * 40 + m * 4;
+        const a2 = r(k) * TAU;
+        const d2 = r(k + 1) * Q.spread;
+        pillars.push({
+          x: cx + Math.cos(a2) * d2,
+          z: cz + Math.sin(a2) * d2,
+          rad: (Q.wMin + r(k + 2) * (Q.wMax - Q.wMin)) / 2,
+          height: Q.hMin + r(k + 3) * (Q.hMax - Q.hMin),
+          cx,
+          cz,
+          cr,
+        });
+      }
+    }
+  }
   const p: Params = {
+    pillars,
+    spireH:
+      r(600) < B.spire
+        ? T.spire.hMin + r(601) * (T.spire.hMax - T.spire.hMin)
+        : 0,
+    pathA: r(610) * TAU,
+    sRub: subSeed(seed, 940),
+    sPath: subSeed(seed, 941),
+    apex: NaN,
+    bridges: null,
     sWarpX: subSeed(seed, 911),
     sWarpZ: subSeed(seed, 912),
     sWall: subSeed(seed, 914),
@@ -274,16 +367,27 @@ function splineOf(n: number): number {
   return n;
 }
 
-/** 段の高さ: なめらかな 高さ h → 平らな 段（段ごとに 広さと かべの高さが ちがう） */
-function stairOf(p: Params, h: number): number {
+/**
+ * 段の高さ: なめらかな 高さ h → 平らな 段（段ごとに 広さと かべの高さが ちがう）。
+ * かべの 下には ところどころ がれ（1〜2 高い）。かべの 線は ノイズで くずす（まっすぐに しない）
+ */
+function stairOf(p: Params, h: number, x: number, z: number): number {
   if (h <= 0) return h;
+  const R = T.rubble;
+  const hh = h + (valueNoise(p.sRub, x, z, R.wobbleScale) - 0.5) * 2 * R.wobble;
   let i = p.stairA.length - 1;
-  while (i > 0 && p.stairA[i]! > h) i--;
-  return p.stairO[i]!;
+  while (i > 0 && p.stairA[i]! > hh) i--;
+  let o = p.stairO[i]!;
+  if (i < p.stairA.length - 1 && p.stairA[i + 1]! - hh < p.k * R.foot) {
+    const n = valueNoise(p.sRub, x + 91, z - 57, R.scale);
+    if (n > R.over)
+      o += 1 + Math.floor(((n - R.over) / (1 - R.over)) * R.hMax * 0.999);
+  }
+  return o;
 }
 
 /**
- * 岩の柱の群れ（石林）。2〜5 本の かたまり。断面は ノイズで いびつ、下が太く 上が 細い。てっぺんは 平ら。
+ * 岩の柱の群れ（石林）。かたまり 2〜4 こ、1 かたまり 2〜5 本。断面は ノイズで いびつ、下が太く 上が 細い。てっぺんは 平ら（3×3 以上）。
  * 返す値 = 柱の高さ（なければ -Infinity）
  */
 function pillarsAt(
@@ -292,50 +396,99 @@ function pillarsAt(
   pz: number,
   x: number,
   z: number,
-  rate: number,
 ): number {
   const q = T.pillar;
-  const dd = Math.hypot(x - px, z - pz);
-  if (dd < q.from - 25 || dd > q.to + 25) return -Infinity;
-  const cx = Math.floor(x / q.cell);
-  const cz = Math.floor(z / q.cell);
   let best = -Infinity;
-  for (let j = cz - 1; j <= cz + 1; j++) {
-    for (let i = cx - 1; i <= cx + 1; i++) {
-      if (hash01(p.sPil, i, j, 1) >= rate) continue;
-      const gx = (i + 0.5) * q.cell;
-      const gz = (j + 0.5) * q.cell;
-      const n = q.n0 + Math.floor(hash01(p.sPil, i, j, 2) * (q.n1 - q.n0 + 1));
-      for (let m = 0; m < n; m++) {
-        const a = hash01(p.sPil, i, j, 10 + m) * TAU;
-        const r = 3 + hash01(p.sPil, i, j, 20 + m) * q.spread;
-        const mx = gx + Math.cos(a) * r;
-        const mz = gz + Math.sin(a) * r;
-        const rad =
-          (q.wMin + hash01(p.sPil, i, j, 30 + m) * (q.wMax - q.wMin)) / 2;
-        const dist = Math.hypot(x - mx, z - mz);
-        if (dist > rad * (1 + q.wobble) + 1) continue;
-        const dc = Math.hypot(mx - px, mz - pz);
-        if (dc < q.from || dc > q.to) continue;
-        const wob =
-          1 + (valueNoise(p.sPil, x, z, q.wobbleScale) - 0.5) * 2 * q.wobble;
-        const dn = dist / (rad * wob);
-        if (dn >= 1) continue;
-        const height =
-          q.hMin + hash01(p.sPil, i, j, 40 + m) * (q.hMax - q.hMin);
-        const base = cone(p.top, p.k, p.plateau, dc);
-        // 平らな てっぺん（dn < taper）→ 少し 細る → つけねへ。つけねより 8 低い所まで のばす
-        best = Math.max(
-          best,
-          base - 8 + (height + 8) * (1 - smooth(q.taper, 1, dn)),
-        );
-      }
-    }
+  for (const pl of p.pillars) {
+    if (Math.abs(x - pl.cx) > pl.cr || Math.abs(z - pl.cz) > pl.cr) continue;
+    const dist = Math.hypot(x - pl.x, z - pl.z);
+    if (dist > pl.rad * (1 + q.wobble) + 1) continue;
+    const wob =
+      1 + (valueNoise(p.sPil, x, z, q.wobbleScale) - 0.5) * 2 * q.wobble;
+    const dn = dist / (pl.rad * wob);
+    if (dn >= 1) continue;
+    const base = cone(p.top, p.k, p.plateau, Math.hypot(pl.x - px, pl.z - pz));
+    // 平らな てっぺん（dn < taper）→ 少し 細る → つけねへ。つけねより 8 低い所まで のばす
+    best = Math.max(
+      best,
+      base - 8 + (pl.height + 8) * (1 - smooth(q.taper, 1, dn)),
+    );
   }
   return best;
 }
 
-/** 海からの高さ（ざらざら 前）。kind は 山の 4 種のどれか */
+/**
+ * 柱の橋: かたまりごとに ある かくりつで、頂上に いちばん ちかい 柱の てっぺんから 山の 斜面まで 細い 岩の道（くねる）。
+ * 高さは てっぺんと 同じ から はじまり、山が 追いつく（同じ高さ）まで 1 マスごとに 坂 T.bridge.k 以下で 山に あわせる。
+ */
+function buildBridges(
+  p: Params,
+  px: number,
+  pz: number,
+): NonNullable<Params["bridges"]> {
+  const B = T.bridge;
+  const out: NonNullable<Params["bridges"]> = [];
+  const seen = new Set<string>();
+  p.pillars.forEach((pl, idx) => {
+    const key = `${pl.cx}:${pl.cz}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    // かたまりの 中で 頂上に いちばん ちかい 柱
+    let best = idx;
+    p.pillars.forEach((q, j) => {
+      if (
+        q.cx === pl.cx &&
+        q.cz === pl.cz &&
+        Math.hypot(q.x - px, q.z - pz) <
+          Math.hypot(p.pillars[best]!.x - px, p.pillars[best]!.z - pz)
+      )
+        best = j;
+    });
+    const c = p.pillars[best]!;
+    if (hash01(p.sPil, Math.round(pl.cx), Math.round(pl.cz), 77) >= B.chance)
+      return;
+    const topH = Math.min(
+      cone(p.top, p.k, p.plateau, Math.hypot(c.x - px, c.z - pz)) + c.height,
+      T.maxH,
+    );
+    const ang = Math.atan2(pz - c.z, px - c.x);
+    const phase = hash01(p.sPil, Math.round(c.x), Math.round(c.z), 78) * TAU;
+    const pts: number[] = [];
+    let L = topH;
+    for (let i = 0; i < B.maxLen; i++) {
+      const bend = Math.sin(i / B.bendLen + phase) * B.bend * smooth(0, 10, i);
+      const x = c.x + Math.cos(ang) * i - Math.sin(ang) * bend;
+      const z = c.z + Math.sin(ang) * i + Math.cos(ang) * bend;
+      pts.push(x, z, L);
+      if (i < c.rad) continue;
+      const target = shapeOf(p, px, pz, x, z);
+      if (target >= L && target - L <= 1) break;
+      if (target > L) L = Math.min(target, L + B.k);
+      else continue;
+    }
+    // 山に とどいた ときだけ つなぐ（とどかない 柱は そのまま）
+    const last = pts.length / 3 - 1;
+    if (last < B.maxLen - 1) out.push({ pts, px: c.x, pz: c.z });
+  });
+  return out;
+}
+
+/** ためし・図 用: 頂上（山の点）の 高さと、橋で つながった 柱の てっぺん（x, z, 高さ） */
+export function v2Landmarks(
+  seed: number,
+  kind: CountryKind,
+  px: number,
+  pz: number,
+): { apex: number; bridged: { x: number; z: number; h: number }[] } {
+  const p = paramsFor(seed, kind as MountainKind, px, pz);
+  const apex = mountainOffsetV2(seed, kind, px, pz, px, pz);
+  return {
+    apex,
+    bridged: p.bridges!.map((b) => ({ x: b.px, z: b.pz, h: b.pts[2]! })),
+  };
+}
+
+/** 海からの高さ（ざらざら 前）。kind は 山の 4 種のどれか。すそ → 頂上の 登れる道（坂 T.path.k）を 1 本 ほる */
 export function mountainOffsetV2(
   seed: number,
   kind: CountryKind,
@@ -345,6 +498,52 @@ export function mountainOffsetV2(
   z: number,
 ): number {
   const p = paramsFor(seed, kind as MountainKind, px, pz);
+  let h = shapeOf(p, px, pz, x, z);
+  if (Number.isNaN(p.apex)) p.apex = shapeOf(p, px, pz, px, pz);
+  if (p.bridges === null) p.bridges = buildBridges(p, px, pz);
+  for (const br of p.bridges) {
+    // いちばん ちかい 道の 点（1 マスごと）
+    const B = T.bridge;
+    let bd = Infinity;
+    let bl = 0;
+    for (let i = 0; i < br.pts.length; i += 3) {
+      const ddx = x - br.pts[i]!;
+      const ddz = z - br.pts[i + 1]!;
+      if (Math.abs(ddx) > B.edge || Math.abs(ddz) > B.edge) continue;
+      const dd = ddx * ddx + ddz * ddz;
+      if (dd < bd) {
+        bd = dd;
+        bl = br.pts[i + 2]!;
+      }
+    }
+    if (bd < B.edge * B.edge)
+      h = h + (bl - h) * (1 - smooth(B.flat, B.edge, Math.sqrt(bd)));
+  }
+  const P = T.path;
+  const dx = x - px;
+  const dz = z - pz;
+  const along = dx * Math.cos(p.pathA) + dz * Math.sin(p.pathA);
+  if (along < 0) return h;
+  const hp = p.apex - P.k * along;
+  if (hp < -2) return h;
+  // 道は くねる（頂上の ちかくでは まっすぐ）
+  const lateral =
+    (valueNoise(p.sPath, along, 0, P.wiggleScale) - 0.5) *
+    2 *
+    P.wiggle *
+    smooth(0, 20, along);
+  const perp = -dx * Math.sin(p.pathA) + dz * Math.cos(p.pathA) - lateral;
+  const wcor = 1 - smooth(P.flat, P.edge, Math.abs(perp));
+  return h * (1 - wcor) + hp * wcor;
+}
+
+function shapeOf(
+  p: Params,
+  px: number,
+  pz: number,
+  x: number,
+  z: number,
+): number {
   // 部品の 強さは 山ごとの 数 × 場所ごとの 大きな 地図（山の中でも 場所で 部品が いれかわる）
   const M = T.map;
   const loc = (i: number): number =>
@@ -352,7 +551,6 @@ export function mountainOffsetV2(
     (M.floor +
       (1 - M.floor) * smooth(0.3, 0.7, valueNoise(p.sMap[i]!, x, z, M.scale)));
   const wa = loc(0);
-  const wb = loc(1);
   const wc = loc(2);
   const wd = loc(3);
   const we = loc(4);
@@ -396,7 +594,10 @@ export function mountainOffsetV2(
   if (steepMix > 0.02)
     h = h * (1 - steepMix) + p.top * splineOf(h / p.top) * steepMix;
   // 段々（a）: なめらかな 高さを 平らな 段に
-  if (wa > 0.05) h = h * (1 - wa) + stairOf(p, h) * wa;
+  if (wa > 0.05) h = h * (1 - wa) + stairOf(p, h, x, z) * wa;
+  // 主峰: まわりより 25〜45 高い とがった 峰（ゆきやま・てんぐ は 出やすい）
+  if (p.spireH > 0)
+    h = Math.max(h, Math.min(p.top + p.spireH, T.maxH) - T.spire.k * d);
   // するどい てっぺんと 小さな峰（d）
   if (wd > 0.05) {
     h += wd * P.tipH * Math.max(0, 1 - d / P.tipR) ** 2;
@@ -430,7 +631,6 @@ export function mountainOffsetV2(
         (1 - smooth(W.fadeFrom, W.fadeTo, d));
   }
   // 岩の柱の群れ（b）
-  if (wb > 0.05)
-    h = Math.max(h, pillarsAt(p, px, pz, x, z, wb * T.pillar.rateMax));
+  if (p.pillars.length > 0) h = Math.max(h, pillarsAt(p, px, pz, x, z));
   return Math.min(h, T.maxH);
 }
