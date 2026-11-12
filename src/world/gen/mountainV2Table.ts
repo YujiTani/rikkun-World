@@ -8,8 +8,8 @@ export type MountainKind = 'iwayama' | 'tengu' | 'momiji' | 'yuki';
 export const TAU = Math.PI * 2;
 
 /**
- * 種類ごとの 表面（形とは べつ）。steep = 岩に する かたむき（となりの列との高さの差）。steepSnow = 雪の線より上で 岩に する かたむき。
- * snowFrom = 雪の線（海から。これより上の ゆるい面・平らな所は ぜんぶ snow。なし = 999）。
+ * 種類ごとの 表面（形とは べつ）。steep = 岩に する かたむき（となりの列との高さの差）。steepSnow = 雪の ある 山で、となりの 列が これ 以上 高い（高い かべの 足もと）列は 雪が のらず 岩（段の 上面・ふちの 平らな 所には 雪が のる）。
+ * snowFrom = 雪の線（海から。この 高さが 雪の 出はじめ。上へ いくほど 雪が のこる。なし = 999。のこりかたは V2_SNOW）。
  * rockFrom = これより 上（海から）は ゆるい面でも 岩（段の上の 広い 平らな所 = まわり flatR マスが 高さの差 1 以下 だけ くさ）。なし = 999。
  * rockHalf = 岩はだの 帯の はば（0 = ぜんぶ いし。大きいほど つち・せきたん が ふえる）
  */
@@ -17,8 +17,38 @@ export const V2_SURFACE = {
   iwayama: { steep: 2, steepSnow: 2, snowFrom: 999, rockFrom: 12, flatR: 3, rockHalf: 0.16 },
   tengu: { steep: 2, steepSnow: 2, snowFrom: 999, rockFrom: 999, flatR: 3, rockHalf: 0.18 },
   momiji: { steep: 4, steepSnow: 4, snowFrom: 999, rockFrom: 999, flatR: 3, rockHalf: 0.18 },
-  yuki: { steep: 2, steepSnow: 4, snowFrom: 30, rockFrom: 999, flatR: 3, rockHalf: 0.18 },
+  yuki: { steep: 2, steepSnow: 8, snowFrom: 30, rockFrom: 999, flatR: 3, rockHalf: 0.18 },
 } as const satisfies Record<MountainKind, { steep: number; steepSnow: number; snowFrom: number; rockFrom: number; flatR: number; rockHalf: number }>;
+
+/**
+ * 雪の まだら（ゆきやま。V2_SURFACE.snowFrom が ある 種類だけ）。高さ e = 海からの 高さ − 雪の線（線は ノイズで ±lineWobble ゆらす）。
+ * 雪の のこる かくりつ: curve = [e, かくりつ] の 折れ線（線の 4 マス下で 0 → 線で 0.2 → e 25 で 0.3（下の 帯は 2〜3 割）→ e 35 で 0.65（山の 上 4〜5 割は 5〜7 割）→ e 60 で 0.92（頂上の ちかくは ほぼ ぜんぶ 白））。
+ * 雪が のこる か（まだら）= ノイズ（大きな かたまり bigScale と こまかい fineScale を bigMix の わりあいで まぜる）が かくりつ + 条件 より 小さい か。
+ * ノイズは 坂の 向き（8 方位）に そって 長く のばす（stretch 倍）。条件: 平ら・くぼみは のこりやすい（flat・hollow）、とがった 出っぱりは のこりにくい（bump）。
+ * かたまり: となりの 4 列の「白の 元の 判定」が minWhite 未満なら 白に しない・4 列とも 白の 判定なら 白に する（作る 順に よらない）。
+ * 雪が のこらない 所は 高さ rockFrom（線から）以上 = 岩、それより 下 = くさ。slopeBase = 坂の 向きを みる 距離、slopeMin = 向きを 決める 最低の 坂（これ 未満 = 向きなし）、farBelow = 線より これ 以上 低い 列は 雪の 計算を とばす（まわりに 高い かべが あっても 白に ならない 余裕）
+ */
+export const V2_SNOW = {
+  lineWobble: 8,
+  lineScale: 40,
+  curve: [[-4, 0], [0, 0.25], [25, 0.4], [35, 0.9], [60, 1]] as readonly (readonly [number, number])[],
+  bigScale: 16,
+  fineScale: 8,
+  bigMix: 0.65,
+  stretch: 2.5,
+  flat: 0.12,
+  hollow: 0.2,
+  bump: 0.12,
+  bumpAt: 0.4,
+  minWhite: 2,
+  rockFrom: 20,
+  slopeBase: 2,
+  slopeMin: 0.15,
+  farBelow: 25,
+} as const;
+
+/** 岩はだの 色の 帯: 横の 帯（高さ y で きまる。ほぼ 水平）の 厚み・横の 帯の わりあい（のこりは たての すじ）・たての すじの 大きさ・ノイズの 広げ具合（1 より 大きい ほど つち・せきたん が ふえる） */
+export const V2_ROCK = { bandScale: 3.5, bandMix: 0.7, vertScale: 9, gain: 1.4 } as const;
 
 /** 部品 a〜e の 強さの 下限・上限（0〜1）。順: a 段々・b 柱・c かべ・d 峰と尾根・e こぶ。山ごとの 強さを この はんいに おさめる */
 type Mix = readonly [number, number, number, number, number];
@@ -44,10 +74,14 @@ export const T = {
     momiji: { top: 64, k: 0.6, plateau: 5, spire: 0, min: [0.4, 0, 0, 0, 0.5] as Mix, max: [0.6, 0.6, 0.8, 0.4, 1] as Mix },
     yuki: { top: 72, k: 0.75, plateau: 2, spire: 0.9, min: [0.4, 0, 0, 0.4, 0] as Mix, max: [1, 0.7, 0.8, 1, 0.4] as Mix },
   } satisfies Record<MountainKind, { top: number; k: number; plateau: number; spire: number; min: Mix; max: Mix }>,
-  /** 主峰（まわりより 25〜45 高い とがった 峰）: 高さの 上乗せ・峰の 坂（大きい = するどい） */
-  spire: { hMin: 25, hMax: 45, k: 1.6 },
-  /** 登れる道（すそ → 頂上。山を まわる らせん）: 道の 坂（1 以下）・道の はば（まん中の 平ら / まわりへ なだらかに）・点の 間かく・向きを えらぶ ために ためす 向きの 数・柱の ちかくを とおる ばつ（点 1 つ ごと）・山の 坂に 対する 道の 坂の 上限（1 未満）・らせんの はじまりの 半径 */
-  path: { k: 0.6, flat: 1.5, edge: 4.5, step: 0.25, tryDirs: 24, pillarPenalty: 400, maxRho: 0.95, startR: 2 },
+  /**
+   * 主峰（まわりより 25〜45 高い とがった 峰）: 高さの 上乗せ・すその 半径（山の すその 半径の 倍。小さく 0.2〜0.3）・
+   * 尾根の 角度の はば・尾根と 尾根の あいだの へこみ（1 = へこまない）・高さの 落ちかた（べき。1 未満 = ふもとが きゅうに 立つ）・
+   * 段（かた）の 高さ・縁の ゆらぎ（マス・格子）
+   */
+  spire: { hMin: 25, hMax: 45, footMin: 0.2, footMax: 0.3, ridgeWidth: 0.3, valley: 0.45, pow: 1, step: 6, flat: 0.12, wobble: 2, wobbleScale: 7 },
+  /** 登れる道（すそ → 頂上。山を まわる らせん）: 道の 坂（1 以下）・道の はば（まん中の 平ら / まわりへ なだらかに）・点の 間かく・向きを えらぶ ために ためす 向きの 数・柱の ちかくを とおる ばつ（点 1 つ ごと）・土手（道が 地面より 高く 浮く ぶん）の 上限と、こえた ときの ばつ（1 マス あたり）・ほりこみ（地面が 道より 高い ぶん）の 1 マスあたりの 点・ただで ほれる 深さ・終わりの 地面の 高さの 許す 上限と それを こえた 1 マスあたりの ばつ・山の 高さの 段面（向きの 数・ひくい ほうから 何わりの 高さを 使うか（ためす 数種）・調べる 半径の 倍（すその 半径 ×）・坂を 見る 幅（マス））・山の 坂に 対する 道の 坂の 上限（1 未満）・らせんの はじまりの 半径 */
+  path: { k: 0.6, flat: 1.5, edge: 4.5, step: 0.25, tryDirs: 72, pillarPenalty: 400, maxBank: 3, bankPenalty: 120, profAngles: 24, profQs: [0, 0.15, 0.3, 0.5] as readonly number[], cutCost: 0.2, cutFree: 6, endFree: 3, endPenalty: 100, profReach: 1.6, profSmooth: 3, maxRho: 0.95, startR: 2 },
   /** 柱の 橋（細い 岩の道）: つながる かくりつ・橋の はば（まん中の 平ら / まわりへ）・橋の 坂（1 以下）・くねり（大きさ・長さ）・さがす 長さの 上限・道に 直角に つなぐ まっすぐな 長さ */
   bridge: { chance: 0.55, flat: 1.2, edge: 2.4, k: 0.45, bend: 5, bendLen: 12, maxLen: 110, joinLen: 6 },
   /** 段の かべの 下の がれ: かべの 下 この くらいの 高さ分（坂の 何倍）・高さ 1〜2・ところどころ（ノイズの しきい）・線を くずす ゆらぎ（マス・格子） */

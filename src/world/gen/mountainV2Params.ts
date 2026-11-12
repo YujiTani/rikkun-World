@@ -66,6 +66,8 @@ export interface Params {
   pillars: Pillar[];
   /** 主峰の 上乗せ（0 = なし） */
   spireH: number;
+  /** 主峰の すその 半径（ゆがめる まえの きょり） */
+  spireR: number;
   pathA: number;
   /** 柱の 橋（はじめて 使うとき 作る）。頂上の 高さも 同じ */
   bridges: Bridge[] | null;
@@ -73,6 +75,10 @@ export interface Params {
   pathPts: number[] | null;
   pathCells: Map<number, { d: number; hp: number }> | null;
   apex: number;
+  /** 道の 土手の 高さ（道が 地面より 高く 浮く ぶんの 最大） */
+  bank: number;
+  /** 頂上からの きょり r ごとの 段面の 高さ（道を 作るとき 作る） */
+  prof: number[] | null;
 }
 
 export const cone = (top: number, k: number, plateau: number, d: number): number => top - k * Math.max(0, d - plateau);
@@ -151,9 +157,12 @@ export function paramsFor(seed: number, kind: MountainKind, px: number, pz: numb
   const p: Params = {
     pillars,
     spireH: r(600) < B.spire ? T.spire.hMin + r(601) * (T.spire.hMax - T.spire.hMin) : 0,
+    spireR: r0 * (T.spire.footMin + r(602) * (T.spire.footMax - T.spire.footMin)),
     pathA: r(610) * TAU,
     sRub: subSeed(seed, 940),
     apex: NaN,
+    bank: 0,
+    prof: null,
     bridges: null,
     pathPts: null,
     pathCells: null,

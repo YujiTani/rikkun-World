@@ -18,10 +18,10 @@ import { T, TAU, type MountainKind } from './mountainV2Table';
 export const MOUNTAIN_V2: boolean = typeof location !== 'undefined' && new URLSearchParams(location.search).get('mountain') === 'v2';
 
 /** ためし・図 用: 頂上（山の点）の 高さと、橋で つながった 柱の てっぺん（x, z, 高さ） */
-export function v2Landmarks(seed: number, kind: CountryKind, px: number, pz: number): { apex: number; bridged: { x: number; z: number; h: number }[] } {
+export function v2Landmarks(seed: number, kind: CountryKind, px: number, pz: number): { apex: number; bank: number; bridged: { x: number; z: number; h: number }[] } {
   const p = paramsFor(seed, kind as MountainKind, px, pz);
   const apex = mountainOffsetV2(seed, kind, px, pz, px, pz);
-  return { apex, bridged: p.bridges!.map((b) => ({ x: b.px, z: b.pz, h: b.pts[2]! })) };
+  return { apex, bank: p.bank, bridged: p.bridges!.map((b) => ({ x: b.px, z: b.pz, h: b.pts[2]! })) };
 }
 
 /** 海からの高さ（ざらざら 前）。kind は 山の 4 種のどれか。柱の 橋と、すそ → 頂上の 登れる道（坂 T.path.k）を 1 本 ほる */
@@ -32,6 +32,7 @@ export function mountainOffsetV2(seed: number, kind: CountryKind, px: number, pz
     p.apex = shapeOf(p, px, pz, px, pz);
     const best = choosePath(p, px, pz, (sx, sz) => shapeOf(p, px, pz, sx, sz));
     buildPath(p, px, pz, best.a0, best.dir);
+    p.bank = best.bank;
   }
   if (p.bridges === null) p.bridges = buildBridges(p, px, pz, (a) => pathAt(p, a));
   const B = T.bridge;
@@ -54,6 +55,27 @@ export function mountainOffsetV2(seed: number, kind: CountryKind, px: number, pz
   // 登れる道（らせん）: 道の まわりの 列に 道の 高さを かける
   const c = pathCell(p, x, z);
   return c ? h * (1 - c.w) + c.hp * c.w : h;
+}
+
+/**
+ * 主峰: 小さな すそ（半径 = 山の 0.2〜0.3 倍）の するどい 峰。3〜5 本の 尾根（角度）で 星形に のびたり へこんだり、ぎざぎざに ゆらし、
+ * 小さな 段（かた）に 刻む。なめらかな 円すいに ならない。返す値 = 海からの 高さ（すその 外は -Infinity）
+ */
+function spireAt(p: Params, d: number, ang: number, x: number, z: number): number {
+  const S = T.spire;
+  let q = 0;
+  for (const s of p.ridges) {
+    let da = Math.abs(ang - s.a) % TAU;
+    if (da > Math.PI) da = TAU - da;
+    q = Math.max(q, s.h * Math.exp(-((da / S.ridgeWidth) ** 2)));
+  }
+  const reach = p.spireR * (S.valley + (1 - S.valley) * q);
+  const dd = d + (valueNoise(p.sJag, x + 33, z - 71, S.wobbleScale) - 0.5) * 2 * S.wobble;
+  const t = dd / reach;
+  if (t >= 1) return -Infinity;
+  const topS = Math.min(p.top + p.spireH, T.maxH);
+  const raw = topS - p.spireH * Math.max(0, (t - S.flat) / (1 - S.flat)) ** S.pow;
+  return topS - S.step * Math.floor((topS - raw) / S.step);
 }
 
 function shapeOf(p: Params, px: number, pz: number, x: number, z: number): number {
@@ -99,7 +121,7 @@ function shapeOf(p: Params, px: number, pz: number, x: number, z: number): numbe
   // 段々（a）: なめらかな 高さを 平らな 段に
   h = h * (1 - Math.min(1, wa * T.stair.gain)) + stairOf(p, h, x, z) * Math.min(1, wa * T.stair.gain);
   // 主峰: まわりより 25〜45 高い とがった 峰（ゆきやま・てんぐ は 出やすい）
-  if (p.spireH > 0) h = Math.max(h, Math.min(p.top + p.spireH, T.maxH) - T.spire.k * d);
+  if (p.spireH > 0) h = Math.max(h, spireAt(p, d, ang, x, z));
   // するどい てっぺんと 小さな峰（d）
   if (wd > 0.05) {
     h += wd * P.tipH * Math.max(0, 1 - d / P.tipR) ** 2;

@@ -89,3 +89,47 @@ describe('山の形 v2: 登れる道', () => {
     }
   }
 });
+
+/**
+ * なめらかな 円すい（等高線が ほぼ 円の 帯）の わりあい。山の 面積（海から 3 以上の 列）のうち、
+ * 坂が ゆるやかで（0.3〜1.5）、5×5 の はんいで 坂の 向き・大きさが ほとんど かわらず、坂の 向きが 頂上から 外向き（放射）に そろう 列。
+ */
+const CONE = { slopeMin: 0.3, slopeMax: 1.5, flatTol: 0.25, angleTol: 30, maxShare: 0.15, area: 3 };
+
+function coneShare(m: { seed: number; kind: CountryKind; px: number; pz: number }): number {
+  const RR = 160;
+  const WW = 2 * RR + 1;
+  const f = new Float32Array(WW * WW);
+  for (let z = -RR; z <= RR; z++) for (let x = -RR; x <= RR; x++) f[(z + RR) * WW + x + RR] = mountainOffsetV2(m.seed, m.kind, m.px, m.pz, m.px + x, m.pz + z);
+  const gx = (i: number): number => (f[i + 1]! - f[i - 1]!) / 2;
+  const gz = (i: number): number => (f[i + WW]! - f[i - WW]!) / 2;
+  let area = 0;
+  let cone = 0;
+  const cosTol = Math.cos((CONE.angleTol * Math.PI) / 180);
+  for (let z = -RR + 3; z <= RR - 3; z++) {
+    for (let x = -RR + 3; x <= RR - 3; x++) {
+      const i = (z + RR) * WW + x + RR;
+      if (f[i]! < CONE.area) continue;
+      area++;
+      const a = gx(i);
+      const b = gz(i);
+      const g = Math.hypot(a, b);
+      if (g < CONE.slopeMin || g > CONE.slopeMax) continue;
+      let smoothOk = true;
+      for (const j of [i - 2, i + 2, i - 2 * WW, i + 2 * WW]) if (Math.hypot(gx(j) - a, gz(j) - b) > CONE.flatTol) smoothOk = false;
+      if (!smoothOk) continue;
+      const r = Math.hypot(x, z) || 1;
+      if (-(a * x + b * z) / (g * r) >= cosTol) cone++;
+    }
+  }
+  return cone / area;
+}
+
+describe('山の形 v2: なめらかな 円すいの 帯', () => {
+  for (const m of pickMountains()) {
+    it(`${m.kind}（${m.px}, ${m.pz}）: 円すいの 帯が 山の 15% 以下`, () => {
+      const s = coneShare(m);
+      expect(s, `円すいの 帯 ${(s * 100).toFixed(1)}%`).toBeLessThanOrEqual(CONE.maxShare);
+    });
+  }
+});

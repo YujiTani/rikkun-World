@@ -12,6 +12,8 @@ import { shaftWorldFor } from './mineShafts';
 import { defOf } from './biome';
 import { featuresNearChunk, writeFeatureBlocks } from './countryFeatureBlocks';
 import { floraOfChunk } from './flora';
+import { MOUNTAIN_V2 } from './mountainV2';
+import { V2_ROCK_TOPS, v2RockBlock } from './mountainV2Surface';
 import { placeOchiba } from './ochiba';
 import { plantsOfChunk } from './plants';
 import { hash01, subSeed, valueNoise3 } from './random';
@@ -320,7 +322,13 @@ export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCl
       // 地層は solidTo より上から書けば足りる（下はもう いし）
       const x = x0 + lx;
       const z = z0 + lz;
-      writeStrata(out, lx, lz, h, T.inRock(x, z), solidTo + 1, T.topBlock(x, z, h));
+      const top = T.topBlock(x, z, h);
+      writeStrata(out, lx, lz, h, T.inRock(x, z), solidTo + 1, top);
+      // ?mountain=v2: 岩はだは 高さの 帯（ほぼ 水平の しま）。となりの 列より 高く 見える 分だけ 書く
+      if (MOUNTAIN_V2 && V2_ROCK_TOPS.has(top)) {
+        const lowest = Math.min(H[(lz + 1) * HW + lx]!, H[(lz + 1) * HW + lx + 2]!, H[lz * HW + lx + 1]!, H[(lz + 2) * HW + lx + 1]!);
+        for (let y = Math.max(solidTo + 1, lowest); y <= h; y++) out[y * LAYER + lz * CHUNK_SIZE + lx] = BLOCK_INDEX[v2RockBlock(seed, x, y, z)];
+      }
       // かっぱの ぬま の いけ: 底から へりの高さの 1 つ下まで 水
       const pd = T.map.pondAt(x, z);
       if (pd !== null && pd.kind === 'inner') for (let y = h + 1; y < pd.level; y++) out[y * LAYER + lz * CHUNK_SIZE + lx] = WATER;
@@ -410,7 +418,7 @@ export function writeStrata(out: BlockArray, lx: number, lz: number, h: number, 
   const fill = (y0: number, y1: number, b: number): void => {
     for (let y = Math.max(lo, y0); y <= y1; y++) out[y * LAYER + base] = b;
   };
-  if (rock || (h >= SEA_Y + S.landFrom && top === 'stone')) {
+  if (rock || (h >= SEA_Y + S.landFrom && V2_ROCK_TOPS.has(top))) {
     fill(1, h, STONE);
     return;
   }
