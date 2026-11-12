@@ -27,7 +27,7 @@ export interface LegendFull {
  * 土台: 建物の 下が あいて いたら この ブロックで 地面まで うめる。うめる 高さの 上限（マス）を こえる 列が あれば 置けない。
  * 凡例と 同じ ゆらぎ（moss・mix。mossLow は 地面に 近い 段ほど 多い）が 使える。cap = いちばん 上の 1 段だけ この ブロック（白い 箱に しない ため）
  */
-export interface BaseRule extends LegendFull {
+interface BaseRule extends LegendFull {
   readonly maxFill: number;
   readonly cap?: BlockId;
 }
