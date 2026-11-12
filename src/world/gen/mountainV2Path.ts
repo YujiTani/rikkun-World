@@ -11,21 +11,25 @@ import { T, TAU } from './mountainV2Table';
  * 山の 高さの 段面（頂上からの きょり r ごとの、まわりの 向きを ならべた ひくい ほうの 高さ。P.profQ の わりあい）。
  * 道は この 段面に そって 下りる（地面より 高く 浮かないように）。choosePath が 作る
  */
-function buildProfile(p: Params, px: number, pz: number, shape: (x: number, z: number) => number, q: number): void {
+function profileSamples(p: Params, px: number, pz: number, shape: (x: number, z: number) => number): number[][] {
   const P = T.path;
   const n = Math.ceil(p.r0 * P.profReach);
-  const prof: number[] = [];
-  const hs: number[] = [];
+  const out: number[][] = [];
   for (let r = 0; r <= n; r++) {
-    hs.length = 0;
+    const hs: number[] = [];
     for (let a = 0; a < P.profAngles; a++) {
       const th = (a / P.profAngles) * TAU;
       hs.push(shape(px + Math.cos(th) * r, pz + Math.sin(th) * r));
     }
     hs.sort((u, v) => u - v);
-    prof.push(hs[Math.floor(q * (hs.length - 1))]!);
+    out.push(hs);
   }
-  p.prof = prof;
+  return out;
+}
+
+/** 段面の 高さ（q = 低い ほうから 何わり め。標本は 山の 形から 1 回だけ 数えて、q ごとに えらぶ。結果は q ごとに 数えるのと 同じ） */
+function setProfile(p: Params, samples: readonly (readonly number[])[], q: number): void {
+  p.prof = samples.map((hs) => hs[Math.floor(q * (hs.length - 1))]!);
 }
 
 /**
@@ -62,8 +66,9 @@ export function choosePath(p: Params, px: number, pz: number, shape: (x: number,
   let bestScore = Infinity;
   const maxAlong = (p.apex + 2) / P.k;
   const stride = Math.round(2 / P.step);
+  const samples = profileSamples(p, px, pz, shape);
   for (const q of P.profQs) {
-    buildProfile(p, px, pz, shape, q);
+    setProfile(p, samples, q);
     for (const dir of [1, -1]) {
       for (let i = 0; i < P.tryDirs; i++) {
         const a0 = p.pathA + (i / P.tryDirs) * TAU;
@@ -71,7 +76,7 @@ export function choosePath(p: Params, px: number, pz: number, shape: (x: number,
         let score = 0;
         let bank = 0;
         let last = 0;
-        for (let j = stride; j * P.step * P.k < p.apex; j += stride) {
+        for (let j = stride; j * P.step * P.k < p.apex && score < bestScore; j += stride) { // 点数は 増える だけ: いまの 最良 以上に なったら 打ち切る（選ぶ 道は 同じ）
           const qx = pts[j * 2]!;
           const qz = pts[j * 2 + 1]!;
           const ground = shape(qx, qz);
@@ -91,7 +96,7 @@ export function choosePath(p: Params, px: number, pz: number, shape: (x: number,
       }
     }
   }
-  buildProfile(p, px, pz, shape, bestQ);
+  setProfile(p, samples, bestQ);
   return best;
 }
 
