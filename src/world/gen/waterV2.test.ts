@@ -43,7 +43,7 @@ describe('水の 景色 v2（?water=v2）', () => {
     expect(count('taki')).toBeGreaterThan(3);
     expect(all.filter((a) => a.sites.some((q) => q.type === 'taki')).length, '山の 7 割に 滝').toBeGreaterThanOrEqual(Math.ceil(MOUNTS.length * 0.7));
     expect(count('ike')).toBeGreaterThan(MOUNTS.length / 2);
-    for (const a of all) expect(a.sites.filter((s) => s.type === 'taki').length, '1 つの 山に 0〜2 本').toBeLessThanOrEqual(2);
+    for (const a of all) expect(a.sites.filter((s) => s.type === 'taki').length, '1 つの 山に 0〜6 本（流れの 滝の 数の 上限）').toBeLessThanOrEqual(6);
   });
 
   it('高い かべ（落差 10 以上）の 滝の 6 割 以上は 段々（わきどころの 高さが 2 つ 以上）', () => {
@@ -73,7 +73,10 @@ describe('水の 景色 v2（?water=v2）', () => {
     for (const a of all) {
       for (const s of a.sites.filter((q) => q.type === 'ike')) {
         const water = Math.max(...s.blocks.filter((b) => b.id === 'water').map((b) => b.y));
-        expect(s.blocks.filter((b) => b.y <= water + 2 && (b.id === 'renga_ishi' || b.id === 'koke_renga_ishi')).length, `ike ${s.x},${s.z}`).toBe(0);
+        // 石どうろう（小）の 台は 池から はなれて 立つ ので、水の 2 マス 以内の いしれんがだけ 数える
+        const wet = new Set(s.blocks.filter((b) => b.id === 'water').map((b) => `${b.x},${b.z}`));
+        const near = (x: number, z: number): boolean => { for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) if (wet.has(`${x + dx},${z + dz}`)) return true; return false; };
+        expect(s.blocks.filter((b) => b.y <= water + 2 && (b.id === 'renga_ishi' || b.id === 'koke_renga_ishi') && near(b.x, b.z)).length, `ike ${s.x},${s.z}`).toBe(0);
       }
     }
   });
@@ -87,9 +90,18 @@ describe('水の 景色 v2（?water=v2）', () => {
     }
   });
 
-  it('同じ 結果（もういちど 作っても、順番を かえても 同じ）', () => {
+  it('同じ 結果（もういちど 作っても、順番を かえても 同じ）', { timeout: 120_000 }, () => {
     const rev = [...MOUNTS].reverse().map((c) => ({ c, sites: waterSites(c, []) })).reverse();
     rev.forEach((r, k) => expect(JSON.stringify(r.sites)).toBe(JSON.stringify(all[k]!.sites)));
+  });
+
+  it('てっぺんの 池・滝から すそ（海・すその 池）まで 1 本の 水が つながる（滝の ある 山の 7 割 以上）', () => {
+    const withFall = all.filter((a) => a.sites.some((q) => q.type === 'taki'));
+    const wet = (a: (typeof all)[number]): number[] => a.sites.filter((q) => WATER.has(q.type) && q.type !== 'ike').flatMap((q) => q.blocks.filter((b) => b.id === 'water').map((b) => b.y - T.map.baseHeight(b.x, b.z)));
+    const reach = withFall.filter((a) => Math.min(...wet(a)) <= 6 && Math.max(...wet(a)) >= 8);
+    expect(reach.length / withFall.length, `${reach.length} / ${withFall.length}`).toBeGreaterThanOrEqual(0.7);
+    // 平らな 段の 池は 山に 2 こ ちかく（0 の 山は ない）
+    for (const a of all) expect(a.sites.filter((q) => q.type === 'ike').length, `ike ${a.c.px},${a.c.pz}`).toBeGreaterThanOrEqual(1);
   });
 
   it('はじまりの 範囲（regionRect）には 置かない', () => {

@@ -4,7 +4,8 @@ import { hashInts } from './random';
 import { buildFall, fallKeepOut, footOf, planFalls } from './waterV2Fall';
 import type { FallPlan } from './waterV2Types';
 import { clearRects, Edit, waterLeaks, type Ground, type Rect } from './waterV2Kit';
-import { planPonds, buildPond } from './waterV2Pond';
+import { buildPond } from './waterV2Pond';
+import { findPlateaus, plateauPonds } from './waterV2Flat';
 import { flowField } from './waterV2Flow';
 import { buildRiverChecked, planRiver } from './waterV2River';
 import { WATER_BLOCKS as B, WATER_TUNE as T, WATER_V2 } from './waterV2Table';
@@ -17,6 +18,7 @@ import { WATER_BLOCKS as B, WATER_TUNE as T, WATER_V2 } from './waterV2Table';
 
 /** 山の 点から この きょり（チェビシェフ）を こえる 所には 水を 置かない（国だけの 物を さがす はんいの 内がわ） */
 const LIMIT = T.reach - 6;
+const PL = T.plateau;
 
 /** 目じるしの 足もと（石段は のぞく）を 四角の 一覧に する（まわり gap） */
 function keepOut(others: readonly FeatureSite[]): Rect[] {
@@ -47,45 +49,66 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
   const out: FeatureSite[] = [];
   const hit = (x: number, z: number): boolean => used.some((r) => inside(r, x, z));
   const grassAt = (x: number, z: number): boolean => c.T.topBlock(x, z, c.T.height(x, z)) === B.grassTop;
-  // 滝の 数（0・1・2 本）
-  const roll = (hashInts(seed, 1, 0) >>> 0) / 4294967296;
-  const n = roll < T.fallCount[0] ? 0 : roll < T.fallCount[0] + T.fallCount[1] ? 1 : 2;
   const atFoot = (x: number, z: number): boolean => g(x, z) - c.T.map.baseHeight(x, z) <= T.river.footAbove;
   // 川の みちしるべ（山 1 つに 1 回）: すその 平地・海から 地面を たどる。目じるしの 足もとは 通れない
   const field = flowField(g, c.px, c.pz, LIMIT, atFoot, hit);
+  const wet = new Set<number>();
+  const wetHit = (x: number, z: number): boolean => hit(x, z) || wet.has(x * 100003 + z);
   const riverOf = (p: FallPlan, blocked: (x: number, z: number) => boolean) => {
     const own = fallKeepOut(p);
     return planRiver(g, seed + 1, { x: Math.floor(p.pool.cx), z: Math.floor(p.pool.cz), d: p.d, pool: p.pool }, (x, z) => blocked(x, z) || own(x, z), atFoot, field);
   };
-  const falls = planFalls(g, c.px, c.pz, seed, n, used, (p) => riverOf(p, hit).cells.length);
+  // 平らな 段（高い 順）。山の 上 1/3 の 段から 滝を はじめて、海・すそへ くりかえす
+  const plateaus = findPlateaus(g, c.px, c.pz, LIMIT, PL.minSize, (x, z) => !hit(x, z));
+  const peak = plateaus.length > 0 ? plateaus[0]!.h : 0;
+  const base0 = c.T.map.baseHeight(c.px, c.pz);
+  const topMin = base0 + (peak - base0) * PL.topShare;
   const rivers: FeatureSite[] = [];
-  const wet = new Set<number>();
-  const footsOf = falls.map(footOf);
-  falls.forEach((p, k) => {
+  const footsOf: Rect[] = [];
+  let end: { x: number; z: number; level: number } | null = null as { x: number; z: number; level: number } | null;
+  for (let k = 0; k < PL.chainMax; k++) {
+    const rlen = (q: FallPlan): number => riverOf(q, wetHit).cells.length;
+    let p: FallPlan | undefined;
+    if (end === null) {
+      // 頂上の ほうの 段 → ほかの 段 の 順に ためす（どれも だめなら この 山に 滝は ない）
+      const tops = [...plateaus.filter((q) => q.h >= topMin), ...plateaus.filter((q) => q.h < topMin)].slice(0, PL.topTries);
+      for (const pl of tops) {
+        p = planFalls(g, pl.cx, pl.cz, seed, 1, used, rlen, { allow: pl.has, blocked: (x, z) => wet.has(x * 100003 + z) })[0];
+        if (p !== undefined) break;
+      }
+      // 段の ふちに 落差が なければ、山の どこかの がけから はじめる
+      p ??= planFalls(g, c.px, c.pz, seed, 1, used, rlen)[0];
+    } else {
+      const e: { x: number; z: number; level: number } = end;
+      p = planFalls(g, e.x, e.z, seed + k, 1, used, rlen, { allow: (x, z) => Math.max(Math.abs(x - e.x), Math.abs(z - e.z)) <= PL.near && g(x, z) <= e.level + PL.rise, blocked: (x, z) => wet.has(x * 100003 + z) })[0];
+    }
+    if (p === undefined) break;
     const ed = new Edit();
     buildFall(ed, gb, seed, p); // 組めたかの 確認（waterV2Tier）と 同じ 種で 作る
     out.push(blocksSite(c, 'taki', ed, p.lip[0]![0], p.top, p.lip[0]![1]));
+    footsOf.push(footOf(p));
     // 川: ほかの 滝・目じるし・ほかの 川は よける
     const others2 = footsOf.filter((_, j) => j !== k);
-    const blocked = (x: number, z: number): boolean => hit(x, z) || wet.has(x * 100003 + z) || others2.some((r) => inside(r, x, z));
+    const blocked = (x: number, z: number): boolean => wetHit(x, z) || others2.some((r) => inside(r, x, z));
     const { ed: re, plan } = buildRiverChecked(gb, seed + k, riverOf(p, blocked), p.pool, grassAt);
     // 滝つぼと つなげて 水が もれる 川は 作らない（ほかの 滝の たまりに 近づきすぎた とき など）
     const ground: Ground = (x, z) => (gb(x, z) >= 0 ? gb(x, z) : c.T.height(x, z));
     const leaks = waterLeaks([...out, ...rivers].flatMap((q) => q.blocks).concat(re.blocks()), ground).length > 0;
-    if (!leaks) for (const b of re.blocks()) wet.add(b.x * 100003 + b.z);
-    if (!leaks && (plan.cells.some((cell) => cell.kind !== 'pool') || plan.mouth !== null)) {
-      const first = plan.cells.find((cell) => cell.kind !== 'pool')!;
-      rivers.push(blocksSite(c, 'kawa', re, first.x, first.level, first.z));
-    }
     used.push(footsOf[k]!);
-  });
+    end = { x: Math.floor(p.pool.cx), z: Math.floor(p.pool.cz), level: p.level };
+    if (leaks) continue;
+    for (const b of re.blocks()) wet.add(b.x * 100003 + b.z);
+    const first = plan.cells.find((cell) => cell.kind !== 'pool');
+    if (first !== undefined || plan.mouth !== null) rivers.push(blocksSite(c, 'kawa', re, (first ?? plan.cells[0]!).x, (first ?? plan.cells[0]!).level, (first ?? plan.cells[0]!).z));
+    const last = plan.cells[plan.cells.length - 1];
+    if (last !== undefined) end = { x: last.x, z: last.z, level: last.level };
+    if (plan.mouth !== null || plan.stop === 'sea' || plan.stop === 'foot') break;
+  }
   out.push(...rivers);
-  // 池: 段の 広場に 1〜2 こ
-  const nPond = T.pond.count[0] + ((hashInts(seed, 2, 0) >>> 0) % (T.pond.count[1] - T.pond.count[0] + 1));
-  const base = (x: number, z: number, h: number): number => h - c.T.map.baseHeight(x, z);
-  const free = (x: number, z: number): boolean => !hit(x, z) && !wet.has(x * 100003 + z);
+  // 池: 平らな 段に 2〜5 こ（頂上の ほうに 必ず 1 つ）
   const ochiba = c.kind === 'momiji';
-  planPonds(g, c.px, c.pz, seed, nPond, base, free).forEach((b, k) => {
+  const free = (x: number, z: number): boolean => !hit(x, z) && !wet.has(x * 100003 + z);
+  plateauPonds(g, plateaus, seed, topMin, free).forEach((b, k) => {
     const ed = new Edit();
     buildPond(ed, gb, seed + 100 + k, b, ochiba, free);
     out.push(blocksSite(c, 'ike', ed, Math.floor(b.cx), b.level, Math.floor(b.cz)));

@@ -18,13 +18,13 @@ const MAX_CANDIDATES = 6000;
 type Cand = { lx: number; lz: number; d: Dir; w: number };
 
 /** 山の 点を 中心に、へりの 候補を 集める（落差の ふるいだけ。池が 入るかは あとで） */
-function candidates(g: Ground, px: number, pz: number, seed: number): Cand[] {
+function candidates(g: Ground, px: number, pz: number, seed: number, allow: ((x: number, z: number) => boolean) | undefined): Cand[] {
   const out: Cand[] = [];
   const S = FALL.search;
   for (let z = pz - S; z <= pz + S; z++) {
     for (let x = px - S; x <= px + S; x++) {
       const gl = g(x, z);
-      if (gl < 0) continue;
+      if (gl < 0 || (allow !== undefined && !allow(x, z))) continue;
       for (let di = 0; di < 4; di++) {
         const d = DIR4[di]!;
         const gf = g(x + d[0], z + d[1]);
@@ -90,11 +90,17 @@ function planW(g: Ground, seed: number, c: Cand, w: number, free: (x: number, z:
 }
 
 /** 滝を count 本まで えらぶ（川が 長く のびる 方を 優先。たがいに はなす）。river(p) = その 滝の 川の 長さ */
-export function planFalls(g: Ground, px: number, pz: number, seed: number, count: number, avoid: readonly Rect[], river: (p: FallPlan) => number): FallPlan[] {
+/** 滝の さがし方の しぼりこみ: allow = へりの 列に してよい 場所、blocked = 池・川を 置けない 列（ほかの 水） */
+interface FallOpts {
+  allow?: (x: number, z: number) => boolean;
+  blocked?: (x: number, z: number) => boolean;
+}
+
+export function planFalls(g: Ground, px: number, pz: number, seed: number, count: number, avoid: readonly Rect[], river: (p: FallPlan) => number, opts: FallOpts = {}): FallPlan[] {
   const out: FallPlan[] = [];
-  const cs = candidates(g, px, pz, seed);
+  const cs = candidates(g, px, pz, seed, opts.allow);
   const used: Rect[] = [...avoid];
-  const hit = (x: number, z: number): boolean => used.some((u) => x >= u[0] && x <= u[2] && z >= u[1] && z <= u[3]);
+  const hit = (x: number, z: number): boolean => used.some((u) => x >= u[0] && x <= u[2] && z >= u[1] && z <= u[3]) || (opts.blocked?.(x, z) ?? false);
   for (let n = 0; n < count; n++) {
     let best: FallPlan | null = null;
     let bestScore = -1;
