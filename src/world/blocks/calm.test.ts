@@ -228,7 +228,7 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
     const gadgetNew = (n: string) => /^(lantern|lantern_frame|futon_top|futon_side|futon_blanket|haniwa|haniwa_head)$/.test(n);
     // MINE-1B（#349）: ねんど・鉱物・チョークの しるしの 新しい 絵は yuzu 見本の 絵（art/MINE-1）。画素は src/world/blocks/mineTextures.test.ts が 元の _rows.txt と くらべる。
     // 今の 絵 `coal_ore`・`iron_ore` は この 表で かわらず（B の 絵は 新しい 名前 `coal_ore_b`・`iron_ore_b`）
-    const mineNew = (n: string) => /^(nendo|sekkaiseki|shikkui|hotaruishi|kin_ore|suisho_ore|diamond_ore|coal_ore_b|iron_ore_b|chalk_[123]_[nesw]|kodo_waku_(side|top)|chest_[1-4]|chest_hint|tsurara|boken_[a-z_]+)$/.test(n);
+    const mineNew = (n: string) => /^(nendo|sekkaiseki|shikkui|hotaruishi|kin_ore|suisho_ore|diamond_ore|coal_ore_b|iron_ore_b|chalk_[123]_[nesw]|kodo_waku_(side|top)|chest_[1-4]|chest_hint|tsurara|boken_[a-z_]+|maou_(kabe|yuka|dan_top|dan_side|taimatsu)|otera_(ishigaki|ishidatami|dan_top|dan_side)|onibi_taimatsu)$/.test(n);
     // HOUSE-1C PR-1（#340）: 家の ブロック・家具の 新しい 絵（house_*・furn_* など）は アトラスの さいごに 足した 新しい 絵。画素は houseBlocks.test.ts が 見る
     const houseNew = (n: string) => isHouseTile(n);
     // ROPE-1: ロープ・ロープだまりの 新しい 絵（画素は ropeTextures.test.ts が 見る）

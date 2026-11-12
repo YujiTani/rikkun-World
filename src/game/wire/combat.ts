@@ -444,6 +444,7 @@ export function wireFighters(deps: WiredWeapons) {
     createRng(20240601),
     combat,
     {
+      yakata: { locked: (x, y, z) => shared.yakataLocked(x, y, z) }, // MINE-1F §4.3: やかたの ブロックは かつ まで こわせない
       bodyBlocks: {
         aim: (o, d, reach) => shared.gashaBodyBlocks?.aim(o, d, reach) ?? null,
         canPlace: (cell, block) => shared.gashaBodyBlocks?.canPlace(cell, block) ?? false,

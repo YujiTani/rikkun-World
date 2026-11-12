@@ -18,7 +18,7 @@ export interface DigFxDeps {
   /** カメラのごく弱いゆれ（ラジアン） */
   view: { setShake(yaw: number, pitch: number): void };
   /** 合図のアイコン */
-  notice: { showSignal(kind: 'needTool' | 'needIron' | 'full'): void };
+  notice: { showSignal(kind: 'needTool' | 'needIron' | 'full' | 'yakataLocked'): void };
   /** アイテムが入った（ホットバーの「ぽよん」や飛ぶ絵） */
   onPickup?: (item: ItemId, count: number) => void;
   settings?: FxSettings;
@@ -134,6 +134,7 @@ export class DigFx {
         sound.play('clink');
         this.flashRed();
         if (ev.reason === 'needTool' || ev.reason === 'needIron') notice.showSignal(ev.reason);
+        else if (ev.reason === 'yakata') notice.showSignal('yakataLocked'); // MINE-1F: ログ「いまは ほれない よ」
       }
     }
 

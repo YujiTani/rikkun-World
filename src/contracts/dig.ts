@@ -15,8 +15,8 @@ export interface TargetInfo {
   distance: number;
 }
 
-/** 掘れない 理由。needTool = つるはしが いる（いしの つるはしから）、needIron = てつの つるはしが いる（MINE-1B。きん・すいしょう・ダイヤの いし）、unbreakable = こわれない */
-export type DigBlockedReason = 'needTool' | 'needIron' | 'unbreakable';
+/** 掘れない 理由。needTool = つるはしが いる（いしの つるはしから）、needIron = てつの つるはしが いる（MINE-1B。きん・すいしょう・ダイヤの いし）、unbreakable = こわれない、yakata = やかたの ブロックは まだ・挑戦の 間は こわせない（MINE-1F。ログ「いまは ほれない よ」） */
+export type DigBlockedReason = 'needTool' | 'needIron' | 'unbreakable' | 'yakata';
 
 export interface DigState {
   active: boolean;

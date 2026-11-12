@@ -466,7 +466,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       natsukiPanel.update(tid === null ? null : animals.natsukiView(tid));
     }
     updateHint1Pad();
-    actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { carryProgress: dig.carryProgress(), carrying: animals.carrying() !== null, held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
+    actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { carryProgress: dig.carryProgress(), carrying: animals.carrying() !== null, held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade', get yakataChest() { return shared.yakataChestAimed(); } }) : {});
     farmHint.step();
     {
       // 農業の合図: 出ていない状態から 出たとき 1 件（見た目の文は ふりがなを 読みに直す）

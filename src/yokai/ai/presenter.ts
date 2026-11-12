@@ -29,7 +29,7 @@ export class YokaiPresenter {
     if (light) {
       const min = this.opts.lightMin ?? LIGHT_CONFIG.yokaiMin;
       for (const e of this.f.ents) {
-        const bb = Math.max(min, light.brightness(e.x, e.y + 0.5, e.z));
+        const bb = Math.max(min, light.brightness(e.x, e.y + 0.5, e.z), light.foeMin?.(e.x, e.y + 0.5, e.z) ?? 0);
         if (bb !== e.bright) {
           e.bright = bb;
           applyDollBrightness(e.model, e.kind, bb, e.stage);

@@ -2,6 +2,7 @@ import type { MeshBasicMaterial } from 'three';
 import { ripeMinBrightness } from './cropLight';
 import { LIGHT_CONFIG as LC } from '../light/config';
 import { skyDarkness } from '../light/skyDarkness';
+import { YAKATA_BOX_MAX, YAKATA_LIGHT as YL } from '../light/yakataLight';
 import { aoUniforms } from './voxel/aoUniforms';
 import { patchAtlasShader, shadowCacheKey, shadowPatch } from './shadow/shadowPatch';
 
@@ -24,6 +25,18 @@ float blockTier(float lv) {
   float bright = 1.0 - smoothstep(${f(LC.torchBrightRadius)}, ${f(LC.torchBrightRadius + 0.9)}, dist);
   float dim = 1.0 - smoothstep(${f(LC.torchDimRadius)}, ${f(LC.torchDimRadius + 0.9)}, dist);
   return max(bright * ${f(LC.torchBrightBrightness)}, dim * ${f(LC.torchDimBrightness)});
+}
+// MINE-1F: やかたの 中の 見え方（world/light/yakataLight.ts の 表と 同じ 式）。箱の 外は -1、中は 組の 番号（0 = maou・1 = otera）
+uniform vec4 uYakataMin[${YAKATA_BOX_MAX}];
+uniform vec4 uYakataMax[${YAKATA_BOX_MAX}];
+uniform int uYakataN;
+uniform float uYakataSway;
+const vec3 YAKATA_TINT[2] = vec3[2](vec3(${YL.lookTint.maou.map(f).join(', ')}), vec3(${YL.lookTint.otera.map(f).join(', ')}));
+float yakataLook(vec3 p) {
+  for (int i = 0; i < uYakataN; i++) {
+    if (all(greaterThanEqual(p, uYakataMin[i].xyz)) && all(lessThanEqual(p, uYakataMax[i].xyz))) return uYakataMin[i].w;
+  }
+  return -1.0;
 }`;
 
 /**
@@ -34,9 +47,21 @@ export const LIGHT_GLSL_LIT = `
   float s = max(skyIn * 15.0 - uDarken, 0.0);
   float sb = skyCurve(s) * skyNight(skyIn * 15.0);
   float bb = blockTier(blkIn * 15.0);
-  float w = clamp((bb - sb) * 3.0, 0.0, 1.0) * ${f(LC.warmTintStrength)};
-  vec3 tint = mix(vec3(1.0), vec3(${f(LC.warmTint[0])}, ${f(LC.warmTint[1])}, ${f(LC.warmTint[2])}), w);
-  vLit = vec3(max(sb, bb)) * tint;`;
+  float yk = uYakataN > 0 ? yakataLook(vWorld) : -1.0;
+  if (yk < -0.5) {
+    float w = clamp((bb - sb) * 3.0, 0.0, 1.0) * ${f(LC.warmTintStrength)};
+    vec3 tint = mix(vec3(1.0), vec3(${f(LC.warmTint[0])}, ${f(LC.warmTint[1])}, ${f(LC.warmTint[2])}), w);
+    vLit = vec3(max(sb, bb)) * tint;
+  } else {
+    // やかたの 中: 光 ${YL.dim.from}〜${YL.dim.to} の 所は ${f(YL.dim.shade)} より 暗く しない・光の 色は 組の 色で、${f(YL.dim.shade)} より 上の ぶんにだけ かける
+    float bl = blkIn * 15.0;
+    float inDim = step(${f(YL.dim.from - 0.5)}, bl) * (1.0 - step(${f(YL.dim.to + 0.5)}, bl));
+    bb = max(bb, ${f(YL.dim.shade)} * inDim);
+    float w = clamp((bb - sb) * 3.0, 0.0, 1.0) * ${f(LC.warmTintStrength)};
+    vec3 tint = mix(vec3(1.0), YAKATA_TINT[int(yk + 0.5)], w);
+    float v = max(sb, bb);
+    vLit = vec3(min(v, ${f(YL.dim.shade)})) + vec3(max(v - ${f(YL.dim.shade)}, 0.0)) * tint * uYakataSway;
+  }`;
 
 /**
  * ブロックの材料に「頂点の光」を入れる。明るさ = max(空の光の曲線, ブロックの光の 3 だんかい)。

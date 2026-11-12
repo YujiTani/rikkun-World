@@ -158,6 +158,12 @@ export class YokaiManager implements YokaiWorld {
     return this.ents.find((q) => q.id === id)?.model ?? null;
   }
 
+  /** 生きて いる 妖怪の id か〔作らない。やかたの 挑戦が 毎ステップ 見る〕 */
+  has(id: number): boolean {
+    for (const e of this.ents) if (e.id === id) return e.state !== 'dying' && e.state !== 'leaving' && !e.remove; // たおれる 演出の 間は 数えない
+    return false;
+  }
+
   list(): YokaiInfo[] {
     return this.ents.map((e) => this.presenter.infoOf(e));
   }
@@ -331,6 +337,11 @@ export class YokaiManager implements YokaiWorld {
 
   spawn(kind: YokaiKind, x: number, y: number, z: number, opts: SpawnOptions = {}): number {
     return this.spawner.spawnByHand(kind, x, y, z, opts);
+  }
+
+  /** MINE-1F: 指す 妖怪を そっと 去らせる（おとし物 なし。やかたの 挑戦の まけ・ふさいだ 門の 中の ふつうの 妖怪） */
+  leave(ids: readonly number[]): void {
+    this.spawner.leaveIds(ids);
   }
 
   /** 妖怪と火の玉をすぐ全部消す（イベントは出さない） */

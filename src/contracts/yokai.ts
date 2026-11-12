@@ -60,7 +60,7 @@ export type YokaiEvent =
   /** 二つ名の妖怪が出た（1 体に 1 回。音を鳴らす合図） */
   | { type: 'titleSound'; tick: number; id: number; kind: YokaiKind; title: Exclude<YokaiTitle, 'none'> }
   /** 去った。why = 夜明け（dawn）か、プレイヤーを 見つけられない まま 時間が たった（forget。MINE-1A §4.3） */
-  | { type: 'leave'; tick: number; id: number; kind: YokaiKind; position: Vec3; why?: 'dawn' | 'forget' };
+  | { type: 'leave'; tick: number; id: number; kind: YokaiKind; position: Vec3; why?: 'dawn' | 'forget' | 'yakata' };
 
 export interface YokaiRayHit {
   id: number;

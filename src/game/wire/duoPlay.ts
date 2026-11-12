@@ -117,7 +117,7 @@ interface Live {
   walkBody: GetaPlayer;
   /** 2P の 足もとの ブロック id */
   ground: () => string;
-  mate: { readonly position: Vec3; readonly inventory: Inventory };
+  mate: { readonly position: Vec3; readonly inventory: Inventory; moveTo?(p: Vec3): void };
   yokai: YokaiPartner;
   /** 2P の 道具・そうびの へった／こわれた の 音・お知らせ・かけら（COOP-1 4b） */
   wear: { step(): void };
@@ -317,6 +317,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       config: digCfg,
       rng: createRng(20240602),
       m4: {
+        yakata: { locked: (x, y, z) => shared.yakataLocked(x, y, z) },
         tools,
         blade,
         w2,
@@ -363,6 +364,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         return ctl.state.position;
       },
       inventory: p2.inventory,
+      moveTo: (p: Vec3) => ctl.set({ position: { x: p.x, y: p.y, z: p.z }, velocity: { x: 0, y: 0, z: 0 } }), // MINE-1F: 門の 押し出し
     };
     // 妖怪から 見た 2P（ダメージの 種類〔火の玉 'ball'〕と 2P の そうびも 伝える）
     const yokai: YokaiPartner = createP2Partner({

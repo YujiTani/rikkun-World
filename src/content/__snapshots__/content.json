@@ -7722,6 +7722,166 @@
       "placeBlock": "magma_takitsubo",
       "rarity": "uncommon",
       "recipes": []
+    },
+    "maou_kabe": {
+      "DIG_DEFAULTS.hardness.maou_kabe": 3,
+      "DIG_DEFAULTS.harvestLevel.maou_kabe": 1,
+      "DIG_DEFAULTS.rarity.maou_kabe": "uncommon",
+      "ITEM_INFO.maou_kabe": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "まおうの しろ の かべ。おける"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "まおうの かべ",
+      "placeBlock": "maou_kabe",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "maou_yuka": {
+      "DIG_DEFAULTS.hardness.maou_yuka": 3,
+      "DIG_DEFAULTS.harvestLevel.maou_yuka": 1,
+      "DIG_DEFAULTS.rarity.maou_yuka": "uncommon",
+      "ITEM_INFO.maou_yuka": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "まおうの しろ の ゆか。おける"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "まおうの ゆか",
+      "placeBlock": "maou_yuka",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "maou_dan": {
+      "DIG_DEFAULTS.hardness.maou_dan": 3,
+      "DIG_DEFAULTS.harvestLevel.maou_dan": 1,
+      "DIG_DEFAULTS.rarity.maou_dan": "uncommon",
+      "ITEM_INFO.maou_dan": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "まおうの しろ の さいだん の いし。おける"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "まおうの だん",
+      "placeBlock": "maou_dan",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "maou_taimatsu": {
+      "DIG_DEFAULTS.hardness.maou_taimatsu": 0,
+      "DIG_DEFAULTS.harvestLevel.maou_taimatsu": 0,
+      "DIG_DEFAULTS.rarity.maou_taimatsu": "rare",
+      "ITEM_INFO.maou_taimatsu": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "むらさき に もえる ふしぎな たいまつ。おくと あかり に なる"
+      },
+      "category": "light",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらさきの たいまつ",
+      "placeBlock": "maou_taimatsu",
+      "rarity": "rare",
+      "recipes": []
+    },
+    "otera_ishigaki": {
+      "DIG_DEFAULTS.hardness.otera_ishigaki": 3,
+      "DIG_DEFAULTS.harvestLevel.otera_ishigaki": 1,
+      "DIG_DEFAULTS.rarity.otera_ishigaki": "uncommon",
+      "ITEM_INFO.otera_ishigaki": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "よるの おてら の いしがき。おける"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おてらの いしがき",
+      "placeBlock": "otera_ishigaki",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "otera_ishidatami": {
+      "DIG_DEFAULTS.hardness.otera_ishidatami": 3,
+      "DIG_DEFAULTS.harvestLevel.otera_ishidatami": 1,
+      "DIG_DEFAULTS.rarity.otera_ishidatami": "uncommon",
+      "ITEM_INFO.otera_ishidatami": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "よるの おてら の いしだたみ。おける"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おてらの いしだたみ",
+      "placeBlock": "otera_ishidatami",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "otera_dan": {
+      "DIG_DEFAULTS.hardness.otera_dan": 3,
+      "DIG_DEFAULTS.harvestLevel.otera_dan": 1,
+      "DIG_DEFAULTS.rarity.otera_dan": "uncommon",
+      "ITEM_INFO.otera_dan": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "よるの おてら の さいだん の いし。おける"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おてらの だん",
+      "placeBlock": "otera_dan",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "onibi_taimatsu": {
+      "DIG_DEFAULTS.hardness.onibi_taimatsu": 0,
+      "DIG_DEFAULTS.harvestLevel.onibi_taimatsu": 0,
+      "DIG_DEFAULTS.rarity.onibi_taimatsu": "rare",
+      "ITEM_INFO.onibi_taimatsu": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "あおじろい おにび の たいまつ。おくと あかり に なる"
+      },
+      "category": "light",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おにびの たいまつ",
+      "placeBlock": "onibi_taimatsu",
+      "rarity": "rare",
+      "recipes": []
     }
   },
   "yokai": {

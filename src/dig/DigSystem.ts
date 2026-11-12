@@ -382,6 +382,13 @@ export class DigSystemImpl implements DigSystem {
     }
     if (primary && t) {
       const tool = this.m4.tools?.current();
+      // MINE-1F: やかたの ブロック・ふさいだ かべは まだ・挑戦の 間は こわせない（道具に かかわらず）
+      if (this.m4.yakata?.locked(t.block.x, t.block.y, t.block.z)) {
+        this.blockedReason = 'yakata';
+        if (this.justPressed()) this.emit({ type: 'blocked', tick: this.tickCount, block: { ...t.block }, id: t.id, reason: 'yakata' });
+        this.decay();
+        return;
+      }
       const r = digSteps(cfg, t.id, tool?.level);
       if ('blocked' in r) {
         this.blockedReason = r.blocked;

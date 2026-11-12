@@ -145,7 +145,16 @@ export type BlockId =
   | 'himawari' // ひまわり（はなばたけ。2 段の 下の 段 = くき。ほると himawari 1 こ）
   | 'himawari_top' // ひまわり の 上の 段（花）。持ち物に 入らない（ほると himawari）
   | 'kaigara' // かいがら（すなはま。すなの 上の 小さな 板）
-  | 'takenoko'; // たけのこ（たけやぶ）
+  | 'takenoko' // たけのこ（たけやぶ）
+  // MINE-1F（まきもの・まねきねこの うしろに 足す。番号は 登録の 順で きまる）: ようかいの やかたの ブロック 8 こ（2 組 × かべ・ゆか・だん・たいまつ。仕様 §4.6。id の 表は world/blocks/mineYakata.ts）
+  | 'maou_kabe'
+  | 'maou_yuka'
+  | 'maou_dan'
+  | 'maou_taimatsu'
+  | 'otera_ishigaki'
+  | 'otera_ishidatami'
+  | 'otera_dan'
+  | 'onibi_taimatsu';
 
 export interface BlockType {
   id: BlockId;

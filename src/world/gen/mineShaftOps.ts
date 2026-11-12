@@ -11,6 +11,8 @@ export interface OldCols {
   heya: ReadonlySet<number>;
   /** 1E〔坑道の 冒険〕の 一覧。ない ときは 1E の 前の 世界ではない〔新しい 世界〕 */
   boken?: ReadonlySet<number>;
+  /** 1F〔ようかいの やかた〕の 一覧。やかたの 版より 前に 保存した 列。ない ときは やかたの 前の 世界ではない〔新しい 世界〕 */
+  yakata?: ReadonlySet<number>;
 }
 
 /** 列に 置く 物。ring → air → put の 順に 1 マスずつ 置く */

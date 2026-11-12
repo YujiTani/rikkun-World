@@ -6,6 +6,7 @@ import { ARMOR } from './armor';
 import { GEYSER, M4_BLOCKS, MINE_BLOCKS, PLACEABLE, VOX_I } from './blocks';
 import { ROPE_BLOCKS } from './rope';
 import { WATERFALL_BLOCKS } from './waterfall';
+import { YAKATA_ITEMS } from './yakata';
 import { BUCKETS, FARM_TOOLS, SEEDS, SPRINKLER, VEGGIES } from './farm';
 import { GOLD } from './gold';
 import { HOUSE_TOOLS } from './house';
@@ -111,6 +112,8 @@ export const HOUSE_LOOK_DEFS: ItemDefs = HOUSE_LOOKS;
 export const ROPE_DEFS: ItemDefs = ROPE_BLOCKS;
 /** WATERFALL-1: わきどころ・マグマの わきどころ・こくようせき（ITEM_TYPES・色分けでは いちばん うしろ） */
 export const WATERFALL_DEFS: ItemDefs = WATERFALL_BLOCKS;
+/** MINE-1F: ようかいの やかたの ブロック 8 つ（ITEM_TYPES・色分けでは いちばん うしろ） */
+export const YAKATA_DEFS: ItemDefs = YAKATA_ITEMS;
 
 /** レジェンダリー武器（ITEM_TYPES・武器の 色分けでは これまでと 同じ 位置（crystal_katana の 次）に 入れる） */
 export const LEGEND_DEFS: ItemDefs = LEGEND;
@@ -136,6 +139,7 @@ export const ITEM_DEFS: Readonly<Record<ItemDefId, ItemDef>> = {
   ...MINE_BLOCKS, ...MINE_ITEMS, ...HOUSE_FURNITURE, ...HOUSE_PLANS, ...HOUSE_BLOCKS, ...HOUSE_LOOKS,
   ...ROPE_BLOCKS,
   ...WATERFALL_BLOCKS,
+  ...YAKATA_ITEMS,
 };
 
 /** 登録の 中から、ids の 順に 取り出した 登録（並びを 呼び出し側で 決めたい とき。登録に 無い id は 書きまちがいなので 投げる） */

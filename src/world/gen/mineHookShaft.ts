@@ -1,7 +1,7 @@
 import type { BlockId, ItemId, Rarity, VoxelWorld } from '../../contracts';
 import { itemDef } from '../../content/items/registry';
 import { RARITY_ORDER } from '../../drops/rarityTable';
-import { BOKEN_GEN, HEYA_GEN, KODO_GEN, SAVE_GEN } from '../../save/gens';
+import { BOKEN_GEN, HEYA_GEN, KODO_GEN, SAVE_GEN, YAKATA_GEN } from '../../save/gens';
 import { EMISSION } from '../light/opacity';
 import { isMakimonoId } from '../blocks/blockTypes';
 import { chestBlockId, chestBlockInfo, chestFrontAt, chestPartner, type ChestCompass } from '../blocks/chestBlock';
@@ -46,7 +46,7 @@ export interface ChestAtInfo {
   front: ChestCompass;
 }
 
-type ChestWorld = Pick<VoxelWorld, 'getBlock'> & Partial<Pick<VoxelWorld, 'setBlock' | 'isLoaded'>>;
+export type ChestWorld = Pick<VoxelWorld, 'getBlock'> & Partial<Pick<VoxelWorld, 'setBlock' | 'isLoaded'>>;
 
 export interface ShaftHookOptions {
   seed: number;
@@ -67,6 +67,19 @@ export interface ShaftHookOptions {
 const SUPER = RARITY_ORDER.indexOf('superRare');
 const idxOf = (r: Rarity): number => RARITY_ORDER.indexOf(r);
 
+/** 宝箱の 中身を 持ち物へ〔入りきらない 分は 足もと〕・いちばん めずらしい 物が ハイパーレア 以上なら テロップ・あけた できごと */
+export function giveChest(chest: ChestPorts, items: readonly { item: ItemId; count: number }[], tier: Tier): void {
+  let top: { item: ItemId; r: number } | null = null;
+  for (const it of items) {
+    const rest = chest.add(it.item, it.count);
+    if (rest > 0) chest.drop(it.item, rest);
+    const r = idxOf(itemDef(it.item)!.rarity);
+    if (top === null || r > top.r) top = { item: it.item, r };
+  }
+  if (top && top.r >= SUPER) chest.telop(top.item);
+  chest.opened(tier);
+}
+
 export function createShaftHook(o: ShaftHookOptions) {
   const { seed } = o;
   const world = (): ShaftWorldType => o.shafts ?? shaftWorldFor(seed, o.oldCols);
@@ -76,10 +89,16 @@ export function createShaftHook(o: ShaftHookOptions) {
   });
 
   function chestAt(x: number, y: number, z: number): ChestAtInfo | null {
-    if (!o.world) return null;
     const bx = Math.floor(x);
     const by = Math.floor(y);
     const bz = Math.floor(z);
+    if (!o.world) {
+      // 生きている 世界が ない〔計画だけ 読む テストなど〕: やかたの 宝箱は 計画から 答える〔まだ あいていない〕
+      const yk = world().yakataBuilt(bx, by, bz)?.yakata;
+      const c = yk?.chest;
+      if (!yk || !c || !c.cells.some((p) => p.x === bx && p.y === by && p.z === bz)) return null;
+      return { table: 'yakata', tier: 4, opened: false, main: { x: c.x, y: c.y, z: c.z }, cells: c.cells.map((p) => ({ ...p })), front: c.front };
+    }
     const info = chestBlockInfo(o.world.getBlock(bx, by, bz));
     if (!info) return null;
     const front = chestFrontAt((px, py, pz) => o.world!.getBlock(px, py, pz), bx, by, bz);
@@ -94,6 +113,8 @@ export function createShaftHook(o: ShaftHookOptions) {
 
   /** 計画から 宝箱を さがす（世界を 読まない。あける 前と あとで 同じ）。表の 名前も 返す */
   function plannedChest(x: number, y: number, z: number): { table: string; tier: Tier; main: Pt } | null {
+    const yk = world().yakataBuilt(x, y, z)?.yakata;
+    if (yk && yk.chest.cells.some((p) => p.x === x && p.y === y && p.z === z)) return { table: 'yakata', tier: 4, main: { x: yk.chest.x, y: yk.chest.y, z: yk.chest.z } };
     for (const s of world().shafts(x, z, x, z)) {
       const c = s.chest;
       if (c && c.cells.some((p) => p.x === x && p.y === y && p.z === z)) return { table: 'kodo', tier: c.tier, main: { x: c.x, y: c.y, z: c.z } };
@@ -151,15 +172,7 @@ export function createShaftHook(o: ShaftHookOptions) {
     if (o.world!.setBlock) {
       at.cells.forEach((c, i) => o.world!.setBlock!(c.x, c.y, c.z, chestBlockId(at.tier, true, i === 1) as BlockId));
     }
-    let top: { item: ItemId; r: number } | null = null;
-    for (const it of roll.items) {
-      const rest = o.chest.add(it.item, it.count);
-      if (rest > 0) o.chest.drop(it.item, rest);
-      const r = idxOf(itemDef(it.item)!.rarity);
-      if (top === null || r > top.r) top = { item: it.item, r };
-    }
-    if (top && top.r >= SUPER) o.chest.telop(top.item);
-    o.chest.opened(at.tier);
+    giveChest(o.chest, roll.items, at.tier);
     if (at.table === 'kodo') o.chest.recipe?.({ x: at.main.x, y: at.main.y, z: at.main.z }); // いちばん 下の へやの 宝箱だけ レシピの わくが 1 つ（横穴の 先の 宝箱には ない）
   }
 
@@ -183,12 +196,14 @@ export function createShaftHook(o: ShaftHookOptions) {
     rollChest,
     chestPreview,
     open,
-    caveAt: (x: number, y: number, z: number): string | null => (world().inside(Math.floor(x), Math.floor(y), Math.floor(z)) ? 'kodo' : cave.caveKindAt(x, y, z)),
+    caveAt: (x: number, y: number, z: number): string | null => (world().yakataAt(Math.floor(x), Math.floor(y), Math.floor(z)) ? 'yakata' : world().inside(Math.floor(x), Math.floor(y), Math.floor(z)) ? 'kodo' : cave.caveKindAt(x, y, z)),
+    /** 坑道の 世界〔やかたの 窓口が 使う〕 */
+    shaftWorld: (): ShaftWorldType => world(),
     ...cave,
     ...createBokenHook({ seed, world, tansuHas: o.tansuHas }),
-    saveGens: () => ({ current: SAVE_GEN, meta: o.metaGen?.() ?? SAVE_GEN, kodo: (o.kodoGen ?? KODO_GEN) as number | null, heya: HEYA_GEN as number | null, boken: (o.bokenGen ?? BOKEN_GEN) as number | null }),
-    oldCols: (kind: 'kodo' | 'heya' | 'boken'): number => o.oldCols?.[kind]?.size ?? 0,
-    isOld: (kind: 'kodo' | 'heya' | 'boken', cx: number, cz: number): boolean => o.oldCols?.[kind]?.has(colKey(cx, cz)) === true,
+    saveGens: () => ({ current: SAVE_GEN, meta: o.metaGen?.() ?? SAVE_GEN, kodo: (o.kodoGen ?? KODO_GEN) as number | null, heya: HEYA_GEN as number | null, boken: (o.bokenGen ?? BOKEN_GEN) as number | null, yakata: YAKATA_GEN as number | null }),
+    oldCols: (kind: 'kodo' | 'heya' | 'boken' | 'yakata'): number => o.oldCols?.[kind]?.size ?? 0,
+    isOld: (kind: 'kodo' | 'heya' | 'boken' | 'yakata', cx: number, cz: number): boolean => o.oldCols?.[kind]?.has(colKey(cx, cz)) === true,
     work(cx: number, cz: number): { shaftRegions: number; caveRegions: number; emitters: number } {
       const b = buildBlocks(seed, cx, cz, undefined, o.oldCols).blocks;
       let emitters = 0;

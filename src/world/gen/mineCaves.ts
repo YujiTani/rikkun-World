@@ -262,6 +262,36 @@ export class CaveWorld {
     return out;
   }
 
+  /** 実行中の 区画の 仕事〔入れ子で 同じ 仕事を すすめない ため〕 */
+  private readonly running = new Set<number>();
+
+  /**
+   * `caves` と 同じ 答え。区画の 計画が まだ なら 少しずつ すすめる〔yield ごとに 短い 仕事。先読みが 時間で 止まれる〕。
+   * やかたの 計画〔MINE-1F〕が 使う。入れ子で 同じ 区画を さがす ときは 順番を まって 同じ 区画を その場で 作る
+   */
+  *cavesSteps(x0: number, z0: number, x1: number, z1: number): Generator<void, PlacedCave[]> {
+    for (let rz = Math.floor(z0 / R); rz <= Math.floor(z1 / R); rz++) {
+      for (let rx = Math.floor(x0 / R); rx <= Math.floor(x1 / R); rx++) {
+        const key = this.key(rx, rz);
+        if (this.regions.has(key) || this.running.has(key)) continue;
+        let job = this.jobs.get(key);
+        if (!job) this.jobs.set(key, (job = this.regionJob(rx, rz)));
+        this.running.add(key);
+        try {
+          for (let r = job.next(); !r.done; r = job.next()) {
+            this.running.delete(key);
+            yield;
+            this.running.add(key);
+          }
+        } finally {
+          this.running.delete(key);
+        }
+        this.jobs.delete(key);
+      }
+    }
+    return this.caves(x0, z0, x1, z1);
+  }
+
   /** 性能の くらべ用の 場面（hiroiScene）。この 世界は 場面の 部屋だけに なる */
   private sceneOps: Map<number, RoomColOps[]> | null = null;
 

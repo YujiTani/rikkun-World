@@ -87,6 +87,7 @@ export type StatKey =
   | 'mineChest' // MINE-1C: 宝箱を あけた（1）
   | `cave:${string}` // MINE-1D: 足が はじめて その 種類の ほらあなに 入った（1。`cave:hiroi` など）
   | `area:${string}` // MINE-1E: 足が はじめて その 場所〔かくしべや・むかしの えだ道・迷路の おく・キャンプあと〕に 入った（1。`area:kakushi` など）
+  | `yakata:${string}` // MINE-1F: ようかいの やかたで はじめて 〔found = 足が 大広間に 入った・won = 7 ひき ぜんぶ たおして かった〕（1）
   | 'legendKinds' // WEAPON-7: 手に 入れた ことの ある レジェンダリーの しゅるいの 数
   | 'wearAll'
   | 'death'

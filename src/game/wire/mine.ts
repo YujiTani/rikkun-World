@@ -14,6 +14,7 @@ import { isMakimonoId } from '../../world/blocks/blockTypes';
 import { createMineHook } from '../../world/gen/mineHook';
 import type { HotbarGain } from '../../ui/hotbarModel';
 import type { WiredDuo } from './duo';
+import { wireYakata } from './mineYakata';
 
 /** 中身が あふれた とき 足もとに 落とす 飛ばし方（速さ〔マス/秒〕・上むき 〔マス/秒〕の はば） */
 const CHEST_SCATTER = { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 } as const;
@@ -82,8 +83,10 @@ export function wireMine(deps: WiredDuo) {
       shared.skipSignalLog = false;
     },
   });
+  const yakata = wireYakata(deps, router); // MINE-1F: ようかいの やかた
   const mine = createMineHook({
     seed,
+    yakata: yakata.ports,
     shafts,
     world,
     player: () => controller.state.position,
@@ -113,6 +116,15 @@ export function wireMine(deps: WiredDuo) {
     },
   });
 
+  shared.yakataLocked = (x, y, z) => mine.yakataLocked(x, y, z);
+  shared.yakataChestAimed = () => {
+    const t = dig.target();
+    return !!t && mine.chestAt(t.block.x, t.block.y, t.block.z)?.table === 'yakata';
+  };
+  shared.yakataQuiet = (who) => mine.yakataQuiet(who);
+  shared.yakataSaveOverrides = () => mine.yakataSaveOverrides();
+  game.onUpdate(() => yakata.step(mine)); // 妖怪の 更新の あと〔wireMine は いちばん 最後に つなぐ〕
+
   // MINE-1E §4.8: キャンプの たんすを はじめて あけた とき 入る 中身〔たいきゅうは 新品の 値から へった 量に 直す〕
   shared.campFill = (x, y, z) => {
     const items = mine.campPreview(x, y, z);
@@ -139,6 +151,7 @@ export function wireMine(deps: WiredDuo) {
       }
       const at = mine.chestAt(x, y, z);
       if (!at) return;
+      if (mine.yakataOpen(x, y, z, who)) return; // MINE-1F: やかたの 宝箱は 挑戦の 係が あつかう〔ふた・中身は かった あとに 出る〕
       const key = `${at.main.x},${at.main.y},${at.main.z}`;
       if (busy.has(key)) return; // ふたが 動いて いる 間は 何も しない
       if (at.opened) {
