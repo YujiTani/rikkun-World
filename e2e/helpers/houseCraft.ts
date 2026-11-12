@@ -205,11 +205,12 @@ export async function craftHouseIssues(page: Page, duo: boolean): Promise<HouseI
       const focus = (duoMode ? root?.querySelector('[data-pad-focus="true"]') : document.activeElement) ?? null;
       return { last: box(tiles[tiles.length - 1] ?? null), focus: focus && focus.classList.contains('cp-tile') ? box(focus) : null, grid: box(root?.querySelector('.craft-grid') ?? null) };
     }, duo);
-  let reached = false;
+  // えらんだ カード（えんとつ）が もう いちばん 下の 行に いる ことも ある（2 人用は 列が 少ない）。その ときは 下を 押さない（押すと もちものの マスへ 出る）
+  const atLast = (s: { last: Rect | null; focus: Rect | null }): boolean => !!s.last && !!s.focus && Math.abs(s.focus.t - s.last.t) < 1;
+  let reached = atLast(await read());
   for (let i = 0; i < 80 && !reached; i++) {
     await tapPad(page, idx, PAD.down);
-    const s = await read();
-    if (s.last && s.focus && Math.abs(s.focus.t - s.last.t) < 1) reached = true;
+    reached = atLast(await read());
   }
   if (!reached) add('scroll', duo ? 'duo-inv-p2 craft-grid' : 'craft craft-grid', '十字で 一覧の いちばん 下の 行まで 動けない');
   else {
