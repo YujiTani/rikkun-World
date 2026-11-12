@@ -6,7 +6,7 @@ import { MemoryBackend, packColumn, SAVE_ID, type StoredMeta } from './backend';
 import { SAVE_GEN, TERRAIN_RENEW_GEN } from './gens';
 import { needsTerrainRenew, renewTerrainMeta } from './renewTerrain';
 import { SAVE_VERSION, type KeyValueStore } from './SaveManager';
-import { openStoredKeys } from './streamRestore';
+import { openWorldKeys } from './streamRestore';
 
 /** 新しい 景色（木 v2・山 v2・目じるし）を 既定に した とき、古い 世代の セーブを 開く: 持ち物は のこり、地形（列）は すてて、おしらせは 1 回だけ */
 
@@ -51,7 +51,7 @@ async function oldBackend(gen: number): Promise<MemoryBackend> {
   return db;
 }
 
-const open = (db: MemoryBackend, store: KeyValueStore) => openStoredKeys({ db, store, seed: SEED, saveId: SAVE_ID, reset: false });
+const open = (db: MemoryBackend, store: KeyValueStore) => openWorldKeys({ db, store, seed: SEED, saveId: SAVE_ID, reset: false });
 
 describe('古い 世代の セーブ（新しい 景色の 前）', () => {
   it('世代の 判定: 今の 版・それより 新しい 版は そのまま。古い 版・版なしは 地形を すてる', () => {

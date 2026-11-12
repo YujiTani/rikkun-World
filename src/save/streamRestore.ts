@@ -69,17 +69,6 @@ export async function openStoredKeys(o: Pick<RestoreOptions, 'db' | 'store' | 's
     }
     const out = emptyStreamRestore();
     if (validMeta(all.meta, seed)) out.meta = all.meta;
-    // 新しい 景色に なる 前の 世代: 列は すてて（持ち物などは 残して）新しい 地形で 開く。保険の マスも 古い 地形の 物 なので すてる
-    if (out.meta !== null && needsTerrainRenew(out.meta)) {
-      const renewed = renewTerrainMeta(out.meta);
-      await db.replaceAll(saveId, [], renewed.meta);
-      removePendingOf(store, saveId);
-      out.meta = renewed.meta;
-      out.terrainRenewed = true;
-      out.lostItems = renewed.lostItems;
-      out.oldCols = oldColsOf(out.meta, out.keys);
-      return finishStart(out, seed);
-    }
     // meta がこわれていても 列は 読める（meta は 初期値から作りなおす）
     for (const k of all.keys) out.keys.add(colKey(k.cx, k.cz));
     out.columns = out.keys.size;
@@ -105,6 +94,30 @@ export async function openStoredKeys(o: Pick<RestoreOptions, 'db' | 'store' | 's
     return finishStart(out, seed);
   } catch {
     return emptyStreamRestore(); // 読めなかった: 新しい世界で始める（こわれた保存は次の保存で上書き）
+  }
+}
+
+/**
+ * ゲームが 起動で よぶ 窓口: openStoredKeys に 加えて、新しい 景色に なる 前の 世代の セーブなら 列は すてて（持ち物などは 残して）新しい 地形で 開く。
+ * 保険（pagehide）の マスも 古い 地形の 物 なので すてる。IndexedDB の 列も 消し、meta は 新しい 版で 書きなおす（おしらせは 1 回だけ）。
+ * 古い 版の 保存を そのまま 読む 部品（openStoredKeys。古い 列の 一覧など）は そのまま 残して ある（その 試験の ため）。
+ */
+export async function openWorldKeys(o: Pick<RestoreOptions, 'db' | 'store' | 'seed' | 'saveId' | 'reset' | 'signal'>): Promise<StreamRestore> {
+  const r = await openStoredKeys(o);
+  const { db, store, saveId, seed } = o;
+  if (!db || !store || r.readOnly || r.meta === null || !needsTerrainRenew(r.meta)) return r;
+  try {
+    const renewed = renewTerrainMeta(r.meta);
+    await db.replaceAll(saveId, [], renewed.meta);
+    removePendingOf(store, saveId);
+    const out = emptyStreamRestore();
+    out.meta = renewed.meta;
+    out.terrainRenewed = true;
+    out.lostItems = renewed.lostItems;
+    out.oldCols = oldColsOf(out.meta, out.keys);
+    return finishStart(out, seed);
+  } catch {
+    return r; // 書きなおせなかった: そのまま 開く（次の 起動で もういちど）
   }
 }
 
