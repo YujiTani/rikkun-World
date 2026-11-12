@@ -71,6 +71,31 @@ describe('G4 ふりわけ', () => {
     expect(swings(r)).toBe(0);
     expect(r.dig.state().progress).toBeGreaterThan(0);
   });
+  it('G6 の 手順: 木（まるた 4 つ）の 根もとは 押しつづけだけでは きれない（M2 とどめの ひと押し）。押し直すと 下 2 つが 空気', () => {
+    const r = rig();
+    const x = Math.floor(P.x);
+    const z = Math.floor(P.z) - 3;
+    for (let y = 10; y <= 13; y++) r.world.setBlock(x, y, z, 'log');
+    r.step(2);
+    r.actions.press('primary');
+    let n = 0;
+    while (!r.dig.state().ready && n < 400) {
+      r.step(1);
+      n++;
+    }
+    expect(r.dig.state().ready, '400 ステップ 以内に ひびが MAX').toBe(true);
+    r.step(50);
+    expect(r.world.getBlock(x, 10, z), '押しつづけ だけでは こわれない').toBe('log');
+    r.actions.release('primary');
+    r.actions.press('primary');
+    r.step(1);
+    r.actions.release('primary');
+    r.step(2);
+    expect(r.world.getBlock(x, 10, z)).toBe('air');
+    expect(r.world.getBlock(x, 11, z)).toBe('air');
+    expect(r.world.getBlock(x, 12, z)).toBe('log');
+    expect(swings(r)).toBe(0);
+  });
   it('空を ねらって 押す → よこなぎ（ほらない）。46 ステップ すぎると 押しつづけで また 出る', () => {
     const r = rig();
     r.actions.press('primary');

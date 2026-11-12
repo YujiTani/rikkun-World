@@ -44,10 +44,19 @@ test.describe('LEGEND-4 PR4 ノームの斧（G6）', () => {
     expect(tgt?.block, '根もとを ねらえて いる').toEqual({ x: tx, y: base, z: tz });
 
     const block = (y: number) => page.evaluate(({ tx, tz, y }) => (window.__rikkun as any).world.getBlock(tx, y, tz) as string, { tx, tz, y });
-    await page.evaluate(() => (window.__rikkun as any).input.press('primary'));
-    for (let i = 0; i < 400 && (await block(base)) === 'log'; i += 5) await page.evaluate(() => (window.__rikkun as any).step(5));
+    // ほる（M2 §2.3: 押しつづけて ひびが MAX → 押し直した しゅんかんに こわれる。とどめの ひと押し）
+    const ready = await page.evaluate(() => {
+      const h = window.__rikkun as any;
+      h.input.press('primary');
+      for (let i = 0; i < 400 && !h.dig.get().ready; i++) h.step(1);
+      return h.dig.get().ready as boolean;
+    });
+    expect(ready, '400 ステップ 以内に ひびが MAX').toBe(true);
     await page.evaluate(() => {
       const h = window.__rikkun as any;
+      h.input.release('primary');
+      h.input.press('primary');
+      h.step(1);
       h.input.release('primary');
       h.step(2);
     });
