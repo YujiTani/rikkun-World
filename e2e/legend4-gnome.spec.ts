@@ -40,8 +40,8 @@ test.describe('LEGEND-4 PR4 ノームの斧（G6）', () => {
     );
     await installAimHelpers(page);
     await aimAtBlock(page, tx, base, tz, 0.5);
-    const tgt = await page.evaluate(() => (window.__rikkun as any).target.get() as { x: number; y: number; z: number } | null);
-    expect(tgt, '根もとを ねらえて いる').toMatchObject({ x: tx, y: base, z: tz });
+    const tgt = await page.evaluate(() => (window.__rikkun as any).target.get() as { block: { x: number; y: number; z: number } } | null);
+    expect(tgt?.block, '根もとを ねらえて いる').toEqual({ x: tx, y: base, z: tz });
 
     const block = (y: number) => page.evaluate(({ tx, tz, y }) => (window.__rikkun as any).world.getBlock(tx, y, tz) as string, { tx, tz, y });
     await page.evaluate(() => (window.__rikkun as any).input.press('primary'));
