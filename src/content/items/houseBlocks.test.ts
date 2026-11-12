@@ -21,8 +21,12 @@ const HOUSE_BLOCKS = {
 type HouseBlockId = keyof typeof HOUSE_BLOCKS;
 const HOUSE_BLOCK_IDS = Object.keys(HOUSE_BLOCKS) as HouseBlockId[];
 
-/** 図鑑の「てにいれかた」（§4.8。家の ブロック・新しい 家具 とも 同じ 文。今の 家具 8 つの 文と 同じ） */
+/**
+ * 図鑑の「てにいれかた」（§4.8）。HOUSE-2C（仕様 3.4 版 §2.6・AC19）で「つくる」で 作れる ように なった ので、1 版の 13 は「…を ほる。つくる で つくれる」。
+ * まねきねこ は レシピを おぼえて から かまど で やける（文は src/content/items/houseCraftText.test.ts が 全文で 見る）
+ */
 const SOURCE = 'けんちくし が たてた いえ を ほる';
+const SOURCE_CRAFT = `${SOURCE}。つくる で つくれる`;
 
 const defs = ITEM_DEFS as unknown as Record<string, { name: string; source?: string } | undefined>;
 
@@ -40,14 +44,15 @@ describe('家の ブロック（HOUSE-1C PR-1）', () => {
     }
   });
 
-  it('図鑑の「てにいれかた」は「けんちくし が たてた いえ を ほる」', () => {
-    for (const id of HOUSE_BLOCK_IDS) expect(defs[id]?.source, id).toBe(SOURCE);
+  it('図鑑の「てにいれかた」は「けんちくし が たてた いえ を ほる。つくる で つくれる」', () => {
+    for (const id of HOUSE_BLOCK_IDS) expect(defs[id]?.source, id).toBe(SOURCE_CRAFT);
   });
 
   it('新しい 家具 8 つ（HOUSE_FURNITURE_IDS）は 置ける ブロック（アイテムの id と 同じ id の ブロックが ある）', () => {
     for (const id of HOUSE_FURNITURE_IDS) {
       expect(blockIndexOf(id), `${id} が ブロックの 表に ある`).toBeGreaterThanOrEqual(0);
-      expect(defs[id]?.source, `${id} の てにいれかた`).toBe(SOURCE);
+      if (id === 'maneki') expect(defs[id]?.source, `${id} の てにいれかた`).toMatch(new RegExp(`^${SOURCE}。.+かまど で やける$`));
+      else expect(defs[id]?.source, `${id} の てにいれかた`).toBe(SOURCE_CRAFT);
     }
   });
 

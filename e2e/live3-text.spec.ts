@@ -197,7 +197,8 @@ test.describe('LIVE-3 文字', () => {
         h.step(3);
         return h.craft.ui().tiles.length;
       });
-      expect(n, `${w}x${hgt} やく 5 まい`).toBe(5);
+      // HOUSE-2C: まねきねこ（かまど で やく）が ふえて 5 → 6 まい（仕様 §2.6）
+      expect(n, `${w}x${hgt} やく 6 まい`).toBe(6);
       const bad = (await checkLayout(page, ['#inventory-screen'])).filter((i) => i.kind === 'offscreen');
       expect(bad, `${w}x${hgt} やく タブ の はみ出し`).toEqual([]);
     }

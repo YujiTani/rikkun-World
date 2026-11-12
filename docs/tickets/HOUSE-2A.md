@@ -220,3 +220,18 @@ E2E は 1 本（`e2e/house2.spec.ts`。`e2e/shard-times.json` に 入れて あ�
 - 「つくる」の 一覧を 中で スクロールに する 変え方（§7 の 22）は 2C の PR に 入れる（PO）。
 - 手で 置いた ななめの やね・のれん・はなだんは 向き（`placedLook.facing`）で 描く。2B の `lookPieces(id, null)` は 立方体 なので、2C で 置いた 記録から 描く 道を 足す（ユニットで 向きごとの 形を 見る）。
 - 順番: yuzu が §7 の 4 つを 見る → tester（AC15〜AC21・E2E 1 本）→ code-reviewer → developer → レビュー・UI 検査（AC20）→ yuzu（AC21）。E2E は 手元で 回さない。
+
+## 2C の テストの 準備（tester 2026-11-12。窓口の 名前は src/house/recipes/craftKit.ts の「2C の 約束」）
+
+| AC | ファイル | 確かめる こと |
+|---|---|---|
+| AC15 | src/dig/houseDig2C.test.ts | 家の ブロック・家具・HOUSE-2 の しゅるい ぜんぶ・記録 なしの lk_ を ほると その 物 1 こ（log に ならない）。いまは 緑（もどり防止） |
+| AC16・AC17 | src/craft/houseCraft.test.ts | 1 版 13 物の 作り方・レシピ ゲート・3 案 同じ 材料・まねきねこ（かまど）・はなだんの 花の 順・実績名の 除外 |
+| AC17b | src/ui/craftHouseCards.test.ts | カードの 出方・並び・案の ボタン（CraftLooks） |
+| AC18 | src/dig/placedLooksDig.test.ts・e2e/house2c.spec.ts | 置く→ほる 通し・戸は 家の 記録を ふやさない・あかりの 湧かない 範囲。E2E は 本物の クリックで 1 本 |
+| AC18b | src/house/placedLooks.test.ts・src/dig/placedLooksDig.test.ts・src/world/render/placedLookPieces.test.ts | 置いた 記録の 保存・向き・消え方・2 人・向きごとの 描き分け |
+| AC19 | src/content/items/houseCraftText.test.ts | 図鑑の source 文 |
+| AC20 | e2e/ui-gate.spec.ts（craft-house・duo-inv-craft-house） | 画面の 数・大きさ |
+| AC21 | 既存の 件数・スナップショット | content.json は 実装側で `-u` |
+
+直した 既存テスト: craft2.test（canCraftAny は 木 1 で true）・houseBlocks.test（source 文）・live3-text.spec（やく 5 → 6 まい）。
