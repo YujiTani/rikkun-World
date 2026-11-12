@@ -31,6 +31,7 @@ import type { ThunderHook } from '../fx/thunderFx';
 import type { CharSprite, SpriteInfo } from '../char';
 import type { SpriteMotion } from '../char';
 import type { StartHook } from '../start/startBoot';
+import type { GfxState } from '../start/gfxController';
 import type { WorkHook } from './workHook';
 import type { WaterHook } from '../world/water/waterSystem';
 import type { GashaHook } from '../gasha/release';
@@ -38,6 +39,8 @@ import type { HouseHook } from '../house/hook';
 import type { DuoHook } from '../duo/types';
 
 type CameraHook = ReturnType<typeof createCameraHook>;
+/** `__rikkun.gfx.state()`: GfxState（start/gfxController.ts）に、いまの pixelRatio と 影の しくみの 有無を 足した もの */
+type GfxHookState = GfxState & { /** renderer の 今の pixelRatio（min(devicePixelRatio, res)） */ pixelRatio: number; /** 影の しくみを 作ってあるか */ shadowBuilt: boolean };
 type PlayerHook = {
   get(): unknown;
   set(v: { position?: object; velocity?: object; yaw?: number; pitch?: number }): void;
@@ -76,6 +79,8 @@ export interface TestHook {
   mine: MineHook;
   /** SHADOW-1: 光の位置から計算する影（docs/design/SHADOW.md §8.1） */
   shadow: ShadowHook;
+  /** GFX-1: おもさ・かげ・がめんの こまかさ・ちかくの こまかさ・輪の 今の ようす（せっていの「がめん」と 同じ 物を 読む） */
+  gfx: { state(): GfxHookState };
   /** CHAR-5 §4.6: キャラ（girl|boy|block）を 聞く・切りかえる */
   char: { get(): { kind: 'girl' | 'boy' | 'block' }; set(kind: 'girl' | 'boy'): void };
   /** M5: 距離で描くチャンクの数 */
@@ -223,7 +228,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house' | 'duo'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'gfx' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house' | 'duo'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

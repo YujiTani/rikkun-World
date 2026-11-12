@@ -15,7 +15,8 @@ export interface Shade {
 }
 
 export interface ShadowHookDeps {
-  system: ShadowSystem | null;
+  /** 影の しくみ（かるいで 始めると 最初は null。あとから 作られる） */
+  system: () => ShadowSystem | null;
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
@@ -42,7 +43,6 @@ const ZERO_STATS: ShadowStatsHook = {
 const luma = (r: number, g: number, b: number): number => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
 export function createShadowHook(d: ShadowHookDeps) {
-  const sys = d.system;
   // 光がとどく割合を 1 画素に描く（影の地図の答えを そのまま色にする）
   let probe: { rt: THREE.WebGLRenderTarget; scene: THREE.Scene; cam: THREE.Camera; at: { value: THREE.Vector3 } } | null = null;
   let shotRt: THREE.WebGLRenderTarget | null = null;
@@ -92,10 +92,10 @@ export function createShadowHook(d: ShadowHookDeps) {
   };
 
   return {
-    enabled: (): boolean => sys?.enabled ?? false,
+    enabled: (): boolean => d.system()?.enabled ?? false,
     set: (on: boolean): void => d.setEnabled(on),
-    stats: (): ShadowStatsHook => (sys ? sys.stats() : { ...ZERO_STATS }),
-    resetStats: (): void => sys?.resetStats(),
+    stats: (): ShadowStatsHook => d.system()?.stats() ?? { ...ZERO_STATS },
+    resetStats: (): void => d.system()?.resetStats(),
     /** tick を 1 つずつ進め、renderEvery 個ごとに 1 回 描く（壁の時計に左右されずに 地図の描き直しを数える） */
     advance: (ticks: number, renderEvery = 1): void => {
       for (let i = 1; i <= ticks; i++) {
@@ -105,6 +105,7 @@ export function createShadowHook(d: ShadowHookDeps) {
     },
     /** その点（y = 面の高さ）に 日・月の光がとどく割合 0..1。影の地図の答え（動く物の地図も入る） */
     visAt: (x: number, y: number, z: number): number => {
+      const sys = d.system();
       if (!sys) return 1;
       sys.sync();
       const p = ensureProbe();
@@ -117,7 +118,7 @@ export function createShadowHook(d: ShadowHookDeps) {
     },
     /** CPU で ブロック単位に 光（太陽か月）へ 1 本とばした答え（正解） */
     rayBlocked: (x: number, y: number, z: number): boolean => {
-      const l = sys ? sys.light.dir : { x: 0, y: 1, z: 0 };
+      const l = d.system()?.light.dir ?? { x: 0, y: 1, z: 0 };
       if (l.y <= 0.001) return false;
       const step = 0.05;
       for (let t = 0.05; t < 120; t += step) {
@@ -141,6 +142,7 @@ export function createShadowHook(d: ShadowHookDeps) {
         d.renderer.render(d.scene, cam);
         return readShade(rt);
       }));
+      const sys = d.system();
       return sys ? sys.withShadow(opt.shadow !== false, render) : render();
     },
     /** キャラの体の中心を ゲームのカメラで 1 画素 描いた色 */
@@ -160,6 +162,7 @@ export function createShadowHook(d: ShadowHookDeps) {
         }
         return readShade(rt);
       });
+      const sys = d.system();
       return sys ? sys.withShadow(opt.shadow !== false, render) : render();
     },
   };

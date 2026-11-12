@@ -6,8 +6,8 @@
  */
 export type Tier = 'micro' | 'box' | 'lod';
 
-/** F3 の設定で選べる小ブロックの半径 */
-export const MICRO_RADII = [16, 24, 28] as const;
+/** F4・せっていの「ちかくの こまかさ」で選べる小ブロックの半径（ブロック。0 は別あつかい。GFX-1 で 8・12 を足した） */
+export const MICRO_RADII = [8, 12, 16, 24, 28] as const;
 /** 小ブロックの半径（プレイヤーから。2026-10-18 から 28） */
 export const DEFAULT_MICRO_R = 28;
 /** 箱の外側（これより遠くは LOD） */

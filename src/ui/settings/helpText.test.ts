@@ -35,6 +35,12 @@ describe('せっていの ヘルプの文', () => {
     expect(UI_HELP.menuDpad).not.toContain('かえられるよ');
   });
 
+  it('GFX-1: 「がめん」タブの ボタンの 説明が ぜんぶ ある', () => {
+    for (const k of ['tabScreen', 'gfxWeight_xlight', 'gfxWeight_light', 'gfxWeight_normal', 'gfxWeight_fine', 'gfxMore', 'gfxShadow', 'gfxRes', 'gfxMicro']) {
+      expect(helpFor(`ui:${k}`), k).toBeTruthy();
+    }
+  });
+
   it('漢字は ルビの外に ない（ひらがな・カタカナ）', () => {
     const all = [...Object.values(UI_HELP), ...Object.values(ACTION_HELP), helpFor('act:jump')];
     for (const t of all) expect(kanjiOutsideRuby(t), t).toEqual([]);
