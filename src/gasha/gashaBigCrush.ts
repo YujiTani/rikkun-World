@@ -5,7 +5,7 @@
  *   こわした マスは onBlocks へ（ぬりかべと おなじく くだける つぶと 音は 呼ぶ 側）。
  * 数は gashaBigTuning.ts の slam.crush*。
  */
-import { canCrushBlock } from '../world/blocks/crushable';
+import { canCrushBlock, crushPartner } from '../world/blocks/crushable';
 import { TUNE as T } from './gashaBigTuning';
 
 export interface CrushIO {
@@ -36,6 +36,11 @@ export function crushAt(x: number, y: number, z: number, io: CrushIO, S: { crush
         const b = io.getBlock(i, j, k);
         if (!crushable(b, j)) continue;
         if (io.setAir(i, j, k)) changed.push({ x: i, y: j, z: k, from: b, to: 'air' });
+        const pr = crushPartner(b, i, j, k); // ひまわりの 相手の 段
+        if (pr) {
+          const pb = io.getBlock(pr.x, pr.y, pr.z);
+          if (crushable(pb, pr.y) && io.setAir(pr.x, pr.y, pr.z)) changed.push({ x: pr.x, y: pr.y, z: pr.z, from: pb, to: 'air' });
+        }
       }
     }
   }

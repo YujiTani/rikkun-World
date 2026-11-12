@@ -17,6 +17,7 @@ import { TUNE as T } from './gashaBigTuning';
 import { groupsOf, pickSpot, type SpawnProbe } from './gashaGeyserSpawn';
 import { isWater } from '../world/blocks/water';
 import type { GashaTarget } from './gashaTargets';
+import { COUNTRY_PLANT_IDS } from '../world/blocks/countryPlants';
 
 export interface GeyserSpec {
   /** 柱の 北西の かどの マス（x0, z0）。柱は x0 〜 x0 + w、z0 〜 z0 + d */
@@ -601,5 +602,5 @@ export class GeyserField {
 
 /** 空気 いがいで 固くない ブロック（くさ・はな・たいまつ など。柱の 中に あっても よい） */
 function isNonSolid(id: string): boolean {
-  return id === 'torch' || id === 'start_torch' || id === 'kusa' || id === 'susuki' || id === 'nobana' || id.startsWith('flower_');
+  return id === 'torch' || id === 'start_torch' || id === 'kusa' || id === 'susuki' || id === 'nobana' || id.startsWith('flower_') || COUNTRY_PLANT_IDS.includes(id as never);
 }

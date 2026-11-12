@@ -6,6 +6,7 @@ import { CHALK_FACES, CHALK_NORMAL, chalkInfo, isChalkMarkId } from '../world/bl
 import { chestBlockInfo, chestFrontAt, chestPartner } from '../world/blocks/chestBlock';
 import { futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
+import { himawariPartnerDy } from '../world/blocks/himawari';
 import { isLookBlock } from '../world/blocks/houseLookBlocks';
 import { K_TANSU, doorInfo, furnSiblings, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
 import { ROPE, ROPE_STAKE, isFenceBlock, isRopeBlock, ropeColumn, ropeStakeOf, ropesFor, stakeRope } from '../world/blocks/rope';
@@ -72,6 +73,7 @@ export class BlockBreaker {
     // HOUSE-1C: 戸は 上下 2 マス・長い 家具は ぜんぶの マスが 消えて、もとの アイテム 1 こ（向き・マス ちがいの id は もとの id に もどす）
     const houseDrop = houseDropOf(t.id);
     this.clearHouseCells(t);
+    this.clearHimawari(t);
     const dropId = dropBlockOf(t.id);
     // ふとん 2 マス: どちらを こわしても 相手の マスも 消えて ふとん 1 つ（相手が いない 1 マスだけの ふとんは そのまま）
     const pair = futonPartner(t.id, x, z);
@@ -161,6 +163,15 @@ export class BlockBreaker {
       return;
     }
     for (const s of furnSiblings(t.id, x, z)) if ((s.x !== x || s.z !== z) && w.getBlock(s.x, y, s.z) === s.id) w.setBlock(s.x, y, s.z, 'air');
+  }
+
+  /** ひまわり: どちらの 段を こわしても もう 1 段も 消える（ねらった マスは 呼んだ 側が 消す。drop は himawari 1 こ） */
+  private clearHimawari(t: TargetInfo): void {
+    const dy = himawariPartnerDy(t.id);
+    if (dy === null) return;
+    const { x, y, z } = t.block;
+    const w = this.c.world;
+    if (himawariPartnerDy(w.getBlock(x, y + dy, z)) === -dy) w.setBlock(x, y + dy, z, 'air');
   }
 
   /** ROPE-1: どの マス（くい・なわ・ロープだまり）を こわしても たれた ロープ ぜんぶと くいが 消え、つかった 本数（⌈長さ ÷ 10⌉。くいは 数えない）が 持ち物に もどる */

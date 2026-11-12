@@ -139,7 +139,13 @@ export type BlockId =
   | 'taoreta_hashigo_z'
   | 'takibi_ato'
   // HOUSE-2A（#364。うしろに足す。212）: まきもの（坑道の 宝箱の ない 坑道の いちばん 下の へやに 1 つ。固くない・こわせない・右クリックで とる。レシピを おぼえる）
-  | 'makimono';
+  | 'makimono'
+  // VOX-I-4a（#187。うしろに足す。237〜241。HOUSE-2B の lk_* 20 こ〔217〜236〕の うしろ）: 国だけの物 その 1（十字の 板。固くない・こわせる）
+  | 'kinoko' // きのこ（もり。ひろえる）
+  | 'himawari' // ひまわり（はなばたけ。2 段の 下の 段 = くき。ほると himawari 1 こ）
+  | 'himawari_top' // ひまわり の 上の 段（花）。持ち物に 入らない（ほると himawari）
+  | 'kaigara' // かいがら（すなはま。すなの 上の 小さな 板）
+  | 'takenoko'; // たけのこ（たけやぶ）
 
 export interface BlockType {
   id: BlockId;

@@ -43,6 +43,8 @@
 | 忍者・侍の装備の部位 | `craft/config.ts` の `NINJA_GEAR`・`SAMURAI_GEAR`（部位は登録表の `armor.slot` とそろう。`registry.test.ts` が確かめる） |
 | たいまつの足した作り方 | `craft/recipes.ts` の `TORCH_COAL`・`TORCH_LOG`（カードは元の `torch` の 1 枚のまま） |
 
+**国だけの物の 小さな 板（VOX-I-4a #187。きのこ・ひまわり・かいがら・たけのこ）**: ブロック id は `contracts/world.ts` の `BlockId`（うしろに足す）→ `blockTypes.ts` の `BLOCK_TYPES` と `CROSS_IDS`（十字の板）→ `world/blocks/countryPlants.ts` の `COUNTRY_PLANT_IDS`（地面の高さに数えない・たいらにする・家の場所・坑道の 表が ここを 読む）→ 絵は `voxI4aTiles.ts` ＋ `textures.ts`（タイル名・面の表）→ ほる 固さ・レア度・ほると 1 こ（`dig/config.ts` の 4 表 ＋ `FARM_BREAK_DROP`）→ アイテムは `content/items/blocks.ts` の `VOX_I`（説明の 行が なければ `noInfoOk.ts`）と `ui/itemCategory.ts`。ひまわりの 上の 段 `himawari_top` は アイテムに ならない（`types.ts` の `BLOCK_ONLY_IDS`）。2 段の 置き方・こわし方は `world/blocks/himawari.ts`（`dig/digPlace.ts`・`digBreak.ts`）。世界に 置く 場所は `world/gen/countryFeatures.ts`（`FEATURE_TUNE` の 表 ＋ 国ごとの 関数 `BUILDERS`）と `countryFeatureBlocks.ts`。
+
 **黙って落ちる所の守りは、型で守れない id のために 3 か所だけ残してある**（`drops/rarity.ts` の `?? 'common'`、`ui/itemCategory.ts` の `?? 'material'`、`ui/itemIcon.ts` の石の絵）。アイテムにならないブロック（みず など）と、セーブや外から来た知らない id を受ける所。アイテムの id がここに落ちないことはテストが確かめる。
 
 ## 妖怪（登録表。`src/content/yokai/`。設計は `docs/design/YOKAI-REGISTRY.md`）

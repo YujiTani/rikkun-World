@@ -4559,6 +4559,54 @@
       "rarity": "common",
       "recipes": []
     },
+    "kinoko": {
+      "DIG_DEFAULTS.hardness.kinoko": 0.05,
+      "DIG_DEFAULTS.harvestLevel.kinoko": 0,
+      "DIG_DEFAULTS.rarity.kinoko": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "きのこ",
+      "placeBlock": "kinoko",
+      "rarity": "common",
+      "recipes": []
+    },
+    "himawari": {
+      "DIG_DEFAULTS.hardness.himawari": 0.05,
+      "DIG_DEFAULTS.harvestLevel.himawari": 0,
+      "DIG_DEFAULTS.rarity.himawari": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "ひまわり",
+      "placeBlock": "himawari",
+      "rarity": "common",
+      "recipes": []
+    },
+    "kaigara": {
+      "DIG_DEFAULTS.hardness.kaigara": 0.05,
+      "DIG_DEFAULTS.harvestLevel.kaigara": 0,
+      "DIG_DEFAULTS.rarity.kaigara": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "かいがら",
+      "placeBlock": "kaigara",
+      "rarity": "common",
+      "recipes": []
+    },
+    "takenoko": {
+      "DIG_DEFAULTS.hardness.takenoko": 0.05,
+      "DIG_DEFAULTS.harvestLevel.takenoko": 0,
+      "DIG_DEFAULTS.rarity.takenoko": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "たけのこ",
+      "placeBlock": "takenoko",
+      "rarity": "common",
+      "recipes": []
+    },
     "egg": {
       "ITEM_INFO.egg": {
         "buttons": [

@@ -2,6 +2,9 @@ import { expect, test } from '@playwright/test';
 import { installAimHelpers } from './helpers/aim';
 import { installArena } from './helpers/arena';
 
+// CI の おそい ランナーで ブラウザの 用意（context）だけで 60 秒 切れた ことが ある（PR #459）。用意の 時間も 入る ファイル全体の 上限を のばす
+test.describe.configure({ timeout: 120_000 });
+
 /**
  * ヒントの「絵」だけを くらべる。1 語（おく・ほる・ひらく…）は ユニット（`src/dig/rightClick.test.ts`）が見るので、
  * E2E では「ねらうと出る・ことばが空でない」だけを見る（#37: 文言が変わるたびに E2E が古くならないように）。
