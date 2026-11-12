@@ -37,14 +37,15 @@ function setProfile(p: Params, samples: readonly (readonly number[])[], q: numbe
  * そとへ 広がる はやさ rho = 道の 坂 ÷ その 場所の 山の 坂（段面から）。山が きついほど、その 場所で 何周も まわって 高さを かせぐ。
  * 戻り値 = [x, z, ...]
  */
-function spiralPts(p: Params, px: number, pz: number, a0: number, dir: number, maxAlong: number): number[] {
+function spiralPts(p: Params, px: number, pz: number, a0: number, dir: number, maxAlong: number, every = 1): number[] {
   const P = T.path;
   const prof = p.prof!;
   const out: number[] = [];
   let r = P.startR;
   let th = a0;
+  let n = 0;
   for (let along = 0; along <= maxAlong; along += P.step) {
-    out.push(px + Math.cos(th) * r, pz + Math.sin(th) * r);
+    if (n++ % every === 0) out.push(px + Math.cos(th) * r, pz + Math.sin(th) * r); // every > 1 = every 番目の 点だけ 返す（三角関数を へらす。点の 値は 同じ）
     const i = Math.min(prof.length - 1, Math.round(r));
     const slope = Math.abs(prof[Math.max(0, i - P.profSmooth)]! - prof[Math.min(prof.length - 1, i + P.profSmooth)]!) / (2 * P.profSmooth);
     const rho = Math.min(P.maxRho, P.k / Math.max(slope, 1e-3));
@@ -72,13 +73,13 @@ export function choosePath(p: Params, px: number, pz: number, shape: (x: number,
     for (const dir of [1, -1]) {
       for (let i = 0; i < P.tryDirs; i++) {
         const a0 = p.pathA + (i / P.tryDirs) * TAU;
-        const pts = spiralPts(p, px, pz, a0, dir, maxAlong);
+        const pts = spiralPts(p, px, pz, a0, dir, maxAlong, stride);
         let score = 0;
         let bank = 0;
         let last = 0;
         for (let j = stride; j * P.step * P.k < p.apex && score < bestScore; j += stride) { // 点数は 増える だけ: いまの 最良 以上に なったら 打ち切る（選ぶ 道は 同じ）
-          const qx = pts[j * 2]!;
-          const qz = pts[j * 2 + 1]!;
+          const qx = pts[(j / stride) * 2]!;
+          const qz = pts[(j / stride) * 2 + 1]!;
           const ground = shape(qx, qz);
           const excess = Math.max(0, p.apex - P.k * j * P.step - ground);
           const cut = Math.max(0, ground - (p.apex - P.k * j * P.step) - P.cutFree);

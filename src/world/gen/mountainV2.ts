@@ -50,12 +50,29 @@ const cachePz = new Int32Array(OFFSET_CACHE_SIZE);
 const cacheSeed = new Int32Array(OFFSET_CACHE_SIZE);
 const cacheVal = new Float64Array(OFFSET_CACHE_SIZE);
 
+/** 道えらびの 答え（向き・土手・段面）。山の パラメータの 覚えが あふれて 作りなおしても、重い えらびを やりなおさない（答えは 同じ） */
+const PATH_CHOICE_MAX = 4096; // 覚える 山の 数（1 つ 数十 バイト）
+const pathChoice = new Map<string, { best: { a0: number; dir: number; bank: number }; prof: number[] }>();
+
+function chosenPath(seed: number, p: Params, px: number, pz: number): { a0: number; dir: number; bank: number } {
+  const key = `${seed}:${px}:${pz}`;
+  const hit = pathChoice.get(key);
+  if (hit) {
+    p.prof = hit.prof;
+    return hit.best;
+  }
+  const best = choosePath(p, px, pz, (sx, sz) => shapeOf(p, px, pz, sx, sz));
+  if (pathChoice.size >= PATH_CHOICE_MAX) pathChoice.clear();
+  pathChoice.set(key, { best, prof: p.prof! });
+  return best;
+}
+
 function mountainOffsetV2Raw(seed: number, kind: CountryKind, px: number, pz: number, x: number, z: number): number {
   const p = paramsFor(seed, kind as MountainKind, px, pz);
   let h = shapeOf(p, px, pz, x, z);
   if (Number.isNaN(p.apex)) {
     p.apex = shapeOf(p, px, pz, px, pz);
-    const best = choosePath(p, px, pz, (sx, sz) => shapeOf(p, px, pz, sx, sz));
+    const best = chosenPath(seed, p, px, pz);
     buildPath(p, px, pz, best.a0, best.dir);
     p.bank = best.bank;
   }
