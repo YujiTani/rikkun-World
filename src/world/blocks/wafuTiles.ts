@@ -134,7 +134,95 @@ const TILE_KOKE_ARA_ISHI: GridTile = {
   ],
 };
 
-/** わふうの 6 ブロックの 絵（かわら・しっくいは 今ある 絵を 使うので ここには 無い。さいごの 2 つは あらい 石） */
+const TILE_KIZAMI_ISHI: GridTile = {
+  pal: {d: '#34343E', a: '#80808C', b: '#9A9AA6', c: '#666672', h: '#B4B4BE'},
+  rows: [
+    'ahhahhhhahhhhhac',
+    'hddddddddddddddc',
+    'hbhhhhhhhhhhhhdh',
+    'hbbbbbcbcbbbbbdh',
+    'hdddddddddddbbdh',
+    'hdhhhhhhhhhdhbdh',
+    'hdhbbbbbbbbdhbdh',
+    'hdhbdddddbbdhbdh',
+    'hdhbdhhhhhbdhbdh',
+    'hdhbdhbbbbbdhbdh',
+    'hdhbdhbbbbbdhbdh',
+    'hdhbddddddddhcdh',
+    'hdhbbhhhhhhhhcdh',
+    'hdhbbbbbccbbbbdh',
+    'hddddddddddddddh',
+    'cchhhhhhhhhhhhhh',
+  ],
+};
+
+const TILE_MARU_MON_ISHI: GridTile = {
+  pal: {d: '#34343E', a: '#80808C', b: '#9A9AA6', c: '#666672', h: '#B4B4BE'},
+  rows: [
+    'hhhhhccccccchhhc',
+    'hcbccbbddbbccbac',
+    'hbccbbbddbbbccbc',
+    'hccdddbddadddccc',
+    'hcbdhdbddbdhdbcc',
+    'cbbddhdhhdhddbbc',
+    'cbbbbdhddhdbccbc',
+    'cddddhddddhddddc',
+    'cddddhddddhddddc',
+    'cbbbadhddhdbbbbc',
+    'cbbddhdhhdhddbcc',
+    'hcbdhdbddbdhdbcc',
+    'cccdddbddbdddccc',
+    'hbccbbbddbcbccbc',
+    'cbbccbbddbbccbbc',
+    'cccccccccccccacc',
+  ],
+};
+
+const TILE_RENGA_ISHI: GridTile = {
+  pal: {d: '#34343E', a: '#A0A0AC', b: '#AEAEBA', c: '#74747F', h: '#C8C8D2'},
+  rows: [
+    'hhhhhhhchhhhhhhc',
+    'bbbbbbacbbbbbbbc',
+    'bbabbbbcbbbbbabc',
+    'cccccccccccccccc',
+    'hhhchhhhhhhchhhh',
+    'bbbcbbbbbbbcbbbb',
+    'bbbcbbbabbbcbbbb',
+    'cccccccccccccccc',
+    'hhhhhhhchhhhhhhc',
+    'bababbacbbbaabbc',
+    'bbbbbbbcbbbbbabc',
+    'cccccccccccccccc',
+    'hhhchhhhhhhchhhh',
+    'bbbcbbbbbbbcbbbb',
+    'babcbbbbbbbcabab',
+    'cccccccccccccccc',
+  ],
+};
+
+const TILE_KOKE_RENGA_ISHI: GridTile = {
+  pal: {d: '#34343E', a: '#A0A0AC', b: '#AEAEBA', c: '#74747F', h: '#C8C8D2', G: '#5A9A3C', g: '#78B84A', n: '#3A7230'},
+  rows: [
+    'hghhGhGchhhhhhhc',
+    'bbGbbGacbbbbnbbc',
+    'bbabbbbcbbbbbabc',
+    'cccccccccccccccc',
+    'hhhcGhhhhhhchhhh',
+    'bbbcbgbbbbbcbbbb',
+    'bbbcbbbabbbcbnbG',
+    'cccccccccccccccc',
+    'hghnGnnnGGhhnGhn',
+    'gaGaGgncbngnabgn',
+    'bbbbbgbcbGbbgagc',
+    'cncnnncccnccnncc',
+    'ghhcgggGhhGchGGn',
+    'bnncbbgngbbcgbbG',
+    'GaGcbbbbbGncabaG',
+    'ccncnnnnnncccccc',
+  ],
+};
+
+/** わふうの 10 ブロックの 絵（かわら・しっくいは 今ある 絵を 使うので ここには 無い。さいごの 2 つは あらい 石） */
 export const WAFU_GRIDS = {
   shu_ita: TILE_SHU_ITA,
   ishidatami: TILE_ISHIDATAMI,
@@ -142,4 +230,8 @@ export const WAFU_GRIDS = {
   chouchin: TILE_CHOUCHIN,
   ara_ishi: TILE_ARA_ISHI,
   koke_ara_ishi: TILE_KOKE_ARA_ISHI,
+  kizami_ishi: TILE_KIZAMI_ISHI,
+  maru_mon_ishi: TILE_MARU_MON_ISHI,
+  renga_ishi: TILE_RENGA_ISHI,
+  koke_renga_ishi: TILE_KOKE_RENGA_ISHI,
 } as const satisfies Record<string, GridTile>;

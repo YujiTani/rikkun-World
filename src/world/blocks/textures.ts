@@ -68,12 +68,12 @@ export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y
   // VOX-I-4b（#187。山の物の 1 コマめ。絵は voxI4bTiles.ts）
   | 'suisho_top' | 'suisho_side' | 'touro_top' | 'touro_side' | 'ochiba_top' | 'ochiba_side'
   // WAFU-1（わふうの 4 ブロックの 1 コマめ。絵は wafuTiles.ts）
-  | 'shu_ita' | 'ishidatami' | 'koke_ishi' | 'chouchin' | 'ara_ishi' | 'koke_ara_ishi';
+  | 'shu_ita' | 'ishidatami' | 'koke_ishi' | 'chouchin' | 'ara_ishi' | 'koke_ara_ishi' | 'kizami_ishi' | 'maru_mon_ishi' | 'renga_ishi' | 'koke_renga_ishi';
 const VOX_I_TILES: readonly VoxITileName[] = ['snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'susuki', 'kusa', 'nobana', 'kinoko', 'himawari_ue', 'himawari_shita', 'kaigara', 'takenoko'];
 /** VOX-I-4b（#187）の 6 まい。TILE_NAMES の いちばん うしろに 足す（今の 絵の 位置は かわらない。こたつの すきま〔4 の 倍数ぞろえ〕に ギャジェットの 絵が 入る 数も かわらない） */
 const VOX_I4B_TILES: readonly VoxITileName[] = ['suisho_top', 'suisho_side', 'touro_top', 'touro_side', 'ochiba_top', 'ochiba_side'];
 /** WAFU-1 の 4 まい。さいごに 足す */
-const WAFU_TILES: readonly VoxITileName[] = ['shu_ita', 'ishidatami', 'koke_ishi', 'chouchin', 'ara_ishi', 'koke_ara_ishi'];
+const WAFU_TILES: readonly VoxITileName[] = ['shu_ita', 'ishidatami', 'koke_ishi', 'chouchin', 'ara_ishi', 'koke_ara_ishi', 'kizami_ishi', 'maru_mon_ishi', 'renga_ishi', 'koke_renga_ishi'];
 
 /** M7 農業の絵の名前（`farm.texture` の name と同じ） */
 export type FarmTileName =
@@ -603,6 +603,10 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   chouchin: ['chouchin', 'chouchin', 'chouchin'],
   ara_ishi: ['ara_ishi', 'ara_ishi', 'ara_ishi'],
   koke_ara_ishi: ['koke_ara_ishi', 'koke_ara_ishi', 'koke_ara_ishi'],
+  kizami_ishi: ['kizami_ishi', 'kizami_ishi', 'kizami_ishi'],
+  maru_mon_ishi: ['maru_mon_ishi', 'maru_mon_ishi', 'maru_mon_ishi'],
+  renga_ishi: ['renga_ishi', 'renga_ishi', 'renga_ishi'],
+  koke_renga_ishi: ['koke_renga_ishi', 'koke_renga_ishi', 'koke_renga_ishi'],
   // #293 試作
   geyser_dirt: ['geyser_dirt_top', 'geyser_dirt_side', 'geyser_dirt_side'],
   // ITEM-FX-1: 置き物 3 つ（形は meshChunk の pushProp。ここは ひび・かけらの 色用）

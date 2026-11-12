@@ -28,8 +28,9 @@ function layer(y: number): string[] {
       const endPost = side && (x === 0 || x === LEN - 1);
       if (y === d) r += 'S'; // ゆか
       else if (y < d) r += side && stageEdge(x) ? 'S' : '.'; // ゆかの 下: 段の かわり目の ささえ
-      else if (y === d + 1 || y === d + 2) r += post ? 'S' : '.'; // はしら（高さ 2）
-      else if (y === d + 3) r += side ? 'S' : '.'; // 横木 1 本（はしの はしらも ここは 横木と 同じ 朱色）
+      else if (y === d + 1) r += !side ? '.' : post ? 'P' : 'x'; // はしら（細い）と、そのあいだの ひくい かきね
+      else if (y === d + 2) r += post ? 'P' : '.'; // はしら（高さ 2）
+      else if (y === d + 3) r += side ? 'B' : '.'; // 横木 1 本（はしの はしらも ここは 横木と 同じ 朱色）
       else if (y === d + 4) r += endPost ? 'M' : '.'; // 両はしの はしらの 頭（1 マス 高い）
       else r += '.';
     }
@@ -43,6 +44,9 @@ export const HASHI: StructureShape = {
   layers: [0, 1, 2, 3, 4, 5, 6].map(layer),
   legend: {
     S: 'shu_ita',
+    P: 'shu_ita_hashira',
+    x: 'shu_ita_kakine_x',
+    B: 'shu_ita_usuita_shita', // はしらの 上の 横木（うすいた）
     M: 'koke_ishi',
   },
   anchor: { x: 6, z: 2 },

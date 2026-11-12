@@ -27,17 +27,20 @@ describe('石の 小物・ほこら・やぐら', () => {
     expect(d.h).toBeGreaterThanOrEqual(3); expect(d.h).toBeLessThanOrEqual(4);
     expect(shapeCells(STRUCTURES.ojizou).filter((c) => c.ch === 'S').length).toBe(3);
   });
-  it('大きな 石ぞう: 高さ 12〜16・すわった 形（肩が どうより 広く、ひざが 前に 出る）・細い 目 2 つと 小さい 口 1 つ・あらいしが 主でこけも 出る', () => {
+  it('大きな 石ぞう: 高さ 12〜17（足もとの だんを ふくむ）・すわった 形（肩が どうより 広く、ひざが 前に 出る）・細い 目（2×1 が 2 つ）と 小さい 口 1 つ・むねに きざみいし・台に まるもんの いし・足もとは 13×16 の 石だたみ・あらいしが 主で こけも 出る', () => {
     const s = STRUCTURES.sekizou;
     const d = dims(s);
-    expect(d.h).toBeGreaterThanOrEqual(12); expect(d.h).toBeLessThanOrEqual(16);
+    expect(d.h).toBeGreaterThanOrEqual(12); expect(d.h).toBeLessThanOrEqual(17);
     const cells = shapeCells(s);
+    expect(cells.filter((c) => c.y === 0 && c.ch === 'P').length).toBe(13 * 16);
+    expect(cells.filter((c) => c.ch === 'Z').length).toBe(1);
+    expect(cells.filter((c) => c.ch === 'O').length).toBe(1);
     const solid = (y: number) => cells.filter((c) => c.y === y && c.ch !== '.');
     const wide = (y: number): number => { const v = solid(y).map((c) => c.rx); return Math.max(...v) - Math.min(...v) + 1; };
-    expect(wide(9)).toBeGreaterThan(wide(8));
-    expect(wide(11)).toBeLessThan(wide(9));
-    expect(Math.max(...solid(1).map((c) => c.rz))).toBeGreaterThan(Math.max(...solid(7).map((c) => c.rz)));
-    expect(cells.filter((c) => c.ch === 'K').length).toBe(3);
+    expect(wide(10)).toBeGreaterThan(wide(9));
+    expect(wide(12)).toBeLessThan(wide(10));
+    expect(Math.max(...solid(2).map((c) => c.rz))).toBeGreaterThan(Math.max(...solid(8).map((c) => c.rz)));
+    expect(cells.filter((c) => c.ch === 'K').length).toBe(5); // 目 2×1 が 2 つ ＋ 口 1
     const m = ids(s);
     expect(m.get('ara_ishi')!).toBeGreaterThan(m.get('koke_ara_ishi') ?? 0);
     expect(m.has('koke_ara_ishi')).toBe(true);
@@ -45,14 +48,14 @@ describe('石の 小物・ほこら・やぐら', () => {
   it('ほこら: 7×7・石段 3 段・朱色の はしら 4 本・石の かこい・中に 石ぞうと ちょうちん・屋根の すみが 上がる', () => {
     const s = STRUCTURES.hokora;
     const d = dims(s);
-    expect([d.w, d.d]).toEqual([7, 7]);
+    expect([d.w, d.d]).toEqual([9, 8]);
     const cells = shapeCells(s);
     expect(cells.filter((c) => c.ch === 'S' && c.y === 4).length).toBe(4);
     expect(cells.filter((c) => c.ch === 'C').length).toBe(1);
     expect(cells.filter((c) => c.ch === 'N').length).toBe(2);
     const col = (rz: number): number => Math.max(...cells.filter((c) => c.rz === rz && c.rx === 0 && c.ch === 'I').map((c) => c.y));
     expect([col(3), col(2), col(1)]).toEqual([0, 1, 2]); // 手前から 台へ 3 だん（0・1・2。まん中の 列）
-    expect(cells.filter((c) => c.y === 7 && c.ch === 'U' && Math.abs(c.rx) === 3 && (c.rz === -3 || c.rz === 1)).length).toBe(4);
+    expect(cells.filter((c) => c.y === 7 && c.ch === 'U' && Math.abs(c.rx) === 4 && (c.rz === -4 || c.rz === 2)).length).toBe(4);
   });
   it('いど: 高さ 6〜8・石の わく 8 マス・木の はしら 2 本・つるべの 横木・かわらの 屋根', () => {
     const s = STRUCTURES.ido;
@@ -68,7 +71,7 @@ describe('石の 小物・ほこら・やぐら', () => {
     expect(s.layers).toBe(STRUCTURES.torii.layers);
     const d = dims(s);
     expect(d.h).toBeGreaterThanOrEqual(12); expect(d.h).toBeLessThanOrEqual(15);
-    for (const id of ids(s).keys()) expect(['ara_ishi', 'koke_ara_ishi', 'koke_ishi', 'hibi_ishi', 'air']).toContain(id);
+    for (const id of ids(s).keys()) expect(['ara_ishi', 'koke_ara_ishi', 'koke_ishi', 'hibi_ishi', 'kizami_ishi', 'ara_ishi_usuita_shita', 'ara_ishi_usuita_ue', 'air']).toContain(id);
   });
   it('かねの やぐら: 高さ 9〜11・たて長の 柱 4 本・つりがね（くろい かわら 2 マス）・そった かわら屋根', () => {
     const s = STRUCTURES.yagura;
@@ -77,7 +80,7 @@ describe('石の 小物・ほこら・やぐら', () => {
     const cells = shapeCells(s);
     expect(cells.filter((c) => c.ch === 'P' && c.y === 3).length).toBe(4);
     expect(cells.filter((c) => c.ch === 'B').length).toBe(2);
-    expect(cells.filter((c) => c.y === 8 && c.ch === 'T' && Math.abs(c.rx) === 3 && Math.abs(c.rz) === 3).length).toBe(4);
+    expect(cells.filter((c) => c.y === 8 && c.ch === 'U' && Math.abs(c.rx) === 3 && Math.abs(c.rz) === 3).length).toBe(4);
   });
   it('ゆらぎ: 同じ 入力なら 同じ 結果。下の 段ほど こけが 多い かたより', () => {
     const a = placeStructure(STRUCTURES.sekizou, 7, 9, 0, 3, flat(2))!;
@@ -86,6 +89,6 @@ describe('石の 小物・ほこら・やぐら', () => {
       const bs = a.blocks.filter((q) => q.y >= a.baseY + lo && q.y < a.baseY + hi);
       return bs.filter((q) => q.id === 'koke_ara_ishi').length / Math.max(1, bs.length);
     };
-    expect(share(0, 4)).toBeGreaterThan(share(11, 15));
+    expect(share(0, 4)).toBeGreaterThan(share(5, 9)); // こけは 下に かたよる（どうは 石の 色）
   });
 });

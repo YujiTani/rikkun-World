@@ -593,7 +593,11 @@
       "suisho",
       "koke_ishi",
       "ara_ishi",
-      "koke_ara_ishi"
+      "koke_ara_ishi",
+      "kizami_ishi",
+      "maru_mon_ishi",
+      "renga_ishi",
+      "koke_renga_ishi"
     ],
     "tool": [
       "wood_pickaxe",
@@ -924,6 +928,10 @@
     "chouchin",
     "ara_ishi",
     "koke_ara_ishi",
+    "kizami_ishi",
+    "maru_mon_ishi",
+    "renga_ishi",
+    "koke_renga_ishi",
     "egg",
     "mushi",
     "mushi_ami",

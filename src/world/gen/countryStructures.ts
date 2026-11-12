@@ -37,8 +37,8 @@ const STRUCTURE_TUNE = {
   ido: { from: 16, to: 34, step: 3, below: 6 },
   /** おじぞうさん: 石段の 何ぶんの 何の 所に 立てるか（2 か所）・道の まん中から の きょり */
   ojizou: { at: [0.4, 0.75] as const, side: 8, sideTries: [0, 2, -2, 4] as const, alongTries: [0, 2, -2, 4, -4, 6, -6] as const },
-  /** 大きな 石ぞう: 1 つの 山に 置く 確率（0〜1）・さがす きょり・かべの 高さ（石ぞうの 背の すこし うしろの 地面が これ 以上 高い）・かべまでの きょり */
-  sekizou: { chance: 0.6, from: 6, to: 40, step: 1, wallHigh: 4, wallDist: 6 },
+  /** 大きな 石ぞう: 1 つの 山に 置く 確率（0〜1）・さがす きょり・かべの 高さ（石ぞうの 背の すこし うしろの 地面が これ 以上 高い）・かべまでの きょり・足もとの 土台（うめる ブロックの 数）の 上限（たいらな 所に 立てる） */
+  sekizou: { chance: 0.6, from: 6, to: 40, step: 1, wallHigh: 3, wallDist: 9, maxBase: 1800 },
   /** いしの とりい（いわやま）: さがす きょり */
   ishiTorii: { from: 10, to: 38, step: 4 },
 } as const;
@@ -150,9 +150,12 @@ export function momijiStructures(c: Ctx, s: Summit): FeatureSite[] {
       break;
     }
   }
-  // ほこら: とりいの 向きとは べつの 広場。頂上の ほうを 向く
-  const others = DIRS.filter((d) => toriiDir === null || d[0] !== toriiDir[0] || d[1] !== toriiDir[1]);
-  const h = ringSearch(STRUCTURES.hokora, s.x, s.z, T.plaza.from, T.plaza.to, T.plaza.step, c.i * 23 + c.j, ground, (x, z) => facing(x, z, s.x, s.z), (_x, _z, p) => free(used, p.foot), others);
+  // ほこら: とりいの 向きとは べつの 広場。頂上の ほうを 向く（くまなく さがす）
+  const away = (x: number, z: number): boolean => {
+    const d = facing(s.x, s.z, x, z);
+    return toriiDir === null || d[0] !== toriiDir[0] || d[1] !== toriiDir[1];
+  };
+  const h = gridSearch(STRUCTURES.hokora, s.x, s.z, T.plaza.from, T.plaza.to, 2, c.i * 23 + c.j, ground, (x, z) => facing(x, z, s.x, s.z), (x, z, p) => away(x, z) && free(used, p.foot));
   if (h !== null) add(siteOf(c, 'hokora', h.x, h.z, h.placed));
   const i = idoSite(c, s, ground, used);
   if (i !== null) out.push(i);
@@ -173,7 +176,7 @@ export function iwayamaStructures(c: Ctx): FeatureSite[] {
       for (const d of DIRS) if (c.T.height(x - d[0] * K.wallDist, z - d[1] * K.wallDist) >= g + K.wallHigh) { front.set(x * 100003 + z, d); return d; }
       return [0, 1];
     };
-    const r = gridSearch(STRUCTURES.sekizou, c.px, c.pz, K.from, K.to, K.step, c.i * 29 + c.j, ground, wallFront, (x, z) => front.has(x * 100003 + z));
+    const r = gridSearch(STRUCTURES.sekizou, c.px, c.pz, K.from, K.to, K.step, c.i * 29 + c.j, ground, wallFront, (x, z, p) => front.has(x * 100003 + z) && p.blocks.filter((b) => b.y < p.baseY).length <= K.maxBase);
     if (r !== null) {
       out.push(siteOf(c, 'sekizou', r.x, r.z, r.placed));
       used.push(r.placed.foot);

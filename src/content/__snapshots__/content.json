@@ -4703,6 +4703,54 @@
       "rarity": "common",
       "recipes": []
     },
+    "kizami_ishi": {
+      "DIG_DEFAULTS.hardness.kizami_ishi": 6,
+      "DIG_DEFAULTS.harvestLevel.kizami_ishi": 0,
+      "DIG_DEFAULTS.rarity.kizami_ishi": "common",
+      "category": "stone",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "きざみいし",
+      "placeBlock": "kizami_ishi",
+      "rarity": "common",
+      "recipes": []
+    },
+    "maru_mon_ishi": {
+      "DIG_DEFAULTS.hardness.maru_mon_ishi": 6,
+      "DIG_DEFAULTS.harvestLevel.maru_mon_ishi": 0,
+      "DIG_DEFAULTS.rarity.maru_mon_ishi": "common",
+      "category": "stone",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "まるもんの いし",
+      "placeBlock": "maru_mon_ishi",
+      "rarity": "common",
+      "recipes": []
+    },
+    "renga_ishi": {
+      "DIG_DEFAULTS.hardness.renga_ishi": 6,
+      "DIG_DEFAULTS.harvestLevel.renga_ishi": 0,
+      "DIG_DEFAULTS.rarity.renga_ishi": "common",
+      "category": "stone",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "いしれんが",
+      "placeBlock": "renga_ishi",
+      "rarity": "common",
+      "recipes": []
+    },
+    "koke_renga_ishi": {
+      "DIG_DEFAULTS.hardness.koke_renga_ishi": 6,
+      "DIG_DEFAULTS.harvestLevel.koke_renga_ishi": 0,
+      "DIG_DEFAULTS.rarity.koke_renga_ishi": "common",
+      "category": "stone",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こけの いしれんが",
+      "placeBlock": "koke_renga_ishi",
+      "rarity": "common",
+      "recipes": []
+    },
     "egg": {
       "ITEM_INFO.egg": {
         "buttons": [

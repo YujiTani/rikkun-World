@@ -154,6 +154,10 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     chouchin: 0.05,
     ara_ishi: 6, // いし系 = stone と 同じ
     koke_ara_ishi: 6,
+    kizami_ishi: 6,
+    maru_mon_ishi: 6,
+    renga_ishi: 6,
+    koke_renga_ishi: 6,
     // MINE-1B（#349。仕様 §4.4。素手の 秒数。時間 = 固さ ÷ 道具の 強さ）
     nendo: 1, // つち より 少し かたい（すでで 1 秒）
     sekkaiseki: 5, // いしの つるはし（強さ 4）で 1.25 秒
@@ -291,6 +295,10 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     chouchin: 0,
     ara_ishi: 0,
     koke_ara_ishi: 0,
+    kizami_ishi: 0,
+    maru_mon_ishi: 0,
+    renga_ishi: 0,
+    koke_renga_ishi: 0,
     // MINE-1B（0 = すで・1 = いしの つるはし・2 = てつの つるはし から）
     nendo: 0,
     sekkaiseki: 1,
@@ -418,6 +426,10 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     chouchin: 'common',
     ara_ishi: 'common',
     koke_ara_ishi: 'common',
+    kizami_ishi: 'common',
+    maru_mon_ishi: 'common',
+    renga_ishi: 'common',
+    koke_renga_ishi: 'common',
     // MINE-1B（ほると 手に 入る 数の 上限を きめる。しるしは 何も 出ない ので 使わない）
     nendo: 'uncommon',
     sekkaiseki: 'uncommon',

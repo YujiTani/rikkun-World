@@ -24,4 +24,8 @@ export const NO_INFO_OK: Readonly<Record<string, string>> = {
   chouchin: 'わふうの かざりの ブロック',
   ara_ishi: 'わふうの かざりの ブロック',
   koke_ara_ishi: 'わふうの かざりの ブロック',
+  kizami_ishi: 'わふうの かざりの ブロック',
+  maru_mon_ishi: 'わふうの かざりの ブロック',
+  renga_ishi: 'わふうの かざりの ブロック',
+  koke_renga_ishi: 'わふうの かざりの ブロック',
 };

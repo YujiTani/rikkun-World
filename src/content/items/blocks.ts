@@ -346,6 +346,38 @@ export const VOX_I = {
     rarity: blockRarity('koke_ara_ishi'),
     category: 'stone',
   },
+  kizami_ishi: {
+    name: blockName('kizami_ishi'),
+    zukan: 'しかくい うずまきの もようを ほった いし。ほこらや とうろうの だいに かざろう。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'kizami_ishi',
+    rarity: blockRarity('kizami_ishi'),
+    category: 'stone',
+  },
+  maru_mon_ishi: {
+    name: blockName('maru_mon_ishi'),
+    zukan: 'まんなかに はなびらの まるい もようを ほった いし。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'maru_mon_ishi',
+    rarity: blockRarity('maru_mon_ishi'),
+    category: 'stone',
+  },
+  renga_ishi: {
+    name: blockName('renga_ishi'),
+    zukan: 'おおきさの そろった きれいな いしの れんが。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'renga_ishi',
+    rarity: blockRarity('renga_ishi'),
+    category: 'stone',
+  },
+  koke_renga_ishi: {
+    name: blockName('koke_renga_ishi'),
+    zukan: 'いしれんがに こけが はえたよ。ふるい おてらの かんじ。',
+    maxStack: BLOCK_STACK,
+    placeBlock: 'koke_renga_ishi',
+    rarity: blockRarity('koke_renga_ishi'),
+    category: 'stone',
+  },
 } satisfies Partial<Record<BlockId, ItemDef>>;
 
 /**

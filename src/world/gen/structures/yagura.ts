@@ -9,7 +9,7 @@ export const YAGURA: StructureShape = {
   id: 'yagura',
   layers: [
     // y0 台の 1 段め（5×5）と 石段
-    ['.......', '.AAAAA.', '.AAAAA.', '.AAAAA.', '.AAAAA.', '.AAAAA.', '..AAA..'],
+    ['.......', '.AAAAA.', '.AAAAA.', '.AAAAA.', '.AAAAA.', '.AAAAA.', '..AZA..'],
     // y1 台の 2 段め
     ['.......', '.AAAAA.', '.AAAAA.', '.AAAAA.', '.AAAAA.', '.AAAAA.', '.......'],
     // y2〜3 はしら
@@ -20,11 +20,11 @@ export const YAGURA: StructureShape = {
     // y5 はしら と つりがね（下）
     ['.......', '.P...P.', '.......', '...B...', '.......', '.P...P.', '.......'],
     // y6 横木（はしらを つなぎ、つりがねを つるす）
-    ['.......', '.PPPPP.', '...P...', '.PPPPP.', '...P...', '.PPPPP.', '.......'],
+    ['.......', '.xxxxx.', '...z...', '.xxxxx.', '...z...', '.xxxxx.', '.......'],
     // y7 屋根の 1 段め（7×7）
-    ['KKKKKKK', 'KKKKKKK', 'KKKKKKK', 'KKKKKKK', 'KKKKKKK', 'KKKKKKK', 'KKKKKKK'],
+    ['EEEEEEE', 'EKKKKKE', 'EKKKKKE', 'EKKKKKE', 'EKKKKKE', 'EKKKKKE', 'EEEEEEE'],
     // y8 2 段め（5×5）と すみの 反り
-    ['T.....T', '.TTTTT.', '.TTTTT.', '.TTTTT.', '.TTTTT.', '.TTTTT.', 'T.....T'],
+    ['U.....U', '.TTTTT.', '.TTTTT.', '.TTTTT.', '.TTTTT.', '.TTTTT.', 'U.....U'],
     // y9 3 段め（3×3）
     ['.......', '.......', '..TTT..', '..TTT..', '..TTT..', '.......', '.......'],
     // y10 てっぺんの かざり
@@ -32,7 +32,12 @@ export const YAGURA: StructureShape = {
   ],
   legend: {
     A: ARA,
-    P: 'shu_ita',
+    Z: 'renga_ishi', // 石段の 中ほどの かざり
+    P: 'shu_ita_hashira',
+    x: 'shu_ita_kakine_x',
+    z: 'shu_ita_kakine_z',
+    E: { id: 'kawara_usuita_shita', skip: 0.05 },
+    U: 'kawara_usuita_shita',
     B: 'kawara',
     K: { id: 'kawara', skip: 0.04 },
     T: 'kawara',

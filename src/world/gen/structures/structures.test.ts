@@ -33,7 +33,7 @@ describe('structure kit: 向き', () => {
     expect(sizes[1]).toEqual([3, 11]);
     expect(sizes[2]).toEqual([11, 3]);
     expect(sizes[3]).toEqual([3, 11]);
-    const noRandom: StructureShape = { ...t, legend: { S: 'shu_ita', K: 'kawara', T: 'kawara', I: 'ishidatami', J: 'ishidatami' } };
+    const noRandom: StructureShape = { ...t, legend: { S: 'shu_ita', K: 'kawara', T: 'kawara', N: 'shu_ita', I: 'ishidatami', J: 'ishidatami' } };
     const counts = ROTS.map((r) => placeStructure(noRandom, 0, 0, r, 1, flat(5))!.blocks.length);
     expect(new Set(counts).size).toBe(1);
   });
@@ -115,7 +115,8 @@ describe('5 つの 目じるし: 大きさと 使う ブロック', () => {
     const [pl, pr] = span(3, 'S');
     const kasagi = span(12, 'S');
     expect([pl - kasagi[0], kasagi[1] - pr]).toEqual([2, 2]); // かさぎ（朱色）は 柱より 外へ 2
-    const nuki = span(10, 'S');
+    const nukiCells = cells.filter((c) => c.y === 10 && (c.ch === 'S' || c.ch === 'N')).map((c) => c.rx);
+    const nuki: [number, number] = [Math.min(...nukiCells), Math.max(...nukiCells)];
     expect([pl - nuki[0], nuki[1] - pr]).toEqual([1, 1]); // ぬきは 外へ 1、かさぎの 2 段 下
     expect(cells.filter((c) => c.ch === 'T').map((c) => c.y)).toEqual(cells.filter((c) => c.ch === 'T').map(() => 13)); // 笠は 1 段だけ
     expect(cells.some((c) => c.y === 13 && c.ch === 'S' && c.rx === kasagi[0])).toBe(true); // はしが 1 段 上がる
@@ -133,8 +134,8 @@ describe('5 つの 目じるし: 大きさと 使う ブロック', () => {
     const roofY = [...new Set(cells.filter((c) => c.ch === 'K' || c.ch === 'T' || c.ch === 'E').map((c) => c.y))].sort((a, b) => a - b);
     expect(roofY.length).toBeGreaterThanOrEqual(3); expect(roofY.length).toBeLessThanOrEqual(5);
     const wall = ext((c) => c.ch === 'W' || (c.ch === 'S' && c.y === 1));
-    expect(ext((c) => c.y === roofY[0] && c.ch === 'K') - wall).toBe(4); // 両がわ 2 マスずつ
-    expect(cells.filter((c) => c.ch === 'T' && c.y === roofY[1] && Math.abs(c.rx) === 4 && Math.abs(c.rz) === 4).length).toBe(4); // すみ（2 段めの 四すみが 1 段 上がる）
+    expect(ext((c) => c.y === roofY[0] && (c.ch === 'K' || c.ch === 'E')) - wall).toBe(4); // 両がわ 2 マスずつ
+    expect(cells.filter((c) => (c.ch === 'T' || c.ch === 'U') && c.y === roofY[1] && Math.abs(c.rx) === 4 && Math.abs(c.rz) === 4).length).toBe(4); // すみ（2 段めの 四すみが 1 段 上がる）
     const lamps = cells.filter((c) => c.ch === 'C').length;
     expect(lamps).toBeGreaterThanOrEqual(2); expect(lamps).toBeLessThanOrEqual(4);
   });
@@ -171,11 +172,11 @@ describe('5 つの 目じるし: 大きさと 使う ブロック', () => {
     // 左はしの はしら: 床の 上 3 マス（はしら 2 ＋ 横木）、頭（こけいし）が その 上
     const x0 = xs[0]!;
     const col = cells.filter((c) => c.rx === x0 && c.rz === -2 && c.ch !== '.').sort((a, b) => a.y - b.y);
-    expect(col.map((c) => c.ch).slice(-2)).toEqual(['S', 'M']);
-    const posts = cells.filter((c) => c.rz === -2 && c.y === deck[0]! + 1 && c.ch === 'S').map((c) => c.rx);
+    expect(col.map((c) => c.ch).slice(-2)).toEqual(['B', 'M']);
+    const posts = cells.filter((c) => c.rz === -2 && c.y === deck[0]! + 1 && c.ch === 'P').map((c) => c.rx);
     expect(posts.filter((x) => x < xs[2]!)).toEqual([x0, x0 + 2].filter((x) => x < xs[2]!)); // 2 マスおき
-    expect(cells.some((c) => c.ch === 'S' && c.y === deck[0]! + 1 && c.rz === -2 && c.rx === x0 + 1)).toBe(false); // はしらの あいだは すける
-    for (const id of used(s)) expect(['shu_ita', 'koke_ishi', 'air', 'ishidatami']).toContain(id);
+    expect(cells.some((c) => c.ch === 'P' && c.y === deck[0]! + 1 && c.rz === -2 && c.rx === x0 + 1)).toBe(false); // はしらの あいだは ひくい かきね（はしらは 立たない）
+    for (const id of used(s)) expect(['shu_ita', 'koke_ishi', 'air', 'ishidatami', 'shu_ita_hashira', 'shu_ita_kakine_x', 'shu_ita_usuita_shita']).toContain(id);
   });
 });
 
@@ -206,7 +207,7 @@ describe('石段（道に そって 置く）', () => {
       const d = dims(s);
       expect(d.h, name).toBeGreaterThanOrEqual(h[0]); expect(d.h, name).toBeLessThanOrEqual(h[1]);
       const cells = shapeCells(s);
-      const roof = (c: ShapeCell): boolean => c.ch === 'E' || c.ch === 'K';
+      const roof = (c: ShapeCell): boolean => c.ch === 'E' || c.ch === 'K' || c.ch === 'G';
       const roofY = Math.max(...cells.filter(roof).map((c) => c.y));
       expect(cells.filter((c) => c.y === roofY && roof(c)).length, name).toBeGreaterThanOrEqual(9);
       expect(cells.some((c) => c.ch === 'C'), name).toBe(true);

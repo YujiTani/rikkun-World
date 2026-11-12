@@ -10,9 +10,9 @@ export const ODOU: StructureShape = {
   id: 'odou',
   layers: [
     // y0 土台（9×9）
-    ['IIIIIIIII', 'IIIIIIIII', 'IIIIIIIII', 'IIIIIIIII', 'IIIIIIIII', 'IIIIIIIII', 'IIIIIIIII', 'IIIIIIIII', 'IIIIIIIII'],
+    ['IIIIIIIII', 'IIIIIIIII', 'IIIIIIIII', 'IIIIIIIII', 'IIIIIIIII', 'IIIIIIIII', 'IIIIIIIII', 'IIIIIIIII', 'IIIIZIIII'],
     // y1 かべ（5×5）。おくに いしの だん
-    ['.........', '.........', '..SWWWS..', '..W.I.W..', '..W...W..', '..W...W..', '..S...S..', '.........', '.........'],
+    ['.........', '.........', '..SWWWS..', '..W.I.W..', '..W...W..', '..W...W..', '..S...S..', '.xx...xx.', '.........'],
     // y2 かべ
     ['.........', '.........', '..SWWWS..', '..W...W..', '..W...W..', '..W...W..', '..S...S..', '.........', '.........'],
     // y3 かべ。東がわに 窓
@@ -20,9 +20,9 @@ export const ODOU: StructureShape = {
     // y4 しゅいろの おびと、軒先の ちょうちん
     ['.........', '.........', '..SSSSS..', '..S...SC.', '..S...S..', '..S...S..', '..SSSSS..', '.C.....C.', '.........'],
     // y5 屋根の 1 段め（9×9）
-    ['KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK'],
+    ['EEEEEEEEE', 'EKKKKKKKE', 'EKKKKKKKE', 'EKKKKKKKE', 'EKKKKKKKE', 'EKKKKKKKE', 'EKKKKKKKE', 'EKKKKKKKE', 'EEEEEEEEE'],
     // y6 2 段め（7×7）と すみの 反り
-    ['T.......T', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', 'T.......T'],
+    ['U.......U', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', 'U.......U'],
     // y7 3 段め（5×5）
     ['.........', '.........', '..TTTTT..', '..TTTTT..', '..TTTTT..', '..TTTTT..', '..TTTTT..', '.........', '.........'],
     // y8 むね（かわらの 1 列。5×5 の 上に のる）
@@ -32,6 +32,10 @@ export const ODOU: StructureShape = {
   ],
   legend: {
     S: 'shu_ita',
+    x: 'shu_ita_kakine_x',
+    Z: 'kizami_ishi', // 正面の まん中の かざり
+    E: { id: 'kawara_usuita_shita', skip: 0.05 },
+    U: 'kawara_usuita_shita',
     W: 'shikkui',
     K: { id: 'kawara', skip: 0.04 },
     T: 'kawara',

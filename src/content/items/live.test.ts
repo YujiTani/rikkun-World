@@ -60,7 +60,7 @@ describe('登録表（生き物 8 個）', () => {
   it('ITEM_TYPES は 花の ブロックの 次に、たまご → むし → むしとりあみ → こたつ → とりごや → きんの たまご → もも にく 2 つ の 順', () => {
     const ids = ITEM_TYPES.map((t) => t.id as string);
     const i = ids.indexOf('egg');
-    expect(ids.slice(i - 1, i + 9)).toEqual(['koke_ara_ishi', 'egg', 'mushi', 'mushi_ami', 'nukunuku', 'toriya', 'kin_tamago', 'momo_nama', 'momo_yaki', 'raijin_ken']);
+    expect(ids.slice(i - 1, i + 9)).toEqual(['koke_renga_ishi', 'egg', 'mushi', 'mushi_ami', 'nukunuku', 'toriya', 'kin_tamago', 'momo_nama', 'momo_yaki', 'raijin_ken']);
   });
 
   it('色分けの 並び: 古い表と 同じ', () => {

@@ -1,4 +1,4 @@
-import { ARA, ARA_BROKEN, ARA_MOSSY } from './stoneLegend';
+import { ARA, ARA_MOSSY } from './stoneLegend';
 import { TORII } from './torii';
 import type { StructureShape } from './types';
 
@@ -11,8 +11,9 @@ export const ISHI_TORII: StructureShape = {
   id: 'ishi_torii',
   legend: {
     S: ARA_MOSSY,
-    K: 'koke_ara_ishi',
-    T: ARA_BROKEN,
+    K: 'kizami_ishi', // 柱の 根もとの かざり（きざみいし）
+    T: { id: 'ara_ishi_usuita_shita', skip: 0.12 },
+    N: 'ara_ishi_usuita_ue',
     I: { ...ARA, id: 'koke_ishi', moss: 0.2, mossId: 'koke_ara_ishi' },
     J: { ...ARA, id: 'koke_ishi', moss: 0.5, mossId: 'koke_ara_ishi' },
   },

@@ -25,7 +25,7 @@ export const IDO: StructureShape = {
     ['.....', '.....', '.DDD.', '.....', '.....'],
   ],
   legend: {
-    R: ARA,
+    R: { ...ARA, mix: [['koke_ishi', 0.06], ['kizami_ishi', 0.2]] }, // わくの 石（きざみいしが 1〜2 こ）
     H: 'kawara',
     P: 'log_hashira',
     B: 'log_kakine_x',

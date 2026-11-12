@@ -175,6 +175,11 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'koke_ara_ishi', name: 'こけの あらいし', solid: true, breakable: true },
   // WAFU-2（番号は 後ろに 足す。251〜）: 形つきブロック（見た目だけ 細い・うすい。当たりは 1 ブロック。ほれない。world/blocks/shapeBlocks.ts）
   ...SHAPE_BLOCKS.map((b): BlockType => ({ id: b.id, name: `${SHAPE_BASE_NAME[b.base] ?? b.base}の ${shapeLabel(b.shape)}`, solid: true, breakable: false })),
+  // WAFU-3（形つきブロックの あと）: 模様つきの 石 4 つ
+  { id: 'kizami_ishi', name: 'きざみいし', solid: true, breakable: true },
+  { id: 'maru_mon_ishi', name: 'まるもんの いし', solid: true, breakable: true },
+  { id: 'renga_ishi', name: 'いしれんが', solid: true, breakable: true },
+  { id: 'koke_renga_ishi', name: 'こけの いしれんが', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
