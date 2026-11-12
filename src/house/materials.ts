@@ -2,7 +2,7 @@
 // くらは なくした。建てる 材料・せっけいずの かみ・ふでは、「つくる」と 同じ 数え方（CraftSystemImpl）・同じ きょり（設定 craftTansuRange、はじめ 40 マス）で
 // プレイヤーの 足もとから 数える。数えるのは 画面を 開いた とき・押した とき だけ（呼ぶ 側が 毎ステップ 呼ばない。AC34 ⑤）。
 import type { Inventory, ItemId, ItemStack, Vec3 } from '../contracts';
-import { FLOWER_IDS, FLOWER_ROW } from './recipes/mats';
+import { FLOWER_IDS, FLOWER_ROW, materialCount } from './recipes/mats';
 
 /** 数える 係（CraftSystemImpl が 合う）。total ＝ もちもの ＋ 範囲の 中の たんす、tansuInRange ＝ 範囲の 中の たんす（近い 順。同じ きょりは x → z → y） */
 export interface CraftCount {
@@ -39,8 +39,7 @@ export class Materials {
 
   /** ある ＝ もちもの ＋ 近くの たんす（なければ もちものだけ）。はな（FLOWER_ROW）は 3 いろ あわせた 数（はなだん。2A） */
   have(item: ItemId): number {
-    if (item === FLOWER_ROW) return FLOWER_IDS.reduce((n, f) => n + this.haveOne(f), 0);
-    return this.haveOne(item);
+    return materialCount(item, (i) => this.haveOne(i));
   }
 
   private haveOne(item: ItemId): number {

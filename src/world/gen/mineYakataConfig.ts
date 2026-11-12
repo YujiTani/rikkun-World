@@ -46,7 +46,6 @@ export const YAKATA_TABLE = {
   /** 大広間の かべの 外がわの ふつうの いし〔マス〕 */
   ring: 2,
 };
-export type YakataTable = typeof YAKATA_TABLE;
 
 /** つくりかたの 数〔テストには 見せない〕 */
 export const YAKATA_TUNING = {

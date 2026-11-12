@@ -49,7 +49,7 @@
   box-sizing: content-box;
   width: calc(var(--rk-slot-inv) * 4 + var(--rk-sp-2) * 3 + var(--cp-bar));
   margin-right: calc(-1 * var(--cp-bar));
-  height: calc(var(--rk-slot-inv) * 7 + var(--rk-sp-2) * 6);
+  height: calc((var(--rk-slot-inv) + var(--rk-sp-2)) * 7); /* 7 段 ＝ マス（太い わく 込みで 1 段の ぶん〔マス ＋ あき〕）× 7。さいごの 段の わくが 切れない */
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -135,9 +135,11 @@
 /* つくれる: アクセントの太いわく＋光（1.5 秒に 1 回 強く・弱く）＋ふわっと上下（2 秒に 1 回） */
 .cp-tile[data-glow='true'] {
   border: var(--rk-bw-sel) solid var(--rk-accent);
-  animation:
-    cp-glow var(--glow-seconds, 1.5s) ease-in-out infinite alternate,
-    cp-float 2s ease-in-out infinite;
+  animation: cp-glow var(--glow-seconds, 1.5s) ease-in-out infinite alternate;
+}
+/* ふわっと 上下するのは 絵だけ（マスの 枠は 動かさない。枠が 動き 続けると クリック・十字の はかり〔一覧の 見える 高さ〕が 安定しない。HOUSE-2C） */
+.cp-tile[data-glow='true'] .rk-slot__art {
+  animation: cp-float 2s ease-in-out infinite;
 }
 @keyframes cp-glow {
   from {
@@ -198,7 +200,7 @@
 .cp-mark {
   right: var(--rk-sp-1);
   top: 0;
-  font-size: var(--rk-fs-rt);
+  font-size: var(--rk-fs-small);
   color: var(--rk-text);
   text-shadow: 0 0 2px var(--rk-bg-900);
 }
@@ -312,7 +314,7 @@
   box-sizing: border-box;
   /* 大きさは中身で変わらない: 左の列の高さに合わせ、自分の中身は高さに数えない */
   contain: size;
-  min-height: calc(var(--rk-slot-inv) * 7.5); /* やく タブ（左が低い）でも 同じ大きさ */
+  min-height: calc(var(--rk-slot-inv) * 9.5); /* やく タブ（左が低い）でも 同じ大きさ。一覧は 7 段 固定（HOUSE-2C）に なっても せつめいが ちぢまない よう（ざいりょう・つよさの ページが おさまる 高さ） */
   overflow: hidden;
   width: var(--cp-detail-w);
   flex: none;
@@ -699,7 +701,7 @@
   position: absolute;
   right: var(--rk-sp-1);
   top: 0;
-  font-size: var(--rk-fs-rt);
+  font-size: var(--rk-fs-small);
   font-weight: 800;
   color: var(--rk-text);
   text-shadow: 0 0 2px var(--rk-bg-900);

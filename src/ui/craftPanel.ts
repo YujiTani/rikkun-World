@@ -8,6 +8,7 @@ import {
   packDesc,
   type DescPage,
   buildCards,
+  craftViewCards,
   buildDetail,
   mergeGroups,
   buildTiles,
@@ -20,12 +21,11 @@ import {
   type TileView,
 } from './craftModel';
 import { fingerUrl } from './craftPanel.art';
+import { makeTile, paintTile, type TileEls } from './craftPanel.tiles';
 import { el, fly, rectOf, shake, type Rect } from './craftPanel.fx';
 import { renderDetail, renderDetailEmpty, createDetailEls, EMPTY_TEXT, type DetailEls } from './craftPanel.detail';
-import { drawPixels, extraIconUrl, itemIconPixels, itemIconUrl } from './itemIcon';
-import { itemRarity } from '../drops/rarity';
-import { itemCategory, rarityIndex } from './itemCategory';
-import { createBar, createSlot, createTab, setBar, setTabState } from './theme';
+import { drawPixels, itemIconPixels, itemIconUrl } from './itemIcon';
+import { createTab, setTabState } from './theme';
 import { CraftLooks, houseCardOf, isAltLook } from './craftLooks';
 import './craftPanel.css';
 
@@ -113,15 +113,6 @@ export interface PanelMaterials {
   version(): number;
   /** 画面を開いたとき しぼり直す */
   refresh(): void;
-}
-
-interface TileEls {
-  root: HTMLDivElement;
-  art: HTMLImageElement;
-  count: HTMLSpanElement;
-  queue: HTMLSpanElement;
-  barFill: ReturnType<typeof createBar>;
-  recipe: Recipe;
 }
 
 export { EMPTY_TEXT };
@@ -261,39 +252,13 @@ export class CraftPanel {
   }
 
   private makeTile(r: Recipe): HTMLDivElement {
-    const slot = createSlot({ art: itemIconUrl(r.output.item) });
-    const root = slot.root;
-    // 色分け（§3.5 (7)）: 背景 = カテゴリーの色、ふち = めずらしさ（印は出さない。2026-10-30）
-    const rar = rarityIndex(itemRarity(r.output.item));
-    root.dataset.cat = itemCategory(r.output.item);
-    root.dataset.rarity = String(rar);
-    root.classList.add('cp-tile');
-    root.dataset.menuItem = ''; // コントローラーの 十字で 動ける（もちものの マスと おなじ）
-    root.tabIndex = 0;
-    root.dataset.id = r.id;
-    root.dataset.station = r.station;
-    root.dataset.works = String(r.works);
-    const made = el('span', 'cp-made', root);
-    made.textContent = '✓';
-    el('span', 'cp-later', root).style.backgroundImage = `url(${extraIconUrl('clock')})`;
-    const mark = el('span', 'cp-mark', root);
-    mark.textContent = '▼';
-    const queue = el('span', 'card-queue cp-queue', root);
-    const barFill = createBar('bake', 0);
-    barFill.root.classList.add('cp-bar');
-    barFill.root.hidden = true;
-    root.append(barFill.root);
-    root.addEventListener('mouseenter', () => this.hover(r.id));
-    root.addEventListener('mouseleave', () => { if (this.hovered_ === r.id) this.hover(null); }); // 十字で 別の マスに 来たあとの 古い mouseleave で 消さない
-    // 十字で マスに フォーカスが 来たら、マウスを 合わせたのと おなじに せつめいを 切りかえる（のこった マウスの hovered_ も ここで 上書き）。
-    // blur では 消さない: せつめい パネルへ 十字で 移っても、直前の マスの せつめいの まま
-    root.addEventListener('focus', () => this.hover(r.id));
-    root.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.tileClick(r.id);
+    const e = makeTile(r, {
+      hover: (id) => this.hover(id),
+      leave: (id) => { if (this.hovered_ === id) this.hover(null); },
+      click: (id) => this.tileClick(id),
     });
-    this.tileEls.set(r.id, { root, art: slot.art, count: slot.count, queue, barFill, recipe: r });
-    return root;
+    this.tileEls.set(r.id, e);
+    return e.root;
   }
 
   // ---- 状態
@@ -339,12 +304,12 @@ export class CraftPanel {
 
   private views(): { craft: CardView[]; bake: CardView[] } {
     const st = this.furnaceState();
-    const craftAll = buildCards(this.usable(this.craftAll), this.d.craft, this.counter(), this.cardOpt());
     const bakeAll = buildCards(this.usable(this.bakeAll), this.d.craft, this.counter(), { ...this.cardOpt(), bake: true, queued: this.bakeQueued(st), cfg: this.cfg });
-    const c = mergeGroups(craftAll, this.groups, this.looks);
+    const variants = new Map<string, CardView[]>();
+    const craft = craftViewCards(this.d.craft, this.counter(), this.looks, this.cardOpt(), variants); // 本物の 道（テストも これを 通す）
     const b = mergeGroups(bakeAll, this.groups);
-    this.variantViews = new Map([...c.variants, ...b.variants]);
-    return { craft: c.cards, bake: b.cards };
+    this.variantViews = new Map([...variants, ...b.variants]);
+    return { craft, bake: b.cards };
   }
 
   private currentTab(): CraftTab {
@@ -450,7 +415,7 @@ export class CraftPanel {
     const tiles = buildTiles(vis, sel, (id) => this.made(tab, id));
     const shown = new Set(tiles.map((t) => t.id));
     const grid = tab === 'craft' ? this.craftGrid : this.bakeGrid;
-    for (const c of views) this.tileEls.get(c.id)!.root.hidden = !shown.has(c.id);
+    for (const r of tab === 'craft' ? this.craftRecipes : this.bakeRecipes) this.tileEls.get(r.id)!.root.hidden = !shown.has(r.id); // 出ない（まだ おぼえて いない・材料なし）カードは かくす
     // 作れる → 足りない の順に ならべる（同じ順なら DOM は動かさない）
     tiles.forEach((t, i) => {
       const r = this.tileEls.get(t.id)!.root;
@@ -459,18 +424,8 @@ export class CraftPanel {
     let fingerOn: HTMLElement | null = null;
     for (const t of tiles) {
       const e = this.tileEls.get(t.id)!;
-      const r = e.root;
-      r.dataset.glow = String(t.glowing);
-      r.dataset.dim = String(t.dim);
-      r.dataset.made = String(t.made);
-      r.dataset.later = String(t.later);
-      r.dataset.selected = String(t.selected);
-      e.count.textContent = t.count >= 2 ? `×${t.count}` : '';
-      e.queue.textContent = t.queued > 0 ? `あと ${t.queued}` : '';
-      const progress = st?.current && st.current.id === t.id ? st.current.progress : null;
-      e.barFill.root.hidden = progress === null;
-      if (progress !== null) setBar(e.barFill, progress);
-      if (t.selected && t.glowing) fingerOn = r;
+      paintTile(e, t, st?.current && st.current.id === t.id ? st.current.progress : null);
+      if (t.selected && t.glowing) fingerOn = e.root;
     }
     const selEl = sel ? this.tileEls.get(sel)?.root : null;
     if (selEl && sel !== this.scrolledTo && !selEl.hidden) {
@@ -685,6 +640,7 @@ export class CraftPanel {
       this.d.onSelect?.(id);
       this.dirty = true;
       this.sync();
+      this.tileEls.get(id)?.root.focus({ preventScroll: true }); // 十字は えらんだ マスから つづけて 動く
       return { action: 'select', ok: true, reason: null };
     }
     const r = this.click(this.currentRecipe(id));

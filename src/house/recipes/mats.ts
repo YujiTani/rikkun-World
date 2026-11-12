@@ -25,6 +25,10 @@ const add = (m: Mats, item: ItemId, n: number): void => {
 export const FLOWER_ROW: ItemId = 'flower_y';
 /** はなの 3 いろ（ある ＝ 3 つの 合計。つかう ときは 手前から） */
 export const FLOWER_IDS: readonly ItemId[] = ['flower_y', 'flower_o', 'flower_p'];
+/** 材料の 数え方（1 か所）: はな（FLOWER_ROW）は 3 いろの 合計、ほかは そのまま。countOf ＝ 1 つの アイテムの 数。つくる の 計画・つくれる マーク・材料の 点が 同じ 数え方を 使う */
+export function materialCount(item: ItemId, countOf: (item: ItemId) => number): number {
+  return item === FLOWER_ROW ? FLOWER_IDS.reduce((n, f) => n + countOf(f), 0) : countOf(item);
+}
 
 /**
  * 手で つくる とき の 材料（HOUSE-2C §2.6。エディターでは 材料 0 の 2 つ〔たいらの やね・いえの と〕だけ。「つくる」の 作り方〔craft/houseCraft.ts〕が 読む）。

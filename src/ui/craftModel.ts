@@ -1,6 +1,7 @@
 import type { CraftSystem, Inventory, ItemId, ItemStack, Recipe } from '../contracts';
 import { groupRecipes } from '../craft/recipes';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings } from '../fx/craftConfig';
+import { materialCount } from '../house/recipes/mats';
 import { houseCardOf } from './craftLooks';
 
 /** 材料 1 種: 要る数だけ「まる」。持っている数だけ みどり、足りない分は 赤いわくの白いまる */
@@ -45,7 +46,7 @@ export interface CardView {
 
 export function materialViews(inputs: readonly ItemStack[], countOf: (item: ItemId) => number, tansuOf?: (item: ItemId) => number): MaterialView[] {
   return inputs.map((i) => {
-    const have = countOf(i.item);
+    const have = materialCount(i.item, countOf); // はな（はなだん）は 3 いろの 合計
     const shown = Math.min(have, i.count);
     return {
       item: i.item,
@@ -53,7 +54,7 @@ export function materialViews(inputs: readonly ItemStack[], countOf: (item: Item
       have,
       red: have < i.count,
       dots: Array.from({ length: i.count }, (_, k) => k < shown),
-      inTansu: Math.max(0, Math.min(tansuOf?.(i.item) ?? 0, have)),
+      inTansu: Math.max(0, Math.min((tansuOf ? materialCount(i.item, tansuOf) : 0), have)),
     };
   });
 }
@@ -134,17 +135,19 @@ export function mergeGroups(list: readonly CardView[], groups: ReadonlyMap<strin
 /**
  * 「つくる」の 一覧に 出る カード（`craft.ui().tiles` の もと。HOUSE-2C）。おぼえて いない 家の 物は 出ない・材料を 1 しゅるい 以上 持つ 物だけ・
  * 並びは 作れる → 足りない（その 中は 作り方の 表の 順。家の 物は いちばん うしろ）。案の ある 形は カード 1 まい
- * @public テストの 窓口（house/recipes/craftKit.ts）が 名前で 呼ぶ ので、使われない export に 数えない
  */
 export function craftViewCards(
   craft: Pick<CraftSystem, 'recipes' | 'status'> & { unlocked?(id: string): boolean },
   inv: Pick<Inventory, 'count'>,
   looks?: LooksPort,
   opt: CardOptions = {},
+  variantsOut?: Map<string, CardView[]>,
 ): CardView[] {
   const all = craft.recipes();
   const cards = buildCards(all.filter((r) => r.station === 'craft' && (craft.unlocked?.(r.id) ?? true)), craft, inv, opt);
-  return visibleCards(mergeGroups(cards, groupRecipes(all), looks).cards);
+  const merged = mergeGroups(cards, groupRecipes(all), looks);
+  merged.variants.forEach((v, k) => variantsOut?.set(k, v)); // せつめいの ページ（作り方ごとの カード）
+  return visibleCards(merged.cards);
 }
 
 /** 「つくれる マーク」を出すか: つくる のカードが 1 まい以上 光っている */

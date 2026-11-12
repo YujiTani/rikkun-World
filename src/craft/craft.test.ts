@@ -83,7 +83,7 @@ describe('つくる（AC1〜AC4）', () => {
   it('list は 38 こ、持ち物が空なら全部 craftable false', () => {
     const { craft } = rig();
     const l = craft.list();
-    expect(l).toHaveLength(CRAFT_RECIPES.length); // 数は 決め打ちしない（#311）。MINE-1B: チョーク・しっくいが ふえた（作り方の 数は src/craft/mineRecipes.test.ts）
+    expect(l).toHaveLength(CRAFT_RECIPES.filter((r) => craft.unlocked(r.id)).length); // 数は 決め打ちしない（#311）。おぼえて いない 家の 物は list に 出ない（HOUSE-2C）。MINE-1B: チョーク・しっくいが ふえた（作り方の 数は src/craft/mineRecipes.test.ts）
     expect(l.every((c) => !c.craftable && c.missing.length === c.inputs.length)).toBe(true);
     expect(l[0].id).toBe('wood_pickaxe');
     const bake1A = ['iron_ingot', 'kawara', 'brick', 'haniwa', 'kin', 'momo_yaki']; // GOLD-1: きん ＋ LIVE-3: momo_yaki。MINE-1B: いしばい・きんの いしが この うしろに ふえる

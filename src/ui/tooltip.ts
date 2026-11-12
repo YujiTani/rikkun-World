@@ -185,6 +185,16 @@ export class Tooltip {
       const r = this.anchor.getBoundingClientRect();
       mx = r.right - 12;
       my = r.bottom - 12;
+      if (this.anchor.classList.contains('cp-tile')) {
+        // つくる の カード: 右の せつめい・下の ヒントに かぶらないよう、カードの 左がわ（上の はしを そろえる）に 出す（HOUSE-2C）
+        const m = 4;
+        const x = Math.max(m, r.left - w - 8);
+        const hints = this.el.ownerDocument.querySelector('.inv-hints')?.getBoundingClientRect(); // 下の ヒントの 上まで
+        const floor = hints && hints.height > 0 ? hints.top : window.innerHeight;
+        const y = Math.min(Math.max(m, r.top), Math.max(m, floor - h - m));
+        this.el.style.transform = `translate(${x}px, ${y}px)`;
+        return;
+      }
     }
     const p = placeNear(mx, my, w, h, window.innerWidth, window.innerHeight);
     const x = p.x;

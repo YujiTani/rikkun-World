@@ -6,7 +6,7 @@ import { itemType } from '../inventory/items';
 import { PickupLog } from '../inventory/pickupLog';
 import { ALL_RECIPES, BAKE_RECIPES, CRAFT_RECIPES } from './recipes';
 import { houseUnlocked } from './houseCraft';
-import { FLOWER_IDS, FLOWER_ROW } from '../house/recipes/mats';
+import { FLOWER_IDS, FLOWER_ROW, materialCount } from '../house/recipes/mats';
 import { createCraftConfig, type CraftConfig } from './config';
 import { FurnaceWorld, type FurnaceFxEntryLike, type FurnaceView, type FurnaceWho } from './FurnaceWorld';
 
@@ -339,9 +339,9 @@ export class CraftSystemImpl implements CraftSystem {
     return cap !== null && this.total(r.output.item) + r.output.count > cap;
   }
 
-  /** `craft.list()`（M4 §6.1）: つくる 18 こ */
+  /** `craft.list()`（M4 §6.1）: つくる 18 こ（おぼえて いない 家の 物は 出ない） */
   list() {
-    return CRAFT_RECIPES.map((r) => {
+    return CRAFT_RECIPES.filter((r) => this.unlocked(r.id)).map((r) => {
       const st = this.status(r.id);
       return {
         id: r.id,
@@ -522,7 +522,7 @@ export class CraftSystemImpl implements CraftSystem {
       if (r.station !== 'craft' || this.haveOne(r) || !this.unlocked(r.id)) continue;
       let ok = true;
       for (const inp of r.inputs) {
-        if ((inp.item === FLOWER_ROW ? FLOWER_IDS.reduce((n, f) => n + this.total(f), 0) : this.total(inp.item)) < inp.count) {
+        if (materialCount(inp.item, (i) => this.total(i)) < inp.count) {
           ok = false;
           break;
         }
