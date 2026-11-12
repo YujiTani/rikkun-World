@@ -1,7 +1,7 @@
 import { cheb, site, type Ctx, type FeatureSite } from './countryKit';
 import { groundFn } from './countryStructureKit';
 import { hashInts } from './random';
-import { buildFall, footOf, planFalls } from './waterV2Fall';
+import { buildFall, fallKeepOut, footOf, planFalls } from './waterV2Fall';
 import type { FallPlan } from './waterV2Types';
 import { clearRects, Edit, type Ground, type Rect } from './waterV2Kit';
 import { planPonds, buildPond } from './waterV2Pond';
@@ -50,7 +50,10 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
   const roll = (hashInts(seed, 1, 0) >>> 0) / 4294967296;
   const n = roll < T.fallCount[0] ? 0 : roll < T.fallCount[0] + T.fallCount[1] ? 1 : 2;
   const atFoot = (x: number, z: number): boolean => g(x, z) - c.T.map.baseHeight(x, z) <= T.river.footAbove;
-  const riverOf = (p: FallPlan, blocked: (x: number, z: number) => boolean) => planRiver(g, seed + 1, { x: Math.floor(p.pool.cx), z: Math.floor(p.pool.cz), d: p.d, pool: p.pool }, blocked, atFoot);
+  const riverOf = (p: FallPlan, blocked: (x: number, z: number) => boolean) => {
+    const own = fallKeepOut(p);
+    return planRiver(g, seed + 1, { x: Math.floor(p.pool.cx), z: Math.floor(p.pool.cz), d: p.d, pool: p.pool }, (x, z) => blocked(x, z) || own(x, z), atFoot);
+  };
   const falls = planFalls(g, c.px, c.pz, seed, n, used, (p) => riverOf(p, hit).cells.length);
   const rivers: FeatureSite[] = [];
   const wet = new Set<number>();

@@ -53,6 +53,12 @@ describe('水の 景色 v2（?water=v2）', () => {
     expect(Math.max(...takis.map(stages))).toBeLessThanOrEqual(4);
   });
 
+  it('滝が ある 山には 川も 出る（滝つぼが くぼ地でも 出口を ほる）', () => {
+    const withFall = all.filter((a) => a.sites.some((q) => q.type === 'taki'));
+    const withRiver = withFall.filter((a) => a.sites.some((q) => q.type === 'kawa'));
+    expect(withRiver.length).toBeGreaterThanOrEqual(Math.ceil(withFall.length * 0.65));
+  });
+
   it('しぶきの 場所: 滝ごとに 1 つ 以上（落差 4 以上）・段々の 滝は 段の 数だけ', () => {
     const s = all.flatMap((a) => a.sites).find((q) => q.type === 'taki')!;
     const spots = splashSpotsNear(seed, s.x, s.z, 48, []);

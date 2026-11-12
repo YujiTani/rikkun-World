@@ -152,6 +152,20 @@ export function footOf(p: FallPlan): Rect {
   return [x0 - 1, z0 - 1, x1 + 1, z1 + 1];
 }
 
+/** 自分の 川が 通れない 列（水源の 池・へり・落ちる 列・たなの たまり。まわり 1 マス）。いちばん 下の 滝つぼは 川の はじまりなので のぞく */
+export function fallKeepOut(p: FallPlan): (x: number, z: number) => boolean {
+  const set = new Set<number>();
+  const add = (x: number, z: number, m: number): void => {
+    for (let dz = -m; dz <= m; dz++) for (let dx = -m; dx <= m; dx++) set.add((x + dx) * 100003 + z + dz);
+  };
+  for (const [x, z] of [...p.source, ...p.sourceRing]) add(x, z, 1);
+  p.stages.forEach((s, i) => {
+    for (const [x, z] of [...s.lip, ...s.front]) add(x, z, 1);
+    if (i < p.stages.length - 1) for (const q of basinCells(s.pool)) add(q.x, q.z, 0);
+  });
+  return (x, z) => set.has(x * 100003 + z);
+}
+
 /** 滝の ブロックを 書く（川の 前に 書く。川は 滝つぼから はじまる）。段ごとに 「たまり → 底の たきつぼ → へりの わきどころ」 */
 export function buildFall(ed: Edit, g: Ground, seed: number, p: FallPlan): void {
   p.stages.forEach((st, s) => {

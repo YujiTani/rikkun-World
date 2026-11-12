@@ -1,6 +1,6 @@
 import { SEA_Y } from '../../contracts';
 import { hash01 } from './random';
-import { basinFits, basinNorm, buildBasin, makeBasin, pick, rimColumn, waterColumn, type Basin, type Dir, type Edit, type Ground } from './waterV2Kit';
+import { basinFits, basinNorm, buildBasin, DIR4, makeBasin, pick, rimColumn, waterColumn, type Basin, type Dir, type Edit, type Ground } from './waterV2Kit';
 import { WATER_BLOCKS as B, WATER_TUNE as T } from './waterV2Table';
 
 /**
@@ -86,15 +86,40 @@ export function planRiver(g: Ground, seed: number, start: { x: number; z: number
     }
     return { lo, hi };
   };
+  /** 出る 向き: 滝の 向きを ふつうに、くぼ地で 行けない/高い とき は 池の ふちを こえた 先が いちばん 低い 向き */
+  function exitDir(prefer: Dir): Dir {
+    let best = prefer;
+    let bestScore = Infinity;
+    for (const d of DIR4) {
+      if (d[0] === -prefer[0] && d[1] === -prefer[1]) continue; // かべの ほう（水源の 池・わきどころ）へは 行かない
+      let ex = Math.floor(pool.cx);
+      let ez = Math.floor(pool.cz);
+      let n = 0;
+      while (inPool(ex, ez) && n++ < 30) {
+        ex += d[0];
+        ez += d[1];
+      }
+      const fx = ex + d[0] * 3;
+      const fz = ez + d[1] * 3;
+      if (g(ex, ez) < 0 || g(fx, fz) < 0 || blocked(ex, ez)) continue;
+      const score = bh(fx, fz) + Math.max(0, g(ex, ez) - pool.level) * 2 + Math.max(0, pool.level - g(ex, ez)) * 4 - (d === prefer ? 2 : 0); // 出口は 水面と 同じ くらいの 高さ（すぐ 下がる 所は さける）
+      if (score < bestScore) {
+        bestScore = score;
+        best = d;
+      }
+    }
+    return best;
+  }
   let x = Math.floor(pool.cx);
   let z = Math.floor(pool.cz);
-  let dc = start.d;
+  let dc = exitDir(start.d);
   let level = pool.level;
   let leg = 0;
   let wet = 0; // 水の 列の 数
   let stop: RiverPlan['stop'] = 'long';
   let last: RiverCell = { x, z, din: dc, dout: dc, level, kind: 'pool', afterSill: false, width: 0 };
   cells.push(last);
+  let desperate = false; // 行き先が ないとき、1 回だけ 深く ほる ことを ゆるす
   while (cells.length < R.maxLen) {
     const here = inPool(x, z);
     const w = widthAt(wet);
@@ -113,8 +138,10 @@ export function planRiver(g: Ground, seed: number, start: { x: number; z: number
         }
         const sp = span(nx, nz, dir, w);
         if (sp === null) continue;
-        const lv = Math.min(level, sp.lo);
-        if (level - lv > R.maxDrop || sp.hi - lv > R.maxCut) continue;
+        // 池の すぐ 外が 少し 低いだけなら、水面を 池と 同じに して 土手で ささえる（出口の 段差を 作らない）
+        const lv = wet === 0 && sp.lo < level && level - sp.lo <= R.exitHold ? level : Math.min(level, sp.lo);
+        const cutMax = wet < R.exitSteps || desperate ? R.exitCut : R.maxCut; // 滝つぼの くぼ地から 出る ところは 深く ほる
+        if (level - lv > R.maxDrop || sp.hi - lv > cutMax) continue;
         let sill: { lv: number } | null = null;
         if (lv < level) {
           // 段差は まっすぐな 所だけ。次の 列も 同じ 向きに 進める こと（落ちる 列）
@@ -122,18 +149,23 @@ export function planRiver(g: Ground, seed: number, start: { x: number; z: number
           const sp2 = span(nx + dir[0], nz + dir[1], dir, w);
           if (sp2 === null) continue;
           const lv2 = Math.min(level - 1, sp.lo, sp2.lo);
-          if (level - lv2 > R.maxDrop || sp2.hi - lv2 > R.maxCut) continue;
+          if (level - lv2 > R.maxDrop || sp2.hi - lv2 > cutMax) continue;
           sill = { lv: lv2 };
         }
-        const score = bh(nx, nz) + (dir !== dc ? R.turnCost : 0);
+        const score = bh(nx, nz) + (dir !== dc ? R.turnCost : 0) - R.outward * Math.hypot(nx - start.x, nz - start.z); // たいらな 所では 滝から とおざかる
         if (best === null || score < best.score) best = { dir, score, sill };
       }
       if (best !== null) break;
+    }
+    if (best === null && !desperate) {
+      desperate = true;
+      continue;
     }
     if (best === null) {
       stop = 'stuck';
       break;
     }
+    desperate = false;
     const { dir } = best;
     if (dir !== dc) {
       last.dout = dir;
@@ -169,7 +201,7 @@ export function planRiver(g: Ground, seed: number, start: { x: number; z: number
       stop = 'sea';
       break; // 海に ついた
     }
-    if (wet > 8 && atFoot(x, z)) {
+    if (cells.length >= R.footMinLen && atFoot(x, z)) {
       stop = 'foot';
       break; // すその 平地に ついた
     }
