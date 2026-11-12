@@ -10,8 +10,8 @@ import { LOOK } from './lookFlags';
  *   ・池・川の 水面は 平ら。生成の とき 外へ もれる 所は ない（岸・へりを ふさぐ）ので 動かない。
  */
 
-/** `?water=v2` か（Node の テストでは location が ないので false。テストは vi.mock で 差しかえる） */
-export const WATER_V2: boolean = LOOK.waterV2; // 既定 切。?water=v2 のときだけ 入る（lookFlags と 同じ 読み方）
+/** `?water=v1` で 切って いない か（Node の テストでも 既定は 入） */
+export const WATER_V2: boolean = LOOK.waterV2; // 既定 入。?water=v1 で 切る（lookFlags と 同じ 読み方）
 
 /** 滝つぼ・川・池に 使う ブロックの 名前（id の 直書きを ここに あつめる） */
 export const WATER_BLOCKS = {
