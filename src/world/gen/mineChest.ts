@@ -1,6 +1,7 @@
 import type { ItemId, Rarity } from '../../contracts';
 import { ITEM_DEFS } from '../../content/items/registry';
 import { RARITY_ORDER, rarityTier } from '../../drops/rarityTable';
+import { YAKATA_BLOCK_IDS } from '../blocks/mineYakata';
 import { chestTableOf, pickTier } from './mineChestTable';
 import type { ChestRoll, ChestTable, Tier } from './mineShaftTypes';
 import { createRng, hash01, hashInts } from './random';
@@ -15,6 +16,7 @@ const EXCLUDED = [
   { item: 'yokai_orb', reason: 'いまは 手に 入らない（ようかいだま）' },
   { item: 'omamori_torn', reason: 'しるし ＝ 記念の 品（やぶれた おまもり）' },
   { item: 'kabita_pan', reason: 'じょうだんの 物。宝箱から 出ると がっかり する（キャンプあとの たんす だけ）' },
+  ...YAKATA_BLOCK_IDS.map((item) => ({ item, reason: 'やかたを かちぬいた しるし。宝箱から 出ない' })), // MINE-1F: やかたの ブロック 8 こ
   { item: 'sekkeizu', reason: '1 まいずつ 中身〔plan の 番号〕を もつ 物。宝箱から 出ると 読めない せっけいずに なる' },
   { item: 'recipe_scroll', reason: 'レシピの まきもの（HOUSE-2A）は 坑道の いちばん 下の へやで 1 まい だけ。宝箱には 別の わくが 1 つ ふえる ので、ふつうの くじには 入れない（くじの 当たり方も かえない）' },
   { item: 'maneki', reason: 'レシピ（まねきねこ）を おぼえて 家の エディターで 置く 物（HOUSE-2A。世界に 置く ブロックは HOUSE-2B で できる まで 宝箱には 出さない。今の くじの 当たり方も かえない）' },

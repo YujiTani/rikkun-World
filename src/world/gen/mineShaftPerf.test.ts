@@ -51,7 +51,7 @@ beforeAll(() => {
     const cols = new Map<number, { cx: number; cz: number }>();
     const add = (cx: number, cz: number): void => void cols.set(colKey(cx, cz), { cx, cz });
     for (const shaft of s.shafts) {
-      for (const c of s.hook.shaftPath(shaft.id)) {
+      for (const c of s.hook.shaftPath(shaft.id).filter((c) => (c.part as string) !== 'yakata')) {
         onPath.add(colKey(c.x >> 4, c.z >> 4));
         for (const dx of [-1, 0, 1]) for (const dz of [-1, 0, 1]) add((c.x >> 4) + dx, (c.z >> 4) + dz);
       }

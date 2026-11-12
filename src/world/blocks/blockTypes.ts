@@ -7,6 +7,7 @@ import { LOOK_BLOCK_IDS, LOOK_DOOR_INFO, LOOK_PILLAR_NAME } from './houseLookBlo
 import { FLAT_FURN_KINDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from './houseBlocks';
 import { isLiquidIndex } from './liquids';
 import { isFloorDeco } from './mineBoken';
+import { isYakataTorch } from './mineYakata';
 import { MAGMA_IDS, MAGMA_M0, MAGMA_RESERVED_IDS } from './magma';
 import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL_INDEX, WATER_PARTIAL_IDS, WATER_W0 } from './water';
 
@@ -151,6 +152,21 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   ...NEW_FURN_BLOCK_IDS.filter((id) => LATE_FURN.has(furnInfo(id)!.kind)).map(furnBlockType),
   // HOUSE-2B（#364。番号は 後ろに 足す。217〜236）: 家の しゅるいの ブロック 20 こ（形ごと。あけた 戸だけ 通れる。あかり・のれんも 当たりは 箱）
   ...LOOK_BLOCK_IDS.map((id): BlockType => ({ id, name: LOOK_PILLAR_NAME[id] ?? 'いえの ブロック', solid: !(id in LOOK_DOOR_INFO && LOOK_DOOR_INFO[id as keyof typeof LOOK_DOOR_INFO].open) && id !== 'lk_deco_noren' && id !== 'lk_deco_hanadan', breakable: true })),
+  // VOX-I-4a（#187。番号は 後ろに 足す。237〜241）: 国だけの物 その 1。どれも 固くない・こわせる・十字の 板で 描く
+  { id: 'kinoko', name: 'きのこ', solid: false, breakable: true },
+  { id: 'himawari', name: 'ひまわり', solid: false, breakable: true },
+  { id: 'himawari_top', name: 'ひまわり', solid: false, breakable: true },
+  { id: 'kaigara', name: 'かいがら', solid: false, breakable: true },
+  { id: 'takenoko', name: 'たけのこ', solid: false, breakable: true },
+  // MINE-1F（番号は 後ろに 足す。登録の 順で きまる）: ようかいの やかた。かべ・ゆか・だんは 固い。たいまつは 固くない（ふつうの たいまつと 同じ）
+  { id: 'maou_kabe', name: 'まおうの かべ', solid: true, breakable: true },
+  { id: 'maou_yuka', name: 'まおうの ゆか', solid: true, breakable: true },
+  { id: 'maou_dan', name: 'まおうの だん', solid: true, breakable: true },
+  { id: 'maou_taimatsu', name: 'むらさきの たいまつ', solid: false, breakable: true },
+  { id: 'otera_ishigaki', name: 'おてらの いしがき', solid: true, breakable: true },
+  { id: 'otera_ishidatami', name: 'おてらの いしだたみ', solid: true, breakable: true },
+  { id: 'otera_dan', name: 'おてらの だん', solid: true, breakable: true },
+  { id: 'onibi_taimatsu', name: 'おにびの たいまつ', solid: false, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -177,9 +193,10 @@ export const isLampIndex = (index: number): boolean => LAMP_INDEXES.has(index);
 export const HOTARUISHI = BLOCK_INDEX.hotaruishi;
 export const SHOJI = BLOCK_INDEX.shoji;
 
-/** たいまつの なかまか（細い棒＋炎の形で描く。光る） */
+/** たいまつの なかまか（細い棒＋炎の形で描く。光る。MINE-1F: あやしい たいまつ 2 つも） */
+const YAKATA_TORCH = BLOCK_TYPES.map((t) => isYakataTorch(t.id));
 export function isTorchIndex(index: number): boolean {
-  return index === TORCH || index === START_TORCH;
+  return index === TORCH || index === START_TORCH || YAKATA_TORCH[index] === true;
 }
 
 /** 小物の置き物（ITEM-FX-1: ちょうちん・ふとん・はにわ）。固くない・光を通す・箱の組み合わせで描く（絵は meshChunk の pushProp） */
@@ -214,6 +231,7 @@ const CROSS_IDS: ReadonlySet<string> = new Set([
   'kakashi', 'kakashi_head', 'saku',
   'toriya_fence', 'toriya_gate', // LIVE-2.1: とりごや の さく・もん（当たり は 今 の まま ブロック）
   'flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana',
+  'kinoko', 'himawari', 'himawari_top', 'kaigara', 'takenoko', // VOX-I-4a
   'rope', 'rope_coil', 'rope_stake', 'rope_fence', 'rope_fence_post', // ROPE-1: ロープ（たてに たれる なわ）・ロープだまり（下の まき）
   'tsurara', // MINE-1D: つらら（天井の 下に さがる 十字の 板。ゆれない = swayDriver が のぞく）
   'makimono', // HOUSE-2A: まきもの（床に 置く 十字の 板。ゆれない）

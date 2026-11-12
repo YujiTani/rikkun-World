@@ -5526,6 +5526,54 @@
       "rarity": "common",
       "recipes": []
     },
+    "kinoko": {
+      "DIG_DEFAULTS.hardness.kinoko": 0.05,
+      "DIG_DEFAULTS.harvestLevel.kinoko": 0,
+      "DIG_DEFAULTS.rarity.kinoko": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "きのこ",
+      "placeBlock": "kinoko",
+      "rarity": "common",
+      "recipes": []
+    },
+    "himawari": {
+      "DIG_DEFAULTS.hardness.himawari": 0.05,
+      "DIG_DEFAULTS.harvestLevel.himawari": 0,
+      "DIG_DEFAULTS.rarity.himawari": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "ひまわり",
+      "placeBlock": "himawari",
+      "rarity": "common",
+      "recipes": []
+    },
+    "kaigara": {
+      "DIG_DEFAULTS.hardness.kaigara": 0.05,
+      "DIG_DEFAULTS.harvestLevel.kaigara": 0,
+      "DIG_DEFAULTS.rarity.kaigara": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "かいがら",
+      "placeBlock": "kaigara",
+      "rarity": "common",
+      "recipes": []
+    },
+    "takenoko": {
+      "DIG_DEFAULTS.hardness.takenoko": 0.05,
+      "DIG_DEFAULTS.harvestLevel.takenoko": 0,
+      "DIG_DEFAULTS.rarity.takenoko": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "たけのこ",
+      "placeBlock": "takenoko",
+      "rarity": "common",
+      "recipes": []
+    },
     "egg": {
       "ITEM_INFO.egg": {
         "buttons": [
@@ -5888,6 +5936,129 @@
       "durabilityClass": "durable",
       "maxStack": 1,
       "name": "［虹｜にじ］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "kokuryu": {
+      "ITEM_INFO.kokuryu": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ",
+        "special": "や が つよく なり、すべて を つらぬく！ もてば かぜ の ように はやく、そら たかく とべる",
+        "stats": "bow",
+        "use": "や を とばして とおく の ようかい を たおす。や が いる"
+      },
+      "W2.bowDamageByItem.kokuryu": [
+        4,
+        6,
+        10
+      ],
+      "W2.bowStraightByItem.kokuryu": 48,
+      "W2.toolDurability.kokuryu": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［黒龍｜こくりゅう］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "yatagarasu": {
+      "ITEM_INFO.yatagarasu": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ",
+        "special": "ひかり の や が あたると むらさき の ほのお が だいばくはつ！ ときどき や が へらない",
+        "stats": "bow",
+        "use": "や を とばして とおく の ようかい を たおす。や が いる"
+      },
+      "W2.bowBurstByItem.yatagarasu": true,
+      "W2.bowDamageByItem.yatagarasu": [
+        4,
+        6,
+        10
+      ],
+      "W2.toolDurability.yatagarasu": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［八咫烏｜やたがらす］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "tenshi_yumi": {
+      "ITEM_INFO.tenshi_yumi": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ",
+        "special": "せなか に つばさ が はえて、ふわふわ とべる ように なる",
+        "stats": "bow",
+        "use": "や を とばして とおく の ようかい を たおす。や が いる"
+      },
+      "W2.bowDamageByItem.tenshi_yumi": [
+        3,
+        5,
+        7
+      ],
+      "W2.toolDurability.tenshi_yumi": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［天使｜てんし］の［弓｜ゆみ］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "gnome_axe": {
+      "ITEM_INFO.gnome_axe": {
+        "buttons": [
+          "1-9",
+          "leftHold"
+        ],
+        "how": "えらんで、ブロック に むけて ひだりクリック を おしつづける。ようかい に むけて ひだりクリック で よこに ふる",
+        "special": "き を きれば 2 だん いっきに まっぷたつ！ よこなぎ で ようかい を なぎはらう",
+        "stats": "pickaxe",
+        "use": "き を はやく きれる。ようかい も たたける"
+      },
+      "TOOL_DEFAULTS.toolLevel.gnome_axe": 0,
+      "TOOL_DEFAULTS.toolPower.gnome_axe": 6,
+      "TOOL_DEFAULTS.weaponDamage.gnome_axe": 7,
+      "TOOL_NUMBERS.toolLevel.gnome_axe": 0,
+      "TOOL_NUMBERS.toolPower.gnome_axe": 6,
+      "TOOL_NUMBERS.weaponDamage.gnome_axe": 7,
+      "W2.toolDurability.gnome_axe": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "ノームの［斧｜おの］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "daichi_hammer": {
+      "ITEM_INFO.daichi_hammer": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで、ようかい に むけて ひだりクリック。そら で ふると まっすぐ おちて たたきつける",
+        "special": "だいち を くだく いちげき！ ジャンプ こうげき は はかいりょく ばつぐん",
+        "stats": "hammer",
+        "use": "ようかい を つよく たたく。ねらった ところ の まわり の つち や いし も こわす"
+      },
+      "W2.toolDurability.daichi_hammer": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［大地｜だいち］のハンマー",
       "placeBlock": null,
       "rarity": "legendary",
       "recipes": []
@@ -9662,6 +9833,166 @@
       "name": "マグマの たきつぼ",
       "placeBlock": "magma_takitsubo",
       "rarity": "uncommon",
+      "recipes": []
+    },
+    "maou_kabe": {
+      "DIG_DEFAULTS.hardness.maou_kabe": 3,
+      "DIG_DEFAULTS.harvestLevel.maou_kabe": 1,
+      "DIG_DEFAULTS.rarity.maou_kabe": "uncommon",
+      "ITEM_INFO.maou_kabe": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "まおうの しろ の かべ。おける"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "まおうの かべ",
+      "placeBlock": "maou_kabe",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "maou_yuka": {
+      "DIG_DEFAULTS.hardness.maou_yuka": 3,
+      "DIG_DEFAULTS.harvestLevel.maou_yuka": 1,
+      "DIG_DEFAULTS.rarity.maou_yuka": "uncommon",
+      "ITEM_INFO.maou_yuka": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "まおうの しろ の ゆか。おける"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "まおうの ゆか",
+      "placeBlock": "maou_yuka",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "maou_dan": {
+      "DIG_DEFAULTS.hardness.maou_dan": 3,
+      "DIG_DEFAULTS.harvestLevel.maou_dan": 1,
+      "DIG_DEFAULTS.rarity.maou_dan": "uncommon",
+      "ITEM_INFO.maou_dan": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "まおうの しろ の さいだん の いし。おける"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "まおうの だん",
+      "placeBlock": "maou_dan",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "maou_taimatsu": {
+      "DIG_DEFAULTS.hardness.maou_taimatsu": 0,
+      "DIG_DEFAULTS.harvestLevel.maou_taimatsu": 0,
+      "DIG_DEFAULTS.rarity.maou_taimatsu": "rare",
+      "ITEM_INFO.maou_taimatsu": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "むらさき に もえる ふしぎな たいまつ。おくと あかり に なる"
+      },
+      "category": "light",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むらさきの たいまつ",
+      "placeBlock": "maou_taimatsu",
+      "rarity": "rare",
+      "recipes": []
+    },
+    "otera_ishigaki": {
+      "DIG_DEFAULTS.hardness.otera_ishigaki": 3,
+      "DIG_DEFAULTS.harvestLevel.otera_ishigaki": 1,
+      "DIG_DEFAULTS.rarity.otera_ishigaki": "uncommon",
+      "ITEM_INFO.otera_ishigaki": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "よるの おてら の いしがき。おける"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おてらの いしがき",
+      "placeBlock": "otera_ishigaki",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "otera_ishidatami": {
+      "DIG_DEFAULTS.hardness.otera_ishidatami": 3,
+      "DIG_DEFAULTS.harvestLevel.otera_ishidatami": 1,
+      "DIG_DEFAULTS.rarity.otera_ishidatami": "uncommon",
+      "ITEM_INFO.otera_ishidatami": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "よるの おてら の いしだたみ。おける"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おてらの いしだたみ",
+      "placeBlock": "otera_ishidatami",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "otera_dan": {
+      "DIG_DEFAULTS.hardness.otera_dan": 3,
+      "DIG_DEFAULTS.harvestLevel.otera_dan": 1,
+      "DIG_DEFAULTS.rarity.otera_dan": "uncommon",
+      "ITEM_INFO.otera_dan": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "よるの おてら の さいだん の いし。おける"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おてらの だん",
+      "placeBlock": "otera_dan",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "onibi_taimatsu": {
+      "DIG_DEFAULTS.hardness.onibi_taimatsu": 0,
+      "DIG_DEFAULTS.harvestLevel.onibi_taimatsu": 0,
+      "DIG_DEFAULTS.rarity.onibi_taimatsu": "rare",
+      "ITEM_INFO.onibi_taimatsu": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "あおじろい おにび の たいまつ。おくと あかり に なる"
+      },
+      "category": "light",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "おにびの たいまつ",
+      "placeBlock": "onibi_taimatsu",
+      "rarity": "rare",
       "recipes": []
     }
   },

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { ItemId } from '../contracts';
-import { createBuffModel, buffsOfHeld } from './buffIconsModel';
+import { createW2Settings, type ItemId } from '../contracts';
+import { jumpHeightWith } from '../content/items/gadgetTuning';
+import { legendMoveMulOf } from '../legend/defs';
+import { createPlayerSettings } from '../player/config';
+import { createBuffModel, buffsOf, buffsOfHeld } from './buffIconsModel';
 
 /** WEAPON-8 AC11・AC21: 速さバフの アイコンの 出る・消える（ぽん・うすく なる・「動きを減らす」） */
 const FUJIN = 'fujin_ken' as ItemId;
@@ -76,5 +79,43 @@ describe('buffsOfHeld: passive の moveMul > 1 の 間だけ', () => {
     expect(buffsOfHeld(FUJIN, mul)).toEqual(on);
     expect(buffsOfHeld('katana' as ItemId, mul)).toEqual([]);
     expect(buffsOfHeld(null, mul)).toEqual([]);
+  });
+});
+
+/** LEGEND-4 K8（§3.4・§4.3-6）: ジャンプ力アップ（jumpUp）。黒龍 = speed・jumpUp の 順。わらじ = jumpUp 1.2。黒龍 ＋ わらじ = jumpUp 1 つ（2.0） */
+describe('K8: buffsOf（手に 持つ 物 ＋ 足の そうび）', () => {
+  const S = createW2Settings();
+  const base = createPlayerSettings().jumpHeight;
+  const src = { moveMul: (i: ItemId | null) => legendMoveMulOf(S, i), jumpMul: (h: ItemId | null, l: ItemId | null) => jumpHeightWith(l, base, h) / base };
+  it('黒龍を えらぶと speed（1.2）と jumpUp（2.0）の 2 つ、この 順', () => {
+    const rows = buffsOf('kokuryu', null, src);
+    expect(rows.map((r) => r.id)).toEqual(['speed', 'jumpUp']);
+    expect(rows[0]!.mul).toBeCloseTo(1.2, 9);
+    expect(rows[1]!.mul).toBeCloseTo(2.0, 9);
+  });
+  it('わらじだけ はく → jumpUp（1.5 ÷ 1.25 = 1.2）1 つ', () => {
+    const rows = buffsOf(null, 'waraji' as ItemId, src);
+    expect(rows.map((r) => r.id)).toEqual(['jumpUp']);
+    expect(rows[0]!.mul).toBeCloseTo(1.2, 9);
+  });
+  it('黒龍 ＋ わらじ → jumpUp は 1 つ（大きい ほう 2.0）', () => {
+    const rows = buffsOf('kokuryu', 'waraji' as ItemId, src);
+    expect(rows.map((r) => r.id)).toEqual(['speed', 'jumpUp']);
+    expect(rows[1]!.mul).toBeCloseTo(2.0, 9);
+  });
+  it('ほかの 物・何も なし → 空。風神剣は speed だけ', () => {
+    expect(buffsOf('katana' as ItemId, null, src)).toEqual([]);
+    expect(buffsOf(null, null, src)).toEqual([]);
+    expect(buffsOf(FUJIN, null, src).map((r) => r.id)).toEqual(['speed']);
+  });
+  it('出る・消える 動きは id ごと（AC21 と 同じ）。黒龍を 外すと speed だけ 消え始め、わらじの jumpUp は のこる', () => {
+    const m = createBuffModel();
+    for (let i = 0; i < 15; i++) m.step(buffsOf('kokuryu', 'waraji' as ItemId, src), false);
+    const r = m.step(buffsOf(null, 'waraji' as ItemId, src), false);
+    expect(r.find((x) => x.id === 'speed')!.shown).toBe(false);
+    expect(r.find((x) => x.id === 'jumpUp')!.shown).toBe(true);
+    expect(r.find((x) => x.id === 'jumpUp')!.mul).toBeCloseTo(1.2, 9);
+    for (let i = 0; i < 9; i++) m.step(buffsOf(null, 'waraji' as ItemId, src), false);
+    expect(m.list().map((x) => x.id)).toEqual(['jumpUp']);
   });
 });

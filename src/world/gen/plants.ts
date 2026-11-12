@@ -20,6 +20,8 @@ export interface Plant {
   height: number;
 }
 
+/** たけの 乱数の 種（plantsRawUncached と たけのこの ふるい〔countryFeatures.ts〕が 同じ 値を 読む） */
+const SEED_TAG = 701;
 const FLOWERS: readonly BlockId[] = ['flower_y', 'flower_o', 'flower_p'];
 let tmpSample: BiomeSample | null = null;
 
@@ -98,7 +100,7 @@ function neighbors(T: Terrain, cx: number, cz: number): Plant[] {
 function plantsRawUncached(T: Terrain, cx: number, cz: number): Plant[] {
   const x0 = cx * CHUNK_SIZE;
   const z0 = cz * CHUNK_SIZE;
-  const sP = subSeed(T.seed, 701);
+  const sP = subSeed(T.seed, SEED_TAG);
   const sp = T.spawn();
   const tmp = (tmpSample ??= newSample());
   const found: { p: Plant; r: number; kind: 'flower' | 'susuki' | 'take'; cap: number }[] = [];
@@ -128,7 +130,7 @@ function plantsRawUncached(T: Terrain, cx: number, cz: number): Plant[] {
       if (kind === 'take' && (T.height(x + 1, z) > h || T.height(x - 1, z) > h || T.height(x, z + 1) > h || T.height(x, z - 1) > h)) continue;
       if (kind === 'flower') found.push({ p: { x, z, id: FLOWERS[Math.floor(hash01(sP, x, z, 2) * 3)]!, height: 1 }, r, kind, cap: def.cap?.flower ?? Infinity });
       else if (kind === 'susuki') found.push({ p: { x, z, id: 'susuki', height: 1 }, r, kind, cap: def.cap?.susuki ?? Infinity });
-      else found.push({ p: { x, z, id: 'bamboo', height: 4 + Math.floor(hash01(sP, x, z, 3) * 4) }, r, kind, cap: def.cap?.take ?? Infinity });
+      else found.push({ p: { x, z, id: 'bamboo', height: C.take.heightMin + Math.floor(hash01(sP, x, z, 3) * C.take.heightSpread) }, r, kind, cap: def.cap?.take ?? Infinity });
     }
   }
   // 上限: 乱数の値が小さい順に 上限まで（列のかたよりが出ない）
@@ -152,4 +154,12 @@ export function columnCounts(seed: number, cx: number, cz: number): { trees: num
     flower: plants.filter((p) => p.id.startsWith('flower_')).length,
     susuki: plants.filter((p) => p.id === 'susuki').length,
   };
+}
+
+/**
+ * (x, z) が たけの こうほに 当たるか（間隔・地形の ふるいの 前。国は たけやぶ と して）。たけのこの 場所を 安く しぼる 用（本当の たけは plantsOfChunk）。
+ * たけの 割合 〔C.countries.take.take〕の 乱数と 同じ
+ */
+export function bambooRawHit(seed: number, x: number, z: number): boolean {
+  return hash01(subSeed(seed, SEED_TAG), x, z, 1) < (defOf('take').take ?? 0);
 }

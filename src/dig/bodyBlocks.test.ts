@@ -101,6 +101,16 @@ describe('体の 上に ブロックを 置く・こわす（DigSystem）', () =
     expect(r.dig.target()).toBeNull();
   });
 
+  it('breakExternal（ハンマー）は 体を ねらった ままでも 渡された ブロックを こわす', () => {
+    const r = new Rig();
+    r.inv.setSlot(0, { item: 'dirt', count: 5 });
+    r.step(1);
+    expect(r.dig.target()).not.toBeNull(); // 体の マスを ねらって いる
+    r.world.setBlock(20, 10, 20, 'stone');
+    expect(r.dig.breakExternal(20, 10, 20)).toBe(true);
+    expect(r.world.getBlock(20, 10, 20)).toBe('air');
+  });
+
   it('体の 本体は ほれない（左クリックしても 何も おきない）。置いた ブロックは ほると 1 つ もどる', () => {
     const r = new Rig();
     r.inv.setSlot(0, { item: 'dirt', count: 5 });

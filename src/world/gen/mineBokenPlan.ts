@@ -198,5 +198,5 @@ export function* planBokenSteps(G: Geo, site: Site, id: string, rx: number, rz: 
     camp: camp ? { room: camp.room, tansu: camp.tansu, lantern: camp.lantern, futon: camp.futon, takibi: camp.takibi } : null,
     work: { ...work },
   };
-  return { shaft, path: b.path, b, noTrees, noPlants, cols, rooms: so.rooms, roomCols, tries: so.tries, ref: { sigs: [], target: -1 }, areas };
+  return { shaft, path: b.path, b, noTrees, noPlants, cols, rooms: so.rooms, roomCols, tries: so.tries, ref: { sigs: [], target: -1 }, areas, boken: { bottom: sk.floors[nF - 1]!, mouths: mouths[nF - 1]! } };
 }

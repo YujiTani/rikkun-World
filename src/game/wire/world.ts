@@ -9,6 +9,9 @@ import { setChestWorldReader } from '../../world/render/looks/chestLooks';
 import { TimeOfDayImpl } from '../../time';
 import { FX_SETTINGS } from '../../fx/config';
 import { createBrowserTitleSound } from '../../fx/titleSound';
+import { yakataChordOf } from '../../fx/bgm/hook';
+import { createYakataScene } from '../../fx/bgm/yakataScene';
+import { yakataSoundTable } from '../../fx/yakataSoundTable';
 import { SoundFx } from '../../fx/sound';
 import { createAudioSettings } from '../../fx/audioConfig';
 import { AudioMixer } from '../../fx/audioMixer';
@@ -60,7 +63,8 @@ export async function wireBoot() {
   const mixer = new AudioMixer(audioSettings);
   const bgm = new BgmPlayer(mixer);
   const bgmScene = new BgmSceneTracker(audioSettings);
-  const fxSound = new SoundFx({ output: () => mixer.output(), chord: () => bgm.chord(), onBig: () => mixer.duck() });
+  const yakataScene = createYakataScene(yakataSoundTable()); // MINE-1F: やかたの 音の 場面〔毎ステップ wireMine が すすめる〕
+  const fxSound = new SoundFx({ output: () => mixer.output(), chord: () => yakataChordOf(yakataScene.state()) ?? bgm.chord(), onBig: () => mixer.duck() });
   // 二つ名の出現音（音ファイル）。効果音と同じミキサーの sfx バスに流す。プレイヤーの 最初の 操作のあとで 読みこむ（それまで AudioContext を 作らない）
   const titleSound = createBrowserTitleSound(
     () => FX_SETTINGS.fxVolume,
@@ -134,7 +138,7 @@ export async function wireBoot() {
   if (restored.shaftStart === undefined) restored.shaftStart = shafts.startEntrance(); // meta に 書いて 次から 同じ（なければ null ＝ さがした）
   bindFarmShafts(shafts);
   return {
-    shafts, shared, hud, game, audioSettings, audioPersist, mixer, bgm, bgmScene, fxSound, titleSound, saveOptions,
+    shafts, shared, hud, game, audioSettings, audioPersist, mixer, bgm, bgmScene, yakataScene, fxSound, titleSound, saveOptions,
     store, startBoot, startPlan, world, water, seed, island, saveId, idb, restored,
   };
 }

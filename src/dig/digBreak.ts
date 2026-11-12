@@ -6,6 +6,7 @@ import { CHALK_FACES, CHALK_NORMAL, chalkInfo, isChalkMarkId } from '../world/bl
 import { chestBlockInfo, chestFrontAt, chestPartner } from '../world/blocks/chestBlock';
 import { futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
+import { himawariPartnerDy } from '../world/blocks/himawari';
 import { isLookBlock } from '../world/blocks/houseLookBlocks';
 import { K_TANSU, doorInfo, furnSiblings, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
 import { ROPE, ROPE_STAKE, isFenceBlock, isRopeBlock, ropeColumn, ropeStakeOf, ropesFor, stakeRope } from '../world/blocks/rope';
@@ -15,6 +16,7 @@ import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { hash01, randInt, type Rng } from '../world/gen/random';
 import { DUG_ALWAYS_ONE, FARM_BREAK_DROP, HEMP_DROP, NO_DROP_BLOCKS } from './config';
 import { dropBlockOf, dugItemAt, dugItemOf } from './dugItems';
+import { chopPartner } from './gnomeChop';
 import { COOP_BLOCKS, HANGING_SUPPORT, TORCH_NEIGHBORS, type DigCore } from './digCore';
 
 /** MINE-1D: つらら（天井の 下に さがる。ブロック id） */
@@ -55,9 +57,11 @@ export class BlockBreaker {
     private readonly rng: Rng,
   ) {}
 
-  breakBlock(t: TargetInfo, bodyGlass: boolean): BreakEnd {
+  /** ignoreAim = 今の ねらい（体）を 見ず 渡された ブロックを こわす（ハンマー）。
+   *  extra = ノームの斧で いっしょに きった 上の マス（たいきゅうは 数えない） */
+  breakBlock(t: TargetInfo, bodyGlass: boolean, extra = false, ignoreAim = false): BreakEnd {
     const c = this.c;
-    if (c.bodyTgt()) return this.breakBodyBlock(t, bodyGlass);
+    if (!ignoreAim && c.bodyTgt()) return this.breakBodyBlock(t, bodyGlass);
     if (isMakimonoId(t.id)) return this.breakMakimono(t); // HOUSE-2A: まきもの。ほっても 右クリックでも 持ち物へ
     if (COOP_BLOCKS.has(t.id)) return this.breakCoopBlock(t);
     if (isChalkMarkId(t.id)) return this.breakChalkMark(t);
@@ -71,6 +75,7 @@ export class BlockBreaker {
     // HOUSE-1C: 戸は 上下 2 マス・長い 家具は ぜんぶの マスが 消えて、もとの アイテム 1 こ（向き・マス ちがいの id は もとの id に もどす）
     const houseDrop = houseDropOf(t.id);
     this.clearHouseCells(t);
+    this.clearHimawari(t);
     const dropId = dropBlockOf(t.id);
     // ふとん 2 マス: どちらを こわしても 相手の マスも 消えて ふとん 1 つ（相手が いない 1 マスだけの ふとんは そのまま）
     const pair = futonPartner(t.id, x, z);
@@ -108,7 +113,10 @@ export class BlockBreaker {
       }
     }
     c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: houseDrop ?? t.id, gotItem: got > 0, count: got });
-    this.wearForBlock();
+    if (!extra) this.wearForBlock();
+    // LEGEND-4 ノームの斧: つながる 同じ ブロック 1 つも いっしょに（ふつうに ほった ときと 同じ 道。1 回だけ）
+    const up = extra ? null : chopPartner(c.inventory.held()?.item, t, c.world);
+    if (up) this.breakBlock(up, false, true);
     return 'done';
   }
 
@@ -156,6 +164,15 @@ export class BlockBreaker {
       return;
     }
     for (const s of furnSiblings(t.id, x, z)) if ((s.x !== x || s.z !== z) && w.getBlock(s.x, y, s.z) === s.id) w.setBlock(s.x, y, s.z, 'air');
+  }
+
+  /** ひまわり: どちらの 段を こわしても もう 1 段も 消える（ねらった マスは 呼んだ 側が 消す。drop は himawari 1 こ） */
+  private clearHimawari(t: TargetInfo): void {
+    const dy = himawariPartnerDy(t.id);
+    if (dy === null) return;
+    const { x, y, z } = t.block;
+    const w = this.c.world;
+    if (himawariPartnerDy(w.getBlock(x, y + dy, z)) === -dy) w.setBlock(x, y + dy, z, 'air');
   }
 
   /** ROPE-1: どの マス（くい・なわ・ロープだまり）を こわしても たれた ロープ ぜんぶと くいが 消え、つかった 本数（⌈長さ ÷ 10⌉。くいは 数えない）が 持ち物に もどる */

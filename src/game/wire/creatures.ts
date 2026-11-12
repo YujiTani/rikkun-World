@@ -58,7 +58,10 @@ export function wireYokai(deps: WiredFighters) {
     samurai: () => ({ book: shared.samuraiBook.got(), have: shared.samuraiHave() }), // SAMURAI-1 §4.2: ヌシの 表で 選べない 侍装備の 行を とばす
     strength: strengthLevel,
     // MINE-1D §4.3: ほたるの ほらあなの 床には 出ない
-    noSpawnAt: (x, y, z) => deps.shafts.caveKindAt(x, y, z) === 'hotaru',
+    // MINE-1F: やかたの 中〔挑戦の 間の ほか も〕にも 出ない
+    noSpawnAt: (x, y, z) => deps.shafts.caveKindAt(x, y, z) === 'hotaru' || deps.shafts.yakataAt(x, y, z),
+    quietFor: (who) => shared.yakataQuiet(who), // MINE-1F §4.5: 挑戦の 間は その 人の まわりに 自動で 出ない
+    protectAt: (x, y, z) => shared.yakataLocked(x, y, z), // MINE-1F §4.3: ぬりかべの たおれこみで やかたの ブロックを こわさない
     light: renderer.light,
     // 出る場所は 描く輪の メッシュずみの列だけ（VOX-D）
     // HOUSE-1C §4.6: 建築中の 家の まわり 16 マスには 湧かない（建築中の 家だけを 見る。世界は 読まない）

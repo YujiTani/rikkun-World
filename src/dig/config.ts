@@ -1,3 +1,4 @@
+import { YAKATA_BLOCK_IDS } from '../world/blocks/mineYakata';
 import { defaultDropMax } from '../drops/rarityTable';
 import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
 import { SCAFFOLD_IDS, type ScaffoldId } from '../world/blocks/buildBlocks';
@@ -131,6 +132,12 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     susuki: 0.05,
     kusa: 0.05,
     nobana: 0.05,
+    // VOX-I-4a（国だけの物 その 1。すでで 0.05 秒。はなと 同じ）
+    kinoko: 0.05,
+    himawari: 0.05,
+    himawari_top: 0.05,
+    kaigara: 0.05,
+    takenoko: 0.05,
     // MINE-1B（#349。仕様 §4.4。素手の 秒数。時間 = 固さ ÷ 道具の 強さ）
     nendo: 1, // つち より 少し かたい（すでで 1 秒）
     sekkaiseki: 5, // いしの つるはし（強さ 4）で 1.25 秒
@@ -189,6 +196,14 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     taoreta_hashigo_z: 0.5,
     takibi_ato: 0.5, // MINE-1E: たきびの あと（すでで 0.5 秒。ほると せきたん 1）
     makimono: 0.5, // HOUSE-2A: まきもの（すでで 0.5 秒。ほると レシピの まきもの 1 こ。右クリックでも とれる）
+    maou_kabe: 3, // MINE-1F: やかたの かべ・ゆか・だん 6 こ（すでの 秒数 3。いしの つるはし〔強さ 4〕で 0.75 秒。仕様 §4.6）
+    maou_yuka: 3,
+    maou_dan: 3,
+    maou_taimatsu: 0, // MINE-1F: あやしい たいまつ 2 つ（すぐ。仕様 §4.6）
+    otera_ishigaki: 3,
+    otera_ishidatami: 3,
+    otera_dan: 3,
+    onibi_taimatsu: 0,
     ...forChest<number | null>(null), // 宝箱は ほっても こわれない（start_torch と 同じ）
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
@@ -253,6 +268,11 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     susuki: 0,
     kusa: 0,
     nobana: 0,
+    kinoko: 0,
+    himawari: 0,
+    himawari_top: 0,
+    kaigara: 0,
+    takenoko: 0,
     // MINE-1B（0 = すで・1 = いしの つるはし・2 = てつの つるはし から）
     nendo: 0,
     sekkaiseki: 1,
@@ -291,6 +311,14 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     taoreta_hashigo_x: 0,
     taoreta_hashigo_z: 0,
     takibi_ato: 0,
+    maou_kabe: 1, // MINE-1F: かべ・ゆか・だんは いしの つるはしから（段階 1）。たいまつは すでから（0）
+    maou_yuka: 1,
+    maou_dan: 1,
+    maou_taimatsu: 0,
+    otera_ishigaki: 1,
+    otera_ishidatami: 1,
+    otera_dan: 1,
+    onibi_taimatsu: 0,
     ...forChest(0),
   } satisfies Record<BlockId, number>,
   handPower: 1.0,
@@ -365,6 +393,11 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     susuki: 'common',
     kusa: 'common',
     nobana: 'common',
+    kinoko: 'common',
+    himawari: 'common',
+    himawari_top: 'common',
+    kaigara: 'common',
+    takenoko: 'common',
     // MINE-1B（ほると 手に 入る 数の 上限を きめる。しるしは 何も 出ない ので 使わない）
     nendo: 'uncommon',
     sekkaiseki: 'uncommon',
@@ -407,6 +440,14 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     taoreta_hashigo_x: 'common',
     taoreta_hashigo_z: 'common',
     takibi_ato: 'common',
+    maou_kabe: 'uncommon', // MINE-1F: かべ・ゆか・だんは レア、たいまつは スーパーレア
+    maou_yuka: 'uncommon',
+    maou_dan: 'uncommon',
+    maou_taimatsu: 'rare',
+    otera_ishigaki: 'uncommon',
+    otera_ishidatami: 'uncommon',
+    otera_dan: 'uncommon',
+    onibi_taimatsu: 'rare',
     ...forChest<Rarity>('common'),
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
@@ -445,6 +486,12 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   haniwa: { item: 'haniwa', count: 1 },
   // FLORA-75: のばな は いつも 1 こ（ランダムな数にしない）
   nobana: { item: 'nobana', count: 1 },
+  // VOX-I-4a: 国だけの物 その 1 は いつも 1 こ。ひまわりは どちらの 段でも himawari 1 こ
+  kinoko: { item: 'kinoko', count: 1 },
+  himawari: { item: 'himawari', count: 1 },
+  himawari_top: { item: 'himawari', count: 1 },
+  kaigara: { item: 'kaigara', count: 1 },
+  takenoko: { item: 'takenoko', count: 1 },
   // WATERFALL-1: こくようせきは いつも 1 こ。WAKIDOKORO: たきつぼ 2 つは その たきつぼ 1 こ（置き直せる）。わきどころ 2 つは 何も 落とさない（NO_DROP_BLOCKS。バケツ だけで 回収）
   kokuyouseki: { item: 'kokuyouseki', count: 1 },
   takitsubo: { item: 'takitsubo', count: 1 },
@@ -464,6 +511,8 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   taoreta_hashigo_x: { item: 'log', count: 1 },
   taoreta_hashigo_z: { item: 'log', count: 1 },
   takibi_ato: { item: 'coal_ore', count: 1 },
+  // MINE-1F: やかたの ブロック 8 こ（ほると じぶん いつも 1 こ。仕様 §4.6）
+  ...Object.fromEntries(YAKATA_BLOCK_IDS.map((id) => [id, { item: id, count: 1 }])),
 };
 
 /**

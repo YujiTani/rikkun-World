@@ -1,5 +1,5 @@
 import type { BlockId, VoxelWorld } from '../../contracts';
-import { canCrushBlock } from '../../world/blocks/crushable';
+import { canCrushBlock, crushPartner } from '../../world/blocks/crushable';
 import { applyDollBrightness } from './brightness';
 import { forCells } from './body';
 import { AI_CONST } from './config';
@@ -13,7 +13,7 @@ interface StoneDeps {
   world: VoxelWorld;
   reward: Pick<YokaiDefeat, 'defeat'>;
   /** onBlocks を 呼ぶときに 読む */
-  opts: Pick<YokaiManagerOptions, 'onBlocks'>;
+  opts: Pick<YokaiManagerOptions, 'onBlocks' | 'protectAt'>;
 }
 
 /**
@@ -63,7 +63,13 @@ export class YokaiStone {
       if (y <= 0) return;
       const b = world.getBlock(x, y, z);
       if (b === 'outside' || !canCrushBlock(b)) return;
+      if (this.d.opts.protectAt?.(x, y, z)) return; // MINE-1F: やかたの ブロック・ふさいだ かべは こわさない
       if (world.setBlock(x, y, z, 'air')) changed.push({ x, y, z, from: b, to: 'air' });
+      const pr = crushPartner(b, x, y, z); // ひまわりの 相手の 段
+      if (pr) {
+        const pb = world.getBlock(pr.x, pr.y, pr.z);
+        if (pb !== 'outside' && canCrushBlock(pb) && world.setBlock(pr.x, pr.y, pr.z, 'air')) changed.push({ x: pr.x, y: pr.y, z: pr.z, from: pb, to: 'air' });
+      }
     });
     if (changed.length > 0) this.d.opts.onBlocks?.(changed, 'crush');
   }

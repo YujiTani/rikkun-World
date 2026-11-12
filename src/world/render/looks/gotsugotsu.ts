@@ -253,9 +253,13 @@ export const gotsugotsuLook: Look = {
       const fill = spec.fill;
       return {
         ...spec,
+        /** 細い 形（既定の voxel・sprite）は マスを ふさがない（となりの 面を かくさない）。前の 太い 形（?bamboo=current）だけ ふさぐ */
+        get occludes(): boolean {
+          return bambooMode() === 'current';
+        },
         fill: (bx: number, by: number, bz: number, e: number, out: Uint8Array) => {
           const m = bambooMode();
-          if (m === 'voxel') fillBambooVoxel(e, out, 3);
+          if (m === 'voxel') fillBambooVoxel(e, bx, by, bz, out);
           else if (m === 'sprite') out.fill(0);
           else fill(bx, by, bz, e, out);
         },

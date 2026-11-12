@@ -110,16 +110,12 @@ function emitBambooPrism(mesh: MeshData, world: ArrayVoxelWorld, light: WorldLig
   pushInsetBox(mesh, world, x, y, z, x + inset, y, z + inset, x + 1 - inset, y + 1, z + 1 - inset, stalkUv, sky, blk);
   const nw = (wide + 2) / N;
   const ni = (1 - nw) / 2;
-  const band = 1.2 / N;
-  for (const yb of [0, 4 / N]) {
+  const band = 1 / N; // ふしは 高さ 1 / 9（近くの 形と 同じ。1 ブロックに 1 つ）
+  for (const yb of [4 / N]) {
     pushInsetBox(mesh, world, x, y, z, x + ni, y + yb, z + ni, x + 1 - ni, y + yb + band, z + 1 - ni, stalkUv, sky, blk);
   }
-  // 上から 3 マスだけ 葉（てっぺんが 大きい）。マイクラの「上に 葉」という 特ちょうだけ
-  let crown: 0 | 1 | 2 | null = null;
-  if (!bambooAbove(world, x, y, z, 1)) crown = 0;
-  else if (!bambooAbove(world, x, y, z, 2)) crown = 1;
-  else if (!bambooAbove(world, x, y, z, 3)) crown = 2;
-  if (crown !== null) pushLeafTuft(mesh, x, y, z, crown, leafUv, sky, blk);
+  // てっぺんの 1 ブロックだけ 葉の ふさ（近くの 形も てっぺんだけ。横の 葉は 近くだけで、遠くでは 省く）
+  if (!bambooAbove(world, x, y, z, 1)) pushLeafTuft(mesh, x, y, z, 0, leafUv, sky, blk);
 }
 
 function emitLeafShell(mesh: MeshData, world: ArrayVoxelWorld, light: WorldLight | undefined, x: number, y: number, z: number, b: number, micro: boolean): void {
@@ -162,6 +158,6 @@ export function emitProtoPlant(
   const mode: BambooMode = bambooMode();
   if (mode === 'current') return false;
   if (mode === 'voxel' && micro) return false;
-  emitBambooPrism(mesh, world, light, x, y, z, mode === 'voxel' ? 3 : 2);
+  emitBambooPrism(mesh, world, light, x, y, z, 2); // 近くの 小ブロックの たけ（leafBambooFill）と 同じ 細さ（はば 2 / 9）
   return true;
 }

@@ -92,6 +92,8 @@
     "grass": 1,
     "haniwa": 52,
     "hibi_ishi": 204,
+    "himawari": 238,
+    "himawari_top": 239,
     "hotaruishi": 63,
     "house_door": 83,
     "house_door_open": 85,
@@ -101,11 +103,13 @@
     "house_roof": 81,
     "house_wall": 80,
     "iron_ore": 8,
+    "kaigara": 240,
     "kakashi": 27,
     "kakashi_head": 28,
     "katame_tsuchi": 141,
     "kawara": 12,
     "kin_ore": 64,
+    "kinoko": 237,
     "kodo_waku": 186,
     "kogeta": 184,
     "kokuyouseki": 167,
@@ -162,6 +166,10 @@
     "maneki_e": 216,
     "maneki_n": 215,
     "maneki_w": 214,
+    "maou_dan": 244,
+    "maou_kabe": 242,
+    "maou_taimatsu": 245,
+    "maou_yuka": 243,
     "matsu_leaves": 33,
     "momiji_leaves": 32,
     "nendo": 60,
@@ -178,6 +186,10 @@
     "ofuro_e": 124,
     "ofuro_n": 123,
     "ofuro_w": 122,
+    "onibi_taimatsu": 249,
+    "otera_dan": 248,
+    "otera_ishidatami": 247,
+    "otera_ishigaki": 246,
     "reserved_147": 147,
     "reserved_148": 148,
     "reserved_149": 149,
@@ -243,6 +255,7 @@
     "takarabako_4_open": 201,
     "takarabako_4_open_r": 202,
     "takarabako_4_r": 200,
+    "takenoko": 241,
     "takibi_ato": 211,
     "takitsubo": 166,
     "tansu": 16,
@@ -1693,6 +1706,84 @@
       "id": "lk_light_suisho",
       "name": "いえの ブロック",
       "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "kinoko",
+      "name": "きのこ",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "himawari",
+      "name": "ひまわり",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "himawari_top",
+      "name": "ひまわり",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "kaigara",
+      "name": "かいがら",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "takenoko",
+      "name": "たけのこ",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "maou_kabe",
+      "name": "まおうの かべ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "maou_yuka",
+      "name": "まおうの ゆか",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "maou_dan",
+      "name": "まおうの だん",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "maou_taimatsu",
+      "name": "むらさきの たいまつ",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "otera_ishigaki",
+      "name": "おてらの いしがき",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "otera_ishidatami",
+      "name": "おてらの いしだたみ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "otera_dan",
+      "name": "おてらの だん",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "onibi_taimatsu",
+      "name": "おにびの たいまつ",
+      "solid": false
     }
   ],
   "DIG_DEFAULTS": {
@@ -1771,6 +1862,8 @@
       "grass": 0.5,
       "haniwa": 1,
       "hibi_ishi": 1.5,
+      "himawari": 0.05,
+      "himawari_top": 0.05,
       "hotaruishi": 6,
       "house_door": 5,
       "house_door_open": 5,
@@ -1780,11 +1873,13 @@
       "house_roof": 5,
       "house_wall": 5,
       "iron_ore": 15,
+      "kaigara": 0.05,
       "kakashi": null,
       "kakashi_head": null,
       "katame_tsuchi": 0.5,
       "kawara": 4,
       "kin_ore": 15,
+      "kinoko": 0.05,
       "kodo_waku": 5,
       "kogeta": 1,
       "kokuyouseki": 12,
@@ -1841,6 +1936,10 @@
       "maneki_e": 5,
       "maneki_n": 5,
       "maneki_w": 5,
+      "maou_dan": 3,
+      "maou_kabe": 3,
+      "maou_taimatsu": 0,
+      "maou_yuka": 3,
       "matsu_leaves": 0.25,
       "momiji_leaves": 0.25,
       "nendo": 1,
@@ -1857,6 +1956,10 @@
       "ofuro_e": 5,
       "ofuro_n": 5,
       "ofuro_w": 5,
+      "onibi_taimatsu": 0,
+      "otera_dan": 3,
+      "otera_ishidatami": 3,
+      "otera_ishigaki": 3,
       "reserved_147": null,
       "reserved_148": null,
       "reserved_149": null,
@@ -1922,6 +2025,7 @@
       "takarabako_4_open": null,
       "takarabako_4_open_r": null,
       "takarabako_4_r": null,
+      "takenoko": 0.05,
       "takibi_ato": 0.5,
       "takitsubo": 0.5,
       "tansu": 5,
@@ -2010,6 +2114,8 @@
       "grass": 0,
       "haniwa": 0,
       "hibi_ishi": 0,
+      "himawari": 0,
+      "himawari_top": 0,
       "hotaruishi": 1,
       "house_door": 0,
       "house_door_open": 0,
@@ -2019,11 +2125,13 @@
       "house_roof": 0,
       "house_wall": 0,
       "iron_ore": 1,
+      "kaigara": 0,
       "kakashi": 0,
       "kakashi_head": 0,
       "katame_tsuchi": 0,
       "kawara": 0,
       "kin_ore": 2,
+      "kinoko": 0,
       "kodo_waku": 0,
       "kogeta": 0,
       "kokuyouseki": 2,
@@ -2080,6 +2188,10 @@
       "maneki_e": 0,
       "maneki_n": 0,
       "maneki_w": 0,
+      "maou_dan": 1,
+      "maou_kabe": 1,
+      "maou_taimatsu": 0,
+      "maou_yuka": 1,
       "matsu_leaves": 0,
       "momiji_leaves": 0,
       "nendo": 0,
@@ -2096,6 +2208,10 @@
       "ofuro_e": 0,
       "ofuro_n": 0,
       "ofuro_w": 0,
+      "onibi_taimatsu": 0,
+      "otera_dan": 1,
+      "otera_ishidatami": 1,
+      "otera_ishigaki": 1,
       "reserved_147": 0,
       "reserved_148": 0,
       "reserved_149": 0,
@@ -2161,6 +2277,7 @@
       "takarabako_4_open": 0,
       "takarabako_4_open_r": 0,
       "takarabako_4_r": 0,
+      "takenoko": 0,
       "takibi_ato": 0,
       "takitsubo": 0,
       "tansu": 0,
@@ -2250,6 +2367,8 @@
       "grass": "common",
       "haniwa": "uncommon",
       "hibi_ishi": "common",
+      "himawari": "common",
+      "himawari_top": "common",
       "hotaruishi": "rare",
       "house_door": "uncommon",
       "house_door_open": "uncommon",
@@ -2259,11 +2378,13 @@
       "house_roof": "common",
       "house_wall": "common",
       "iron_ore": "rare",
+      "kaigara": "common",
       "kakashi": "common",
       "kakashi_head": "common",
       "katame_tsuchi": "common",
       "kawara": "uncommon",
       "kin_ore": "epic",
+      "kinoko": "common",
       "kodo_waku": "common",
       "kogeta": "common",
       "kokuyouseki": "rare",
@@ -2320,6 +2441,10 @@
       "maneki_e": "rare",
       "maneki_n": "rare",
       "maneki_w": "rare",
+      "maou_dan": "uncommon",
+      "maou_kabe": "uncommon",
+      "maou_taimatsu": "rare",
+      "maou_yuka": "uncommon",
       "matsu_leaves": "common",
       "momiji_leaves": "common",
       "nendo": "uncommon",
@@ -2336,6 +2461,10 @@
       "ofuro_e": "rare",
       "ofuro_n": "rare",
       "ofuro_w": "rare",
+      "onibi_taimatsu": "rare",
+      "otera_dan": "uncommon",
+      "otera_ishidatami": "uncommon",
+      "otera_ishigaki": "uncommon",
       "reserved_147": "common",
       "reserved_148": "common",
       "reserved_149": "common",
@@ -2401,6 +2530,7 @@
       "takarabako_4_open": "common",
       "takarabako_4_open_r": "common",
       "takarabako_4_r": "common",
+      "takenoko": "common",
       "takibi_ato": "common",
       "takitsubo": "uncommon",
       "tansu": "uncommon",
@@ -2502,9 +2632,25 @@
       "count": 1,
       "item": "stone"
     },
+    "himawari": {
+      "count": 1,
+      "item": "himawari"
+    },
+    "himawari_top": {
+      "count": 1,
+      "item": "himawari"
+    },
+    "kaigara": {
+      "count": 1,
+      "item": "kaigara"
+    },
     "katame_tsuchi": {
       "count": 1,
       "item": "dirt"
+    },
+    "kinoko": {
+      "count": 1,
+      "item": "kinoko"
     },
     "kodo_waku": {
       "count": 1,
@@ -2534,9 +2680,41 @@
       "count": 1,
       "item": "magma_takitsubo"
     },
+    "maou_dan": {
+      "count": 1,
+      "item": "maou_dan"
+    },
+    "maou_kabe": {
+      "count": 1,
+      "item": "maou_kabe"
+    },
+    "maou_taimatsu": {
+      "count": 1,
+      "item": "maou_taimatsu"
+    },
+    "maou_yuka": {
+      "count": 1,
+      "item": "maou_yuka"
+    },
     "nobana": {
       "count": 1,
       "item": "nobana"
+    },
+    "onibi_taimatsu": {
+      "count": 1,
+      "item": "onibi_taimatsu"
+    },
+    "otera_dan": {
+      "count": 1,
+      "item": "otera_dan"
+    },
+    "otera_ishidatami": {
+      "count": 1,
+      "item": "otera_ishidatami"
+    },
+    "otera_ishigaki": {
+      "count": 1,
+      "item": "otera_ishigaki"
     },
     "saku": {
       "count": 1,
@@ -2545,6 +2723,10 @@
     "sprinkler": {
       "count": 1,
       "item": "sprinkler"
+    },
+    "takenoko": {
+      "count": 1,
+      "item": "takenoko"
     },
     "takibi_ato": {
       "count": 1,

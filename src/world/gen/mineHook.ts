@@ -4,6 +4,8 @@ import { isUnderground } from '../../yokai/ai/terrain';
 import { BLOCK_INDEX, BLOCK_TYPES, blockIdFromIndex } from '../blocks/blockTypes';
 import { buildBlocks } from './chunk';
 import { createShaftHook, type ChestPorts, type ShaftHook } from './mineHookShaft';
+import { createYakataHook } from './mineHookYakata';
+import type { YakataPorts } from './mineYakataPorts';
 import type { OldCols } from './mineShaftOps';
 import type { ShaftWorld } from './mineShafts';
 import { HW } from './columnLayout';
@@ -57,7 +59,9 @@ interface Underground {
   maxY: number;
 }
 
-export interface MineHook extends ShaftHook {
+export interface MineHook extends Omit<ShaftHook, 'open'>, ReturnType<typeof createYakataHook> {
+  /** 宝箱を あける〔やかたの 宝箱は 挑戦の はじまり。`who` は あける 人〕 */
+  open(x: number, y: number, z: number, who?: 1 | 2): void;
   layers(): MineLayerDef[];
   layerAt(y: number): MineLayerId | null;
   oreTable(): MineOreRow[];
@@ -156,6 +160,8 @@ export function createMineHook(o: {
   spawnHeight?: () => number;
   /** MINE-1E（E11）: たんすの 記録が あるか（`StorageSystem.has`）。キャンプの 中身の 予告（`campPreview`）を 出すか 決める */
   tansuHas?: (x: number, y: number, z: number) => boolean;
+  /** MINE-1F: やかたの 挑戦の 出入り口（つなぎ込みが わたす。なければ 挑戦は はじまらない） */
+  yakata?: YakataPorts;
 }): MineHook {
   const { seed } = o;
   const T = terrainFor(seed);
@@ -169,8 +175,13 @@ export function createMineHook(o: {
     });
 
   const shaft = createShaftHook(o);
+  const yakata = createYakataHook(o, shaft.shaftWorld);
   return {
     ...shaft,
+    ...yakata,
+    open: (x, y, z, who = 1): void => {
+      if (!yakata.yakataOpen(x, y, z, who)) shaft.open(x, y, z);
+    },
     layers: () => MINE_CONFIG.layers.map((l) => ({ ...l })),
     layerAt,
     oreTable: () => MINE_CONFIG.ores.map((r) => ({ ...r })),

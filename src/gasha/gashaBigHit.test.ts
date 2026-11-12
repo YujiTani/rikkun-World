@@ -250,6 +250,20 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     hpIs(r, 90);
   });
 
+  it('八咫烏の ほのお（bursts）: 球に 触れた 箱の うち いちばん 倍率が 高い 所に 1 回だけ。遠い 球は 当たらない', () => {
+    let balls: { center: Vec3; radius: number; damage: number }[] = [];
+    const r = rig({ bursts: () => balls });
+    const h = r.find('handL');
+    balls = [{ center: v(h.c[0]!, h.c[1]!, h.c[2]! + h.half[2]! + 1), radius: 2, damage: 7 }];
+    r.bh.step(1 / 60);
+    expect(r.bh.last?.source).toBe('burst');
+    hpIs(r, 7 * mulOf(r.bh.last!.part));
+    balls = [{ center: v(500, 500, 500), radius: 2, damage: 7 }];
+    const hp = r.bh.hp;
+    r.bh.step(1 / 60);
+    expect(r.bh.hp).toBe(hp);
+  });
+
   it('矢・パンチ: YokaiManager の 線の 当たりと ダメージに 割りこむ。本物の 妖怪は そのまま', () => {
     const dmg: [number, number][] = [];
     const real: YokaiWorldLike = {
@@ -302,6 +316,19 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     hpIs(r, 27.8); // 間かくの 間は 当たらない
     for (let i = 0; i < 40; i++) r.bh.step(1 / 60);
     hpIs(r, 37.8);
+  });
+
+  it('大地のハンマーの 球: 箱に 重なれば 1 回 当たる（source は hammer）・重ならなければ 当たらない', () => {
+    let hs: { center: Vec3; radius: number; damage: number }[] = [];
+    const r = rig({ hammer: () => hs });
+    const h = r.find('handL');
+    hs = [{ center: v(h.c[0]! + 40, h.c[1]!, h.c[2]!), radius: 1.5, damage: 20 }];
+    r.bh.step(1 / 60);
+    hpIs(r, 0);
+    hs = [{ center: v(h.c[0]!, h.c[1]!, h.c[2]!), radius: 1.5, damage: 20 }];
+    r.bh.step(1 / 60);
+    expect(r.bh.last?.source).toBe('hammer');
+    expect(r.bh.hits).toBe(1);
   });
 
   it('防御力（はじめて）: 手・腕・頭・胴体は 30 ひかれる（オーナー 2026-10-24: 腕にも）。最低 1。コアは 防御力 0', () => {

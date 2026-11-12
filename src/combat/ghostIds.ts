@@ -10,3 +10,8 @@ export const GHOST_BIG_BASE = GHOST_ID_MIN;
 export const GHOST_EMBER_BASE = GHOST_ID_MIN + 10_000_000;
 /** それぞれの 種類が 使う id の 幅 */
 export const GHOST_ID_SPAN = 1_000_000;
+/**
+ * 「1 本の 矢が 同じ 体に 1 回」を 見分ける 札。がしゃどくろは 箱ごとに 別の 仮の id だが 体は 1 つ なので
+ * 箱の id は ぜんぶ GHOST_BIG_BASE の 1 つに まとめる（本物の 妖怪・燃えかすは そのまま）
+ */
+export const hitOnceKey = (id: number): number => (id >= GHOST_BIG_BASE && id < GHOST_BIG_BASE + GHOST_ID_SPAN ? GHOST_BIG_BASE : id);

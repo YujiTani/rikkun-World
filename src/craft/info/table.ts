@@ -22,7 +22,7 @@ export const CLASS_TEXT = {
 /** 虹色の 見出し（レジェンダリーの 物の「とくべつな ちから」の 行。NINJA-1 §3.1） */
 export const SPECIAL_HEAD = 'とくべつな ちから';
 
-export type StatKind = 'pickaxe' | 'blade' | 'bow' | 'arrow' | 'armor' | 'tansu' | 'can';
+export type StatKind = 'pickaxe' | 'blade' | 'bow' | 'arrow' | 'armor' | 'tansu' | 'can' | 'hammer';
 
 export interface InfoRow {
   /** なにに つかう */

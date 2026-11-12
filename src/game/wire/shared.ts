@@ -66,7 +66,7 @@ interface Shared {
   /** COOP-1 3d（AC71・AC72）: 2P を やめさせる（タイトルへ もどる・よみこむ で 読みなおす 直前に 呼ぶ。2P が いなければ 何もしない。wireDuo が 差しかえる） */
   leaveDuo: (reason: DuoLeaveReason) => void;
   /** COOP-1 3a: 仲間（2P）の 足もとと 持ち物（参加していなければ null。落とし物・動物・1P の 置く が 読む。wireDuo が 差しかえる。返す 物は いつも 同じ 1 つ） */
-  duoMate: () => { position: Vec3; inventory: Inventory } | null;
+  duoMate: () => { position: Vec3; inventory: Inventory; moveTo?(p: Vec3): void } | null;
   /** COOP-1 4d-3: 2P の がしゃどくろへの 口（参加している あいだだけ。なければ null。wireDuoPlay が 差しかえる。参加ごとに 同じ 1 つ） */
   p2Gasha: () => P2GashaPort | null;
   /** COOP-1 3a: 落とし物を ひろえる 仲間（倒れている あいだは null。DropField だけが 読む。wireDuo が 差しかえる） */
@@ -167,6 +167,14 @@ interface Shared {
   requestSave: () => void;
   /** MINE-1E: キャンプの たんすを はじめて あける ときの 中身〔wireMine が つなぐ。つなぐ 前は null〕。`StorageSystem` の firstFill が 読む */
   campFill: (x: number, y: number, z: number) => ItemStack[] | null;
+  /** MINE-1F: やかたの ブロック〔まだ・挑戦の 間〕か。ほる係・ぬりかべが 読む〔wireMine が つなぐ。つなぐ 前は いつも false〕 */
+  yakataLocked: (x: number, y: number, z: number) => boolean;
+  /** MINE-1F: 今 ねらって いる 宝箱が やかたの 宝箱か〔「あける」の ヒントに おやぶんの しるし〕 */
+  yakataChestAimed: () => boolean;
+  /** MINE-1F §4.5: 挑戦の 間の 人〔1 = 1P・2 = 2P〕か。そこでは 自動の 出現を しない */
+  yakataQuiet: (who: 1 | 2) => boolean;
+  /** MINE-1F: 保存にだけ 元の ブロックで 書く マス〔挑戦の 間の 門・宝箱〕 */
+  yakataSaveOverrides: () => Array<{ x: number; y: number; z: number; live: string; save: string }>;
   skipSignalLog: boolean;
   onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
   yokaiManager: YokaiManager | null;
@@ -262,6 +270,10 @@ export function createShared(): Shared {
     modalCloseNow: () => {},
     requestSave: () => {},
     campFill: () => null,
+    yakataLocked: () => false,
+    yakataChestAimed: () => false,
+    yakataQuiet: () => false,
+    yakataSaveOverrides: () => [],
     skipSignalLog: false,
     onDropPicked: () => {},
     yokaiManager: null,

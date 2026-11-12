@@ -1,6 +1,7 @@
 import type { BlockId, TargetInfo } from '../contracts';
 import { itemType } from '../inventory/items';
 import { FUTON_HEAD, futonDirFromYaw, futonPartner } from '../world/blocks/futon';
+import { HIMAWARI, HIMAWARI_TOP } from '../world/blocks/himawari';
 import { KOTATSU_CELLS } from '../world/blocks/kotatsu';
 import { K_TANSU, doorIdLike, doorInfo, furnInfo, furnPlaceCells, furnRotFromYaw, houseDropOf, isFurnKind } from '../world/blocks/houseBlocks';
 import { styleOfItem, type Facing } from '../house/placedLooks';
@@ -71,6 +72,7 @@ export class BlockPlacer {
     // HOUSE-1C: 向きの ある 家具（プレイヤーの ほうを 向く）・戸（2 マス。いつも 南向き）
     if (furnInfo(block)) return this.furnSpot(block, x, y, z);
     if (doorInfo(block)) return this.doorSpot(x, y, z, block);
+    if (block === HIMAWARI) return this.himawariSpot(x, y, z);
     if (block === 'nobana') {
       // のばな は くさ・つち の上だけ
       const under = c.world.getBlock(x, y - 1, z);
@@ -180,6 +182,15 @@ export class BlockPlacer {
     for (const yy of [y, y + 1]) if (this.overlapsBody(x, yy, z) || c.gate?.placeBlocked(x, yy, z) || this.lockedCell(x, yy, z)) return null;
     const lo = doorIdLike(like, false, false); // いえの と も てつの と も 持った 物の なかま
     return { x, y, z, block: lo, cells: [{ x, z, block: lo }, { x, y: y + 1, z, block: doorIdLike(like, true, false) }] };
+  }
+
+  /** ひまわり 2 段（下〔ねらった マス〕と その 上）を 置く 場所。上の 1 マスが ふさがって いたら 置けない（VOX-I §2.5） */
+  private himawariSpot(x: number, y: number, z: number): PlaceSpot | null {
+    const c = this.c;
+    const upper = c.world.getBlock(x, y + 1, z);
+    if (upper !== 'air' && !isWater(upper)) return null;
+    for (const yy of [y, y + 1]) if (c.gate?.placeBlocked(x, yy, z) || this.lockedCell(x, yy, z)) return null;
+    return { x, y, z, block: HIMAWARI, cells: [{ x, z, block: HIMAWARI }, { x, y: y + 1, z, block: HIMAWARI_TOP }] };
   }
 
   /** HOUSE-1C PR-2: 建築中の 場所の マスか */

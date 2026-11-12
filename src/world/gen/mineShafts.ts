@@ -1,5 +1,9 @@
 import { keyOf } from './mineShaftBuild';
-import { buildOps, type ColOps, type OldCols } from './mineShaftOps';
+import { buildOps, buildOpsSteps, type ColOps, type OldCols } from './mineShaftOps';
+import type { Planned } from './mineShaftPlanned';
+import { yakataStage } from './mineYakataStage';
+import { regionOfShaftId } from './mineYakataRoll';
+import type { Box3, Yakata } from './mineYakataTypes';
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import { planShaft, type PlanEnv, type ShaftPlan } from './mineShaftPlan';
 import { LINK_TRIES, type StartLink } from './mineShaftHeya';
@@ -19,10 +23,8 @@ import { V6Regions, regionJobC, touchesBoken } from './mineShaftRegionC';
 
 const CAVE_REGION = CAVE_CONFIG.region;
 
-interface Planned {
-  plan: ShaftPlan;
-  ops: Map<number, ColOps> | null;
-}
+/** やかたの 形を さがす とき、列の まわり この マス〔やかたは 坑道の 箱から この マスまで はみ出す。口から 横穴 16・大広間 17・かべ・外がわの いし〕の 区画まで 見る */
+const YAKATA_REACH = 48;
 
 /** 坑道を 作るか（くらべ用の `?mine=0` で 切る。§4.9）。切ると どの 窓口も 坑道 なしと 答える */
 let shaftsOn = true;
@@ -237,6 +239,7 @@ export class ShaftWorld implements CaveHost {
     }
     this.regions.set(key, planned);
     this.jobs.delete(key);
+    if (planned && this.isDeepE(planned.plan)) this.ykQueue.push(planned);
     return planned;
   }
 
@@ -309,6 +312,7 @@ export class ShaftWorld implements CaveHost {
 
   /** 坑道の 先読みを 短い 仕事 1 つ だけ すすめる。まだ のこって いれば true */
   private warmShaftStep(): boolean {
+    if (this.ykStep()) return true;
     while (this.warmAt < this.warmKeys.length) {
       const key = this.warmKeys[this.warmAt]!;
       if (this.regions.has(key)) {
@@ -362,8 +366,13 @@ export class ShaftWorld implements CaveHost {
     return out;
   }
 
+  /** `shafts` と 同じ。ただし やかたの 計画は すすめない〔`yakata` は まだ 入って いない ことが ある。くじの 数えだけに 使う〕 */
+  shaftsLite(x0: number, z0: number, x1: number, z1: number): Shaft[] {
+    return this.shafts(x0, z0, x1, z1, false);
+  }
+
   /** 箱が 範囲に かかる 坑道ぜんぶ（はじまりの 坑道 ＋ 区画の 坑道） */
-  shafts(x0: number, z0: number, x1: number, z1: number): Shaft[] {
+  shafts(x0: number, z0: number, x1: number, z1: number, ensure = true): Shaft[] {
     const out: Shaft[] = [];
     const hit = (b: Shaft['box']): boolean => b.x0 <= x1 && b.x1 >= x0 && b.z0 <= z1 && b.z1 >= z0;
     const s = this.start()?.plan.shaft;
@@ -371,7 +380,10 @@ export class ShaftWorld implements CaveHost {
     for (let rz = regionOf(z0); rz <= regionOf(z1); rz++) {
       for (let rx = regionOf(x0); rx <= regionOf(x1); rx++) {
         const p = this.region(rx, rz);
-        if (p && hit(p.plan.shaft.box)) out.push(p.plan.shaft);
+        if (p && hit(p.plan.shaft.box)) {
+          if (ensure && this.isDeepE(p.plan)) this.yakataEnsure(p);
+          out.push(p.plan.shaft);
+        }
       }
     }
     return out;
@@ -385,23 +397,130 @@ export class ShaftWorld implements CaveHost {
   }
 
   path(id: string): PathCell[] {
-    return this.planById(id)?.path.map((c) => ({ ...c })) ?? [];
+    const plan = this.planById(id);
+    if (!plan) return [];
+    const p = this.regionPlanned(id);
+    if (p) this.yakataEnsure(p);
+    return [...plan.path, ...(plan.yakata?.path ?? [])].map((c) => ({ ...c }));
   }
 
-  /** 列に かかる 計画（箱を S.plan.reach 広げた 四角が 列に かかる もの） */
+  private regionPlanned(id: string): Planned | null {
+    const r = regionOfShaftId(id);
+    return r ? this.region(r.rx, r.rz) : null;
+  }
+
+  // ------------------------------------------------------------------ 1F: やかた〔2 だん目の 計画〕
+
+  private readonly ykDone = new WeakSet<ShaftPlan>();
+  private readonly ykJobs = new WeakMap<ShaftPlan, Generator<void, void>>();
+  /** 1 だん目が おわった ふかい 1E の 坑道で、やかたの 計画が まだ のこって いる 順 */
+  private readonly ykQueue: Planned[] = [];
+
+  private isDeepE(plan: ShaftPlan): boolean {
+    return plan.shaft.gen === 'e' && plan.shaft.style?.depth === 'fukai';
+  }
+
+  private *caveBoxes(x0: number, z0: number, x1: number, z1: number): Generator<void, Box3[]> {
+    const list = yield* this.caves.cavesSteps(x0, z0, x1, z1);
+    return list.map((c) => c.box);
+  }
+
+  private *ykRun(p: Planned): Generator<void, void> {
+    const r = regionOfShaftId(p.plan.shaft.id)!;
+    const isOldCol = (k: number): boolean => this.oldCols?.yakata?.has(k) === true;
+    p.plan.shaft.yakata = null;
+    const placed = yield* yakataStage({ G: this.G, seed: this.seed, rx: r.rx, rz: r.rz, isOldCol, caveBoxes: (a, b, c, d) => this.caveBoxes(a, b, c, d) }, p);
+    if (placed) p.ops = yield* buildOpsSteps(p.plan);
+    this.ykDone.add(p.plan);
+    this.ykJobs.delete(p.plan);
+  }
+
+  private ykJob(p: Planned): Generator<void, void> {
+    let job = this.ykJobs.get(p.plan);
+    if (!job) this.ykJobs.set(p.plan, (job = this.ykRun(p)));
+    return job;
+  }
+
+  /** やかたの 計画を さいごまで すすめる〔1 だん目の 計画は すんで いる〕 */
+  private yakataEnsure(p: Planned): void {
+    if (this.ykDone.has(p.plan)) return;
+    const job = this.ykJob(p);
+    let r = job.next();
+    while (!r.done) r = job.next();
+  }
+
+  /** やかたの 計画を 短い 仕事 1 つ だけ すすめる。のこって いれば true */
+  private ykStep(): boolean {
+    while (this.ykQueue.length > 0) {
+      const p = this.ykQueue[0]!;
+      if (this.ykDone.has(p.plan)) {
+        this.ykQueue.shift();
+        continue;
+      }
+      const r = this.ykJob(p).next();
+      if (r.done) this.ykQueue.shift();
+      return true;
+    }
+    return false;
+  }
+
+  /** (x, y, z) は やかたの 空気〔あやしい 横穴・門・大広間・祭壇の 上〕か */
+  yakataAt(x: number, y: number, z: number): boolean {
+    const k = keyOf(x, y, z);
+    for (const plan of this.plansNear(x >> 4, z >> 4)) if (plan.yakata?.air.has(k)) return true;
+    return false;
+  }
+
+  /** 近くの 区画〔(cx, cz) の まわり〕の やかた〔計画の 済んだ ものだけ。光の 箱に 使う〕 */
+  yakataNear(cx: number, cz: number): Yakata[] {
+    const out: Yakata[] = [];
+    for (const plan of this.plansNear(cx, cz)) if (plan.yakata) out.push(plan.yakata.yakata);
+    return out;
+  }
+
+  /** (x, y, z) を ふくむ やかたの 計画〔なければ null〕。箱の 中だけ 見る */
+  yakataBuilt(x: number, y: number, z: number): NonNullable<ShaftPlan['yakata']> | null {
+    for (const plan of this.plansNear(x >> 4, z >> 4)) {
+      const b = plan.yakata?.box;
+      if (b && x >= b.x0 && x <= b.x1 && z >= b.z0 && z <= b.z1 && y >= b.y0 && y <= b.y1) return plan.yakata!;
+    }
+    return null;
+  }
+
+  /** (x, y, z) を ふくむ やかたの 計画〔先読みで すんで いる 区画だけ 見る。計画は すすめない〕 */
+  yakataReady(x: number, y: number, z: number): NonNullable<ShaftPlan['yakata']> | null {
+    const b = this.regions.get(this.regionKey(regionOf(x), regionOf(z)))?.plan.yakata;
+    return b && x >= b.box.x0 && x <= b.box.x1 && z >= b.box.z0 && z <= b.box.z1 && y >= b.box.y0 && y <= b.box.y1 ? b : null;
+  }
+
+  /** 坑道 id の やかた〔なければ null〕 */
+  yakataOfShaft(id: string): NonNullable<ShaftPlan['yakata']> | null {
+    const p = this.regionPlanned(id);
+    if (!p) return null;
+    this.yakataEnsure(p);
+    return p.plan.yakata ?? null;
+  }
+
+  /** 列に かかる 計画（箱を S.plan.reach 広げた 四角が 列に かかる もの。やかたが 箱から はみ出す 計画は やかたの 外の 四角で 見る） */
   plansNear(cx: number, cz: number): ShaftPlan[] {
     const x0 = cx * 16 - S.plan.reach;
     const z0 = cz * 16 - S.plan.reach;
     const x1 = cx * 16 + 15 + S.plan.reach;
     const z1 = cz * 16 + 15 + S.plan.reach;
     const out: ShaftPlan[] = [];
-    const near = (b: Shaft['box']): boolean => b.x0 <= x1 && b.x1 >= x0 && b.z0 <= z1 && b.z1 >= z0;
+    const near = (b: { x0: number; z0: number; x1: number; z1: number }): boolean => b.x0 <= x1 && b.x1 >= x0 && b.z0 <= z1 && b.z1 >= z0;
     const s = this.start()?.plan;
     if (s && near(s.shaft.box)) out.push(s);
-    for (let rz = regionOf(z0); rz <= regionOf(z1); rz++) {
-      for (let rx = regionOf(x0); rx <= regionOf(x1); rx++) {
+    const m = YAKATA_REACH - S.plan.reach;
+    for (let rz = regionOf(z0 - m); rz <= regionOf(z1 + m); rz++) {
+      for (let rx = regionOf(x0 - m); rx <= regionOf(x1 + m); rx++) {
         const p = this.region(rx, rz);
-        if (p && near(p.plan.shaft.box)) out.push(p.plan);
+        if (!p) continue;
+        const b = p.plan.shaft.box;
+        const far = b.x0 - m <= x1 && b.x1 + m >= x0 && b.z0 - m <= z1 && b.z1 + m >= z0;
+        if (!far) continue;
+        if (this.isDeepE(p.plan)) this.yakataEnsure(p);
+        if (near(b) || (p.plan.ext !== undefined && near(p.plan.ext))) out.push(p.plan);
       }
     }
     return out;

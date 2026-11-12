@@ -64,7 +64,7 @@ export function wireSave(deps: WiredAchievements) {
       // 読みこんだら 向きはカメラの yaw と同じ（背中が見える）
       set: (v) => controller.set({ position: v.position, velocity: v.velocity, yawDeg: v.yawDeg, pitchDeg: START_PITCH_DEG, facingDeg: v.yawDeg }),
     },
-    saveOverrides: () => shared.gashaSaveOverrides(),
+    saveOverrides: () => [...shared.gashaSaveOverrides(), ...shared.yakataSaveOverrides()],
     spawn: spawnPlain, // 保存の meta に 書くだけ（スタートへ もどす動きは しない）
     store,
     tick: () => game.tick,

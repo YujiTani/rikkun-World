@@ -1,0 +1,345 @@
+{
+ "cell": 256,
+ "span": 2.0,
+ "center": 0.95,
+ "tiers": [
+  0,
+  75,
+  -75
+ ],
+ "dirs": 8,
+ "modelH": 1.7,
+ "note": "LEGEND-4 の 大地のハンマー（hammer）・ノームの斧（gnome）。並びと advance・side の 意味は art/char-sheets/girl/atlas.json と 同じ。色は 色見本の 0〜19（体）＋ extras（その 武器の 9 色。palette_extra.json と 同じ じゅん）。hammer/katana_walk_jodan.png・gnome/katana_walk_chudan.png は 今の 刀の かまえ歩きの かわり（スキン）。",
+ "extras": {
+  "hammer": [
+   [
+    38,
+    42,
+    56
+   ],
+   [
+    74,
+    82,
+    102
+   ],
+   [
+    124,
+    135,
+    154
+   ],
+   [
+    180,
+    191,
+    204
+   ],
+   [
+    238,
+    242,
+    246
+   ],
+   [
+    46,
+    44,
+    60
+   ],
+   [
+    70,
+    68,
+    90
+   ],
+   [
+    240,
+    192,
+    80
+   ],
+   [
+    200,
+    138,
+    40
+   ]
+  ],
+  "gnome": [
+   [
+    62,
+    28,
+    18
+   ],
+   [
+    124,
+    60,
+    24
+   ],
+   [
+    185,
+    106,
+    38
+   ],
+   [
+    227,
+    156,
+    68
+   ],
+   [
+    255,
+    217,
+    140
+   ],
+   [
+    28,
+    26,
+    38
+   ],
+   [
+    46,
+    44,
+    60
+   ],
+   [
+    70,
+    68,
+    90
+   ],
+   [
+    240,
+    192,
+    80
+   ]
+  ]
+ },
+ "motions": {
+  "hammer_swing": {
+   "frames": 20,
+   "fps": 7.55,
+   "ticks": [
+    6,
+    6,
+    6,
+    6,
+    6,
+    5,
+    3,
+    2,
+    2,
+    3,
+    3,
+    3,
+    10,
+    30,
+    10,
+    10,
+    10,
+    10,
+    10,
+    18
+   ],
+   "labels": [
+    "t0 startup f4.0 w0.00",
+    "t6 startup f7.6 w0.50",
+    "t12 startup f11.4 w1.00",
+    "t18 startup f15.6 w1.00",
+    "t24 startup f20.2 w1.00",
+    "t30 startup f25.0 w1.00",
+    "t35 startup f28.8 w1.00",
+    "t38 startup f32.5 w1.00",
+    "t40 startup f35.5 w1.00",
+    "t42 active f38.5 w1.00",
+    "t45 active f39.6 w1.00",
+    "t48 active f40.6 w1.00",
+    "t54 recovery f41.7 w1.00",
+    "t70 recovery f42.8 w1.00",
+    "t98 recovery f44.5 w1.00",
+    "t108 recovery f44.5 w0.85",
+    "t118 recovery f44.5 w0.59",
+    "t128 recovery f44.5 w0.30",
+    "t138 recovery f44.5 w0.07",
+    "t150 recovery f44.5 w0.00"
+   ],
+   "note": "大地のハンマー: 上段から 左足を ふみだし、ハンマーを うしろ下へ 引いて 頭の 上へ 大きく 振りかぶる → 前へ 地面まで たたきつける → 低く 止まる → ゆっくり 上段へ もどる（体の 動きは Meshy の Heavy Hammer Swing）",
+   "phases": {
+    "startup": 42,
+    "active": 9,
+    "recovery": 108
+   },
+   "step": 0.334,
+   "advance": [
+    0.0,
+    0.122,
+    0.217,
+    0.223,
+    0.279,
+    0.295,
+    0.287,
+    0.279,
+    0.285,
+    0.298,
+    0.304,
+    0.31,
+    0.32,
+    0.329,
+    0.334,
+    0.334,
+    0.334,
+    0.334,
+    0.334,
+    0.334
+   ],
+   "side": [
+    0.0,
+    0.002,
+    -0.009,
+    0.009,
+    0.066,
+    0.084,
+    0.083,
+    0.08,
+    0.08,
+    0.077,
+    0.077,
+    0.078,
+    0.083,
+    0.09,
+    0.103,
+    0.103,
+    0.103,
+    0.103,
+    0.103,
+    0.103
+   ],
+   "file": "hammer/hammer_swing.png"
+  },
+  "axe_sweep": {
+   "frames": 14,
+   "fps": 16.15,
+   "ticks": [
+    4,
+    4,
+    3,
+    3,
+    2,
+    2,
+    2,
+    2,
+    4,
+    5,
+    5,
+    5,
+    5,
+    6
+   ],
+   "labels": [
+    "t0 startup f19.0 w0.00",
+    "t4 startup f20.1 w0.30",
+    "t8 startup f21.3 w0.82",
+    "t11 startup f22.1 w1.00",
+    "t14 active f23.0 w1.00",
+    "t16 active f24.1 w1.00",
+    "t18 active f25.2 w1.00",
+    "t20 active f26.4 w1.00",
+    "t23 recovery f28.2 w1.00",
+    "t27 recovery f31.0 w1.00",
+    "t32 recovery f34.6 w1.00",
+    "t38 recovery f38.2 w0.84",
+    "t43 recovery f41.0 w0.41",
+    "t48 recovery f43.8 w0.04"
+   ],
+   "note": "ノームの斧: 中段から 体を 左へ ひねって ためる → 右手で 斧を 体の 横から 水平に 大きく 払う → 中段へ もどる（体の 動きは Meshy の Axe Spin Attack の 払いの ところ）",
+   "phases": {
+    "startup": 14,
+    "active": 8,
+    "recovery": 30
+   },
+   "step": -0.147,
+   "advance": [
+    0.0,
+    -0.009,
+    -0.014,
+    -0.015,
+    -0.018,
+    -0.019,
+    -0.007,
+    0.003,
+    0.014,
+    0.018,
+    0.004,
+    -0.07,
+    -0.128,
+    -0.147
+   ],
+   "side": [
+    0.0,
+    0.046,
+    0.132,
+    0.17,
+    0.171,
+    0.153,
+    0.125,
+    0.108,
+    0.092,
+    0.081,
+    0.085,
+    0.076,
+    0.097,
+    0.116
+   ],
+   "file": "gnome/axe_sweep.png"
+  }
+ },
+ "skins": {
+  "hammer": {
+   "katana_walk_jodan": {
+    "frames": 8,
+    "fps": 6.67,
+    "ticks": [
+     9,
+     9,
+     9,
+     9,
+     9,
+     9,
+     9,
+     9
+    ],
+    "labels": [
+     "Walk_Forward_with_Bow_Aimed f0.0 C",
+     "Walk_Forward_with_Bow_Aimed f3.6 C",
+     "Walk_Forward_with_Bow_Aimed f7.2 C",
+     "Walk_Forward_with_Bow_Aimed f10.9 C",
+     "Walk_Forward_with_Bow_Aimed f14.5 C",
+     "Walk_Forward_with_Bow_Aimed f18.1 C",
+     "Walk_Forward_with_Bow_Aimed f21.8 C",
+     "Walk_Forward_with_Bow_Aimed f25.4 C"
+    ],
+    "note": "大地のハンマーを 上段（かついで 頭の 横）に かまえたまま 歩く（くりかえし。足は 弓を かまえて 歩く 動き）",
+    "file": "hammer/katana_walk_jodan.png"
+   }
+  },
+  "gnome": {
+   "katana_walk_chudan": {
+    "frames": 8,
+    "fps": 6.67,
+    "ticks": [
+     9,
+     9,
+     9,
+     9,
+     9,
+     9,
+     9,
+     9
+    ],
+    "labels": [
+     "Walk_Forward_with_Bow_Aimed f0.0 C",
+     "Walk_Forward_with_Bow_Aimed f3.6 C",
+     "Walk_Forward_with_Bow_Aimed f7.2 C",
+     "Walk_Forward_with_Bow_Aimed f10.9 C",
+     "Walk_Forward_with_Bow_Aimed f14.5 C",
+     "Walk_Forward_with_Bow_Aimed f18.1 C",
+     "Walk_Forward_with_Bow_Aimed f21.8 C",
+     "Walk_Forward_with_Bow_Aimed f25.4 C"
+    ],
+    "note": "ノームの斧を 中段に かまえたまま 歩く（くりかえし。足は 弓を かまえて 歩く 動き）",
+    "file": "gnome/katana_walk_chudan.png"
+   }
+  }
+ }
+}

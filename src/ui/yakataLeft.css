@@ -1,0 +1,42 @@
+/* のこりの 札（MINE-1F §3.6）: 挑戦の 間だけ 画面の 上の まん中。おしらせの 帯（#title-announce。top 14%・高さ = 絵 48px ＋ すき間）の すぐ 下。
+   札の 高さ ≒ 絵 1.15em ＋ 上下 0.75×sp-1×2。800x600 で 帯の 下 149px ＋ 札 29px ＝ 178px ＜ 画面の 30%〔180px〕。1024x640 は 183 ＜ 192、1280x720 は 202 ＜ 216 */
+#yakata-left,
+.yakata-left {
+  position: fixed;
+  left: 50%;
+  top: calc(14% + 48px + var(--rk-sp-2) * 2 + var(--rk-sp-1));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+  width: max-content;
+  max-width: 94vw;
+  padding: calc(var(--rk-sp-1) * 0.75) var(--rk-sp-4);
+  font-size: var(--rk-fs-head);
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--rk-text);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-pill);
+  text-shadow: var(--rk-text-outline);
+  pointer-events: none;
+  z-index: 6;
+}
+#yakata-left[hidden],
+.yakata-left[hidden] {
+  display: none;
+}
+#yakata-left .yakata-left-icon,
+.yakata-left .yakata-left-icon {
+  flex: none;
+  width: calc(var(--rk-fs-head) * 1.15);
+  height: calc(var(--rk-fs-head) * 1.15);
+  image-rendering: pixelated;
+}
+/* 2 人あそび（画面分割）: 挑戦して いる 人の 半分の 上の まん中（1P = 左の 半分・2P = 右の 半分） */
+html[data-duo] #yakata-left {
+  left: 25%;
+}
+html[data-duo] .yakata-left--p2 {
+  left: 75%;
+}

@@ -53,6 +53,18 @@ describe('はっぱ・たけの 試し（既定は いまの まま）', () => {
     expect(sprite - stone).toBeLessThan((voxel - stone) / 2);
   });
 
+  it('細い たけの 1 ブロックは 三角形 120 まで（biome-final の 上限。葉の ふさ・横の 葉を ふくむ 20 本の 平均と 最悪）', () => {
+    setLeafBamboo({ bamboo: 'voxel' });
+    const H = 10;
+    const cols: [number, number][] = [];
+    for (let i = 0; i < 20; i++) cols.push([1 + (i % 5) * 3, 1 + Math.floor(i / 5) * 3]);
+    const stone = tris(() => {});
+    const total = tris((w) => { for (const [x, z] of cols) w.fill(x, 5, z, x, 4 + H, z, 'bamboo'); });
+    expect((total - stone) / (cols.length * H)).toBeLessThanOrEqual(120);
+    const one = tris((w) => w.fill(8, 5, 8, 8, 5, 8, 'bamboo')); // 1 ブロックだけ = てっぺん（葉の ふさ）
+    expect(one - stone).toBeLessThanOrEqual(120);
+  });
+
   it('試しの 絵は 16×16 で、既定の ときは 絵を さしかえない', () => {
     expect(protoLeafPixels('leaves')).toBeNull();
     expect(protoBambooPixels()).toBeNull();

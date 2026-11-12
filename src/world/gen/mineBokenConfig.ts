@@ -63,8 +63,8 @@ export const SHAPE_TABLE = {
     workRatio: 4.8,
     newBlockIds: 10,
     totalBlockIds: 256, // 坑道の 冒険の 計画の 見本（sigOf）に 入る 数。ブロック番号の 上限（MAX_BLOCK_KINDS）とは 別もの なので 見本を かえないよう そのまま（BLOCK-ID16 で 確認）
-    /** 計画の 仕事（ためす 回数）の 上限 */
-    tries: { entrance: 400, floors: 120, sides: 1600, eda: 1600, maze: 120 },
+    /** 計画の 仕事（ためす 回数）の 上限。yakata ＝ やかたの 候補を ためす 数（MINE-1F） */
+    tries: { entrance: 400, floors: 120, sides: 1600, eda: 1600, maze: 120, yakata: 72 },
   },
 };
 

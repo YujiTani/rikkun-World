@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { M6_SETTING_DEFAULTS } from '../contracts';
-import { ACHIEVEMENT_DEFS } from './defs';
+import { ACHIEVEMENT_DEFS, LEGEND_NAMES } from './defs';
 import { AchievementSystem } from './AchievementSystem';
 
 /**
@@ -53,8 +53,8 @@ describe('AC18 侍装備の 実績', () => {
     expect(s.isUnlocked('ninja.first.1')).toBe(false);
     expect(s.stat('get:samurai_geta')).toBe(0);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('ninja.')).map((d) => d.id)).toEqual(['ninja.first.1', 'ninja.all.4']);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('get.')).map((d) => d.id)).toEqual(['get.raijin_ken.1', 'get.fujin_ken.1', 'get.niji.1']);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('legend.kinds.')).map((d) => d.id)).toEqual(['legend.kinds.1', 'legend.kinds.2', 'legend.kinds.3']);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('get.')).map((d) => d.id)).toEqual(LEGEND_NAMES.map(([id]) => `get.${id}.1`));
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('legend.kinds.')).map((d) => d.id)).toEqual(LEGEND_NAMES.map((_, i) => `legend.kinds.${i + 1}`)); // 表から 数える（LEGEND-4 §9・#311）
   });
   it('samurai.* の 実績は 2 つだけ', () => {
     expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('samurai.')).map((d) => d.id)).toEqual(['samurai.first.1', 'samurai.all.4']);

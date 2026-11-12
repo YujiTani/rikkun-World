@@ -40,8 +40,9 @@
 | 刀の 3 つのわざ | `WEAPON-4.md` | WEAPON-2・3・CHAR-2・CHAR-4 | — |
 | パリィ | `WEAPON-5.md` | WEAPON-2〜4・CHAR-2 | — |
 | きらめくカタナの 3 段攻撃 | `WEAPON-6.md` | WEAPON-2〜5・CHAR-2・CHAR-4・RARITY-7 | — |
-| レジェンダリー武器・ヌシのドロップ | `WEAPON-7.md` | WEAPON-2〜6・RARITY-7 | `WEAPON-8.md`（風神剣）・`ART-PIPE-1.md`（雷の見た目） |
-| 風神剣のアップデート | `WEAPON-8.md` | WEAPON-7 | — |
+| レジェンダリー武器・ヌシのドロップ | `WEAPON-7.md` | WEAPON-2〜6・RARITY-7 | `WEAPON-8.md`（風神剣）・`ART-PIPE-1.md`（雷の見た目）・`LEGEND-4.md`（弓・おの・ハンマーの レジェンダリー） |
+| 風神剣のアップデート | `WEAPON-8.md` | WEAPON-7 | `LEGEND-4.md`（バフ アイコンの しゅるい） |
+| レジェンダリー 5 つ（黒龍・八咫烏・天使の弓・ノームの斧・大地のハンマー）・ジャンプ／落下の バフ アイコン | `LEGEND-4.md` | WEAPON-7・WEAPON-8・WEAPON-2・COOP-1・GAMEPAD-1 | — |
 | 雷神剣の雷 B・アイコン | `ART-PIPE-1.md` | WEAPON-7 | — |
 | キャラの 8 方向ドット絵 | `CHAR-1-v2-sprite.md` | — | `CHAR-5.md` |
 | 弓と刀の動きの絵 | `CHAR-2.md` | CHAR-1・WEAPON-2 | — |

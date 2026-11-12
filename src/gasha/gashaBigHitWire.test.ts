@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createW2Settings, type BladeShapeInfo, type BladeTech, type ItemId, type Vec3 } from '../contracts';
+import { LEGEND4_TUNING } from '../content/items/legend4Tuning';
 import { makeHitSources, type WireRefs } from './gashaBigHitWire';
 
 const S = createW2Settings();
@@ -64,5 +65,16 @@ describe('gashaBigHitWire（#293 本物の 武器の しくみに つなぐ）',
     expect(got.everySteps).toBe(60);
     expect(got.damage).toBe(15); // 強さ 6 × 2.5
     expect(makeHitSources(refs({ held: () => ({ item: 'niji' as ItemId, power: 6 }) })).dome!()).toBeNull(); // 球が ない
+  });
+
+  it('八咫烏の ほのお: 新しい yataBurst だけ 1 回ずつ（古い 出来事は 読みとばす）。球 = 位置・半径 burstRadius・ダメージ = 矢と 同じ', () => {
+    const evs: { type: string; tick: number; position?: Vec3; damage?: number }[] = [{ type: 'yataBurst', tick: 2, position: { x: 9, y: 9, z: 9 }, damage: 10 }];
+    const src = makeHitSources(refs({ bow: { peekEvents: () => evs } }));
+    expect(src.bursts!()).toEqual([]); // 古い
+    evs.push({ type: 'arrowSaved', tick: 4 }, { type: 'yataBurst', tick: 5, position: { x: 1, y: 2, z: 3 }, damage: 6 });
+    const got = src.bursts!();
+    expect(got).toEqual([{ center: { x: 1, y: 2, z: 3 }, radius: LEGEND4_TUNING.yatagarasu.burstRadius, damage: 6 }]);
+    expect(src.bursts!()).toEqual([]); // 2 回目は 空
+    expect(makeHitSources(refs()).bursts!()).toEqual([]); // 弓が なければ 空
   });
 });

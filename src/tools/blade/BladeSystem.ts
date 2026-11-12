@@ -19,6 +19,8 @@ import { TECH_PHASES } from '../../char/techCurves';
 import { boxOf, capsuleDist, normDeg, thrustTilt, wallBetween } from '../../combat/attackFacing';
 import { bladeReachOf, techAdvance } from './advance';
 import { BLADE_ITEMS } from '../bladeSets';
+import { isGnomeAxe } from '../../dig/gnomeChop';
+import { createGnomeSweep } from '../gnome/gnomeSweep';
 
 const DEG = Math.PI / 180;
 const MAX_QUEUE = 256;
@@ -77,6 +79,9 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     if (drainQ.length > MAX_QUEUE) drainQ.shift();
     if (peekQ.length > MAX_QUEUE) peekQ.shift();
   }
+
+  // LEGEND-4: ノームの斧の よこなぎ（刀の わざとは べつ。出来事・動きの 制限・たいきゅうは この 口を 通る）
+  const gnome = createGnomeSweep({ world: deps.world, yokai: deps.yokai, tick: deps.tick, emit, onHit: (count) => deps.onHit({ tech: 'kiriage', count }) });
 
   function totalOf(_t: BladeTech): number {
     return curLen.startup + curLen.active + curLen.recovery;
@@ -320,7 +325,10 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
           : { step: stage, queued: false, open: false, cancelAt: null };
       }
       const lengths = tech && phase !== 'idle' && phase !== 'switch' ? curLen : null;
-      return { item, stance, tech, phase, frame, buffered, switchFrom, move: move ? { ...move, origin: { ...move.origin } } : null, lengths, combo };
+      const sw = gnome.state();
+      // よこなぎの 間は 向きの 固定（attackFaceDeg）に 使う move だけ 返す
+      const gmove = sw.dirDeg !== null ? { dirDeg: sw.dirDeg, origin: { ...bodyStart }, target: 0, moved: 0, tiltDeg: 0 } : null;
+      return { item, stance, tech, phase, frame, buffered, switchFrom, move: move ? { ...move, origin: { ...move.origin } } : gmove, lengths, combo };
     },
     setStance(s: BladeStance): void {
       stance = s;
@@ -331,6 +339,17 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
       }
     },
     update(ctx: BladeStepContext): void {
+      // LEGEND-4: ノームの斧は よこなぎ（刀の わざは おわらせて、持ちかえたら よこなぎも おわる）
+      if (isGnomeAxe(ctx.item) && ctx.active) {
+        if (item !== null) {
+          cancelAll();
+          item = null;
+          stance = 'chudan';
+        }
+        gnome.update({ active: true, pressed: ctx.techPressed, held: ctx.techHeld, position: ctx.position, yawDeg: ctx.yawDeg });
+        return;
+      }
+      gnome.reset();
       const isBlade = isBladeItem(ctx.item);
       if (!isBlade) {
         cancelAll();
@@ -394,7 +413,9 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     shape(): BladeShapeInfo | null {
       return phase === 'active' ? shapeInfo : null;
     },
+    sweep: () => gnome.state(),
     motion(): PlayerMotionMod {
+      if (gnome.state().phase !== 'idle') return gnome.motion();
       motionOut.speedMul = 1;
       motionOut.jumpLocked = false;
       if (phase === 'idle' || phase === 'switch' || !tech) return motionOut;

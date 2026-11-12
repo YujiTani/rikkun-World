@@ -4,7 +4,7 @@ import { MINE_ITEM } from '../content/items/ids';
 import { baseRecipeId } from '../craft/recipes';
 import { isChalkMarkId } from '../world/blocks/chalkMark';
 import type { CaveKind } from '../world/gen/mineCaveConfig';
-import { ARMOR_RECIPES, CRAFT_RECIPE_NAMES, KIN_RECIPES, PICKAXE_RECIPES, WEAPON_RECIPES, type MineAreaKind } from './defs';
+import { ARMOR_RECIPES, CRAFT_RECIPE_NAMES, KIN_RECIPES, PICKAXE_RECIPES, WEAPON_RECIPES, type MineAreaKind, type YakataAchKind } from './defs';
 
 /** 出来事から記録をふやすために AchievementSystem が見せる口（記録の数え方だけ） */
 export interface StatSink {
@@ -207,7 +207,8 @@ export function applyWearEvents(s: StatSink, events: ReadonlyArray<{ type: 'wear
 export type MineAchEvent =
   | { type: 'bottom' | 'chestOpen'; tick: number; tier?: number }
   | { type: 'cave'; tick: number; kind: CaveKind }
-  | { type: 'area'; tick: number; kind: MineAreaKind };
+  | { type: 'area'; tick: number; kind: MineAreaKind }
+  | { type: 'yakata'; tick: number; kind: YakataAchKind };
 
 /** 坑道の 出来事を 記録にする（どれも 1 回で 足りる = 最大 1） */
 export function applyMineEvents(s: StatSink, events: readonly MineAchEvent[]): void {
@@ -218,6 +219,9 @@ export function applyMineEvents(s: StatSink, events: readonly MineAchEvent[]): v
         break;
       case 'area':
         s.setMax(`area:${e.kind}`, 1);
+        break;
+      case 'yakata':
+        s.setMax(`yakata:${e.kind}`, 1); // MINE-1F: found・won とも 1 回で 足りる
         break;
       case 'bottom':
         s.setMax('mineBottom', 1);

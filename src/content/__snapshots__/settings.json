@@ -263,6 +263,8 @@
       "grass": 0.5,
       "haniwa": 1,
       "hibi_ishi": 1.5,
+      "himawari": 0.05,
+      "himawari_top": 0.05,
       "hotaruishi": 6,
       "house_door": 5,
       "house_door_open": 5,
@@ -272,11 +274,13 @@
       "house_roof": 5,
       "house_wall": 5,
       "iron_ore": 15,
+      "kaigara": 0.05,
       "kakashi": null,
       "kakashi_head": null,
       "katame_tsuchi": 0.5,
       "kawara": 4,
       "kin_ore": 15,
+      "kinoko": 0.05,
       "kodo_waku": 5,
       "kogeta": 1,
       "kokuyouseki": 12,
@@ -333,6 +337,10 @@
       "maneki_e": 5,
       "maneki_n": 5,
       "maneki_w": 5,
+      "maou_dan": 3,
+      "maou_kabe": 3,
+      "maou_taimatsu": 0,
+      "maou_yuka": 3,
       "matsu_leaves": 0.25,
       "momiji_leaves": 0.25,
       "nendo": 1,
@@ -349,6 +357,10 @@
       "ofuro_e": 5,
       "ofuro_n": 5,
       "ofuro_w": 5,
+      "onibi_taimatsu": 0,
+      "otera_dan": 3,
+      "otera_ishidatami": 3,
+      "otera_ishigaki": 3,
       "reserved_147": null,
       "reserved_148": null,
       "reserved_149": null,
@@ -414,6 +426,7 @@
       "takarabako_4_open": null,
       "takarabako_4_open_r": null,
       "takarabako_4_r": null,
+      "takenoko": 0.05,
       "takibi_ato": 0.5,
       "takitsubo": 0.5,
       "tansu": 5,
@@ -502,6 +515,8 @@
       "grass": 0,
       "haniwa": 0,
       "hibi_ishi": 0,
+      "himawari": 0,
+      "himawari_top": 0,
       "hotaruishi": 1,
       "house_door": 0,
       "house_door_open": 0,
@@ -511,11 +526,13 @@
       "house_roof": 0,
       "house_wall": 0,
       "iron_ore": 1,
+      "kaigara": 0,
       "kakashi": 0,
       "kakashi_head": 0,
       "katame_tsuchi": 0,
       "kawara": 0,
       "kin_ore": 2,
+      "kinoko": 0,
       "kodo_waku": 0,
       "kogeta": 0,
       "kokuyouseki": 2,
@@ -572,6 +589,10 @@
       "maneki_e": 0,
       "maneki_n": 0,
       "maneki_w": 0,
+      "maou_dan": 1,
+      "maou_kabe": 1,
+      "maou_taimatsu": 0,
+      "maou_yuka": 1,
       "matsu_leaves": 0,
       "momiji_leaves": 0,
       "nendo": 0,
@@ -588,6 +609,10 @@
       "ofuro_e": 0,
       "ofuro_n": 0,
       "ofuro_w": 0,
+      "onibi_taimatsu": 0,
+      "otera_dan": 1,
+      "otera_ishidatami": 1,
+      "otera_ishigaki": 1,
       "reserved_147": 0,
       "reserved_148": 0,
       "reserved_149": 0,
@@ -653,6 +678,7 @@
       "takarabako_4_open": 0,
       "takarabako_4_open_r": 0,
       "takarabako_4_r": 0,
+      "takenoko": 0,
       "takibi_ato": 0,
       "takitsubo": 0,
       "tansu": 0,
@@ -742,6 +768,8 @@
       "grass": "common",
       "haniwa": "uncommon",
       "hibi_ishi": "common",
+      "himawari": "common",
+      "himawari_top": "common",
       "hotaruishi": "rare",
       "house_door": "uncommon",
       "house_door_open": "uncommon",
@@ -751,11 +779,13 @@
       "house_roof": "common",
       "house_wall": "common",
       "iron_ore": "rare",
+      "kaigara": "common",
       "kakashi": "common",
       "kakashi_head": "common",
       "katame_tsuchi": "common",
       "kawara": "uncommon",
       "kin_ore": "epic",
+      "kinoko": "common",
       "kodo_waku": "common",
       "kogeta": "common",
       "kokuyouseki": "rare",
@@ -812,6 +842,10 @@
       "maneki_e": "rare",
       "maneki_n": "rare",
       "maneki_w": "rare",
+      "maou_dan": "uncommon",
+      "maou_kabe": "uncommon",
+      "maou_taimatsu": "rare",
+      "maou_yuka": "uncommon",
       "matsu_leaves": "common",
       "momiji_leaves": "common",
       "nendo": "uncommon",
@@ -828,6 +862,10 @@
       "ofuro_e": "rare",
       "ofuro_n": "rare",
       "ofuro_w": "rare",
+      "onibi_taimatsu": "rare",
+      "otera_dan": "uncommon",
+      "otera_ishidatami": "uncommon",
+      "otera_ishigaki": "uncommon",
       "reserved_147": "common",
       "reserved_148": "common",
       "reserved_149": "common",
@@ -893,6 +931,7 @@
       "takarabako_4_open": "common",
       "takarabako_4_open_r": "common",
       "takarabako_4_r": "common",
+      "takenoko": "common",
       "takibi_ato": "common",
       "takitsubo": "uncommon",
       "tansu": "uncommon",
@@ -968,6 +1007,7 @@
       "coal_ore": "uncommon",
       "crystal": "superRare",
       "crystal_katana": "superRare",
+      "daichi_hammer": "legendary",
       "deco_entotsu_kozan": "uncommon",
       "deco_entotsu_mura": "uncommon",
       "deco_entotsu_shiro": "uncommon",
@@ -994,10 +1034,12 @@
       "furnace": "uncommon",
       "futon": "uncommon",
       "geyser_dirt": "uncommon",
+      "gnome_axe": "legendary",
       "grass": "common",
       "haniwa": "uncommon",
       "harapan_mimizu": "epic",
       "hemp": "common",
+      "himawari": "common",
       "hotaruishi": "rare",
       "house_door": "uncommon",
       "house_floor": "common",
@@ -1010,6 +1052,7 @@
       "ishibai": "uncommon",
       "kabita_pan": "common",
       "kabuto": "rare",
+      "kaigara": "common",
       "katana": "rare",
       "kawara": "uncommon",
       "kin": "epic",
@@ -1023,7 +1066,9 @@
       "kin_tamago": "epic",
       "kin_yoroi": "epic",
       "kin_yumi": "epic",
+      "kinoko": "common",
       "kite": "uncommon",
+      "kokuryu": "legendary",
       "kokuyouseki": "rare",
       "kongo_axe": "mythic",
       "kongo_kabuto": "mythic",
@@ -1047,6 +1092,10 @@
       "magma_wakimizu": "uncommon",
       "magma_wakimizu_bucket": "rare",
       "maneki": "rare",
+      "maou_dan": "uncommon",
+      "maou_kabe": "uncommon",
+      "maou_taimatsu": "rare",
+      "maou_yuka": "uncommon",
       "matsu_leaves": "common",
       "mizumori": "common",
       "momiji_leaves": "common",
@@ -1066,7 +1115,11 @@
       "oil": "uncommon",
       "omamori": "superRare",
       "omamori_torn": "common",
+      "onibi_taimatsu": "rare",
       "onion": "common",
+      "otera_dan": "uncommon",
+      "otera_ishidatami": "uncommon",
+      "otera_ishigaki": "uncommon",
       "paper": "common",
       "pumpkin": "common",
       "raijin_ken": "legendary",
@@ -1109,8 +1162,10 @@
       "sumi": "common",
       "suneate": "rare",
       "table": "common",
+      "takenoko": "common",
       "takitsubo": "uncommon",
       "tansu": "uncommon",
+      "tenshi_yumi": "legendary",
       "tomato": "common",
       "torch": "common",
       "toriya": "uncommon",
@@ -1137,6 +1192,7 @@
       "wood_axe": "common",
       "wood_pickaxe": "common",
       "ya": "common",
+      "yatagarasu": "legendary",
       "yokai_orb": "uncommon",
       "yoroi": "rare",
       "yumi": "uncommon"
@@ -1355,6 +1411,7 @@
     "arrowRange": 24,
     "naginataComboReset": 60,
     "toolLevel": {
+      "gnome_axe": 0,
       "iron_axe": 0,
       "iron_pickaxe": 2,
       "kin_axe": 0,
@@ -1367,6 +1424,7 @@
       "wood_pickaxe": 0
     },
     "toolPower": {
+      "gnome_axe": 6,
       "iron_axe": 6,
       "iron_pickaxe": 6,
       "kin_axe": 6,
@@ -1382,6 +1440,7 @@
     "weaponDamage": {
       "bokuto": 2,
       "crystal_katana": 4,
+      "gnome_axe": 7,
       "katana": 4,
       "kin_axe": 5,
       "kin_katana": 5,
@@ -1805,6 +1864,9 @@
         1
       ]
     },
+    "bowBurstByItem": {
+      "yatagarasu": true
+    },
     "bowDamage": [
       1,
       2,
@@ -1816,10 +1878,25 @@
         3,
         5
       ],
+      "kokuryu": [
+        4,
+        6,
+        10
+      ],
       "kongo_yumi": [
         3,
         4,
         7
+      ],
+      "tenshi_yumi": [
+        3,
+        5,
+        7
+      ],
+      "yatagarasu": [
+        4,
+        6,
+        10
       ]
     },
     "bowKnock": [
@@ -1839,6 +1916,9 @@
       25,
       40
     ],
+    "bowStraightByItem": {
+      "kokuryu": 48
+    },
     "legendary": [
       {
         "charge": {
@@ -1934,6 +2014,46 @@
           4,
           10
         ]
+      },
+      {
+        "charge": null,
+        "item": "kokuryu",
+        "onAttack": [],
+        "passive": [
+          {
+            "kind": "moveMul",
+            "mul": 1.2
+          }
+        ],
+        "power": 10
+      },
+      {
+        "charge": null,
+        "item": "yatagarasu",
+        "onAttack": [],
+        "passive": [],
+        "power": 10
+      },
+      {
+        "charge": null,
+        "item": "tenshi_yumi",
+        "onAttack": [],
+        "passive": [],
+        "power": 7
+      },
+      {
+        "charge": null,
+        "item": "gnome_axe",
+        "onAttack": [],
+        "passive": [],
+        "power": 7
+      },
+      {
+        "charge": null,
+        "item": "daichi_hammer",
+        "onAttack": [],
+        "passive": [],
+        "power": 20
       }
     ],
     "legendaryChargeWalk": 0.5,
@@ -1948,6 +2068,26 @@
       },
       {
         "item": "niji",
+        "weight": 1
+      },
+      {
+        "item": "kokuryu",
+        "weight": 1
+      },
+      {
+        "item": "yatagarasu",
+        "weight": 1
+      },
+      {
+        "item": "tenshi_yumi",
+        "weight": 1
+      },
+      {
+        "item": "gnome_axe",
+        "weight": 1
+      },
+      {
+        "item": "daichi_hammer",
         "weight": 1
       },
       {
@@ -1999,8 +2139,10 @@
     "toolDurability": {
       "bokuto": 59,
       "crystal_katana": 400,
+      "daichi_hammer": 10000,
       "fude": 5,
       "fujin_ken": 10000,
+      "gnome_axe": 10000,
       "iron_axe": 250,
       "iron_pickaxe": 250,
       "kabuto": 165,
@@ -2013,6 +2155,7 @@
       "kin_suneate": 500,
       "kin_yoroi": 500,
       "kin_yumi": 500,
+      "kokuryu": 10000,
       "kongo_axe": 1500,
       "kongo_kabuto": 1500,
       "kongo_katana": 1500,
@@ -2037,8 +2180,10 @@
       "stone_axe": 131,
       "stone_pickaxe": 131,
       "suneate": 195,
+      "tenshi_yumi": 10000,
       "wood_axe": 59,
       "wood_pickaxe": 59,
+      "yatagarasu": 10000,
       "yoroi": 240,
       "yumi": 384
     },

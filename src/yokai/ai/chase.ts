@@ -206,7 +206,7 @@ export class YokaiChaser {
     const speed = this.d.fall.speedOf(e);
     const ux = dist > 1e-6 ? (f.px - e.x) / dist : 0;
     const uz = dist > 1e-6 ? (f.pz - e.z) / dist : -1;
-    const canAttack = seen && e.cool <= 0 && e.age >= AI_CONST.noAttackTicks && e.stone < AI_CONST.stoneNoAttack;
+    const canAttack = seen && e.cool <= 0 && e.age >= AI_CONST.noAttackTicks && f.steps >= e.graceUntil && e.stone < AI_CONST.stoneNoAttack;
     let moved = 0;
     let hold = 0;
     switch (e.kind) {

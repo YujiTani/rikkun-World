@@ -94,7 +94,10 @@ export function safetyProblemsE(g: GenCols, s: BokenShaft, path: readonly PathCe
   const chestCells = new Set<string>([...(s.chest?.cells ?? []), ...deadEndsOf(s).flatMap((e) => e.chest?.cells ?? [])].map(ptKey));
   const mouths: Pt[] = [s.entrance, ...s.sides.flatMap((d) => [d.from, d.to]), ...(s.branches ?? []).map((b) => b.from), ...(s.maze ? [s.maze.entrance] : [])];
   const nearMouth = (p: Pt): boolean => mouths.some((m) => Math.abs(m.x - p.x) <= 2 && Math.abs(m.z - p.z) <= 2 && Math.abs(m.y - p.y) <= 6);
-  const solidAt = (p: Pt): boolean => open.has(ptKey(p)) || nearMouth(p) || chestCells.has(ptKey(p)) || isSolidIndex(g.at(p.x, p.y, p.z));
+  // 1F: やかたの 口の 例外〔仕様 §4.1。横穴の 最初の 3 マス。本道・ひろばの かべに あけた 穴〕は かべの 穴と 見ない〔mineYakataReport.ts の slice(3) と 同じ 読み〕
+  const yPass = ((s as unknown as { yakata?: { passage?: Pt[] } | null }).yakata?.passage ?? []).slice(0, 3);
+  const yakataMouth = (p: Pt): boolean => yPass.some((q) => Math.abs(q.x - p.x) <= 1 && Math.abs(q.z - p.z) <= 1 && p.y >= q.y && p.y <= q.y + 4);
+  const solidAt = (p: Pt): boolean => open.has(ptKey(p)) || nearMouth(p) || yakataMouth(p) || chestCells.has(ptKey(p)) || isSolidIndex(g.at(p.x, p.y, p.z));
   for (const c of path) {
     const h = airHeightE(c);
     for (let k = chestCells.has(ptKey(c)) ? 1 : 0; k < h; k++) if (!isBodyIndex(g.at(c.x, c.y + k, c.z))) bad.push(`${c.part} (${c.x}, ${c.y}, ${c.z}) の 上 ${k} マス目が 体の 通る マスでない: ${g.id(c.x, c.y + k, c.z)}`);
