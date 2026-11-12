@@ -5,6 +5,8 @@ import type { MineLayerId } from './mineConfig';
  * 長さの 単位は ブロック（マス）。【PO 案】の 数は オーナー確認で 直して よい。
  */
 
+/** 洞くつの 部屋の 種類 すいしょう（名前の 定数。ブロックの suisho とは べつの 意味） */
+export const CAVE_SUISHO = 'suisho' as const;
 export type CaveKind = 'hiroi' | 'shonyudo' | 'chiteiko' | 'hotaru' | 'suisho';
 export const CAVE_KIND_LIST = ['hiroi', 'shonyudo', 'chiteiko', 'hotaru', 'suisho'] as const satisfies readonly CaveKind[];
 export const CAVE_LAYERS = ['asai', 'nakahodo', 'fukai'] as const satisfies readonly MineLayerId[];

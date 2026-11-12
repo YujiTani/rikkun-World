@@ -1,7 +1,7 @@
 import { BLOCK_INDEX, BLOCK_TYPES } from '../blocks/blockTypes';
 import { packOp } from './mineOpPack';
 import { colKey } from '../stream/ring';
-import { CAVE_CONFIG as C, type CaveKind } from './mineCaveConfig';
+import { CAVE_CONFIG as C, CAVE_SUISHO, type CaveKind } from './mineCaveConfig';
 import type { LocalShape } from './mineCaveShape';
 import { keyOf } from './mineShaftBuild';
 import type { Geo } from './mineShaftSite';
@@ -367,7 +367,7 @@ function decorate(g: Grid, kind: CaveKind, seed: number, ox: number, oy: number,
       for (const i of pick(randInt(rng, lo, hi - 2), () => true)) g.b[i] = HOTARU;
       break;
     }
-    case 'suisho': {
+    case CAVE_SUISHO: {
       const [lo, hi] = C.rules.suisho.visible;
       for (const i of pick(randInt(rng, lo, hi - 2), () => true)) g.b[i] = SUISHO;
       break;
