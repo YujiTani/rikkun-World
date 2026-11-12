@@ -53,6 +53,16 @@ export const DRIFT = {
   /** 頭の 上を しらべる はんい（足の 上 2〜この マス）。しらべる 間かく（秒） */
   coverRange: 9,
   coverEvery: 0.25,
+  /** カメラに 近い つぶは ちぢめて きえる: この 距離（マス）で 大きさ 0、ここまで 来ると 全部の 大きさ */
+  nearHide: 1.2,
+  nearFull: 2.8,
+  /** 雪の うすい 水色（白い 地面の 上でも 見える ように 5 こに 1 こ。少し 大きい） */
+  snowBlue: 0xb4d4f0,
+  snowBlueEvery: 5,
+  snowBlueScale: 1.6,
+  /** 夜の 色の 倍率（昼 1。いまの 明るさ nightBrightness〜1 の 間を 直線で むすぶ） */
+  nightTint: 0.4,
+  nightBrightness: 0.25,
   /** 葉の 色（赤・だいだい・黄） */
   leafColors: [0xc8321e, 0xe0701c, 0xe8b820],
 } as const;
@@ -88,4 +98,15 @@ export function driftDensity(kind: CountryKind, e: number, y: number, covered: b
 /** 割合 → 出す 数（上限 max を こえない） */
 export function driftCount(density: number, max: number): number {
   return Math.min(max, Math.max(0, Math.round(density * max)));
+}
+
+/** 今の 明るさ（time の brightness。夜 0.25〜昼 1）→ つぶの 色の 倍率（夜 0.4〜昼 1） */
+export function driftTint(brightness: number): number {
+  const t = (brightness - DRIFT.nightBrightness) / (1 - DRIFT.nightBrightness);
+  return DRIFT.nightTint + (1 - DRIFT.nightTint) * Math.min(1, Math.max(0, t));
+}
+
+/** カメラまでの 距離 dist（マス）→ 大きさの 倍率（近いほど 小さく、nearHide 以内で 0） */
+export function driftNearScale(dist: number): number {
+  return smooth(DRIFT.nearHide, DRIFT.nearFull, dist);
 }

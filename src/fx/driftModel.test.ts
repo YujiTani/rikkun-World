@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SEA_Y } from '../contracts';
-import { DRIFT, driftCount, driftDensity } from './driftModel';
+import { DRIFT, driftCount, driftDensity, driftNearScale, driftTint } from './driftModel';
 
 const FAR = 100; // 国の境目から 遠い（e が 大きい）
 const HIGH = SEA_Y + 60;
@@ -38,5 +38,16 @@ describe('driftDensity（国・高さ・頭の上 → 出す 割合）', () => {
     expect(driftCount(1, DRIFT.maxSnow)).toBe(DRIFT.maxSnow);
     expect(driftCount(0.5, 300)).toBe(150);
     expect(driftCount(2, 120)).toBe(120);
+  });
+  it('夜は 色が 暗く（約 0.4 倍）、昼は そのまま', () => {
+    expect(driftTint(1)).toBe(1);
+    expect(driftTint(0.25)).toBeCloseTo(0.4);
+    expect(driftTint(0.6)).toBeGreaterThan(0.4);
+  });
+  it('カメラの すぐ前の つぶは 見えない・遠くは そのまま', () => {
+    expect(driftNearScale(1)).toBe(0);
+    expect(driftNearScale(DRIFT.nearFull)).toBe(1);
+    expect(driftNearScale(2)).toBeGreaterThan(0);
+    expect(driftNearScale(2)).toBeLessThan(1);
   });
 });

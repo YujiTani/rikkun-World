@@ -4,7 +4,8 @@ import type { Game } from '../Game';
 import { DriftFx, type DriftFocus } from '../../fx/driftFx';
 
 interface DriftDeps {
-  game: Pick<Game, 'scene' | 'onUpdate'>;
+  game: Pick<Game, 'scene' | 'onUpdate' | 'camera'>;
+  time: { brightness: () => number };
   world: { isSolid: (x: number, y: number, z: number) => boolean };
   controller: { state: { position: DriftFocus } };
   seed: number;
@@ -20,6 +21,8 @@ export function installDrift(d: DriftDeps): DriftFx {
   const fx = new DriftFx(d.game.scene, {
     seed: d.seed,
     isSolid: (x, y, z) => d.world.isSolid(x, y, z),
+    camera: () => d.game.camera.position,
+    brightness: () => d.time.brightness(),
     foci: () => {
       foci.length = 0;
       foci.push(d.controller.state.position);
@@ -29,6 +32,5 @@ export function installDrift(d: DriftDeps): DriftFx {
     },
   });
   d.game.onUpdate((dt) => fx.update(dt));
-  (window as unknown as { __drift?: DriftFx }).__drift = fx; // 試作の 確かめ用（見えて いる つぶの 数を 読む）
   return fx;
 }

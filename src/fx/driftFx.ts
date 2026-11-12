@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { countryAt } from '../world/gen/biome';
 import { createRng, type Rng } from '../world/gen/random';
-import { DRIFT, driftCount, driftDensity } from './driftModel';
+import { DRIFT, driftCount, driftDensity, driftNearScale, driftTint } from './driftModel';
 
 /**
  * ゆきやまの 雪・もみじやまの 紅葉の 舞い（試作。`?drift=1`）。プレイヤー（2 人なら それぞれ）の まわりだけに 出して いっしょに 動く。
@@ -20,16 +20,22 @@ export interface DriftDeps {
   isSolid: (x: number, y: number, z: number) => boolean;
   /** いま 画面を 持って いる 人の 足もと（1 人なら 1 つ、2 人なら 2 つ） */
   foci: () => readonly DriftFocus[];
+  /** カメラの 位置（1 人目の 画面。近い つぶを ちぢめる）。2 人目は 足もとの 少し 上で 代わり */
+  camera: () => DriftFocus;
+  /** いまの 明るさ（time の brightness） */
+  brightness: () => number;
   rng?: Rng;
 }
 
 const TAU = Math.PI * 2;
+const isBlue = (i: number): boolean => i % DRIFT.snowBlueEvery === 0;
 const COVER_FROM = 2; // 頭の 上を しらべ はじめる 足からの 高さ（マス）
 const SCAN_DOWN = 24; // 地面を さがす 深さ（足の 下、マス）
 
 /** つぶの 1 グループ（雪 or 葉）。1 つの InstancedMesh */
 class Pool {
   readonly mesh: THREE.InstancedMesh;
+  readonly mat: THREE.MeshBasicMaterial;
   readonly x: Float32Array;
   readonly y: Float32Array;
   readonly z: Float32Array;
@@ -42,7 +48,7 @@ class Pool {
 
   constructor(readonly max: number, readonly leaf: boolean, rng: Rng) {
     const geo = leaf ? new THREE.BoxGeometry(DRIFT.leafLen, DRIFT.leafThick, DRIFT.leafWid) : new THREE.BoxGeometry(DRIFT.snowSize, DRIFT.snowSize, DRIFT.snowSize);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const mat = (this.mat = new THREE.MeshBasicMaterial({ color: 0xffffff }));
     this.mesh = new THREE.InstancedMesh(geo, mat, max);
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
@@ -58,7 +64,7 @@ class Pool {
     for (let i = 0; i < max; i++) {
       this.phase[i] = rng() * TAU;
       this.wait[i] = rng() * DRIFT.idleMax; // はじめは ばらばらの 時間に 調べる
-      c.setHex(leaf ? DRIFT.leafColors[i % DRIFT.leafColors.length]! : 0xf4f8ff);
+      c.setHex(leaf ? DRIFT.leafColors[i % DRIFT.leafColors.length]! : isBlue(i) ? DRIFT.snowBlue : 0xf4f8ff);
       this.mesh.setColorAt(i, c);
     }
   }
@@ -71,6 +77,7 @@ export class DriftFx {
   private readonly dummy = new THREE.Object3D();
   private readonly zero = new THREE.Matrix4().makeScale(0, 0, 0);
   private time = 0;
+  private cam: DriftFocus = { x: 0, y: 0, z: 0 };
   private coverTimer = 0;
   /** 人ごとの「頭の 上が ふさがって いる」（最大 2 人） */
   private readonly covered: boolean[] = [false, false];
@@ -94,6 +101,10 @@ export class DriftFx {
       return;
     }
     this.time += dt;
+    const tint = driftTint(this.deps.brightness());
+    this.snow.mat.color.setScalar(tint);
+    this.leaf.mat.color.setScalar(tint);
+    this.cam = this.deps.camera();
     this.coverTimer -= dt;
     if (this.coverTimer <= 0) {
       this.coverTimer = DRIFT.coverEvery;
@@ -156,7 +167,11 @@ export class DriftFx {
       const k = above >= 1.2 ? 1 : above <= 0 ? 0 : above / 1.2; // 地面に つく とき ちぢんで きえる
       d.position.set(p.x[i]! + Math.sin(t * DRIFT.swayRate + ph) * DRIFT.swayAmp, p.y[i]!, p.z[i]! + Math.cos(t * DRIFT.swayRate * 0.8 + ph * 1.3) * DRIFT.swayAmp);
       if (p.leaf) d.rotation.set(Math.sin(t * 2 + ph) * 0.7, t * DRIFT.leafSpin + ph, Math.cos(t * 1.7 + ph) * 0.7);
-      d.scale.setScalar(k);
+      const ex = fi === 0 ? this.cam.x : f.x;
+      const ey = fi === 0 ? this.cam.y : f.y + 1.6;
+      const ez = fi === 0 ? this.cam.z : f.z;
+      const near = driftNearScale(Math.hypot(p.x[i]! - ex, p.y[i]! - ey, p.z[i]! - ez));
+      d.scale.setScalar(k * near * (!p.leaf && isBlue(i) ? DRIFT.snowBlueScale : 1));
       d.updateMatrix();
       p.mesh.setMatrixAt(i, d.matrix);
       n++;
