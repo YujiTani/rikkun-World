@@ -1,14 +1,16 @@
 import { cheb, plainAt, site, type Ctx, type FeatureSite } from './countryKit';
 import { groundFn } from './countryStructureKit';
 import { hashInts } from './random';
+import { buildCascade, planCascade, type Cascade } from './waterV2Cascade';
 import { buildFall, fallKeepOut, footOf, planFalls } from './waterV2Fall';
 import type { FallPlan } from './waterV2Types';
 import { clearRects, Edit, waterLeaks, type Ground, type Rect } from './waterV2Kit';
 import { buildPond } from './waterV2Pond';
 import { findPlateaus, plateauPonds } from './waterV2Flat';
-import { sourceSpots, type SourceSpot } from './waterV2Source';
+import { highSpots, sourceSpots, type SourceSpot } from './waterV2Source';
 import { flowField } from './waterV2Flow';
 import { buildRiverChecked, planRiver } from './waterV2River';
+import { basinNorm } from './waterV2Kit';
 import { WATER_BLOCKS as B, WATER_TUNE as T, WATER_V2 } from './waterV2Table';
 
 /**
@@ -22,6 +24,7 @@ const LIMIT = T.reach - 6;
 const PL = T.plateau;
 const SRC = T.source;
 const FALL = T.fall;
+const CAS = T.cascade;
 
 /** 目じるしの 足もと（石段は のぞく）を 四角の 一覧に する（まわり gap） */
 function keepOut(others: readonly FeatureSite[]): Rect[] {
@@ -150,9 +153,72 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
     }
     return true;
   };
+  /** 受け皿の 段々の 滝（先に ぜんぶ 計画）。水源の 場所 sp から。成り立てば 置いて true */
+  const runCascade = (sp: SourceSpot, minFalls: number): boolean => {
+    const free = (x: number, z: number): boolean => !hit(x, z) && !wetKey(x, z);
+    const footBase = (b: { cx: number; cz: number; level: number }): boolean => b.level - c.T.map.baseHeight(Math.floor(b.cx), Math.floor(b.cz)) <= CAS.footAbove;
+    return planCascade(g, free, seed, sp, footBase, minFalls, (plan: Cascade, ended: boolean) => {
+      const ed = new Edit();
+      buildCascade(ed, gb, seed, plan);
+      const ground: Ground = (x, z) => (gh(x, z) >= 0 ? gh(x, z) : c.T.height(x, z));
+      const blocks = ed.blocks();
+      const pre = out.flatMap((q) => q.blocks);
+      if (waterLeaks(pre.concat(blocks), ground).length > 0) return false;
+      let river: Edit | null = null;
+      {
+        // 最後の 受け皿から 川で すそ・海まで（すそに 着く 前に 終わった ときは 必ず。着いた ときは 出せれば）
+        const last = plan.ponds[plan.ponds.length - 1]!;
+        const lastD = plan.stages[plan.stages.length - 1]!.d;
+        const near = (x: number, z: number): boolean => basinNorm(last, x, z) <= 1 + 2 / last.r;
+        const own = new Set<number>();
+        for (const b of blocks) if (!near(b.x, b.z)) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) own.add((b.x + dx) * 100003 + b.z + dz);
+        const rp = planRiver(gr, seed + 1, { x: Math.floor(last.cx), z: Math.floor(last.cz), d: lastD, pool: last }, (x, z) => wetHit(x, z) || own.has(x * 100003 + z), atFoot, field);
+        // すそに ほんとうに 着いたか（水面が すその 高さ + footAbove いか）。海・終わりの 池も 同じ
+        const end = rp.cells[rp.cells.length - 1]!;
+        const reach = rp.stop === 'sea' || (rp.mouth !== null ? rp.mouth.level - c.T.map.baseHeight(Math.floor(rp.mouth.cx), Math.floor(rp.mouth.cz)) <= CAS.footAbove : end.level - c.T.map.baseHeight(end.x, end.z) <= CAS.footAbove);
+        const walks = rp.cells.some((q) => q.kind !== 'pool');
+        if (!ended && !(reach && walks)) return false;
+        if (reach && walks) {
+          const rb = buildRiverChecked(gh, seed + 2, rp, last, grassAt);
+          const ok = rb.plan.cells.length === rp.cells.length && waterLeaks(pre.concat(blocks, rb.ed.blocks()), ground).length === 0;
+          if (ok) river = rb.ed;
+          else if (!ended) return false;
+        }
+      }
+      // 滝ごとの 場所（列を いちばん 近い 落ち口の 滝に ふりわける）
+      const mids = plan.stages.map((st) => st.lip[Math.floor(st.lip.length / 2)]!);
+      const eds = mids.map(() => new Edit());
+      for (const b of blocks) {
+        let bi = 0;
+        let bd = Infinity;
+        mids.forEach(([mx, mz], i) => {
+          const dd = (b.x - mx) ** 2 + (b.z - mz) ** 2;
+          if (dd < bd) {
+            bd = dd;
+            bi = i;
+          }
+        });
+        eds[bi]!.set(b.x, b.y, b.z, b.id);
+      }
+      eds.forEach((e, i) => {
+        const s = blocksSite(c, 'taki', e, mids[i]![0], plan.ponds[i]!.level, mids[i]![1]);
+        out.push(s);
+        used.push(s.foot);
+      });
+      if (river !== null) {
+        const rb = river.blocks();
+        const f0 = rb.find((b) => b.id === B.water) ?? rb[0]!;
+        out.push(blocksSite(c, 'kawa', river, f0.x, f0.y, f0.z));
+      }
+      for (const b of blocks.concat(river?.blocks() ?? [])) wet.add(b.x * 100003 + b.z);
+      return true;
+    });
+  };
   const spots = sourceSpots(g, c.px, c.pz, LIMIT, base0, (x, z) => !hit(x, z), field, seed);
     // 上の 帯の 池から 作れない 山は、中腹・どこかの がけ（山の まん中から）へ 下げる
-  if (!spots.some((sp) => runChain(sp, SRC.near))) runChain({ x: c.px, z: c.pz, score: 0 }, Infinity);
+  const cspots = [...spots, ...highSpots(g, c.px, c.pz, LIMIT, base0, (x, z) => !hit(x, z), seed, CAS.spotCount)];
+  const cascaded = [2, 1].some((m) => cspots.some((sp) => runCascade(sp, m)));
+  if (!cascaded && !spots.some((sp) => runChain(sp, SRC.near))) runChain({ x: c.px, z: c.pz, score: 0 }, Infinity);
   // 池: 平らな 段に 2〜5 こ（頂上の ほうに 必ず 1 つ）
   const ochiba = c.kind === 'momiji';
   const free = (x: number, z: number): boolean => !hit(x, z) && !wet.has(x * 100003 + z);

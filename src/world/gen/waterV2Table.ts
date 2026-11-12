@@ -87,6 +87,14 @@ export const WATER_TUNE = {
    * fracWeight/dropCap/wayWeight/wayCap = 点数（高さ・落差の 上限・すそまでの 道のりの おもみと 上限）・keep = ためす 数・apart = おたがいの 間・near = 滝を さがす 池からの きょり・lower = 次の 池の 水面を 川に そろえて 下げる 上限（ブロック）
    */
   source: { lowest: 0.33, high: 0.45, highBonus: 100, step: 3, disk: 5, flat: 7, reach: 9, fracWeight: 40, dropCap: 24, wayWeight: 0.04, wayCap: 400, keep: 14, apart: 14, near: 16, lower: 3 },
+  /**
+   * はりだした 段々の 滝（カスケード。9 回め）: 「池 → 滝 → 受け皿の 池 → 滝 → … → すそ」を 先に ぜんぶ 計画する。
+   * drop = 1 段の 落差の 下限と 上限（ブロック）・dropTry = 受け皿の 落差を ためす 順（大きい 方から）・radius = 受け皿の 半径（大きい 方から ためす。ブロック）・depth = 受け皿の ふかさ・
+   * cut = 受け皿が かべを ほって よい 深さの 上限・fillMax = 受け皿の 下を ささえ岩で うめて よい 高さの 上限・lipCut = 落ち口の 地面が 水面より 高くて よい 上限・
+   * maxFalls = 滝の 数の 上限・footAbove = 山の すそ（baseHeight）より この 高さ いかに 着いたら 終わり・srcRadius = いちばん 上の 池の 半径（大きい 方から）・
+   * srcLower = 水源の 池の 水面を 地面から 下げる 量の 候補 ・ srcCut / srcLow = 上の 池が ほって よい 深さ / 地面が 水面より 低くて よい 深さ・spotStep / spotApart / spotCount = 水源の 場所を さがす 間かく・おたがいの 間・ためす 数（ブロック・こ）・nodes = 1 つの 水源から 計画を ためす 数の 上限・width = 滝の はば（3〜5 マス）
+   */
+  cascade: { drop: [4, 14] as const, dropTry: [14, 11, 9, 7, 5, 4] as const, radius: [5, 4, 3] as const, depth: 3, cut: 5, fillMax: 40, lipCut: 6, maxFalls: 4, footAbove: 4, srcRadius: [6, 5, 4] as const, srcLower: [0, 2, 4] as const, srcCut: 7, srcLow: 10, nodes: 300, spotStep: 3, spotApart: 9, spotCount: 30, width: [3, 5] as const },
   /** 川の みちしるべ（Dijkstra）: ほれる 深さの 上限・上り 1 ブロックあたりの ねだん・下り 1 ブロックあたりの ねだん・たどる マスの 数の 上限 */
   flow: { maxCut: 6, cutCost: 6, dropCost: 0.15, maxCells: 120000 },
   river: {

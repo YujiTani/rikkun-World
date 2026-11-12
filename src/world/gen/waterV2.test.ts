@@ -18,7 +18,10 @@ import { waterSites } from './waterV2';
 import { waterV2SpringsIn } from './waterV2Hook';
 import { splashSpotsNear } from './waterV2Splash';
 import { waterLeaks } from './waterV2Kit';
+import { WATER_TUNE } from './waterV2Table';
 
+/** 受け皿の 1 段の 落差の 上限（waterV2Table の cascade.drop） */
+const CASCADE_DROP_MAX = WATER_TUNE.cascade.drop[1];
 const seed = 20261012;
 const T = terrainFor(seed);
 
@@ -46,28 +49,53 @@ describe('水の 景色 v2（?water=v2）', () => {
     for (const a of all) expect(a.sites.filter((s) => s.type === 'taki').length, '1 つの 山に 0〜6 本（流れの 滝の 数の 上限）').toBeLessThanOrEqual(6);
   });
 
-  it('高い かべ（落差 10 以上）の 滝の 6 割 以上は 段々（わきどころの 高さが 2 つ 以上）', () => {
+  it('高い 滝（落差 12 以上）は 段々の 滝（わきどころの 高さが 2 つ 以上）か、受け皿の 1 段（落差 4〜14 + たきつぼの ふかさ）', () => {
     const takis = all.flatMap((a) => a.sites.filter((s) => s.type === 'taki'));
     const stages = (s: FeatureSite): number => new Set(s.blocks.filter((b) => b.id === 'wakimizu').map((b) => b.y)).size;
-    // 落差 ≒ いちばん 上の わきどころ − いちばん 下の たきつぼ（たきつぼは 水面の 2〜4 下）
-    const high = takis.filter((s) => Math.max(...s.blocks.filter((b) => b.id === 'wakimizu').map((b) => b.y)) - Math.min(...s.blocks.filter((b) => b.id === 'takitsubo').map((b) => b.y)) >= 12);
+    // 落差 ≒ いちばん 上の わきどころ − いちばん 下の たきつぼ（たきつぼは 水面の 1〜4 下）
+    const drop = (s: FeatureSite): number => Math.max(...s.blocks.filter((b) => b.id === 'wakimizu').map((b) => b.y)) - Math.min(...s.blocks.filter((b) => b.id === 'takitsubo').map((b) => b.y));
+    const high = takis.filter((s) => drop(s) >= 12);
     expect(high.length).toBeGreaterThanOrEqual(3);
-    expect(high.filter((s) => stages(s) >= 2).length / high.length, `段々 ${high.filter((s) => stages(s) >= 2).length} / ${high.length}`).toBeGreaterThanOrEqual(0.6);
+    const ok = high.filter((s) => stages(s) >= 2 || drop(s) <= CASCADE_DROP_MAX + 4);
+    expect(ok.length / high.length, `段々か 受け皿の 1 段 ${ok.length} / ${high.length}`).toBeGreaterThanOrEqual(0.9);
     expect(Math.max(...takis.map(stages))).toBeLessThanOrEqual(4);
+  });
+
+  it('はりだした 段々の 滝: 高い 水源（山の 高さの 3 割 以上）が 25 山の うち 15 以上、滝 2〜4 本の 山が 滝の ある 山の 半分 以上（9 回め）', () => {
+    const withFall = all.filter((a) => a.sites.some((q) => q.type === 'taki'));
+    let high = 0;
+    let mid = 0;
+    for (const a of withFall) {
+      const g0 = groundFn(a.c);
+      let peak = 0;
+      for (let z = a.c.pz - 104; z <= a.c.pz + 104; z += 3) for (let x = a.c.px - 104; x <= a.c.px + 104; x += 3) peak = Math.max(peak, g0(x, z));
+      const base = T.map.baseHeight(a.c.px, a.c.pz);
+      const takis = a.sites.filter((q) => q.type === 'taki');
+      const topY = Math.max(...takis.flatMap((q) => q.blocks.filter((b) => b.id === 'wakimizu').map((b) => b.y)));
+      if ((topY - base) / Math.max(1, peak - base) >= 0.3) high++;
+      if (takis.length >= 2 && takis.length <= 4) mid++;
+    }
+    expect(MOUNTS.length).toBe(25);
+    expect(high, `高い 水源の 山 ${high} / ${MOUNTS.length}`).toBeGreaterThanOrEqual(15);
+    expect(mid / withFall.length, `滝 2〜4 本 ${mid} / ${withFall.length}`).toBeGreaterThanOrEqual(0.5);
   });
 
   it('滝が ある 山には 川も 出る（滝つぼが くぼ地でも 出口を ほる）', () => {
     const withFall = all.filter((a) => a.sites.some((q) => q.type === 'taki'));
     const withRiver = withFall.filter((a) => a.sites.some((q) => q.type === 'kawa'));
-    expect(withRiver.length).toBeGreaterThanOrEqual(Math.ceil(withFall.length * 0.8));
+    // 段々の 滝（2 段 以上）は 最後の 受け皿の 池で おわって よい（川は でなくて よい）ので 半分 以上
+    expect(withRiver.length).toBeGreaterThanOrEqual(Math.ceil(withFall.length * 0.5));
   });
 
   it('しぶきの 場所: 滝ごとに 1 つ 以上（落差 4 以上）・段々の 滝は 段の 数だけ', () => {
-    const s = all.flatMap((a) => a.sites).find((q) => q.type === 'taki')!;
-    const spots = splashSpotsNear(seed, s.x, s.z, 48, []);
+    // 本物の 世界（目じるしと いっしょ）で 出た 滝から えらぶ（目じるしが あると 場所が かわる ことが ある）
+    const R = 110;
+    let s: FeatureSite | undefined;
+    for (const a of all) if (s === undefined) s = featureSitesTouching(seed, a.c.px - R, a.c.pz - R, a.c.px + R, a.c.pz + R).find((q: FeatureSite) => q.type === 'taki');
+    const spots = splashSpotsNear(seed, s!.x, s!.z, 48, []);
     expect(spots.length).toBeGreaterThanOrEqual(1);
     for (const p of spots) expect(p.drop).toBeGreaterThanOrEqual(4);
-  });
+  }, 120_000);
 
   it('池の ふち（水面の 近く）に いしれんがは 使わない', () => {
     for (const a of all) {
@@ -95,7 +123,7 @@ describe('水の 景色 v2（?water=v2）', () => {
     rev.forEach((r, k) => expect(JSON.stringify(r.sites)).toBe(JSON.stringify(all[k]!.sites)));
   });
 
-  it('いちばん 上の 水源の 池から すそ（海・すその 低い 所）まで 水の マスが つながる（滝の ある 山の 7 割 以上）。水源の 池は 滝の ある 山の ぜんぶ', () => {
+  it('いちばん 上の 水源の 池から すそ（海・すその 低い 所）まで 水の マスが つながる（滝の ある 山の 9 割 以上）。水源の 池は 滝の ある 山の ぜんぶ', () => {
     const withFall = all.filter((a) => a.sites.some((q) => q.type === 'taki'));
     const linked = withFall.filter((a) => {
       const blocks = a.sites.flatMap((q) => q.blocks);
@@ -132,7 +160,7 @@ describe('水の 景色 v2（?water=v2）', () => {
         return y - T.map.baseHeight(x, z) <= 4 && find(k) === root;
       });
     });
-    expect(linked.length / withFall.length, `つながる ${linked.length} / ${withFall.length}`).toBeGreaterThanOrEqual(0.7);
+    expect(linked.length / withFall.length, `つながる ${linked.length} / ${withFall.length}`).toBeGreaterThanOrEqual(0.9);
     expect(withFall.length / all.length, '山の 8 割に 水源の 池（滝）').toBeGreaterThanOrEqual(0.8);
   });
 

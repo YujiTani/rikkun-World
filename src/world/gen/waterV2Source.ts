@@ -59,3 +59,28 @@ export function sourceSpots(g: Ground, cx: number, cz: number, radius: number, b
   }
   return out;
 }
+
+/**
+ * カスケード用の 水源の 場所（9 回め）: たいらな 肩が なくても、山の 高い ほうの 帯（すその 高さから lowest 以上）の 点を
+ * 高い 順に ならべる（おたがい apart 以上 はなす。上から count こ）。池は 受け皿の 計画の ほうで ほって たいらに する。
+ */
+export function highSpots(g: Ground, cx: number, cz: number, radius: number, base: number, free: (x: number, z: number) => boolean, seed: number, count: number): SourceSpot[] {
+  const step = T.cascade.spotStep;
+  let peak = base;
+  for (let z = cz - radius; z <= cz + radius; z += step) for (let x = cx - radius; x <= cx + radius; x += step) peak = Math.max(peak, g(x, z));
+  const all: SourceSpot[] = [];
+  for (let z = cz - radius; z <= cz + radius; z += step) {
+    for (let x = cx - radius; x <= cx + radius; x += step) {
+      const h = g(x, z);
+      if (h < 0 || !free(x, z) || (h - base) / Math.max(1, peak - base) < S.lowest) continue;
+      all.push({ x, z, score: h + hash01(seed, x, z, 131) * 6 });
+    }
+  }
+  all.sort((a, b) => b.score - a.score);
+  const out: SourceSpot[] = [];
+  for (const s of all) {
+    if (out.length >= count) break;
+    if (out.every((o) => Math.hypot(o.x - s.x, o.z - s.z) >= T.cascade.spotApart)) out.push(s);
+  }
+  return out;
+}
