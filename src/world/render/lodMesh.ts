@@ -1,4 +1,5 @@
 import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isFloorDecoIndex, isPropIndex, isTorchIndex } from '../blocks/blockTypes';
+import { MAX_BLOCK_KINDS } from '../blocks/maxBlockKinds';
 import { BLOCK_TILES } from '../blocks/textures';
 import type { WorldLight } from '../light/WorldLight';
 import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
@@ -128,13 +129,18 @@ function greedy(keys: Int32Array, emit: (x: number, z: number, w: number, d: num
   }
 }
 
-/** key に 高さ・ブロック・空の光・ブロックの光 を詰める */
-const pack = (y: number, b: number, s: number, l: number): number => ((y * 32 + b) * 16 + s) * 16 + l;
-const unpack = (k: number): { y: number; b: number; s: number; l: number } => ({
+/**
+ * key に 高さ・ブロック・空の光・ブロックの光 を 詰める（掛け算。ブロックは 10 ビット = MAX_BLOCK_KINDS 1024 まで）。
+ * 横の 面の key は 高さの ところに nTop * 64 + nBottom を 入れる（Number の 53 ビットに おさまる。比べるだけで unpack しない）。
+ * 上の 面の key は Int32Array に 入る（y は 8192 未満 = 2^31 に おさまる）。
+ */
+const BLOCK_SLOTS = MAX_BLOCK_KINDS;
+export const pack = (y: number, b: number, s: number, l: number): number => ((y * BLOCK_SLOTS + b) * 16 + s) * 16 + l;
+export const unpack = (k: number): { y: number; b: number; s: number; l: number } => ({
   l: k & 15,
   s: (k >> 4) & 15,
-  b: (k >> 8) & 31,
-  y: k >> 13,
+  b: (k >> 8) & (BLOCK_SLOTS - 1),
+  y: k >> 18,
 });
 
 export function meshChunkLod(world: ArrayVoxelWorld, cx: number, cz: number, light?: WorldLight): LodChunkMeshData {

@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { ArrayVoxelWorld, CHUNK_SIZE } from '../VoxelWorld';
 import { WorldRenderer } from './WorldRenderer';
 import { meshChunk } from './meshChunk';
-import { meshChunkLod } from './lodMesh';
+import { meshChunkLod, pack, unpack } from './lodMesh';
+import { BLOCK_INDEX, BLOCK_TYPES } from '../blocks/blockTypes';
+import { MAX_BLOCK_KINDS } from '../blocks/maxBlockKinds';
+import { BLOCK_TILES } from '../blocks/textures';
+import { tileAverage } from './voxel/projection';
 import { CHUNK_DRAW_DISTANCE, FACE_SHADE_BY_INDEX } from './config';
 import { chunkNearDistance } from './visibility';
 import { BOX_OUTER, TIER_HYSTERESIS } from './voxel/tier';
@@ -155,5 +159,30 @@ describe('WorldRenderer: 距離で LOD に切りかわる', () => {
     w.fill(64, 13, 64, 79, 30, 79, 'stone');
     r.update();
     expect(r.triangleCount()).not.toBe(before);
+  });
+
+  it('番号 32 以上（もみじの はっぱ・いちばん 後ろの ブロック）も key の 往復で 同じ 番号に もどる（遠景の ピンク）', () => {
+    const last = BLOCK_TYPES.length - 1;
+    for (const b of [BLOCK_INDEX.momiji_leaves, 31, 32, 33, 255, 256, last, MAX_BLOCK_KINDS - 1]) {
+      for (const y of [0, 1, 47, 255, 4000]) {
+        const u = unpack(pack(y, b, 13, 7));
+        expect(u, `b=${b} y=${y}`).toEqual({ y, b, s: 13, l: 7 });
+      }
+    }
+  });
+
+  it('遠景の 上の面は もみじの はっぱ・いちばん 後ろの ブロックの 平均の 色（ピンクに ならない）', () => {
+    expect(BLOCK_INDEX.momiji_leaves).toBeGreaterThanOrEqual(32);
+    for (const id of ['momiji_leaves', BLOCK_TYPES[BLOCK_TYPES.length - 1]!.id] as const) {
+      const w = new ArrayVoxelWorld({ x: 16, y: 16, z: 16 });
+      for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) { w.setBlock(x, 0, z, 'bedrock'); w.setBlock(x, 1, z, id); }
+      const m = meshChunkLod(w, 0, 0).opaque;
+      const tiles = BLOCK_TILES[id as keyof typeof BLOCK_TILES];
+      expect(tiles, id).toBeDefined();
+      const avg = tileAverage(tiles![0]);
+      const k = FACE_SHADE_BY_INDEX[0];
+      expect(m.colors.length, id).toBeGreaterThan(0);
+      for (let i = 0; i < 3; i++) expect(m.colors[i]!, `${id} ${i}`).toBeCloseTo(avg[i]! * k, 5);
+    }
   });
 });
