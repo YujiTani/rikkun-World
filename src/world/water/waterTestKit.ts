@@ -37,9 +37,9 @@ export function makeRig(extent: { x: number; y: number; z: number } = { x: 48, y
 }
 
 /** 今ある 世界に 水の 係を つける（生成の 列を 読んだ 世界・読み直した 世界 用） */
-export function attach(world: ArrayVoxelWorld, seed = 0): Rig {
+export function attach(world: ArrayVoxelWorld, seed = 0, springsIn?: (cx: number, cz: number) => boolean): Rig {
   let tick = 0;
-  const sys = createWaterSystem({ world, tick: () => tick, seed });
+  const sys = createWaterSystem({ world, tick: () => tick, seed, springsIn });
   const work = createWorkHook(() => tick, world, () => sys.computed());
   const step = (n = 1): void => {
     for (let i = 0; i < n; i++) {

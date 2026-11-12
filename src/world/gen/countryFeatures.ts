@@ -5,6 +5,7 @@ import { iwayama, momiji, tengu, yuki } from './countryMountain';
 import { cheb, flatness, FEATURE_TUNE, groundAt, isSea, range, rnd, site, MOUNTAIN_TUNE, type CountryFeature, type Ctx, type FeatureSite, type PlacedBlock } from './countryKit';
 import { bambooRawHit, plantsOfChunk } from './plants';
 import { terrainFor, type Terrain } from './terrain';
+import { WATER_TUNE, WATER_V2 } from './waterV2Table';
 
 export { FEATURE_TUNE, FEATURE_TYPES, type CountryFeature, type FeatureSite, type FeatureType, type PlacedBlock } from './countryKit';
 
@@ -34,10 +35,13 @@ const KIND_REACH = {
   yuki: MOUNTAIN_TUNE.summitReach + MOUNTAIN_TUNE.fallback.yukidaruma,
 } as const satisfies Record<CountryKind, number>;
 
+/** `?water=v2` の とき 山の 水（滝・川・池）が 山の 点から のびる 最大の きょり（フラグが なければ 0 = 今までと 同じ） */
+const WATER_EXTENT = WATER_V2 ? WATER_TUNE.reach : 0;
+
 /** 国 → 物の 足もと（foot の 四角）が 基準の マスから はなれる ぶんの さらなる のび。かいだんの 道が すそまで のびる てんぐの やまだけ 大きい（道の 長さ 上限 ＋ はば） */
 const KIND_EXTENT = {
-  harappa: 0, mori: 0, ookina: 0, hana: 0, sunahama: 0, susuki: 0, take: 0, kappa: 0, iwayama: 0, momiji: 0, yuki: 0,
-  tengu: MOUNTAIN_TUNE.kaidan.maxSteps + MOUNTAIN_TUNE.kaidan.width,
+  harappa: 0, mori: 0, ookina: 0, hana: 0, sunahama: 0, susuki: 0, take: 0, kappa: 0, iwayama: WATER_EXTENT, momiji: WATER_EXTENT, yuki: WATER_EXTENT,
+  tengu: Math.max(MOUNTAIN_TUNE.kaidan.maxSteps + MOUNTAIN_TUNE.kaidan.width, WATER_EXTENT),
 } as const satisfies Record<CountryKind, number>;
 /** 足もとの 四角の 半分の 大きさの 上限（つきみの いわ・きのこの わ 7×7 の 半分 3 ＋ よゆう）。基準の マスの 数との ちがい */
 const FOOT_HALF = 6; // 目じるし（とりい 11 など）の 半分 5 ＋ よゆう。ひろげても 探す はんいが 広がるだけで 結果は かわらない

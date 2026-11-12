@@ -13,7 +13,9 @@ import type { Terrain } from './terrain';
 
 export const FEATURE_TYPES = ['hatakeato', 'kinokoNoWa', 'himawari', 'kaigara', 'takenoko', 'tsukimiIwa', 'suisho', 'touro', 'kaidan', 'oomomiji', 'yukidaruma',
   // 山の上の 目じるし（`?structures=1` の ときだけ。うしろに 足す = 乱数の 番号を ずらさない）
-  'torii', 'odou', 'ishidan', 'azumaya', 'yagura', 'ido', 'ojizou', 'hokora', 'sekizou', 'ishi_torii'] as const;
+  'torii', 'odou', 'ishidan', 'azumaya', 'yagura', 'ido', 'ojizou', 'hokora', 'sekizou', 'ishi_torii',
+  // 水の 景色（`?water=v2` の ときだけ。滝 = 水源の 池・滝つぼ、川、池）
+  'taki', 'kawa', 'ike'] as const;
 export type FeatureType = (typeof FEATURE_TYPES)[number];
 
 /** `window.__rikkun.biome.features` の 1 こ。x, y, z = その物の 基準の マス（§8.3） */
