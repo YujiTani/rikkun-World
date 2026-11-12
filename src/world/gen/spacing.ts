@@ -115,7 +115,7 @@ export const GAP_SQUARE: Record<SpacingLevel, number> = { wide: 2, normal: 1, na
 export const GAP_TAKE: Record<SpacingLevel, number> = { wide: 1, normal: 1, narrow: 0 };
 
 /** はっぱの広がり（みき から）: ふつう・もみじ 2、まつ・大木 3 */
-export const leafReach = (t: Tree): number => (t.big === true || t.leaves === 'matsu_leaves' ? 3 : 2);
+export const leafReach = (t: Tree): number => t.reach ?? (t.big === true || t.leaves === 'matsu_leaves' ? 3 : 2);
 
 /** 木 t（遅い方）の位置の国と段で決まる g（あき列。−1 は 1 列 かさなってよい） */
 export function treeGap(T: Terrain, t: Tree): number {

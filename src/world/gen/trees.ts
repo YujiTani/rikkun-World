@@ -4,7 +4,9 @@ import { GEN_CONFIG as C } from './config';
 import { nearMouth } from './mouths';
 import { hash01, hashInts, subSeed } from './random';
 import { epochCache, inClearing, leafReach, treeGap, treeMinTrunkGap, treeOrder } from './spacing';
+import type { CountryKind } from './config';
 import type { Terrain } from './terrain';
+import { PROMINENCE_DIST, PROMINENCE_MIN, TREES_V2, TREE_MIX, TREE_REACH, pickSize, trunkOf, type TreeForm, type TreeSize } from './treeV2';
 
 /**
  * 木（T1〜T4）。1 列を 4×4 の 16 区画に分け、区画ごとに 1 点（区画の中の 0〜1 ずらし）。
@@ -24,6 +26,10 @@ export interface Tree {
   leaves: 'leaves' | 'momiji_leaves' | 'matsu_leaves';
   /** 2×2 の大木（x,z = 北西の みき） */
   big?: boolean;
+  /** ?trees=v2 のときだけ: 大きさ・形・はっぱの広がり */
+  size?: TreeSize;
+  form?: TreeForm;
+  reach?: number;
 }
 
 const PLOT = C.trees.plot;
@@ -155,6 +161,16 @@ function treeChance(T: Terrain, x: number, z: number): number {
   return defOf(b.kind).trees * b.a + defOf(b.kind2).trees * (1 - b.a);
 }
 
+/** 大木の割合（v2 は 国の表、ふだんは config の bigTree） */
+/** v2: 大木は まわりより 高い所の 1 本だけ（目じるしの木） */
+function standsHigh(T: Terrain, x: number, z: number, g: number): boolean {
+  const d = PROMINENCE_DIST;
+  return g - (T.height(x + d, z) + T.height(x - d, z) + T.height(x, z + d) + T.height(x, z - d)) / 4 >= PROMINENCE_MIN;
+}
+
+const bigShare = (kind: CountryKind): number => (TREES_V2 ? TREE_MIX[kind].l : defOf(kind).bigTree ?? 0);
+const bigRoll = (sT: number, a: number, b: number, kind: CountryKind): boolean => hash01(sT, a, b, TREES_V2 ? 11 : 3) < bigShare(kind);
+
 interface BigPot {
   x: number;
   z: number;
@@ -164,11 +180,11 @@ interface BigPot {
 /** 区画 (a, b) に 大木（2×2）になれる木が あるか（上限は見ない。となりの列からも 同じ答えが出る） */
 function bigPotential(T: Terrain, sT: number, forced: Set<number>, a: number, b: number): BigPot | null {
   const p = plotPoint(sT, a, b);
-  const def = defOf(T.biome(p.x, p.z).kind);
-  if (!def.bigTree) return null;
+  const kind = T.biome(p.x, p.z).kind;
+  if (!bigShare(kind)) return null;
   if (!forced.has(plotKey(a, b)) && hash01(sT, a, b, 2) >= treeChance(T, p.x, p.z)) return null;
   const g = treeGround(T, p.x, p.z);
-  if (g < 0 || hash01(sT, a, b, 3) >= def.bigTree) return null;
+  if (g < 0 || !bigRoll(sT, a, b, kind) || (TREES_V2 && !standsHigh(T, p.x, p.z, g))) return null;
   if (treeGround(T, p.x + 1, p.z) !== g || treeGround(T, p.x, p.z + 1) !== g || treeGround(T, p.x + 1, p.z + 1) !== g) return null;
   return { x: p.x, z: p.z, order: hash01(sT, a, b, 5) };
 }
@@ -257,12 +273,12 @@ export function treesRaw(T: Terrain, cx: number, cz: number): Tree[] {
     if (def.cap?.trees !== undefined && nTrees >= def.cap.trees) continue;
     keep.add(c);
     nTrees++;
-    if (def.bigTree && hash01(sT, c.a, c.b, 3) < def.bigTree && (def.cap?.bigTrees === undefined || nBig < def.cap.bigTrees)) {
+    if (bigShare(b.kind) > 0 && bigRoll(sT, c.a, c.b, b.kind) && (TREES_V2 || def.cap?.bigTrees === undefined || nBig < def.cap.bigTrees)) {
       const g1 = treeGround(T, c.p.x + 1, c.p.z);
       const g2 = treeGround(T, c.p.x, c.p.z + 1);
       const g3 = treeGround(T, c.p.x + 1, c.p.z + 1);
       // 太い みき（2×2）は 4 列の高さが ぴったり同じ所だけ（みきが 地面を つきぬけない）
-      if (g1 === c.g && g2 === c.g && g3 === c.g) {
+      if (g1 === c.g && g2 === c.g && g3 === c.g && (!TREES_V2 || standsHigh(T, c.p.x, c.p.z, c.g))) {
         bigOf.set(c, c.g);
         nBig++;
       }
@@ -291,8 +307,20 @@ export function treesRaw(T: Terrain, cx: number, cz: number): Tree[] {
     if (!keep.has(c)) continue;
     if (bigNear(c, bigOf.has(c))) continue;
     const def = defOf(T.biome(c.p.x, c.p.z).kind);
-    const leaves = def.leaves ?? 'leaves';
     const g = bigOf.get(c);
+    if (TREES_V2) {
+      const mix = TREE_MIX[T.biome(c.p.x, c.p.z).kind];
+      const leaves = mix.leaves ?? def.leaves ?? 'leaves';
+      const start = forced.has(plotKey(c.a, c.b)); // スタートの木は 今のまま 小さく
+      const size: TreeSize = start ? 's' : g !== undefined ? 'l' : pickSize({ ...mix, l: 0 }, hash01(sT, c.a, c.b, 12));
+      const form = mix.form;
+      const trunk = start ? c.p.trunk : trunkOf(form, size, hash01(sT, c.a, c.b, 4));
+      const t: Tree = { x: c.p.x, z: c.p.z, y: g ?? c.g, trunk, leaves, size, form, reach: TREE_REACH[form][size] };
+      if (size === 'l') t.big = true;
+      out.push(t);
+      continue;
+    }
+    const leaves = def.leaves ?? 'leaves';
     if (g !== undefined) out.push({ x: c.p.x, z: c.p.z, y: g, trunk: 10 + Math.floor(hash01(sT, c.a, c.b, 4) * 5), leaves, big: true });
     else out.push({ x: c.p.x, z: c.p.z, y: c.g, trunk: c.p.trunk, leaves });
   }
