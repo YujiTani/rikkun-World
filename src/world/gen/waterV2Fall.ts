@@ -1,6 +1,6 @@
 import { hash01 } from './random';
 import type { FallPlan } from './waterV2Types';
-import { tierUp } from './waterV2Tier';
+import { notchUp, sourceFor } from './waterV2Tier';
 import { basinCells, basinFits, basinNorm, buildBasin, depthAt, DIR4, makeBasin, rimColumn, waterColumn, type Basin, type Dir, type Edit, type Ground, type Rect } from './waterV2Kit';
 import { WATER_BLOCKS as B, WATER_TUNE as T } from './waterV2Table';
 
@@ -81,28 +81,12 @@ function planW(g: Ground, seed: number, c: Cand, w: number, free: (x: number, z:
     if (front.every(([x, z]) => basinNorm(b, x, z) <= 0.95) && basinFits(g, b, FALL.poolCut, FALL.poolFill, free)) pool = b;
   }
   if (pool === null) return null;
-  // 水源の 池: へりの うしろ。列 k = -1..w、うしろへ 1..rows（さいごの 列の 角は 丸める）
-  const source: [number, number][] = [];
-  const sourceRing: [number, number][] = [];
-  const rows = FALL.sourceRows;
-  const [lo, hi] = FALL.sourceSlack;
-  for (let r = 0; r <= rows + 1; r++) {
-    for (let k = -2; k <= w + 1; k++) {
-      const x = c.lx + k * px - r * d[0];
-      const z = c.lz + k * pz - r * d[1];
-      const inside = r >= 1 && r <= rows && k >= -1 && k <= w && !(r === rows && (k === -1 || k === w));
-      const onLip = r === 0 && k >= 0 && k < w;
-      if (onLip) continue;
-      const h = g(x, z);
-      if (h < 0 || !free(x, z)) return null;
-      if (inside) {
-        if (h < top + lo || h > top + hi) return null;
-        source.push([x, z]);
-      } else sourceRing.push([x, z]);
-    }
-  }
-  const base: FallPlan = { d, stages: [{ lip, front, top, pool }], lip, front, top, level, pool, source, sourceRing };
-  return tierUp(g, seed, base, free, buildFall) ?? base;
+  // 水源の 池: へりの うしろ
+  const src = sourceFor(g, c.lx, c.lz, d, w, top, free);
+  if (src === null) return null;
+  const { source, sourceRing } = src;
+  const base: FallPlan = { d, stages: [{ lip, front, top, pool, shelf: null }], lip, front, top, level, pool, source, sourceRing };
+  return notchUp(g, seed, base, free, buildFall) ?? base;
 }
 
 /** 滝を count 本まで えらぶ（川が 長く のびる 方を 優先。たがいに はなす）。river(p) = その 滝の 川の 長さ */
@@ -122,7 +106,7 @@ export function planFalls(g: Ground, px: number, pz: number, seed: number, count
       // 川が 長く のびる 所を 優先（落差は 川の 長さの つぎ）。川が みじかい 所は えらばない
       const len = river(p);
       if (len < FALL.riverMin) continue;
-      const score = Math.min(len, FALL.riverGoal) * 4 + (p.top - p.level) + (p.top - p.level >= FALL.bigDrop ? FALL.bigBonus : 0);
+      const score = Math.min(len, FALL.riverGoal) * 4 + (p.top - p.level) + (p.top - p.level >= FALL.bigDrop ? FALL.bigBonus : 0) + (p.stages.length - 1) * T.tier.bonus;
       if (score > bestScore) {
         best = p;
         bestScore = score;
@@ -138,7 +122,7 @@ export function planFalls(g: Ground, px: number, pz: number, seed: number, count
 
 /** 滝の 足もとの 四角（池・水源の 池・まわりを ふくむ。1 マス ひろげる） */
 export function footOf(p: FallPlan): Rect {
-  const cells: [number, number][] = [...p.stages.flatMap((s) => basinCells(s.pool)).map((q): [number, number] => [q.x, q.z]), ...p.source, ...p.sourceRing, ...p.lip];
+  const cells: [number, number][] = [...p.stages.flatMap((s) => (s.pool !== null ? basinCells(s.pool).map((q): [number, number] => [q.x, q.z]) : s.shelf!.cells)), ...p.source, ...p.sourceRing, ...p.lip];
   let x0 = Infinity;
   let z0 = Infinity;
   let x1 = -Infinity;
@@ -159,9 +143,9 @@ export function fallKeepOut(p: FallPlan): (x: number, z: number) => boolean {
     for (let dz = -m; dz <= m; dz++) for (let dx = -m; dx <= m; dx++) set.add((x + dx) * 100003 + z + dz);
   };
   for (const [x, z] of [...p.source, ...p.sourceRing]) add(x, z, 1);
-  p.stages.forEach((s, i) => {
+  p.stages.forEach((s) => {
     for (const [x, z] of [...s.lip, ...s.front]) add(x, z, 1);
-    if (i < p.stages.length - 1) for (const q of basinCells(s.pool)) add(q.x, q.z, 0);
+    if (s.shelf !== null) for (const [x, z] of s.shelf.cells) add(x, z, 1);
   });
   return (x, z) => set.has(x * 100003 + z);
 }
@@ -170,8 +154,15 @@ export function fallKeepOut(p: FallPlan): (x: number, z: number) => boolean {
 export function buildFall(ed: Edit, g: Ground, seed: number, p: FallPlan): void {
   p.stages.forEach((st, s) => {
     // うける たまり（まわりは あらいし・こけの あらいし）と、落ちる 列の 底 = たきつぼ
-    buildBasin(ed, g, seed + s, st.pool, B.rim, false);
-    for (const [x, z] of st.front) ed.set(x, st.pool.level - depthAt(st.pool, basinNorm(st.pool, x, z)), z, B.pit);
+    if (st.pool !== null) {
+      buildBasin(ed, g, seed + s, st.pool, B.rim, false);
+      for (const [x, z] of st.front) ed.set(x, st.pool.level - depthAt(st.pool, basinNorm(st.pool, x, z)), z, B.pit);
+    } else if (st.shelf !== null) {
+      // ひな段の たな: 台地を ほって 浅い たまり。落ちる 列の 底に たきつぼ
+      for (const [x, z] of st.shelf.rim) rimColumn(ed, seed + s, x, z, g(x, z), st.shelf.level, B.rim, false);
+      for (const [x, z] of st.shelf.cells) waterColumn(ed, seed + s, x, z, g(x, z), st.shelf.level, st.shelf.depth);
+      for (const [x, z] of st.front) ed.set(x, st.shelf.level - st.shelf.depth, z, B.pit);
+    }
     // へりの わきどころ（その 上は あける）
     for (const [x, z] of st.lip) {
       ed.set(x, st.top, z, B.spring);

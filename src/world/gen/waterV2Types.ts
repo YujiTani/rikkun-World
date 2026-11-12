@@ -2,12 +2,22 @@ import type { Basin, Dir } from './waterV2Kit';
 
 /** 滝の 計画の 型（waterV2Fall と waterV2Tier が 同じ 型を 使う ために ここに おく） */
 
-/** 滝の 1 段: へりの 列（わきどころ）・落ちる 先の 列・わきどころの 高さ・うける たまり */
+/** ひな段の たな（台地を ほった 浅い たまり）: 水の 列・水面・ふかさ */
+export interface Shelf {
+  cells: [number, number][];
+  level: number;
+  depth: number;
+  /** 水面より 低い まわりの 列（岩で かさ上げして 水を うける） */
+  rim: [number, number][];
+}
+
+/** 滝の 1 段: へりの 列（わきどころ）・落ちる 先の 列・わきどころの 高さ・うける たまり（いちばん 下は 滝つぼ pool、上の 段は たな shelf） */
 export interface Stage {
   lip: [number, number][];
   front: [number, number][];
   top: number;
-  pool: Basin;
+  pool: Basin | null;
+  shelf: Shelf | null;
 }
 
 export interface FallPlan {

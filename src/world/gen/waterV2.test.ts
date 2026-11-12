@@ -46,10 +46,13 @@ describe('水の 景色 v2（?water=v2）', () => {
     for (const a of all) expect(a.sites.filter((s) => s.type === 'taki').length, '1 つの 山に 0〜2 本').toBeLessThanOrEqual(2);
   });
 
-  it('高い かべの 滝は 段々に なる（わきどころの 高さが 2 つ 以上）', () => {
-    const stages = (s: FeatureSite): number => new Set(s.blocks.filter((b) => b.id === 'wakimizu').map((b) => b.y)).size;
+  it('高い かべ（落差 10 以上）の 滝の 6 割 以上は 段々（わきどころの 高さが 2 つ 以上）', () => {
     const takis = all.flatMap((a) => a.sites.filter((s) => s.type === 'taki'));
-    expect(takis.filter((s) => stages(s) >= 2).length, '段々の 滝').toBeGreaterThanOrEqual(1);
+    const stages = (s: FeatureSite): number => new Set(s.blocks.filter((b) => b.id === 'wakimizu').map((b) => b.y)).size;
+    // 落差 ≒ いちばん 上の わきどころ − いちばん 下の たきつぼ（たきつぼは 水面の 2〜4 下）
+    const high = takis.filter((s) => Math.max(...s.blocks.filter((b) => b.id === 'wakimizu').map((b) => b.y)) - Math.min(...s.blocks.filter((b) => b.id === 'takitsubo').map((b) => b.y)) >= 12);
+    expect(high.length).toBeGreaterThanOrEqual(3);
+    expect(high.filter((s) => stages(s) >= 2).length / high.length, `段々 ${high.filter((s) => stages(s) >= 2).length} / ${high.length}`).toBeGreaterThanOrEqual(0.6);
     expect(Math.max(...takis.map(stages))).toBeLessThanOrEqual(4);
   });
 
@@ -79,7 +82,8 @@ describe('水の 景色 v2（?water=v2）', () => {
     for (const a of all) {
       const g = groundFn(a.c);
       const raw = (x: number, z: number): number => T.height(x, z);
-      for (const s of a.sites) expect(waterLeaks(s.blocks, (x, z) => (g(x, z) >= 0 ? g(x, z) : raw(x, z))), `${s.type} ${s.x},${s.z}`).toEqual([]);
+      // 滝つぼと 川は つながって いる ので、山ごとに ぜんぶの ブロックを あわせて 見る（あとから 書いた 方が かつ）
+      expect(waterLeaks(a.sites.flatMap((s) => s.blocks), (x, z) => (g(x, z) >= 0 ? g(x, z) : raw(x, z))), `mountain ${a.c.px},${a.c.pz}`).toEqual([]);
     }
   });
 

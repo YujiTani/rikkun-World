@@ -3,7 +3,7 @@ import { groundFn } from './countryStructureKit';
 import { hashInts } from './random';
 import { buildFall, fallKeepOut, footOf, planFalls } from './waterV2Fall';
 import type { FallPlan } from './waterV2Types';
-import { clearRects, Edit, type Ground, type Rect } from './waterV2Kit';
+import { clearRects, Edit, waterLeaks, type Ground, type Rect } from './waterV2Kit';
 import { planPonds, buildPond } from './waterV2Pond';
 import { buildRiver, planRiver } from './waterV2River';
 import { WATER_BLOCKS as B, WATER_TUNE as T, WATER_V2 } from './waterV2Table';
@@ -68,8 +68,11 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
     const plan = riverOf(p, blocked);
     const re = new Edit();
     buildRiver(re, gb, seed + k, plan, p.pool, grassAt);
-    for (const b of re.blocks()) wet.add(b.x * 100003 + b.z);
-    if (plan.cells.some((cell) => cell.kind !== 'pool') || plan.mouth !== null) {
+    // 滝つぼと つなげて 水が もれる 川は 作らない（ほかの 滝の たまりに 近づきすぎた とき など）
+    const ground: Ground = (x, z) => (gb(x, z) >= 0 ? gb(x, z) : c.T.height(x, z));
+    const leaks = waterLeaks([...out, ...rivers].flatMap((q) => q.blocks).concat(re.blocks()), ground).length > 0;
+    if (!leaks) for (const b of re.blocks()) wet.add(b.x * 100003 + b.z);
+    if (!leaks && (plan.cells.some((cell) => cell.kind !== 'pool') || plan.mouth !== null)) {
       const first = plan.cells.find((cell) => cell.kind !== 'pool')!;
       rivers.push(blocksSite(c, 'kawa', re, first.x, first.level, first.z));
     }
