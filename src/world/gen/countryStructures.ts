@@ -28,8 +28,14 @@ const STRUCTURE_TUNE = {
   azumayaFrom: 5,
   /** お堂の 正面の はしから 石段の はじめまで（お堂の 半分 4 ＋ 1） */
   stairGap: 5,
+  /** 目の前が がけで 石段が 通らない とき、はじめを この 数（マス）ずつ 先へ ずらして ためす（山 v2 の 段と かべ） */
+  stairShift: [0, 1, 2, 3] as const,
   /** 石段の おわりから とりいの 基準の マスまで さがす きょり（近い 方から） */
-  toriiGap: [2, 8] as const,
+  toriiGap: [2, 16] as const,
+  /** 石段の とりいの 足もとの ゆるし: 地面の 高さの 差の 上限・うめる 高さの 上限（山 v2 は 段が けわしい） */
+  stairToriiLoose: { slope: 12, fill: 10 },
+  /** すその さきに 置けない とき、石段の すそから 数えて この 歩数の 中で 石段を またぐ とりいを さがす */
+  toriiOnStairs: 60,
   /** もみじやまの とりい・ほこら: 頂上から さがす きょり・とばす きざみ・「たいらな 広場」の 高さの 差の 上限（とりい） */
   plaza: { from: 10, to: 30, step: 2, flat: 1 },
   /** 山の すそと みなす 海からの 高さ（石段の おわり） */
@@ -60,13 +66,18 @@ export function tenguStructures(c: Ctx, s: Summit): FeatureSite[] {
   const used: Rect[] = [];
   const add = (f: FeatureSite): void => { out.push(f); used.push(f.foot); };
   let anchor: { x: number; z: number } | null = null;
-  let fallback: { x: number; z: number; placed: NonNullable<ReturnType<typeof findNear>>['placed'] } | null = null;
-  for (const d of order) {
-    const odou = findNear(STRUCTURES.odou, s.x, s.z, rotOf(d), c.i * 7 + c.j, ground, 0, T.summitSearch);
-    if (odou === null) continue;
-    fallback ??= odou;
-    const stairs = placeStairs(odou.x + T.stairGap * d[0], odou.z + T.stairGap * d[1], d, c.i * 31 + c.j, ground, atFoot(c, ground));
-    if (stairs === null) continue;
+  type Odou = NonNullable<ReturnType<typeof findNear>>;
+  let fallback: Odou | null = null;
+  /** お堂から 向き d へ 石段・とりい・おじぞうを つなぐ（石段が 通れば true） */
+  const stairTorii: StructureShape = { ...STRUCTURES.torii, maxSlope: T.stairToriiLoose.slope, base: { ...STRUCTURES.torii.base, maxFill: T.stairToriiLoose.fill } };
+  const connect = (odou: Odou, d: Dir4): boolean => {
+    // 目の前が かべ（がけ）で すぐ 切れる とき は、石段の はじめを すこし 先へ ずらして ためす（山 v2）
+    let stairs: ReturnType<typeof placeStairs> = null;
+    for (const extra of T.stairShift) {
+      stairs = placeStairs(odou.x + (T.stairGap + extra) * d[0], odou.z + (T.stairGap + extra) * d[1], d, c.i * 31 + c.j, ground, atFoot(c, ground));
+      if (stairs !== null) break;
+    }
+    if (stairs === null) return false;
     anchor = odou;
     add(siteOf(c, 'odou', odou.x, odou.z, odou.placed));
     const rects = stairs.path.map((p) => (d[0] !== 0 ? ([p.x, p.z - 5, p.x, p.z + 5] as const) : ([p.x - 5, p.z, p.x + 5, p.z] as const))); // 1 歩ごとの 四角（はば 3 ＋ いしどうろう）
@@ -74,13 +85,23 @@ export function tenguStructures(c: Ctx, s: Summit): FeatureSite[] {
     add(site(c, 'ishidan', first.x, first.y + 1, first.z, stairs.blocks, stairs.foot, { rects, path: stairs.path }));
     // とりい: 石段の おわりの さきに、近い 方から
     const last = stairs.path[stairs.path.length - 1]!;
-    for (let g = T.toriiGap[0]; g <= T.toriiGap[1]; g++) {
+    let toriiDone = false;
+    for (let g = T.toriiGap[0]; g <= T.toriiGap[1] && !toriiDone; g++) {
       const tx = last.x + g * d[0];
       const tz = last.z + g * d[1];
-      const t = placeStructure(STRUCTURES.torii, tx, tz, rotOf(d), c.i * 13 + c.j, ground);
+      const t = placeStructure(stairTorii, tx, tz, rotOf(d), c.i * 13 + c.j, ground);
       if (t !== null) {
         add(siteOf(c, 'torii', tx, tz, t));
-        break;
+        toriiDone = true;
+      }
+    }
+    // すその さきに 置けない（水・けわしい）とき: 石段の すその 近くに、石段を またいで 立てる（はば 3 の 道の 両わきが はしら）
+    for (let i = stairs.path.length - 1; i >= Math.max(0, stairs.path.length - T.toriiOnStairs) && !toriiDone; i--) {
+      const q = stairs.path[i]!;
+      const t = placeStructure(stairTorii, q.x, q.z, rotOf(d), c.i * 13 + c.j, ground);
+      if (t !== null) {
+        add(siteOf(c, 'torii', q.x, q.z, t));
+        toriiDone = true;
       }
     }
     // おじぞうさん: 石段の とちゅう 2 か所、道の わき（左右 たがいちがい）。石段の ほうを 向く
@@ -100,12 +121,22 @@ export function tenguStructures(c: Ctx, s: Summit): FeatureSite[] {
         }
       }
     });
-    break;
+    return true;
+  };
+  for (const d of order) {
+    const odou = findNear(STRUCTURES.odou, s.x, s.z, rotOf(d), c.i * 7 + c.j, ground, 0, T.summitSearch);
+    if (odou === null) continue;
+    fallback ??= odou;
+    if (connect(odou, d)) break;
   }
   if (anchor === null && fallback === null) {
-    // 近くに 置けない（山 v2 は 頂上が 急）: 頂上の まわりを くまなく さがして お堂だけ 置く（頂上の ほうを 向く）
-    const w = gridSearch(STRUCTURES.odou, s.x, s.z, T.odouWide.from, T.odouWide.to, T.odouWide.step, c.i * 7 + c.j, ground, (x, z) => facing(x, z, s.x, s.z), () => true);
-    if (w !== null) fallback = w;
+    // 近くに 置けない（山 v2 は 頂上が 急）: 頂上の まわりを 格子で くまなく さがして、お堂を 置く。正面は 山の そと（くだる 向き）。石段は その 向きへ
+    const wide = gridSearch(STRUCTURES.odou, s.x, s.z, T.odouWide.from, T.odouWide.to, T.odouWide.step, c.i * 7 + c.j, ground, (x, z) => facing(s.x, s.z, x, z), () => true);
+    if (wide !== null) {
+      fallback = wide;
+      const out4 = facing(s.x, s.z, wide.x, wide.z);
+      if (!connect(wide, out4)) for (const d of order) if (connect(wide, d)) break;
+    }
   }
   if (anchor === null && fallback !== null) {
     anchor = fallback;
