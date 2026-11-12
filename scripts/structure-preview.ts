@@ -12,6 +12,7 @@ import { placeStructure } from '../src/world/gen/structures/place';
 import { STRUCTURES } from '../src/world/gen/structures/registry';
 import { ROTS, type PlacedCell } from '../src/world/gen/structures/types';
 import type { BlockId } from '../src/contracts';
+import { SHAPE_BLOCKS, shapeBoxes } from '../src/world/blocks/shapeBlocks';
 import { placeStairs, type Dir4 } from '../src/world/gen/structures/ishidan';
 
 type RGB = readonly [number, number, number];
@@ -73,10 +74,28 @@ function cube(cv: Canvas, ox: number, oy: number, x: number, y: number, z: numbe
   const { top, side } = faceColors(id);
   const cx = ox + (x - z) * HW;
   const cy = oy + (x + z) * HH - y * VH;
-  const T = shade(top, SHADE.top);
-  const L = shade(side, SHADE.left);
-  const R = shade(side, SHADE.right);
+  let T = shade(top, SHADE.top);
+  let L = shade(side, SHADE.left);
+  let R = shade(side, SHADE.right);
   const dark = (c: RGB): RGB => shade(c, 0.8);
+  // 形つきブロック（はしら・うすいた・かきね・かさ）は 形の 箱で 描く（ゲームの pushProp と 同じ 形）
+  const info = SHAPE_BLOCKS.find((b) => b.id === id);
+  const lantern = id === 'chouchin'; // わの ちょうちん（十字の 板）は 赤い 小さい 箱で しめす
+  if (info || lantern) {
+    const boxes = info ? shapeBoxes(info.shape) : [{ min: [5, 2, 5] as const, max: [11, 13, 11] as const }];
+    if (lantern) { T = [214, 70, 40]; L = [190, 60, 36]; R = [150, 46, 28]; }
+    for (const b of boxes) {
+      const X0 = x - 0.5 + b.min[0] / 16, X1 = x - 0.5 + b.max[0] / 16;
+      const Z0 = z - 0.5 + b.min[2] / 16, Z1 = z - 0.5 + b.max[2] / 16;
+      const H0 = y - 1 + b.min[1] / 16, H1 = y - 1 + b.max[1] / 16;
+      const sx = (X: number, Z: number): number => ox + (X - Z) * HW;
+      const sy = (X: number, Z: number, H: number): number => oy + (X + Z) * HH - H * VH;
+      cv.poly([[sx(X0, Z0), sy(X0, Z0, H1)], [sx(X1, Z0), sy(X1, Z0, H1)], [sx(X1, Z1), sy(X1, Z1, H1)], [sx(X0, Z1), sy(X0, Z1, H1)]], T, dark(T));
+      cv.poly([[sx(X0, Z1), sy(X0, Z1, H1)], [sx(X1, Z1), sy(X1, Z1, H1)], [sx(X1, Z1), sy(X1, Z1, H0)], [sx(X0, Z1), sy(X0, Z1, H0)]], L, dark(L));
+      cv.poly([[sx(X1, Z1), sy(X1, Z1, H1)], [sx(X1, Z0), sy(X1, Z0, H1)], [sx(X1, Z0), sy(X1, Z0, H0)], [sx(X1, Z1), sy(X1, Z1, H0)]], R, dark(R));
+    }
+    return;
+  }
   // 上の 面
   cv.poly([[cx, cy - HH], [cx + HW, cy], [cx, cy + HH], [cx - HW, cy]], T, dark(T));
   // 左（南）の 面

@@ -5,6 +5,7 @@
 import type { ChalkMarkId } from '../world/blocks/chalkMark';
 import type { ChestBlockId } from '../world/blocks/chestBlock';
 import type { KATAME_TSUCHI, ScaffoldId } from '../world/blocks/buildBlocks';
+import type { ShapeBlockId } from '../world/blocks/shapeBlocks';
 import type { ReservedId, WaterPartialId } from '../world/blocks/water';
 import type { MagmaExtraId } from '../world/blocks/magma';
 import type { LookBlockId } from '../world/blocks/houseLookBlocks';
@@ -157,6 +158,7 @@ export type BlockId =
   | 'chouchin' // ちょうちん（つるす あかり。通れる・光 12。十字の 板で 描く。ふつうの ちょうちん lantern とは べつ）
   // WAFU-1 追加（うしろに足す。249〜250）: 石の ブロック（いし系。固い・こわせる・持てる・置ける）
   | 'ara_ishi' // あらいし（大小の 丸い 石を つんだ 粗い 石）
+  | ShapeBlockId // WAFU-2: 形つきブロック（見た目だけ 細い・うすい）
   | 'koke_ara_ishi'; // こけの あらいし（ひびの いしは MINE-1E の hibi_ishi が すでに ある）
 
 export interface BlockType {

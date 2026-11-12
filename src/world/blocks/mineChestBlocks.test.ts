@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MAX_BLOCK_KINDS } from './maxBlockKinds';
 import type { BlockId, Rarity } from '../../contracts';
 import { ITEM_DEFS } from '../../content/items/registry';
 import { DIG_DEFAULTS } from '../../dig/config';
@@ -85,7 +86,7 @@ describe('C8: 宝箱の ブロック', () => {
     expect(last1b, `${LAST_1B_ID} の ブロック`).toBeGreaterThan(0);
     for (const id of ['kodo_waku', ...MAIN_IDS, ...OPEN_IDS]) expect(IDX[id], `${id} の 番号`).toBeGreaterThan(last1b);
     for (const t of chestBlocks) expect(IDX[t.id]!, t.id).toBeGreaterThan(last1b);
-    expect(BLOCK_TYPES.length).toBeLessThanOrEqual(256);
+    expect(BLOCK_TYPES.length).toBeLessThanOrEqual(MAX_BLOCK_KINDS);
     const ids = BLOCK_TYPES.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
   });

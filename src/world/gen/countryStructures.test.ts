@@ -86,7 +86,7 @@ describe('山の上の 目じるし（?structures=1）', () => {
     let wall = 0;
     for (const m of mountains('iwayama', 8)) {
       for (const z of sitesAround(m, ['sekizou'])) {
-        const higher = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => T.height(z.x + dx! * 6, z.z + dz! * 6) >= z.y + 2);
+        const higher = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => T.height(z.x + dx! * 6, z.z + dz! * 6) >= T.height(z.x, z.z) + 4);
         expect(higher, '石ぞうの うしろは かべ').toBe(true);
         wall++;
       }

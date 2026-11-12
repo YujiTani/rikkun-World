@@ -3,7 +3,7 @@ import type { StructureShape } from './types';
 
 /**
  * ほこら（7×7・高さ 9）。石の 台（3 段 = ふもと 2 段 ＋ 台の うえ）と 正面（南）の 石段、台の まわりに 石の かこい（正面は あけて 入り口）、
- * 朱色の はしら 4 本、中に 小さい 石ぞう（2 マス）と ちょうちん 1 つ、そった かわらの 屋根（すみが 1 段 上がる）。
+ * 朱色の 細い はしら 4 本、中に 小さい 石ぞう（2 マス）と ちょうちん 1 つ、そった かわらの 屋根（ふちは うすいた〔軒先〕・すみが 上がる）。かこいは 朱色の 細い かきね。
  */
 export const HOKORA: StructureShape = {
   id: 'hokora',
@@ -14,25 +14,29 @@ export const HOKORA: StructureShape = {
     ['IIIIIII', 'IIIIIII', 'IIIIIII', 'IIIIIII', 'IIIIIII', '..III..', '.......'],
     // y2 台の うえの 面（7×5）
     ['IIIIIII', 'IIIIIII', 'IIIIIII', 'IIIIIII', 'IIIIIII', '.......', '.......'],
-    // y3 石の かこい（正面の まん中は あけて 入り口）と はしら と 小さい 石ぞう
-    ['FFFFFFF', 'FS...SF', 'F..N..F', 'FS...SF', 'FF...FF', '.......', '.......'],
+    // y3 石の かこい（細い かきね。正面の まん中は あけて 入り口）と はしら と 小さい 石ぞう
+    ['xxxxxxx', 'zS...Sz', 'z..N..z', 'zS...Sz', 'xx...xx', '.......', '.......'],
     ['.......', '.S...S.', '...N...', '.S...S.', '.......', '.......', '.......'],
     ['.......', '.S...S.', '.......', '.S.C.S.', '.......', '.......', '.......'],
-    // y6 かわらの 屋根の 1 段め（7×5）
-    ['KKKKKKK', 'KKKKKKK', 'KKKKKKK', 'KKKKKKK', 'KKKKKKK', '.......', '.......'],
-    // y7 2 段め と すみの 反り
-    ['T.....T', '.TTTTT.', '.TTTTT.', '.TTTTT.', 'T.....T', '.......', '.......'],
-    // y8 むね
-    ['.......', '.......', '..TTT..', '.......', '.......', '.......', '.......'],
+    // y6 かわらの 屋根: ふちは うすいた（軒先）、まんなかは かたまり（5×3）
+    ['EEEEEEE', 'EKKKKKE', 'EKKKKKE', 'EKKKKKE', 'EEEEEEE', '.......', '.......'],
+    // y7 2 段め（3×3）と すみの 反り（うすいた）
+    ['U.....U', '..TTT..', '..TTT..', '..TTT..', 'U.....U', '.......', '.......'],
+    // y8 むね（四角すい台）
+    ['.......', '.......', '...G...', '.......', '.......', '.......', '.......'],
   ],
   legend: {
     I: ARA,
-    F: ARA_MOSSY,
     N: ARA_MOSSY,
-    S: 'shu_ita',
+    x: 'shu_ita_kakine_x',
+    z: 'shu_ita_kakine_z',
+    S: 'shu_ita_hashira',
     C: 'chouchin',
+    E: { id: 'kawara_usuita_shita', skip: 0.04 },
     K: { id: 'kawara', skip: 0.04 },
     T: 'kawara',
+    U: 'kawara_usuita_shita',
+    G: 'kawara_kasa',
   },
   anchor: { x: 3, z: 3 },
   base: { id: 'ara_ishi', maxFill: 4 },

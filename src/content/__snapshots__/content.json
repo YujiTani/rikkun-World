@@ -4679,6 +4679,30 @@
       "rarity": "common",
       "recipes": []
     },
+    "ara_ishi": {
+      "DIG_DEFAULTS.hardness.ara_ishi": 6,
+      "DIG_DEFAULTS.harvestLevel.ara_ishi": 0,
+      "DIG_DEFAULTS.rarity.ara_ishi": "common",
+      "category": "stone",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "あらいし",
+      "placeBlock": "ara_ishi",
+      "rarity": "common",
+      "recipes": []
+    },
+    "koke_ara_ishi": {
+      "DIG_DEFAULTS.hardness.koke_ara_ishi": 6,
+      "DIG_DEFAULTS.harvestLevel.koke_ara_ishi": 0,
+      "DIG_DEFAULTS.rarity.koke_ara_ishi": "common",
+      "category": "stone",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こけの あらいし",
+      "placeBlock": "koke_ara_ishi",
+      "rarity": "common",
+      "recipes": []
+    },
     "egg": {
       "ITEM_INFO.egg": {
         "buttons": [

@@ -591,7 +591,9 @@
     "stone": [
       "stone",
       "suisho",
-      "koke_ishi"
+      "koke_ishi",
+      "ara_ishi",
+      "koke_ara_ishi"
     ],
     "tool": [
       "wood_pickaxe",
@@ -920,6 +922,8 @@
     "ishidatami",
     "koke_ishi",
     "chouchin",
+    "ara_ishi",
+    "koke_ara_ishi",
     "egg",
     "mushi",
     "mushi_ami",

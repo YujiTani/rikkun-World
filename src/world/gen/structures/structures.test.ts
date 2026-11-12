@@ -130,7 +130,7 @@ describe('5 つの 目じるし: 大きさと 使う ブロック', () => {
     for (const id of ['ishidatami', 'shu_ita', 'shikkui', 'kawara', 'chouchin']) expect(used(s).has(id), id).toBe(true);
     const cells = shapeCells(s);
     const ext = (pred: (c: { ch: string; y: number }) => boolean): number => { const xs = cells.filter(pred).map((c) => c.rx); return Math.max(...xs) - Math.min(...xs) + 1; };
-    const roofY = [...new Set(cells.filter((c) => c.ch === 'K' || c.ch === 'T').map((c) => c.y))].sort((a, b) => a - b);
+    const roofY = [...new Set(cells.filter((c) => c.ch === 'K' || c.ch === 'T' || c.ch === 'E').map((c) => c.y))].sort((a, b) => a - b);
     expect(roofY.length).toBeGreaterThanOrEqual(3); expect(roofY.length).toBeLessThanOrEqual(5);
     const wall = ext((c) => c.ch === 'W' || (c.ch === 'S' && c.y === 1));
     expect(ext((c) => c.y === roofY[0] && c.ch === 'K') - wall).toBe(4); // 両がわ 2 マスずつ
@@ -146,7 +146,7 @@ describe('5 つの 目じるし: 大きさと 使う ブロック', () => {
     expect(cells.filter((c) => c.y === 0 && c.ch === 'I').length).toBe(49);
     expect(cells.filter((c) => c.y === 4 && c.ch === 'S').length).toBe(4);
     const ext = (pred: (c: ShapeCell) => boolean): number => { const v = cells.filter(pred).map((c) => c.rx); return Math.max(...v) - Math.min(...v) + 1; };
-    expect(ext((c) => c.y === 5 && c.ch === 'K') - ext((c) => c.y === 4 && c.ch === 'S')).toBe(4); // 両がわ 2
+    expect(ext((c) => c.y === 5 && (c.ch === 'K' || c.ch === 'E')) - ext((c) => c.y === 4 && c.ch === 'S')).toBe(4); // 両がわ 2
     expect(new Set(cells.filter((c) => c.ch === 'K' || c.ch === 'T').map((c) => c.y)).size).toBe(3);
     expect(cells.filter((c) => c.y === 6 && c.ch === 'T' && Math.abs(c.rx) === 4 && Math.abs(c.rz) === 4).length).toBe(4); // すみ
     expect(cells.filter((c) => c.y === 1 && c.ch === 'S').length).toBeLessThan(cells.filter((c) => c.y === 0).length); // らんかんは ひくい（1 段）
@@ -206,8 +206,9 @@ describe('石段（道に そって 置く）', () => {
       const d = dims(s);
       expect(d.h, name).toBeGreaterThanOrEqual(h[0]); expect(d.h, name).toBeLessThanOrEqual(h[1]);
       const cells = shapeCells(s);
-      const roofY = Math.max(...cells.filter((c) => c.ch === 'R').map((c) => c.y));
-      expect(cells.filter((c) => c.y === roofY && c.ch === 'R').length, name).toBeGreaterThanOrEqual(9);
+      const roof = (c: ShapeCell): boolean => c.ch === 'E' || c.ch === 'K';
+      const roofY = Math.max(...cells.filter(roof).map((c) => c.y));
+      expect(cells.filter((c) => c.y === roofY && roof(c)).length, name).toBeGreaterThanOrEqual(9);
       expect(cells.some((c) => c.ch === 'C'), name).toBe(true);
     }
     expect(shapeCells(STRUCTURES['ishidourou-dai']).filter((c) => c.y === 0 && c.ch === 'M').length).toBe(9);

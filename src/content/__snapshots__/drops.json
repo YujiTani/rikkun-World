@@ -203,6 +203,7 @@
   },
   "itemRarity": {
     "andon": "uncommon",
+    "ara_ishi": "common",
     "bamboo": "common",
     "bokuto": "common",
     "brick": "uncommon",
@@ -275,6 +276,7 @@
     "kin_yumi": "epic",
     "kinoko": "common",
     "kite": "uncommon",
+    "koke_ara_ishi": "common",
     "koke_ishi": "common",
     "kokuyouseki": "rare",
     "kongo_axe": "mythic",
