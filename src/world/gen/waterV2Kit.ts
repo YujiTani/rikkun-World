@@ -81,54 +81,72 @@ export function pick<T>(seed: number, list: readonly T[], x: number, z: number, 
   return list[Math.floor(hash01(seed, x, z, n) * list.length)]!;
 }
 
-/** 円の 中（まん中 cx, cz は 実数。マスの まん中 = x + 0.5）か */
-export const inCircle = (x: number, z: number, cx: number, cz: number, r: number): boolean => (x + 0.5 - cx) ** 2 + (z + 0.5 - cz) ** 2 <= r * r;
-
-/** 円の 中の マス（左上から 右下へ） */
-export function circleCells(cx: number, cz: number, r: number): [number, number][] {
-  const out: [number, number][] = [];
-  for (let z = Math.floor(cz - r); z <= Math.ceil(cz + r); z++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) if (inCircle(x, z, cx, cz, r)) out.push([x, z]);
-  return out;
-}
-
-/** 水面の 池・たまり（まるい）。level = 水の いちばん 上の マスの y */
+/** 水面の 池・たまり（いびつな 形）。level = 水の いちばん 上の マスの y。r = 平均の 半径、p1・p2 = ゆがみの 位相（角度ごとに 半径が 1 ± amp で ゆれる） */
 export interface Basin {
   cx: number;
   cz: number;
   r: number;
   level: number;
+  /** まん中の ふかさ（ふちほど あさい） */
   depth: number;
+  amp: number;
+  p1: number;
+  p2: number;
 }
 
-/** 池の ふちの はば（円の 外へ この だけ） */
-const RING = 1.3;
+/** 池を 作る（形の ゆがみは 場所の 乱数から） */
+export function makeBasin(seed: number, cx: number, cz: number, r: number, level: number, depth: number): Basin {
+  const k = Math.floor(cx) * 31 + Math.floor(cz);
+  return { cx, cz, r, level, depth, amp: T.blob, p1: hash01(seed, k, 1, 91) * 6.283, p2: hash01(seed, k, 2, 92) * 6.283 };
+}
+
+/** (x, z) の マスの まん中 → 池の ふちまでの 距離を 1 と した 値（1 以下 = 水、1〜1 + 1.3 / r = ふち）。ふちは 角度で ゆれる */
+export function basinNorm(b: Basin, x: number, z: number): number {
+  const dx = x + 0.5 - b.cx;
+  const dz = z + 0.5 - b.cz;
+  const th = Math.atan2(dz, dx);
+  const f = 1 + b.amp * (0.6 * Math.sin(2 * th + b.p1) + 0.4 * Math.sin(3 * th + b.p2));
+  return Math.hypot(dx, dz) / (b.r * f);
+}
+
+/** 池の ふちの はば（水の へりから この だけ） */
+const RING = 1.9;
+/** 池の まわりを しらべる 四角（ゆがみの ぶん ひろげる） */
+const reachOf = (b: Basin): number => b.r * (1 + b.amp) + RING + 1;
+/** 池の まわりの 列（水・ふち。左上から 右下へ） */
+export function basinCells(b: Basin): { x: number; z: number; n: number }[] {
+  const out: { x: number; z: number; n: number }[] = [];
+  const R = reachOf(b);
+  for (let z = Math.floor(b.cz - R); z <= Math.ceil(b.cz + R); z++) {
+    for (let x = Math.floor(b.cx - R); x <= Math.ceil(b.cx + R); x++) {
+      const n = basinNorm(b, x, z);
+      if (n <= 1 + RING / b.r) out.push({ x, z, n });
+    }
+  }
+  return out;
+}
+
+/** その 列の 水の ふかさ（まん中 = depth、ふち = 1） */
+export const depthAt = (b: Basin, n: number): number => Math.max(1, Math.round(b.depth * (1 - 0.6 * Math.min(1, n))));
 
 /** 池が 作れるか: 中は まわりの 地面を けずる 量・うめる 量が 上限 以内、ふちは うめる 量が 上限 以内。置けない 列（-1）が あれば だめ */
 export function basinFits(g: Ground, b: Basin, cut: number, fill: number, free: (x: number, z: number) => boolean = () => true): boolean {
-  for (let z = Math.floor(b.cz - b.r - RING); z <= Math.ceil(b.cz + b.r + RING); z++) {
-    for (let x = Math.floor(b.cx - b.r - RING); x <= Math.ceil(b.cx + b.r + RING); x++) {
-      const inner = inCircle(x, z, b.cx, b.cz, b.r);
-      if (!inner && !inCircle(x, z, b.cx, b.cz, b.r + RING)) continue;
-      const h = g(x, z);
-      if (h < 0 || !free(x, z)) return false;
-      if (inner) {
-        if (h > b.level + cut || h < b.level - b.depth - fill) return false;
-      } else if (h < b.level - fill) return false;
-    }
+  for (const { x, z, n } of basinCells(b)) {
+    const h = g(x, z);
+    if (h < 0 || !free(x, z)) return false;
+    if (n <= 1) {
+      if (h > b.level + cut || h < b.level - depthAt(b, n) - fill) return false;
+    } else if (h < b.level - fill) return false;
   }
   return true;
 }
 
-/** 池を 作る: 中は 水（底は すな・あらいし）、ふちは あらいし・こけの あらいし 系（まわりより 低ければ うめる）。壁の 高い 所は そのまま */
+/** 池を 作る: 中は 水（まん中が ふかい。底は すな・あらいし）、ふちは 大きさの ちがう 岩・すなの あさせ・草（まわりより 低ければ うめる）。壁の 高い 所は そのまま */
 export function buildBasin(ed: Edit, g: Ground, seed: number, b: Basin, rim: readonly BlockId[], ochiba: boolean): void {
-  for (let z = Math.floor(b.cz - b.r - RING); z <= Math.ceil(b.cz + b.r + RING); z++) {
-    for (let x = Math.floor(b.cx - b.r - RING); x <= Math.ceil(b.cx + b.r + RING); x++) {
-      const inner = inCircle(x, z, b.cx, b.cz, b.r);
-      if (!inner && !inCircle(x, z, b.cx, b.cz, b.r + RING)) continue;
-      const h = g(x, z);
-      if (inner) waterColumn(ed, seed, x, z, h, b.level, b.depth);
-      else rimColumn(ed, seed, x, z, h, b.level, rim, ochiba);
-    }
+  for (const { x, z, n } of basinCells(b)) {
+    const h = g(x, z);
+    if (n <= 1) waterColumn(ed, seed, x, z, h, b.level, depthAt(b, n));
+    else rimColumn(ed, seed, x, z, h, b.level, rim, ochiba);
   }
 }
 
@@ -142,13 +160,20 @@ export function waterColumn(ed: Edit, seed: number, x: number, z: number, ground
   for (let y = level + 1; y <= top; y++) ed.set(x, y, z, B.air);
 }
 
-/** ふちの 列: 水面と 同じ 高さ（以上）まで うめて、いちばん 上を ふちの いしに。高い 壁（水面 +1 より 上）は そのまま。ときどき 1 つ 積む */
+/**
+ * ふちの 列（わくに しない）: 水面と 同じ 高さまで うめて、くじで 変える。
+ * 岩（あらいし・こけの あらいし・いし の 1〜3 だん）・すなの あさせ・そのままの 地面（草）。高い 壁（水面 +1 より 上）は そのまま。
+ */
 export function rimColumn(ed: Edit, seed: number, x: number, z: number, ground: number, level: number, rim: readonly BlockId[], ochiba: boolean): void {
   if (ground > level + 1) return;
   const top = Math.max(ground, level);
   for (let y = ground + 1; y < top; y++) ed.set(x, y, z, B.fill);
-  ed.set(x, top, z, pick(seed, rim, x, z, 2));
-  if (hash01(seed, x, z, 3) < T.boulder) ed.set(x, top + 1, z, pick(seed, rim, x, z, 4));
+  const roll = hash01(seed, x, z, 2);
+  if (roll < T.rimRock) {
+    const h = 1 + Math.floor(hash01(seed, x, z, 3) * hash01(seed, x, z, 4) * T.rockHigh * 1.6); // 低い 岩が 多く、たまに 高い
+    for (let k = 0; k < h; k++) ed.set(x, top + k, z, pick(seed, rim, x, z, 5 + k));
+  } else if (roll < T.rimRock + T.rimSand) ed.set(x, top, z, B.shore);
+  else if (ground < level) ed.set(x, top, z, B.shore); // うめた 所は すなに（岩に しない 所）
   else if (ochiba && hash01(seed, x, z, 5) < T.ochiba) ed.set(x, top, z, B.ochiba);
 }
 

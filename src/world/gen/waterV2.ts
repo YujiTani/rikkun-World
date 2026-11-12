@@ -48,7 +48,8 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
   // 滝の 数（0・1・2 本）
   const roll = (hashInts(seed, 1, 0) >>> 0) / 4294967296;
   const n = roll < T.fallCount[0] ? 0 : roll < T.fallCount[0] + T.fallCount[1] ? 1 : 2;
-  const riverOf = (p: FallPlan, blocked: (x: number, z: number) => boolean) => planRiver(g, seed + 1, { x: Math.floor(p.pool.cx), z: Math.floor(p.pool.cz), d: p.d, pool: p.pool }, blocked);
+  const atFoot = (x: number, z: number): boolean => g(x, z) - c.T.map.baseHeight(x, z) <= T.river.footAbove;
+  const riverOf = (p: FallPlan, blocked: (x: number, z: number) => boolean) => planRiver(g, seed + 1, { x: Math.floor(p.pool.cx), z: Math.floor(p.pool.cz), d: p.d, pool: p.pool }, blocked, atFoot);
   const falls = planFalls(g, c.px, c.pz, seed, n, used, (p) => riverOf(p, hit).cells.length);
   const rivers: FeatureSite[] = [];
   const wet = new Set<number>();
@@ -64,7 +65,7 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
     const re = new Edit();
     buildRiver(re, gb, seed + k, plan, p.pool, grassAt);
     for (const b of re.blocks()) wet.add(b.x * 100003 + b.z);
-    if (plan.cells.some((cell) => cell.kind !== 'pool')) {
+    if (plan.cells.some((cell) => cell.kind !== 'pool') || plan.mouth !== null) {
       const first = plan.cells.find((cell) => cell.kind !== 'pool')!;
       rivers.push(blocksSite(c, 'kawa', re, first.x, first.level, first.z));
     }

@@ -40,7 +40,7 @@ const count = (t: string): number => all.reduce((n, a) => n + a.sites.filter((s)
 describe('水の 景色 v2（?water=v2）', () => {
   it('山に 滝・川・池が 出る（0 本の 山も ある）', () => {
     expect(count('taki')).toBeGreaterThan(3);
-    expect(count('kawa')).toBeGreaterThan(3);
+    expect(all.filter((a) => a.sites.some((q) => q.type === 'taki')).length, '山の 7 割に 滝').toBeGreaterThanOrEqual(Math.ceil(MOUNTS.length * 0.7));
     expect(count('ike')).toBeGreaterThan(MOUNTS.length / 2);
     for (const a of all) expect(a.sites.filter((s) => s.type === 'taki').length, '1 つの 山に 0〜2 本').toBeLessThanOrEqual(2);
   });

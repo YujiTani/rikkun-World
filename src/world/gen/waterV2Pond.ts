@@ -2,7 +2,7 @@ import { hash01 } from './random';
 import { DIRS, rotOf } from './countryStructureKit';
 import { placeStructure } from './structures/place';
 import { STRUCTURES } from './structures/registry';
-import { basinFits, buildBasin, type Basin, type Edit, type Ground } from './waterV2Kit';
+import { basinFits, basinNorm, buildBasin, makeBasin, type Basin, type Edit, type Ground } from './waterV2Kit';
 import { WATER_BLOCKS as B, WATER_TUNE as T } from './waterV2Table';
 
 /**
@@ -28,7 +28,7 @@ export function planPonds(g: Ground, px: number, pz: number, seed: number, count
     const steps = Math.round((P.radius[1] - P.radius[0]) * 2);
     const r = P.radius[0] + Math.floor(hash01(seed, c.x, c.z, 81) * (steps + 1)) / 2;
     const depth = P.depth[0] + Math.floor(hash01(seed, c.x, c.z, 82) * (P.depth[1] - P.depth[0] + 1));
-    const b: Basin = { cx: c.x + 0.5, cz: c.z + 0.5, r, level: h, depth };
+    const b: Basin = makeBasin(seed, c.x + 0.5, c.z + 0.5, r, h, depth);
     if (out.some((o) => Math.hypot(o.cx - b.cx, o.cz - b.cz) < 14)) continue;
     if (!flatAround(g, b, P.flat)) continue;
     if (!basinFits(g, b, P.flat, P.flat + 1, free)) continue;
@@ -39,10 +39,10 @@ export function planPonds(g: Ground, px: number, pz: number, seed: number, count
 
 /** 池と まわり（半径 + 2）の 地面の 高さが 水面から P.flat 以内 */
 function flatAround(g: Ground, b: Basin, flat: number): boolean {
-  const R = Math.ceil(b.r + 2);
+  const R = Math.ceil(b.r * (1 + b.amp) + 2);
   for (let z = Math.floor(b.cz) - R; z <= Math.floor(b.cz) + R; z++) {
     for (let x = Math.floor(b.cx) - R; x <= Math.floor(b.cx) + R; x++) {
-      if (Math.hypot(x + 0.5 - b.cx, z + 0.5 - b.cz) > b.r + 2) continue;
+      if (Math.hypot(x + 0.5 - b.cx, z + 0.5 - b.cz) > b.r * (1 + b.amp) + 2) continue;
       const h = g(x, z);
       if (h < 0 || Math.abs(h - b.level) > flat) return false;
     }
@@ -55,11 +55,11 @@ export function buildPond(ed: Edit, g: Ground, seed: number, b: Basin, ochiba: b
   buildBasin(ed, g, seed, b, B.pondRim, ochiba);
   const order = DIRS.map((d, n) => ({ d, r: hash01(seed, Math.floor(b.cx), Math.floor(b.cz), 90 + n) })).sort((p, q) => p.r - q.r);
   for (const { d } of order) {
-    const x = Math.floor(b.cx + d[0] * (b.r + 1.3 + P.touro));
-    const z = Math.floor(b.cz + d[1] * (b.r + 1.3 + P.touro));
+    const x = Math.floor(b.cx + d[0] * (b.r * (1 + b.amp) + 1.3 + P.touro));
+    const z = Math.floor(b.cz + d[1] * (b.r * (1 + b.amp) + 1.3 + P.touro));
     if (!free(x, z)) continue;
     const t = placeStructure(STRUCTURES['ishidourou-sho'], x, z, rotOf([-d[0], -d[1]]), Math.floor(b.cx) * 7 + Math.floor(b.cz), g);
-    if (t === null || t.blocks.some((c) => Math.hypot(c.x + 0.5 - b.cx, c.z + 0.5 - b.cz) < b.r + 2.6)) continue; // ふちに かからない
+    if (t === null || t.blocks.some((c) => basinNorm(b, c.x, c.z) < 1 + 3.2 / b.r)) continue; // ふちに かからない
     for (const c of t.blocks) ed.set(c.x, c.y, c.z, c.id);
     return;
   }

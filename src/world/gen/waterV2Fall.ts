@@ -1,5 +1,5 @@
 import { hash01 } from './random';
-import { basinFits, buildBasin, circleCells, DIR4, rimColumn, waterColumn, type Basin, type Dir, type Edit, type Ground, type Rect } from './waterV2Kit';
+import { basinCells, basinFits, basinNorm, buildBasin, depthAt, DIR4, makeBasin, rimColumn, waterColumn, type Basin, type Dir, type Edit, type Ground, type Rect } from './waterV2Kit';
 import { WATER_BLOCKS as B, WATER_TUNE as T } from './waterV2Table';
 
 /**
@@ -27,9 +27,9 @@ export interface FallPlan {
 
 const FALL = T.fall;
 /** 候補の 数（ふるい用の 上限）。これ以上 見つかっても 乱数の 順で 先頭 から 使う */
-const MAX_CANDIDATES = 2500;
+const MAX_CANDIDATES = 6000;
 
-type Cand = { lx: number; lz: number; d: Dir; w: number; r: number };
+type Cand = { lx: number; lz: number; d: Dir; w: number };
 
 /** 山の 点を 中心に、へりの 候補を 集める（落差の ふるいだけ。池が 入るかは あとで） */
 function candidates(g: Ground, px: number, pz: number, seed: number): Cand[] {
@@ -44,8 +44,7 @@ function candidates(g: Ground, px: number, pz: number, seed: number): Cand[] {
         const gf = g(x + d[0], z + d[1]);
         if (gf < 0 || gl - gf < FALL.drop[0] || gl - gf > FALL.drop[1]) continue;
         const w = FALL.width[0] + Math.floor(hash01(seed, x, z, 20 + di) * (FALL.width[1] - FALL.width[0] + 1));
-        const r = FALL.poolRadius[0] + Math.floor(hash01(seed, x, z, 30 + di) * (FALL.poolRadius[1] - FALL.poolRadius[0] + 1));
-        out.push({ lx: x, lz: z, d, w, r });
+        out.push({ lx: x, lz: z, d, w });
       }
     }
   }
@@ -56,7 +55,16 @@ function candidates(g: Ground, px: number, pz: number, seed: number): Cand[] {
 
 /** 候補から 滝を 組んで みる（池が 入らなければ null） */
 function plan(g: Ground, seed: number, c: Cand, free: (x: number, z: number) => boolean): FallPlan | null {
-  const { d, w } = c;
+  // 好みの はばで 入らなければ 3 まで せまく する
+  for (let w = c.w; w >= FALL.width[0]; w--) {
+    const p = planW(g, seed, c, w, free);
+    if (p !== null) return p;
+  }
+  return null;
+}
+
+function planW(g: Ground, seed: number, c: Cand, w: number, free: (x: number, z: number) => boolean): FallPlan | null {
+  const { d } = c;
   const px = -d[1];
   const pz = d[0];
   const lip: [number, number][] = [];
@@ -80,8 +88,13 @@ function plan(g: Ground, seed: number, c: Cand, free: (x: number, z: number) => 
   // 滝つぼ: 落ちる 列が 円の 中に 入り、へりの 列は 外（かべの ほう）
   const mx = front.reduce((s, f) => s + f[0] + 0.5, 0) / w;
   const mz = front.reduce((s, f) => s + f[1] + 0.5, 0) / w;
-  const pool: Basin = { cx: mx + d[0] * (c.r - 0.5), cz: mz + d[1] * (c.r - 0.5), r: c.r, level, depth };
-  if (!basinFits(g, pool, FALL.poolCut, FALL.poolFill, free)) return null;
+  // 大きい 半径から ためして、入る 最初の 大きさに する
+  let pool: Basin | null = null;
+  for (let r = FALL.poolRadius[1]; r >= FALL.poolRadius[0] - 1 && pool === null; r -= 1) {
+    const b = makeBasin(seed, mx + d[0] * r * 0.75, mz + d[1] * r * 0.75, r, level, depth);
+    if (front.every(([x, z]) => basinNorm(b, x, z) <= 0.95) && basinFits(g, b, FALL.poolCut, FALL.poolFill, free)) pool = b;
+  }
+  if (pool === null) return null;
   // 水源の 池: へりの うしろ。列 k = -1..w、うしろへ 1..rows（さいごの 列の 角は 丸める）
   const source: [number, number][] = [];
   const sourceRing: [number, number][] = [];
@@ -122,7 +135,7 @@ export function planFalls(g: Ground, px: number, pz: number, seed: number, count
       // 川が 長く のびる 所を 優先（落差は 川の 長さの つぎ）。川が みじかい 所は えらばない
       const len = river(p);
       if (len < FALL.riverMin) continue;
-      const score = Math.min(len, FALL.riverGoal) * 4 + (p.top - p.level);
+      const score = Math.min(len, FALL.riverGoal) * 4 + (p.top - p.level) + (p.top - p.level >= FALL.bigDrop ? FALL.bigBonus : 0);
       if (score > bestScore) {
         best = p;
         bestScore = score;
@@ -138,7 +151,7 @@ export function planFalls(g: Ground, px: number, pz: number, seed: number, count
 
 /** 滝の 足もとの 四角（池・水源の 池・まわりを ふくむ。1 マス ひろげる） */
 export function footOf(p: FallPlan): Rect {
-  const cells: [number, number][] = [...circleCells(p.pool.cx, p.pool.cz, p.pool.r + 2), ...p.source, ...p.sourceRing, ...p.lip];
+  const cells: [number, number][] = [...basinCells(p.pool).map((q): [number, number] => [q.x, q.z]), ...p.source, ...p.sourceRing, ...p.lip];
   let x0 = Infinity;
   let z0 = Infinity;
   let x1 = -Infinity;
@@ -156,8 +169,7 @@ export function footOf(p: FallPlan): Rect {
 export function buildFall(ed: Edit, g: Ground, seed: number, p: FallPlan): void {
   // 滝つぼ（まわりは あらいし・こけの あらいし）
   buildBasin(ed, g, seed, p.pool, B.rim, false);
-  const bed = p.pool.level - p.pool.depth;
-  for (const [x, z] of p.front) ed.set(x, bed, z, B.pit); // 落ちる 列の 底 = たきつぼ
+  for (const [x, z] of p.front) ed.set(x, pitY(p, x, z), z, B.pit); // 落ちる 列の 底 = たきつぼ
   // 水源の 池と まわりの いし
   for (const [x, z] of p.source) waterColumn(ed, seed + 7, x, z, g(x, z), p.top, FALL.sourceDepth);
   for (const [x, z] of p.sourceRing) rimColumn(ed, seed + 7, x, z, g(x, z), p.top, B.rim, false);
@@ -168,3 +180,6 @@ export function buildFall(ed: Edit, g: Ground, seed: number, p: FallPlan): void 
   }
 }
 
+
+/** 落ちる 列の 底（たきつぼ）の y。池の ふかさは ふちほど あさい */
+export const pitY = (p: FallPlan, x: number, z: number): number => p.pool.level - depthAt(p.pool, basinNorm(p.pool, x, z));
