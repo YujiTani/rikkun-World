@@ -4,6 +4,7 @@ import { colKey } from '../world/stream/ring';
 import { shaftWorldFor } from '../world/gen/mineShafts';
 import { oldColsOf, type OldColSets } from './oldCols';
 import { SAVE_VERSION } from './SaveManager';
+import { needsTerrainRenew, renewTerrainMeta } from './renewTerrain';
 import { NO_SAVE, readPending, removePendingOf, validMeta, type RestoreOptions, type RestoredSave } from './restore';
 
 /**
@@ -26,6 +27,10 @@ export interface StreamRestore extends RestoredSave {
   oldCols: OldColSets;
   /** はじまりの 坑道の 入口 (x, z)（MINE-1C §4.8）。null ＝ さがしたが 置ける 所が なかった〔meta に 書いて 次から さがさない〕。キーが ない ＝ まだ さがして いない */
   shaftStart?: { x: number; z: number } | null;
+  /** 地形の 作りが かわった 古い 世代の 保存を 開いた（列は すてた）。ゲームは 1 回だけ おしらせを 出す */
+  terrainRenewed?: boolean;
+  /** そのとき たんすから 持ち物へ もどせず 消えた 数 */
+  lostItems?: number;
   /** 保険にあるマスを持つ列（colKey → 中身） */
   pending: Map<number, PendingColumn>;
 }
@@ -64,6 +69,17 @@ export async function openStoredKeys(o: Pick<RestoreOptions, 'db' | 'store' | 's
     }
     const out = emptyStreamRestore();
     if (validMeta(all.meta, seed)) out.meta = all.meta;
+    // 新しい 景色に なる 前の 世代: 列は すてて（持ち物などは 残して）新しい 地形で 開く。保険の マスも 古い 地形の 物 なので すてる
+    if (out.meta !== null && needsTerrainRenew(out.meta)) {
+      const renewed = renewTerrainMeta(out.meta);
+      await db.replaceAll(saveId, [], renewed.meta);
+      removePendingOf(store, saveId);
+      out.meta = renewed.meta;
+      out.terrainRenewed = true;
+      out.lostItems = renewed.lostItems;
+      out.oldCols = oldColsOf(out.meta, out.keys);
+      return finishStart(out, seed);
+    }
     // meta がこわれていても 列は 読める（meta は 初期値から作りなおす）
     for (const k of all.keys) out.keys.add(colKey(k.cx, k.cz));
     out.columns = out.keys.size;
@@ -86,17 +102,22 @@ export async function openStoredKeys(o: Pick<RestoreOptions, 'db' | 'store' | 's
       out.fromPending = true;
     }
     out.oldCols = oldColsOf(out.meta, out.keys);
-    // はじまりの 坑道は じゅんびちゅうの この 間に 作る〔最初の 列の 生成に のせない〕。えらんだ 場所は meta に 書いて 次から 同じ
-    // 計画が 投げても 保存の 読みこみは そのまま〔世界が 消えない ように、別の try〕
-    try {
-      out.shaftStart = startOf(seed, out.oldCols, shaftStartOf(out.meta));
-    } catch {
-      out.shaftStart = undefined;
-    }
-    return out;
+    return finishStart(out, seed);
   } catch {
     return emptyStreamRestore(); // 読めなかった: 新しい世界で始める（こわれた保存は次の保存で上書き）
   }
+}
+
+/** はじまりの 坑道を 決める（保存の 読みこみは そのまま） */
+function finishStart(out: StreamRestore, seed: number): StreamRestore {
+  // はじまりの 坑道は じゅんびちゅうの この 間に 作る〔最初の 列の 生成に のせない〕。えらんだ 場所は meta に 書いて 次から 同じ
+  // 計画が 投げても 保存の 読みこみは そのまま〔世界が 消えない ように、別の try〕
+  try {
+    out.shaftStart = startOf(seed, out.oldCols, shaftStartOf(out.meta));
+  } catch {
+    out.shaftStart = undefined;
+  }
+  return out;
 }
 
 /** 保険のマスを 世界に当てる（その列を読みこんだ直後）。当てた列は「さわった」になる */
