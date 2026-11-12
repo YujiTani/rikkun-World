@@ -1,6 +1,6 @@
 import { hash01 } from './random';
 import type { BlockId } from '../../contracts';
-import { basinCells, basinNorm, depthAt, DIR4, Edit, makeBasin, pick, RING, waterColumn, type Basin, type Dir, type Ground } from './waterV2Kit';
+import { basinCells, basinNorm, eachBasinCell, depthAt, DIR4, Edit, makeBasin, pick, RING, waterColumn, type Basin, type Dir, type Ground } from './waterV2Kit';
 import { WATER_BLOCKS as B, WATER_TUNE as T } from './waterV2Table';
 
 /**
@@ -106,27 +106,31 @@ type VShape = NonNullable<Basin['shape']>;
 function tryVessel(g: Ground, free: (x: number, z: number) => boolean, seed: number, top: number, st: CascadeStage, occ: Occupied, cx: number, cz: number, r: number, shape: VShape | undefined): Basin | null {
   const gc = g(Math.floor(cx), Math.floor(cz));
   if (gc < 0) return null;
+  // 池の 形・場所の 列は 水面の 高さに よらない ので、1 回だけ 作る。高さの 判定は 「水面が この 範囲に ある」に まとめて、落差ごとの 判定を 数の くらべだけに する
+  const b0 = makeBasin(seed, cx, cz, r, top, C.depth);
+  if (shape !== undefined) b0.shape = shape;
+  if (!st.front.every(([x, z]) => basinNorm(b0, x, z) <= 0.95)) return null;
+  let ok = true;
+  let lo = -Infinity; // 水面は これ 以上
+  let hi = Infinity; // 水面は これ 以下
+  eachBasinCell(b0, (x, z, n) => {
+    const h = g(x, z);
+    const k = key(x, z);
+    // 置けない 列・ほかの 物と かさなる 列は どの 落差でも だめ
+    if (h < 0 || !free(x, z) || (n <= 1 && (occ.solid.has(k) || occ.water.has(k) || occ.ring.has(k)))) {
+      ok = false;
+      return false;
+    }
+    if (n <= 1) {
+      lo = Math.max(lo, h - C.cut); // h <= level + cut
+      hi = Math.min(hi, h + C.depth + C.fillMax); // h >= level - depth - fillMax
+    } else hi = Math.min(hi, h + C.fillMax); // h >= level - fillMax
+  });
+  if (!ok) return null;
   for (const dr of C.dropTry) {
     const level = top - dr;
     if (gc - level > C.cut) continue;
-    const b = makeBasin(seed, cx, cz, r, level, C.depth);
-    if (shape !== undefined) b.shape = shape;
-    if (!st.front.every(([x, z]) => basinNorm(b, x, z) <= 0.95)) continue;
-    let ok = true;
-    for (const { x, z, n } of basinCells(b)) {
-      const h = g(x, z);
-      const k = key(x, z);
-      // 受け皿の ふち（n > 1）は 上の 池の 下の 高さ（水面 − 落差）に 書く ので、上の 池・落ち口と かさなって よい
-      if (h < 0 || !free(x, z) || (n <= 1 && (occ.solid.has(k) || occ.water.has(k) || occ.ring.has(k)))) {
-        ok = false;
-        break;
-      }
-      if (n <= 1 ? h > level + C.cut || h < level - C.depth - C.fillMax : h < level - C.fillMax) {
-        ok = false;
-        break;
-      }
-    }
-    if (ok) return b;
+    if (level >= lo && level <= hi) return { ...b0, level };
   }
   return null;
 }
@@ -218,8 +222,11 @@ function rimOf(ed: Edit, seed: number, x: number, z: number, ground: number, lev
   else ed.set(x, level, z, ground < level ? B.fill : B.shore);
 }
 
-/** 計画の ブロックを 書く: 池 → 落ち口（わきどころ・下は ささえ岩）→ 落ちる 先の たきつぼ（いちばん あと）。ささえ岩は 山の 岩（rock）に する */
-export function buildCascade(ed: Edit, g: Ground, seed: number, c: Cascade, rock: (x: number, y: number, z: number) => BlockId): void {
+/**
+ * 計画の ブロックを 書く: 池 → 落ち口（わきどころ・下は ささえ岩）→ 落ちる 先の たきつぼ（いちばん あと）。
+ * 岩は あらいし（B.fill）で 書く。山の 岩に 置きかえるのは `rockCascade`（成り立つと わかって から 1 回だけ。しらべるだけの 計画では 重いので しない）
+ */
+export function buildCascade(ed: Edit, g: Ground, seed: number, c: Cascade): void {
   c.ponds.forEach((b, i) => {
     const st = c.stages[i];
     const wetEdge = 1 + 1 / b.r;
@@ -245,6 +252,10 @@ export function buildCascade(ed: Edit, g: Ground, seed: number, c: Cascade, rock
     const v = c.ponds[i + 1]!;
     for (const [x, z] of st.front) ed.set(x, v.level - depthAt(v, basinNorm(v, x, z)), z, B.pit);
   });
+}
+
+/** buildCascade の 岩（あらいし）を 山の 岩（rock）に 置きかえる（ささえ岩を 足す まえに 1 回） */
+export function rockCascade(ed: Edit, rock: (x: number, y: number, z: number) => BlockId): void {
   ed.recolor(B.fill, rock);
 }
 

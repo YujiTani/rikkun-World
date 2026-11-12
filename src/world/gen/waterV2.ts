@@ -1,12 +1,11 @@
-import { cheb, plainAt, site, type Ctx, type FeatureSite } from './countryKit';
-import { groundFn } from './countryStructureKit';
+import { cheb, groundFrom, plainAt, site, type Ctx, type FeatureSite } from './countryKit';
 import { hashInts } from './random';
 import { v2RockBlock } from './mountainV2Surface';
-import { buildCascade, buildSupports, planCascade, type Cascade } from './waterV2Cascade';
+import { buildCascade, buildSupports, planCascade, rockCascade, type Cascade } from './waterV2Cascade';
 import { buildFall, fallKeepOut, footOf, planFalls } from './waterV2Fall';
 import type { BlockId } from '../../contracts';
 import type { FallPlan } from './waterV2Types';
-import { clearRects, Edit, snowCap, waterLeaks, type Ground, type Rect } from './waterV2Kit';
+import { clearRects, Edit, snowCap, waterLeaks, windowMemo, type Ground, type Rect } from './waterV2Kit';
 import { buildPond } from './waterV2Pond';
 import { findPlateaus, plateauPonds } from './waterV2Flat';
 import { highSpots, sourceSpots, type SourceSpot } from './waterV2Source';
@@ -39,45 +38,39 @@ function keepOut(others: readonly FeatureSite[]): Rect[] {
   return out;
 }
 
-/** 列の 高さを 1 回の 生成の 間だけ 覚える（同じ 列を 何度も 読む ので） */
-function memo(f: Ground): Ground {
-  const m = new Map<number, number>();
-  return (x, z) => {
-    const k = (x + 100000) * 200003 + (z + 100000);
-    let v = m.get(k);
-    if (v === undefined) m.set(k, (v = f(x, z)));
-    return v;
-  };
-}
-
 const inside = (r: Rect, x: number, z: number): boolean => x >= r[0] && x <= r[2] && z >= r[1] && z <= r[3];
 
 /** 水の 景色の 置く 物。others = 同じ 山の 目じるし（先に 置く 方を よける）。フラグが なければ 空 */
 export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[] {
   if (!WATER_V2) return [];
-  const g0 = groundFn(c);
+  // 列の 高さ・置ける 列かは 1 回だけ 読む（山の まわり 四角 = LIMIT + 3 の 中。読むのは 高さが いちばん 重い）
+  const R = LIMIT + 3;
+  const hAt = windowMemo((x, z) => c.T.height(x, z), c.px, c.pz, R);
+  const plainMemo = windowMemo((x, z) => (plainAt(c, x, z) ? 1 : 0), c.px, c.pz, R);
+  const plain = (x: number, z: number): boolean => plainMemo(x, z) === 1;
   // 山の 点から はなれすぎた 所は 置けない（-1）
-  const gb: Ground = (x, z) => (cheb(x, z, c.px, c.pz) > LIMIT ? -1 : g0(x, z));
+  const gb: Ground = windowMemo((x, z) => (cheb(x, z, c.px, c.pz) > LIMIT ? -1 : groundFrom(c, x, z, hAt(x, z), () => plain(x, z))), c.px, c.pz, R);
   // 計画用: まわり 1 マスも 置ける 列だけ（岸・ふちを 書く 列も 置ける 列に なる）
-  const g: Ground = memo((x, z) => {
+  const g: Ground = windowMemo((x, z) => {
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (gb(x + dx, z + dz) < 0) return -1;
     return gb(x, z);
-  });
+  }, c.px, c.pz, R);
   // 川用: 山の まわりの 自分の 国の そとも 地形の 高さ（heightAt）で 読む（山の ふちで 切れない ように）。start 近くなど 置けない 所は -1 のまま
-  const gh: Ground = memo((x, z) => {
+  const gh: Ground = windowMemo((x, z) => {
     const v = gb(x, z);
-    return v >= 0 || cheb(x, z, c.px, c.pz) > LIMIT || !plainAt(c, x, z) ? v : c.T.height(x, z);
-  });
-  const gr: Ground = memo((x, z) => {
+    return v >= 0 || cheb(x, z, c.px, c.pz) > LIMIT || !plain(x, z) ? v : hAt(x, z);
+  }, c.px, c.pz, R);
+  const gr: Ground = windowMemo((x, z) => {
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (gh(x + dx, z + dz) < 0) return -1;
     return gh(x, z);
-  });
+  }, c.px, c.pz, R);
   const seed = hashInts(c.T.seed ^ 0x5a7e2, c.i, c.j);
   const used: Rect[] = keepOut(others);
   const out: FeatureSite[] = [];
   const hit = (x: number, z: number): boolean => used.some((r) => inside(r, x, z));
-  const grassAt = (x: number, z: number): boolean => c.T.topBlock(x, z, c.T.height(x, z)) === B.grassTop;
-  const atFoot = (x: number, z: number): boolean => gr(x, z) - c.T.map.baseHeight(x, z) <= T.river.footAbove;
+  const grassAt = (x: number, z: number): boolean => c.T.topBlock(x, z, hAt(x, z)) === B.grassTop;
+  const baseAt = windowMemo((x, z) => c.T.map.baseHeight(x, z), c.px, c.pz, R); // 山の すその 高さ（整数。川の ゴール 判定が 全部の 列で 聞く）
+  const atFoot = (x: number, z: number): boolean => gr(x, z) - baseAt(x, z) <= T.river.footAbove;
   // 川の みちしるべ（山 1 つに 1 回）: すその 平地・海から 地面を たどる。目じるしの 足もとは 通れない
   const field = flowField(gr, c.px, c.pz, LIMIT, atFoot, hit);
   const wet = new Set<number>();
@@ -152,7 +145,7 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
       out.push(blocksSite(c, 'taki', ed, cur.lip[0]![0], cur.top, cur.lip[0]![1]));
       const { ed: re, plan } = buildRiverChecked(gh, seed + k, plan0, cur.pool, grassAt);
       // 滝つぼと つなげて 水が もれる 川は 作らない
-      const ground: Ground = (x, z) => (gh(x, z) >= 0 ? gh(x, z) : c.T.height(x, z));
+      const ground: Ground = (x, z) => (gh(x, z) >= 0 ? gh(x, z) : hAt(x, z));
       const leaks = waterLeaks(out.flatMap((q) => q.blocks).concat(re.blocks()), ground).length > 0;
       const first = plan.cells.find((cell) => cell.kind !== 'pool');
       const has = !leaks && (first !== undefined || plan.mouth !== null);
@@ -178,9 +171,9 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
       if (!ended && noRiver.has(lastKey)) return false;
       const ed = new Edit();
       const rock = (x: number, y: number, z: number): BlockId => v2RockBlock(c.T.seed, x, y, z);
-      buildCascade(ed, gb, seed, plan, rock);
-      const ground: Ground = (x, z) => (gh(x, z) >= 0 ? gh(x, z) : c.T.height(x, z));
-      const blocks = ed.blocks();
+      buildCascade(ed, gb, seed, plan); // 岩の 色は 成り立って から（rockCascade）。水・空気の 検査には かんけい しない
+      const ground: Ground = (x, z) => (gh(x, z) >= 0 ? gh(x, z) : hAt(x, z));
+      const blocks = ed.blocksUnsorted(); // 検査と 列の しらべだけ（順番は 関係ない）
       const pre = out.flatMap((q) => q.blocks);
       if (waterLeaks(pre.concat(blocks), ground).length > 0) return false;
       let river: Edit | null = null;
@@ -190,7 +183,13 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
         const lastD = plan.stages[plan.stages.length - 1]!.d;
         const near = (x: number, z: number): boolean => basinNorm(last, x, z) <= 1 + 2 / last.r;
         const own = new Set<number>();
-        for (const b of blocks) if (!near(b.x, b.z)) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) own.add((b.x + dx) * 100003 + b.z + dz);
+        let lastCol = Number.NaN; // 同じ 列の ブロックは 続けて 並ぶので 列ごとに 1 回だけ しらべる
+        for (const b of blocks) {
+          const col = b.x * 100003 + b.z;
+          if (col === lastCol) continue;
+          lastCol = col;
+          if (!near(b.x, b.z)) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) own.add((b.x + dx) * 100003 + b.z + dz);
+        }
         const rp = planRiver(gr, seed + 1, { x: Math.floor(last.cx), z: Math.floor(last.cz), d: lastD, pool: last }, (x, z) => wetHit(x, z) || own.has(x * 100003 + z), atFoot, field);
         // すそに ほんとうに 着いたか（水面が すその 高さ + footAbove いか）。海・終わりの 池も 同じ
         const end = rp.cells[rp.cells.length - 1]!;
@@ -202,16 +201,17 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
         }
         if (reach && walks) {
           const rb = buildRiverChecked(gh, seed + 2, rp, last, grassAt);
-          const ok = rb.plan.cells.length === rp.cells.length && waterLeaks(pre.concat(blocks, rb.ed.blocks()), ground).length === 0;
+          const ok = rb.plan.cells.length === rp.cells.length && waterLeaks(pre.concat(blocks, rb.ed.blocksUnsorted()), ground).length === 0;
           if (ok) river = rb.ed;
           else if (!ended) return false;
         }
       }
+      rockCascade(ed, rock);
       // ささえの 岩（川を 決めた あと。川の 列と そのまわりは さける）
       const riverCols = new Set<number>();
       for (const b of river?.blocks() ?? []) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) riverCols.add((b.x + dx) * 100003 + b.z + dz);
       buildSupports(ed, gb, seed, plan, rock, free, (x, z) => riverCols.has(x * 100003 + z));
-      snowCap(ed, (x, z) => c.T.topBlock(x, z, c.T.height(x, z)) === B.snow); // 雪山なら 雪の きまりと 同じに 雪を のせる
+      snowCap(ed, (x, z) => c.T.topBlock(x, z, hAt(x, z)) === B.snow); // 雪山なら 雪の きまりと 同じに 雪を のせる
       const all = ed.blocks();
       // 滝ごとの 場所（列を いちばん 近い 落ち口の 滝に ふりわける）
       const mids = plan.stages.map((st) => st.lip[Math.floor(st.lip.length / 2)]!);

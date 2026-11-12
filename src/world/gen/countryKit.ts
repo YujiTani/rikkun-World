@@ -129,9 +129,22 @@ export function groundAt(c: Ctx, x: number, z: number, top: BlockId | null, minA
   const h = T.height(x, z);
   if (h < SEA_Y + minAbove || (top !== null && T.topBlock(x, z, h) !== top)) return -1;
   if (!plainAt(c, x, z, clear)) return -1;
-  const a = T.map.countryAt(x, z);
-  if (a.kind !== c.kind || a.cx !== c.i || a.cz !== c.j || a.e < B.blend) return -1;
-  return h;
+  return inCountry(c, x, z) ? h : -1;
+}
+
+/** (x, z) は その 国の 升目の 中（境目 e < blend は だめ）か */
+function inCountry(c: Ctx, x: number, z: number): boolean {
+  const a = c.T.map.countryAt(x, z);
+  return a.kind === c.kind && a.cx === c.i && a.cz === c.j && a.e >= B.blend;
+}
+
+/**
+ * groundAt（top なし・clear 0）と 同じ 答えを、読んだ 高さ h と plainAt の 答え plain を もらって 返す（水 v2 が 高さを 1 回だけ 読む ため）。
+ * 答えの きまりは groundAt と 同じ（海に 近い・置けない 列・国の 境目は -1）
+ */
+export function groundFrom(c: Ctx, x: number, z: number, h: number, plain: () => boolean): number {
+  if (h < SEA_Y + C.strata.landFrom || !plain()) return -1;
+  return inCountry(c, x, z) ? h : -1;
 }
 
 /** (x, z) は いけ・スタートの そば・はじまりの 範囲・はじまりの 岩山・洞くつの 口の そば の どれでも ない か（物を 置いても よい 列か） */

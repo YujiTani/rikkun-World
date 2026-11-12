@@ -10,6 +10,29 @@ export type Ground = (x: number, z: number) => number;
 /** 四角（x0, z0, x1, z1。両はし ふくむ） */
 export type Rect = readonly [number, number, number, number];
 
+/** まだ 読んで いない 目印（高さは 0 以上 なので -32768 は 出ない） */
+const UNSET = -32768;
+
+/**
+ * 列の 高さの 関数 f を、(cx, cz) の まわり 半径 reach（チェビシェフ）の 四角の 中だけ 1 回の 生成の 間 おぼえる（Int16 の 表。Map より 速い）。
+ * 四角の 外は おぼえず そのつど f を 呼ぶ（答えは かわらない）。f は 同じ 列なら 同じ 答えを 返す 関数
+ */
+export function windowMemo(f: Ground, cx: number, cz: number, reach: number): Ground {
+  const W = 2 * reach + 1;
+  const x0 = cx - reach;
+  const z0 = cz - reach;
+  const tab = new Int16Array(W * W).fill(UNSET);
+  return (x, z) => {
+    const ix = x - x0;
+    const iz = z - z0;
+    if (ix < 0 || iz < 0 || ix >= W || iz >= W) return f(x, z);
+    const i = iz * W + ix;
+    let v = tab[i]!;
+    if (v === UNSET) tab[i] = v = f(x, z);
+    return v;
+  };
+}
+
 /** 向き（歩く 方向 dx, dz） */
 export type Dir = readonly [number, number];
 export const DIR4: readonly Dir[] = [[0, 1], [-1, 0], [0, -1], [1, 0]];
@@ -61,13 +84,18 @@ export class Edit {
   }
 
   blocks(): PlacedBlock[] {
+    return this.blocksUnsorted().sort((a, b) => a.x - b.x || a.z - b.z || a.y - b.y); // 決まった 順（テストで くらべやすい）
+  }
+
+  /** 順番を 気にしない 検査用（水もれの 検査・列の しらべ）。同じ 列の ブロックは 続けて 並ぶ。ならべかえない ぶん 速い */
+  blocksUnsorted(): PlacedBlock[] {
     const out: PlacedBlock[] = [];
     for (const [k, m] of this.cols) {
       const x = Math.floor(k / 2000003) - 1000000;
       const z = (k % 2000003) - 1000000;
       for (const [y, id] of m) out.push({ x, y, z, id });
     }
-    return out.sort((a, b) => a.x - b.x || a.z - b.z || a.y - b.y); // 決まった 順（テストで くらべやすい）
+    return out;
   }
 
   /** from の ブロックを ぜんぶ to(x, y, z) の ブロックに 置きかえる（ささえ岩を 山の 岩に する） */
@@ -150,17 +178,29 @@ export function basinNorm(b: Basin, x: number, z: number): number {
 export const RING = 1.9;
 /** 池の まわりを しらべる 四角（ゆがみの ぶん ひろげる） */
 const reachOf = (b: Basin): number => b.r * (1 + b.amp) * Math.sqrt(b.shape?.ax ?? 1) + RING + 1;
-/** 池の まわりの 列（水・ふち。左上から 右下へ） */
-export function basinCells(b: Basin): { x: number; z: number; n: number }[] {
+/** 池の まわりの 列（水・ふち。左上から 右下へ）。同じ 池（同じ もの）には 同じ 列の 一覧を 返す（おぼえる。池は 作った あと かえない） */
+export function basinCells(b: Basin): readonly { x: number; z: number; n: number }[] {
+  const hit = cellsOf.get(b);
+  if (hit !== undefined) return hit;
   const out: { x: number; z: number; n: number }[] = [];
+  eachBasinCell(b, (x, z, n) => {
+    out.push({ x, z, n });
+  });
+  cellsOf.set(b, out);
+  return out;
+}
+const cellsOf = new WeakMap<Basin, { x: number; z: number; n: number }[]>();
+
+/** 池の まわりの 列（水・ふち）を 左上から 右下へ 順に fn(x, z, n) で 渡す（一覧を 作らない。fn が false を 返したら そこで やめる） */
+export function eachBasinCell(b: Basin, fn: (x: number, z: number, n: number) => void | false): void {
   const R = reachOf(b);
+  const edge = 1 + RING / b.r;
   for (let z = Math.floor(b.cz - R); z <= Math.ceil(b.cz + R); z++) {
     for (let x = Math.floor(b.cx - R); x <= Math.ceil(b.cx + R); x++) {
       const n = basinNorm(b, x, z);
-      if (n <= 1 + RING / b.r) out.push({ x, z, n });
+      if (n <= edge && fn(x, z, n) === false) return;
     }
   }
-  return out;
 }
 
 /** その 列の 水の ふかさ（まん中 = depth、ふち = 1） */
@@ -244,18 +284,39 @@ export function clearRects(blocks: readonly PlacedBlock[]): Rect[] {
   return out;
 }
 
+const LEAK_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
+
 /**
  * 水が もれる 所の 一覧（検査用）: 水の マスの よこの となりが 空気（または 置けない 列）なら 1。
  * となりは 書いた ブロックが あれば それ、なければ 自然の 地面（高さ g 以下は 固い）。わきどころ・いし・水は 固い あつかい。
  */
 export function waterLeaks(blocks: readonly PlacedBlock[], g: Ground): { x: number; y: number; z: number; dx: number; dz: number }[] {
-  const at = new Map<string, BlockId>();
-  for (const b of blocks) at.set(`${b.x},${b.y},${b.z}`, b.id);
+  // (x, y, z) を 1 つの 小さい 整数に する（ブロックの 四角の 左下を 0 に する。大きい 数の 鍵より Map が 速い）。四角の 外は ブロックが ない
+  let x0 = Infinity;
+  let z0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let z1 = -Infinity;
+  let y1 = -Infinity;
+  for (const b of blocks) {
+    if (b.x < x0) x0 = b.x;
+    if (b.x > x1) x1 = b.x;
+    if (b.z < z0) z0 = b.z;
+    if (b.z > z1) z1 = b.z;
+    if (b.y < y0) y0 = b.y;
+    if (b.y > y1) y1 = b.y;
+  }
+  const nz = z1 - z0 + 1;
+  const ny = y1 - y0 + 1;
+  const keyOf = (x: number, y: number, z: number): number => (x < x0 || x > x1 || z < z0 || z > z1 || y < y0 || y > y1 ? -1 : ((x - x0) * nz + (z - z0)) * ny + (y - y0));
+  const at = new Map<number, BlockId>();
+  for (const b of blocks) at.set(keyOf(b.x, b.y, b.z), b.id);
   const leaks: { x: number; y: number; z: number; dx: number; dz: number }[] = [];
   for (const b of blocks) {
     if (b.id !== B.water) continue;
-    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-      const n = at.get(`${b.x + dx},${b.y},${b.z + dz}`);
+    for (const [dx, dz] of LEAK_DIRS) {
+      const k = keyOf(b.x + dx, b.y, b.z + dz);
+      const n = k < 0 ? undefined : at.get(k);
       if (n !== undefined) {
         if (n === B.air) leaks.push({ x: b.x, y: b.y, z: b.z, dx, dz });
         continue;
