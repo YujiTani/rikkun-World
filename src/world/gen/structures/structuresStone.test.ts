@@ -52,7 +52,7 @@ describe('石の 小物・ほこら・やぐら', () => {
     expect(cells.filter((c) => c.ch === 'N').length).toBe(2);
     const col = (rz: number): number => Math.max(...cells.filter((c) => c.rz === rz && c.rx === 0 && c.ch === 'I').map((c) => c.y));
     expect([col(3), col(2), col(1)]).toEqual([0, 1, 2]); // 手前から 台へ 3 だん（0・1・2。まん中の 列）
-    expect(cells.filter((c) => c.y === 7 && c.ch === 'T' && Math.abs(c.rx) === 3 && (c.rz === -3 || c.rz === 1)).length).toBe(4);
+    expect(cells.filter((c) => c.y === 7 && c.ch === 'U' && Math.abs(c.rx) === 3 && (c.rz === -3 || c.rz === 1)).length).toBe(4);
   });
   it('いど: 高さ 6〜8・石の わく 8 マス・木の はしら 2 本・つるべの 横木・かわらの 屋根', () => {
     const s = STRUCTURES.ido;
@@ -61,7 +61,7 @@ describe('石の 小物・ほこら・やぐら', () => {
     const cells = shapeCells(s);
     expect(cells.filter((c) => c.ch === 'R' && c.y === 0).length).toBe(8);
     expect(cells.filter((c) => c.ch === 'P' && c.y === 2).length).toBe(2);
-    expect(cells.filter((c) => c.ch === 'P' && c.y === 5).length).toBe(5);
+    expect(cells.filter((c) => c.ch === 'B' && c.y === 5).length).toBe(5);
   });
   it('いしの とりい: 朱色の とりいと 同じ 形の 層で 石だけ・高さ 12〜15', () => {
     const s = STRUCTURES.ishi_torii;

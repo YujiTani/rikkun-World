@@ -4,6 +4,7 @@ import { FURN_FACE_TILES } from '../blocks/houseTextures';
 import type { CropStageSource } from '../../contracts';
 import { cropKindOfBlock } from '../../contracts';
 import { GADGET_ID } from '../../content/items/gadgetTuning';
+import { SHAPE_BLOCKS, shapeBoxes } from '../blocks/shapeBlocks';
 import { FUTON_FOOT, FUTON_HEAD } from '../blocks/futon';
 import { OPACITY } from '../light/opacity';
 import type { WorldLight } from '../light/WorldLight';
@@ -301,6 +302,11 @@ function turnBox(b: PropBox, k: number): PropBox {
 }
 FUTON_HEAD.forEach((id, k) => (PROP_SHAPES[id] = FUTON_HEAD_E.map((b) => turnBox(b, k))));
 FUTON_FOOT.forEach((id, k) => (PROP_SHAPES[id] = FUTON_FOOT_E.map((b) => turnBox(b, k))));
+/** 形つきブロック（WAFU-2）: 形の 箱に、もとの ブロックの 絵（上・横）を はる */
+for (const b of SHAPE_BLOCKS) {
+  const t = BLOCK_TILES[b.id]!;
+  PROP_SHAPES[b.id] = shapeBoxes(b.shape).map((x) => ({ min: x.min, max: x.max, tile: t[2], top: t[0] }));
+}
 const PROP_FACE_SHADE = [1, 0.7, 0.88, 0.88, 0.94, 0.94];
 
 export function pushProp(mesh: MeshData, x: number, y: number, z: number, id: string, sky: number, block: number): void {

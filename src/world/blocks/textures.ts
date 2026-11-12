@@ -2,6 +2,7 @@ import { DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteTyp
 import type { BlockId } from '../../contracts';
 import { CHEST_BLOCK_IDS, chestBlockInfo } from './chestBlock';
 import { CHALK_MARK_IDS } from './chalkMark';
+import { SHAPE_BLOCKS } from './shapeBlocks';
 import { RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_PARTIAL_IDS } from './water';
 import { tansuPixels } from '../../storage/tansuArt';
 import { FARM_TILE_NAMES, paintFarmTile } from './farmTextures';
@@ -513,6 +514,19 @@ const CHALK_BLOCK_TILES: Partial<Record<BlockId, readonly [TileName, TileName, T
   CHALK_MARK_IDS.map((id) => [id, ['chalk_1_e', 'chalk_1_e', 'chalk_1_e'] as const]),
 );
 
+/** 形つきブロック（WAFU-2）の 絵: もとの ブロックと 同じ [上, 下, 横]（形つきの もとに なる 6 しゅるいだけ） */
+const SHAPE_BASE_TILES: Readonly<Record<string, readonly [TileName, TileName, TileName]>> = {
+  stone: ['stone', 'stone', 'stone'],
+  ara_ishi: ['ara_ishi', 'ara_ishi', 'ara_ishi'],
+  koke_ara_ishi: ['koke_ara_ishi', 'koke_ara_ishi', 'koke_ara_ishi'],
+  shu_ita: ['shu_ita', 'shu_ita', 'shu_ita'],
+  log: ['log_top', 'log_top', 'log_side'],
+  kawara: ['kawara', 'kawara', 'kawara'],
+};
+const SHAPE_BLOCK_TILES: Partial<Record<BlockId, readonly [TileName, TileName, TileName]>> = Object.fromEntries(
+  SHAPE_BLOCKS.map((b) => [b.id, SHAPE_BASE_TILES[b.base]!]),
+);
+
 /** [上, 下, 横] のタイル。air は無し */
 export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, TileName, TileName]>>> = {
   grass: ['grass_top', 'dirt', 'grass_side'],
@@ -626,6 +640,7 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   ...CHEST_BLOCK_TILES,
   // チョークの しるし 12 こ: 立方体では ない（面に はる 板。render/chalkMesh.ts）。ここは かけらの 色・アイテムの 絵などの ため
   ...CHALK_BLOCK_TILES,
+  ...SHAPE_BLOCK_TILES,
   // HOUSE-1C PR-1（#340）: ゆか・かべ・やね・向きごとの たんす・かまど（平らな 箱。しょうじ・戸・ほかの 家具は 箱の 組み合わせ〔render/houseProp.ts〕）
   ...HOUSE_BLOCK_TILES,
   // ROPE-1: 十字の 板

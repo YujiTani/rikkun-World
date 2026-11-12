@@ -12,13 +12,13 @@ export const AZUMAYA: StructureShape = {
     // y0 ゆか（7×7）
     ['.........', '.IIIIIII.', '.IIIIIII.', '.IIIIIII.', '.IIIIIII.', '.IIIIIII.', '.IIIIIII.', '.IIIIIII.', '.........'],
     // y1 はしら ＋ ひくい らんかん（正面 = 下は あけて 入り口）
-    ['.........', '.........', '..SSSSS..', '..S...S..', '..S...S..', '..S...S..', '..S...S..', '.........', '.........'],
+    ['.........', '.........', '..xxxxx..', '..z...z..', '..z...z..', '..z...z..', '..z...z..', '.........', '.........'],
     // y2〜4 はしら 4 本
     ['.........', '.........', '..S...S..', '.........', '.........', '.........', '..S...S..', '.........', '.........'],
     ['.........', '.........', '..S...S..', '.........', '.........', '.........', '..S...S..', '.........', '.........'],
     ['.........', '.........', '..S...S..', '.........', '.........', '.........', '..S...S..', '.C.....C.', '.........'],
     // y5 屋根の 1 段め（9×9）
-    ['KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK', 'KKKKKKKKK'],
+    ['EEEEEEEEE', 'EKKKKKKKE', 'EKKKKKKKE', 'EKKKKKKKE', 'EKKKKKKKE', 'EKKKKKKKE', 'EKKKKKKKE', 'EKKKKKKKE', 'EEEEEEEEE'],
     // y6 2 段め（7×7）と すみの 反り
     ['T.......T', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', '.TTTTTTT.', 'T.......T'],
     // y7 3 段め（5×5）
@@ -27,7 +27,10 @@ export const AZUMAYA: StructureShape = {
     ['.........', '.........', '.........', '.........', '....W....', '.........', '.........', '.........', '.........'],
   ],
   legend: {
-    S: 'shu_ita',
+    S: 'shu_ita_hashira',
+    x: 'shu_ita_kakine_x',
+    z: 'shu_ita_kakine_z',
+    E: { id: 'kawara_usuita_shita', skip: 0.05 },
     K: { id: 'kawara', skip: 0.05 },
     T: 'kawara',
     W: 'shikkui',

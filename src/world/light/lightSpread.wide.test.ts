@@ -14,7 +14,7 @@ describe('BLOCK-ID16 AC4: 光の 表は 1024 まで ある', () => {
   });
 
   it('登録のない 番号（256 以上・255）は 光を通さない（OPAQ 15）・光らない・TRIV 0', () => {
-    for (const b of [BLOCK_TYPES.length, 255, 256, 300, MAX_BLOCK_KINDS - 1, UNKNOWN_BLOCK]) {
+    for (const b of [BLOCK_TYPES.length, BLOCK_TYPES.length + 1, 500, 600, MAX_BLOCK_KINDS - 1, UNKNOWN_BLOCK]) {
       expect(OPAQ[b], `OPAQ[${b}]`).toBe(15);
       expect(EMIT[b], `EMIT[${b}]`).toBe(0);
       expect(TRIV[b], `TRIV[${b}]`).toBe(0);
@@ -34,7 +34,7 @@ describe('BLOCK-ID16 AC4: 光の 表は 1024 まで ある', () => {
   });
 
   it('spreadLight: 番号 255 の 壁も 光を 通さない（表の 外あつかい でも 同じ）', () => {
-    const blk = Uint16Array.of(0, 255, 0);
+    const blk = Uint16Array.of(0, BLOCK_TYPES.length + 1, 0);
     const arr = Uint8Array.of(15, 0, 0);
     spreadLight(arr, [0], blk, 3, 1, 1);
     expect(arr[1]).toBe(0);

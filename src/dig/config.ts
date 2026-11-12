@@ -1,6 +1,7 @@
 import { defaultDropMax } from '../drops/rarityTable';
 import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
 import { SCAFFOLD_IDS, type ScaffoldId } from '../world/blocks/buildBlocks';
+import { SHAPE_IDS, type ShapeBlockId } from '../world/blocks/shapeBlocks';
 import { CHALK_MARK_IDS, type ChalkMarkId } from '../world/blocks/chalkMark';
 import { CHEST_BLOCK_IDS, type ChestBlockId } from '../world/blocks/chestBlock';
 import { forWaterExtra } from '../world/blocks/water';
@@ -21,6 +22,11 @@ function forChest<T>(value: T): Record<ChestBlockId, T> {
 /** 家の しゅるいの ブロック 20 こ（HOUSE-2B）ぜんぶに 同じ 値を 入れる */
 function forLook<T>(value: T): Record<LookBlockId, T> {
   return Object.fromEntries(LOOK_BLOCK_IDS.map((id) => [id, value])) as Record<LookBlockId, T>;
+}
+
+/** 形つきブロック（WAFU-2）ぜんぶに 同じ 値を 入れる */
+function forShape<T>(value: T): Record<ShapeBlockId, T> {
+  return Object.fromEntries(SHAPE_IDS.map((id) => [id, value])) as Record<ShapeBlockId, T>;
 }
 
 /** 足場 5 つ（HOUSE-1C PR-2）ぜんぶに 同じ 値を 入れる */
@@ -181,6 +187,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     katame_tsuchi: 0.5,
     ...forLook<number>(WOOD_HARDNESS), // HOUSE-2B: 家の しゅるいの ブロックも き と 同じ
     ...forScaffold<null>(null),
+    ...forShape<null>(null),
     ...forWaterExtra<null>(null),
     rope: 0.05, // ROPE-1: すぐ とれる（すすきと 同じ）
     rope_coil: 0.05,
@@ -298,6 +305,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     katame_tsuchi: 0,
     ...forLook(0), // HOUSE-2B: すでで ほれる
     ...forScaffold(0),
+    ...forShape(0),
     ...forWaterExtra(0),
     rope: 0,
     rope_coil: 0,
@@ -428,6 +436,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     katame_tsuchi: 'common',
     ...forLook<Rarity>('common'), // HOUSE-2B: ほる 数は いつも 1 こ（digBreak の houseDrop）
     ...forScaffold<Rarity>('common'),
+    ...forShape<Rarity>('common'),
     ...forWaterExtra<Rarity>('common'),
     rope: 'common',
     rope_coil: 'common',

@@ -7,6 +7,7 @@ import { LOOK_BLOCK_IDS, LOOK_DOOR_INFO, LOOK_PILLAR_NAME } from './houseLookBlo
 import { FLAT_FURN_KINDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from './houseBlocks';
 import { isLiquidIndex } from './liquids';
 import { isFloorDeco } from './mineBoken';
+import { SHAPE_BLOCKS, SHAPE_IDS, shapeLabel } from './shapeBlocks';
 import { MAGMA_IDS, MAGMA_M0, MAGMA_RESERVED_IDS } from './magma';
 import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL_INDEX, WATER_PARTIAL_IDS, WATER_W0 } from './water';
 
@@ -14,6 +15,9 @@ import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL
 /** あとから 足した 家具の しゅるい（番号を ずらさない ため BLOCK_TYPES の さいごに ならべる） */
 const LATE_FURN: ReadonlySet<string> = new Set(['maneki']);
 const furnBlockType = (id: BlockId): BlockType => ({ id, name: FURNITURE[furnInfo(id)!.kind].name, solid: true, breakable: true });
+
+/** 形つきブロックの もとの ブロックの 名前（ブロックの 名前に 使う） */
+const SHAPE_BASE_NAME: Readonly<Record<string, string>> = { stone: 'いし', ara_ishi: 'あらいし', koke_ara_ishi: 'こけの あらいし', shu_ita: 'しゅいろの き', log: 'き', kawara: 'かわら' };
 
 export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'air', name: 'くうき', solid: false, breakable: false },
@@ -169,6 +173,8 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   // WAFU-1 追加（249〜250）: 石の ブロック 2 つ
   { id: 'ara_ishi', name: 'あらいし', solid: true, breakable: true },
   { id: 'koke_ara_ishi', name: 'こけの あらいし', solid: true, breakable: true },
+  // WAFU-2（番号は 後ろに 足す。251〜）: 形つきブロック（見た目だけ 細い・うすい。当たりは 1 ブロック。ほれない。world/blocks/shapeBlocks.ts）
+  ...SHAPE_BLOCKS.map((b): BlockType => ({ id: b.id, name: `${SHAPE_BASE_NAME[b.base] ?? b.base}の ${shapeLabel(b.shape)}`, solid: true, breakable: false })),
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -210,6 +216,8 @@ const PROP_IDS: ReadonlySet<string> = new Set([
   ...SCAFFOLD_IDS,
   // HOUSE-2B: 家の しゅるいの ブロックは ぜんぶ 箱の 形で 描く（案は 家の 記録から 場所で 引く）
   ...LOOK_BLOCK_IDS,
+  // WAFU-2: 形つきブロックは ぜんぶ 箱の 形で 描く（絵は meshChunk の pushProp）。固いが 光を 通す
+  ...SHAPE_IDS,
 ]);
 const PROP = BLOCK_TYPES.map((t) => PROP_IDS.has(t.id));
 export function isPropIndex(index: number): boolean {
