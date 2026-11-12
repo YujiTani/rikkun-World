@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BLOCK_INDEX, BLOCK_TYPES } from '../../world/blocks/blockTypes';
+import { MAX_BLOCK_KINDS } from '../../world/blocks/maxBlockKinds';
 import { emptyState, windowMax, type EditorState } from '../editor/model';
 import { SIZES } from '../editor/tuning';
 import { ALL_KINDS, LIGHT_KINDS, PART_FORMS, PARTS, STYLES, kindsOfForm, splitKind } from '../recipes/kinds';
@@ -64,20 +65,20 @@ describe('AC13: 見本の 描画回数（9×9・窓 いっぱい・ななめの 
   });
 });
 
-describe('AC13: ブロックの 番号は 256 を こえない（1 マス 1 バイト）', () => {
-  it('登録表の ブロックの 数 ≦ 256・id は 1 回ずつ', () => {
-    expect(BLOCK_TYPES.length, '番号は 0〜255').toBeLessThanOrEqual(256);
+describe('AC13: ブロックの 番号は MAX_BLOCK_KINDS を こえない（BLOCK-ID16。家の 見本は 番号を 1 バイトで 持たない）', () => {
+  it('登録表の ブロックの 数 ≦ MAX_BLOCK_KINDS・id は 1 回ずつ', () => {
+    expect(BLOCK_TYPES.length, '番号は 0〜MAX_BLOCK_KINDS-1').toBeLessThanOrEqual(MAX_BLOCK_KINDS);
     expect(new Set(BLOCK_TYPES.map((t) => t.id)).size, 'id の 重なり').toBe(BLOCK_TYPES.length);
   });
 
-  it('家の しゅるいが 使う ブロックは ぜんぶ 登録表に ある（番号が ついて いる・255 まで）', () => {
+  it('家の しゅるいが 使う ブロックは ぜんぶ 登録表に ある（番号が ついて いる・MAX_BLOCK_KINDS 未満）', () => {
     const parts: readonly LookPart[] = [...PARTS, 'light'];
     for (const part of parts) {
       for (const kind of allKindsOf(part)) {
         for (const b of kindBlocks(part, kind)) {
           const i = BLOCK_INDEX[b];
           expect(i, `${part}-${kind} の ${b}`).toBeGreaterThanOrEqual(0);
-          expect(i, `${part}-${kind} の ${b} の 番号`).toBeLessThanOrEqual(255);
+          expect(i, `${part}-${kind} の ${b} の 番号`).toBeLessThan(MAX_BLOCK_KINDS);
         }
       }
     }

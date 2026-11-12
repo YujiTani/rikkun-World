@@ -1,6 +1,8 @@
 import { SEA_Y, type BlockId } from '../../contracts';
 import { GEN_CONFIG as C, COUNTRY_KINDS, MOUNTAIN_KINDS, type CountryDef, type CountryKind } from './config';
 import { hash01, subSeed, valueNoise } from './random';
+import { MOUNTAIN_V2, mountainOffsetV2 } from './mountainV2';
+import { v2TopBlock } from './mountainV2Surface';
 
 /**
  * 12 の国（VOX-I-1。docs/design/VOX-I.md §3）。升目の点（ボロノイ）・山のわく・国ごとの高さ・地面のブロック・かっぱの いけ・たけやぶ の道。
@@ -15,6 +17,7 @@ const B = C.biome;
 const MT = B.mountain;
 const A = C.anchor;
 const DEFS = C.countries;
+
 
 const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > hi ? hi : v);
 const smoothstep = (a: number, b: number, x: number): number => {
@@ -151,9 +154,11 @@ export class CountryMap {
   private pondOn = false;
   private topBX = NaN;
   private topBZ = NaN;
+  private topKind: CountryKind = 'harappa';
   private topDef: (typeof DEFS)[CountryKind] | null = null;
   private readonly hOut: HeightOut = { h: 0, base: 0, lift: 0 };
   private readonly ptOut: HeightOut = { h: 0, base: 0, lift: 0 };
+  private readonly slopeOut: HeightOut = { h: 0, base: 0, lift: 0 };
 
   constructor(readonly seed: number) {
     this.sPoint = subSeed(seed, 101);
@@ -376,7 +381,9 @@ export class CountryMap {
         if (d > MT.maxReach || (best !== null && d >= best.d)) continue;
         if (Number.isNaN(rough)) rough = (valueNoise(this.sRough, x, z, MT.roughScale) - 0.5) * 2 * MT.roughAmp;
         const mt = DEFS[c.kind].mountain!;
-        const m = Math.round(SEA_Y + mt.top - mt.k * Math.max(0, d - mt.plateau) + rough);
+        const m = MOUNTAIN_V2
+          ? Math.round(SEA_Y + mountainOffsetV2(this.seed, c.kind, c.px, c.pz, x, z) + rough)
+          : Math.round(SEA_Y + mt.top - mt.k * Math.max(0, d - mt.plateau) + rough);
         best = { m, d, kind: c.kind, px: c.px, pz: c.pz };
       }
     }
@@ -513,10 +520,12 @@ export class CountryMap {
       this.nearest(bx * 3 + 1, bz * 3 + 1);
       this.topBX = bx;
       this.topBZ = bz;
+      this.topKind = this.n1.kind;
       this.topDef = DEFS[this.n1.kind];
     }
     const def = this.topDef!;
     const rel = h - SEA_Y;
+    if (MOUNTAIN_V2 && def.mountain) return v2TopBlock(this.seed, this.topKind, x, z, h, this.v2Height);
     if (def.snowFrom !== undefined) return rel >= def.snowFrom ? 'snow' : 'grass';
     if (rel >= (def.stoneFrom ?? C.strata.stoneTopFrom)) return 'stone';
     if (def.sandBelowOnMountain !== undefined) {
@@ -527,6 +536,12 @@ export class CountryMap {
     }
     return 'grass';
   }
+
+  /** ?mountain=v2: 山の 材料の 計算に 使う 高さ（となりの列） */
+  private readonly v2Height = (x: number, z: number): number => {
+    this.groundInto(x, z, this.slopeOut, false);
+    return this.slopeOut.h;
+  };
 
   groundAt(x: number, z: number): GroundInfo {
     this.groundInto(x, z, this.hOut, false);

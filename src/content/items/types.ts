@@ -5,6 +5,7 @@ import type { ItemCategory } from '../../ui/itemCategory';
 import { CHALK_MARK_IDS } from '../../world/blocks/chalkMark';
 import { CHEST_BLOCK_IDS } from '../../world/blocks/chestBlock';
 import { KATAME_TSUCHI, SCAFFOLD_IDS } from '../../world/blocks/buildBlocks';
+import { SHAPE_IDS } from '../../world/blocks/shapeBlocks';
 import { FURN_VARIANT_IDS, HOUSE_DOOR_PART_IDS } from '../../world/blocks/houseBlocks';
 import { LOOK_BLOCK_IDS } from '../../world/blocks/houseLookBlocks';
 import { WATER_EXTRA_IDS } from '../../world/blocks/water';
@@ -22,6 +23,7 @@ export const BLOCK_ONLY_IDS = [
   'wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant',
   'kakashi', 'kakashi_head', 'saku', 'susuki', 'kusa',
   'himawari_top', // VOX-I-4a: ひまわり の 上の 段（ほると himawari）
+  'touro', // VOX-I-4b: とうろう（こわせない・持てない）
   'toriya_fence', 'toriya_gate', 'toriya_nest', 'toriya_box',
   'nukunuku_e', 'nukunuku_s', 'nukunuku_se',
   'futon_s', 'futon_w', 'futon_n', 'futon_foot_e', 'futon_foot_s', 'futon_foot_w', 'futon_foot_n',
@@ -34,6 +36,7 @@ export const BLOCK_ONLY_IDS = [
   // HOUSE-1C PR-2（#340）: かためた つち（ほると つち `dirt` 1 こ。FARM_BREAK_DROP）・足場 5 つ（ほれない・置けない）
   KATAME_TSUCHI,
   ...SCAFFOLD_IDS,
+  ...SHAPE_IDS, // WAFU-2: 形つきブロック（持てない・置けない）
   // WATER-1（#376）: 量 1〜7 の 水と 予約の 番号（アイテムに ならない）
   ...WATER_EXTRA_IDS,
   // ROPE-1: ロープだまり（ロープの いちばん 下。こわすと ロープ ぜんぶが もどる。world/blocks/rope.ts）

@@ -3,3 +3,15 @@ kinoko
 himawari
 kaigara
 takenoko
+suisho
+ochiba
+shu_ita
+ishidatami
+koke_ishi
+chouchin
+ara_ishi
+koke_ara_ishi
+kizami_ishi
+maru_mon_ishi
+renga_ishi
+koke_renga_ishi

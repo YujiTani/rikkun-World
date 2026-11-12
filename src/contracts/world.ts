@@ -5,6 +5,7 @@
 import type { ChalkMarkId } from '../world/blocks/chalkMark';
 import type { ChestBlockId } from '../world/blocks/chestBlock';
 import type { KATAME_TSUCHI, ScaffoldId } from '../world/blocks/buildBlocks';
+import type { ShapeBlockId } from '../world/blocks/shapeBlocks';
 import type { ReservedId, WaterPartialId } from '../world/blocks/water';
 import type { MagmaExtraId } from '../world/blocks/magma';
 import type { LookBlockId } from '../world/blocks/houseLookBlocks';
@@ -154,7 +155,25 @@ export type BlockId =
   | 'otera_ishigaki'
   | 'otera_ishidatami'
   | 'otera_dan'
-  | 'onibi_taimatsu';
+  | 'onibi_taimatsu'
+  // VOX-I-4b（#187。うしろに足す。242〜244）: 山の物（固い 箱）
+  | 'suisho' // すいしょう（いわやま。光 9。ほれる・持てる・置ける）。炭鉱の suisho_ore・アイテム crystal とは べつ
+  | 'touro' // とうろう（てんぐの やま の 頂上。光 14。こわせない・持てない）
+  | 'ochiba' // おちば（もみじやま の もみじの木の まわりの 地面。ほれる・持てる・置ける）
+  // WAFU-1（うしろに足す。245〜248）: わふうの ブロック（かわら・しっくいは 前から ある物を 使う）
+  | 'shu_ita' // しゅいろの き（とりい・お堂の 柱。固い・こわせる・持てる・置ける）
+  | 'ishidatami' // いしだたみ（土台・石段・ゆか）
+  | 'koke_ishi' // こけいし（古い いしの かざり）
+  | 'chouchin' // ちょうちん（つるす あかり。通れる・光 12。十字の 板で 描く。ふつうの ちょうちん lantern とは べつ）
+  // WAFU-1 追加（うしろに足す。249〜250）: 石の ブロック（いし系。固い・こわせる・持てる・置ける）
+  | 'ara_ishi' // あらいし（大小の 丸い 石を つんだ 粗い 石）
+  // WAFU-3（うしろに足す。形つきブロックの あと）: 模様つきの 石（いし系。固い・こわせる・持てる・置ける）
+  | 'kizami_ishi' // きざみいし（四角い うずまき〔らいもん〕を ほった 石）
+  | 'maru_mon_ishi' // まるもんの いし（まん中に 八まいの 花びらの 丸い もよう）
+  | 'renga_ishi' // いしれんが（大きさの そろった 切り石づみ）
+  | 'koke_renga_ishi' // こけの いしれんが
+  | ShapeBlockId // WAFU-2: 形つきブロック（見た目だけ 細い・うすい）
+  | 'koke_ara_ishi'; // こけの あらいし（ひびの いしは MINE-1E の hibi_ishi が すでに ある）
 
 export interface BlockType {
   id: BlockId;

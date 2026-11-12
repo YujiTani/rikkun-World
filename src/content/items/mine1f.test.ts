@@ -7,6 +7,7 @@ import { CATEGORY_ITEMS } from '../../ui/itemCategory';
 import { itemIconPixels } from '../../ui/itemIcon';
 import { findUnrubiedKanji } from '../../ui/text';
 import { BLOCK_INDEX, BLOCK_TYPES } from '../../world/blocks/blockTypes';
+import { MAX_BLOCK_KINDS } from '../../world/blocks/maxBlockKinds';
 import { EMISSION } from '../../world/light/opacity';
 import { SEEDS_20, hook1c } from '../../world/gen/mineShaftKit';
 import { LOOKS, hookF, needYakataHook, tableOf, type Look } from '../../world/gen/mineYakataKit';
@@ -86,17 +87,17 @@ describe('F10: 新しい ブロックの 値〔§4.6 の 表〕', () => {
     expect(by('maou')).toEqual(by('otera'));
   });
 
-  it('番号は 1E の あとの 後ろ・今の 番号は かわらない・足した のは 8 こ（まきもの・まねきねこの 後ろ）・合計 256 以下', () => {
+  it('番号は 1E の あとの 後ろ・今の 番号は かわらない・足した のは 8 こ（まきもの・まねきねこの 後ろ）・合計 MAX_BLOCK_KINDS 以下', () => {
     for (const r of ids()) {
       const i = IDX[r.id];
       expect(i, `${r.id} の 番号`).toBeTypeOf('number');
       expect(i!, r.id).toBeGreaterThanOrEqual(BLOCKS_THROUGH_1E);
-      expect(i!).toBeLessThan(256);
+      expect(i!).toBeLessThan(MAX_BLOCK_KINDS);
       expect(BLOCK_TYPES[i!]?.id).toBe(r.id);
     }
     expect(fnv(BLOCK_TYPES.slice(0, BLOCKS_THROUGH_1E).map((b) => b.id).join(',')), '1E の あとまでの 並び').toBe(IDS_THROUGH_1E_FNV);
-    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1E, '1F で 足した id').toBeLessThanOrEqual(8 + 5 + 20 + 5); // 最後の 5 ＝ VOX-I-4a（#187）の 国だけの 物 5 こ（やかたの 前）、5 ＝ HOUSE-2A（#364）が やかたの 前に 足した まきもの 1 ＋ まねきねこ 4（向き）、20 ＝ HOUSE-2B の 形ごとの ブロック 20
-    expect(BLOCK_TYPES.length).toBeLessThanOrEqual(256);
+    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1E, '1F で 足した id').toBeLessThanOrEqual(8 + 5 + 20 + 5 + 3 + 4 + 2 + 2 + 20 + 4); // 後ろの 3 + 4 + 2 + 2 + 20 + 4 ＝ 山の物 3・わふう 4・あらいし 2・（予備 2）・WAFU-2 の 形つきブロック 20・WAFU-3 の 模様つきの 石 4（やかたの 後ろ）。 最後の 5 ＝ VOX-I-4a（#187）の 国だけの 物 5 こ（やかたの 前）、5 ＝ HOUSE-2A（#364）が やかたの 前に 足した まきもの 1 ＋ まねきねこ 4（向き）、20 ＝ HOUSE-2B の 形ごとの ブロック 20
+    expect(BLOCK_TYPES.length).toBeLessThanOrEqual(MAX_BLOCK_KINDS); // 256 を こえても よい（BLOCK-ID16）
   });
 });
 

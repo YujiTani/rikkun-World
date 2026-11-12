@@ -1,7 +1,7 @@
 // HOUSE-2A（#364）①「そと」・あかりの 材料（仕様 §4.1。同じ 形の むら・おしろ・こうざんは どれも 同じ 材料）。DOM・three なし。
 // いつもの 物（たいら・き・しょうじ・いえの と・ちょうちん）は HOUSE-1 §4.1 の まま。「なし」は レシピ なしの 材料（下の 表）。
 import type { ItemId } from '../../contracts';
-import { DEFAULT_KIND, splitKind, type DecoKind, type DoorKind, type LightKind, type RoofKind, type WallKind, type WindowKind } from './kinds';
+import { DEFAULT_KIND, LIGHT_KIND_SUISHO, WINDOW_FORM_SUISHO, splitKind, type DecoKind, type DoorKind, type LightKind, type RoofKind, type WallKind, type WindowKind } from './kinds';
 
 /** 材料を 数える 家の 形（EditorState の 一部） */
 export interface MatShape {
@@ -85,7 +85,7 @@ export function exteriorMats(s: MatShape, m: Mats): void {
   // まど（かべが ないと 建たない）
   if (wallUp && s.windowKind !== 'none') {
     if (s.windowKind === DEFAULT_KIND.window) add(m, 'paper', n); // いつもの しょうじ
-    else if (splitKind(s.windowKind).form === 'suisho') add(m, 'crystal', n);
+    else if (splitKind(s.windowKind).form === WINDOW_FORM_SUISHO) add(m, 'crystal', n);
     else { add(m, 'paper', n); add(m, 'log', n); } // まるい しょうじ
   }
   // と
@@ -100,5 +100,5 @@ export function exteriorMats(s: MatShape, m: Mats): void {
   }
   // あかり
   if (s.light === 'hotaru') add(m, 'hotaruishi', MATS.lampHotaru);
-  if (s.light === 'suisho') { add(m, 'crystal', MATS.lampCrystal); add(m, 'hotaruishi', MATS.lampHotaru); }
+  if (s.light === LIGHT_KIND_SUISHO) { add(m, 'crystal', MATS.lampCrystal); add(m, 'hotaruishi', MATS.lampHotaru); }
 }

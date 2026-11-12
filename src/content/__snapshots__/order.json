@@ -451,6 +451,9 @@
     "build": [
       "kawara",
       "brick",
+      "shu_ita",
+      "ishidatami",
+      "chouchin",
       "shikkui",
       "house_floor",
       "house_wall",
@@ -603,10 +606,19 @@
       "dirt",
       "sand",
       "snow",
-      "geyser_dirt"
+      "geyser_dirt",
+      "ochiba"
     ],
     "stone": [
-      "stone"
+      "stone",
+      "suisho",
+      "koke_ishi",
+      "ara_ishi",
+      "koke_ara_ishi",
+      "kizami_ishi",
+      "maru_mon_ishi",
+      "renga_ishi",
+      "koke_renga_ishi"
     ],
     "tool": [
       "wood_pickaxe",
@@ -989,6 +1001,18 @@
     "himawari",
     "kaigara",
     "takenoko",
+    "suisho",
+    "ochiba",
+    "shu_ita",
+    "ishidatami",
+    "koke_ishi",
+    "chouchin",
+    "ara_ishi",
+    "koke_ara_ishi",
+    "kizami_ishi",
+    "maru_mon_ishi",
+    "renga_ishi",
+    "koke_renga_ishi",
     "egg",
     "mushi",
     "mushi_ami",

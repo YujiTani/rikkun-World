@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MAX_BLOCK_KINDS } from './maxBlockKinds';
 import { ITEM_DEFS } from '../../content/items/registry';
 import { CHALK_MARK_IDS } from './chalkMark';
 import { BLOCK_INDEX, BLOCK_TYPES, isOpaqueIndex, isPropIndex } from './blockTypes';
@@ -47,7 +48,7 @@ describe('ブロックの 番号', () => {
     const idx = added.map((id) => BLOCK_INDEX[id]!);
     expect(Math.min(...idx), '新しい id は ぜんぶ チョークより 後ろ').toBeGreaterThan(lastChalk);
     expect(idx, '決まった 順で 並ぶ').toEqual([...idx].sort((a, b) => a - b));
-    expect(BLOCK_TYPES.length, 'ブロックの 番号は 1 バイト（256 まで）').toBeLessThanOrEqual(256);
+    expect(BLOCK_TYPES.length, 'ブロックの 番号は MAX_BLOCK_KINDS まで（BLOCK-ID16）').toBeLessThanOrEqual(MAX_BLOCK_KINDS);
   });
 
   it('たんす・かまどの 今の id（向き 0）は 古い 番号の まま。新しい id には ならない', () => {

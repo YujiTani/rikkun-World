@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { MAX_BLOCK_KINDS } from './maxBlockKinds';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { SEA_Y } from '../../contracts';
@@ -82,7 +83,7 @@ describe('AC1 番号（§4.6）', () => {
       expect(t.name).toBe('くうき');
     }
     expect(BLOCK_TYPES.length, '次の ブロックは W0 + 8 から').toBeGreaterThanOrEqual(W0 + 8);
-    expect(BLOCK_TYPES.length, '番号は 255 まで（Uint8）').toBeLessThanOrEqual(256);
+    expect(BLOCK_TYPES.length, '番号は MAX_BLOCK_KINDS まで（BLOCK-ID16）').toBeLessThanOrEqual(MAX_BLOCK_KINDS);
   });
 
   it('量 1〜7 の 種類: 名前 みず・固くない・こわれない', () => {

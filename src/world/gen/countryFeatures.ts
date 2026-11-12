@@ -1,11 +1,12 @@
-import { SEA_Y, WILD_BLOCK, type BlockId } from '../../contracts';
+import { SEA_Y, WILD_BLOCK } from '../../contracts';
 import { takePath, type CountryKind } from './biome';
 import { GEN_CONFIG as C } from './config';
-import { nearMouth } from './mouths';
+import { iwayama, momiji, tengu, yuki } from './countryMountain';
+import { cheb, flatness, FEATURE_TUNE, groundAt, isSea, range, rnd, site, MOUNTAIN_TUNE, type CountryFeature, type Ctx, type FeatureSite, type PlacedBlock } from './countryKit';
 import { bambooRawHit, plantsOfChunk } from './plants';
-import { hash01, subSeed } from './random';
-import { regionRect } from './region';
 import { terrainFor, type Terrain } from './terrain';
+
+export { FEATURE_TUNE, FEATURE_TYPES, type CountryFeature, type FeatureSite, type FeatureType, type PlacedBlock } from './countryKit';
 
 /**
  * 国だけの物 その 1（VOX-I-4a #187。docs/design/VOX-I.md §2.3・§8.3）。
@@ -14,62 +15,6 @@ import { terrainFor, type Terrain } from './terrain';
  * 6 種: はたけあと・きのこの わ（もり）・ひまわり・かいがら・たけのこ・つきみの いわ。
  * あとの PR（4b・4c）の 種類は 表 FEATURE_TYPES・OWNER・BUILDERS に 足す。
  */
-
-export const FEATURE_TYPES = ['hatakeato', 'kinokoNoWa', 'himawari', 'kaigara', 'takenoko', 'tsukimiIwa'] as const;
-export type FeatureType = (typeof FEATURE_TYPES)[number];
-
-/** `window.__rikkun.biome.features` の 1 こ。x, y, z = その物の 基準の マス（§8.3） */
-export interface CountryFeature {
-  type: FeatureType;
-  cx: number;
-  cz: number;
-  x: number;
-  y: number;
-  z: number;
-}
-
-export interface PlacedBlock {
-  x: number;
-  y: number;
-  z: number;
-  id: BlockId;
-}
-
-/** 置く 物 1 こ ぶん（場所 ＋ 置く ブロック ＋ 木・草花を どける 四角） */
-export interface FeatureSite extends CountryFeature {
-  blocks: PlacedBlock[];
-  /** 足もとの 四角（x0, z0, x1, z1。両はし ふくむ）。この 中の 草花と、まわり TUNE.treeMargin 以内に みきが ある 木を どける */
-  foot: readonly [number, number, number, number];
-}
-
-/** 数の表（単位は ブロック。仕様 §2.3 の 表と 同じ。ちがう 所は 理由を 書く） */
-export const FEATURE_TUNE = {
-  /** 点から これ以内に 置く（チェビシェフ）。つきみの いわ・はたけあと・きのこの わ = 32、ひまわり = 40、たけのこ = 40（道は 点から 88 まで のびる ので 点に 近い 所だけ。かいがらは 列で 56 + 16） */
-  reach: { hatakeato: 32, kinokoNoWa: 32, himawari: 40, tsukimiIwa: 32, takenoko: 40 },
-  /** 場所さがしの くり返し（1 升目・1 列 あたり。乱数の 番号を 進める） */
-  tries: { hatakeato: 30, kinokoNoWa: 30, himawari: 80, kaigara: 16, tsukimiIwa: 30 },
-  /** はたけあと: 4×4 の 平ら（最大 − 最小 の 高さ）の 上限・やせいの やさいの 本数 */
-  hatakeato: { size: 4, flat: 1, veg: [3, 4] as const },
-  /** きのこの わ: 7×7 の 平らの 上限・半径 3 の 8 か所に 立てる 本数（ゆるい 所は とばす） */
-  kinoko: { size: 7, flat: 2, ring: 3, count: [6, 8] as const },
-  /** ひまわり: 1 升目に 置く 数・まわり 3×3 の 平らの 上限・ひまわり どうしの はなす きょり（チェビシェフ） */
-  himawari: { count: [3, 5] as const, flat: 1, gap: 4 },
-  /** かいがら: 1 列（16×16）に 置く 数・海からの 高さ（すなの 上）。列は まん中が その 升目の 列 */
-  kaigara: { perColumn: [2, 4] as const, above: [1, 7] as const, search: 56 },
-  /** たけのこ: 1 升目の 数・どうしの はなす きょり・まわり 5×5 の たけの 本数の 下限。
-   *  仕様は 12 本だが、道の マス（たけが 生えない）が 5×5 の 半分ちかくを しめる ので 12 本は 出ない（実測: 多い 所でも 1〜5 本）→ 多い 順に えらび、下限は 2 本に ゆるめた。verify = まず 安い ふるい（乱数だけ）で 上から これだけ に しぼってから 本当の たけを 数える */
-  takenoko: { count: [1, 3] as const, gap: 8, window: 5, minBamboo: 2, verify: 5 },
-  /** つきみの いわ: 7×7 の 平らの 上限・まるい 山の 直径と 高さ */
-  tsukimi: { size: 7, flat: 3, diameter: [5, 7] as const, height: [3, 4] as const },
-  /** スタートの まわり（チェビシェフ）・はじまりの 岩山の まわり・洞くつの 口の まわりには 置かない */
-  startClear: 20,
-  rockClear: 4,
-  mouthClear: 3,
-  /** はじまりの 範囲（regionRect 128×128。M7 の 農家・やせいの やさい・木・坑道の 口が 決まる 四角）の 中には 6 種とも 置かない。はたけあとは やせいの やさいを 持つので、M7 が 数える 読みこみの 輪に 入らないよう 四角の まわり さらに これだけ（ブロック）よける */
-  farmClearWild: 64,
-  /** 置く 所の みきが この きょり 以内の 木は どける（はっぱが 大木で 4 まで 出る ぶん） */
-  treeMargin: 4,
-} as const;
 
 const B = C.biome;
 
@@ -83,81 +28,23 @@ const KIND_REACH = {
   susuki: FEATURE_TUNE.reach.tsukimiIwa,
   take: FEATURE_TUNE.reach.takenoko,
   kappa: 0,
-  iwayama: 0,
-  tengu: 0,
-  momiji: 0,
-  yuki: 0,
+  iwayama: Math.max(MOUNTAIN_TUNE.suisho.reach, 40), // 40 = 目じるし（石ぞう・いしの とりい）の さがす はんい
+  tengu: MOUNTAIN_TUNE.summitReach + Math.max(MOUNTAIN_TUNE.fallback.touro, MOUNTAIN_TUNE.kaidan.startGap, 34), // 34 = 目じるし（お堂・やぐら・頂上から いどまで）の さがす はんい // 頂上（点から 6）＋ とうろうの さがす はんい 3 ／ かいだんの はじまり 2
+  momiji: MOUNTAIN_TUNE.summitReach + MOUNTAIN_TUNE.fallback.oomomiji + 30, // 30 = 目じるし（あずまや・広場の とりいと ほこら・すその いど。頂上から 34）の ぶん // 頂上 ＋ おおもみじの さがす はんい 6
+  yuki: MOUNTAIN_TUNE.summitReach + MOUNTAIN_TUNE.fallback.yukidaruma,
 } as const satisfies Record<CountryKind, number>;
-const REACH_MAX = Math.max(...Object.values(KIND_REACH));
 
-interface Ctx {
-  T: Terrain;
-  i: number;
-  j: number;
-  px: number;
-  pz: number;
-  kind: CountryKind;
-}
-
-const typeNo = (t: FeatureType): number => FEATURE_TYPES.indexOf(t);
-const sTypes = new WeakMap<Terrain, number>();
-const seedOf = (T: Terrain): number => {
-  let s = sTypes.get(T);
-  if (s === undefined) sTypes.set(T, (s = subSeed(T.seed, 1187)));
-  return s;
-};
-/** 乱数（0 以上 1 未満）。(シード, 升目, type, k) だけで 決まる */
-const rnd = (c: Ctx, t: FeatureType, k: number): number => hash01(seedOf(c.T), c.i, c.j, typeNo(t), k);
-const range = (r: number, lo: number, hi: number): number => lo + Math.floor(r * (hi - lo + 1));
-
-/**
- * (x, z) の 地面の 高さ（置けない 所は -1）。陸・top の ブロック・いけ でない・スタート／岩山／洞くつの 口から はなれている・
- * その 国の 升目の 中（境目 e < blend は だめ）・はじまりの 範囲（clear = さらに ひろげる ブロック数）。minAbove = 海からの 最低の 高さ
- */
-function groundAt(c: Ctx, x: number, z: number, top: BlockId, minAbove: number = C.strata.landFrom, clear = 0): number {
-  const T = c.T;
-  const h = T.height(x, z);
-  if (h < SEA_Y + minAbove || T.topBlock(x, z, h) !== top) return -1;
-  if (T.map.pondAt(x, z) !== null || T.liquid.pondAt(x, z) !== null) return -1;
-  const sp = T.spawn();
-  if (Math.max(Math.abs(x - sp.x), Math.abs(z - sp.z)) <= FEATURE_TUNE.startClear) return -1;
-  if (inStartRegion(T, x, z, clear)) return -1;
-  const rock = T.rock();
-  if (Math.hypot(x - rock.cx, z - rock.cz) <= rock.r + FEATURE_TUNE.rockClear) return -1;
-  if (nearMouth(T, x, z, FEATURE_TUNE.mouthClear)) return -1;
-  const a = T.map.countryAt(x, z);
-  if (a.kind !== c.kind || a.cx !== c.i || a.cz !== c.j || a.e < B.blend) return -1;
-  return h;
-}
-
-/** はじまりの 範囲（regionRect）から margin だけ ひろげた 四角の 中か */
-function inStartRegion(T: Terrain, x: number, z: number, margin: number): boolean {
-  const r = regionRect(T.seed);
-  return x >= r.x0 - margin && x < r.x1 + margin && z >= r.z0 - margin && z < r.z1 + margin;
-}
-
-/** 海の 中（または ごく あさい）の 列か。平らさを 調べる 前の 安い ふるい（海の 升目は ほとんどが ここで おちる） */
-const isSea = (c: Ctx, x: number, z: number, above: number = C.strata.landFrom): boolean => c.T.height(x, z) < SEA_Y + above;
-
-/** 四角 [x0, x0+w) × [z0, z0+w) の 高さの 差（最大 − 最小） */
-function flatness(T: Terrain, x0: number, z0: number, w: number): number {
-  let lo = Infinity;
-  let hi = -Infinity;
-  for (let dz = 0; dz < w; dz++) {
-    for (let dx = 0; dx < w; dx++) {
-      const h = T.height(x0 + dx, z0 + dz);
-      if (h < lo) lo = h;
-      if (h > hi) hi = h;
-    }
-  }
-  return hi - lo;
-}
-
-const cheb = (ax: number, az: number, bx: number, bz: number): number => Math.max(Math.abs(ax - bx), Math.abs(az - bz));
-
-function site(c: Ctx, type: FeatureType, x: number, y: number, z: number, blocks: PlacedBlock[], foot: readonly [number, number, number, number]): FeatureSite {
-  return { type, cx: c.i, cz: c.j, x, y, z, blocks, foot };
-}
+/** 国 → 物の 足もと（foot の 四角）が 基準の マスから はなれる ぶんの さらなる のび。かいだんの 道が すそまで のびる てんぐの やまだけ 大きい（道の 長さ 上限 ＋ はば） */
+const KIND_EXTENT = {
+  harappa: 0, mori: 0, ookina: 0, hana: 0, sunahama: 0, susuki: 0, take: 0, kappa: 0, iwayama: 0, momiji: 0, yuki: 0,
+  tengu: MOUNTAIN_TUNE.kaidan.maxSteps + MOUNTAIN_TUNE.kaidan.width,
+} as const satisfies Record<CountryKind, number>;
+/** 足もとの 四角の 半分の 大きさの 上限（つきみの いわ・きのこの わ 7×7 の 半分 3 ＋ よゆう）。基準の マスの 数との ちがい */
+const FOOT_HALF = 6; // 目じるし（とりい 11 など）の 半分 5 ＋ よゆう。ひろげても 探す はんいが 広がるだけで 結果は かわらない
+const kinds = Object.keys(KIND_REACH) as CountryKind[];
+/** 基準の マスの 最大の きょり／足もとの 四角まで 入れた 最大の きょり（升目を 見る はばを きめる） */
+const REACH_MAX = Math.max(...kinds.map((k) => KIND_REACH[k]));
+const REACH_FOOT_MAX = Math.max(...kinds.map((k) => KIND_REACH[k] + FOOT_HALF + KIND_EXTENT[k]));
 
 // ------------------------------------------------------------------ 1 種ずつ
 
@@ -363,10 +250,10 @@ const BUILDERS = {
   susuki: tsukimiIwa,
   take: takenoko,
   kappa: null, // 4c: はすの は
-  iwayama: null, // 4b: すいしょう
-  tengu: null, // 4b: かいだん・とうろう
-  momiji: null, // 4b: おちば・おおもみじ
-  yuki: null, // 4b: ゆきだるま
+  iwayama,
+  tengu,
+  momiji,
+  yuki,
 } as const satisfies Record<CountryKind, ((c: Ctx) => FeatureSite[]) | null>;
 
 // ------------------------------------------------------------------ 窓口
@@ -374,7 +261,7 @@ const BUILDERS = {
 const MAX_CELLS = 600;
 const memo = new WeakMap<Terrain, Map<number, FeatureSite[]>>();
 
-/** 升目 (i, j) に 置く 物（覚える。Terrain を 作りなおすと 覚えも 空） */
+/** 升目 (i, j) に 置く 物（覚える。Terrain を 作りなおすと 覚えも 空）。山は 2×2 の 左上の 升目だけが 持つ */
 export function sitesOfCell(T: Terrain, i: number, j: number): FeatureSite[] {
   let m = memo.get(T);
   if (!m) memo.set(T, (m = new Map()));
@@ -382,36 +269,61 @@ export function sitesOfCell(T: Terrain, i: number, j: number): FeatureSite[] {
   const hit = m.get(key);
   if (hit) return hit;
   const cell = T.map.cell(i, j);
-  const build = cell.mountain || cell.startForced ? null : BUILDERS[cell.kind];
-  const out = build ? build({ T, i, j, px: cell.px, pz: cell.pz, kind: cell.kind }) : [];
+  const build = cell.startForced || (cell.mountain && (cell.i !== i || cell.j !== j)) ? null : BUILDERS[cell.kind];
+  const out = build ? build({ T, i: cell.i, j: cell.j, px: cell.px, pz: cell.pz, kind: cell.kind }) : [];
   if (m.size >= MAX_CELLS) m.delete(m.keys().next().value as number);
   m.set(key, out);
   return out;
 }
 
-/** 四角 [x0, x1] × [z0, z1]（ふくむ）の 基準の マスが 入る 物 */
-export function featureSitesInRect(seed: number, x0: number, z0: number, x1: number, z1: number): FeatureSite[] {
+/** 升目の 範囲を 見て、reach(kind) 以内に 点が ある 升目の 物を 集める。mode = 'base' なら 基準の マスが 四角に 入る 物、'foot' なら 足もとの 四角が 四角に かかる 物 */
+function sitesIn(seed: number, x0: number, z0: number, x1: number, z1: number, mode: 'base' | 'foot'): FeatureSite[] {
   const T = terrainFor(seed);
-  const R = REACH_MAX;
+  const extra = mode === 'foot' ? 1 : 0;
+  const R = extra === 1 ? REACH_FOOT_MAX : REACH_MAX;
   const cell = B.cell;
   const out: FeatureSite[] = [];
-  // 升目 i の 点は [i × cell + pointMin, i × cell + pointMin + pointSpan) → 物は その ± R の 中
-  const i0 = Math.floor((x0 - R - B.pointMin - B.pointSpan - C.anchor.x) / cell);
+  // 升目 i の 点は [i × cell + pointMin, i × cell + pointMin + pointSpan)。山の 点は 2×2 の まん中（左上の 升目から 1 升目ぶん 右）→ 1 升目 ひろく 見る
+  const i0 = Math.floor((x0 - R - B.pointMin - B.pointSpan - C.anchor.x) / cell) - 1;
   const i1 = Math.floor((x1 + R - B.pointMin - C.anchor.x) / cell);
-  const j0 = Math.floor((z0 - R - B.pointMin - B.pointSpan - C.anchor.z) / cell);
+  const j0 = Math.floor((z0 - R - B.pointMin - B.pointSpan - C.anchor.z) / cell) - 1;
   const j1 = Math.floor((z1 + R - B.pointMin - C.anchor.z) / cell);
   for (let j = j0; j <= j1; j++) {
     for (let i = i0; i <= i1; i++) {
-      const cell = T.map.cell(i, j);
-      const r = KIND_REACH[cell.kind];
-      if (r === 0 || cell.px + r < x0 || cell.px - r > x1 || cell.pz + r < z0 || cell.pz - r > z1) continue;
-      for (const s of sitesOfCell(T, i, j)) if (s.x >= x0 && s.x <= x1 && s.z >= z0 && s.z <= z1) out.push(s);
+      const cl = T.map.cell(i, j);
+      if (cl.mountain && (cl.i !== i || cl.j !== j)) continue; // 山は 左上の 升目で 1 回だけ
+      const r = KIND_REACH[cl.kind];
+      if (r === 0) continue;
+      const rr = r + extra * (FOOT_HALF + KIND_EXTENT[cl.kind]);
+      if (cl.px + rr < x0 || cl.px - rr > x1 || cl.pz + rr < z0 || cl.pz - rr > z1) continue;
+      for (const s of sitesOfCell(T, i, j)) {
+        const f = s.foot;
+        const hit = mode === 'base' ? s.x >= x0 && s.x <= x1 && s.z >= z0 && s.z <= z1 : f[2] >= x0 && f[0] <= x1 && f[3] >= z0 && f[1] <= z1;
+        if (hit) out.push(s);
+      }
     }
   }
   return out;
 }
 
+/** 四角 [x0, x1] × [z0, z1]（ふくむ）の 基準の マスが 入る 物 */
+export function featureSitesInRect(seed: number, x0: number, z0: number, x1: number, z1: number): FeatureSite[] {
+  return sitesIn(seed, x0, z0, x1, z1, 'base');
+}
+
+/** 四角 [x0, x1] × [z0, z1]（ふくむ）に 足もとが かかる 物（チャンクの 生成が 使う。かいだんは 基準の マスから 遠くまで のびる） */
+export function featureSitesTouching(seed: number, x0: number, z0: number, x1: number, z1: number): FeatureSite[] {
+  return sitesIn(seed, x0, z0, x1, z1, 'foot');
+}
+
 /** window.__rikkun.biome.features: 四角の 中の 国だけの 物（VOX-I §8.3）。生成と 同じ 場所 */
 export function featuresInRect(seed: number, x0: number, z0: number, x1: number, z1: number): CountryFeature[] {
   return featureSitesInRect(seed, x0, z0, x1, z1).map(({ type, cx, cz, x, y, z }) => ({ type, cx, cz, x, y, z }));
+}
+
+/** かいだんの 道（床の ブロックの 場所。頂上がわの はしから すそへ 1 歩ずつ、1 歩に 2 マス）。かいだん 以外・ない 時は 空 */
+export function kaidanPath(seed: number, f: CountryFeature): { x: number; y: number; z: number }[] {
+  if (f.type !== 'kaidan') return [];
+  const s = sitesOfCell(terrainFor(seed), f.cx, f.cz).find((q) => q.type === 'kaidan' && q.x === f.x && q.z === f.z);
+  return s?.path ? s.path.map((p) => ({ ...p })) : [];
 }

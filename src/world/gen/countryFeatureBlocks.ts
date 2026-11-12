@@ -3,7 +3,7 @@ import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { COUNTRY_PLANT_IDS } from '../blocks/countryPlants';
 import { HIMAWARI, HIMAWARI_TOP } from '../blocks/himawari';
 import { LAYER } from './columnLayout';
-import { FEATURE_TUNE, featureSitesInRect, type FeatureSite } from './countryFeatures';
+import { FEATURE_TUNE, featureSitesTouching, type FeatureSite } from './countryFeatures';
 import { terrainFor, type Terrain } from './terrain';
 
 /**
@@ -15,6 +15,8 @@ type Rect = readonly [number, number, number, number];
 
 /** 置く 物の まわり これだけ 先の チャンクまで 影響する（みきの きょり 4 ＋ はっぱ 4 ＋ 足もとの 半分 3 ＋ よゆう）。物の 基準の マスを この はばで さがす */
 const NEAR = FEATURE_TUNE.treeMargin + 4 + 3 + 3;
+/** チャンクの 木として 数える はば（placeTrees が みきを さがす はんい。大木の はっぱが 4 まで 出る ぶん） */
+const TREE_REACH = 5;
 
 /** 列 (x, z) の 数字ひとつの 名前（x × 100003 + z） */
 export const columnKey = (x: number, z: number): number => x * 100003 + z;
@@ -60,17 +62,20 @@ export function featuresNearChunk(seed: number, x0: number, z0: number): ChunkFe
   const key = columnKey(x0 >> 4, z0 >> 4);
   const hit = m.get(key);
   if (hit) return hit;
-  const sites = featureSitesInRect(seed, x0 - NEAR, z0 - NEAR, x0 + CHUNK_SIZE - 1 + NEAR, z0 + CHUNK_SIZE - 1 + NEAR);
-  const mg = FEATURE_TUNE.treeMargin;
-  const out: ChunkFeatures =
-    sites.length === 0
-      ? NONE
-      : {
-          sites,
-          trees: sites.map((s) => [s.foot[0] - mg, s.foot[1] - mg, s.foot[2] + mg, s.foot[3] + mg] as const),
-          plants: sites.map((s) => s.foot),
-          ...columnsOf(sites),
-        };
+  const sites = featureSitesTouching(seed, x0 - NEAR, z0 - NEAR, x0 + CHUNK_SIZE - 1 + NEAR, z0 + CHUNK_SIZE - 1 + NEAR);
+  const trees: Rect[] = [];
+  const plants: Rect[] = [];
+  // この チャンクの 木（みきが チャンクの まわり TREE_REACH 以内）・草花に かかる 四角だけ のこす（かいだんは 四角が 100 こ ちかく ある）
+  const near = (r: Rect, m: number): boolean => r[2] >= x0 - m && r[0] <= x0 + CHUNK_SIZE - 1 + m && r[3] >= z0 - m && r[1] <= z0 + CHUNK_SIZE - 1 + m;
+  for (const s of sites) {
+    const mg = s.margin ?? FEATURE_TUNE.treeMargin;
+    for (const r of s.rects ?? [s.foot]) {
+      const t: Rect = [r[0] - mg, r[1] - mg, r[2] + mg, r[3] + mg];
+      if (near(t, TREE_REACH)) trees.push(t);
+      if (near(r, 0)) plants.push(r);
+    }
+  }
+  const out: ChunkFeatures = sites.length === 0 ? NONE : { sites, trees, plants, ...columnsOf(sites) };
   if (m.size >= MAX_CHUNKS) m.delete(m.keys().next().value as number);
   m.set(key, out);
   return out;

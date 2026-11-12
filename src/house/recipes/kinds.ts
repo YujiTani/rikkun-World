@@ -32,6 +32,9 @@ export type DoorKind = 'ie' | Styled<FormOf<'door'>>;
 /** かざり: しゃちほこ は 案が ない（id は 'shachi' 1 つ）。ほかは `<形>_<案>` */
 export type DecoKind = Styled<Exclude<FormOf<'deco'>, 'shachi'>> | 'shachi';
 /** あかりの ならび（左から。ちょうちんは はじめから、ほかは レシピで） */
+/** すいしょうの まど・あかり（名前の 定数。ブロック・アイテムの suisho とは べつの 意味） */
+export const WINDOW_FORM_SUISHO = 'suisho' as const;
+export const LIGHT_KIND_SUISHO = 'suisho' as const;
 export const LIGHT_KINDS = ['lantern', 'hotaru', 'suisho'] as const;
 export type LightKind = (typeof LIGHT_KINDS)[number];
 

@@ -8,6 +8,7 @@ import { FLAT_FURN_KINDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } fr
 import { isLiquidIndex } from './liquids';
 import { isFloorDeco } from './mineBoken';
 import { isYakataTorch } from './mineYakata';
+import { SHAPE_BLOCKS, SHAPE_IDS, shapeLabel } from './shapeBlocks';
 import { MAGMA_IDS, MAGMA_M0, MAGMA_RESERVED_IDS } from './magma';
 import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL_INDEX, WATER_PARTIAL_IDS, WATER_W0 } from './water';
 
@@ -15,6 +16,9 @@ import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL
 /** あとから 足した 家具の しゅるい（番号を ずらさない ため BLOCK_TYPES の さいごに ならべる） */
 const LATE_FURN: ReadonlySet<string> = new Set(['maneki']);
 const furnBlockType = (id: BlockId): BlockType => ({ id, name: FURNITURE[furnInfo(id)!.kind].name, solid: true, breakable: true });
+
+/** 形つきブロックの もとの ブロックの 名前（ブロックの 名前に 使う） */
+const SHAPE_BASE_NAME: Readonly<Record<string, string>> = { stone: 'いし', ara_ishi: 'あらいし', koke_ara_ishi: 'こけの あらいし', shu_ita: 'しゅいろの き', log: 'き', kawara: 'かわら' };
 
 export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'air', name: 'くうき', solid: false, breakable: false },
@@ -167,6 +171,25 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'otera_ishidatami', name: 'おてらの いしだたみ', solid: true, breakable: true },
   { id: 'otera_dan', name: 'おてらの だん', solid: true, breakable: true },
   { id: 'onibi_taimatsu', name: 'おにびの たいまつ', solid: false, breakable: true },
+  // VOX-I-4b（#187。番号は 後ろに 足す。242〜244）: 山の物。固い 箱（とうろうだけ こわせない）
+  { id: 'suisho', name: 'すいしょう', solid: true, breakable: true },
+  { id: 'touro', name: 'とうろう', solid: true, breakable: false },
+  { id: 'ochiba', name: 'おちば', solid: true, breakable: true },
+  // WAFU-1（番号は 後ろに 足す。245〜248）: わふうの ブロック。ちょうちんだけ 固くない（通れる）
+  { id: 'shu_ita', name: 'しゅいろの き', solid: true, breakable: true },
+  { id: 'ishidatami', name: 'いしだたみ', solid: true, breakable: true },
+  { id: 'koke_ishi', name: 'こけいし', solid: true, breakable: true },
+  { id: 'chouchin', name: 'わの ちょうちん', solid: false, breakable: true },
+  // WAFU-1 追加（249〜250）: 石の ブロック 2 つ
+  { id: 'ara_ishi', name: 'あらいし', solid: true, breakable: true },
+  { id: 'koke_ara_ishi', name: 'こけの あらいし', solid: true, breakable: true },
+  // WAFU-2（番号は 後ろに 足す。251〜）: 形つきブロック（見た目だけ 細い・うすい。当たりは 1 ブロック。ほれない。world/blocks/shapeBlocks.ts）
+  ...SHAPE_BLOCKS.map((b): BlockType => ({ id: b.id, name: `${SHAPE_BASE_NAME[b.base] ?? b.base}の ${shapeLabel(b.shape)}`, solid: true, breakable: false })),
+  // WAFU-3（形つきブロックの あと）: 模様つきの 石 4 つ
+  { id: 'kizami_ishi', name: 'きざみいし', solid: true, breakable: true },
+  { id: 'maru_mon_ishi', name: 'まるもんの いし', solid: true, breakable: true },
+  { id: 'renga_ishi', name: 'いしれんが', solid: true, breakable: true },
+  { id: 'koke_renga_ishi', name: 'こけの いしれんが', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -209,6 +232,8 @@ const PROP_IDS: ReadonlySet<string> = new Set([
   ...SCAFFOLD_IDS,
   // HOUSE-2B: 家の しゅるいの ブロックは ぜんぶ 箱の 形で 描く（案は 家の 記録から 場所で 引く）
   ...LOOK_BLOCK_IDS,
+  // WAFU-2: 形つきブロックは ぜんぶ 箱の 形で 描く（絵は meshChunk の pushProp）。固いが 光を 通す
+  ...SHAPE_IDS,
 ]);
 const PROP = BLOCK_TYPES.map((t) => PROP_IDS.has(t.id));
 export function isPropIndex(index: number): boolean {
@@ -232,6 +257,7 @@ const CROSS_IDS: ReadonlySet<string> = new Set([
   'toriya_fence', 'toriya_gate', // LIVE-2.1: とりごや の さく・もん（当たり は 今 の まま ブロック）
   'flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana',
   'kinoko', 'himawari', 'himawari_top', 'kaigara', 'takenoko', // VOX-I-4a
+  'chouchin', // WAFU-1: つるす ちょうちん（十字の 板。光る）
   'rope', 'rope_coil', 'rope_stake', 'rope_fence', 'rope_fence_post', // ROPE-1: ロープ（たてに たれる なわ）・ロープだまり（下の まき）
   'tsurara', // MINE-1D: つらら（天井の 下に さがる 十字の 板。ゆれない = swayDriver が のぞく）
   'makimono', // HOUSE-2A: まきもの（床に 置く 十字の 板。ゆれない）

@@ -2,6 +2,7 @@ import { YAKATA_BLOCK_IDS } from '../world/blocks/mineYakata';
 import { defaultDropMax } from '../drops/rarityTable';
 import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
 import { SCAFFOLD_IDS, type ScaffoldId } from '../world/blocks/buildBlocks';
+import { SHAPE_IDS, type ShapeBlockId } from '../world/blocks/shapeBlocks';
 import { CHALK_MARK_IDS, type ChalkMarkId } from '../world/blocks/chalkMark';
 import { CHEST_BLOCK_IDS, type ChestBlockId } from '../world/blocks/chestBlock';
 import { forWaterExtra } from '../world/blocks/water';
@@ -22,6 +23,11 @@ function forChest<T>(value: T): Record<ChestBlockId, T> {
 /** 家の しゅるいの ブロック 20 こ（HOUSE-2B）ぜんぶに 同じ 値を 入れる */
 function forLook<T>(value: T): Record<LookBlockId, T> {
   return Object.fromEntries(LOOK_BLOCK_IDS.map((id) => [id, value])) as Record<LookBlockId, T>;
+}
+
+/** 形つきブロック（WAFU-2）ぜんぶに 同じ 値を 入れる */
+function forShape<T>(value: T): Record<ShapeBlockId, T> {
+  return Object.fromEntries(SHAPE_IDS.map((id) => [id, value])) as Record<ShapeBlockId, T>;
 }
 
 /** 足場 5 つ（HOUSE-1C PR-2）ぜんぶに 同じ 値を 入れる */
@@ -138,6 +144,21 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     himawari_top: 0.05,
     kaigara: 0.05,
     takenoko: 0.05,
+    // VOX-I-4b（山の物。すいしょう = 3 秒、おちば = つちと 同じ、とうろう = こわせない）
+    suisho: 3,
+    touro: null,
+    ochiba: 0.5,
+    // WAFU-1（わふう。き = log と 同じ、いし = stone と 同じ、ちょうちん = ほぼ すぐ）
+    shu_ita: WOOD_HARDNESS,
+    ishidatami: 6,
+    koke_ishi: 6,
+    chouchin: 0.05,
+    ara_ishi: 6, // いし系 = stone と 同じ
+    koke_ara_ishi: 6,
+    kizami_ishi: 6,
+    maru_mon_ishi: 6,
+    renga_ishi: 6,
+    koke_renga_ishi: 6,
     // MINE-1B（#349。仕様 §4.4。素手の 秒数。時間 = 固さ ÷ 道具の 強さ）
     nendo: 1, // つち より 少し かたい（すでで 1 秒）
     sekkaiseki: 5, // いしの つるはし（強さ 4）で 1.25 秒
@@ -171,6 +192,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     katame_tsuchi: 0.5,
     ...forLook<number>(WOOD_HARDNESS), // HOUSE-2B: 家の しゅるいの ブロックも き と 同じ
     ...forScaffold<null>(null),
+    ...forShape<null>(null),
     ...forWaterExtra<null>(null),
     rope: 0.05, // ROPE-1: すぐ とれる（すすきと 同じ）
     rope_coil: 0.05,
@@ -273,6 +295,19 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     himawari_top: 0,
     kaigara: 0,
     takenoko: 0,
+    suisho: 0,
+    touro: 0,
+    ochiba: 0,
+    shu_ita: 0,
+    ishidatami: 0,
+    koke_ishi: 0,
+    chouchin: 0,
+    ara_ishi: 0,
+    koke_ara_ishi: 0,
+    kizami_ishi: 0,
+    maru_mon_ishi: 0,
+    renga_ishi: 0,
+    koke_renga_ishi: 0,
     // MINE-1B（0 = すで・1 = いしの つるはし・2 = てつの つるはし から）
     nendo: 0,
     sekkaiseki: 1,
@@ -287,6 +322,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     katame_tsuchi: 0,
     ...forLook(0), // HOUSE-2B: すでで ほれる
     ...forScaffold(0),
+    ...forShape(0),
     ...forWaterExtra(0),
     rope: 0,
     rope_coil: 0,
@@ -398,6 +434,19 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     himawari_top: 'common',
     kaigara: 'common',
     takenoko: 'common',
+    suisho: 'rare',
+    touro: 'common',
+    ochiba: 'common',
+    shu_ita: 'uncommon', // log と 同じ
+    ishidatami: 'common', // stone と 同じ
+    koke_ishi: 'common',
+    chouchin: 'common',
+    ara_ishi: 'common',
+    koke_ara_ishi: 'common',
+    kizami_ishi: 'common',
+    maru_mon_ishi: 'common',
+    renga_ishi: 'common',
+    koke_renga_ishi: 'common',
     // MINE-1B（ほると 手に 入る 数の 上限を きめる。しるしは 何も 出ない ので 使わない）
     nendo: 'uncommon',
     sekkaiseki: 'uncommon',
@@ -416,6 +465,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     katame_tsuchi: 'common',
     ...forLook<Rarity>('common'), // HOUSE-2B: ほる 数は いつも 1 こ（digBreak の houseDrop）
     ...forScaffold<Rarity>('common'),
+    ...forShape<Rarity>('common'),
     ...forWaterExtra<Rarity>('common'),
     rope: 'common',
     rope_coil: 'common',
