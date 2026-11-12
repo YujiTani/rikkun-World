@@ -143,7 +143,11 @@ export const GEN_CONFIG = {
       0.99938,
     ] as readonly number[],
     /** 山のわく: 4×4 升目に 山 1 こ。anchor が わく のまん中に来るよう 2 升目ずらす。山は 2×2 升目で、点は 2×2 のまん中から ±jitter */
-    mountain: { frame: 4, shift: 2, jitter: 8, minBase: 2, roughAmp: 1, roughScale: 24, maxReach: 200 },
+    mountain: {
+      frame: 4, shift: 2, jitter: 8, minBase: 2, roughAmp: 1, roughScale: 24, maxReach: 200,
+      /** 水ぎわの なだらかさ（山 v2）: 水（山を かける 前の 高さが 海面 −1 以下）から flat マス以内は 山の 形を かけず ふつうの 地面の まま（1 マスで 1 以下 = 海から 歩いて 上がれる）。その 外は、山の 高さを「地面 + rise × (水から の きょり − flat)」までに おさえて ゆるい 坂で 山へ つなぐ。水から reach マスより 遠い 所は 山の 形そのまま */
+      shore: { reach: 40, flat: 13, rise: 0.8 },
+    },
   },
   /** 国ごとの数（B の表） */
   countries: COUNTRIES,
