@@ -94,7 +94,13 @@ export const WATER_TUNE = {
    * maxFalls = 滝の 数の 上限・footAbove = 山の すそ（baseHeight）より この 高さ いかに 着いたら 終わり・srcRadius = いちばん 上の 池の 半径（大きい 方から）・
    * srcLower = 水源の 池の 水面を 地面から 下げる 量の 候補 ・ srcCut / srcLow = 上の 池が ほって よい 深さ / 地面が 水面より 低くて よい 深さ・spotStep / spotApart / spotCount = 水源の 場所を さがす 間かく・おたがいの 間・ためす 数（ブロック・こ）・nodes = 1 つの 水源から 計画を ためす 数の 上限・width = 滝の はば（3〜5 マス）
    */
-  cascade: { drop: [4, 14] as const, dropTry: [14, 11, 9, 7, 5, 4] as const, radius: [5, 4, 3] as const, depth: 3, cut: 5, fillMax: 40, lipCut: 6, maxFalls: 4, footAbove: 4, srcRadius: [6, 5, 4] as const, srcLower: [0, 2, 4] as const, srcCut: 7, srcLow: 10, nodes: 300, spotStep: 3, spotApart: 9, spotCount: 30, width: [3, 5] as const },
+  cascade: { drop: [4, 14] as const, dropTry: [14, 11, 9, 7, 5, 4] as const, radius: [5, 4, 3] as const, depth: 3, cut: 5, fillMax: 40, lipCut: 6, maxFalls: 4, footAbove: 4, srcRadius: [6, 5, 4] as const, srcLower: [0, 2, 4] as const, srcCut: 7, srcLow: 10, nodes: 900, spotStep: 3, spotApart: 9, spotCount: 60, width: [3, 5] as const, widthPerR: 0.9, widthLess: 0.25, shapes: { ellipse: 0.3, moon: 0.3, axRange: [1.3, 1.7] as const, moonFlat: 0.7 }, rimUp: 0.3, rimRock: 0.65, rimStone: 0.15, flare: { steps: 22, chance: 0.55, wobble: 1.4, apron: 1 } },
+  /**
+   * 段々の 滝の 見た目（10 回め）: widthPerR = 落ち口の はば ÷ 上の 池の 半径（はば = 半径 × これ を 3〜5 に おさめる）・widthLess = はばを 1 へらす 確率・
+   * shapes = 受け皿の 形の くじ（ellipse = かべに そった だ円の 確率・moon = かべがわを たいらに した 半月の 確率。のこりは 丸）・axRange = だ円の のばす 比・moonFlat = 半月の かべがわの 半径の 比・
+   * rimUp = 池の ふちが 水面より 1 だん 高い 確率・rimRock = ふちの 上が 山の 岩の 確率・rimStone = ふちの 上が 石づみ（こけの いし など）の 確率（のこりは すな・地面そのまま）・
+   * flare = ささえの がけの こぶ: steps = 受け皿の 底から 下へ ひろげる だんの 数の 上限・chance = 1 だん 下がる ごとに 半径が +1 に なる 確率（のこりは +0）・wobble = ふちの がたがた（ブロック）・apron = かべ側の すき間うめを 池の まん中から 外へ どこまで 広げるか（ブロック）
+   */
   /** 川の みちしるべ（Dijkstra）: ほれる 深さの 上限・上り 1 ブロックあたりの ねだん・下り 1 ブロックあたりの ねだん・たどる マスの 数の 上限 */
   flow: { maxCut: 6, cutCost: 6, dropCost: 0.15, maxCells: 120000 },
   river: {

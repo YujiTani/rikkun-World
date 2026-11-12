@@ -70,6 +70,15 @@ export class Edit {
     return out.sort((a, b) => a.x - b.x || a.z - b.z || a.y - b.y); // 決まった 順（テストで くらべやすい）
   }
 
+  /** from の ブロックを ぜんぶ to(x, y, z) の ブロックに 置きかえる（ささえ岩を 山の 岩に する） */
+  recolor(from: BlockId, to: (x: number, y: number, z: number) => BlockId): void {
+    for (const [k, m] of this.cols) {
+      const x = Math.floor(k / 2000003) - 1000000;
+      const z = (k % 2000003) - 1000000;
+      for (const [y, id] of m) if (id === from) m.set(y, to(x, y, z));
+    }
+  }
+
   /** 書いた 列の 四角（なければ null） */
   bounds(): Rect | null {
     return this.x0 > this.x1 ? null : [this.x0, this.z0, this.x1, this.z1];
@@ -92,6 +101,8 @@ export interface Basin {
   amp: number;
   p1: number;
   p2: number;
+  /** 受け皿の 形（なければ 丸）: 向き (ux, uz) = かべから 外へ。ax = かべに そって のばす 比（だ円）・flat = かべがわの 半径の 比（半月。1 = 丸） */
+  shape?: { ux: number; uz: number; ax: number; flat: number };
 }
 
 /** 池を 作る（形の ゆがみは 場所の 乱数から） */
@@ -106,13 +117,18 @@ export function basinNorm(b: Basin, x: number, z: number): number {
   const dz = z + 0.5 - b.cz;
   const th = Math.atan2(dz, dx);
   const f = 1 + b.amp * (0.6 * Math.sin(2 * th + b.p1) + 0.4 * Math.sin(3 * th + b.p2));
-  return Math.hypot(dx, dz) / (b.r * f);
+  const sh = b.shape;
+  if (sh === undefined) return Math.hypot(dx, dz) / (b.r * f);
+  const p = dx * sh.ux + dz * sh.uz;
+  const q = -dx * sh.uz + dz * sh.ux;
+  const sa = Math.sqrt(sh.ax);
+  return Math.hypot((p < 0 ? p / sh.flat : p) * sa, q / sa) / (b.r * f);
 }
 
 /** 池の ふちの はば（水の へりから この だけ） */
-const RING = 1.9;
+export const RING = 1.9;
 /** 池の まわりを しらべる 四角（ゆがみの ぶん ひろげる） */
-const reachOf = (b: Basin): number => b.r * (1 + b.amp) + RING + 1;
+const reachOf = (b: Basin): number => b.r * (1 + b.amp) * Math.sqrt(b.shape?.ax ?? 1) + RING + 1;
 /** 池の まわりの 列（水・ふち。左上から 右下へ） */
 export function basinCells(b: Basin): { x: number; z: number; n: number }[] {
   const out: { x: number; z: number; n: number }[] = [];
