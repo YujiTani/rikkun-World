@@ -53,7 +53,7 @@ export const TREE_REACH: Record<TreeForm, Record<TreeSize, number>> = {
   round: { s: 2, m: 3, l: 5 },
   maple: { s: 2, m: 2, l: 6 },
   pine: { s: 3, m: 4, l: 5 },
-  conifer: { s: 2, m: 3, l: 3 },
+  conifer: { s: 3, m: 3, l: 3 },
 };
 
 /** はっぱ・えだが みきの根もとから いちばん遠くまで出る マス（これ以上は 出ない）。列を作るとき 木を さがす はば */
