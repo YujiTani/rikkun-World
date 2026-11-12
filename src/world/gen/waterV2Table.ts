@@ -47,10 +47,10 @@ export const WATER_TUNE = {
    * chainMax = 1 本の 流れの 滝の 数の 上限・near = つぎの 滝を さがす 川の 終わりからの きょり（チェビシェフ）・rise = つぎの へりが 川の 水面より 高くて よい 上限
    * topShare = 山の 高さの この 割合より 上を 「頂上の ほう」と する・topTries = 頂上の 段を 順に ためす 数・centers = 池の 中心を ためす 数
    */
-  plateau: { minSize: 60, ponds: [0, 1] as const, radius: [4, 12.5] as const, share: 0.45, chainMax: 1, near: 26, rise: 6, topShare: 2 / 3, topTries: 10, centers: 15 },
+  plateau: { minSize: 60, ponds: [0, 1] as const, radius: [4, 12.5] as const, share: 0.45, chainMax: 4, near: 26, rise: 6, topShare: 2 / 3, topTries: 10, centers: 15 },
   fall: {
     /** 落差（へりの 地面 − 滝つぼの 地面）の 下限と 上限（落ちる 長さは わきどころが とどく 32 まで） */
-    drop: [6, 28] as const,
+    drop: [4, 28] as const,
     /** 落差が この 以上の かべを 先に えらぶ（大きな かべ） */
     bigDrop: 12,
     /** 大きな かべの 点数の おまけ */
@@ -81,6 +81,12 @@ export const WATER_TUNE = {
   },
   /** 段々の 滝（ひな段）: 落差が min 以上の かべは 台地の ふちを けずって 2〜maxStages 段に わける。1 段の 落差 dropMin〜dropMax・たなの おく行き shelfRows（列）・たまりの ふかさ・ためす 回数・まわりを かさ上げ できる 高さの 上限・段が 1 つ ふえる ごとの 点数（川の 長さ・落差の 点に 足す。段々を えらびやすく）・水源の 池で ほれる 高さ・うめられる 深さの 上限 */
   tier: { min: 10, maxStages: 4, dropMin: 4, dropMax: 10, shelfRows: [4, 6] as const, shelfDepth: [1, 2] as const, attempts: 14, rimFill: 8, bonus: 100, sourceHigh: 32, sourceLow: -14 },
+  /**
+   * 水源の 場所（先に きめる）: 山の すその 高さから の 割合が lowest 未満は えらばない・high 以上は 高い ほうの 帯（点数に highBonus）・
+   * step = さがす 間かく（マス）・disk = たいらか しらべる 半径・flat = 中の 高さの 差の 上限・reach = 下の がけを はかる きょり・
+   * fracWeight/dropCap/wayWeight/wayCap = 点数（高さ・落差の 上限・すそまでの 道のりの おもみと 上限）・keep = ためす 数・apart = おたがいの 間・near = 滝を さがす 池からの きょり・lower = 次の 池の 水面を 川に そろえて 下げる 上限（ブロック）
+   */
+  source: { lowest: 0.33, high: 0.45, highBonus: 100, step: 3, disk: 5, flat: 7, reach: 9, fracWeight: 40, dropCap: 24, wayWeight: 0.04, wayCap: 400, keep: 14, apart: 14, near: 16, lower: 3 },
   /** 川の みちしるべ（Dijkstra）: ほれる 深さの 上限・上り 1 ブロックあたりの ねだん・下り 1 ブロックあたりの ねだん・たどる マスの 数の 上限 */
   flow: { maxCut: 6, cutCost: 6, dropCost: 0.15, maxCells: 120000 },
   river: {

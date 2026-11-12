@@ -6,6 +6,7 @@ import type { FallPlan } from './waterV2Types';
 import { clearRects, Edit, waterLeaks, type Ground, type Rect } from './waterV2Kit';
 import { buildPond } from './waterV2Pond';
 import { findPlateaus, plateauPonds } from './waterV2Flat';
+import { sourceSpots, type SourceSpot } from './waterV2Source';
 import { flowField } from './waterV2Flow';
 import { buildRiverChecked, planRiver } from './waterV2River';
 import { WATER_BLOCKS as B, WATER_TUNE as T, WATER_V2 } from './waterV2Table';
@@ -19,6 +20,8 @@ import { WATER_BLOCKS as B, WATER_TUNE as T, WATER_V2 } from './waterV2Table';
 /** 山の 点から この きょり（チェビシェフ）を こえる 所には 水を 置かない（国だけの 物を さがす はんいの 内がわ） */
 const LIMIT = T.reach - 6;
 const PL = T.plateau;
+const SRC = T.source;
+const FALL = T.fall;
 
 /** 目じるしの 足もと（石段は のぞく）を 四角の 一覧に する（まわり gap） */
 function keepOut(others: readonly FeatureSite[]): Rect[] {
@@ -67,53 +70,89 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
     const own = fallKeepOut(p);
     return planRiver(gr, seed + 1, { x: Math.floor(p.pool.cx), z: Math.floor(p.pool.cz), d: p.d, pool: p.pool }, (x, z) => blocked(x, z) || own(x, z), atFoot, field);
   };
-  // 平らな 段（高い 順）。山の 上 1/3 の 段から 滝を はじめて、海・すそへ くりかえす
+  // 平らな 段（高い 順）。池の ひろい 段を さがす（すその 池・川の おわりの 池に 使う）
   const plateaus = findPlateaus(g, c.px, c.pz, LIMIT, PL.minSize, (x, z) => !hit(x, z));
   const peak = plateaus.length > 0 ? plateaus[0]!.h : 0;
   const base0 = c.T.map.baseHeight(c.px, c.pz);
   const topMin = base0 + (peak - base0) * PL.topShare;
-  const rivers: FeatureSite[] = [];
-  const footsOf: Rect[] = [];
-  let end: { x: number; z: number; level: number } | null = null as { x: number; z: number; level: number } | null;
-  for (let k = 0; k < PL.chainMax; k++) {
-    const rlen = (q: FallPlan): number => riverOf(q, wetHit).cells.length;
-    let p: FallPlan | undefined;
-    if (end === null) {
-      // 頂上の ほうの 段 → ほかの 段 の 順に ためす（どれも だめなら この 山に 滝は ない）
-      const tops = [...plateaus.filter((q) => q.h >= topMin), ...plateaus.filter((q) => q.h < topMin)].slice(0, PL.topTries);
-      for (const pl of tops) {
-        p = planFalls(g, pl.cx, pl.cz, seed, 1, used, rlen, { allow: pl.has, blocked: (x, z) => wet.has(x * 100003 + z) })[0];
-        if (p !== undefined) break;
+  const wetKey = (x: number, z: number): boolean => wet.has(x * 100003 + z);
+  const rlen = (q: FallPlan): number => riverOf(q, wetHit).cells.length;
+
+  /** 水源の 場所 sp から 1 本の 流れ: 池の ふちで 滝 → 川 → 川の とちゅうに 次の 池（= 次の 滝の 水源）→ …。いちばん はじめの 川が 出なければ やめる（false） */
+  const runChain = (sp: SourceSpot, near: number): boolean => {
+    const usedN = used.length;
+    const outN = out.length;
+    const wetSnap = new Set(wet);
+    const foots: Rect[] = [];
+    const rollback = (): false => {
+      used.length = usedN;
+      out.length = outN;
+      wet.clear();
+      wetSnap.forEach((v) => wet.add(v));
+      return false;
+    };
+    let p: FallPlan | undefined = planFalls(g, sp.x, sp.z, seed, 1, used, rlen, { allow: (x, z) => Math.hypot(x - sp.x, z - sp.z) <= near, blocked: wetKey })[0];
+    if (p === undefined) return rollback();
+    for (let k = 0; p !== undefined; k++) {
+      const cur: FallPlan = p;
+      foots.push(footOf(cur));
+      const others2 = foots.filter((_, j) => j !== k);
+      const blocked = (x: number, z: number): boolean => wetHit(x, z) || others2.some((r) => inside(r, x, z));
+      let plan0 = riverOf(cur, blocked);
+      used.push(foots[k]!);
+      // つぎの 滝: 川の とちゅうの 水面が 池の 水面と 同じ 高さの 所に 池（水源）が かさなる もの
+      const cells = plan0.cells;
+      const keepIdx = (q: FallPlan, at: number): boolean => {
+        const keep = fallKeepOut(q);
+        return !cells.slice(0, Math.max(0, at - 2)).some((cell) => keep(cell.x, cell.z));
+      };
+      const cutOf = (q: FallPlan): number => {
+        const src = new Set(q.source.map(([x, z]) => x * 100003 + z));
+        const at = cells.findIndex((cell, i) => i >= 2 && cell.level === q.top && src.has(cell.x * 100003 + cell.z));
+        return at >= 0 && keepIdx(q, at) ? at : -1;
+      };
+      // 池の 水面を 川の 水面に そろえる（1 段の 滝だけ。池の 水面を 3 マス まで 下げて 落差 4 以上）
+      const adjustTo = (q: FallPlan): FallPlan | null => {
+        if (cutOf(q) >= 0) return q;
+        if (q.stages.length !== 1) return null;
+        const src = new Set(q.source.map(([x, z]) => x * 100003 + z));
+        for (let i = 2; i < cells.length; i++) {
+          const L = cells[i]!.level;
+          if (!src.has(cells[i]!.x * 100003 + cells[i]!.z) || q.top - L < 0 || q.top - L > SRC.lower || L - q.level < FALL.drop[0]) continue;
+          const q2: FallPlan = { ...q, top: L, stages: [{ ...q.stages[0]!, top: L }] };
+          if (keepIdx(q2, i)) return q2;
+        }
+        return null;
+      };
+      let nxt: FallPlan | undefined;
+      if (k + 1 < PL.chainMax && plan0.mouth === null && plan0.stop !== 'sea' && plan0.stop !== 'foot' && cells.length > 4) {
+        const mid = cells[Math.floor(cells.length / 2)]!;
+        const near = (x: number, z: number): boolean => cells.some((cell, i) => i >= 2 && Math.max(Math.abs(cell.x - x), Math.abs(cell.z - z)) <= PL.near);
+        nxt = planFalls(g, mid.x, mid.z, seed + k + 1, 1, used, rlen, { allow: near, blocked: wetKey, adjust: adjustTo })[0];
       }
-      // 段の ふちに 落差が なければ、山の どこかの がけから はじめる
-      p ??= planFalls(g, c.px, c.pz, seed, 1, used, rlen)[0];
-    } else {
-      const e: { x: number; z: number; level: number } = end;
-      p = planFalls(g, e.x, e.z, seed + k, 1, used, rlen, { allow: (x, z) => Math.max(Math.abs(x - e.x), Math.abs(z - e.z)) <= PL.near && g(x, z) <= e.level + PL.rise, blocked: (x, z) => wet.has(x * 100003 + z) })[0];
+      if (nxt !== undefined) plan0 = { ...plan0, cells: cells.slice(0, cutOf(nxt) + 1), mouth: null, stop: 'stuck' };
+      const ed = new Edit();
+      buildFall(ed, gb, seed, cur); // 組めたかの 確認（waterV2Tier）と 同じ 種で 作る
+      out.push(blocksSite(c, 'taki', ed, cur.lip[0]![0], cur.top, cur.lip[0]![1]));
+      const { ed: re, plan } = buildRiverChecked(gh, seed + k, plan0, cur.pool, grassAt);
+      // 滝つぼと つなげて 水が もれる 川は 作らない
+      const ground: Ground = (x, z) => (gh(x, z) >= 0 ? gh(x, z) : c.T.height(x, z));
+      const leaks = waterLeaks(out.flatMap((q) => q.blocks).concat(re.blocks()), ground).length > 0;
+      const first = plan.cells.find((cell) => cell.kind !== 'pool');
+      const has = !leaks && (first !== undefined || plan.mouth !== null);
+        if (!has) return k > 0 ? true : rollback();
+      for (const bl of re.blocks()) wet.add(bl.x * 100003 + bl.z);
+      const f0 = first ?? plan.cells[0]!;
+      out.push(blocksSite(c, 'kawa', re, f0.x, f0.level, f0.z));
+      // 川を 切った とき は、つぎの 滝が 水が つながる ことを しめす（切って いなければ そのまま おわり）
+      p = nxt;
+      if (nxt !== undefined && plan.cells.length !== plan0.cells.length) p = undefined;
     }
-    if (p === undefined) break;
-    const ed = new Edit();
-    buildFall(ed, gb, seed, p); // 組めたかの 確認（waterV2Tier）と 同じ 種で 作る
-    out.push(blocksSite(c, 'taki', ed, p.lip[0]![0], p.top, p.lip[0]![1]));
-    footsOf.push(footOf(p));
-    // 川: ほかの 滝・目じるし・ほかの 川は よける
-    const others2 = footsOf.filter((_, j) => j !== k);
-    const blocked = (x: number, z: number): boolean => wetHit(x, z) || others2.some((r) => inside(r, x, z));
-    const { ed: re, plan } = buildRiverChecked(gh, seed + k, riverOf(p, blocked), p.pool, grassAt);
-    // 滝つぼと つなげて 水が もれる 川は 作らない（ほかの 滝の たまりに 近づきすぎた とき など）
-    const ground: Ground = (x, z) => (gh(x, z) >= 0 ? gh(x, z) : c.T.height(x, z));
-    const leaks = waterLeaks([...out, ...rivers].flatMap((q) => q.blocks).concat(re.blocks()), ground).length > 0;
-    used.push(footsOf[k]!);
-    end = { x: Math.floor(p.pool.cx), z: Math.floor(p.pool.cz), level: p.level };
-    if (leaks) continue;
-    for (const b of re.blocks()) wet.add(b.x * 100003 + b.z);
-    const first = plan.cells.find((cell) => cell.kind !== 'pool');
-    if (first !== undefined || plan.mouth !== null) rivers.push(blocksSite(c, 'kawa', re, (first ?? plan.cells[0]!).x, (first ?? plan.cells[0]!).level, (first ?? plan.cells[0]!).z));
-    const last = plan.cells[plan.cells.length - 1];
-    if (last !== undefined) end = { x: last.x, z: last.z, level: last.level };
-    if (plan.mouth !== null || plan.stop === 'sea' || plan.stop === 'foot') break;
-  }
-  out.push(...rivers);
+    return true;
+  };
+  const spots = sourceSpots(g, c.px, c.pz, LIMIT, base0, (x, z) => !hit(x, z), field, seed);
+    // 上の 帯の 池から 作れない 山は、中腹・どこかの がけ（山の まん中から）へ 下げる
+  if (!spots.some((sp) => runChain(sp, SRC.near))) runChain({ x: c.px, z: c.pz, score: 0 }, Infinity);
   // 池: 平らな 段に 2〜5 こ（頂上の ほうに 必ず 1 つ）
   const ochiba = c.kind === 'momiji';
   const free = (x: number, z: number): boolean => !hit(x, z) && !wet.has(x * 100003 + z);

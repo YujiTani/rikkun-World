@@ -94,6 +94,8 @@ function planW(g: Ground, seed: number, c: Cand, w: number, free: (x: number, z:
 interface FallOpts {
   allow?: (x: number, z: number) => boolean;
   blocked?: (x: number, z: number) => boolean;
+  /** 組めた 滝を 手なおしして 返す（null = 採らない。なければ そのまま 採る） */
+  adjust?: (p: FallPlan) => FallPlan | null;
 }
 
 export function planFalls(g: Ground, px: number, pz: number, seed: number, count: number, avoid: readonly Rect[], river: (p: FallPlan) => number, opts: FallOpts = {}): FallPlan[] {
@@ -107,7 +109,8 @@ export function planFalls(g: Ground, px: number, pz: number, seed: number, count
     let tried = 0;
     for (const c of cs) {
       if (out.some((o) => Math.max(Math.abs(o.lip[0]![0] - c.lx), Math.abs(o.lip[0]![1] - c.lz)) < FALL.apart)) continue;
-      const p = plan(g, seed, c, (x, z) => !hit(x, z));
+      const p0 = plan(g, seed, c, (x, z) => !hit(x, z));
+      const p = p0 === null || opts.adjust === undefined ? p0 : opts.adjust(p0);
       if (p === null) continue;
       // 川が 長く のびる 所を 優先（落差は 川の 長さの つぎ）。川が みじかい 所は えらばない
       const len = river(p);
