@@ -44,7 +44,7 @@ interface StairStep {
 }
 
 /** 立てた いしどうろう 1 つ（台の まん中の マスと 大きさ） */
-export interface Lamp {
+interface Lamp {
   x: number;
   y: number;
   z: number;

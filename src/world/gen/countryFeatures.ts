@@ -28,9 +28,9 @@ const KIND_REACH = {
   susuki: FEATURE_TUNE.reach.tsukimiIwa,
   take: FEATURE_TUNE.reach.takenoko,
   kappa: 0,
-  iwayama: MOUNTAIN_TUNE.suisho.reach,
-  tengu: MOUNTAIN_TUNE.summitReach + Math.max(MOUNTAIN_TUNE.fallback.touro, MOUNTAIN_TUNE.kaidan.startGap, 7), // 7 = 目じるし（お堂）の さがす はんい // 頂上（点から 6）＋ とうろうの さがす はんい 3 ／ かいだんの はじまり 2
-  momiji: MOUNTAIN_TUNE.summitReach + MOUNTAIN_TUNE.fallback.oomomiji + 24, // 24 = 目じるし（あずまや・広場の とりい。頂上から 30）の ぶん // 頂上 ＋ おおもみじの さがす はんい 6
+  iwayama: Math.max(MOUNTAIN_TUNE.suisho.reach, 40), // 40 = 目じるし（石ぞう・いしの とりい）の さがす はんい
+  tengu: MOUNTAIN_TUNE.summitReach + Math.max(MOUNTAIN_TUNE.fallback.touro, MOUNTAIN_TUNE.kaidan.startGap, 34), // 34 = 目じるし（お堂・やぐら・頂上から いどまで）の さがす はんい // 頂上（点から 6）＋ とうろうの さがす はんい 3 ／ かいだんの はじまり 2
+  momiji: MOUNTAIN_TUNE.summitReach + MOUNTAIN_TUNE.fallback.oomomiji + 30, // 30 = 目じるし（あずまや・広場の とりいと ほこら・すその いど。頂上から 34）の ぶん // 頂上 ＋ おおもみじの さがす はんい 6
   yuki: MOUNTAIN_TUNE.summitReach + MOUNTAIN_TUNE.fallback.yukidaruma,
 } as const satisfies Record<CountryKind, number>;
 

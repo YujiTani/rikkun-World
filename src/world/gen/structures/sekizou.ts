@@ -50,6 +50,6 @@ export const SEKIZOU: StructureShape = {
     M: 'koke_ara_ishi',
   },
   anchor: { x: 4, z: 3 },
-  base: { id: 'koke_ara_ishi', maxFill: 4 },
-  maxSlope: 3,
+  base: { id: 'koke_ara_ishi', maxFill: 5 },
+  maxSlope: 4,
 };

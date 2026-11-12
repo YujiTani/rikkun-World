@@ -39,6 +39,6 @@ export const YAGURA: StructureShape = {
     W: 'shikkui',
   },
   anchor: { x: 3, z: 3 },
-  base: { id: 'ara_ishi', maxFill: 4 },
-  maxSlope: 3,
+  base: { id: 'ara_ishi', maxFill: 6 },
+  maxSlope: 5,
 };

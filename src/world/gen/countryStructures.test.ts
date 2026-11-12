@@ -67,17 +67,60 @@ describe('山の上の 目じるし（?structures=1）', () => {
     expect(tor).toBeGreaterThanOrEqual(1);
   });
 
-  it('いわやま・ゆきやまには 置かない', () => {
-    for (const kind of ['iwayama', 'yuki']) {
-      for (const m of mountains(kind, 3)) expect(sitesAround(m, ['odou', 'torii', 'azumaya', 'ishidan']), kind).toEqual([]);
+  it('ゆきやまには 置かない。いわやまには 石の 目じるし（石ぞう・いしの とりい）だけ', () => {
+    for (const m of mountains('yuki', 3)) expect(sitesAround(m, ['odou', 'torii', 'azumaya', 'ishidan', 'sekizou', 'hokora', 'ido', 'yagura', 'ojizou', 'ishi_torii'])).toEqual([]);
+    let zou = 0;
+    let tor = 0;
+    for (const m of mountains('iwayama', 8)) {
+      const s = sitesAround(m, ['odou', 'torii', 'azumaya', 'ishidan', 'sekizou', 'ishi_torii']);
+      expect(s.filter((q) => ['odou', 'torii', 'azumaya', 'ishidan'].includes(q.type)), 'いわやま').toEqual([]);
+      expect(s.filter((q) => q.type === 'sekizou').length, '1 つの 山に 0〜1').toBeLessThanOrEqual(1);
+      zou += s.filter((q) => q.type === 'sekizou').length;
+      tor += s.filter((q) => q.type === 'ishi_torii').length;
     }
+    expect(zou).toBeGreaterThanOrEqual(1);
+    expect(tor).toBeGreaterThanOrEqual(1);
+  });
+
+  it('石ぞうは かべの 前（うしろの 地面が 高い）に 立つ。おじぞうさんは 石段の わき・やぐらは お堂の ちかく・ほこら・いどは もみじやま', () => {
+    let wall = 0;
+    for (const m of mountains('iwayama', 8)) {
+      for (const z of sitesAround(m, ['sekizou'])) {
+        const higher = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => T.height(z.x + dx! * 6, z.z + dz! * 6) >= z.y + 2);
+        expect(higher, '石ぞうの うしろは かべ').toBe(true);
+        wall++;
+      }
+    }
+    expect(wall).toBeGreaterThanOrEqual(1);
+    let jizou = 0;
+    let yagura = 0;
+    for (const m of mountains('tengu', 8)) {
+      const all = sitesAround(m, ['odou', 'ishidan', 'ojizou', 'yagura', 'ido']);
+      const odou = all.find((q) => q.type === 'odou');
+      const st = all.find((q) => q.type === 'ishidan');
+      if (!odou) continue;
+      for (const j of all.filter((q) => q.type === 'ojizou')) {
+        jizou++;
+        expect(st, '石段が ある').toBeDefined();
+        expect(Math.min(...st!.path!.map((p) => Math.max(Math.abs(p.x - j.x), Math.abs(p.z - j.z)))), '石段の わき').toBeLessThanOrEqual(12);
+      }
+      for (const y of all.filter((q) => q.type === 'yagura')) {
+        yagura++;
+        expect(Math.max(Math.abs(y.x - odou.x), Math.abs(y.z - odou.z))).toBeLessThanOrEqual(18);
+      }
+    }
+    expect(jizou).toBeGreaterThanOrEqual(1);
+    expect(yagura).toBeGreaterThanOrEqual(1);
+    let hokora = 0;
+    for (const m of mountains('momiji', 8)) hokora += sitesAround(m, ['hokora']).length;
+    expect(hokora).toBeGreaterThanOrEqual(1);
   });
 
   it('はじまりの 範囲（regionRect）には 置かない・どの ブロックも 世界の 高さの 中', () => {
     const r = regionRect(seed);
-    for (const kind of ['tengu', 'momiji']) {
+    for (const kind of ['tengu', 'momiji', 'iwayama']) {
       for (const m of mountains(kind, 6)) {
-        for (const s of sitesAround(m, ['odou', 'torii', 'azumaya', 'ishidan'])) {
+        for (const s of sitesAround(m, ['odou', 'torii', 'azumaya', 'ishidan', 'yagura', 'ido', 'ojizou', 'hokora', 'sekizou', 'ishi_torii'])) {
           expect(s.foot[2] < r.x0 || s.foot[0] >= r.x1 || s.foot[3] < r.z0 || s.foot[1] >= r.z1, `${s.type} が 範囲に かかる`).toBe(true);
           for (const b of s.blocks) expect(b.y >= 1 && b.y < WORLD_HEIGHT).toBe(true);
         }

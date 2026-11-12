@@ -1,6 +1,6 @@
 import { groundAt, MOUNTAIN_TUNE, rnd, range, site, standingSpot, summitOf, cheb, flatness, type Ctx, type FeatureSite, type PlacedBlock, type Summit } from './countryKit';
 import { kaidan } from './countryKaidan';
-import { momijiStructures, STRUCTURES_ON, tenguStructures } from './countryStructures';
+import { iwayamaStructures, momijiStructures, STRUCTURES_ON, tenguStructures } from './countryStructures';
 
 /**
  * 山の物（VOX-I-4b #187。docs/design/VOX-I.md §2.3）。国ごとに 1 つの 関数: いわやま = すいしょう、てんぐの やま = とうろう・かいだん、
@@ -29,7 +29,7 @@ export function iwayama(c: Ctx): FeatureSite[] {
   };
   for (let k = 0; k < K.tries; k++) tryAt(k, want, true);
   for (let k = 0; k < K.fillTries; k++) tryAt(K.tries + k, K.count[0], false);
-  return out;
+  return STRUCTURES_ON ? [...out, ...iwayamaStructures(c)] : out; // ?structures=1: 大きな 石ぞう・いしの とりいも
 }
 
 /** てんぐの やま: 頂上に とうろう、そばから すそへ かいだん */

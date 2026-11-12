@@ -19,6 +19,6 @@ export const OJIZOU: StructureShape = {
     S: 'shu_ita',
   },
   anchor: { x: 2, z: 0 },
-  base: { id: 'koke_ara_ishi', maxFill: 3 },
-  maxSlope: 2,
+  base: { id: 'koke_ara_ishi', maxFill: 5 },
+  maxSlope: 4,
 };
