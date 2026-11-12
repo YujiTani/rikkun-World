@@ -6,7 +6,7 @@ import { buildCascade, buildSupports, planCascade, type Cascade } from './waterV
 import { buildFall, fallKeepOut, footOf, planFalls } from './waterV2Fall';
 import type { BlockId } from '../../contracts';
 import type { FallPlan } from './waterV2Types';
-import { clearRects, Edit, waterLeaks, type Ground, type Rect } from './waterV2Kit';
+import { clearRects, Edit, snowCap, waterLeaks, type Ground, type Rect } from './waterV2Kit';
 import { buildPond } from './waterV2Pond';
 import { findPlateaus, plateauPonds } from './waterV2Flat';
 import { highSpots, sourceSpots, type SourceSpot } from './waterV2Source';
@@ -211,6 +211,7 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
       const riverCols = new Set<number>();
       for (const b of river?.blocks() ?? []) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) riverCols.add((b.x + dx) * 100003 + b.z + dz);
       buildSupports(ed, gb, seed, plan, rock, free, (x, z) => riverCols.has(x * 100003 + z));
+      snowCap(ed, (x, z) => c.T.topBlock(x, z, c.T.height(x, z)) === B.snow); // 雪山なら 雪の きまりと 同じに 雪を のせる
       const all = ed.blocks();
       // 滝ごとの 場所（列を いちばん 近い 落ち口の 滝に ふりわける）
       const mids = plan.stages.map((st) => st.lip[Math.floor(st.lip.length / 2)]!);

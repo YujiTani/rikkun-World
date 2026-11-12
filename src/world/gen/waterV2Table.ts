@@ -30,6 +30,8 @@ export const WATER_BLOCKS = {
   fill: 'ara_ishi' as BlockId,
   /** もみじやまの 池の 岸 */
   ochiba: 'ochiba' as BlockId,
+  /** 雪山の ささえ岩・ふちの 上に のせる 雪（山の 雪と 同じ ブロック） */
+  snow: 'snow' as BlockId,
   /** 岸に 草・花を 置く 地面（くさの ブロック） */
   grassTop: 'grass' as BlockId,
   /** 岸の 草・花 */

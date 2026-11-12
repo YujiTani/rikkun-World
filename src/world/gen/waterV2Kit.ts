@@ -85,6 +85,27 @@ export class Edit {
   }
 }
 
+/** 雪を のせて よい 岩（ささえ岩・ふちの 山の 岩とあらいし） */
+const SNOW_ROCK: readonly BlockId[] = ['stone', 'dirt', 'coal_ore', 'ara_ishi', 'koke_ara_ishi', 'koke_ishi'] as BlockId[];
+/** 水が 通る 列に ある ブロック（この 列には 雪を のせない） */
+const WET_IDS: readonly BlockId[] = ['water', 'wakimizu', 'takitsubo'] as BlockId[];
+
+/**
+ * 水 11 回め: 雪山の 滝の ささえ岩・受け皿の ふちの「上を 向いた 面」に 雪を のせる。列ごとに いちばん 上が 岩なら、そこ 1 つを 雪に 置きかえる（高さは かわらない）。
+ * snowAt(x, z) = その 列の 山の 地面が 雪か（山の 雪の きまり `topBlock` と 同じ）。水・落ち口・たきつぼの ある 列には のせない。
+ */
+export function snowCap(ed: Edit, snowAt: (x: number, z: number) => boolean): void {
+  const top = new Map<number, { x: number; y: number; z: number; id: BlockId }>();
+  const wet = new Set<number>();
+  for (const b of ed.blocks()) {
+    const k = b.x * 100003 + b.z;
+    if (WET_IDS.includes(b.id)) wet.add(k);
+    const t = top.get(k);
+    if (t === undefined || b.y > t.y) top.set(k, b);
+  }
+  for (const [k, b] of top) if (!wet.has(k) && SNOW_ROCK.includes(b.id) && snowAt(b.x, b.z)) ed.set(b.x, b.y, b.z, 'snow' as BlockId);
+}
+
 /** 乱数で 選ぶ（場所 ＋ 目的の 番号だけで 決まる） */
 export function pick<T>(seed: number, list: readonly T[], x: number, z: number, n: number): T {
   return list[Math.floor(hash01(seed, x, z, n) * list.length)]!;

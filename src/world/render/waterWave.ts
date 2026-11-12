@@ -2,6 +2,7 @@ import type { MeshBasicMaterial } from 'three';
 import { MAGMA_TUNING } from '../blocks/liquids';
 import { ATLAS_COLS } from '../blocks/textures';
 import { MAGMA_BOIL_FRAMES } from '../blocks/waterfallTextures';
+import { FLOW_STRIPE } from '../blocks/waterFlow';
 import { WAVE_AMP, WAVE_LENGTH, WAVE_PERIOD } from '../blocks/water';
 
 /**
@@ -49,4 +50,41 @@ export function applyWaterWave(material: MeshBasicMaterial): void {
       .replace('#include <uv_vertex>', `#include <uv_vertex>${BOIL_GLSL}`);
   };
   material.customProgramCacheKey = () => `${prevKey.call(material)}-wave`;
+}
+
+/**
+ * 水 11 回め: 落ちる水の 横の 面に「下へ 流れる しろい すじ」。式は `flowStripe`（blocks/waterFlow.ts）と 同じ。
+ * 横の 面かは 画面の 微分から 出す（面の 法線の y が 小さい）。水の 青い 絵（アトラス）だけに かける（マグマは 赤いので かからない）。
+ * 時間は `uWaveTime`（ゆらめきと 同じ。一時停止で とまる）。material は 1 つの まま、描画回数は ふえない。`applyWaterWave` の あとで 呼ぶ。
+ */
+const FLOW_FRAG = `
+{
+  vec3 fn = cross(dFdx(vFlowPos), dFdy(vFlowPos));
+  float side = 1.0 - step(0.5, abs(fn.y) / max(length(fn), 1e-6));
+  float blue = clamp((diffuseColor.b - diffuseColor.r) * 4.0, 0.0, 1.0);
+  float col = floor((vFlowPos.x + vFlowPos.z) * ${g(FLOW_STRIPE.columns)});
+  float h = fract(sin(col * 12.9898) * 43758.5453);
+  float on = 1.0 - step(${g(FLOW_STRIPE.density)}, h);
+  float p = (vFlowPos.y + ${g(FLOW_STRIPE.speed)} * uWaveTime) * ${g(FLOW_STRIPE.repeat)} + fract(sin((col + 7.3) * 12.9898) * 43758.5453);
+  float f = fract(p);
+  float st = on * clamp(f / 0.08, 0.0, 1.0) * clamp((${g(FLOW_STRIPE.length)} - f) / ${g(FLOW_STRIPE.length * 0.8)}, 0.0, 1.0);
+  float k = st * side * blue;
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.97, 1.0), k * ${g(FLOW_STRIPE.white)});
+  diffuseColor.a = max(diffuseColor.a, k * 0.8);
+}`;
+
+export function applyWaterFlow(material: MeshBasicMaterial): void {
+  const prev = material.onBeforeCompile;
+  const prevKey = material.customProgramCacheKey;
+  material.onBeforeCompile = (shader, renderer) => {
+    prev.call(material, shader, renderer);
+    shader.uniforms.uWaveTime = waterWaveUniforms.uWaveTime;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vFlowPos;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFlowPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vFlowPos;\nuniform float uWaveTime;')
+      .replace('#include <map_fragment>', `#include <map_fragment>${FLOW_FRAG}`);
+  };
+  material.customProgramCacheKey = () => `${prevKey.call(material)}-flow`;
 }

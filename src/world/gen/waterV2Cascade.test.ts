@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BlockId } from '../../contracts';
 import { buildSupports, type Cascade } from './waterV2Cascade';
-import { basinNorm, Edit, makeBasin, type Basin } from './waterV2Kit';
+import { basinNorm, Edit, makeBasin, snowCap, type Basin } from './waterV2Kit';
 import { WATER_TUNE } from './waterV2Table';
 
 /** 段々の 滝の 見た目（10 回め）: 受け皿の 形・ささえ岩の こぶ・山の 岩 */
@@ -96,5 +96,38 @@ describe('ささえ岩（buildSupports）', () => {
     expect(ed.get(13, 61, 0)).toBeUndefined();
     expect(ed.has(14, 0)).toBe(false);
     expect(ed.has(15, 0)).toBe(false);
+  });
+});
+
+describe('snowCap（水 11 回め: 雪山の ささえ岩・ふちに 雪）', () => {
+  const id = (s: string): BlockId => s as BlockId;
+  const build = (): Edit => {
+    const ed = new Edit();
+    for (let y = 41; y <= 60; y++) ed.set(1, y, 0, id('stone')); // 岩の 柱（上が 空）
+    for (let y = 41; y <= 60; y++) ed.set(2, y, 0, id('stone')); // 雪が ない 所の 柱
+    ed.set(3, 60, 0, id('ara_ishi'));
+    ed.set(3, 61, 0, id('water')); // 水の ある 列
+    ed.set(4, 60, 0, id('stone'));
+    ed.set(4, 61, 0, id('wakimizu')); // 落ち口の 列
+    ed.set(5, 60, 0, id('sand')); // 岩では ない（浅瀬の すな）
+    return ed;
+  };
+  const snowAt = (x: number): boolean => x !== 2;
+
+  it('雪の 山の 岩の 柱の てっぺん 1 つだけ 雪に する（高さは そのまま）', () => {
+    const ed = build();
+    snowCap(ed, snowAt);
+    expect(ed.get(1, 60, 0)).toBe('snow');
+    expect(ed.get(1, 59, 0)).toBe('stone');
+    expect(ed.topOf(1, 0)).toBe(60);
+  });
+  it('雪が ない 山・水の 列・落ち口・岩で ない ブロックには のせない', () => {
+    const ed = build();
+    snowCap(ed, snowAt);
+    expect(ed.get(2, 60, 0)).toBe('stone');
+    expect(ed.get(3, 60, 0)).toBe('ara_ishi');
+    expect(ed.get(3, 61, 0)).toBe('water');
+    expect(ed.get(4, 60, 0)).toBe('stone');
+    expect(ed.get(5, 60, 0)).toBe('sand');
   });
 });
