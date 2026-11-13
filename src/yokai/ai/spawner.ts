@@ -149,6 +149,8 @@ export class YokaiSpawner {
       xp: st.xp,
       speedMul: 1,
       dropRolls: 1,
+      hit1: false,
+      hit2: false,
       bodyScale: 1,
       dims: KIND_AI[kind],
       stage: 1,

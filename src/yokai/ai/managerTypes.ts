@@ -63,6 +63,8 @@ export interface YokaiManagerOptions {
   lightMin?: number;
   /** プレイヤーが妖怪をたおした（経験値用。xp = 場所の倍率 M と二つ名を入れた数） */
   onDefeat?: (kind: YokaiKind, info: DefeatInfo) => void;
+  /** TOWN-1 1A: プレイヤーが たおした（ようかいダマ用。当てた 人は 人ごと。だれも 当てずに 消えた ときは 呼ばない） */
+  onDama?: (info: DefeatDama) => void;
   /**
    * その x・z の「生成の 地形の 高さ」（地面。掘ったり 置いたり しても かわらない）。つなぎ込みは terrainFor(seed).height を わたす。
    * 地下に いる ＝ プレイヤーの 足が これより 6 マス 以上 下（MINE-1A §4.3）。なければ いつも 地上
@@ -143,6 +145,16 @@ export interface DefeatInfo {
   xp: number;
   title: YokaiTitle;
   m: number;
+}
+
+/** たおした 妖怪の ようかいダマ用の 知らせ（TOWN-1 1A。onDefeat と 別に 渡す） */
+export interface DefeatDama {
+  id: number;
+  kind: YokaiKind;
+  title: YokaiTitle;
+  /** 1 回でも 当てた 人 */
+  hit1: boolean;
+  hit2: boolean;
 }
 
 export interface SpawnOptions {

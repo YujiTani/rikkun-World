@@ -17,7 +17,7 @@ interface DefeatDeps {
   stag: Pick<StaggerBook, 'remove'>;
   events: Pick<YokaiEvents, 'emit' | 'tick'>;
   /** onDefeat・harapan・samurai・onLegendDrop を 呼ぶときに 読む（つなぎ込みが あとから 書きかえても 効く） */
-  opts: Pick<YokaiManagerOptions, 'onDefeat' | 'harapan' | 'samurai' | 'onLegendDrop'>;
+  opts: Pick<YokaiManagerOptions, 'onDefeat' | 'onDama' | 'harapan' | 'samurai' | 'onLegendDrop'>;
   rng: Rng;
   nushiRng: Rng;
   settings: W2Settings;
@@ -37,6 +37,7 @@ export class YokaiDefeat {
     e.state = 'dying';
     e.model.die();
     if (byPlayer) d.opts.onDefeat?.(e.kind, { who, xp: e.xp, title: e.title, m: e.m });
+    if (byPlayer && (e.hit1 || e.hit2)) d.opts.onDama?.({ id: e.id, kind: e.kind, title: e.title, hit1: e.hit1, hit2: e.hit2 });
     // 水の 中の 妖怪の ドロップは 水にういて ひろいにくいので、たおした ときに そのまま 持ち物に 入る（子どもが 追いかけなくていい）
     const direct = KIND_TRAITS[e.kind].swims;
     let total = 0;

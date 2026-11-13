@@ -258,3 +258,18 @@ describe('1 人の とき（AC113）: players が なければ 今の とおり'
     expect(bh.last?.source).toBe('burst');
   });
 });
+
+describe('TOWN-1 1A: 1 回でも 当てた 人を おぼえる（ようかいダマを わたす 人）', () => {
+  it('1P だけ → hit1 のみ、2P も 当てたら 両方。ダメージ 0（当たらない）は 数えない。reset で もどる', () => {
+    const { bh } = rig();
+    expect([bh.hit1, bh.hit2]).toEqual([false, false]);
+    expect(bh.damage('hand', 0, null, 'test', 2)).toBe(0);
+    expect(bh.hit2, 'ダメージ 0 は 当てた ことに しない').toBe(false);
+    expect(bh.damage('hand', 1, null, 'test', 1)).toBeGreaterThan(0);
+    expect([bh.hit1, bh.hit2]).toEqual([true, false]);
+    expect(bh.damage('hand', 1, null, 'test', 2)).toBeGreaterThan(0);
+    expect([bh.hit1, bh.hit2]).toEqual([true, true]);
+    bh.reset();
+    expect([bh.hit1, bh.hit2]).toEqual([false, false]);
+  });
+});

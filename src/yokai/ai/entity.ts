@@ -97,6 +97,9 @@ export interface Ent {
   xp: number;
   speedMul: number;
   dropRolls: number;
+  /** TOWN-1 1A: 1P・2P が 1 回でも 当てたか（たおした とき ようかいダマを わたす 人） */
+  hit1: boolean;
+  hit2: boolean;
   bodyScale: number;
   /** 体の大きさを入れた 動きの数（半径・高さ。のぼれる段などは そのまま） */
   dims: KindAi;

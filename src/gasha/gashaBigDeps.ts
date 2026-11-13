@@ -134,6 +134,8 @@ export interface GashaBigHandle {
   damage(part: string, amount: number, at?: { x: number; y: number; z: number } | null, source?: string, who?: 1 | 2): number;
   /** 今 ねらっている 人（`duo.gasha.target()` の もと）。わざの 最中は 始めた ときに 決めた 人、それ以外は 今 いちばん 近い 人。体が ない・だれも ねらえない ときは null */
   targetWho(): 1 | 2 | null;
+  /** TOWN-1 1A: 1 回でも 当てた 人（ようかいダマを わたす 人。place で もどる） */
+  hitters(): { hit1: boolean; hit2: boolean };
   /** 撮影用: コアの 左右の まんなかで 体を 半分に 切って 断面を 見せる（左がわを 消す）/ もどす */
   section(on: boolean): void;
   /** さまよう（はって あるく）のを はじめる / 止める */

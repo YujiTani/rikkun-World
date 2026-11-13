@@ -341,6 +341,15 @@ describe('とどめ → 赤い コア → ごほうび（宝箱は ない）', (
     return r;
   }
 
+  it('TOWN-1 1A: コアを こわした とき、当てた 人（体の 口が 教える）に ようかいダマを わたす 口が 1 回 呼ばれる。口が 記録を 持たない ときは 1P', async () => {
+    const r = await finishing();
+    const seen: { hit1: boolean; hit2: boolean }[] = [];
+    r.env.gaveDama = (h) => { seen.push(h); };
+    r.boss().coreBroken();
+    r.boss().coreBroken(); // 二重に 出さない
+    expect(seen).toEqual([{ hit1: true, hit2: false }]);
+  });
+
   it('とどめの 一撃: まだ 倒した ことに しない（実績・ごほうびは コアを こわした とき）。BGM は 止める。形態は down', async () => {
     const r = await finishing();
     expect(r.rel.state()).toBe('present');

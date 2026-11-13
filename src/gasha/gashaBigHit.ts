@@ -274,6 +274,9 @@ export class BigHit {
   maxHp = T.hit.hp;
   hp = T.hit.hp;
   last: LastHit | null = null;
+  /** TOWN-1 1A: 1 回でも 当てた 人（たおした とき ようかいダマを わたす。place で もどる） */
+  hit1 = false;
+  hit2 = false;
   /** 当たった 回数（テスト用） */
   hits = 0;
   /** コアが 無敵の 間に はじいた 回数（テスト用） */
@@ -373,6 +376,8 @@ export class BigHit {
     this.hp = this.maxHp;
     this.last = null;
     this.hits = 0;
+    this.hit1 = false;
+    this.hit2 = false;
     this.mems.reset();
     this.makeBar();
   }
@@ -405,6 +410,8 @@ export class BigHit {
     if (dealt <= 0) return 0;
     this.hp = Math.max(0, round2(this.hp - dealt));
     this.hits++;
+    if (who === 2) this.hit2 = true;
+    else this.hit1 = true;
     this.last = { part: part as Part, mul, dealt, source, at: at ? { ...at } : null, hp: this.hp, who };
     if (source === 'blade' || (source === 'ray' && !this.viaArrow)) person.onStrike?.({ part, source });
     this.env.angry();

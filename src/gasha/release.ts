@@ -33,6 +33,8 @@ export interface BossHandle {
   maxHp(): number;
   /** COOP-1 4d-3: 今 ねらっている 人（`duo.gasha.target()` の もと） */
   targetWho?(): 1 | 2 | null;
+  /** TOWN-1 1A: 1 回でも 当てた 人（ようかいダマを わたす 人） */
+  hitters?(): { hit1: boolean; hit2: boolean };
   angry(on: boolean): void;
   walk(on: boolean): void;
   /** `pos: [x, y, z]`（体の 足もと） */
@@ -78,6 +80,8 @@ export interface ReleaseEnv {
   scatter(at: { x: number; y: number; z: number }, stacks: readonly ItemStack[], opts?: { speedMin?: number; speedMax?: number; upMin?: number; upMax?: number; glow?: Rarity }): void;
   /** 実績の 記録（`defeat:gashadokuro`） */
   record(key: string): void;
+  /** TOWN-1 1A: コアを こわした とき、当てた 人に ようかいダマを わたす（なくても よい） */
+  gaveDama?(hit: { hit1: boolean; hit2: boolean }): void;
   /** 画面の ログに 出す 一言 */
   say(text: string): void;
   /** がしゃどくろの BGM を 止める（少女が 出た 記録も けす） */
@@ -374,6 +378,7 @@ export class GashaRelease {
     this.vanishLeft = BIG.finish.crumble.sec + RELEASE.defeat.safetyExtraSec;
     this.killCount++;
     this.env.record('defeat:gashadokuro');
+    this.env.gaveDama?.(this.handle?.hitters?.() ?? { hit1: true, hit2: false }); // 当てた 人 ぜんいん（開発用 defeat() など 記録の ない ときは 1P）
     this.env.say('がしゃどくろ を たおした！');
     const stacks = rollReward(rewardRng(this.env.seed, this.killCount), RELEASE.reward, this.env.ninja?.() ?? { book: [], have: [] });
     const P = RELEASE.core.pile;
