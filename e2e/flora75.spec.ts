@@ -25,7 +25,8 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
       const F = (window as any).__floraT;
       const out: any = { steps: [] as string[] };
       // ROPE-1: くさ・のばな から ときどき（1/3）あさ が 出る（場所と 時こくの くじ）。あさ は 数えない（くさ 自体は 持ち物に ならない を 見る）
-      const total = (): number => h.inventory.get().slots.reduce((n: number, s: any) => n + (s && s.item !== 'hemp' ? s.count : 0), 0);
+      // TOWN-1 1A: 実績の ようかいダマ（仕様 §2.4）は 数えない（くさを こわしたら ふえるのは 実績の ダマだけ）
+      const total = (): number => h.inventory.get().slots.reduce((n: number, s: any) => n + (s && s.item !== 'hemp' && s.item !== 'yokai_orb' ? s.count : 0), 0);
       const tap = (a: string) => {
         h.input.release(a);
         h.input.press(a);

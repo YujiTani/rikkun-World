@@ -249,6 +249,7 @@ test('E18: ひびの 行きどまりの ひびの いしを ぜんぶ ほる →
       const d = (bag[id] ?? 0) - (before[id] ?? 0);
       if (d !== 0) gained[id] = d;
     }
+    delete gained.yokai_orb; // TOWN-1 1A: 宝箱を あけた 実績の ようかいダマ（仕様 §2.4）は 宝箱の 中身では ない（AC6）。中身の くらべからは 外す
     const want: Record<string, number> = {};
     for (const it of preview!.items) want[it.item] = (want[it.item] ?? 0) + it.count;
     expect(gained, '持ち物が プレビューの とおり ふえる〔あける 前との さ〕').toEqual(want);

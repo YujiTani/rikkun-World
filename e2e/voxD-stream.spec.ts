@@ -342,6 +342,7 @@ test.describe('VOX-D ストリーミング', () => {
 
   test('基準 15〜18（1 本の流れ）: 妖怪・ふくろ・たんす・かまど・畑 → P へ 捨てる → 15 → 1,200 step → もどる → 16〜18', async ({ page }) => {
     const W = 1200;
+    // TOWN-1 1A: 持ち物が いっぱいの ときに とれた 実績の ようかいダマは 足もとに 落ちる（仕様 §5）。やられて ばらまいた ふくろの 数・中身を 見る ので、ようかいダマの ふくろは くらべから 外す（下の 2 か所の filter）
     await openStream(page, wide('?nosave=1'));
     const P = await findLand(page);
     // ふくろ: 広場の すみで やられて ばらまく（もどり先の スタートから はなれた所。ひろわれない）
@@ -399,7 +400,7 @@ test.describe('VOX-D ストリーミング', () => {
           soil: w.getBlock(c.x, c.y, c.z),
           nYokai: h.yokai.list().length,
           tansu: JSON.stringify(h.storage.get(t.x, t.y, t.z)),
-          bags: h.combat.bags().map((b: any) => ({ x: b.position.x, y: b.position.y, z: b.position.z, slots: JSON.stringify(b.slots), ticksLeft: b.ticksLeft })),
+          bags: h.combat.bags().filter((b: any) => !b.slots.some((q: any) => q.item === 'yokai_orb')).map((b: any) => ({ x: b.position.x, y: b.position.y, z: b.position.z, slots: JSON.stringify(b.slots), ticksLeft: b.ticksLeft })),
           cx: sx >> 4,
           cz: sz >> 4,
           tick: h.tick(),
@@ -435,7 +436,7 @@ test.describe('VOX-D ストリーミング', () => {
         const h = window.__rikkun! as any;
         const w = h.world;
         const tick = h.tick();
-        const bags = h.combat.bags().map((b: any) => ({ x: b.position.x, y: b.position.y, z: b.position.z, slots: JSON.stringify(b.slots), ticksLeft: b.ticksLeft }));
+        const bags = h.combat.bags().filter((b: any) => !b.slots.some((q: any) => q.item === 'yokai_orb')).map((b: any) => ({ x: b.position.x, y: b.position.y, z: b.position.z, slots: JSON.stringify(b.slots), ticksLeft: b.ticksLeft }));
         const furnace = h.furnace.get(f.x, f.y, f.z);
         const tansu = JSON.stringify(h.storage.get(t.x, t.y, t.z));
         const stage = h.farm.crop(c.x, c.y + 1, c.z)?.stage ?? null;

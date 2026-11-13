@@ -544,6 +544,7 @@ test.describe('M2 持ち物', () => {
       h.input.release('primary');
       o.s1 = h.inventory.get().slots[1];
       h.inventory.setSlot(20, null);
+      h.inventory.remove('yokai_orb', 9999); // TOWN-1 1A: 実績の ようかいダマ（仕様 §2.4）が 空きの マスに 入るので、「あきの 一番 まえの マスに 入る」を 見る 前に かたづける
       h.world.setBlock(4, 10, 6, 'dirt');
       h.step(10);
       T.press(30);
