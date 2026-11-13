@@ -1,6 +1,7 @@
 import { CHUNK_SIZE } from '../../contracts';
 import type { FeatureSite } from './countryFeatures';
 import { featuresNearChunk } from './countryFeatureBlocks';
+import type { ShaftWorld } from './mineShafts';
 import { WATER_BLOCKS as B, WATER_V2 } from './waterV2Table';
 
 /**
@@ -45,7 +46,7 @@ function spotsOf(s: FeatureSite): readonly SplashSpot[] {
 }
 
 /** (px, pz) から range マス いないの しぶきの 場所（フラグが なければ いつも 空） */
-export function splashSpotsNear(seed: number, px: number, pz: number, range: number, out: SplashSpot[]): SplashSpot[] {
+export function splashSpotsNear(seed: number, px: number, pz: number, range: number, out: SplashSpot[], shafts?: ShaftWorld): SplashSpot[] {
   out.length = 0;
   if (!WATER_V2) return out;
   const seen = new Set<FeatureSite>();
@@ -53,7 +54,7 @@ export function splashSpotsNear(seed: number, px: number, pz: number, range: num
   const r2 = range * range;
   for (let cz = Math.floor((pz - range) / CHUNK_SIZE); cz <= Math.floor((pz + range) / CHUNK_SIZE); cz++) {
     for (let cx = Math.floor((px - range) / CHUNK_SIZE); cx <= Math.floor((px + range) / CHUNK_SIZE); cx++) {
-      for (const s of featuresNearChunk(seed, cx * CHUNK_SIZE, cz * CHUNK_SIZE).sites) {
+      for (const s of featuresNearChunk(seed, cx * CHUNK_SIZE, cz * CHUNK_SIZE, shafts).sites) {
         if ((s.type !== 'taki' && s.type !== 'kawa') || seen.has(s)) continue;
         seen.add(s);
         for (const p of spotsOf(s)) {

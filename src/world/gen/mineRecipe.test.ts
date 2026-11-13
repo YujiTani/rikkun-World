@@ -146,7 +146,7 @@ describe('AC1 まきもの: 宝箱の ない 坑道の いちばん 下の へ�
       expect(id, `${shaft.id}: まきものの ブロック`).not.toBe('air');
       expect(solidOf(id), `${shaft.id}: ${id} は 固く ない`).toBe(false);
     }
-  });
+  }, 20_000); // 単体 3.1 秒（CI は 約 3 倍 おそい。既定の 5 秒だと 時間切れ）→ 最低 20 秒
 
   it('右クリック（open）で とる: recipe(at) が 1 回・ブロックが 消える・taken が true。もう 1 回 右クリックしても 何も おきない', () => {
     for (const { seed, shaft } of scrolls.slice(0, 2)) {

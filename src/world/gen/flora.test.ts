@@ -699,7 +699,7 @@ describe('AC19: 保存した列は 保存したとおり・さわっていない
       const b = generateChunk(seed, cx, cz).sections.map((s) => sectionToArray(s).join(',')).join('|');
       expect(b).toBe(a);
     }
-  });
+  }, 20_000); // 単体 4.3 秒（CI は 約 3 倍 おそい。既定の 5 秒だと 時間切れ）→ 最低 20 秒
 });
 
 void CHUNK_SIZE;

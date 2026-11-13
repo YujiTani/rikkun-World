@@ -16,6 +16,7 @@ import { regionRect } from './region';
 import { terrainFor } from './terrain';
 import { waterSites } from './waterV2';
 import { waterV2SpringsIn } from './waterV2Hook';
+import { plainShaftWorld } from './mineShafts';
 import { splashSpotsNear } from './waterV2Splash';
 import { waterLeaks } from './waterV2Kit';
 import { WATER_TUNE } from './waterV2Table';
@@ -31,7 +32,7 @@ function mountains(): Ctx[] {
   for (let j = -12; j <= 12; j++) {
     for (let i = -12; i <= 12; i++) {
       const cell = T.map.cell(i, j);
-      if (cell.mountain && cell.i === i && cell.j === j) out.push({ T, i, j, px: cell.px, pz: cell.pz, kind: cell.kind });
+      if (cell.mountain && cell.i === i && cell.j === j) out.push({ T, i, j, px: cell.px, pz: cell.pz, kind: cell.kind, shafts: plainShaftWorld(seed) });
     }
   }
   return out;

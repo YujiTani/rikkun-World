@@ -48,7 +48,7 @@ export function waterSites(c: Ctx, others: readonly FeatureSite[]): FeatureSite[
   const R = LIMIT + 3;
   const hAt = windowMemo((x, z) => c.T.height(x, z), c.px, c.pz, R);
   // 坑道の 入口の まわりは 置けない 列（入口の 前を 水で ふさがない）
-  const shaftRects = shaftKeepOut(c.T.seed, c.px - R, c.pz - R, c.px + R, c.pz + R);
+  const shaftRects = shaftKeepOut(c.shafts, c.px - R, c.pz - R, c.px + R, c.pz + R);
   const plainMemo = windowMemo((x, z) => (plainAt(c, x, z) && !shaftRects.some((r) => inside(r, x, z)) ? 1 : 0), c.px, c.pz, R);
   const plain = (x: number, z: number): boolean => plainMemo(x, z) === 1;
   // 山の 点から はなれすぎた 所は 置けない（-1）

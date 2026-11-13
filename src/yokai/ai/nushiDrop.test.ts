@@ -173,7 +173,7 @@ describe('WEAPON-7 PR2・PR3 AC21: ヌシの 既定の 表（雷神剣・風神�
       expect(n[k], k).toBeGreaterThanOrEqual(Math.floor(even * 0.74));
       expect(n[k], k).toBeLessThanOrEqual(Math.ceil(even * 1.26));
     }
-  });
+  }, 20_000); // 単体 1.8 秒（CI は 約 3 倍 おそい。既定の 5 秒だと 時間切れ）→ 最低 20 秒
 });
 
 describe('WEAPON-7 PR3 AC28: 虹の 強さは 1 本ごとに 4〜10 の 整数（同じ 重さ）', () => {

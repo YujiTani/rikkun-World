@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { ShaftWorld } from '../world/gen/mineShafts';
 import { createRng, type Rng } from '../world/gen/random';
 import { splashSpotsNear, type SplashSpot } from '../world/gen/waterV2Splash';
 import { SPLASH, splashLife, splashRate, splashRise, splashSpread } from './splashModel';
@@ -16,6 +17,8 @@ export interface SplashFocus {
 
 export interface SplashDeps {
   seed: number;
+  /** その 世界の 坑道の 世界〔滝の 場所は 坑道の 入口を よけて きまる〕 */
+  shafts?: ShaftWorld;
   focus: () => SplashFocus;
   /** いまの 明るさ（夜は 少し 暗い 白に） */
   brightness: () => number;
@@ -62,7 +65,7 @@ export class SplashFx {
     this.refresh -= dt;
     if (this.refresh <= 0) {
       this.refresh = SPLASH.refresh;
-      splashSpotsNear(this.deps.seed, f.x, f.z, SPLASH.range, this.spots);
+      splashSpotsNear(this.deps.seed, f.x, f.z, SPLASH.range, this.spots, this.deps.shafts);
       for (const k of this.acc.keys()) if (!this.spots.includes(k)) this.acc.delete(k);
     }
     for (const s of this.spots) {

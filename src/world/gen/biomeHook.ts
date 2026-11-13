@@ -4,6 +4,7 @@ import { featuresInRect, type CountryFeature } from './countryFeatures';
 import { findSpacing, floraOfColumn, plantsInRect, type PlacedPlant } from './placement';
 import { clearingsInRect, spacingAt, type Clearing, type SpacingLevel } from './spacing';
 import { COUNTRY_TABLE, countryRow, type CountryRow } from './countryTable';
+import type { ShaftWorld } from './mineShafts';
 import { spawnOf } from './terrain';
 
 /**
@@ -85,7 +86,7 @@ export interface BiomeCountryPort {
 
 const copyRow = (r: CountryRow): CountryRow => ({ ...r, yokai: { ...r.yokai } });
 
-export function createBiomeHook(opts: { seed: number; player: () => { x: number; z: number }; countries?: BiomeCountryPort }): BiomeHook {
+export function createBiomeHook(opts: { seed: number; player: () => { x: number; z: number }; countries?: BiomeCountryPort; shafts?: ShaftWorld }): BiomeHook {
   const { seed } = opts;
   const port: BiomeCountryPort = opts.countries ?? { found: () => [], setFound: () => {}, current: () => null, quiet: () => {} };
   return {
@@ -110,7 +111,7 @@ export function createBiomeHook(opts: { seed: number; player: () => { x: number;
     },
     take: { path: (cx, cz) => takePath(seed, cx, cz) },
     plants: (x0, z0, x1, z1) => plantsInRect(seed, x0, z0, x1, z1),
-    features: (x0, z0, x1, z1) => featuresInRect(seed, x0, z0, x1, z1),
+    features: (x0, z0, x1, z1) => featuresInRect(seed, x0, z0, x1, z1, opts.shafts),
     flora: (cx, cz) => floraOfColumn(seed, cx, cz),
     clearings: (x0, z0, x1, z1) => clearingsInRect(seed, x0, z0, x1, z1),
     spacing: (x, z) => spacingAt(seed, x, z),

@@ -3,6 +3,7 @@ import { featureSitesTouching } from './countryFeatures';
 import { groundFn } from './countryStructureKit';
 import { type Ctx } from './countryKit';
 import { terrainFor } from './terrain';
+import { plainShaftWorld } from './mineShafts';
 import { waterSites } from './waterV2';
 import { waterLeaks } from './waterV2Kit';
 import { WATER_V2 } from './waterV2Table';
@@ -25,7 +26,7 @@ describe('水 v2 は 既定で 出る', () => {
       for (let i = -8; i <= 8; i++) {
         const cell = T.map.cell(i, j);
         if (!cell.mountain || cell.i !== i || cell.j !== j) continue;
-        const c: Ctx = { T, i, j, px: cell.px, pz: cell.pz, kind: cell.kind };
+        const c: Ctx = { T, i, j, px: cell.px, pz: cell.pz, kind: cell.kind, shafts: plainShaftWorld(seed) };
         const sites = waterSites(c, []);
         if (sites.some((s) => s.type === 'taki')) withFall++;
         const g = groundFn(c);
@@ -33,7 +34,7 @@ describe('水 v2 は 既定で 出る', () => {
       }
     }
     expect(withFall).toBeGreaterThan(0);
-  });
+  }, 40_000); // 単体 9.4 秒 → 4 倍で 40 秒
 
   it('はじまりの 範囲には 滝・川・池が 出ない', () => {
     const near = featureSitesTouching(seed, -START, -START, START, START).filter((s) => WATER.has(s.type));

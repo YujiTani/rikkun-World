@@ -4,6 +4,7 @@ import { GEN_CONFIG as C } from './config';
 import { nearMouth } from './mouths';
 import { hash01, subSeed } from './random';
 import { regionRect } from './region';
+import type { ShaftWorld } from './mineShafts';
 import type { Terrain } from './terrain';
 
 /**
@@ -107,6 +108,8 @@ export interface Ctx {
   px: number;
   pz: number;
   kind: CountryKind;
+  /** その 世界の 坑道の 世界〔水 v2 が 坑道の 入口を よける のに 使う〕 */
+  shafts: ShaftWorld;
 }
 
 const typeNo = (t: FeatureType): number => FEATURE_TYPES.indexOf(t);

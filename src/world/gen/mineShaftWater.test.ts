@@ -30,13 +30,13 @@ describe('坑道の 入口の 前に 水の 景色 v2 が 入らない', () => {
       }
     }
     expect(bad.slice(0, 5), `${bad.length} つ`).toEqual([]);
-  });
+  }, 100_000); // 単体 15〜23 秒（CI は 約 3 倍 おそい）→ 4 倍で 100 秒
 
   it('よける 四角は 入口の まわり 9 マスを ふくむ', () => {
     const seed = 103947;
     const sh = shaftWorldFor(seed).shafts(-700, -700, 700, 700, false)[0]!;
     const e = sh.entrance;
-    const rects = shaftKeepOut(seed, e.x - 5, e.z - 5, e.x + 5, e.z + 5);
+    const rects = shaftKeepOut(shaftWorldFor(seed), e.x - 5, e.z - 5, e.x + 5, e.z + 5);
     expect(rects.some((r) => r[0] <= e.x - R && r[2] >= e.x + R && r[1] <= e.z - R && r[3] >= e.z + R)).toBe(true);
   });
 });

@@ -4,6 +4,7 @@ import { GEN_CONFIG as C } from './config';
 import { iwayama, momiji, tengu, yuki } from './countryMountain';
 import { cheb, flatness, FEATURE_TUNE, groundAt, isSea, range, rnd, site, MOUNTAIN_TUNE, type CountryFeature, type Ctx, type FeatureSite, type PlacedBlock } from './countryKit';
 import { bambooRawHit, plantsOfChunk } from './plants';
+import { plainShaftWorld, type ShaftWorld } from './mineShafts';
 import { terrainFor, type Terrain } from './terrain';
 import { WATER_TUNE, WATER_V2 } from './waterV2Table';
 
@@ -263,25 +264,31 @@ const BUILDERS = {
 // ------------------------------------------------------------------ 窓口
 
 const MAX_CELLS = 600;
-const memo = new WeakMap<Terrain, Map<number, FeatureSite[]>>();
+// 覚え: 地形ごと → 坑道の 世界ごと〔水 v2 が 坑道の 入口を よける ので、坑道の 世界が ちがえば 置く 物も ちがう〕
+const memo = new WeakMap<Terrain, WeakMap<ShaftWorld, Map<number, FeatureSite[]>>>();
 
-/** 升目 (i, j) に 置く 物（覚える。Terrain を 作りなおすと 覚えも 空）。山は 2×2 の 左上の 升目だけが 持つ */
-export function sitesOfCell(T: Terrain, i: number, j: number): FeatureSite[] {
-  let m = memo.get(T);
-  if (!m) memo.set(T, (m = new Map()));
+/**
+ * 升目 (i, j) に 置く 物（覚える。Terrain を 作りなおすと 覚えも 空）。山は 2×2 の 左上の 升目だけが 持つ。
+ * shafts = その 世界の 坑道の 世界〔ゲームの 中では つなぎ込みが 1 つ 作って わたす。なければ 古い 列の ない 世界〕。
+ */
+export function sitesOfCell(T: Terrain, i: number, j: number, shafts: ShaftWorld = plainShaftWorld(T.seed)): FeatureSite[] {
+  let byShafts = memo.get(T);
+  if (!byShafts) memo.set(T, (byShafts = new WeakMap()));
+  let m = byShafts.get(shafts);
+  if (!m) byShafts.set(shafts, (m = new Map()));
   const key = (i + 50000) * 100003 + (j + 50000);
   const hit = m.get(key);
   if (hit) return hit;
   const cell = T.map.cell(i, j);
   const build = cell.startForced || (cell.mountain && (cell.i !== i || cell.j !== j)) ? null : BUILDERS[cell.kind];
-  const out = build ? build({ T, i: cell.i, j: cell.j, px: cell.px, pz: cell.pz, kind: cell.kind }) : [];
+  const out = build ? build({ T, i: cell.i, j: cell.j, px: cell.px, pz: cell.pz, kind: cell.kind, shafts }) : [];
   if (m.size >= MAX_CELLS) m.delete(m.keys().next().value as number);
   m.set(key, out);
   return out;
 }
 
 /** 升目の 範囲を 見て、reach(kind) 以内に 点が ある 升目の 物を 集める。mode = 'base' なら 基準の マスが 四角に 入る 物、'foot' なら 足もとの 四角が 四角に かかる 物 */
-function sitesIn(seed: number, x0: number, z0: number, x1: number, z1: number, mode: 'base' | 'foot'): FeatureSite[] {
+function sitesIn(seed: number, x0: number, z0: number, x1: number, z1: number, mode: 'base' | 'foot', shafts: ShaftWorld): FeatureSite[] {
   const T = terrainFor(seed);
   const extra = mode === 'foot' ? 1 : 0;
   const R = extra === 1 ? REACH_FOOT_MAX : REACH_MAX;
@@ -300,7 +307,7 @@ function sitesIn(seed: number, x0: number, z0: number, x1: number, z1: number, m
       if (r === 0) continue;
       const rr = r + extra * (FOOT_HALF + KIND_EXTENT[cl.kind]);
       if (cl.px + rr < x0 || cl.px - rr > x1 || cl.pz + rr < z0 || cl.pz - rr > z1) continue;
-      for (const s of sitesOfCell(T, i, j)) {
+      for (const s of sitesOfCell(T, i, j, shafts)) {
         const f = s.foot;
         const hit = mode === 'base' ? s.x >= x0 && s.x <= x1 && s.z >= z0 && s.z <= z1 : f[2] >= x0 && f[0] <= x1 && f[3] >= z0 && f[1] <= z1;
         if (hit) out.push(s);
@@ -311,23 +318,23 @@ function sitesIn(seed: number, x0: number, z0: number, x1: number, z1: number, m
 }
 
 /** 四角 [x0, x1] × [z0, z1]（ふくむ）の 基準の マスが 入る 物 */
-export function featureSitesInRect(seed: number, x0: number, z0: number, x1: number, z1: number): FeatureSite[] {
-  return sitesIn(seed, x0, z0, x1, z1, 'base');
+export function featureSitesInRect(seed: number, x0: number, z0: number, x1: number, z1: number, shafts: ShaftWorld = plainShaftWorld(seed)): FeatureSite[] {
+  return sitesIn(seed, x0, z0, x1, z1, 'base', shafts);
 }
 
 /** 四角 [x0, x1] × [z0, z1]（ふくむ）に 足もとが かかる 物（チャンクの 生成が 使う。かいだんは 基準の マスから 遠くまで のびる） */
-export function featureSitesTouching(seed: number, x0: number, z0: number, x1: number, z1: number): FeatureSite[] {
-  return sitesIn(seed, x0, z0, x1, z1, 'foot');
+export function featureSitesTouching(seed: number, x0: number, z0: number, x1: number, z1: number, shafts: ShaftWorld = plainShaftWorld(seed)): FeatureSite[] {
+  return sitesIn(seed, x0, z0, x1, z1, 'foot', shafts);
 }
 
 /** window.__rikkun.biome.features: 四角の 中の 国だけの 物（VOX-I §8.3）。生成と 同じ 場所 */
-export function featuresInRect(seed: number, x0: number, z0: number, x1: number, z1: number): CountryFeature[] {
-  return featureSitesInRect(seed, x0, z0, x1, z1).map(({ type, cx, cz, x, y, z }) => ({ type, cx, cz, x, y, z }));
+export function featuresInRect(seed: number, x0: number, z0: number, x1: number, z1: number, shafts?: ShaftWorld): CountryFeature[] {
+  return featureSitesInRect(seed, x0, z0, x1, z1, shafts).map(({ type, cx, cz, x, y, z }) => ({ type, cx, cz, x, y, z }));
 }
 
 /** かいだんの 道（床の ブロックの 場所。頂上がわの はしから すそへ 1 歩ずつ、1 歩に 2 マス）。かいだん 以外・ない 時は 空 */
-export function kaidanPath(seed: number, f: CountryFeature): { x: number; y: number; z: number }[] {
+export function kaidanPath(seed: number, f: CountryFeature, shafts?: ShaftWorld): { x: number; y: number; z: number }[] {
   if (f.type !== 'kaidan') return [];
-  const s = sitesOfCell(terrainFor(seed), f.cx, f.cz).find((q) => q.type === 'kaidan' && q.x === f.x && q.z === f.z);
+  const s = sitesOfCell(terrainFor(seed), f.cx, f.cz, shafts).find((q) => q.type === 'kaidan' && q.x === f.x && q.z === f.z);
   return s?.path ? s.path.map((p) => ({ ...p })) : [];
 }

@@ -32,7 +32,7 @@ describe('countryFeatureBlocks', () => {
     const a = featuresNearChunk(seed, (p.x >> 4) * 16, (p.z >> 4) * 16);
     expect(featuresNearChunk(seed, (p.x >> 4) * 16, (p.z >> 4) * 16)).toBe(a);
     expect(featuresNearChunk(seed, 100000, 100000).sites).toEqual([]);
-  });
+  }, 20_000); // 単体 2.5 秒（CI は 約 3 倍 おそい。既定の 5 秒だと 時間切れ）→ 最低 20 秒
 
   it('ひまわりの まわり（足もとから treeMargin 以内に みきが ある 木）は 生成で のこらない', () => {
     const s = firstOf('hana', 'himawari');
@@ -59,5 +59,5 @@ describe('countryFeatureBlocks', () => {
     const f = featuresNearChunk(seed, (s.x >> 4) * 16, (s.z >> 4) * 16);
     expect(f.ground.get(columnKey(s.x, s.z))).toBe(s.y - 1);
     expect(t.height(s.x, s.z)).toBeGreaterThanOrEqual(s.y - 1);
-  });
+  }, 20_000); // 単体 1.7 秒（CI は 約 3 倍 おそい。既定の 5 秒だと 時間切れ）→ 最低 20 秒
 });

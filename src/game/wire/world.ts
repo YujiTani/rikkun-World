@@ -114,7 +114,7 @@ export async function wireBoot() {
   installMicroCountries(world, seed);
   // WATER-1: 水の 流れ(setBlock の フックを つなぐ。毎ステップ step.ts が update、列の 読みこみ・手放しは StreamHost が知らせる)
   // MAGMA-SPAWN: 自然の 滝の ある 生成の 列だけ わきどころを さがす
-  const springsIn = (cx: number, cz: number): boolean => terrainFor(seed).liquid.pondsIn(cx * 16, cz * 16, cx * 16 + 15, cz * 16 + 15).some((p) => p.fall !== null) || waterV2SpringsIn(seed, cx, cz); // ?water=v2: 山の 滝・川の わきどころ
+  const springsIn = (cx: number, cz: number): boolean => terrainFor(seed).liquid.pondsIn(cx * 16, cz * 16, cx * 16 + 15, cz * 16 + 15).some((p) => p.fall !== null) || waterV2SpringsIn(seed, cx, cz, shafts); // ?water=v2: 山の 滝・川の わきどころ
   const water = createWaterSystem({ world, tick: () => game.tick, seed, springsIn });
   let shafts: ShaftWorld | undefined; // 保存を 読んだ あとで 作る〔island は それを あとから 聞く〕
   const island = createWorldInfo(seed, world, () => shafts);
