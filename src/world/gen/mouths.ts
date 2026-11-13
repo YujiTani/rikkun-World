@@ -180,8 +180,24 @@ export function inMouthFootprint(m: Mouth, x: number, z: number, margin = 0): bo
 export function nearMouth(T: Terrain, x: number, z: number, margin: number): boolean {
   const cx = x >> 4;
   const cz = z >> 4;
-  for (const m of mouthsNear(T, cx, cz)) if (inMouthFootprint(m, x, z, margin)) return true;
+  for (const m of nearList(T, cx, cz)) if (inMouthFootprint(m, x, z, margin)) return true;
   return false;
+}
+
+/** 列ごとの 「かかるかもしれない 口たち」の おぼえ（同じ 列の 256 マスが 何度も 聞くので。口は シードで きまる ので 答えは かわらない） */
+const nearLists = new WeakMap<Terrain, Map<number, Mouth[]>>();
+/** おぼえる 列の 数の 上限（列。これを こえたら 空に して おぼえなおす） */
+const NEAR_LIST_MAX = 20000;
+function nearList(T: Terrain, cx: number, cz: number): Mouth[] {
+  let cache = nearLists.get(T);
+  if (cache === undefined) nearLists.set(T, (cache = new Map()));
+  const key = mkey(cx, cz);
+  let list = cache.get(key);
+  if (list === undefined) {
+    if (cache.size > NEAR_LIST_MAX) cache.clear();
+    cache.set(key, (list = mouthsNear(T, cx, cz)));
+  }
+  return list;
 }
 
 /**

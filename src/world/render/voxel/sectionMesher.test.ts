@@ -93,6 +93,12 @@ describe('SectionMesher（セクション 1 つのメッシュ。VOX-E）', () =
     }
   });
 
+  it('箱の段: はっぱと はっぱの あいだの 面は 描かない（3×3×3 の はっぱの かたまりは 外がわの 6 まいだけ）', () => {
+    const w = slab(10);
+    w.fill(20, 18, 20, 22, 20, 22, 'leaves'); // セクション (1, 1, 1) の まん中あたり（まわりは 空気）
+    expect(new SectionMesher(w).build(1, 1, 1, 'box').faces).toBe(6);
+  });
+
   it('座標はセクションの左下が 0（小ブロックの数）。箱は 0〜144 におさまる', () => {
     const w = slab(20);
     const d = new SectionMesher(w).build(1, 1, 1, 'box');

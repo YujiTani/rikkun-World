@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+// 古い 形（とうろう・かいだん）を 確かめる テスト: 既定は 目じるし（お堂・石段）なので ?structures=0 を はっきり 指定する（world/gen/lookFlags.ts。import より 前に きまる）
+vi.hoisted(() => {
+  (globalThis as { location?: unknown }).location = { search: '?trees=v1&mountain=v1&structures=0&drift=0&water=v1' };
+});
+import { describe, expect, it, vi } from 'vitest';
 import { SEA_Y } from '../../contracts';
 import { mountainFrame } from './biome';
 import { featuresNearChunk } from './countryFeatureBlocks';

@@ -145,7 +145,7 @@ describe('IndexedDB 版で 世界ぜんぶ（AC1）', () => {
     expect(c.world.hash()).toBe(a.world.hash());
     await expect(importSave(new MemoryBackend(), SAVE_ID, file, 8)).rejects.toThrow();
     await expect(importSave(new MemoryBackend(), SAVE_ID, Uint8Array.of(1, 2, 3), 7)).rejects.toThrow();
-  });
+  }, 20_000); // 単体 1.9 秒（CI は 約 3 倍 おそい。既定の 5 秒だと 時間切れ）→ 最低 20 秒
 });
 
 describe('requestPersist', () => {

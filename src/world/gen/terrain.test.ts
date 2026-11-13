@@ -16,26 +16,33 @@ describe('定数', () => {
 });
 
 describe('基準 3: 高さ H は SEA_Y−30〜270（200 シード × 64 列）', () => {
-  it('どの seed・どの場所でも範囲の中。負の座標・±30,000 でも動く', () => {
-    for (const seed of SEEDS_200) {
-      for (let i = 0; i < 8; i++) {
-        for (let j = 0; j < 8; j++) {
-          const x = i * 613 - 1900 + (seed % 7);
-          const z = j * 577 - 1800 - (seed % 5);
-          const t = terrainAt(seed, x, z);
-          expect(t.h).toBeGreaterThanOrEqual(SEA_Y - 30);
-          expect(t.h).toBeLessThanOrEqual(270);
-          expect(t.sea).toBe(t.h <= SEA_Y - 1);
-          expect(COUNTRY_KINDS).toContain(t.biome); // #184: 12 の国
+  // 時間上限（it の 3 つめ）: 山 v2・水 v2 の 最初の 計画が 重い（山 1 つ 約 6〜30 ミリ秒 × 山の 数）。
+  // 200 シードを 50 ずつ 4 つに 分けて（単体 各 約 20 秒。CI は 2〜3 倍 おそい）→ 各 80 秒。範囲の 基準は 同じ
+  for (let part = 0; part < 4; part++) {
+    it(`どの seed・どの場所でも範囲の中（シード ${part * 50 + 1}〜${part * 50 + 50} 番め）`, () => {
+      for (const seed of SEEDS_200.slice(part * 50, part * 50 + 50)) {
+        for (let i = 0; i < 8; i++) {
+          for (let j = 0; j < 8; j++) {
+            const x = i * 613 - 1900 + (seed % 7);
+            const z = j * 577 - 1800 - (seed % 5);
+            const t = terrainAt(seed, x, z);
+            expect(t.h).toBeGreaterThanOrEqual(SEA_Y - 30);
+            expect(t.h).toBeLessThanOrEqual(270);
+            expect(t.sea).toBe(t.h <= SEA_Y - 1);
+            expect(COUNTRY_KINDS).toContain(t.biome); // #184: 12 の国
+          }
         }
       }
-    }
+    }, 80_000);
+  }
+
+  it('負の座標・±30,000 でも動く', () => {
     for (const [x, z] of [[30000, -30000], [-30000, 30000], [-5000, -5000], [0, 0], [-1, -1]]) {
       const t = terrainAt(20261012, x!, z!);
       expect(t.h).toBeGreaterThanOrEqual(SEA_Y - 30);
       expect(t.h).toBeLessThanOrEqual(270);
     }
-  });
+  }, 20_000);
 
   it('同じ seed・同じ場所は同じ。ちがう seed はちがう', () => {
     expect(terrainAt(5, 123, -456)).toEqual(terrainAt(5, 123, -456));
@@ -44,19 +51,26 @@ describe('基準 3: 高さ H は SEA_Y−30〜270（200 シード × 64 列）',
     expect(diff).toBeGreaterThan(20);
   });
 
-  it('陸は 6 割ほど（海は深くても 30）', () => {
-    let land = 0;
-    let n = 0;
-    for (let s = 1; s <= 10; s++) {
-      for (let i = 0; i < 40; i++) {
-        for (let j = 0; j < 40; j++) {
-          const t = terrainAt(s, i * 211 - 4000, j * 223 - 4000);
-          n++;
-          if (!t.sea) land++;
-          expect(t.h).toBeGreaterThanOrEqual(SEA_Y - 30);
+  // 陸の わりあいは 10 シードぶんを 合わせて 見る。シードを 2 つずつ 5 回に 分けて（単体 各 約 11 秒。CI は 2〜3 倍 おそい）→ 各 45 秒。さいごの it が わりあいを 見る
+  let land = 0;
+  let n = 0;
+  for (let part = 0; part < 5; part++) {
+    it(`陸は 6 割ほど（海は深くても 30）: 数える（シード ${part * 2 + 1}〜${part * 2 + 2}）`, () => {
+      for (let s = part * 2 + 1; s <= part * 2 + 2; s++) {
+        for (let i = 0; i < 40; i++) {
+          for (let j = 0; j < 40; j++) {
+            const t = terrainAt(s, i * 211 - 4000, j * 223 - 4000);
+            n++;
+            if (!t.sea) land++;
+            expect(t.h).toBeGreaterThanOrEqual(SEA_Y - 30);
+          }
         }
       }
-    }
+    }, 45_000);
+  }
+
+  it('陸は 6 割ほど（海は深くても 30）: わりあい', () => {
+    expect(n, '10 シード × 1,600 列を 数えた').toBe(16000);
     expect(land / n).toBeGreaterThan(0.45);
     expect(land / n).toBeLessThan(0.75);
   });
@@ -90,7 +104,7 @@ describe('基準 5: 海から上がれる', () => {
       }
     }
     expect(shores).toBeGreaterThan(300);
-  }, 30000);
+  }, 65_000); // 山 v2・水 v2 の 最初の 計画が 重い。単体 16 秒（CI は 2〜3 倍 おそい）→ 65 秒（元は 30 秒）
 });
 
 describe('基準 10: バイオーム（#184 で 12 の国に。数の基準は src/world/gen/biome.test.ts の #184-AC1〜9）', () => {

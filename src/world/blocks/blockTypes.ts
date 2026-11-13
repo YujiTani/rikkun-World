@@ -305,9 +305,14 @@ export function isFloorDecoIndex(index: number): boolean {
   return FLOOR_DECO[index] === true;
 }
 
+/** わきどころ・たきつぼ（水の わきどころ側）か。見た目は 水と 同じ（満水の 水面）。中身（はたらき・番号・保存）は そのまま */
+export function isWaterLookIndex(index: number): boolean {
+  return index === BLOCK_INDEX.wakimizu || index === BLOCK_INDEX.takitsubo;
+}
+
 /** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板・しるし・床の 飾りはちがう */
 export function isOpaqueIndex(index: number): boolean {
-  return index !== AIR && !isLiquidIndex(index) && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index) && !isFloorDecoIndex(index);
+  return index !== AIR && !isLiquidIndex(index) && !isWaterLookIndex(index) && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index) && !isFloorDecoIndex(index);
 }
 
 /** 固いブロックか（番号で） */

@@ -1,12 +1,13 @@
 import type { CountryKind } from './config';
 import { valueNoise } from './random';
 import { cone, paramsFor, smooth, type Params } from './mountainV2Params';
-import { choosePath, buildPath, pathAt, pathCell } from './mountainV2Path';
+import { choosePath, buildPath, pathAt, pathCell, pathReach } from './mountainV2Path';
 import { buildBridges, pillarsAt, splineOf, stairOf, wallLift } from './mountainV2Parts';
 import { T, TAU, type MountainKind } from './mountainV2Table';
+import { LOOK } from './lookFlags';
 
 /**
- * 山の形 v2（試作。URL `?mountain=v2` のときだけ。既定の山は biome.ts の円すいのまま）。
+ * 山の形 v2（既定で 出る。URL `?mountain=v1` で biome.ts の円すいの 古い 山）。
  * 山の種類（いわやま・てんぐ・もみじ・ゆき）では 形を分けない。形の部品 a〜e を 山 1 つずつ シードで ちがう強さに まぜる（2〜3 こが 強く、のこりは 弱い）。
  * 種類の ちがいは 表面（ゆき・使うブロック・木）で 出す（mountainV2Table.ts の V2_SURFACE。使うのは biome.ts の topBlock）。
  * 部品: a 段々・b 岩の柱の群れ・c 大きな垂直のかべ・d するどい峰と尾根と谷・e ゆるい こぶ（部品の 中身は mountainV2Parts.ts）。
@@ -14,8 +15,8 @@ import { T, TAU, type MountainKind } from './mountainV2Table';
  * 返す値 = 海からの高さ（ざらざら 前）。
  */
 
-/** `?mountain=v2` か（Node のテストでは location が ないので false） */
-export const MOUNTAIN_V2: boolean = typeof location !== 'undefined' && new URLSearchParams(location.search).get('mountain') === 'v2';
+/** 山 v2 か（既定は true。URL の ?mountain=v1 で 古い 山。lookFlags.ts） */
+export const MOUNTAIN_V2: boolean = LOOK.mountainV2;
 
 /** ためし・図 用: 頂上（山の点）の 高さと、橋で つながった 柱の てっぺん（x, z, 高さ） */
 export function v2Landmarks(seed: number, kind: CountryKind, px: number, pz: number): { apex: number; bank: number; bridged: { x: number; z: number; h: number }[] } {
@@ -26,11 +27,67 @@ export function v2Landmarks(seed: number, kind: CountryKind, px: number, pz: num
 
 /** 海からの高さ（ざらざら 前）。kind は 山の 4 種のどれか。柱の 橋と、すそ → 頂上の 登れる道（坂 T.path.k）を 1 本 ほる */
 export function mountainOffsetV2(seed: number, kind: CountryKind, px: number, pz: number, x: number, z: number): number {
+  // 同じ 列の 高さは 何度も 聞かれる（高さ・上の ブロック〔となりの 列〕・地面の 答え）ので 覚える。直接 割りあて 表（場所が 同じなら 同じ 値 = 決まった 結果）
+  const slot = (Math.imul(x, 73856093) ^ Math.imul(z, 19349663) ^ Math.imul(px, 83492791) ^ Math.imul(pz, 2654435761) ^ seed) & OFFSET_CACHE_MASK;
+  if (cacheX[slot] === x && cacheZ[slot] === z && cachePx[slot] === px && cachePz[slot] === pz && cacheSeed[slot] === (seed | 0)) return cacheVal[slot]!;
+  const v = mountainOffsetV2Raw(seed, kind, px, pz, x, z);
+  cacheX[slot] = x;
+  cacheZ[slot] = z;
+  cachePx[slot] = px;
+  cachePz[slot] = pz;
+  cacheSeed[slot] = seed | 0;
+  cacheVal[slot] = v;
+  return v;
+}
+
+/** 覚える 数（2 の べき。1 つ 約 28 バイト → 約 3.6 MB） */
+const OFFSET_CACHE_SIZE = 1 << 17;
+const OFFSET_CACHE_MASK = OFFSET_CACHE_SIZE - 1;
+const cacheX = new Int32Array(OFFSET_CACHE_SIZE).fill(0x7fffffff);
+const cacheZ = new Int32Array(OFFSET_CACHE_SIZE);
+const cachePx = new Int32Array(OFFSET_CACHE_SIZE);
+const cachePz = new Int32Array(OFFSET_CACHE_SIZE);
+const cacheSeed = new Int32Array(OFFSET_CACHE_SIZE);
+const cacheVal = new Float64Array(OFFSET_CACHE_SIZE);
+
+/** 道えらびの 答え（向き・土手・段面）。山の パラメータの 覚えが あふれて 作りなおしても、重い えらびを やりなおさない（答えは 同じ） */
+const PATH_CHOICE_MAX = 4096; // 覚える 山の 数（1 つ 数十 バイト）
+const pathChoice = new Map<string, { best: { a0: number; dir: number; bank: number }; prof: number[] }>();
+
+const reachMemo = new Map<string, number>();
+
+function chosenPath(seed: number, p: Params, px: number, pz: number): { a0: number; dir: number; bank: number } {
+  const key = `${seed}:${px}:${pz}`;
+  const hit = pathChoice.get(key);
+  if (hit) {
+    p.prof = hit.prof;
+    return hit.best;
+  }
+  const best = choosePath(p, px, pz, (sx, sz) => shapeOf(p, px, pz, sx, sz));
+  if (pathChoice.size >= PATH_CHOICE_MAX) pathChoice.clear();
+  pathChoice.set(key, { best, prof: p.prof! });
+  return best;
+}
+
+function mountainOffsetV2Raw(seed: number, kind: CountryKind, px: number, pz: number, x: number, z: number): number {
   const p = paramsFor(seed, kind as MountainKind, px, pz);
   let h = shapeOf(p, px, pz, x, z);
   if (Number.isNaN(p.apex)) {
+    // 道・橋の とどく はんいの 外の 列は 山の 形そのまま。道えらび（重い）を しないで 答える
+    const key = `${seed}:${px}:${pz}`;
+    let reach = reachMemo.get(key);
+    if (reach === undefined) {
+      reach = pathReach(p, px, pz, (sx, sz) => shapeOf(p, px, pz, sx, sz));
+      if (reachMemo.size >= PATH_CHOICE_MAX) reachMemo.clear();
+      reachMemo.set(key, reach);
+    }
+    const ddx = x - px;
+    const ddz = z - pz;
+    if (ddx * ddx + ddz * ddz > reach * reach) return h;
+  }
+  if (Number.isNaN(p.apex)) {
     p.apex = shapeOf(p, px, pz, px, pz);
-    const best = choosePath(p, px, pz, (sx, sz) => shapeOf(p, px, pz, sx, sz));
+    const best = chosenPath(seed, p, px, pz);
     buildPath(p, px, pz, best.a0, best.dir);
     p.bank = best.bank;
   }

@@ -9,7 +9,7 @@ import { openBiome } from './helpers/biome';
  */
 test.describe('#187 国だけの物 その 2（山の物）', () => {
   test('見える: てんぐの やま の とうろう の前で、ブロックと 光が 読める', async ({ page }) => {
-    await openBiome(page);
+    await openBiome(page, '?nosave=1&structures=0&water=v1'); // 古い 形（とうろう）を 見る ので 目じるしを 止める
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const T = (window as any).__biomeT;

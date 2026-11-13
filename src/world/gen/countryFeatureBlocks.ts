@@ -4,6 +4,7 @@ import { COUNTRY_PLANT_IDS } from '../blocks/countryPlants';
 import { HIMAWARI, HIMAWARI_TOP } from '../blocks/himawari';
 import { LAYER } from './columnLayout';
 import { FEATURE_TUNE, featureSitesTouching, type FeatureSite } from './countryFeatures';
+import { plainShaftWorld, type ShaftWorld } from './mineShafts';
 import { terrainFor, type Terrain } from './terrain';
 
 /**
@@ -51,18 +52,20 @@ function columnsOf(sites: readonly FeatureSite[]): Pick<ChunkFeatures, 'ground' 
   return { ground, plantHeight };
 }
 
-const memo = new WeakMap<Terrain, Map<number, ChunkFeatures>>();
+const memo = new WeakMap<Terrain, WeakMap<ShaftWorld, Map<number, ChunkFeatures>>>(); // 地形ごと → 坑道の 世界ごと
 const MAX_CHUNKS = 256;
 
 /** チャンク (x0, z0) から 左上 16×16 の まわりに ある 物と、どける 四角（チャンクごとに 覚える） */
-export function featuresNearChunk(seed: number, x0: number, z0: number): ChunkFeatures {
+export function featuresNearChunk(seed: number, x0: number, z0: number, shafts: ShaftWorld = plainShaftWorld(seed)): ChunkFeatures {
   const T = terrainFor(seed);
-  let m = memo.get(T);
-  if (!m) memo.set(T, (m = new Map()));
+  let byShafts = memo.get(T);
+  if (!byShafts) memo.set(T, (byShafts = new WeakMap()));
+  let m = byShafts.get(shafts);
+  if (!m) byShafts.set(shafts, (m = new Map()));
   const key = columnKey(x0 >> 4, z0 >> 4);
   const hit = m.get(key);
   if (hit) return hit;
-  const sites = featureSitesTouching(seed, x0 - NEAR, z0 - NEAR, x0 + CHUNK_SIZE - 1 + NEAR, z0 + CHUNK_SIZE - 1 + NEAR);
+  const sites = featureSitesTouching(seed, x0 - NEAR, z0 - NEAR, x0 + CHUNK_SIZE - 1 + NEAR, z0 + CHUNK_SIZE - 1 + NEAR, shafts);
   const trees: Rect[] = [];
   const plants: Rect[] = [];
   // この チャンクの 木（みきが チャンクの まわり TREE_REACH 以内）・草花に かかる 四角だけ のこす（かいだんは 四角が 100 こ ちかく ある）

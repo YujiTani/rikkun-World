@@ -1,7 +1,7 @@
 import type { CropStageSource } from '../../../contracts';
 import { cropKindOfBlock } from '../../../contracts';
 import { hasLook, occludes } from '../looks';
-import { AIR, BLOCK_TYPES, SHOJI, isChalkIndex, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../../blocks/blockTypes';
+import { AIR, BLOCK_TYPES, SHOJI, isChalkIndex, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWaterLookIndex, isWildIndex } from '../../blocks/blockTypes';
 import type { TileName } from '../../blocks/textures';
 import type { WorldLight } from '../../light/WorldLight';
 import type { ArrayVoxelWorld } from '../../VoxelWorld';
@@ -12,6 +12,7 @@ import { pushKotatsuCell } from '../kotatsuMesh';
 import { emitProtoPlant } from '../leafBambooProto';
 import { FACES, FACE_UV, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, isCoopLineIndex, pushCoopPanels, pushCross, pushFace, pushProp, pushTorch, type MeshData } from '../meshChunk';
 import { isLiquidIndex } from '../../blocks/liquids';
+import { WATER_FULL_INDEX } from '../../blocks/water';
 import { WATER_SPAN, waterFaceSpan } from '../waterFaces';
 
 /**
@@ -84,9 +85,11 @@ export function meshSectionExtras(
           continue;
         }
         if (isKotatsuBlock(BLOCK_TYPES[b].id) && pushKotatsuCell(opaque, world, light, x, y, z, BLOCK_TYPES[b].id)) continue;
-        const isWater = isLiquidIndex(b); // WATERFALL-1: マグマも 水と 同じ 液体の 面
+        const look = isWaterLookIndex(b); // わきどころ・たきつぼ: 見た目だけ 満水の 水
+        const isWater = look || isLiquidIndex(b); // WATERFALL-1: マグマも 水と 同じ 液体の 面
+        const wb = look ? WATER_FULL_INDEX : b;
         if (!isWater && hasLook(b)) continue; // 小ブロックの形で描く
-        const uv = TILE_UV[b];
+        const uv = TILE_UV[wb];
         if (!uv) continue;
         for (const face of FACES) {
           const n = world.getIndex(x + face.dir[0], y + face.dir[1], z + face.dir[2]);
@@ -95,8 +98,8 @@ export function meshSectionExtras(
           // 上下は となりの面が ぜんぶ つまっている（箱でふさがれた面は へこまない）ので かくれる
           if (isWater) {
             // WATER-1: 水面の 高さ = 量 ÷ 8。高さの ちがう 水の 境は 高い ほうが 描く
-            if (!waterFaceSpan(world, x, y, z, b, face, n)) continue;
-            pushFace(water, world, light, x, y, z, face, WATER_SPAN.uv ?? FACE_UV[b]?.[face.index] ?? uv[face.kind], false, WATER_SPAN.lo, WATER_SPAN.hi, WATER_SPAN.waveLo, WATER_SPAN.waveHi);
+            if (!waterFaceSpan(world, x, y, z, wb, face, n)) continue;
+            pushFace(water, world, light, x, y, z, face, WATER_SPAN.uv ?? FACE_UV[wb]?.[face.index] ?? uv[face.kind], false, WATER_SPAN.lo, WATER_SPAN.hi, WATER_SPAN.waveLo, WATER_SPAN.waveHi);
             continue;
           }
           if (isOpaqueIndex(n) && (!hasLook(n) || (face.dir[1] !== 0 && occludes(n)))) continue;

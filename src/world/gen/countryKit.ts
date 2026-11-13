@@ -4,6 +4,7 @@ import { GEN_CONFIG as C } from './config';
 import { nearMouth } from './mouths';
 import { hash01, subSeed } from './random';
 import { regionRect } from './region';
+import type { ShaftWorld } from './mineShafts';
 import type { Terrain } from './terrain';
 
 /**
@@ -13,7 +14,9 @@ import type { Terrain } from './terrain';
 
 export const FEATURE_TYPES = ['hatakeato', 'kinokoNoWa', 'himawari', 'kaigara', 'takenoko', 'tsukimiIwa', 'suisho', 'touro', 'kaidan', 'oomomiji', 'yukidaruma',
   // 山の上の 目じるし（`?structures=1` の ときだけ。うしろに 足す = 乱数の 番号を ずらさない）
-  'torii', 'odou', 'ishidan', 'azumaya', 'yagura', 'ido', 'ojizou', 'hokora', 'sekizou', 'ishi_torii'] as const;
+  'torii', 'odou', 'ishidan', 'azumaya', 'yagura', 'ido', 'ojizou', 'hokora', 'sekizou', 'ishi_torii',
+  // 水の 景色（`?water=v2` の ときだけ。滝 = 水源の 池・滝つぼ、川、池）
+  'taki', 'kawa', 'ike'] as const;
 export type FeatureType = (typeof FEATURE_TYPES)[number];
 
 /** `window.__rikkun.biome.features` の 1 こ。x, y, z = その物の 基準の マス（§8.3） */
@@ -105,6 +108,8 @@ export interface Ctx {
   px: number;
   pz: number;
   kind: CountryKind;
+  /** その 世界の 坑道の 世界〔水 v2 が 坑道の 入口を よける のに 使う〕 */
+  shafts: ShaftWorld;
 }
 
 const typeNo = (t: FeatureType): number => FEATURE_TYPES.indexOf(t);
@@ -127,9 +132,22 @@ export function groundAt(c: Ctx, x: number, z: number, top: BlockId | null, minA
   const h = T.height(x, z);
   if (h < SEA_Y + minAbove || (top !== null && T.topBlock(x, z, h) !== top)) return -1;
   if (!plainAt(c, x, z, clear)) return -1;
-  const a = T.map.countryAt(x, z);
-  if (a.kind !== c.kind || a.cx !== c.i || a.cz !== c.j || a.e < B.blend) return -1;
-  return h;
+  return inCountry(c, x, z) ? h : -1;
+}
+
+/** (x, z) は その 国の 升目の 中（境目 e < blend は だめ）か */
+function inCountry(c: Ctx, x: number, z: number): boolean {
+  const a = c.T.map.countryAt(x, z);
+  return a.kind === c.kind && a.cx === c.i && a.cz === c.j && a.e >= B.blend;
+}
+
+/**
+ * groundAt（top なし・clear 0）と 同じ 答えを、読んだ 高さ h と plainAt の 答え plain を もらって 返す（水 v2 が 高さを 1 回だけ 読む ため）。
+ * 答えの きまりは groundAt と 同じ（海に 近い・置けない 列・国の 境目は -1）
+ */
+export function groundFrom(c: Ctx, x: number, z: number, h: number, plain: () => boolean): number {
+  if (h < SEA_Y + C.strata.landFrom || !plain()) return -1;
+  return inCountry(c, x, z) ? h : -1;
 }
 
 /** (x, z) は いけ・スタートの そば・はじまりの 範囲・はじまりの 岩山・洞くつの 口の そば の どれでも ない か（物を 置いても よい 列か） */

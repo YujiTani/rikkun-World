@@ -531,16 +531,16 @@ describe('AC16: スタートの木', () => {
 type Row = Record<string, number>;
 const TABLE: Partial<Record<CountryKind, Record<SpacingLevel | 'mix', Row>>> = {
   harappa: {
-    wide: { tree: 0.6, kusa: 2.6, nobana: 1.4 }, normal: { tree: 0.6, kusa: 6.6, nobana: 2.6 }, narrow: { tree: 0.7, kusa: 11.7, nobana: 3.9 }, mix: { tree: 0.6, kusa: 4.1, nobana: 1.8 },
+    wide: { tree: 0.37, kusa: 2.6, nobana: 1.4 }, normal: { tree: 0.43, kusa: 6.6, nobana: 2.6 }, narrow: { tree: 0.49, kusa: 11.7, nobana: 3.9 }, mix: { tree: 0.34, kusa: 4.1, nobana: 1.8 },
   },
   mori: {
-    wide: { tree: 0.3, kusa: 0.6, nobana: 0.2 }, normal: { tree: 0.5, kusa: 1.8, nobana: 0.4 }, narrow: { tree: 0.9, kusa: 3.2, nobana: 0.5 }, mix: { tree: 0.4, kusa: 1.0, nobana: 0.3 },
+    wide: { tree: 0.5, kusa: 0.6, nobana: 0.2 }, normal: { tree: 0.73, kusa: 1.8, nobana: 0.4 }, narrow: { tree: 0.99, kusa: 3.2, nobana: 0.5 }, mix: { tree: 0.67, kusa: 1.0, nobana: 0.3 },
   },
   ookina: {
-    wide: { tree: 0.4, kusa: 1.3, nobana: 0.4 }, normal: { tree: 0.6, kusa: 3.6, nobana: 0.7 }, narrow: { tree: 0.7, kusa: 6.6, nobana: 1.1 }, mix: { tree: 0.5, kusa: 2.1, nobana: 0.5 },
+    wide: { tree: 0.53, kusa: 1.3, nobana: 0.4 }, normal: { tree: 0.66, kusa: 3.6, nobana: 0.7 }, narrow: { tree: 0.94, kusa: 6.6, nobana: 1.1 }, mix: { tree: 0.58, kusa: 2.1, nobana: 0.5 },
   },
   hana: {
-    wide: { tree: 0.3, flower: 2.1, kusa: 1.0 }, normal: { tree: 0.3, flower: 7.7, kusa: 2.1 }, narrow: { tree: 0.4, flower: 18.5, kusa: 3.3 }, mix: { tree: 0.3, flower: 4.3, kusa: 1.4 },
+    wide: { tree: 0.26, flower: 2.1, kusa: 1.0 }, normal: { tree: 0.28, flower: 7.7, kusa: 2.1 }, narrow: { tree: 0.28, flower: 18.5, kusa: 3.3 }, mix: { tree: 0.21, flower: 4.3, kusa: 1.4 },
   },
   susuki: {
     wide: { susuki: 3.9, kusa: 1.2 }, normal: { susuki: 12.9, kusa: 2.3 }, narrow: { susuki: 29.9, kusa: 3.4 }, mix: { susuki: 7.5, kusa: 1.6 },
@@ -549,20 +549,21 @@ const TABLE: Partial<Record<CountryKind, Record<SpacingLevel | 'mix', Row>>> = {
     wide: { take: 8.5, kusa: 1.5 }, normal: { take: 18.5, kusa: 3.0 }, narrow: { take: 38.7, kusa: 4.7 }, mix: { take: 12.5, kusa: 2.0 },
   },
   kappa: {
-    wide: { tree: 0.4, kusa: 3.4, nobana: 1.5 }, normal: { tree: 0.4, kusa: 8.2, nobana: 2.6 }, narrow: { tree: 0.5, kusa: 14.3, nobana: 3.7 }, mix: { tree: 0.4, kusa: 5.1, nobana: 1.9 },
+    wide: { tree: 0.18, kusa: 3.4, nobana: 1.5 }, normal: { tree: 0.24, kusa: 8.2, nobana: 2.6 }, narrow: { tree: 0.31, kusa: 14.3, nobana: 3.7 }, mix: { tree: 0.27, kusa: 5.1, nobana: 1.9 },
   },
 };
 
 /**
  * 仕様 §4.3（1.4 版）の 見こみの うち、TABLE の 数と ちがう 所を 仕様の数に 置く（キー: 段|国|種類 → 仕様の数）。
+ * 2026-11-12 木 v2（大きい木・形つき）を既定にしたため、木の数（tree）の 見こみは 木 v2 の 実測に 置きなおし、SPEC_TARGET の 木の 行は やめた（はっぱの 広がりが 3 で 間引きが 強い）。
  * 1.4 版で §4.3 は AC17 の 取り方（8192 四方・3 シード・8 列おき）の 実測に なり、TABLE と 同じ数。±40% を 見張る。
  */
 const SPEC_TARGET: Record<string, number> = {
-  'wide|mori|tree': 0.77, 'wide|mori|kusa': 1.97, 'wide|ookina|kusa': 2.4,
-  'normal|mori|tree': 1.22, 'normal|mori|kusa': 4.82, 'normal|mori|nobana': 0.63, 'normal|ookina|tree': 0.8,
+  'wide|mori|kusa': 1.97, 'wide|ookina|kusa': 2.4,
+  'normal|mori|kusa': 4.82, 'normal|mori|nobana': 0.63, 
   'normal|susuki|susuki': 7.47, 'normal|take|kusa': 1.68, 'normal|kappa|nobana': 1.48,
-  'narrow|mori|tree': 2.61, 'narrow|mori|kusa': 9.19, 'narrow|mori|nobana': 1.06, 'narrow|ookina|tree': 0.96, 'narrow|kappa|nobana': 2.15,
-  'mix|mori|tree': 1.03, 'mix|mori|kusa': 3.56, 'mix|mori|nobana': 0.66,
+  'narrow|mori|kusa': 9.19, 'narrow|mori|nobana': 1.06, 'narrow|kappa|nobana': 2.15,
+  'mix|mori|kusa': 3.56, 'mix|mori|nobana': 0.66,
 };
 
 const kindOfType = (t: string): string => (TREE_TYPES.has(t) ? 'tree' : t);
@@ -698,7 +699,7 @@ describe('AC19: 保存した列は 保存したとおり・さわっていない
       const b = generateChunk(seed, cx, cz).sections.map((s) => sectionToArray(s).join(',')).join('|');
       expect(b).toBe(a);
     }
-  });
+  }, 20_000); // 単体 4.3 秒（CI は 約 3 倍 おそい。既定の 5 秒だと 時間切れ）→ 最低 20 秒
 });
 
 void CHUNK_SIZE;

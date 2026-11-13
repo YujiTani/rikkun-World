@@ -7,6 +7,8 @@ import { terrainFor, type Terrain } from './terrain';
 import { floraOfChunk } from './flora';
 import { plantsOfChunk } from './plants';
 import { treesInRect, type Tree } from './trees';
+import { TREES_V2, TREE_MAX_EXTENT } from './treeV2';
+import { writeShapedTrees, type ShapedTree } from './treeShapes';
 import { fallColumn } from './liquidPonds';
 import { BLOCK_INDEX, BLOCK_TYPES, isLeafIndex } from '../blocks/blockTypes';
 import { buildBlocks } from './chunk';
@@ -61,6 +63,8 @@ class SurfaceImpl implements Surface {
   private readonly T: Terrain;
   private readonly torch: { x: number; y: number; z: number };
   private readonly treeCache = new Map<number, Tree[]>();
+  /** 木 v2: 列ごとに 形つきの 木を 書いた 見本（地面より 下は 石で うめて ある = 根が 浮かない 決まりも 本当の 列と 同じ） */
+  private readonly shapedCols = new Map<number, BlockArray>();
   private readonly plantCache = new Map<number, Map<number, number>>();
   /** 坑道が かかる 列の ブロック（本当の 列。かからない 列は null） */
   private readonly shaftCols = new Map<number, BlockArray | null>();
@@ -85,7 +89,7 @@ class SurfaceImpl implements Surface {
       t = treesInRect(this.T, x0 - 5, z0 - 5, x0 + 12, z0 + 12);
       // 坑道の 木を おかない 四角（列を 作る ときと 同じ）
       const zone = this.shafts.zones(x >> 4, z >> 4);
-      const feat = featuresNearChunk(this.seed, (x >> 4) * 16, (z >> 4) * 16); // 国だけの物（VOX-I-4a）が どける 木
+      const feat = featuresNearChunk(this.seed, (x >> 4) * 16, (z >> 4) * 16, this.shafts); // 国だけの物（VOX-I-4a）が どける 木
       const rects = [...(zone?.trees ?? []), ...feat.trees];
       if (rects.length > 0) t = t.filter((tr) => !rects.some((r) => tr.x >= r[0] && tr.x <= r[2] && tr.z >= r[1] && tr.z <= r[3]));
       if (this.treeCache.size > 4000) this.treeCache.clear();
@@ -103,7 +107,7 @@ class SurfaceImpl implements Surface {
     if (m === undefined) {
       m = new Map();
       const zone = this.shafts.zones(cx, cz);
-      const feat = featuresNearChunk(this.seed, cx * 16, cz * 16);
+      const feat = featuresNearChunk(this.seed, cx * 16, cz * 16, this.shafts);
       const rects = [...(zone?.plants ?? []), ...feat.plants];
       const skip = (p: { x: number; z: number }): boolean => rects.some((r) => p.x >= r[0] && p.x <= r[2] && p.z >= r[1] && p.z <= r[3]);
       for (const p of plantsOfChunk(this.T, cx, cz)) if (!skip(p)) m.set(p.x * 100003 + p.z, p.height);
@@ -155,7 +159,7 @@ class SurfaceImpl implements Surface {
     if (sc) return this.solidTop(sc, x, z);
     const fc = fallColumn(this.T.liquid, x, z);
     if (fc?.kind === 'pillar') return fc.pond.fall!.top; // MAGMA-SPAWN: 滝の はしらの 上の わきどころ
-    const fg = featuresNearChunk(this.seed, (x >> 4) * 16, (z >> 4) * 16).ground.get(columnKey(x, z)); // 国だけの物: はたけあと（つち）・つきみの いわ（いし）
+    const fg = featuresNearChunk(this.seed, (x >> 4) * 16, (z >> 4) * 16, this.shafts).ground.get(columnKey(x, z)); // 国だけの物: はたけあと（つち）・つきみの いわ（いし）
     if (fg !== undefined) return fg;
     const h = this.T.height(x, z);
     const r = this.mouthRange(x, z);
@@ -166,7 +170,7 @@ class SurfaceImpl implements Surface {
   groundIsGrass(x: number, z: number): boolean {
     const sc = this.shaftCol(x, z);
     if (sc) return sc[this.solidTop(sc, x, z) * LAYER + (z & 15) * 16 + (x & 15)] === BLOCK_INDEX.grass;
-    if (featuresNearChunk(this.seed, (x >> 4) * 16, (z >> 4) * 16).ground.has(columnKey(x, z))) return false; // つち・いし
+    if (featuresNearChunk(this.seed, (x >> 4) * 16, (z >> 4) * 16, this.shafts).ground.has(columnKey(x, z))) return false; // つち・いし
     const h = this.T.height(x, z);
     const r = this.mouthRange(x, z);
     // さか道の床は もとの地層の途中（床が 地面の高さのままなら くさ）
@@ -175,8 +179,34 @@ class SurfaceImpl implements Surface {
     return h >= SEA_Y + C.strata.landFrom && this.T.topBlock(x, z, h) === 'grass';
   }
 
+  /** 木 v2 の 列の 見本（chunk.ts の placeTrees と 同じ 木・同じ どける 四角・同じ 書き方） */
+  private shapedCol(cx: number, cz: number): BlockArray {
+    const k = cx * 1000003 + cz;
+    let a = this.shapedCols.get(k);
+    if (a === undefined) {
+      const x0 = cx * 16;
+      const z0 = cz * 16;
+      const m = TREE_MAX_EXTENT;
+      const zone = this.shafts.zones(cx, cz);
+      const feat = featuresNearChunk(this.seed, x0, z0, this.shafts);
+      const rects = [...(zone?.trees ?? []), ...feat.trees];
+      let trees = treesInRect(this.T, x0 - m, z0 - m, x0 + 16 + m - 1, z0 + 16 + m - 1);
+      if (rects.length > 0) trees = trees.filter((tr) => !rects.some((r) => tr.x >= r[0] && tr.x <= r[2] && tr.z >= r[1] && tr.z <= r[3]));
+      a = new Uint16Array(COL_VOLUME);
+      for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) for (let y = 1, h = this.T.height(x0 + x, z0 + z); y <= h && y < AIR_Y; y++) a[y * LAYER + z * 16 + x] = BLOCK_INDEX.stone;
+      writeShapedTrees(a, trees as ShapedTree[], x0, z0, (t) => BLOCK_INDEX[t.leaves]);
+      if (this.shapedCols.size > 64) this.shapedCols.clear();
+      this.shapedCols.set(k, a);
+    }
+    return a;
+  }
+
   /** その列に 木のブロックが あるか（みきが先、はっぱは あと。chunk.ts の placeTrees と同じ形） */
   private treeBlock(x: number, y: number, z: number): 'log' | 'leaves' | null {
+    if (TREES_V2) {
+      const b = this.shapedCol(x >> 4, z >> 4)[y * LAYER + (z & 15) * 16 + (x & 15)]!;
+      return b === BLOCK_INDEX.log ? 'log' : isLeafIndex(b) ? 'leaves' : null;
+    }
     const trees = this.treesNear(x, z);
     for (const t of trees) {
       const w = t.big ? 2 : 1;
@@ -265,6 +295,15 @@ class SurfaceImpl implements Surface {
 
   /** この列に 木のブロック（みき・はっぱ）が 地面の上に あるか */
   private treeColumn(x: number, z: number, g: number): boolean {
+    if (TREES_V2) {
+      const col = this.shapedCol(x >> 4, z >> 4);
+      const o = (z & 15) * 16 + (x & 15);
+      for (let y = Math.max(1, g + 1); y < AIR_Y; y++) {
+        const b = col[y * LAYER + o]!;
+        if (b === BLOCK_INDEX.log || isLeafIndex(b)) return true;
+      }
+      return false;
+    }
     const trees = this.treesNear(x, z);
     for (const t of trees) {
       if (Math.abs(x - t.x) > 5 || Math.abs(z - t.z) > 5) continue;

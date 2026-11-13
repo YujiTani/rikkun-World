@@ -1,6 +1,7 @@
 import { groundAt, MOUNTAIN_TUNE, rnd, range, site, standingSpot, summitOf, cheb, flatness, type Ctx, type FeatureSite, type PlacedBlock, type Summit } from './countryKit';
 import { kaidan } from './countryKaidan';
 import { iwayamaStructures, momijiStructures, STRUCTURES_ON, tenguStructures } from './countryStructures';
+import { waterSites } from './waterV2';
 
 /**
  * 山の物（VOX-I-4b #187。docs/design/VOX-I.md §2.3）。国ごとに 1 つの 関数: いわやま = すいしょう、てんぐの やま = とうろう・かいだん、
@@ -8,6 +9,12 @@ import { iwayamaStructures, momijiStructures, STRUCTURES_ON, tenguStructures } f
  */
 
 const M = MOUNTAIN_TUNE;
+
+/** `?water=v2`: 水の 景色（滝・川・池）を 先に 書く（あとから 書く 石段が とび石に なる）。目じるしの 足もとは よける。フラグが なければ そのまま */
+const withWater = (c: Ctx, sites: FeatureSite[]): FeatureSite[] => {
+  const w = waterSites(c, sites);
+  return w.length === 0 ? sites : [...w, ...sites];
+};
 
 /** すいしょう: 山の点から 40 以内の いしの 上（海から +40 以上）。くぼみ（4 方向の となりの 2 つ 以上が 1 段 以上 高い）を 先に、たりなければ いしの 上で 2 こまで うめる */
 export function iwayama(c: Ctx): FeatureSite[] {
@@ -29,19 +36,23 @@ export function iwayama(c: Ctx): FeatureSite[] {
   };
   for (let k = 0; k < K.tries; k++) tryAt(k, want, true);
   for (let k = 0; k < K.fillTries; k++) tryAt(K.tries + k, K.count[0], false);
-  return STRUCTURES_ON ? [...out, ...iwayamaStructures(c)] : out; // ?structures=1: 大きな 石ぞう・いしの とりいも
+  return withWater(c, STRUCTURES_ON ? [...out, ...iwayamaStructures(c)] : out); // 目じるし: 大きな 石ぞう・いしの とりいも
 }
 
 /** てんぐの やま: 頂上に とうろう、そばから すそへ かいだん */
 export function tengu(c: Ctx): FeatureSite[] {
   const s = summitOf(c);
   if (s === null) return [];
-  if (STRUCTURES_ON) return tenguStructures(c, s); // ?structures=1: お堂・石段・とりい（とうろう・かいだんの かわり）
+  if (STRUCTURES_ON) {
+    // お堂が 置ける 山は お堂・石段・とりい・石どうろう（とうろう・かいだんの かわり）。置けない 山（頂上が 急）だけ 下の とうろう・かいだん
+    const st = tenguStructures(c, s);
+    if (st.some((f) => f.type === 'odou')) return withWater(c, st);
+  }
   const out: FeatureSite[] = [];
   const t = standingSpot(c, s, 1, M.fallback.touro);
   if (t !== null) out.push(site(c, 'touro', t.x, t.h + 1, t.z, [{ x: t.x, y: t.h + 1, z: t.z, id: 'touro' }], [t.x, t.z, t.x, t.z]));
   out.push(...kaidan(c, s));
-  return out;
+  return withWater(c, out);
 }
 
 /** 2×2（北西 = x, z）の みきを たてられる 所の 地面の 高さ（4 列とも 置ける・平ら 1 以下）。だめなら null */
@@ -98,7 +109,7 @@ export function momiji(c: Ctx): FeatureSite[] {
     }
   }
   const tree = site(c, 'oomomiji', x, y0, z, blocks, [x, z, x + 1, z + 1], { margin: K.treeMargin });
-  return STRUCTURES_ON ? [tree, ...momijiStructures(c, s)] : [tree]; // ?structures=1: あずまや・とりいも
+  return withWater(c, STRUCTURES_ON ? [tree, ...momijiStructures(c, s)] : [tree]); // 目じるし: あずまや・とりいも
 }
 
 /** ゆきやま: 頂上に ゆきだるま（高さ 3。下から 大きい まる・ふつう・あたま。あたまの 手前に 目の いし 2 こ） */
@@ -117,5 +128,5 @@ export function yuki(c: Ctx): FeatureSite[] {
   for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]] as const) snow(s.x + dx, y0 + 1, s.z + dz); // おなか（プラス形）
   for (const dx of [-1, 0, 1]) snow(s.x + dx, y0 + 2, s.z); // あたま
   for (const dx of [-1, 1]) blocks.push({ x: s.x + dx, y: y0 + 2, z: s.z - 1, id: 'stone' }); // 目（あたまの 手前 = 北がわ）
-  return [site(c, 'yukidaruma', s.x, y0, s.z, blocks, [s.x - 1, s.z - 1, s.x + 1, s.z + 1])];
+  return withWater(c, [site(c, 'yukidaruma', s.x, y0, s.z, blocks, [s.x - 1, s.z - 1, s.x + 1, s.z + 1])]);
 }

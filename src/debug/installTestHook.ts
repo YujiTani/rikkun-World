@@ -54,7 +54,7 @@ export function installGameHook(deps: WiredMine): void {
     currentKitRows, animalFx, animalHint, aimPointInto, combat, lockHook, book, look, wheel, mixer, bgm,
     bgmScene, yakataScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
     m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets, seat, water,
-    gamepadApi, duo, mine,
+    gamepadApi, duo, mine, shafts,
   } = deps;
   installTestHook(game, overlay, () => host.everReady, {
     start: startBoot.hook,
@@ -88,6 +88,7 @@ export function installGameHook(deps: WiredMine): void {
     }),
     biome: createBiomeHook({
       seed,
+      shafts,
       player: () => controller.state.position,
       countries: {
         found: () => achievements.found(),

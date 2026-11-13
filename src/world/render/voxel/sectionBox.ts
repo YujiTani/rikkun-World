@@ -9,7 +9,7 @@ import type { QuadBuilder } from './sectionQuads';
 import { ROW_NONE } from './projection';
 
 // vitest の import は 読むたびに getter を通って 遅い。内側のループが読む定数は このファイルの const に写す（本番のビルドでは同じ）
-const { AXIS_OF, BL, BOX_BLK, BOX_SKY, DIR, EDGE_UNKNOWN, FACE_VERTS, N, OCC } = K;
+const { AXIS_OF, BL, BOX_BLK, BOX_SKY, DIR, EDGE_UNKNOWN, FACE_VERTS, LEAF, N, OCC } = K;
 const BOX_KIND_MASK = (1 << BOX_SKY) - 1;
 
 /**
@@ -56,6 +56,9 @@ export class BoxMesher {
             const kind = bk[(byi * BL + bzi) * BL + bxi];
             if (kind <= 0 || !hasLook(kind) || isFloorDecoIndex(kind) || skipBoxProto(kind)) continue; // 床の 飾り（MINE-1E）は 遠くでは 描かない。はっぱ・たけの 試しは 別の 面
             const n = cube.kindNear(bxi, byi, bzi, f);
+            // はっぱと はっぱの あいだの 面は 木のかたまりの 中で、箱の段は ふさがった 面（すきまなし）なので 見えない。描かない（三角形 #475）。
+            // セクションの外（1 周の外がわ）の となりは 小ブロックの段の はっぱ（すきまがある）かも しれないので 残す
+            if (n > 0 && LEAF[kind] === 1 && LEAF[n] === 1 && bxi + DIR[f][0] >= 1 && bxi + DIR[f][0] <= 16 && byi + DIR[f][1] >= 1 && byi + DIR[f][1] <= 16 && bzi + DIR[f][2] >= 1 && bzi + DIR[f][2] <= 16) continue;
             // となりが 不透明な表面ブロックで 描く面（#143）は、前のマスの光が 0 なので 1 段上（空気）から光を取る
             const edge = OCC[n] === 1;
             if (n < 0 || (edge && !this.edgeSurface(bxi, byi, bzi, f))) continue;

@@ -133,6 +133,7 @@ describe('AC2 ほかの 建築士さん: 192×192 の 区画に 0 か 1 人・3 
     }
   });
 
+  // 時間上限（3 つめ）: 山 v2・水 v2 の 最初の 計画が 重い。単体 4.7 秒（CI は 2〜3 倍 おそい）→ 20 秒
   it('placeInRegion: 立てる 最初の 候補。水の 上には おかない（本物の 地形で 1,000 区画ぜんぶ）', () => {
     const seed = 20261012;
     let placed = 0;
@@ -147,7 +148,7 @@ describe('AC2 ほかの 建築士さん: 192×192 の 区画に 0 か 1 人・3 
       }
     }
     expect(placed).toBeGreaterThan(300);
-  });
+  }, 20_000);
 
   it('placeInRegion: 立てる 所が 1 つも なければ null（0 人）', () => {
     expect(placeInRegion(1, 0, 0, () => false)).toBeNull();

@@ -130,17 +130,31 @@ describe('実際の世界（seed 20261012）', () => {
     const t0 = performance.now();
     let hidden = 0;
     let nonEmpty = 0;
+    let underground = 0; // 地表より下（その列の いちばん低い地表より 全部下）の 中身のあるセクション
+    let undergroundHidden = 0;
     for (const { cx, cz } of w.loadedColumns()) {
+      // 木の高さに 左右されないよう、列の中の いちばん低い地表（topY の 最小）を 地表とする
+      let lowTop = Infinity;
+      for (let x = 0; x < 16; x += 3) for (let z = 0; z < 16; z += 3) lowTop = Math.min(lowTop, w.topY(cx * 16 + x, cz * 16 + z));
       for (let sy = 0; sy < 22; sy++) {
         const s = w.section(cx, sy, cz);
         if (!s || (s.kind === 'uniform' && s.block === 0)) continue;
         nonEmpty++;
-        if (w.isSectionHidden(cx, sy, cz)) hidden++;
+        const hid = w.isSectionHidden(cx, sy, cz);
+        if (hid) hidden++;
+        if (sy * 16 + 15 < lowTop) {
+          underground++;
+          if (hid) undergroundHidden++;
+        }
       }
     }
     const ms = performance.now() - t0;
     expect(nonEmpty).toBeGreaterThan(300);
-    expect(hidden / nonEmpty).toBeGreaterThan(0.4);
+    // 木 v2 を 既定に した（2026-11-12）ため、地上の木の高さで 全体の割合が ゆれる。#405 のねらい（見えない地下を 描かない）を 木に よらない形で 見る
+    // 実測（seed 20261012）: 見えない 262、地下 576 のうち 262（0.455）
+    expect(hidden).toBeGreaterThanOrEqual(250);
+    expect(underground).toBeGreaterThan(300);
+    expect(undergroundHidden / underground).toBeGreaterThan(0.42);
     expect(ms).toBeLessThan(600);
   });
 });

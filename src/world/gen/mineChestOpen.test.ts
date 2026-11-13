@@ -229,7 +229,7 @@ describe('C8: 宝箱を あける', () => {
       expect(hook1c(f.seed).chestPreview(c.x, c.y, c.z)).toEqual(f.preview);
     }
     expect(new Set(found.map((f) => JSON.stringify(f.preview))).size).toBeGreaterThan(found.length / 2);
-  });
+  }, 20_000); // 単体 1.9 秒（CI は 約 3 倍 おそい。既定の 5 秒だと 時間切れ）→ 最低 20 秒
 
   it('くじの 設定〔忍者・侍の 宝箱の 確率〕を 1 に しても、坑道の 宝箱の 中身は かわらない〔くじの 箱から だけ 引く〕', () => {
     const keep = { ninja: NINJA_TUNING.ninjaChestChance, samurai: NINJA_TUNING.samuraiChestChance };

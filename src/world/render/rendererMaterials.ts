@@ -1,7 +1,7 @@
 import { DoubleSide, MeshBasicMaterial, type Texture } from 'three';
 import { createAtlasTexture, WATER_ALPHA } from '../blocks/textures';
 import { applyLightShader } from './lightShader';
-import { applyWaterWave } from './waterWave';
+import { applyWaterFlow, applyWaterWave } from './waterWave';
 import { setAoRadius } from './voxel/aoUniforms';
 import { createVoxelMaterial, createVoxelShared, type VoxelShared } from './voxel/voxelMaterial';
 
@@ -48,6 +48,7 @@ export function createRenderMaterials(microR: number): RenderMaterials {
   applyLightShader(lodWaterMaterial, 'rikkun-world-light-lod');
   applyWaterWave(waterMaterial); // WATER-1: 水面の ゆらめき(時間の uniform 1 つ)
   applyWaterWave(lodWaterMaterial);
+  applyWaterFlow(waterMaterial); // 水 11 回め: 落ちる水の 横の 面に 下へ 流れる すじ（近くの 水だけ）
   return { atlas, voxelShared, boxMaterial, opaqueMaterial, waterMaterial, lodOpaqueMaterial, lodWaterMaterial };
 }
 

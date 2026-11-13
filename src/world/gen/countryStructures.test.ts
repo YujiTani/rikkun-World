@@ -30,6 +30,7 @@ const sitesAround = (m: { px: number; pz: number }, types: string[]): FeatureSit
   featureSitesTouching(seed, m.px - 160, m.pz - 160, m.px + 160, m.pz + 160).filter((s) => types.includes(s.type));
 
 describe('山の上の 目じるし（?structures=1）', () => {
+  // 時間上限（it の 3 つめ）: 山 v2・水 v2 の 最初の 計画が 重い。単体 4〜15 秒（CI は 2〜3 倍 おそい）→ 単体の 4 倍（最低 20 秒）
   it('てんぐの やま: お堂が あり、石段が あれば とりいは 石段の 下（お堂より ひくい）。かいだん・とうろうの 古い 物は 出ない', () => {
     const ms = mountains('tengu', 6);
     expect(ms.length).toBeGreaterThan(0);
@@ -48,7 +49,7 @@ describe('山の上の 目じるし（?structures=1）', () => {
       }
     }
     expect(withAll, 'お堂・石段・とりいが ぜんぶ ある 山').toBeGreaterThanOrEqual(1);
-  });
+  }, 25_000);
 
   it('もみじやま: あずまやが 頂上の ちかく、とりいが あずまやより 下の 広場に ある（山が ある 限り）', () => {
     const ms = mountains('momiji', 6);
@@ -65,7 +66,7 @@ describe('山の上の 目じるし（?structures=1）', () => {
     }
     expect(az).toBeGreaterThanOrEqual(1);
     expect(tor).toBeGreaterThanOrEqual(1);
-  });
+  }, 30_000);
 
   it('ゆきやまには 置かない。いわやまには 石の 目じるし（石ぞう・いしの とりい）だけ', () => {
     for (const m of mountains('yuki', 3)) expect(sitesAround(m, ['odou', 'torii', 'azumaya', 'ishidan', 'sekizou', 'hokora', 'ido', 'yagura', 'ojizou', 'ishi_torii'])).toEqual([]);
@@ -80,7 +81,7 @@ describe('山の上の 目じるし（?structures=1）', () => {
     }
     expect(zou).toBeGreaterThanOrEqual(1);
     expect(tor).toBeGreaterThanOrEqual(1);
-  });
+  }, 70_000);
 
   it('石ぞうは かべの 前（うしろの 地面が 高い）に 立つ。おじぞうさんは 石段の わき・やぐらは お堂の ちかく・ほこら・いどは もみじやま', () => {
     let wall = 0;
@@ -114,7 +115,7 @@ describe('山の上の 目じるし（?structures=1）', () => {
     let hokora = 0;
     for (const m of mountains('momiji', 8)) hokora += sitesAround(m, ['hokora']).length;
     expect(hokora).toBeGreaterThanOrEqual(1);
-  });
+  }, 20_000);
 
   it('はじまりの 範囲（regionRect）には 置かない・どの ブロックも 世界の 高さの 中', () => {
     const r = regionRect(seed);

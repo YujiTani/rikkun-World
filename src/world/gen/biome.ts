@@ -3,6 +3,7 @@ import { GEN_CONFIG as C, COUNTRY_KINDS, MOUNTAIN_KINDS, type CountryDef, type C
 import { hash01, subSeed, valueNoise } from './random';
 import { MOUNTAIN_V2, mountainOffsetV2 } from './mountainV2';
 import { v2TopBlock } from './mountainV2Surface';
+import { ShoreWater } from './shoreWater';
 
 /**
  * 12 の国（VOX-I-1。docs/design/VOX-I.md §3）。升目の点（ボロノイ）・山のわく・国ごとの高さ・地面のブロック・かっぱの いけ・たけやぶ の道。
@@ -401,6 +402,13 @@ export class CountryMap {
     return c.land === 1;
   }
 
+  private readonly wetOut: HeightOut = { h: 0, base: 0, lift: 0 };
+  /** 水（山を かける 前の 高さが 海面 −1 以下）までの きょり（山 v2 の 水ぎわで 使う） */
+  private readonly shore = new ShoreWater((x, z) => {
+    this.groundInto(x, z, this.wetOut, true);
+    return this.wetOut.base;
+  });
+
   /** 生成の高さ。noLift = 山の形・かっぱの持ち上げをかける前（base）だけ */
   private groundInto(x: number, z: number, o: HeightOut, noLift: boolean): void {
     const H = C.height;
@@ -491,7 +499,14 @@ export class CountryMap {
     let hh = liftedC;
     if (!noLift) {
       const M = this.mountainShape(x, z);
-      if (M !== null && M.m > hh) hh = clamp(M.m, SEA_Y + H.minAbove2, H.max);
+      if (M !== null && M.m > hh) {
+        let m = M.m;
+        if (MOUNTAIN_V2) {
+          const dw = this.shore.dist(x, z);
+          if (dw <= MT.shore.reach) m = Math.min(m, hh + Math.round(Math.max(0, dw - MT.shore.flat) * MT.shore.rise));
+        }
+        if (m > hh) hh = clamp(m, SEA_Y + H.minAbove2, H.max);
+      }
     }
     o.h = hh;
     o.base = base;

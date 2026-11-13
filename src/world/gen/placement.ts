@@ -21,6 +21,8 @@ export interface PlacedPlant {
   /** 木は みきの いちばん下（根もと）の y。草花は その物の マスの y（地面の すぐ上） */
   y: number;
   z: number;
+  /** 木の 大きさ（?trees=v2 のとき だけ）。木の 順番（treeOrder）が 大きさで かわる ので、外から 順番を 聞く 人も 同じ 答えを 得られる */
+  size?: string;
 }
 
 const PLANT_TYPE = { susuki: 'susuki', bamboo: 'take', kusa: 'kusa', nobana: 'nobana' } as const;
@@ -36,7 +38,7 @@ export function plantsInRect(seed: number, x0: number, z0: number, x1: number, z
       for (const t of treesOfChunk(T, cx, cz)) {
         if (!inside(t)) continue;
         const type: PlantType = t.big === true ? 'bigTree' : t.leaves === 'matsu_leaves' ? 'matsu' : t.leaves === 'momiji_leaves' ? 'momiji' : 'tree';
-        out.push({ type, x: t.x, y: t.y + 1, z: t.z });
+        out.push(t.size === undefined ? { type, x: t.x, y: t.y + 1, z: t.z } : { type, x: t.x, y: t.y + 1, z: t.z, size: t.size });
       }
       const ground = (x: number, z: number): number => T.height(x, z);
       for (const p of plantsOfChunk(T, cx, cz)) {
