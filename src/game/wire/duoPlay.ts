@@ -320,7 +320,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       rng: createRng(20240602),
       m4: {
         town: { locked: (x, _y, z) => townLocked(x, z) },
-      yakata: { locked: (x, y, z) => shared.yakataLocked(x, y, z) },
+        yakata: { locked: (x, y, z) => shared.yakataLocked(x, y, z) },
         tools,
         blade,
         w2,

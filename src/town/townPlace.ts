@@ -172,26 +172,26 @@ export function chooseTown(seed: number, opts: PlaceOpts = {}): TownRecord | nul
   });
   // 水が すくない 順（まず 水なし）→ 平らな 順に ゆるめる。さいしょに 合う 候補
   for (const phase of [1, 2] as const) {
-   for (const wetMax of TOWN.wetSteps) {
-    for (const flatMax of TOWN.flatSteps) {
-      for (const idx of pass) {
-        if (cands[idx]!.phase !== phase) continue;
-        const cand = cands[idx]!;
-        let st = stat.get(idx);
-        if (st === undefined) stat.set(idx, (st = statOf(T, cand, 5)));
-        if (st.wetFrac > wetMax || st.range > flatMax) continue;
-        const fine = statOf(T, cand, 2);
-        if (fine.wetFrac > wetMax || fine.range > flatMax) continue;
-        const groundY = Math.max(SEA_Y + 3, fine.median);
-        if (!seesGate(T, sp, cand, groundY)) {
-          if (opts.why) opts.why.sight = (opts.why.sight ?? 0) + 1;
-          continue;
+    for (const wetMax of TOWN.wetSteps) {
+      for (const flatMax of TOWN.flatSteps) {
+        for (const idx of pass) {
+          if (cands[idx]!.phase !== phase) continue;
+          const cand = cands[idx]!;
+          let st = stat.get(idx);
+          if (st === undefined) stat.set(idx, (st = statOf(T, cand, 5)));
+          if (st.wetFrac > wetMax || st.range > flatMax) continue;
+          const fine = statOf(T, cand, 2);
+          if (fine.wetFrac > wetMax || fine.range > flatMax) continue;
+          const groundY = Math.max(SEA_Y + 3, fine.median);
+          if (!seesGate(T, sp, cand, groundY)) {
+            if (opts.why) opts.why.sight = (opts.why.sight ?? 0) + 1;
+            continue;
+          }
+          const c = cornerOf(cand);
+          return { v: TOWN.version, x0: c.x, z0: c.z, facing: cand.facing, groundY };
         }
-        const c = cornerOf(cand);
-        return { v: TOWN.version, x0: c.x, z0: c.z, facing: cand.facing, groundY };
       }
     }
-   }
   }
   return null;
 }
