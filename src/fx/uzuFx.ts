@@ -38,6 +38,8 @@ export class UzuFx {
   private time = 0;
   /** 見えている あわの 数（テスト・報告用） */
   shown = 0;
+  /** true の 間は 何も 出さない（ブロックの 絵を しらべる テスト・撮影用。window.__uzu.off） */
+  off = false;
 
   constructor(scene: THREE.Object3D, private readonly deps: UzuDeps) {
     this.field = new UzuField(deps.seed);
@@ -57,6 +59,12 @@ export class UzuFx {
   }
 
   update(dt: number): void {
+    if (this.off) {
+      this.mesh.visible = false;
+      this.mesh.count = 0;
+      this.shown = 0;
+      return;
+    }
     this.time += dt;
     this.refresh -= dt;
     if (this.refresh <= 0) {

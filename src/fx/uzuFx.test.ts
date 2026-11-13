@@ -63,4 +63,15 @@ describe('UzuFx の 走査', () => {
     tick();
     expect(st.calls).toBeGreaterThan(one);
   });
+
+  it('off の 間は 何も 出さず getBlock も 0 回。もどすと また 出る', () => {
+    const { st, fx, tick } = make();
+    fx.off = true;
+    tick(3);
+    expect(st.calls).toBe(0);
+    expect(fx.shown).toBe(0);
+    fx.off = false;
+    tick();
+    expect(fx.spots).toBeGreaterThan(0);
+  });
 });
