@@ -37,6 +37,8 @@ test.describe('LIVE-2.1 置くと たいら', () => {
       // ---- 置けない ばかり（サイト C: 40,20。真ん中の 1 列に ひとつ。ずらし 9 か所 ぜんぶ が 通る 列）
       const C = { x: 40, z: 20 };
       const trial = (name: string, set: () => void, restore: () => void) => {
+        // 水の 流れは 15 ステップに 1 回（WATER_TICK_STEPS）。いつ 流れるかは 一時停止の 前に 進んだ 数で かわる ので、流れる 回から はなれた 所（5 ステップ め）に そろえて から 置く（3 ステップの あいだに 流れない）（置けた かどうかと 関係ない 水の 広がりが 「かわった」に ならない ように）
+        while (h.tick() % 15 !== 5) h.step(1);
         const before = region(C.x, C.z);
         set();
         h.step(1);
