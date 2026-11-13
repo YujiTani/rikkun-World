@@ -127,6 +127,8 @@ export class TownPlan {
   /** 石どうろうの マス（ローカルの 番号 at(u, v)） */
   readonly toroAt: ReadonlySet<number>;
   /** 石段の 上の 口: あかり（light）と のぼり（banner）の マス */
+  /** あきちの 区画の 四すみの 外がわの くい（上から 見て 区画が 分かる） */
+  readonly lotPostAt: ReadonlySet<number>;
   readonly stairTopAt: ReadonlyMap<number, 'light' | 'banner'>;
   private readonly infoCache: TownInfo;
   private readonly gateWorld: XZ;
@@ -142,6 +144,14 @@ export class TownPlan {
       tops.set(at(m.banner.u, m.banner.v), 'banner');
     }
     this.stairTopAt = tops;
+    const posts = new Set<number>();
+    for (const r of layout.lots) {
+      for (const [u, v] of [[r.u0 - 1, r.v0 - 1], [r.u1 + 1, r.v0 - 1], [r.u0 - 1, r.v1 + 1], [r.u1 + 1, r.v1 + 1]] as const) {
+        const k = at(u, v);
+        if (layout.surf[k] === SURF.ground && layout.canal[k] === CANAL.none && !tops.has(k)) posts.add(k);
+      }
+    }
+    this.lotPostAt = posts;
     const g = this.toWorld(layout.gate.u, layout.gate.v);
     this.gateWorld = { x: g.x + 0.5, z: g.z + 0.5 };
     this.infoCache = this.buildInfo();
@@ -223,13 +233,14 @@ export class TownPlan {
     return i >= -s && j >= -s && i < N + s && j < N + s;
   }
 
-  /** すその 高さ: 街の はんいに 近い ほど 街の 地面、はなれるほど もとの 高さ（natural）。d ＝ 街の はんいの 外へ の 距離（1〜skirt） */
+  /** すその 高さ: もとの 高さ（natural）を、街の 地面から d マス 外では ±d マスに おさえる（d ＝ 街の はんいの 外へ の 距離 1〜skirt） */
   skirtHeight(natural: number, x: number, z: number): number {
     const i = Math.floor(x) - this.rec.x0;
     const j = Math.floor(z) - this.rec.z0;
     const d = Math.max(-i, i - (N - 1), -j, j - (N - 1));
-    const k = Math.max(0, 1 - d / (TOWN.skirt + 1));
-    return Math.round(natural + (this.rec.groundY - natural) * k);
+    // 街の ふちから d マス 外は、街の 地面から ±d までの 高さ（1 マスずつの 段。オートジャンプで 歩ける）
+    const g = this.rec.groundY;
+    return Math.max(g - d, Math.min(g + d, natural));
   }
 
   info(): TownInfo {

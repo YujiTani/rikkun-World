@@ -150,7 +150,7 @@ export function chooseTown(seed: number, opts: PlaceOpts = {}): TownRecord | nul
   // 条件に 合う 候補（スタートの ちかい じゅん）。地形の しらべは あらい 間かくで 1 回ずつ
   const stat = new Map<number, Stat>();
   const pass: number[] = [];
-  const m = TOWN.skirt + 2;
+  const m = TOWN.keepMargin;
   cands.forEach((cand, idx) => {
     const c = cornerOf(cand);
     const no = (r: string): void => {

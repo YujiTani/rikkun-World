@@ -167,7 +167,7 @@ describe('AC12 記録', () => {
     const cz = Math.floor((rec.z0 + 50) / 16);
     const rec2 = chooseTown(SEED, { occupied: (x, z) => x === cx && z === cz });
     expect(rec2).not.toBeNull();
-    const m = TOWN.skirt + 2;
+    const m = TOWN.keepMargin;
     const hit = !(rec2!.x0 - m > cx * 16 + 15 || rec2!.x0 + TOWN.size + m < cx * 16 || rec2!.z0 - m > cz * 16 + 15 || rec2!.z0 + TOWN.size + m < cz * 16);
     expect(hit).toBe(false);
   });

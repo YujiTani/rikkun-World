@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, WORLD_HEIGHT, type BlockArray } from '../contracts';
+import { CHUNK_SIZE, SEA_Y, WORLD_HEIGHT, type BlockArray } from '../contracts';
 import { BLOCK_INDEX } from '../world/blocks/blockTypes';
 import { LAYER } from '../world/gen/columnLayout';
 import { CANAL, SURF, at } from './townLayout';
@@ -15,7 +15,6 @@ const DIRT = BLOCK_INDEX.dirt;
 const GRASS = BLOCK_INDEX.grass;
 const STONE = BLOCK_INDEX.stone;
 const WATER = BLOCK_INDEX.water;
-const TSUCHI = BLOCK_INDEX.town_tsuchi;
 const PAVE = [BLOCK_INDEX.town_ishidatami_a, BLOCK_INDEX.town_ishidatami_b, BLOCK_INDEX.town_ishidatami_c] as const;
 const ISHIZUMI = BLOCK_INDEX.town_ishizumi;
 const WALL_MIX = [BLOCK_INDEX.town_ishizumi, BLOCK_INDEX.town_ishizumi, BLOCK_INDEX.town_koishizumi, BLOCK_INDEX.town_kokeishi] as const;
@@ -31,6 +30,8 @@ const REWRITE_DEPTH = 10;
 const DIRT_LAYERS = 2;
 /** 石どうろうの 高さ（ブロック。台・はしら・あかり・かさ） */
 const TORO = [ISHIZUMI, ISHIZUMI, ANDON, ISHIZUMI] as const;
+/** あきちの 四すみの くい（木の はしら 2 こ ぶん） */
+const LOT_POST = [BLOCK_INDEX.town_hashira, BLOCK_INDEX.town_hashira] as const;
 /** 石段の 口の あかりの 高さ（台・はしら・あかり） */
 const STAIR_LIGHT = [ISHIZUMI, ISHIZUMI, ANDON] as const;
 /** 石段の 口の のぼりの 高さ（赤い はしら） */
@@ -75,7 +76,7 @@ function writeCell(out: BlockArray, lx: number, lz: number, wx: number, wz: numb
     else if (y < topY - DIRT_LAYERS) b = STONE;
     else if (y < topY) b = DIRT;
     else if (notch > 0) b = ISHIDAN;
-    else if (surf === SURF.ground || surf === SURF.terrace) b = TSUCHI;
+    else if (surf === SURF.ground || surf === SURF.terrace) b = GRASS; // 地面の いちばん 上は 草（見本）
     else if (surf === SURF.lot) b = DIRT;
     else b = PAVE[surf - SURF.paveA]!;
     put(out, lx, lz, y, b);
@@ -85,6 +86,7 @@ function writeCell(out: BlockArray, lx: number, lz: number, wx: number, wz: numb
   if (L.rail[k]) put(out, lx, lz, topY + 1, TESURI);
   // 石どうろう（ふち）・石段の 口の あかりと のぼり
   if (plan.toroAt.has(k)) TORO.forEach((b, i) => put(out, lx, lz, topY + 1 + i, b));
+  if (plan.lotPostAt.has(k)) for (let i = 0; i < LOT_POST.length; i++) put(out, lx, lz, topY + 1 + i, LOT_POST[i]!);
   const st = plan.stairTopAt.get(k);
   if (st === 'light') STAIR_LIGHT.forEach((b, i) => put(out, lx, lz, topY + 1 + i, b));
   else if (st === 'banner') for (let i = 0; i < BANNER_H; i++) put(out, lx, lz, topY + 1 + i, SHUBASHIRA);
@@ -97,6 +99,8 @@ function writeSkirt(out: BlockArray, lx: number, lz: number, wx: number, wz: num
   const lo = Math.max(1, Math.min(h, natural) - 3);
   for (let y = lo; y <= h; y++) put(out, lx, lz, y, y === h ? GRASS : y >= h - DIRT_LAYERS ? DIRT : STONE);
   clearAbove(out, lx, lz, h + 1);
+  // 海の 高さより 下に さげた 所は 海の 水を もどす（海に 穴を あけない）
+  for (let y = h + 1; y <= SEA_Y; y++) put(out, lx, lz, y, WATER);
 }
 
 /** 門から スタートまでの 見通しの みち: 地面の 上の 木・岩を 消す（地面は かえない） */
