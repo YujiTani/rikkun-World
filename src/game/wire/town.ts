@@ -7,7 +7,7 @@ import { activateTown, currentTown, deactivateTown } from '../../town/townState'
 import type { TownInfo } from '../../town/townPlan';
 
 /** URL に `?town=off` ＝ 街を 作らない（くらべ用・街と 関係ない テスト用） */
-export const townOffIn = (search: string): boolean => new URLSearchParams(search).get('town') === 'off';
+const townOffIn = (search: string): boolean => new URLSearchParams(search).get('town') === 'off';
 
 /**
  * 世界を 作る 前に 1 回 よぶ。記録が 保存に あれば それを 使い、なければ きめて restored に おぼえる（meta に 書かれる）。

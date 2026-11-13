@@ -6,7 +6,7 @@
  */
 
 /** 光り方: 'light' ＝ まわりを 照らす あかり・'deco' ＝ 光って 見える だけ（明るさ 0 の かざり光）・null ＝ 光らない */
-export type TownGlow = 'light' | 'deco' | null;
+type TownGlow = 'light' | 'deco' | null;
 
 /** 絵の かき方（townTextures.ts が 読む）。base ＝ 地の 色、acc ＝ 足す 色（2〜3 色）、pat ＝ 模様 */
 export type TownPattern = 'mottle' | 'brick' | 'paving' | 'plank' | 'plankH' | 'scale' | 'lattice' | 'stripe' | 'weave' | 'plate' | 'glowbox' | 'bars' | 'pot' | 'pole' | 'barrel';

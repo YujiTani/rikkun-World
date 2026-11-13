@@ -65,7 +65,6 @@ export interface TownInfo {
 
 const N = TOWN.size;
 const layout: Layout = buildLayout();
-export const townLayout = (): Layout => layout;
 
 /** ローカル (u, v) → 世界の マスの ずれ（街の 西北の すみから）。向きごとに まわす（うら返しは しない） */
 function offsetOf(f: Facing, u: number, v: number): { i: number; j: number } {

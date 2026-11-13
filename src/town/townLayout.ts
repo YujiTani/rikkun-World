@@ -26,7 +26,7 @@ export const SURF = {
 /** 用水路の 底の しゅるい */
 export const CANAL = { none: 0, walk: 1, water: 2 } as const;
 
-export interface Rect {
+interface Rect {
   u0: number;
   v0: number;
   /** ふくむ */
@@ -34,7 +34,7 @@ export interface Rect {
   v1: number;
 }
 
-export interface Stair {
+interface Stair {
   /** 底の 通り道で 石段の すぐ 前の マス（歩いて 12 マス 以内 の 目じるし） */
   bottom: { u: number; v: number };
   /** 上の 口（地面の マス） */
