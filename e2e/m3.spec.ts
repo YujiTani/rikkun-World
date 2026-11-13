@@ -1100,6 +1100,8 @@ test.describe('M3 見た目・文字', () => {
       expect(findUnrubiedKanji(v.replace(/[a-z_]+=/g, '')), k).toEqual([]);
     }
     expect(texts.death).toContain('やられちゃった');
-    expect(texts.names).toContain('ようかいだま');
+    // TOWN-1 1A: 名前は カタカナの「ようかいダマ」に そろえる（TOWN-1 §2.3 の 1）
+    expect(texts.names).toContain('ようかいダマ');
+    expect(texts.names).not.toContain('ようかいだま');
   });
 });

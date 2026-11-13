@@ -27,7 +27,7 @@ interface Expect {
 }
 
 const EXPECT: Record<string, Expect> = {
-  yokai_orb: { name: 'ようかいだま', maxStack: 64, rarity: 'uncommon', category: 'material', info: { use: 'いまは つかえない よ', how: '', buttons: [] } },
+  yokai_orb: { name: 'ようかいダマ', maxStack: 64, rarity: 'uncommon', category: 'material', info: null }, // TOWN-1 1A: 名前を カタカナに。説明の 文は 下の 専用の it（言い回しは 決め打ちしない）
   paper: { name: 'かみ', maxStack: 64, rarity: 'common', category: 'material', info: { use: 'や・ちょうちん・たこ・せっけいず の ざいりょう', how: E, buttons: ['E'] } },
   oil: { name: 'あぶら', maxStack: 64, rarity: 'uncommon', category: 'material', info: { use: 'たいまつ・ちょうちん の ざいりょう。かまど の ねんりょう にも なる', how: `${E}。ねんりょう は かってに つかう`, buttons: ['E'] } },
   string: { name: 'いと', maxStack: 64, rarity: 'common', category: 'material', info: { use: 'ゆみ・よろい・すねあて・たこ・ふとん・おまもり・わらじ の ざいりょう', how: E, buttons: ['E'] } },
@@ -60,6 +60,14 @@ describe('登録表（素材 8 個・小物 6 個）', () => {
     expect(itemRarity(id as never)).toBe(e.rarity);
     expect(itemCategory(id)).toBe(e.category);
     if (e.info) expect(ITEM_INFO[id]).toEqual(e.info);
+  });
+
+  it('ようかいダマ（TOWN-1 1A §2.3 の 1）: 「いまは つかえない」を やめ、よろずやで こうかん できる と 伝える。名前に ひらがなの「だま」は 残さない', () => {
+    const info = ITEM_INFO.yokai_orb!;
+    expect(info.use, '1A の 間は「あとで よろずやが できるよ」・1C から「よろずや で こうかん できるよ」').toContain('よろずや');
+    expect(info.use).not.toContain('いまは つかえない');
+    expect(itemType('yokai_orb' as never)!.name).toBe('ようかいダマ');
+    expect((itemDef('yokai_orb') as { zukan: string }).zukan, '図鑑の 文').not.toContain('わからない');
   });
 
   it('ITEM_TYPES: ようかいだま → ざいりょう 6 は 先頭の ブロックの 次、てつの かたまりは つるはし・おの 6 の 次、小物 6 は 間欠泉の つちの 次', () => {

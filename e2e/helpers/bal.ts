@@ -9,8 +9,8 @@ import type { Page } from '@playwright/test';
  *   T.sounds(prefix?)  combat.sounds()（呼ぶと空）のうち prefix で始まる物
  * 時刻（dayTick）: 昼 = 20000、夜 = 70000（昼 54000・ゆうがた 5400・夜 27000）。
  */
-export async function openBal(page: Page): Promise<void> {
-  await page.goto('/?nosave=1');
+export async function openBal(page: Page, search = '?nosave=1'): Promise<void> {
+  await page.goto('/' + search);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
