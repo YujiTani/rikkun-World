@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { fine, wide } from './helpers/fine';
+// TOWN-1 1B-1: 前の main の ゴールデンと くらべる ので 街を 作らない 世界（&town=off。helpers/town.ts の TOWN_OFF）で はかる。街の 分は town1b1 の AC29 が 見る
 import { measureCountry, measureStart, openFlora } from './helpers/flora';
 
 /** スタートの 描画回数の 上乗せ〔回〕。#405 で 見えない 地下を かくすと ゴールデンとの 差は 7（上限 +10 の 中）。上乗せは 0 に もどした */
@@ -145,7 +146,7 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
       start: { drawCalls: number; triangles: number };
       countries: Record<string, { triangles: number; drawCalls: number }>;
     };
-    await openFlora(page, fine(wide('?nosave=1')));
+    await openFlora(page, fine(wide('?nosave=1&town=off')));
     const start = await measureStart(page);
     // くさ・のばな が 本当に 生えて 描かれている（何も生やさない実装で 通らないように）
     const flora = await page.evaluate(() => {
@@ -196,7 +197,7 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
     let report = '';
     let done = false;
     for (const seed of seeds) {
-      await openFlora(page, seed === null ? '?nosave=1' : `?nosave=1&seed=${seed}`);
+      await openFlora(page, seed === null ? '?nosave=1&town=off' : `?nosave=1&town=off&seed=${seed}`);
       const found = await page.evaluate(() => {
         const h = (window as any).__rikkun;
         return {
