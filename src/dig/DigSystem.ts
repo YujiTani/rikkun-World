@@ -389,6 +389,13 @@ export class DigSystemImpl implements DigSystem {
         this.decay();
         return;
       }
+      // TOWN-1 1B-1: 街の ブロック（あきち 以外）は こわれない。ひびが 入らず「かきん」
+      if (this.m4.town?.locked(t.block.x, t.block.y, t.block.z)) {
+        this.blockedReason = 'unbreakable';
+        if (this.justPressed()) this.emit({ type: 'blocked', tick: this.tickCount, block: { ...t.block }, id: t.id, reason: 'unbreakable' });
+        this.decay();
+        return;
+      }
       const r = digSteps(cfg, t.id, tool?.level);
       if ('blocked' in r) {
         this.blockedReason = r.blocked;

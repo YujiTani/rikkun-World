@@ -1,3 +1,5 @@
+import type { TownRecord } from '../town/townPlan';
+import { TOWN } from '../town/townTuning';
 import type { BlockId, ChunkColumn } from '../contracts';
 import { blockIndexOf } from '../world/blocks/blockTypes';
 import { colKey } from '../world/stream/ring';
@@ -27,12 +29,22 @@ export interface StreamRestore extends RestoredSave {
   oldCols: OldColSets;
   /** はじまりの 坑道の 入口 (x, z)（MINE-1C §4.8）。null ＝ さがしたが 置ける 所が なかった〔meta に 書いて 次から さがさない〕。キーが ない ＝ まだ さがして いない */
   shaftStart?: { x: number; z: number } | null;
+  /** 街の 記録（meta の `town`。TOWN-1 1B-1）。ない ＝ まだ きめて いない */
+  town?: TownRecord | null;
   /** 地形の 作りが かわった 古い 世代の 保存を 開いた（列は すてた）。ゲームは 1 回だけ おしらせを 出す */
   terrainRenewed?: boolean;
   /** そのとき たんすから 持ち物へ もどせず 消えた 数 */
   lostItems?: number;
   /** 保険にあるマスを持つ列（colKey → 中身） */
   pending: Map<number, PendingColumn>;
+}
+
+/** meta に 書いて あった 街の 記録（形・版が おかしければ なし ＝ きめなおす） */
+function townOf(meta: Record<string, unknown> | null): TownRecord | null | undefined {
+  const t = meta?.town;
+  if (t === null) return null;
+  if (!isObj(t) || t.v !== TOWN.version || !Number.isInteger(t.x0) || !Number.isInteger(t.z0) || !Number.isInteger(t.groundY)) return undefined;
+  return t.facing === 'n' || t.facing === 'e' || t.facing === 's' || t.facing === 'w' ? (t as unknown as TownRecord) : undefined;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -127,6 +139,7 @@ function finishStart(out: StreamRestore, seed: number): StreamRestore {
   // 計画が 投げても 保存の 読みこみは そのまま〔世界が 消えない ように、別の try〕
   try {
     out.shaftStart = startOf(seed, out.oldCols, shaftStartOf(out.meta));
+    out.town = townOf(out.meta);
   } catch {
     out.shaftStart = undefined;
   }

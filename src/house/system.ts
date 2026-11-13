@@ -258,9 +258,13 @@ export class HouseSystem {
     this.emit();
   }
 
+  /** テストの 窓口（`house.talk`）から 話した ときは はなれて いても 話しつづけられる（あきちから 話す E2E） */
+  private anyRange = false;
+
   /** 右クリックで 話しかける。いない・もう 話して いる なら false */
-  talkTo(id: string, who: Who = 1): boolean {
+  talkTo(id: string, who: Who = 1, anyRange = false): boolean {
     if (!this.manager.get(id) || this.talk.current() !== null) return false;
+    this.anyRange = anyRange;
     const from = this.posOf(who);
     if (!from) return false;
     this.who = who;
@@ -603,7 +607,7 @@ export class HouseSystem {
     const a = this.manager.get(id);
     const p = this.posOf(this.who);
     // 建築士さんが きえた（遠くへ はなれて 一覧から はずれた）・話した 人が はなれた／いなくなった・ほかの 画面が 開いた: やめる
-    if (!a || !p || Math.hypot(a.x - p.x, a.z - p.z) > TALK_RANGE || this.d.interrupted?.(this.who) === true) {
+    if (!a || !p || (!this.anyRange && Math.hypot(a.x - p.x, a.z - p.z) > TALK_RANGE) || this.d.interrupted?.(this.who) === true) {
       this.talk.close();
       return;
     }

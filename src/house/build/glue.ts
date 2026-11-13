@@ -14,6 +14,8 @@ import { HouseCelebrate } from './celebrate';
 import { BuildFlow, doorOffset, type FlowPlan } from './flow';
 import { LevelTool } from './level';
 import { findSites, type Site } from './sites';
+import { currentTown } from '../../town/townState';
+import type { TownPlan } from '../../town/townPlan';
 import { Dozuki } from './tamp';
 import { EVICT, HAMMER_HEAR_RANGE, SITE, buildingSay, toolKindOf } from './tuning';
 
@@ -104,7 +106,12 @@ export class BuildGlue {
     const p = this.d.player();
     const a = this.builder.active();
     const used = a ? [{ x: a.at.x, y: a.at.y, z: a.at.z, w: a.bp.w + 2, d: a.bp.d + 2 }] : [];
-    return findSites(this.d.world, Math.floor(p.x), this.floorY(), Math.floor(p.z), bp.w + 2, bp.d + 2, doorOffset(bp), used, 400, houseBox(bp).h);
+    const w = bp.w + 2;
+    const d = bp.d + 2;
+    const sites = findSites(this.d.world, Math.floor(p.x), this.floorY(), Math.floor(p.z), w, d, doorOffset(bp), used, 400, houseBox(bp).h);
+    // TOWN-1 1B-1: 街の はんいに かかる 場所は あきちの 1 区画に ぜんぶ 入る ときだけ
+    const town = currentTown();
+    return town === null ? sites : sites.filter((s) => townSiteOk(town, s.x, s.z, w, d));
   }
 
   // ------------------------------------------------------------ 建築のはじまり
@@ -245,4 +252,12 @@ export class BuildGlue {
     if (!a) return;
     this.d.manager.assignBuild(a.architect, { x: a.at.x + doorOffset(a.bp), z: a.at.z + a.bp.d + 2 }, a.home ? { x: a.home.x, z: a.home.z } : null);
   }
+}
+
+/** 街の はんいに かかる 場所は 4 つの すみが ぜんぶ あきちの 中（区画の あいだは 2 マス。外の 大きさは 12 まで なので 2 区画に またがらない）。かからなければ いつもの とおり */
+export function townSiteOk(town: Pick<TownPlan, 'inTown' | 'inLot'>, x: number, z: number, w: number, d: number): boolean {
+  const xs = [x, x + w - 1];
+  const zs = [z, z + d - 1];
+  const touches = xs.some((px) => zs.some((pz) => town.inTown(px, pz)));
+  return !touches || xs.every((px) => zs.every((pz) => town.inLot(px, pz)));
 }

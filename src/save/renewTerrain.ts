@@ -42,7 +42,7 @@ export function renewTerrainMeta(old: StoredMeta): { meta: StoredMeta; lostItems
   const meta: StoredMeta = structuredClone(old);
   const lostItems = moveStorageToInventory(meta);
   meta.gen = SAVE_GEN;
-  for (const k of ['player', 'spawn', 'oldCols', 'shaftStart', 'storage', 'farm', 'animals']) delete meta[k];
+  for (const k of ['player', 'spawn', 'oldCols', 'shaftStart', 'town', 'storage', 'farm', 'animals']) delete meta[k];
   meta.bags = [];
   meta.furnaces = [];
   const h = meta.house;

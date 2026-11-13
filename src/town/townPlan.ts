@@ -111,6 +111,17 @@ const CORRIDOR_HALF = 2.5;
 /** スタートの この 近くは 見通しの みちを 作らない（はじまりの たいまつ・広場を まもる。マス） */
 const CORRIDOR_SKIP_NEAR_START = 4;
 
+/**
+ * 石段の 口の あかりと のぼりの マス: 上り口（はば 2）の りょうわきに 1 つずつ 置く（歩く みちを ふさがない。AC41）。
+ * top ＝ 上り口の 地面の マス（はばの 1 列目）。
+ */
+export function stairMouth(st: { top: { u: number; v: number }; dir: { du: number; dv: number } }): { light: { u: number; v: number }; banner: { u: number; v: number } } {
+  const pu = Math.abs(st.dir.dv);
+  const pv = Math.abs(st.dir.du);
+  const w = TOWN.canal.stairWidth;
+  return { light: { u: st.top.u - pu, v: st.top.v - pv }, banner: { u: st.top.u + pu * w, v: st.top.v + pv * w } };
+}
+
 export class TownPlan {
   readonly layout: Layout = layout;
   readonly bottomY: number;
@@ -127,8 +138,9 @@ export class TownPlan {
     this.toroAt = new Set(layout.toro.map((t) => at(t.u, t.v)));
     const tops = new Map<number, 'light' | 'banner'>();
     for (const st of layout.stairs) {
-      tops.set(at(st.top.u, st.top.v), 'light');
-      tops.set(at(st.top.u + Math.abs(st.dir.dv), st.top.v + Math.abs(st.dir.du)), 'banner');
+      const m = stairMouth(st);
+      tops.set(at(m.light.u, m.light.v), 'light');
+      tops.set(at(m.banner.u, m.banner.v), 'banner');
     }
     this.stairTopAt = tops;
     const g = this.toWorld(layout.gate.u, layout.gate.v);
@@ -255,11 +267,11 @@ export class TownPlan {
     const lights: TownInfo['lights'] = [];
     for (const t of L.toro) lights.push({ kind: 'toro', pos: this.cell(t.u, t.v, G + 3.5) });
     const stairs = L.stairs.map((s) => {
-      const banner = { u: s.top.u + Math.abs(s.dir.dv), v: s.top.v + Math.abs(s.dir.du) };
+      const { light, banner } = stairMouth(s);
       return {
         bottom: this.cell(s.bottom.u, s.bottom.v, this.bottomY + 1),
         top: this.cell(s.top.u, s.top.v, G + 1),
-        light: this.cell(s.top.u, s.top.v, G + 3.5),
+        light: this.cell(light.u, light.v, G + 3.5),
         banner: this.cell(banner.u, banner.v, G + 2),
       };
     });

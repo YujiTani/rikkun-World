@@ -66,6 +66,7 @@ import type { P2GashaPort } from './gashaPeople';
 import type { WiredLoop } from './save';
 import { createScrollPort } from './scrollPort';
 import { bladeWearPerHit } from '../../content/items/legend4Wear';
+import { townInside, townLocked, townSafe } from './town';
 
 const DEG = Math.PI / 180;
 
@@ -250,7 +251,8 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       rng: createRng(seed ^ 0x2b2b),
       // シャイニング中は 受ける ダメージ 1/3・落下ダメージなし（1P と 同じ 部品の 口）。がしゃどくろの 間欠泉も 落ちない
       takenMul: () => legend.p2.combat.takenMul(),
-      noFall: () => gashaNoFall || legend.p2.combat.noFall() || tenshiNoFall(p2.inventory.held()?.item ?? null) || (hammer2?.noFall() ?? false),
+      inSafeZone: () => townSafe(ctl.state.position),
+      noFall: () => townInside(ctl.state.position) || gashaNoFall || legend.p2.combat.noFall() || tenshiNoFall(p2.inventory.held()?.item ?? null) || (hammer2?.noFall() ?? false),
       requestSave: () => shared.requestSave(),
     });
     // 倒れた 場所(AC44 の 待ちで ずれないように とめる)
@@ -317,7 +319,8 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       config: digCfg,
       rng: createRng(20240602),
       m4: {
-        yakata: { locked: (x, y, z) => shared.yakataLocked(x, y, z) },
+        town: { locked: (x, _y, z) => townLocked(x, z) },
+      yakata: { locked: (x, y, z) => shared.yakataLocked(x, y, z) },
         tools,
         blade,
         w2,

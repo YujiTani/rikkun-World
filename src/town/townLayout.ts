@@ -223,6 +223,12 @@ export function buildLayout(): Layout {
         if (blocked(p.u, p.v) || p.u < 1 || p.v < 1) { ok = false; break; }
         keys.push(at(p.u, p.v));
       }
+      // 上り口の りょうわき（あかり・のぼり）の マスも 空いて いる こと
+      for (const k of [-1, C.stairWidth]) {
+        const p = cellOf(s, a + k, edgeC + s.side * (C.stairCut + 1));
+        if (!inLocal(p.u, p.v) || canalSet.has(at(p.u, p.v)) || surf[at(p.u, p.v)] === SURF.lot) ok = false;
+        else keys.push(at(p.u, p.v));
+      }
       if (!ok) continue;
       // この 石段の 下の マス（bottom）から 底を 歩いて 12 歩 以内の マス
       const b0 = makeStair(s, a).bottom;

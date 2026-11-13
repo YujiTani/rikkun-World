@@ -195,7 +195,7 @@ export class BlockPlacer {
 
   /** HOUSE-1C PR-2: 建築中の 場所の マスか */
   private lockedCell(x: number, y: number, z: number): boolean {
-    return this.c.m4.build?.locked(x, y, z) ?? false;
+    return (this.c.m4.build?.locked(x, y, z) ?? false) || (this.c.m4.town?.locked(x, y, z) ?? false);
   }
 
   private overlapsBody(x: number, y: number, z: number): boolean {

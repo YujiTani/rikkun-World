@@ -3,6 +3,7 @@ import { menuState, openHouse, press, stepUi } from './helpers/house';
 import { aimBlock, digAimed, houses, makeBlueprint, standAt, tapRight, type HouseForm, type Pt } from './helpers/houseBuilt';
 import { blueprints, firstArchitect } from './helpers/houseEditor';
 import { blockOf, buildingOf, cursorOf, holdItem, itemCount, levelOf, setBuildTicks, setNight, sitesOf, stockMaterials, watchSpawns } from './helpers/houseSite';
+import { TOWN } from '../src/town/townTuning';
 import { goTo, inSafe, openTown, place1P, place2P, townCall, townInfo, TOWN_OFF, yawOf, type P3, type TownInfo, type XZ } from './helpers/town';
 
 /**
@@ -18,10 +19,10 @@ import { goTo, inSafe, openTown, place1P, place2P, townCall, townInfo, TOWN_OFF,
  */
 
 // ---- 性能の 上限（TOWN-1-place.md §4.11 の 表。数は 表の とおり。時間では 決めない）
-const PERF_DRAW_MAX = 24; // 描画回数の ふえ（回）
-const PERF_TRI_MAX = 250_000; // 三角形の ふえ（こ）
-const SMOKE_MAX = 24; // けむりの つぶ（こ）
-const LIGHTS_MAX = 96; // あかり（こ。§4.5）
+const PERF_DRAW_MAX = TOWN.perf.drawMax; // 描画回数の ふえ（回）
+const PERF_TRI_MAX = TOWN.perf.triMax; // 三角形の ふえ（こ）
+const SMOKE_MAX = TOWN.perf.smokeMax; // けむりの つぶ（こ）
+const LIGHTS_MAX = TOWN.lightsMax; // あかり（こ。§4.5）
 const REBUILD_STEPS = 600; // 街が 見えて いる 間の ステップ（回）
 
 const stepN = (page: Page, n: number) => page.evaluate((n) => (window as any).__rikkun.step(n), n);

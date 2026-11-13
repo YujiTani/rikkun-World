@@ -71,6 +71,8 @@ export interface DigM4Deps {
   /** HOUSE-1C PR-2: 家を 建てる 場所の 守りと みずもり・どうづき */
   build?: DigBuildPort;
   /** MINE-1F: やかたの ブロック・ふさいだ かべは まだ・挑戦の 間は こわせない（`hook.yakataLocked` が 合う）。true の マスは ひびが 進まず ログ「いまは ほれない よ」 */
+  /** TOWN-1 1B-1: 街の はんいの ブロック（あきち 以外）は こわせない・置けない。true の マスは ひびが 進まず「かきん」と 音（unbreakable） */
+  town?: { locked(x: number, y: number, z: number): boolean };
   yakata?: { locked(x: number, y: number, z: number): boolean };
   /** #293 試作: 大きい がしゃどくろの 体の 上に ブロックを 置く・こわす（ワールドの ブロックと 同じ ねらい・置き方。なければ 何も しない） */
   bodyBlocks?: BodyBlocksPort;

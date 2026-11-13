@@ -1,3 +1,4 @@
+import type { TownRecord } from '../town/townPlan';
 import type { BlockId, ChunkColumn } from '../contracts';
 import { blockIndexOf } from '../world/blocks/blockTypes';
 import { BLOCK_IDS_V1 } from './blockIdsV1';
@@ -30,6 +31,8 @@ export interface RestoredSave {
   oldCols?: { kodo: ReadonlySet<number>; heya: ReadonlySet<number>; boken: ReadonlySet<number>; yakata?: ReadonlySet<number> };
   /** はじまりの 坑道の 入口 (x, z)（MINE-1C §4.8。meta に 書いて 次から 同じ 場所にする） */
   shaftStart?: { x: number; z: number } | null;
+  /** 街の 記録（TOWN-1 1B-1。meta に 書いて 次から 同じ 場所・同じ 形）。ない ＝ まだ きめて いない、null ＝ 置けなかった／街なし */
+  town?: TownRecord | null;
 }
 
 export const NO_SAVE: RestoredSave = { meta: null, fromPending: false, columns: 0, corrupt: 0 };
