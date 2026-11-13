@@ -65,4 +65,41 @@ describe('水の 計画の 小分け（#187）', () => {
     expect(sitesOfCell(T, i, j, shafts)).toEqual(sitesOfCell(T, i, j, direct));
     expect(WATER_TUNE.ahead.reach).toBeGreaterThan(300);
   }, 120_000);
+
+  it('planWaterAhead: 同じ シードで ShaftWorld だけ かわっても 先読みが 続く', () => {
+    const a = new ShaftWorld(seed, undefined);
+    const b = new ShaftWorld(seed, undefined);
+    const { i, j, c } = cellOf(POINTS[1]![0], POINTS[1]![1], a);
+    const centers = [{ x: c.px + 1, z: c.pz }];
+    for (let n = 0; n < 60000 && !cellReady(T, i, j, a); n++) planWaterAhead(seed, a, centers, true);
+    expect(cellReady(T, i, j, a)).toBe(true);
+    expect(cellReady(T, i, j, b)).toBe(false);
+    for (let n = 0; n < 60000 && !cellReady(T, i, j, b); n++) planWaterAhead(seed, b, centers, true);
+    expect(cellReady(T, i, j, b)).toBe(true);
+    expect(sitesOfCell(T, i, j, b)).toEqual(sitesOfCell(T, i, j, a));
+  }, 120_000);
+
+  it('途中で 別の 山を sitesOfCell で わりこませても 結果は 同じ', () => {
+    const w = new ShaftWorld(seed, undefined);
+    const direct = new ShaftWorld(seed, undefined);
+    const a = cellOf(POINTS[0]![0], POINTS[0]![1], w);
+    const b = cellOf(POINTS[1]![0], POINTS[1]![1], w);
+    for (let n = 0; n < 700; n++) expect(stepCellAhead(T, a.i, a.j, w, 3)).toBe(false);
+    const sb = sitesOfCell(T, b.i, b.j, w);
+    while (!stepCellAhead(T, a.i, a.j, w, 3));
+    expect(sitesOfCell(T, a.i, a.j, w)).toEqual(sitesOfCell(T, a.i, a.j, direct));
+    expect(sb).toEqual(sitesOfCell(T, b.i, b.j, direct));
+  }, 120_000);
+
+  it('途中の 物が 上限（run 3）を こえて すてられても、やりなおして 結果は 同じ', () => {
+    const w = new ShaftWorld(seed, undefined);
+    const direct = new ShaftWorld(seed, undefined);
+    const pts: readonly (readonly [number, number])[] = [...POINTS, [-501, -830], [508, 1301]];
+    const cells = pts.map(([x, z]) => cellOf(x, z, w)).filter((q, k, all) => all.findIndex((r) => r.i === q.i && r.j === q.j) === k);
+    expect(cells.length).toBeGreaterThanOrEqual(4);
+    for (const q of cells.slice(0, 4)) for (let n = 0; n < 5; n++) stepCellAhead(T, q.i, q.j, w, 3); // 4 つ目で 1 つ目が すてられる
+    const first = cells[0]!;
+    while (!stepCellAhead(T, first.i, first.j, w, 3)); // はじめから やりなおして 終える
+    expect(sitesOfCell(T, first.i, first.j, w)).toEqual(sitesOfCell(T, first.i, first.j, direct));
+  }, 120_000);
 });

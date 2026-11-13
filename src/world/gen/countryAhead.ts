@@ -22,6 +22,7 @@ interface Near {
 // 近くの 山の 一覧（中心の 16 マス 升目が かわった ときだけ 作りなおす。毎コマ 配列を 作らない）
 let listSig = Number.NaN;
 let listSeed = Number.NaN;
+let listShafts: ShaftWorld | null = null; // 前回の 坑道の 世界（かわったら 一覧を 作りなおす）
 let list: Near[] = [];
 let at = 0;
 
@@ -63,9 +64,10 @@ export function planWaterAhead(seed: number, shafts: ShaftWorld, centers: readon
   if (centers.length === 0) return;
   let sig = 0;
   for (const c of centers) sig = sig * 1000003 + (Math.floor(c.x / 16) + 4096) * 8192 + Math.floor(c.z / 16) + 4096;
-  if (sig !== listSig || seed !== listSeed) {
+  if (sig !== listSig || seed !== listSeed || shafts !== listShafts) {
     listSig = sig;
     listSeed = seed;
+    listShafts = shafts;
     rebuild(seed, centers);
   }
   const T = terrainFor(seed);

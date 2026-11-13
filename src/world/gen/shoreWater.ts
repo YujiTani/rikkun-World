@@ -13,16 +13,17 @@ const RING: readonly (readonly [number, number, number])[] = (() => {
 
 /** 山を かける 前の 高さ baseAt を 見て、いちばん ちかい 水（海面 −1 以下）までの きょりを 出す。64×64 の まとまりごと・8×8 の 区画ごとに 覚える */
 export class ShoreWater {
-  private readonly tiles = new Map<number, { c: Uint8Array; b: Uint8Array; d: Float32Array }>();
+  /** 覚える 量の 上限: 64×64 の まとまり 512 こ（this.tile が こえたら 全部 すてる）× 1 こ あたり（きょり 8 バイト × 4096 ＋ 水 1 バイト × 4096 ＋ 区画 64 バイト）≒ 19 MB */
+  private readonly tiles = new Map<number, { c: Uint8Array; b: Uint8Array; d: Float64Array }>();
 
   constructor(private readonly baseAt: (x: number, z: number) => number) {}
 
-  private tile(x: number, z: number): { c: Uint8Array; b: Uint8Array; d: Float32Array } {
+  private tile(x: number, z: number): { c: Uint8Array; b: Uint8Array; d: Float64Array } {
     const key = ((x >> 6) + 4096) * 8192 + ((z >> 6) + 4096);
     let t = this.tiles.get(key);
     if (!t) {
       if (this.tiles.size >= 512) this.tiles.clear();
-      t = { c: new Uint8Array(64 * 64), b: new Uint8Array(64), d: new Float32Array(64 * 64).fill(Number.NaN) };
+      t = { c: new Uint8Array(64 * 64), b: new Uint8Array(64), d: new Float64Array(64 * 64).fill(Number.NaN) };
       this.tiles.set(key, t);
     }
     return t;
