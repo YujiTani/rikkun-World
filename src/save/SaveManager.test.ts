@@ -46,6 +46,7 @@ interface Opts {
   streaming?: boolean;
   animals?: { serialize(): unknown; deserialize(d: unknown): void; prepare?(): void };
   gasha?: { serialize(): unknown; deserialize(d: unknown): void };
+  dama?: { serialize(): unknown; deserialize(d: unknown): void };
   house?: { serialize(): unknown; deserialize(d: unknown): void };
 }
 
@@ -100,6 +101,7 @@ async function session(store: KeyValueStore | null, db: MemoryBackend | null, o:
     streaming: o.streaming,
     animals: o.animals,
     gasha: o.gasha,
+    dama: o.dama,
     house: o.house,
     clock: clock && {
       dayTick: () => clock.t,
@@ -916,6 +918,26 @@ describe('SaveManager #293（がしゃどくろを たおした 回数の 保存
     let got2: unknown = 'unset';
     await session(store2, db2, { gasha: { serialize: () => null, deserialize: (d) => { got2 = d; } } });
     expect(got2 ?? null).toBeNull();
+  });
+});
+
+describe('TOWN-1 1A AC28（ようかいダマの 記録の 保存）', () => {
+  it('dama の キーに 書いて、つぎの ページ表示で そのまま 返す。キーが ない 古い 保存では null（あずかりを 計算する 合図）', async () => {
+    const store = new MemoryStore();
+    const db = new MemoryBackend();
+    const data = { v: 1, given: ['a.1'], legacy: 14 };
+    const s1 = await session(store, db, { dama: { serialize: () => data, deserialize: () => {} } });
+    await s1.save.now();
+    let got: unknown = 'unset';
+    await session(store, db, { dama: { serialize: () => null, deserialize: (d) => { got = d; } } });
+    expect(got).toEqual(data);
+    const store2 = new MemoryStore();
+    const db2 = new MemoryBackend();
+    const s3 = await session(store2, db2);
+    await s3.save.now();
+    let got2: unknown = 'unset';
+    await session(store2, db2, { dama: { serialize: () => null, deserialize: (d) => { got2 = d; } } });
+    expect(got2).toBeNull();
   });
 });
 

@@ -9,9 +9,10 @@ import { flashPeriods, flashPerSecond, type CelebrateSettings, CELEBRATE } from 
 import { TopBandModel, type TopBandInfo } from './bandModel';
 import type { TelopSource } from './telopText';
 import { SparkPool } from './sparkModel';
-import { BandView, BannerView, EffectsView } from './views';
+import { BandView, BannerView, EffectsView, type ModalRowInfo } from './views';
 import { halvesOfAll, type Owner, type Who } from '../duoHalves';
 import type { Rect } from '../../duo/viewRects';
+import { DAMA_TEXT } from '../../dama/damaText';
 import './celebrate.css';
 
 export interface SoundEntry {
@@ -24,6 +25,8 @@ export interface AchievementLook {
   name: string;
   tier: MedalTier;
   artUrl: string;
+  /** TOWN-1 1A: もらった ようかいダマの 数（メダルの 下に 出す。なければ 出さない） */
+  dama?: number;
 }
 
 export interface CelebrateDeps {
@@ -204,7 +207,9 @@ export class CelebrateUi {
   private openModal(show: AchievementShow): boolean {
     if (!this.bandModel.canOpenToast(this.appearing())) return false;
     if (!this.bandModel.toast.open(show)) return false;
-    const main = this.d.achievement(show.mainId);
+    const look = this.d.achievement(show.mainId);
+    const { dama, ...rest } = look;
+    const main: ModalRowInfo = dama === undefined ? rest : { ...rest, dama: { count: dama, iconUrl: this.d.itemIconUrl('yokai_orb'), label: DAMA_TEXT.achieveLabel } };
     this.bandHalves = halvesOfAll(show.owners, this.duo);
     for (const v of this.bandViewsOf(this.bandHalves)) v.showToast(main, Math.max(show.more, show.ids.length - 1));
     this.achSound('modal');

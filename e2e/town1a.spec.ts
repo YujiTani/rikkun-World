@@ -1,19 +1,20 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openBal } from './helpers/bal';
 import { installFakePads, setFakePad } from './helpers/duoUi';
+import { DAMA } from '../src/dama/damaTuning';
 
 /**
  * TOWN-1 区切り 1A（docs/design/TOWN-1.md §2.3・§2.4・§4.1・§6.1・§6.2 の AC1・AC2・AC4・AC28）の E2E。実装の 前に 書いた 赤の テスト。
  * 口（仕様 §6.1）: `dama.count(p)`・`dama.give(p, n)`（p ＝ 1 | 2。まだ 無い。実装で `window.__rikkun.dama` に 置く）。
  * 数は 決め打ちせず ゲームに 聞く。ただし ダマの 数の 表（§4.1）は まだ コードに 無いので、実績の メダルごとの 数だけ
- * このファイルの 先頭の `ACH_DAMA` 1 か所に 書く（実装で 表の 置き場が 決まったら、ここを その 表の import に 置きかえる）。
+ * src/dama/damaTuning.ts の 表 `DAMA` から 読む（1A の 実装で 置きかえ ずみ）。
  * 進めるのは step の 数。時間（ms）では 合否を 決めない（#255）。
  * ユニットに 回した 物（AC3 いっぱいの とき・AC5 あずかり・AC6 宝箱・AC50 文）は src/**\/*.test.ts（developer が 書く）。
  * 見た目（おめでとう画面の「もらった 数」・図鑑の 文）は UI 検査と オーナー確認。
  */
 
-/** 実績の メダルごとの ようかいダマ（仕様 §4.1 の PO 案の 値。表の 1 か所へ 置きかえる 前の 写し） */
-const ACH_DAMA: Record<string, number> = { bronze: 2, silver: 5, gold: 10, rainbow: 20 };
+/** 実績の メダルごとの ようかいダマは 実装の 表（src/dama/damaTuning.ts の DAMA.medal）を 読む */
+const ACH_DAMA: Record<string, number> = DAMA.medal;
 const PAD_R2 = 7;
 
 const stepN = (page: Page, n: number) => page.evaluate((n) => (window as any).__rikkun.step(n), n);

@@ -76,6 +76,7 @@ export function wireGasha(deps: WiredLoop) {
     startGirl: (hooks) => startGirlBoss(hooks),
     scatter: (at, stacks, opts) => { drops.scatter(at, stacks, opts); },
     record: (key) => { achievements.record(key); },
+    gaveDama: (hit) => { shared.dama?.fromGashadokuro(hit); }, // TOWN-1 1A: 当てた 人 ぜんいんに 300
     say: () => { log.defeat('がしゃどくろ'); },
     bgmReset: () => { (globalThis as unknown as { __gashaBgm?: { reset(): void } }).__gashaBgm?.reset(); },
     sound: (name) => { fxSound.play(name); },

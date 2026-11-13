@@ -37,6 +37,7 @@ import { START_PITCH_DEG } from '../../player/config';
 import { computeFarmPlacement, applyFarmPlacement } from '../../world/gen/farmPlacement';
 import { createFarmVisual } from '../../world/render/farmVisual';
 import type { WiredAchievements } from './ui';
+import { legacyList } from './dama';
 import { isWaterIndex } from '../../world/blocks/water';
 import { SHAFT_CONFIG } from '../../world/gen/mineShaftConfig';
 import { areaIn } from '../../world/gen/mineHookBoken';
@@ -101,6 +102,8 @@ export function wireSave(deps: WiredAchievements) {
         shared.prevCoops = -1;
       },
     },
+    // TOWN-1 1A: ようかいダマの 記録（わたした 実績・前の セーブの あずかり）。記録の ない 前の セーブは 実績から あずかりを 計算（実績の あとに 読む）
+    dama: { serialize: () => shared.dama?.serialize() ?? null, deserialize: (d) => shared.dama?.deserialize(d, legacyList(achievements)) },
     legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
     // HOUSE-1A: 建築士さんの 記録。前の 保存（キーなし）は 最初の 1 人は 決まった 場所に 出る・かえす くらの 物は なし（1E: 前の 保存の `kura` は 次に 話した とき もちものへ もどす）
     house: { serialize: () => house.serialize(), deserialize: (d) => house.load(d) },

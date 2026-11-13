@@ -194,6 +194,28 @@
   height: 88px;
   perspective: 600px;
 }
+/* TOWN-1 1A: メダルの 下に 小さく「ようかいダマの 絵 ＋ もらった 数」（字は 数だけ。16px） */
+.cel-band__dama {
+  position: absolute;
+  left: 50%;
+  top: calc(100% - 4px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 20px;
+  white-space: nowrap;
+  color: var(--rk-text);
+}
+.cel-band__dama[hidden] {
+  display: none;
+}
+.cel-band__dama-icon {
+  width: 16px;
+  height: 16px;
+}
 .cel-band__text {
   position: relative;
   display: flex;

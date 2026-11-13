@@ -68,6 +68,7 @@ import { FarmAimHud } from '../../ui/farmAim';
 import { NO_COMBAT, NO_SWINGS, NO_DIG } from './shared';
 import type { WiredAnimalView } from './creatures';
 import { modalLock } from './modalLock';
+import { damaForMedal } from '../../dama/dama';
 
 export function wireHud(deps: WiredAnimalView) {
   const {
@@ -512,6 +513,7 @@ export function wireAchievements(deps: WiredWeaponFx) {
   });
   achievements.onUnlock((d, silent) => {
     if (!silent) log.achievement(d.name);
+    shared.dama?.fromAchievement(d, silent); // TOWN-1 1A: しずかな 実績は 0。参加中の 2 人とも 同じ 数
   });
   const defById = new Map(ACHIEVEMENT_DEFS.map((d) => [d.id, d]));
   const craftPanel = inventoryScreen.craftPanel!;
@@ -529,7 +531,7 @@ export function wireAchievements(deps: WiredWeaponFx) {
     itemIconUrl,
     achievement: (id: AchievementId) => {
       const d = defById.get(id)!;
-      return { name: d.name, tier: d.medal, artUrl: achievementArtUrl(d) ?? markUrl('medal') };
+      return { name: d.name, tier: d.medal, artUrl: achievementArtUrl(d) ?? markUrl('medal'), dama: damaForMedal(d.medal) };
     },
     levelUpShowing: () => levelHud.celebrating(),
     // WEAPON-7: ヌシの「あらわれた！」が 出ている 間は 上の 帯の ほかの ものを 待たせる

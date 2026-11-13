@@ -21,12 +21,22 @@ import { playKodachi } from '../../fx/weaponSounds';
 import type { WiredFighters } from './combat';
 import type { WiredHouse } from './house';
 import { emptyKitSize } from './coopMenuView';
+import { createDamaService } from './dama';
 
 export function wireYokai(deps: WiredFighters) {
   const {
     shared, world, time, controller, combat, inventory, drops, game, seed, harapanRoll, armor,
     strengthLevel, renderer, island, w2, legend, parry, parryFx, sparkAt, reducedMotionMq, fxSound, level,
   } = deps;
+  // TOWN-1 1A: ようかいダマ（妖怪を たおすと 当てた 人 ぜんいんへ。実績・がしゃどくろは ほかの つなぎ）
+  const dama = createDamaService({
+    seed,
+    inventory,
+    playerPos: () => controller.state.position,
+    mate: () => shared.duoMate(),
+    scatter: (at, stacks) => { drops.scatter(at, stacks); },
+  });
+  shared.dama = dama;
   const credit: CreditDeps = { level1: level, level2: shared.p2.levels, feedDefeat: (who, kind) => shared.onDefeatAch(kind, who) };
   // COOP-1 4d-1: 妖怪の 攻撃は ねらっている 人の パリィに 聞く。1P の 側は 今の 中身（1P の parry・向き・火花）を そのまま 包む。2P の 側は 参加している あいだ だけ（いなければ 受けない）
   const side1 = {
@@ -99,6 +109,7 @@ export function wireYokai(deps: WiredFighters) {
       // COOP-1 4d-0: 2 人の ときの たおした 手ごたえ（止め・ゆれ）は たおした 人の 半分だけ。1 人の ときは combatFx の onDefeat（今の まま）
       if (shared.duoJoined()) shared.impactFor(info.who).hit(impactOf({ kind: 'defeat' }));
     },
+    onDama: (info) => { dama.fromYokai(info); }, // TOWN-1 1A: 当てた 人 ぜんいんに ようかいダマ
     // ぬりかべ: たおれこみでこわす・みず で石になる（くだけるつぶと音。fx はあとで作るので関数で包む）
     onBlocks: (cells, why) => {
       for (const c of cells) shared.fx.particles.burst({ x: c.x, y: c.y, z: c.z }, why === 'stone' ? c.to : c.from, FX_SETTINGS);

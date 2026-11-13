@@ -40,6 +40,7 @@ import { lookDirection } from '../dig/raycast';
 import { computeFarmPlacement } from '../world/gen/farmPlacement';
 import { digSettingsView, settingsViewOf, sharedSettingsView } from './settingsViews';
 import type { WiredMine } from '../game/wire/mine';
+import { createDamaHook } from '../game/wire/dama';
 
 export function installGameHook(deps: WiredMine): void {
   const {
@@ -344,6 +345,7 @@ export function installGameHook(deps: WiredMine): void {
         }
       : null,
     duo,
+    dama: createDamaHook(shared.dama!),
     audio: createAudioHook({
       mixer,
       bgm,

@@ -114,6 +114,8 @@ export interface SaveDeps {
   saveOverrides?: () => readonly SaveBlockOverride[];
   /** #293: がしゃどくろを たおした 回数（{ v: 2, kills }。ボス本体は 保存しない。前の 版の 宝箱の 一覧は 読みこんでも むし）。前の 保存に ない ときは null */
   gasha?: SaveExtra;
+  /** TOWN-1 1A: ようかいダマの 記録（`{ v: 1, given, legacy }`。ない 保存は 前の セーブ あつかい で あずかりを 計算する） */
+  dama?: SaveExtra;
   /** HOUSE-1A: 建築士さんの 記録（`{ v: 2, first, toolsGiven, … }`。1E: `kura` は 前の セーブの まだ かえして いない 物が ある ときだけ）。前の 保存に ない ときは 初期の まま */
   house?: SaveExtra;
   /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
@@ -352,6 +354,11 @@ export class SaveManager {
       this.d.samurai?.deserialize(null);
     }
     try {
+      this.d.dama?.deserialize(data.dama ?? null);
+    } catch {
+      this.d.dama?.deserialize(null);
+    }
+    try {
       this.d.gasha?.deserialize(data.gasha ?? null);
     } catch {
       this.d.gasha?.deserialize(null);
@@ -577,6 +584,7 @@ export class SaveManager {
       ninja: this.d.ninja?.serialize() ?? null,
       samurai: this.d.samurai?.serialize() ?? null,
       gasha: this.d.gasha?.serialize() ?? null,
+      dama: this.d.dama?.serialize() ?? null,
       house: this.d.house?.serialize() ?? null,
       farm,
       ...p2Part,

@@ -218,6 +218,8 @@ export interface TestHook {
   thunder: ThunderHook;
   /** HOUSE-1A（#338）: 建築士さん・メニュー・エディター（docs/design/HOUSE-1.md §6.1。src/house/hook.ts。1E: くらは ない。前の セーブの 物は legacyKura()） */
   house: HouseHook;
+  /** TOWN-1 1A（docs/design/TOWN-1.md §6.1）: ようかいダマ。p ＝ 1 | 2（2P が いなければ count(2) は null） */
+  dama: { count(p: 1 | 2): number | null; give(p: 1 | 2, n: number): { added: number; dropped: number }; legacy(): number | null };
   /** #293 リリース: がしゃどくろ（いま すぐ 出す・たおした ことに する・調整表。src/gasha/release.ts）。起動の おわりに 足される */
   gasha?: GashaHook;
 }
@@ -228,7 +230,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'gfx' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house' | 'duo'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'gfx' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house' | 'duo' | 'dama'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {
