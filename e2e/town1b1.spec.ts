@@ -4,6 +4,7 @@ import { aimBlock, digAimed, houses, makeBlueprint, standAt, tapRight, type Hous
 import { blueprints, firstArchitect } from './helpers/houseEditor';
 import { blockOf, buildingOf, cursorOf, holdItem, itemCount, levelOf, setBuildTicks, setNight, sitesOf, stockMaterials, watchSpawns } from './helpers/houseSite';
 import { TOWN } from '../src/town/townTuning';
+import { setFakePad } from './helpers/duoUi';
 import { goTo, inSafe, openTown, place1P, place2P, townCall, townInfo, TOWN_OFF, yawOf, type P3, type TownInfo, type XZ } from './helpers/town';
 
 /**
@@ -115,6 +116,7 @@ test.describe('TOWN-1 1B-1 用水路', () => {
   test('AC41: 1P も 2P も 底の いちばん 遠い マスから 石段まで 歩き、前に 歩く だけ（ジャンプ なし）で 地面に 上がれる', async ({ page }) => {
     await openTown(page, { duo: true });
     const info = await townInfo(page);
+    expect(await page.evaluate(() => (window as any).__rikkun.settings.get('autoJump')), 'オートジャンプは はじめの 設定（オン）').toBe(true);
     expect(await gh(page, Math.floor(info.plaza.x), Math.floor(info.plaza.z)), 'groundY ＝ 地面の ブロックの y').toBe(info.groundY);
     const standY = info.canal.bottomY + 1;
     const f = farthest(info);
@@ -254,7 +256,7 @@ test.describe('TOWN-1 1B-1 あきち', () => {
 
     // ---- ほれる・置ける（街の ほかの 所は ほれない。それは ユニット AC9）
     await test.step('区画の 中の ブロックは ほれる・置ける', async () => {
-      await standAt(page, { x: cx + 0.5, y: gy + 1, z: cz + 3.5 }, 0);
+      await standAt(page, { x: cx + 0.5, y: gy + 1, z: cz + 1.5 }, 0); // 穴の ふちに 視線が 当たらない よう 近くに 立つ
       await aimBlock(page, { x: cx, y: gy, z: cz }, 1);
       await digAimed(page);
       expect(await blockOf(page, { x: cx, y: gy, z: cz }), 'ほれた').toBe('air');
@@ -267,7 +269,9 @@ test.describe('TOWN-1 1B-1 あきち', () => {
 
     // ---- 場所: 区画の 中に 外 7×7 の かためた つち → sites に 入る。区画から はみ出す 7×7 は 入らない
     const at: Pt = { x: lot.min.x + 2, y: gy, z: lot.min.z + 2 };
-    const over: Pt = { x: lot.min.x - 4, y: gy, z: lot.min.z + 2 }; // 西へ はみ出す
+    // はみ出す 場所: 2 つ目の あきち（lots[1]）の 北の 線を またぐ。at とは かさならない（区画も ちがう）
+    const lot1 = info.lots[1]!;
+    const over: Pt = { x: lot1.min.x + 2, y: gy, z: lot1.min.z - 4 }; // 区画の ならびは x 方向。北の 線を またぐ
     await page.evaluate(
       ({ at, over, w, d }) => {
         const h = (window as any).__rikkun;
@@ -308,6 +312,41 @@ test.describe('TOWN-1 1B-1 あきち', () => {
     // 家の 中（床の 上）も 妖怪が わかない
     expect(await inSafe(page, { x: at.x + 3.5, y: gy + 2, z: at.z + 3.5 }), '家の 中も 安全').toBe(true);
     expect(await itemCount(page, 'dirt')).toBeGreaterThanOrEqual(0);
+  });
+});
+
+test.describe('TOWN-1 1B-1 あきち 2P', () => {
+  test.describe.configure({ timeout: 240_000 });
+
+  test('AC7b: 2P も あきちの 中の ブロックを ほれる', async ({ page }) => {
+    await openTown(page, { duo: true });
+    const info = await townInfo(page);
+    const lot = info.lots[0]!;
+    const cx = Math.floor((lot.min.x + lot.max.x) / 2);
+    const cz = Math.floor((lot.min.z + lot.max.z) / 2);
+    const gy = info.groundY;
+    await goTo(page, cx, cz);
+    await place1P(page, { x: lot.min.x + 1.5, y: gy + 1, z: lot.min.z + 1.5 });
+    await place2P(page, { x: cx + 0.5, y: gy + 1, z: cz + 1.5 });
+    await page.evaluate(([x, y, z]) => (window as any).__rikkun.duo.aimAt(2, { x, y, z }), [cx, gy, cz] as const);
+    await stepN(page, 3);
+    const tgt = await page.evaluate(() => {
+      (window as any).__rikkun.duo.sample(2);
+      return (window as any).__rikkun.duo.target(2);
+    });
+    test.info().annotations.push({ type: '2P target', description: JSON.stringify(tgt) });
+    expect(tgt?.block, '2P は あきちの ブロックを ねらえて いる').toEqual({ x: cx, y: gy, z: cz });
+    // ZR を おしつづけて ひびを MAX に して、おし直して こわす（duoPlay と 同じ）
+    for (let n = 0; n < 60 && (await blockOf(page, { x: cx, y: gy, z: cz })) !== 'air'; n++) {
+      await setFakePad(page, 1, { buttons: [7] });
+      await stepN(page, 30);
+      await setFakePad(page, 1, {});
+      await stepN(page, 2);
+      await setFakePad(page, 1, { buttons: [7] });
+      await stepN(page, 2);
+      await setFakePad(page, 1, {});
+    }
+    expect(await blockOf(page, { x: cx, y: gy, z: cz }), '2P が あきちの ブロックを ほれた').toBe('air');
   });
 });
 
