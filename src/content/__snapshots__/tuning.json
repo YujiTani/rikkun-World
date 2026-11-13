@@ -340,11 +340,6 @@
           "item": "iron_ingot",
           "max": 10,
           "min": 6
-        },
-        {
-          "item": "yokai_orb",
-          "max": 6,
-          "min": 4
         }
       ],
       "seedSalt": 2931

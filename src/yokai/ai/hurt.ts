@@ -36,6 +36,10 @@ export class YokaiHurt {
     if (!kodachi) amount = d.stag.damage(id, amount);
     if (wasDouble) d.opts.onParryEvent?.({ type: 'staggerDouble', yokaiId: id, damage: amount }, who);
     e.hp = Math.max(0, Math.round((e.hp - amount) * 100 + 1e-7) / 100); // WEAPON-4: 0.01 の位に まるめる（小数の 誤差で のこさない）
+    if (amount > 0) {
+      if (who === 2) e.hit2 = true;
+      else e.hit1 = true; // TOWN-1 1A: 1 回でも 当てた 人（たおした とき ようかいダマを わたす）
+    }
     d.marks.showMarks(e);
     if (e.hp <= 0) {
       d.reward.defeat(e, true, who);

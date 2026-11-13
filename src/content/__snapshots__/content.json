@@ -1528,12 +1528,12 @@
       "ITEM_INFO.yokai_orb": {
         "buttons": [],
         "how": "",
-        "use": "いまは つかえない よ"
+        "use": "あとで よろずやが できるよ"
       },
       "category": "material",
       "durabilityClass": "consumable",
       "maxStack": 64,
-      "name": "ようかいだま",
+      "name": "ようかいダマ",
       "placeBlock": null,
       "rarity": "uncommon",
       "recipes": []

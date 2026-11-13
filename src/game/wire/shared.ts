@@ -38,6 +38,7 @@ import { createModalOwner, type ModalOwner, type Who } from './modalOwner';
 import type { ImpactView } from '../../duo/impactRoute';
 import type { ImpactBus } from '../../fx/impact';
 import type { LegendSystem } from '../../legend/LegendSystem';
+import type { DamaService } from '../../dama/dama';
 
 /** パリィの 倍率が まだ 無い とき（wireLoop が 差しかえる まで） */
 const NO_PARRY_SCALES: readonly number[] = [1];
@@ -179,6 +180,8 @@ interface Shared {
   skipSignalLog: boolean;
   onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
   yokaiManager: YokaiManager | null;
+  /** TOWN-1 1A: ようかいダマを わたす 係（wireYokai が 作る） */
+  dama: DamaService | null;
   achievementsRef: { feedWorn(n: number): void };
   onDefeatAch: (kind: YokaiKind, who: 1 | 2) => void;
   domeEraseThisStep: boolean;
@@ -280,6 +283,7 @@ export function createShared(): Shared {
     skipSignalLog: false,
     onDropPicked: () => {},
     yokaiManager: null,
+    dama: null,
     achievementsRef: { feedWorn: () => {} },
     onDefeatAch: () => {},
     domeEraseThisStep: false,

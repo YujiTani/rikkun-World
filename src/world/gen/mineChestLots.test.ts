@@ -86,6 +86,9 @@ describe('C16: くじの 箱', () => {
     const pooled = new Set(Object.values(pool()).flat());
     const ex = excluded.map((e) => e.item as string);
     expect(ex).toContain('yokai_orb');
+    const orb = excluded.find((e) => (e.item as string) === 'yokai_orb')!;
+    expect(orb.reason, 'TOWN-1 1A §2.3 の 5: 理由は 新しい 文（行は 消さない）').toContain('ようかいダマ');
+    expect(orb.reason).not.toContain('いまは 手に 入らない');
     expect(ex).toContain('omamori_torn');
     for (const id of ['kodo_waku', 'takarabako_1', 'takarabako_1_open', 'chalk_mark_up_n']) expect(pooled.has(id as ItemId), id).toBe(false);
   });

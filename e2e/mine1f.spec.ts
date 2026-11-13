@@ -42,7 +42,7 @@ const state = (page: Page, id: string) => page.evaluate((id) => (window as any).
 const bag = (page: Page) =>
   page.evaluate(() => {
     const out: Record<string, number> = {};
-    for (const s of (window as any).__rikkun.inventory.get().slots as ({ item: string; count: number } | null)[]) if (s) out[s.item] = (out[s.item] ?? 0) + s.count;
+    for (const s of (window as any).__rikkun.inventory.get().slots as ({ item: string; count: number } | null)[]) if (s && s.item !== 'yokai_orb') out[s.item] = (out[s.item] ?? 0) + s.count; // TOWN-1 1A: 実績の ようかいダマ（仕様 §2.4）は 数えない（中身の くらべに まぜない）
     return out;
   });
 

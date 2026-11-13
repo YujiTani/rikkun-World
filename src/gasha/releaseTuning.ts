@@ -64,8 +64,7 @@ export const RELEASE = {
     guaranteed: [] as { item: ItemId; count: number }[], // かならず 入る もの（個。コアを こわした 一山だけ。忍者装備は ここでは なく 「まだ 手に 入れて いない 物から 1 つ」の くじ（NINJA-1。src/craft/ninjaTuning.ts・ninjaDrop.ts）で 毎回 1 つ 入る）
     rare: [
       { item: 'crystal', min: 3, max: 5 }, // すいしょう（個の はんい。最小〜最大の 一様）
-      { item: 'iron_ingot', min: 6, max: 10 }, // てつの かたまり（個）
-      { item: 'yokai_orb', min: 4, max: 6 }, // ようかいだま（個）
+      { item: 'iron_ingot', min: 6, max: 10 }, // てつの かたまり（個）。ようかいダマは ここに 入れない（たおしたら 当てた 人に 300。TOWN-1 §4.1。オーナー決定）
     ] as { item: ItemId; min: number; max: number }[],
     seedSalt: 2931, // 数: 中身の 数を きめる 乱数の 種に まぜる 数
   },

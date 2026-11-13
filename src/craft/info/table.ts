@@ -43,8 +43,8 @@ export interface InfoRow {
 /** 全アイテムの 説明の 行。ぜんぶ 登録表（content/items/）の `info` から 作る（説明の ない 9 個 = 地形・かざりは 行を 持たない） */
 export const ITEM_INFO: Readonly<Record<string, InfoRow>> = registryInfo();
 
-/** 「どこで」の ようかいだま だけの文（§5） */
-export const ORB_SOURCE = 'むかし の ようかい が おとした';
+/** 「どこで」の ようかいダマ だけの文（TOWN-1 §2.3 の 1）（§5） */
+export const ORB_SOURCE = 'ようかい を たおす・じっせき';
 
 /** 「どこで」の たまご の文（LIVE-1 §3.1） */
 export const EGG_SOURCE = 'なかま の にわとり が むし を たべて うむ';

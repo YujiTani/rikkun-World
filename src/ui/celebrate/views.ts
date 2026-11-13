@@ -217,6 +217,8 @@ export interface ModalRowInfo {
   name: string;
   tier: MedalTier;
   artUrl: string;
+  /** TOWN-1 1A: もらった ようかいダマ（メダルの 下に 小さく。絵 ＋ 数だけ。なければ 出さない） */
+  dama?: { count: number; iconUrl: string; label: string };
 }
 
 /**
@@ -228,6 +230,8 @@ export class BandView {
   readonly root = el('div', 'cel-layer cel-layer--band');
   readonly band = el('div', 'cel-band', this.root);
   private readonly pic = el('div', 'cel-band__pic', this.band);
+  /** TOWN-1 1A: メダルの 下の ようかいダマ（絵 ＋ 数）。pic の 中に 絶対位置で 置く */
+  private readonly damaRow = el('div', 'cel-band__dama', this.pic);
   private readonly text = el('div', 'cel-band__text', this.band);
   private readonly head = el('div', 'cel-band__head', this.text);
   private readonly name = el('div', 'cel-band__name', this.text);
@@ -267,7 +271,8 @@ export class BandView {
     this.band.className = `cel-band cel-toast${this.sfx}`;
     this.band.dataset.band = 'achieve';
     this.plain(false);
-    this.pic.replaceChildren((this.medal = createMedal(main.tier, 88, main.artUrl)));
+    this.pic.replaceChildren((this.medal = createMedal(main.tier, 88, main.artUrl)), this.damaRow);
+    this.showDama(main.dama);
     this.head.textContent = 'おめでとう！';
     this.name.innerHTML = withRuby(main.name);
     this.name.hidden = false;
@@ -291,7 +296,8 @@ export class BandView {
     img.src = iconUrl;
     const disc = el('div', 'cel-band__disc');
     disc.append(img);
-    this.pic.replaceChildren((this.medal = disc));
+    this.pic.replaceChildren((this.medal = disc), this.damaRow);
+    this.showDama(undefined);
     const tp = telopParts(source);
     this.head.innerHTML = `${withRuby(tp.pre)}<span class="cel-band__item">${withRuby(itemName)}</span>${withRuby(tp.post)}`;
     this.name.hidden = true;
@@ -318,6 +324,23 @@ export class BandView {
     this.sub.hidden = true;
     this.band.hidden = false;
     this.root.hidden = false;
+  }
+
+  /** メダルの 下の ようかいダマ（絵 ＋ 数）。なければ かくす */
+  private showDama(d: ModalRowInfo['dama']): void {
+    this.damaRow.hidden = !d || d.count <= 0;
+    if (!d || d.count <= 0) {
+      this.damaRow.replaceChildren(); // 前の 実績の 数を のこさない（テロップの 文に まざらない）
+      return;
+    }
+    const img = document.createElement('img');
+    img.className = 'cel-band__dama-icon rk-art';
+    img.alt = d.label;
+    img.src = d.iconUrl;
+    const n = document.createElement('span');
+    n.textContent = `× ${d.count}`;
+    this.damaRow.replaceChildren(img, n);
+    this.damaRow.dataset.testid = 'achieve-dama';
   }
 
   /** 名前だけの 帯〔家の 名前〕か。そうでなければ 絵と 見出しを もどし、窓口の 目印を はずす */

@@ -34,6 +34,7 @@ describe('説明の表（M6 §2.2）', () => {
     expect(src.info('dirt').source).toBe('つち を ほる・ぬりかべ が おとす');
     expect(src.info('iron_ore').source).toBe('てつ を ほる（いしの つるはし から）・からかさ が おとす');
     expect(src.info('furnace').source).toBe('いし 5 で つくる');
+    expect(src.info('yokai_orb').source, 'TOWN-1 1A §2.3 の 1: どこで').toBe('ようかい を たおす・じっせき');
     expect(src.info('iron_ingot').source).toBe('てつ 1 を かまど で やく');
   });
   it('U3: sourceYokai はドロップ表と同じ', () => {

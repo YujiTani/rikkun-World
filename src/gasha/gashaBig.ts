@@ -355,6 +355,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     maxHp: () => bh.maxHp,
     hp: () => bh.hp,
     damage: (part, amount, at, source, who) => bh.damage(part, amount, at ?? null, source, who),
+    hitters: () => ({ hit1: bh.hit1, hit2: bh.hit2 }),
     targetWho: () => (actor && !hidden ? aim.who() : null),
     section: (on) => {
       if (!model || !actor) return;

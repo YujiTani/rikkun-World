@@ -95,7 +95,7 @@ export type FarmToolId = (typeof FARM_TOOL_IDS)[number];
 export const FARM_BUCKET_IDS = ['bucket', 'water_bucket', 'magma_bucket', 'wakimizu_bucket', 'magma_wakimizu_bucket'] as const;
 export type FarmBucketId = (typeof FARM_BUCKET_IDS)[number];
 
-/** ようかいだま（M3 の 名残り。いまは 手に入らない 古い保存用）。ITEM_TYPES では ざいりょうの 先頭 */
+/** ようかいダマ（妖怪・実績で もらう。TOWN-1 1A）。ITEM_TYPES では ざいりょうの 先頭 */
 export const ORB_IDS = ['yokai_orb'] as const;
 export type OrbId = (typeof ORB_IDS)[number];
 
