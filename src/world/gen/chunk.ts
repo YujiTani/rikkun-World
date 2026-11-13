@@ -22,6 +22,8 @@ import { treesInRect } from './trees';
 import { TREES_V2, TREE_MAX_EXTENT } from './treeV2';
 import { writeShapedTrees, type ShapedTree } from './treeShapes';
 import { fallBlocks } from './liquidPonds';
+import { activeTownPlan } from '../../town/townState';
+import { writeTown } from '../../town/townWrite';
 
 /**
  * 列 1 つ（16×WORLD_HEIGHT×16）を作る（VOX-B）。`generateChunk(seed, cx, cz)` は同じ入力なら いつも同じ中身。
@@ -406,6 +408,10 @@ export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCl
   const tx = sp.x + C.startTorch.dx - x0;
   const tz = sp.z + C.startTorch.dz - z0;
   if (tx >= 0 && tx < CHUNK_SIZE && tz >= 0 && tz < CHUNK_SIZE) out[(sp.h + 1) * LAYER + tz * CHUNK_SIZE + tx] = START_TORCH;
+
+  // TOWN-1 1B-1: 拠点の 街（開いて いる 世界に 街が あれば）。地面を ならし 用水路・石どうろうを 書く。いちばん さいごに かぶせる
+  const town = activeTownPlan(seed);
+  if (town !== null) writeTown(out, cx, cz, town, (x, z) => T.height(x, z));
 
   return { blocks: out, heights: H };
 }
