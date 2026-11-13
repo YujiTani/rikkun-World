@@ -63,10 +63,10 @@ export const TOWN_BLOCK_DEFS = [
   { id: 'town_tesuri', name: 'てすり', see: true, glow: null, art: { pat: 'bars', base: '#8A5C3A', acc: ['#5A3A20'] } },
   { id: 'town_take', name: 'たけ', see: false, glow: null, art: { pat: 'pole', base: '#5DAA45', acc: ['#2E6B2A', '#7EC45E'] } },
   { id: 'town_takegaki', name: 'たけがき', see: true, glow: null, art: { pat: 'bars', base: '#5DAA45', acc: ['#2E6B2A'] } },
-  { id: 'town_taru', name: 'たる', see: false, glow: null, art: { pat: 'barrel', base: '#8A5C3A', acc: ['#2A2E3A', '#A3724B'] } },
   { id: 'town_hachiue', name: 'はちうえ', see: true, glow: null, art: { pat: 'pot', base: '#B8603A', acc: ['#4CA332', '#7EC45E'] } },
-  // 見本に ない 物（5 版の 絵の 用水路の てすり）。ひくい 箱で 描く（当たりは 1 ブロック）
+  // 見本に ない 物（5 版の 絵の 用水路の てすり）。いちばん 後ろの ブロックは ふつうの 箱（たる）に する ため たるの 前に 置く。ひくい 箱で 描く（当たりは 1 ブロック）
   { id: 'town_ishi_tesuri', name: 'いしの てすり', see: true, glow: null, art: { pat: 'brick', base: '#A8A8AC', acc: ['#86868C', '#C2C2C6'] } },
+  { id: 'town_taru', name: 'たる', see: false, glow: null, art: { pat: 'barrel', base: '#8A5C3A', acc: ['#2A2E3A', '#A3724B'] } },
 ] as const satisfies readonly TownBlockDef[];
 
 export type TownBlockId = (typeof TOWN_BLOCK_DEFS)[number]['id'];

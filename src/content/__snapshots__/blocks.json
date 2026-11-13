@@ -306,9 +306,9 @@
     "town_andon": 316,
     "town_aokawara": 284,
     "town_furukawara": 285,
-    "town_hachiue": 322,
+    "town_hachiue": 321,
     "town_hashira": 305,
-    "town_ishi_tesuri": 323,
+    "town_ishi_tesuri": 322,
     "town_ishidan": 294,
     "town_ishidatami_a": 291,
     "town_ishidatami_b": 292,
@@ -337,7 +337,7 @@
     "town_shubashira": 306,
     "town_take": 319,
     "town_takegaki": 320,
-    "town_taru": 321,
+    "town_taru": 323,
     "town_tatami": 310,
     "town_tesuri": 318,
     "town_tsuchi": 296,
@@ -2287,12 +2287,6 @@
     },
     {
       "breakable": false,
-      "id": "town_taru",
-      "name": "たる",
-      "solid": true
-    },
-    {
-      "breakable": false,
       "id": "town_hachiue",
       "name": "はちうえ",
       "solid": true
@@ -2301,6 +2295,12 @@
       "breakable": false,
       "id": "town_ishi_tesuri",
       "name": "いしの てすり",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "town_taru",
+      "name": "たる",
       "solid": true
     }
   ],
