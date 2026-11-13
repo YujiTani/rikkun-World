@@ -565,7 +565,8 @@ test.describe('TEX-A', () => {
     expect(got.start.triangles).toBeLessThanOrEqual(1_140_000);
     expect(got.high.triangles).toBeLessThanOrEqual(1_350_000);
     expect(got.start.drawCalls).toBeLessThanOrEqual(141 + START_SHAFT_DRAWS);
-    expect(got.high.drawCalls).toBeLessThanOrEqual(168 + HIGH_SHAFT_DRAWS);
+    // 2026-11-13 オーナー OK: 新しい山・木・目じるし・水を既定にしたため 上空の 描画回数は 173 → 179（木 v2 の 高い 木が 上の セクションを ふやす +6）。上限は 実測 179 の 5% 増し（188）
+    expect(got.high.drawCalls).toBeLessThanOrEqual(183 + HIGH_SHAFT_DRAWS);
     const sp = await page.evaluate(() => (window as any).__rikkun.world.spawn() as { x: number; y: number; z: number });
     for (const [dx, dz] of [[-34, -34], [34, -34], [34, 34]]) {
       await setPoseSettled(page, sp.x + dx, sp.y + 30, sp.z + dz, 45, -30);

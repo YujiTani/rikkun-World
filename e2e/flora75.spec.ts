@@ -179,7 +179,8 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
       const s = await measureCountry(page, k, { spots: 1 });
       expect(s.here, `${k}: 足もとの国`).toBe(k);
       worst[k] = s.triangles;
-      expect(s.drawCalls - golden.countries[k]!.drawCalls, `${k}: 描画回数の ふえ`).toBeLessThanOrEqual(25);
+      // 2026-11-13 オーナー OK: 新しい山・木・水を既定にしたため もみじやまの 描画回数は ゴールデン +25 → +30（山 v2・水 v2 の セクションが ふえた）。上限は 実測 135 の 5% 増し（142 = +37）
+      expect(s.drawCalls - golden.countries[k]!.drawCalls, `${k}: 描画回数の ふえ`).toBeLessThanOrEqual(k === 'momiji' ? 37 : 25);
       const before = golden.countries[k]!.triangles;
       expect(s.triangles - before, `${k}: 三角形の ふえ（前 ${before}）`).toBeLessThanOrEqual(36_864);
       // #219: もみじやま も 上限の中に入ったので、3 国とも 903,036 を見る

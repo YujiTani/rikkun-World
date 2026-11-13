@@ -20,6 +20,11 @@ import { isWaterIndex } from '../blocks/water';
 export interface LodChunkMeshData {
   opaque: MeshData;
   water: MeshData;
+  /**
+   * 視錐台の 判定に 使う 下の はし（y）。はっぱの 下の 空きごしに 見える 向こうがわを ふさぐ 面（hollowFloor）は 地面の 下ふかくまで のびるので、
+   * そのぶんで 箱を 大きくすると 見えていない チャンクまで 描いてしまう。ふつうの 面の いちばん 下だけで 決める
+   */
+  cullMinY: number;
 }
 
 const LIGHT_MAX = 15;
@@ -87,22 +92,42 @@ interface Col {
   gb: number;
   /** 水面のブロックの y（地面より上に水があるとき。無ければ -1） */
   wy: number;
+  /**
+   * いちばん上の色つきブロックの下が空いているとき（木のはっぱ・えだの下など）、その下の空きの底の y（さらに下に何も無ければ -1）。
+   * 下が空いていない（つまっている）ときは gy（空きなし）。遠い段は 1 本の柱として描くが、近い段（箱）のとなりでは
+   * 柱の横の面が 無いと その空きごしに 向こうの空が見える（#475 seam E4）。
+   */
+  fl: number;
 }
 
-const OUTSIDE: Col = { gy: -2, gb: AIR, wy: -1 };
+const OUTSIDE: Col = { gy: -2, gb: AIR, wy: -1, fl: -2 };
+
+const isSkipIndex = (b: number): boolean => b === AIR || isTorchIndex(b) || isCrossIndex(b) || isPropIndex(b) || isFloorDecoIndex(b);
 
 function scanColumn(world: ArrayVoxelWorld, x: number, z: number): Col {
   let wy = -1;
   for (let y = Math.max(world.topY(x, z), -1); y >= 0; y--) {
     const b = world.getIndex(x, y, z);
-    if (b === AIR || isTorchIndex(b) || isCrossIndex(b) || isPropIndex(b) || isFloorDecoIndex(b)) continue;
+    if (isSkipIndex(b)) continue;
     if (isWaterIndex(b)) {
       if (wy < 0) wy = y;
       continue;
     }
-    return { gy: y, gb: b, wy };
+    return { gy: y, gb: b, wy, fl: hollowFloor(world, x, y, z) };
   }
-  return { gy: -1, gb: AIR, wy };
+  return { gy: -1, gb: AIR, wy, fl: -2 };
+}
+
+/**
+ * 色つきブロック (x, y, z) から下へ たどって、はじめて 空きが 出たら、その下の いちばん上の つまった ブロックの y（なにも無ければ -1）。
+ * 空きが 無い（地面まで つまっている）なら y。木の はっぱの下の 空きが ねらい。
+ */
+function hollowFloor(world: ArrayVoxelWorld, x: number, y: number, z: number): number {
+  let yy = y - 1;
+  while (yy >= 0 && !isSkipIndex(world.getIndex(x, yy, z))) yy--;
+  if (yy < 0) return y;
+  while (yy >= 0 && isSkipIndex(world.getIndex(x, yy, z))) yy--;
+  return yy;
 }
 
 /** 同じ値の四角をまとめる（keys: C×C。-1 は何もなし） */
@@ -165,6 +190,7 @@ export function meshChunkLod(world: ArrayVoxelWorld, cx: number, cz: number, lig
   const sky = (x: number, y: number, z: number): number => (light ? light.skyAt(x, y, z) : LIGHT_MAX);
   const blk = (x: number, y: number, z: number): number => (light ? light.blockAt(x, y, z) : 0);
 
+  let cullMinY = Infinity;
   const topKeys = new Int32Array(C * C).fill(-1);
   const waterKeys = new Int32Array(C * C).fill(-1);
   for (let j = 0; j < C; j++) {
@@ -183,6 +209,7 @@ export function meshChunkLod(world: ArrayVoxelWorld, cx: number, cz: number, lig
 
   greedy(topKeys, (x, z, w, d, k) => {
     const t = unpack(k);
+    cullMinY = Math.min(cullMinY, t.y + 1);
     pushQuad(opaque, TOP_VERTS, x0 + x, x0 + x + w, t.y + 1, t.y + 1, z0 + z, z0 + z + d, avg.top[t.b], SHADE_TOP, t.s, t.l);
   });
   greedy(waterKeys, (x, z, w, d, k) => {
@@ -225,11 +252,17 @@ export function meshChunkLod(world: ArrayVoxelWorld, cx: number, cz: number, lig
           const j = alongX ? a : m;
           const col = at(i, j);
           const nc = at(i + side.dx, j + side.dz);
-          if (col.gy >= 0 && nc.gy !== -2 && nc.gy < col.gy) {
+          // 縁（となりのチャンク）では、となりの柱の下が空いていれば（木のはっぱの下）、その空きの底まで面を足す
+          const edge = i + side.dx < 0 || i + side.dx >= C || j + side.dz < 0 || j + side.dz >= C;
+          const regular = nc.gy < col.gy ? nc.gy + 1 : col.gy + 1;
+          let low = regular;
+          if (edge && nc.gy >= 0 && nc.fl < nc.gy) low = Math.min(low, Math.max(nc.fl, -1) + 1);
+          if (col.gy >= 0 && nc.gy !== -2 && low < col.gy + 1) {
             const x = x0 + i + side.dx;
             const z = z0 + j + side.dz;
+            cullMinY = Math.min(cullMinY, regular);
             nTop = col.gy + 1;
-            nBottom = nc.gy + 1;
+            nBottom = low;
             nb = col.gb;
             ns = sky(x, col.gy, z);
             nl = blk(x, col.gy, z);
@@ -249,5 +282,5 @@ export function meshChunkLod(world: ArrayVoxelWorld, cx: number, cz: number, lig
       }
     }
   }
-  return { opaque, water };
+  return { opaque, water, cullMinY };
 }
