@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { BlockId } from '../contracts';
+import { isWater } from '../world/blocks/water';
 import { UZU, UzuField, uzuBead, uzuBeadColor, uzuCount, uzuKindOf, uzuVentBead, OPEN_UP, type UzuBead, type UzuPoint, type UzuSpot } from './uzuModel';
 
 /**
@@ -16,7 +17,7 @@ export interface UzuDeps {
 }
 
 /** 吹き出し口に なれる となり: 空気・水・水の 見た目（わきどころ・たきつぼ） */
-const OPEN_IDS: ReadonlySet<string> = new Set<BlockId>(['air', 'water', 'wakimizu', 'takitsubo']);
+const OPEN_IDS: ReadonlySet<string> = new Set<BlockId>(['air', 'wakimizu', 'takitsubo']);
 
 export class UzuFx {
   private readonly field: UzuField;
@@ -94,7 +95,7 @@ export class UzuFx {
 
   private isOpen(x: number, y: number, z: number): boolean {
     const id = this.deps.getBlock(x, y, z);
-    return OPEN_IDS.has(id);
+    return OPEN_IDS.has(id) || isWater(id);
   }
 
   private has(x: number, y: number, z: number): boolean {
