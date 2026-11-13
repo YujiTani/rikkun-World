@@ -329,7 +329,10 @@ export class BandView {
   /** メダルの 下の ようかいダマ（絵 ＋ 数）。なければ かくす */
   private showDama(d: ModalRowInfo['dama']): void {
     this.damaRow.hidden = !d || d.count <= 0;
-    if (!d || d.count <= 0) return;
+    if (!d || d.count <= 0) {
+      this.damaRow.replaceChildren(); // 前の 実績の 数を のこさない（テロップの 文に まざらない）
+      return;
+    }
     const img = document.createElement('img');
     img.className = 'cel-band__dama-icon rk-art';
     img.alt = d.label;

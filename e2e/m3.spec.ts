@@ -249,7 +249,13 @@ test.describe('M3 出現と帰る', () => {
       const h = (window as any).__rikkun;
       T.base();
       h.inventory.add('dirt', 3);
-      const before = JSON.stringify(h.inventory.get?.() ?? h.inventory.count('dirt'));
+      // TOWN-1 1A: 夜を こえる 実績の ようかいダマは もちものに 入る（仕様 §2.4）。「帰る だけでは もちものは かわらない」を 見る ので ようかいダマの 行は 比べない
+      const snap = () => {
+        const g = h.inventory.get?.();
+        if (!g) return JSON.stringify(h.inventory.count('dirt'));
+        return JSON.stringify({ ...g, slots: g.slots.map((s: any) => (s && s.item === 'yokai_orb' ? null : s)) });
+      };
+      const before = snap();
       h.time.set(59400 + 100);
       h.yokai.spawn('karakasa', 8.5, 9, 3.5, { ai: false });
       h.yokai.spawn('chochin', 8.5, 9, 6.5, { ai: false });
@@ -259,7 +265,7 @@ test.describe('M3 出現と帰る', () => {
       h.time.set(86400);
       h.step(660);
       const ev = h.yokai.events();
-      return { ev: ev.map((e: any) => e.type), left: h.yokai.list().length, dirt: h.inventory.count('dirt'), before, after: JSON.stringify(h.inventory.get?.() ?? h.inventory.count('dirt')) };
+      return { ev: ev.map((e: any) => e.type), left: h.yokai.list().length, dirt: h.inventory.count('dirt'), before, after: snap() };
     });
     expect(r.ev.filter((t: string) => t === 'leave').length).toBe(3);
     expect(r.ev.filter((t: string) => t === 'defeat').length).toBe(0);

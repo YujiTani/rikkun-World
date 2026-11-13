@@ -41,7 +41,8 @@ test('AC75・AC76: 2P は パッドだけで 開いて つくる。そのあい�
     h.inventory.add('dirt', 5);
     h.step(3);
   }, { mat });
-  const p1Before = await page.evaluate(() => JSON.stringify((window as any).__rikkun.inventory.get().slots));
+  // TOWN-1 1A: 実績の ようかいダマ（仕様 §2.4）は もちものに 入る。2P の 十字で 1P の 中身が かわらない ことを 見る ので ようかいダマの 行は 比べない
+  const p1Before = await page.evaluate(() => JSON.stringify((window as any).__rikkun.inventory.get().slots.map((s: any) => (s && s.item === 'yokai_orb' ? null : s))));
 
   // ---- 2P が パッドだけで 開く ----
   expect(await invOf(page, 2)).toEqual({ open: false, page: null, focus: null });
@@ -111,7 +112,7 @@ test('AC75・AC76: 2P は パッドだけで 開いて つくる。そのあい�
   expect(await count(page, 2, mat.item), '材料が 2P の もちものから へる').toBe(0);
   // 1P の もちものは かわらない・1P の えらびも 2P の 十字で 動かない
   expect(await count(page, 1, recipe.output.item)).toBe(0);
-  expect(await page.evaluate(() => JSON.stringify((window as any).__rikkun.inventory.get().slots))).toBe(p1Before);
+  expect(await page.evaluate(() => JSON.stringify((window as any).__rikkun.inventory.get().slots.map((s: any) => (s && s.item === 'yokai_orb' ? null : s))))).toBe(p1Before);
   expect((await invOf(page, 1)).focus, '2P の 十字で 1P の フォーカスは 動かない').toBe(focus1);
 
   // ---- そのあいだ 1P の 画面は 開いたまま 歩く ことは できない（開いた 人は その場）。とじると 歩ける ----
