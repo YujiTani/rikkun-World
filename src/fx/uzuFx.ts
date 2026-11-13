@@ -6,7 +6,8 @@ import { UZU, UzuField, uzuBead, uzuBeadColor, uzuCount, uzuKindOf, uzuVentBead,
 /**
  * あわのうず（uzuModel.ts）の 絵。わきどころ・たきつぼ（マグマ版も）の 中（マグマ版は 面の 手前）を 小さな 四角の つぶが うずまき状に 回る。
  * 描画は InstancedMesh 1 つ（見える うずが ある 間だけ 1 回）。あわの 入れ物は 上限ぶん はじめに 作って 使いまわす。
- * ちかくの ブロックは UZU.refresh 秒おきに、プレイヤーの まわりの 立方体 だけを しらべる（全ブロックは 走査しない）。
+ * ちかくの ブロックは、プレイヤーの まわりの 立方体 だけを、はじめて・画面の 人の 数が かわった・人が 別の マスへ 動いた・
+ * ブロックが かわった ときだけ しらべる（全ブロックは 走査しない。じっと 立って いれば getBlock は 0 回）。向きの 追いかけは UZU.refresh 秒おき。
  */
 
 export interface UzuDeps {
@@ -14,6 +15,8 @@ export interface UzuDeps {
   getBlock: (x: number, y: number, z: number) => BlockId | 'outside';
   /** いま 画面を もつ 人の 位置（1 人なら 1 つ、2 人なら 2 つ）。空なら 何も 出さない（おもさ「とても かるい」） */
   foci: () => readonly UzuPoint[];
+  /** ブロックが 1 つでも かわる（置く・こわす・水が ながれる）たびに ふえる 番号。かわらなければ 同じ */
+  blockVersion: () => number;
 }
 
 /** 吹き出し口に なれる となり: 空気・水・水の 見た目（わきどころ・たきつぼ） */
@@ -28,6 +31,10 @@ export class UzuFx {
   private readonly cands: UzuSpot[] = Array.from({ length: UZU.maxCandidates }, () => ({ x: 0, y: 0, z: 0, kind: { magma: false, dir: 1 as const }, open: 0 }));
   private nCands = 0;
   private refresh = 0;
+  /** 前に 走査した ときの 人の マス（整数）・人の 数・ブロックの 番号。-1 人 = まだ 走査して いない */
+  private scanned = -1;
+  private readonly scanCells: number[] = [];
+  private scanVersion = 0;
   private time = 0;
   /** 見えている あわの 数（テスト・報告用） */
   shown = 0;
@@ -55,11 +62,31 @@ export class UzuFx {
     if (this.refresh <= 0) {
       this.refresh = UZU.refresh;
       const foci = this.deps.foci();
-      this.scan(foci);
+      if (this.needScan(foci)) this.scan(foci);
       this.field.sync(this.cands, foci, this.nCands);
     }
     this.field.step(dt);
     this.draw();
+  }
+
+  /** 走査が いるか（はじめて・人の 数・人の マス・ブロックの 番号が かわった）。いる ときは 今の 状態を おぼえる */
+  private needScan(foci: readonly UzuPoint[]): boolean {
+    const v = this.deps.blockVersion();
+    const cells = this.scanCells;
+    let need = this.scanned !== foci.length || this.scanVersion !== v;
+    for (let i = 0; i < foci.length; i++) {
+      const f = foci[i]!;
+      const cx = Math.floor(f.x);
+      const cy = Math.floor(f.y);
+      const cz = Math.floor(f.z);
+      if (cells[i * 3] !== cx || cells[i * 3 + 1] !== cy || cells[i * 3 + 2] !== cz) need = true;
+      cells[i * 3] = cx;
+      cells[i * 3 + 1] = cy;
+      cells[i * 3 + 2] = cz;
+    }
+    this.scanned = foci.length;
+    this.scanVersion = v;
+    return need;
   }
 
   /** プレイヤーの まわり（range マス）の 立方体だけ しらべる */
