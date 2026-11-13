@@ -1,12 +1,13 @@
 import { SEA_Y, WILD_BLOCK } from '../../contracts';
 import { takePath, type CountryKind } from './biome';
 import { GEN_CONFIG as C } from './config';
-import { iwayama, momiji, tengu, yuki } from './countryMountain';
+import { iwayama, iwayamaSteps, momiji, momijiSteps, tengu, tenguSteps, yuki, yukiSteps, type MountainSteps } from './countryMountain';
 import { cheb, flatness, FEATURE_TUNE, groundAt, isSea, range, rnd, site, MOUNTAIN_TUNE, type CountryFeature, type Ctx, type FeatureSite, type PlacedBlock } from './countryKit';
 import { bambooRawHit, plantsOfChunk } from './plants';
 import { plainShaftWorld, type ShaftWorld } from './mineShafts';
 import { terrainFor, type Terrain } from './terrain';
 import { WATER_TUNE, WATER_V2 } from './waterV2Table';
+import { runSteps, type Steps } from './waterV2Steps';
 
 export { FEATURE_TUNE, FEATURE_TYPES, type CountryFeature, type FeatureSite, type FeatureType, type PlacedBlock } from './countryKit';
 
@@ -264,27 +265,97 @@ const BUILDERS = {
 // ------------------------------------------------------------------ 窓口
 
 const MAX_CELLS = 600;
-// 覚え: 地形ごと → 坑道の 世界ごと〔水 v2 が 坑道の 入口を よける ので、坑道の 世界が ちがえば 置く 物も ちがう〕
-const memo = new WeakMap<Terrain, WeakMap<ShaftWorld, Map<number, FeatureSite[]>>>();
+/** 山の 物を 小分けに 進める 形（山の 物の 水の 計画は 重いので、先に 少しずつ 計算 できる。山以外は null）。足し忘れは 型エラー */
+const STEPS = {
+  harappa: null,
+  mori: null,
+  ookina: null,
+  hana: null,
+  sunahama: null,
+  susuki: null,
+  take: null,
+  kappa: null,
+  iwayama: iwayamaSteps,
+  tengu: tenguSteps,
+  momiji: momijiSteps,
+  yuki: yukiSteps,
+} as const satisfies Record<CountryKind, MountainSteps | null>;
 
-/**
- * 升目 (i, j) に 置く 物（覚える。Terrain を 作りなおすと 覚えも 空）。山は 2×2 の 左上の 升目だけが 持つ。
- * shafts = その 世界の 坑道の 世界〔ゲームの 中では つなぎ込みが 1 つ 作って わたす。なければ 古い 列の ない 世界〕。
- */
-export function sitesOfCell(T: Terrain, i: number, j: number, shafts: ShaftWorld = plainShaftWorld(T.seed)): FeatureSite[] {
+/** 升目の 物の 覚え: done = 計算ずみ・run = 先に 計算して いる とちゅう（山。使われたら そこから 続けて 終わらせる） */
+interface Slot {
+  done: Map<number, FeatureSite[]>;
+  run: Map<number, Steps<FeatureSite[]>>;
+}
+// 覚え: 地形ごと → 坑道の 世界ごと〔水 v2 が 坑道の 入口を よける ので、坑道の 世界が ちがえば 置く 物も ちがう〕
+const memo = new WeakMap<Terrain, WeakMap<ShaftWorld, Slot>>();
+const cellKey = (i: number, j: number): number => (i + 50000) * 100003 + (j + 50000);
+
+function slotOf(T: Terrain, shafts: ShaftWorld): Slot {
   let byShafts = memo.get(T);
   if (!byShafts) memo.set(T, (byShafts = new WeakMap()));
   let m = byShafts.get(shafts);
-  if (!m) byShafts.set(shafts, (m = new Map()));
-  const key = (i + 50000) * 100003 + (j + 50000);
-  const hit = m.get(key);
-  if (hit) return hit;
+  if (!m) byShafts.set(shafts, (m = { done: new Map(), run: new Map() }));
+  return m;
+}
+
+/** 升目 (i, j) の 物を 作る 手順（山は 小分けに 進められる）。山の 2×2 の 左上 以外の 升目・はじまりの 場所は 空 */
+function cellSteps(T: Terrain, i: number, j: number, shafts: ShaftWorld): Steps<FeatureSite[]> {
   const cell = T.map.cell(i, j);
-  const build = cell.startForced || (cell.mountain && (cell.i !== i || cell.j !== j)) ? null : BUILDERS[cell.kind];
-  const out = build ? build({ T, i: cell.i, j: cell.j, px: cell.px, pz: cell.pz, kind: cell.kind, shafts }) : [];
-  if (m.size >= MAX_CELLS) m.delete(m.keys().next().value as number);
-  m.set(key, out);
+  const none = cell.startForced || (cell.mountain && (cell.i !== i || cell.j !== j));
+  const c: Ctx = { T, i: cell.i, j: cell.j, px: cell.px, pz: cell.pz, kind: cell.kind, shafts };
+  const steps = none ? null : STEPS[cell.kind];
+  if (steps !== null) return steps(c);
+  const build = none ? null : BUILDERS[cell.kind];
+  return (function* (): Steps<FeatureSite[]> {
+    return build ? build(c) : [];
+  })();
+}
+
+function keep(m: Slot, key: number, out: FeatureSite[]): FeatureSite[] {
+  m.run.delete(key);
+  if (m.done.size >= MAX_CELLS) m.done.delete(m.done.keys().next().value as number);
+  m.done.set(key, out);
   return out;
+}
+
+/**
+ * 升目 (i, j) に 置く 物（覚える。Terrain を 作りなおすと 覚えも 空）。山は 2×2 の 左上の 升目だけが 持つ。
+ * 先に 計算して いる とちゅう（stepCellAhead）なら、のこりを 全部 計算する（結果は 先に 計算した ときも その場で 計算した ときも 同じ）。
+ * shafts = その 世界の 坑道の 世界〔ゲームの 中では つなぎ込みが 1 つ 作って わたす。なければ 古い 列の ない 世界〕。
+ */
+export function sitesOfCell(T: Terrain, i: number, j: number, shafts: ShaftWorld = plainShaftWorld(T.seed)): FeatureSite[] {
+  const m = slotOf(T, shafts);
+  const key = cellKey(i, j);
+  const hit = m.done.get(key);
+  if (hit) return hit;
+  return keep(m, key, runSteps(m.run.get(key) ?? cellSteps(T, i, j, shafts)));
+}
+
+/** 升目 (i, j) の 物が もう 計算ずみか */
+export function cellReady(T: Terrain, i: number, j: number, shafts: ShaftWorld): boolean {
+  return slotOf(T, shafts).done.has(cellKey(i, j));
+}
+
+/** 先に 計算 する 山の 升目の 種類か（山の 左上の 升目で、小分けに できる もの） */
+export function isStepCell(T: Terrain, i: number, j: number): boolean {
+  const cell = T.map.cell(i, j);
+  return WATER_V2 && cell.mountain && cell.i === i && cell.j === j && !cell.startForced && STEPS[cell.kind] !== null;
+}
+
+/** 升目 (i, j) の 計算を 1 歩 すすめる（山だけ。とちゅうの 生成器は run 件まで 持つ。いっぱいなら いちばん 古い ものを すてる = 必要に なれば はじめから 計算）。終わった（または もう 計算ずみ）なら true */
+export function stepCellAhead(T: Terrain, i: number, j: number, shafts: ShaftWorld, run: number): boolean {
+  const m = slotOf(T, shafts);
+  const key = cellKey(i, j);
+  if (m.done.has(key)) return true;
+  let gen = m.run.get(key);
+  if (gen === undefined) {
+    if (m.run.size >= run) m.run.delete(m.run.keys().next().value as number);
+    m.run.set(key, (gen = cellSteps(T, i, j, shafts)));
+  }
+  const r = gen.next();
+  if (r.done !== true) return false;
+  keep(m, key, r.value);
+  return true;
 }
 
 /** 升目の 範囲を 見て、reach(kind) 以内に 点が ある 升目の 物を 集める。mode = 'base' なら 基準の マスが 四角に 入る 物、'foot' なら 足もとの 四角が 四角に かかる 物 */

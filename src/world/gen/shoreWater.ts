@@ -13,16 +13,16 @@ const RING: readonly (readonly [number, number, number])[] = (() => {
 
 /** 山を かける 前の 高さ baseAt を 見て、いちばん ちかい 水（海面 −1 以下）までの きょりを 出す。64×64 の まとまりごと・8×8 の 区画ごとに 覚える */
 export class ShoreWater {
-  private readonly tiles = new Map<number, { c: Uint8Array; b: Uint8Array }>();
+  private readonly tiles = new Map<number, { c: Uint8Array; b: Uint8Array; d: Float32Array }>();
 
   constructor(private readonly baseAt: (x: number, z: number) => number) {}
 
-  private tile(x: number, z: number): { c: Uint8Array; b: Uint8Array } {
+  private tile(x: number, z: number): { c: Uint8Array; b: Uint8Array; d: Float32Array } {
     const key = ((x >> 6) + 4096) * 8192 + ((z >> 6) + 4096);
     let t = this.tiles.get(key);
     if (!t) {
       if (this.tiles.size >= 512) this.tiles.clear();
-      t = { c: new Uint8Array(64 * 64), b: new Uint8Array(64) };
+      t = { c: new Uint8Array(64 * 64), b: new Uint8Array(64), d: new Float32Array(64 * 64).fill(Number.NaN) };
       this.tiles.set(key, t);
     }
     return t;
@@ -57,6 +57,16 @@ export class ShoreWater {
 
   /** (x,z) から いちばん ちかい 水までの きょり（SHORE.reach まで。なければ Infinity） */
   dist(x: number, z: number): number {
+    const t = this.tile(x, z);
+    const i = (z & 63) * 64 + (x & 63);
+    const hit = t.d[i]!;
+    if (hit === hit) return hit; // 列ごとに 覚える（NaN = まだ。同じ 列は 何度も 聞かれる）
+    const v = this.search(x, z);
+    t.d[i] = v;
+    return v;
+  }
+
+  private search(x: number, z: number): number {
     const R = SHORE.reach;
     let any = false;
     for (let bz = (z - R) >> 3; bz <= (z + R) >> 3 && !any; bz++) for (let bx = (x - R) >> 3; bx <= (x + R) >> 3; bx++) if (this.blockWet(bx << 3, bz << 3)) { any = true; break; }

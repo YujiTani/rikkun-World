@@ -1,4 +1,5 @@
 // main.ts の 流れ 7: 保存と 世界の 読みこみ・毎ステップの 準備・ゲームの 毎コマの 登録と 影。
+import { planWaterAhead } from '../../world/gen/countryAhead';
 import { showWorldRenewedNotice } from '../../ui/worldRenewedNotice';
 import type { CountryWatch } from '../../achievements/countryWatch';
 import { createPlaceWatch, type PlaceWatch } from '../../duo/p2Place';
@@ -318,7 +319,7 @@ type WiredSave = WiredAchievements & ReturnType<typeof wireSave>;
 export function wireFrame(deps: WiredSave) {
   const {
     shared, hud, game, renderer, furnaceFx, craft, controller, island, screen, time, combat, yokaiM, level,
-    armor, seed, achievements, countryWatch, newCountryWatch, celebrate, shafts,
+    armor, seed, achievements, countryWatch, newCountryWatch, celebrate, shafts, frameClock,
   } = deps;
   // #144 SHADOW-1: 光の位置から計算する影（?shadow=0 は作らない。くわしくは docs/design/SHADOW.md）
   const overlay = new PerfOverlay(hud, game, {
@@ -359,6 +360,7 @@ export function wireFrame(deps: WiredSave) {
   };
   let peakKey = NaN;
   const warmAt: { x: number; z: number }[] = [{ x: 0, z: 0 }]; // 坑道の 先読みの 中心〔毎ステップ 配列を 作らない〕
+  const aheadAt: { x: number; z: number }[] = [{ x: 0, z: 0 }, { x: 0, z: 0 }]; // 山の 水の 計画の 先読みの 中心（1P・2P。配列を 作らない）
   // 場所の 実績・国の 見はり（COOP-1 5b: 1P 用と 2P 用に 1 つずつ。2P 用は 2P が 参加して はじめて 作る）
   const placeOf = (country: Pick<CountryWatch, 'step' | 'reset'>, opts: { feedMine?: (e: Parameters<typeof achievements.feedMine>[0]) => void } = {}) =>
     createPlaceWatch({
@@ -408,6 +410,12 @@ export function wireFrame(deps: WiredSave) {
     // MINE-1C: まわりの 区画の 坑道の 計画を あいた 時間に すすめる（列を 作る ときに ひっかからない ため）
     warmAt[0] = st.position;
     shafts.warm(warmAt, SHAFT_CONFIG.plan.warmMs);
+    // #187: 近づいて くる 山の 水の 計画も あいた 時間に 少しずつ（山に 着いた とき 1 コマが 止まらない ため。2P が いれば 2 人ぶん）
+    aheadAt[0] = st.position;
+    const mateAt = shared.duoJoined() ? shared.duoMate() : null;
+    if (mateAt) aheadAt[1] = mateAt.position;
+    aheadAt.length = mateAt ? 2 : 1;
+    planWaterAhead(seed, shafts, aheadAt, frameClock === 'count');
     if (!shared.achMuted) {
       achievements.update(ctx);
       // COUNTRY-1 §4.1・MINE-1C〜1E: 国に 入った・いちばん 下・ほらあな・かくしべや。やられた画面の 間は 数えない（止まっている 間は screenSteps = 0）。入った コマだけ 送る

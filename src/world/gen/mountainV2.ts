@@ -1,10 +1,11 @@
 import type { CountryKind } from './config';
 import { valueNoise } from './random';
 import { cone, paramsFor, smooth, type Params } from './mountainV2Params';
-import { choosePath, buildPath, pathAt, pathCell, pathReach } from './mountainV2Path';
+import { choosePath, choosePathSteps, buildPath, pathAt, pathCell, pathReach } from './mountainV2Path';
 import { buildBridges, pillarsAt, splineOf, stairOf, wallLift } from './mountainV2Parts';
 import { T, TAU, type MountainKind } from './mountainV2Table';
 import { LOOK } from './lookFlags';
+import type { Steps } from './waterV2Steps';
 
 /**
  * 山の形 v2（既定で 出る。URL `?mountain=v1` で biome.ts の円すいの 古い 山）。
@@ -67,6 +68,23 @@ function chosenPath(seed: number, p: Params, px: number, pz: number): { a0: numb
   if (pathChoice.size >= PATH_CHOICE_MAX) pathChoice.clear();
   pathChoice.set(key, { best, prof: p.prof! });
   return best;
+}
+
+/**
+ * 山の 道えらび（山 v2 の 初回で いちばん 重い 仕事）を 小分けに 先に 済ませる（#187）。答えは 覚え（pathChoice）に 入れる ので、あとで 山の 高さを 聞かれた とき
+ * 同じ 答えを すぐ 使う（chosenPath の hit）。山の パラメータ p の 道の 形（apex・道・橋）には さわらない。覚えが あれば 何も しない
+ */
+export function* warmMountainPath(seed: number, kind: CountryKind, px: number, pz: number): Steps<void> {
+  const key = `${seed}:${px}:${pz}`;
+  if (pathChoice.has(key)) return;
+  const p = paramsFor(seed, kind as MountainKind, px, pz);
+  if (!Number.isNaN(p.apex)) return; // もう 道まで 作って ある
+  const apex = shapeOf(p, px, pz, px, pz);
+  yield;
+  const best = yield* choosePathSteps(p, px, pz, (sx, sz) => shapeOf(p, px, pz, sx, sz), apex);
+  if (pathChoice.has(key)) return; // とちゅうで 山の 高さを 聞かれて 先に 決まった（答えは 同じ）
+  if (pathChoice.size >= PATH_CHOICE_MAX) pathChoice.clear();
+  pathChoice.set(key, { best, prof: p.prof! });
 }
 
 function mountainOffsetV2Raw(seed: number, kind: CountryKind, px: number, pz: number, x: number, z: number): number {

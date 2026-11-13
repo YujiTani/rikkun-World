@@ -1,6 +1,7 @@
 import { SEA_Y } from '../../contracts';
 import type { Ground } from './waterV2Kit';
 import { WATER_TUNE as T } from './waterV2Table';
+import type { Steps } from './waterV2Steps';
 
 /**
  * 川の みちしるべ: 山の すその 平地（または 海）から、まわりの 地面を Dijkstra で ひろげて 「ここから 行くと あと どれだけ」を 全部の 列に 書く。
@@ -78,7 +79,8 @@ function stepCost(ga: number, gb: number): number {
  * みちしるべを 作る。center の まわり radius（チェビシェフ）だけ。goal(x, z) = 川の ゴール（すその 平地・海）、blocked = 通れない 列
  * 返す 関数は、範囲の 外・通れない 列・たどりつけない 列で Infinity。
  */
-export function flowField(g: Ground, cx: number, cz: number, radius: number, goal: (x: number, z: number) => boolean, blocked: (x: number, z: number) => boolean): FlowField {
+/** 何マス ごとに 1 回 yield しながら 作る（#187。止まり方で 結果は かわらない。runSteps で 一気に 進めても よい） */
+export function* flowFieldSteps(g: Ground, cx: number, cz: number, radius: number, goal: (x: number, z: number) => boolean, blocked: (x: number, z: number) => boolean): Steps<FlowField> {
   const W = 2 * radius + 1;
   const x0 = cx - radius;
   const z0 = cz - radius;
@@ -86,6 +88,7 @@ export function flowField(g: Ground, cx: number, cz: number, radius: number, goa
   const heap = new Heap();
   const gr = new Int16Array(W * W);
   for (let i = 0; i < W * W; i++) {
+    if (i % FLOW.sliceRead === 0) yield;
     const x = x0 + (i % W);
     const z = z0 + Math.floor(i / W);
     const h = g(x, z);
@@ -97,7 +100,9 @@ export function flowField(g: Ground, cx: number, cz: number, radius: number, goa
   }
   const out = [0];
   let budget = FLOW.maxCells;
+  let slice = 0;
   while (heap.size > 0 && budget-- > 0) {
+    if (++slice % FLOW.slicePop === 0) yield;
     const i = heap.pop(out);
     const d = out[0]!;
     if (d > dist[i]!) continue;

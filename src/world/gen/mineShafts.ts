@@ -299,6 +299,11 @@ export class ShaftWorld implements CaveHost {
     return null;
   }
 
+  /** 区画 (rx, rz) の 計画を 短い 仕事 1 つ だけ すすめる。まだ のこって いれば true（false = 計画ずみ・坑道なし）。水の 計画の 先読みが 使う（#187） */
+  stepRegion(rx: number, rz: number): boolean {
+    return shaftsOn && this.stepShaftRegion(rx, rz);
+  }
+
   /** 坑道の 区画 (rx, rz) の 計画を 短い 仕事 1 つ だけ すすめる */
   private stepShaftRegion(rx: number, rz: number): boolean {
     const key = this.regionKey(rx, rz);

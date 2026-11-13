@@ -2,6 +2,7 @@ import { hash01 } from './random';
 import type { BlockId } from '../../contracts';
 import { basinCells, basinNorm, eachBasinCell, depthAt, DIR4, Edit, makeBasin, pick, RING, waterColumn, type Basin, type Dir, type Ground } from './waterV2Kit';
 import { WATER_BLOCKS as B, WATER_TUNE as T } from './waterV2Table';
+import type { Steps } from './waterV2Steps';
 
 /**
  * はりだした 段々の 滝（カスケード）の 計画: 水源の 池 → 滝 → 受け皿（岩の うつわ。かべから 外へ はりだし、下は 地面まで ささえ岩）→ 滝 → … → すそ。
@@ -162,8 +163,8 @@ function vessels(g: Ground, free: (x: number, z: number) => boolean, seed: numbe
   return out;
 }
 
-/** 計画を 探す。atFoot(b) = その 池が 山の すそか。accept(計画, すそで 終わった か) が true を 返したら そこで 終わり */
-export function planCascade(g: Ground, free: (x: number, z: number) => boolean, seed: number, spot: { x: number; z: number }, atFoot: (b: Basin) => boolean, minFalls: number, accept: (c: Cascade, ended: boolean) => boolean): boolean {
+/** 計画を 探す（さがす 1 手ごとに yield。#187）。atFoot(b) = その 池が 山の すそか。accept(計画, すそで 終わった か) が true を 返したら そこで 終わり（accept も 小分けに 進める 形。結果は 一気に 進めた ときと 同じ） */
+export function* planCascadeSteps(g: Ground, free: (x: number, z: number) => boolean, seed: number, spot: { x: number; z: number }, atFoot: (b: Basin) => boolean, minFalls: number, accept: (c: Cascade, ended: boolean) => Steps<boolean>): Steps<boolean> {
   let nodes = 0;
   // 落ち口の はば: 池が 大きい ほど 広い（半径 × widthPerR を 3〜5 に おさめる。ときどき 1 へらす）。入らなければ 3 まで せまく する
   const widths = (b: Basin, x: number): number[] => {
@@ -177,24 +178,25 @@ export function planCascade(g: Ground, free: (x: number, z: number) => boolean, 
     const lowAt = (d: Dir): number => g(Math.floor(b.cx) + d[0] * (b.r + 6), Math.floor(b.cz) + d[1] * (b.r + 6));
     return DIR4.filter((d) => back === null || !(d[0] === -back[0] && d[1] === -back[1])).map((d) => ({ d, h: lowAt(d) })).filter((q) => q.h >= 0).sort((p, q) => p.h - q.h).map((q) => q.d);
   };
-  const go = (ponds: Basin[], stages: CascadeStage[], occ: Occupied): boolean => {
+  const go = function* (ponds: Basin[], stages: CascadeStage[], occ: Occupied): Steps<boolean> {
     const b = ponds[ponds.length - 1]!;
     const falls = stages.length;
-    if (falls > 0 && atFoot(b)) return falls >= minFalls && accept({ ponds, stages }, true);
+    if (falls > 0 && atFoot(b)) return falls >= minFalls && (yield* accept({ ponds, stages }, true));
     if (falls < C.maxFalls) {
       for (const d of dirsOf(b, falls > 0 ? stages[falls - 1]!.d : null)) {
         for (const w of widths(b, Math.floor(b.cx))) {
           if (nodes++ > C.nodes) return false;
+          yield;
           const st = stageOf(g, free, b, d, w, falls > 0 ? stages[falls - 1]!.front : []);
           if (st === null) continue;
           const occ2 = occupy(occ, st);
           for (const v of vessels(g, free, seed + falls * 7 + 1, b.level, st, occ2)) {
-            if (go([...ponds, v], [...stages, st], occ2)) return true;
+            if (yield* go([...ponds, v], [...stages, st], occ2)) return true;
           }
         }
       }
     }
-    return falls >= minFalls && falls > 0 && accept({ ponds, stages }, false);
+    return falls >= minFalls && falls > 0 && (yield* accept({ ponds, stages }, false));
   };
   const empty: Occupied = { water: new Set(), ring: new Set(), solid: new Set() };
   const ground = g(spot.x, spot.z);
@@ -203,7 +205,7 @@ export function planCascade(g: Ground, free: (x: number, z: number) => boolean, 
   for (const lower of C.srcLower) {
     for (const r of C.srcRadius) {
       const b = makeBasin(seed, spot.x + 0.5, spot.z + 0.5, r, ground - lower, T.fall.sourceDepth);
-      if (go([b], [], empty)) return true;
+      if (yield* go([b], [], empty)) return true;
       if (nodes > C.nodes) return false;
     }
   }
