@@ -206,6 +206,7 @@
   font-size: 16px;
   font-weight: 800;
   line-height: 20px;
+  font-variant-numeric: tabular-nums; /* UI 検査: 数字は 桁が そろう 字で */
   white-space: nowrap;
   color: var(--rk-text);
 }
