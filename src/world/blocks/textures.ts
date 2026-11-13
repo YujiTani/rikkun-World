@@ -21,6 +21,8 @@ import { HOUSE_ATLAS_TILE_NAMES, HOUSE_BLOCK_TILES, isHouseTile, paintHouseTile,
 import { VOX_I4A_GRIDS, paintGrid } from './voxI4aTiles';
 import { VOX_I4B_GRIDS } from './voxI4bTiles';
 import { WAFU_GRIDS } from './wafuTiles';
+import { TOWN_TILE_NAMES, isTownBlockId, type TownBlockId } from './townBlocks';
+import { paintTownTile } from './townTextures';
 import { protoBambooPixels, protoLeafPixels } from '../render/leafBambooArt';
 
 /** 16x16 ドット絵をコードで描く（M1-01 4-2 の色）。 */
@@ -61,7 +63,8 @@ export type TileName =
   | YakataTileName
   | HouseAtlasTile
   | RopeTileName
-  | WaterfallTileName;
+  | WaterfallTileName
+  | TownBlockId; // TOWN-1 1B-1: 街の ブロックの 絵（タイル名は ブロックの id と 同じ）
 
 /** VOX-I-1（12 の国）のふつうの絵（一ひねりの絵は #185） */
 export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y' | 'flower_o' | 'flower_p' | 'bamboo' | 'susuki' | 'kusa' | 'nobana'
@@ -140,6 +143,8 @@ export const TILE_NAMES: readonly TileName[] = [
   ...VOX_I4B_TILES,
   // WAFU-1: わふうの 絵 4 まい。さいごに 足す
   ...WAFU_TILES,
+  // TOWN-1 1B-1: 街の ブロック 41 この 絵。さいごに 足す（今の 絵の 位置は かわらない。アトラスが 下に のびる）
+  ...TOWN_TILE_NAMES,
 ];
 // WATERFALL-1 版 2: 煮えたぎる マグマの 4 コマは アトラスの 1 だんの 左から（shader が 1 コマ = 1/ATLAS_COLS だけ 横に ずらす）
 if (TILE_NAMES.indexOf(BOIL_NAMES[0]) % ATLAS_COLS !== 0 || BOIL_NAMES.length !== ATLAS_COLS) throw new Error('magma boil frames must fill one atlas row');
@@ -380,6 +385,7 @@ function geyserDirt(top: boolean): Tile {
 }
 
 function paintTile(name: TileName): Tile {
+  if (isTownBlockId(name)) return paintTownTile(name).slice(); // TOWN-1 1B-1: 街の ブロック
   if (isGadgetTile(name)) return paintGadgetTile(name).slice(); // ITEM-FX-1: 置き物の 絵
   if (isMineTile(name)) return paintMineTile(name).slice(); // MINE-1B: 鉱物・ねんど・チョークの しるし
   if (isKodoTile(name)) return paintKodoTile(name).slice(); // MINE-1C: わく・宝箱
@@ -612,6 +618,8 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   maru_mon_ishi: ['maru_mon_ishi', 'maru_mon_ishi', 'maru_mon_ishi'],
   renga_ishi: ['renga_ishi', 'renga_ishi', 'renga_ishi'],
   koke_renga_ishi: ['koke_renga_ishi', 'koke_renga_ishi', 'koke_renga_ishi'],
+  // TOWN-1 1B-1: 街の ブロック（6 面 同じ絵。しっくい・くらかべ・しまひさし なども 見本どおり 1 まい）
+  ...Object.fromEntries(TOWN_TILE_NAMES.map((n) => [n, [n, n, n]])),
   // #293 試作
   geyser_dirt: ['geyser_dirt_top', 'geyser_dirt_side', 'geyser_dirt_side'],
   // ITEM-FX-1: 置き物 3 つ（形は meshChunk の pushProp。ここは ひび・かけらの 色用）

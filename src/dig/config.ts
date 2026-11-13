@@ -3,6 +3,7 @@ import { defaultDropMax } from '../drops/rarityTable';
 import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
 import { SCAFFOLD_IDS, type ScaffoldId } from '../world/blocks/buildBlocks';
 import { SHAPE_IDS, type ShapeBlockId } from '../world/blocks/shapeBlocks';
+import { TOWN_BLOCK_IDS, type TownBlockId } from '../world/blocks/townBlocks';
 import { CHALK_MARK_IDS, type ChalkMarkId } from '../world/blocks/chalkMark';
 import { CHEST_BLOCK_IDS, type ChestBlockId } from '../world/blocks/chestBlock';
 import { forWaterExtra } from '../world/blocks/water';
@@ -23,6 +24,11 @@ function forChest<T>(value: T): Record<ChestBlockId, T> {
 /** 家の しゅるいの ブロック 20 こ（HOUSE-2B）ぜんぶに 同じ 値を 入れる */
 function forLook<T>(value: T): Record<LookBlockId, T> {
   return Object.fromEntries(LOOK_BLOCK_IDS.map((id) => [id, value])) as Record<LookBlockId, T>;
+}
+
+/** 街の ブロック（TOWN-1 1B-1）ぜんぶに 同じ 値を 入れる */
+function forTown<T>(value: T): Record<TownBlockId, T> {
+  return Object.fromEntries(TOWN_BLOCK_IDS.map((id) => [id, value])) as Record<TownBlockId, T>;
 }
 
 /** 形つきブロック（WAFU-2）ぜんぶに 同じ 値を 入れる */
@@ -193,6 +199,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     ...forLook<number>(WOOD_HARDNESS), // HOUSE-2B: 家の しゅるいの ブロックも き と 同じ
     ...forScaffold<null>(null),
     ...forShape<null>(null),
+    ...forTown<null>(null), // TOWN-1: 街の ブロックは ほれない
     ...forWaterExtra<null>(null),
     rope: 0.05, // ROPE-1: すぐ とれる（すすきと 同じ）
     rope_coil: 0.05,
@@ -323,6 +330,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     ...forLook(0), // HOUSE-2B: すでで ほれる
     ...forScaffold(0),
     ...forShape(0),
+    ...forTown(0),
     ...forWaterExtra(0),
     rope: 0,
     rope_coil: 0,
@@ -466,6 +474,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     ...forLook<Rarity>('common'), // HOUSE-2B: ほる 数は いつも 1 こ（digBreak の houseDrop）
     ...forScaffold<Rarity>('common'),
     ...forShape<Rarity>('common'),
+    ...forTown<Rarity>('common'),
     ...forWaterExtra<Rarity>('common'),
     rope: 'common',
     rope_coil: 'common',

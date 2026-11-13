@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { TOWN_BLOCK_IDS } from '../../world/blocks/townBlocks';
 import type { ItemId } from '../../contracts';
 import { DIG_DEFAULTS } from '../../dig/config';
 import { itemRarity } from '../../drops/rarity';
@@ -96,7 +97,7 @@ describe('F10: 新しい ブロックの 値〔§4.6 の 表〕', () => {
       expect(BLOCK_TYPES[i!]?.id).toBe(r.id);
     }
     expect(fnv(BLOCK_TYPES.slice(0, BLOCKS_THROUGH_1E).map((b) => b.id).join(',')), '1E の あとまでの 並び').toBe(IDS_THROUGH_1E_FNV);
-    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1E, '1F で 足した id').toBeLessThanOrEqual(8 + 5 + 20 + 5 + 3 + 4 + 2 + 2 + 20 + 4); // 後ろの 3 + 4 + 2 + 2 + 20 + 4 ＝ 山の物 3・わふう 4・あらいし 2・（予備 2）・WAFU-2 の 形つきブロック 20・WAFU-3 の 模様つきの 石 4（やかたの 後ろ）。 最後の 5 ＝ VOX-I-4a（#187）の 国だけの 物 5 こ（やかたの 前）、5 ＝ HOUSE-2A（#364）が やかたの 前に 足した まきもの 1 ＋ まねきねこ 4（向き）、20 ＝ HOUSE-2B の 形ごとの ブロック 20
+    expect(BLOCK_TYPES.length - BLOCKS_THROUGH_1E - TOWN_BLOCK_IDS.length, '1F で 足した id（街の ブロック 41 こ〔TOWN-1 1B-1〕を のぞく）').toBeLessThanOrEqual(8 + 5 + 20 + 5 + 3 + 4 + 2 + 2 + 20 + 4); // 後ろの 3 + 4 + 2 + 2 + 20 + 4 ＝ 山の物 3・わふう 4・あらいし 2・（予備 2）・WAFU-2 の 形つきブロック 20・WAFU-3 の 模様つきの 石 4（やかたの 後ろ）。 最後の 5 ＝ VOX-I-4a（#187）の 国だけの 物 5 こ（やかたの 前）、5 ＝ HOUSE-2A（#364）が やかたの 前に 足した まきもの 1 ＋ まねきねこ 4（向き）、20 ＝ HOUSE-2B の 形ごとの ブロック 20
     expect(BLOCK_TYPES.length).toBeLessThanOrEqual(MAX_BLOCK_KINDS); // 256 を こえても よい（BLOCK-ID16）
   });
 });

@@ -5,6 +5,7 @@ import type { CropStageSource } from '../../contracts';
 import { cropKindOfBlock } from '../../contracts';
 import { GADGET_ID } from '../../content/items/gadgetTuning';
 import { SHAPE_BLOCKS, shapeBoxes } from '../blocks/shapeBlocks';
+import { TESURI_HEIGHT, TOWN_BLOCK_DEFS } from '../blocks/townBlocks';
 import { FUTON_FOOT, FUTON_HEAD } from '../blocks/futon';
 import { OPACITY } from '../light/opacity';
 import type { WorldLight } from '../light/WorldLight';
@@ -307,6 +308,10 @@ FUTON_FOOT.forEach((id, k) => (PROP_SHAPES[id] = FUTON_FOOT_E.map((b) => turnBox
 for (const b of SHAPE_BLOCKS) {
   const t = BLOCK_TILES[b.id]!;
   PROP_SHAPES[b.id] = shapeBoxes(b.shape).map((x) => ({ min: x.min, max: x.max, tile: t[2], top: t[0] }));
+}
+/** 街の すける ブロック（TOWN-1 1B-1）: 1 ブロックの 箱に 絵を はる（すきまは 切りぬき）。石の てすりは ひくい 箱 */
+for (const d of TOWN_BLOCK_DEFS) {
+  if (d.see) PROP_SHAPES[d.id] = [{ min: [0, 0, 0], max: [16, d.id === 'town_ishi_tesuri' ? TESURI_HEIGHT : 16, 16], tile: d.id, top: d.id }];
 }
 const PROP_FACE_SHADE = [1, 0.7, 0.88, 0.88, 0.94, 0.94];
 
