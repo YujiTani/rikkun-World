@@ -47,7 +47,7 @@ wireGasha(w19);
 if (wantsDrift(location.search)) installDrift(w19);
 // ?water=v2 の ときだけ: 滝の しぶき（試作）
 if (wantsSplash(location.search)) (window as { __splash?: unknown }).__splash = installSplash(w19);
-// わきどころ・たきつぼの あわのうず（近づくと 出る 目じるし）。試作の 向き切りかえ用に window.__uzu
+// わきどころ・たきつぼの あわのうず（近づくと 出る 目じるし）。テスト・撮影用に window.__uzu
 (window as { __uzu?: unknown }).__uzu = installUzu(w19);
 // MAGMA-SPAWN: ?demo=magma の ときだけ、はじめの 場所の 前に マグマの 見本を 1 回 置く（列が 読みこまれた ステップで）
 if (wantsMagmaDemo(location.search)) {
