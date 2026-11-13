@@ -1,6 +1,8 @@
 import { SHAFT_CONFIG as S } from './mineShaftConfig';
 import type { ShaftWorld } from './mineShafts';
+import { regionOf } from './mineShaftSite';
 import type { Rect } from './waterV2Kit';
+import type { Steps } from './waterV2Steps';
 
 /**
  * 水の 景色 v2 を 置かない 所: 坑道の 入口〔入口の 前 8 マス・まわり ledgeRadius + 1〕と、小さな いしの 山の まわり。
@@ -21,4 +23,15 @@ export function shaftKeepOut(shafts: ShaftWorld, x0: number, z0: number, x1: num
     }
   }
   return out;
+}
+
+/** shaftKeepOut を 小分けに 進める 形: 四角に かかる 区画の 計画を 短い 仕事ごとに yield しながら 先に 作って（ShaftWorld.stepRegion。先読みの 計画と 同じ 仕事）、そのあと 一気に 求める。結果は 同じ。#187 */
+export function* shaftKeepOutSteps(shafts: ShaftWorld, x0: number, z0: number, x1: number, z1: number): Steps<Rect[]> {
+  const R = S.entrance.ledgeRadius + 1;
+  for (let rz = regionOf(z0 - R); rz <= regionOf(z1 + R); rz++) {
+    for (let rx = regionOf(x0 - R); rx <= regionOf(x1 + R); rx++) {
+      while (shafts.stepRegion(rx, rz)) yield;
+    }
+  }
+  return shaftKeepOut(shafts, x0, z0, x1, z1);
 }

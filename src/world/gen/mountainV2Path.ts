@@ -1,4 +1,5 @@
 import { smooth, type Params } from './mountainV2Params';
+import { runSteps, type Steps } from './waterV2Steps';
 import { T, TAU } from './mountainV2Table';
 
 /**
@@ -109,29 +110,36 @@ function spiralPts(px: number, pz: number, a0: number, sp: Spiral, every = 1): n
  * shape = 道を ほる まえの 山の高さ
  */
 export function choosePath(p: Params, px: number, pz: number, shape: (x: number, z: number) => number): { a0: number; dir: number; bank: number } {
+  return runSteps(choosePathSteps(p, px, pz, shape, p.apex));
+}
+
+/** choosePath を 小分けに 進める 形（向きを 1 つ ためす ごとに yield。先に 少しずつ 計算 する ため。apex = 頂上の 高さ。answer は 同じ。#187） */
+export function* choosePathSteps(p: Params, px: number, pz: number, shape: (x: number, z: number) => number, apex: number): Steps<{ a0: number; dir: number; bank: number }> {
   const P = T.path;
   let best = { a0: p.pathA, dir: 1, bank: 0 };
   let bestQ = P.profQs[0]!;
   let bestScore = Infinity;
-  const maxAlong = (p.apex + 2) / P.k;
+  const maxAlong = (apex + 2) / P.k;
   const stride = Math.round(2 / P.step);
   const samples = samplesOf(p, px, pz, shape);
   for (const q of P.profQs) {
     setProfile(p, samples, q);
     for (const dir of [1, -1]) {
+      setProfile(p, samples, q); // 止まって いる 間に ほかの 計算が p.prof を 書きかえる ことが ある ので 毎回 入れなおす（同じ 値）
       const sp = spiralSteps(p, dir, maxAlong);
       for (let i = 0; i < P.tryDirs; i++) {
+        yield;
         const a0 = p.pathA + (i / P.tryDirs) * TAU;
         const pts = spiralPts(px, pz, a0, sp, stride);
         let score = 0;
         let bank = 0;
         let last = 0;
-        for (let j = stride; j * P.step * P.k < p.apex && score < bestScore; j += stride) { // 点数は 増える だけ: いまの 最良 以上に なったら 打ち切る（選ぶ 道は 同じ）
+        for (let j = stride; j * P.step * P.k < apex && score < bestScore; j += stride) { // 点数は 増える だけ: いまの 最良 以上に なったら 打ち切る（選ぶ 道は 同じ）
           const qx = pts[(j / stride) * 2]!;
           const qz = pts[(j / stride) * 2 + 1]!;
           const ground = shape(qx, qz);
-          const excess = Math.max(0, p.apex - P.k * j * P.step - ground);
-          const cut = Math.max(0, ground - (p.apex - P.k * j * P.step) - P.cutFree);
+          const excess = Math.max(0, apex - P.k * j * P.step - ground);
+          const cut = Math.max(0, ground - (apex - P.k * j * P.step) - P.cutFree);
           bank = Math.max(bank, excess);
           score += excess + Math.max(0, excess - P.maxBank) * P.bankPenalty + cut * P.cutCost;
           last = ground;
