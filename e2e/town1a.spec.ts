@@ -20,6 +20,18 @@ const PAD_R2 = 7;
 const stepN = (page: Page, n: number) => page.evaluate((n) => (window as any).__rikkun.step(n), n);
 const dama = (page: Page, p: 1 | 2): Promise<number | null> => page.evaluate((p) => (window as any).__rikkun.dama.count(p) as number | null, p);
 
+/**
+ * 前に 呼んでから とれた 実績（しずかでない 物）の ようかいダマの 合計（表 DAMA.medal から）。呼ぶと 出来事が 空に なる。
+ * 新しい 世界で はじめて 妖怪を たおすと 実績（defeat.all.1 など）も いっしょに とれて、§2.4 の とおり ようかいダマが 足される。
+ * 妖怪の 分だけを 見る ため、ふえた 数から この 分を ひく（その 間に とれた 実績を 実際に 数える ので 決まった 値）。
+ */
+const achDama = (page: Page): Promise<number> =>
+  page.evaluate((medal) => {
+    const h = (window as any).__rikkun;
+    const ids = h.achievements.events().filter((e: any) => e.type === 'unlock' && !e.silent).map((e: any) => e.id as string);
+    return h.achievements.list().filter((a: any) => ids.includes(a.id)).reduce((s: number, a: any) => s + (medal[a.medal] as number), 0);
+  }, ACH_DAMA);
+
 /** 石の ゆかを しいて 妖怪を 1 ひき 置く（うごかない）。id を 返す。1P は ゆかの 西はし（妖怪から とおい） */
 async function setupFloor(page: Page, kind: string, opts: Record<string, unknown> = {}): Promise<number> {
   return page.evaluate(
@@ -39,6 +51,7 @@ test.describe('TOWN-1 1A ようかいダマ', () => {
   test('AC1: からかさを 1P が たおすと dama.count(1) が 1 以上 3 以下 ふえる（場所の 倍率 M ＝ 3 でも 同じ）', async ({ page }) => {
     await openBal(page);
     for (const m of [1, 3]) {
+      await achDama(page); // 出来事を 空に する
       const id = await setupFloor(page, 'karakasa', { m });
       const r = await page.evaluate(
         (id) => {
@@ -56,9 +69,11 @@ test.describe('TOWN-1 1A ようかいダマ', () => {
       );
       await stepN(page, 120); // きえるまで・すいこまれるまで
       const after = await dama(page, 1);
+      const ach = await achDama(page); // その 間に とれた 実績の 分（§2.4）
+      const gain = after! - r.before - ach;
       expect(r.gone, `M=${m}: たおした`).toBe(true);
-      expect(after! - r.before, `M=${m}: ふえた 数は 1〜3`).toBeGreaterThanOrEqual(1);
-      expect(after! - r.before, `M=${m}: ふえた 数は 1〜3`).toBeLessThanOrEqual(3);
+      expect(gain, `M=${m}: 妖怪の 分は 1〜3（実績 ${ach} を ひいた）`).toBeGreaterThanOrEqual(DAMA.normal.min);
+      expect(gain, `M=${m}: 妖怪の 分は 1〜3（実績 ${ach} を ひいた）`).toBeLessThanOrEqual(DAMA.normal.max);
     }
   });
 
@@ -119,6 +134,7 @@ test.describe('TOWN-1 1A 2 人あそび', () => {
     expect(base, 'はじめは 2 人とも 0').toEqual([0, 0]);
 
     // ---- 2 人とも 当てる: 1P が ぱんちで 1 回 → 2P の 刀で とどめ
+    await achDama(page); // 出来事を 空に する
     let id = await setupFloor(page, 'karakasa');
     await page.evaluate((id) => {
       const T = (window as any).T;
@@ -134,19 +150,23 @@ test.describe('TOWN-1 1A 2 人あそび', () => {
     await stepN(page, 120);
     expect(await alive(page, id), '2P が たおした').toBe(false);
     const both = [await dama(page, 1), await dama(page, 2)];
+    const ach1 = await achDama(page); // 実績の ようかいダマは 2 人とも 同じ 数（§2.4）
     expect(both[0], '2 人 同じ 数').toBe(both[1]);
-    expect(both[0]!, '1 以上').toBeGreaterThanOrEqual(1);
-    expect(both[0]!, '3 以下').toBeLessThanOrEqual(3);
+    expect(both[0]! - ach1, '妖怪の 分は 1 以上').toBeGreaterThanOrEqual(DAMA.normal.min);
+    expect(both[0]! - ach1, '妖怪の 分は 3 以下').toBeLessThanOrEqual(DAMA.normal.max);
 
     // ---- 2P だけ 当てる: 1P は ふえない
     id = await setupFloor(page, 'karakasa');
+    const start = [await dama(page, 1), await dama(page, 2)]; // T.base() は 1P の もちものを 空に する ので、ここで 数えなおす（2P は そのまま）
+    await achDama(page);
     await park1P(page);
     await page.evaluate((id) => (window as any).__rikkun.yokai.setHp(id, 1), id);
     for (let k = 0; k < 8 && (await alive(page, id)); k++) await swing2P(page, id);
     await stepN(page, 120);
     expect(await alive(page, id), '2P が たおした').toBe(false);
-    expect(await dama(page, 1), '1P は 当てて いない → ふえない').toBe(both[0]);
-    expect((await dama(page, 2))! - both[1]!, '2P は ふえる').toBeGreaterThanOrEqual(1);
+    const ach2 = await achDama(page); // この 間に とれた 実績（2 人とも 同じ 数もらう）
+    expect((await dama(page, 1))! - start[0]!, '1P は 当てて いない → 妖怪の 分は ふえない（実績の 分だけ）').toBe(ach2);
+    expect((await dama(page, 2))! - start[1]! - ach2, '2P は 妖怪の 分が ふえる').toBeGreaterThanOrEqual(DAMA.normal.min);
   });
 
   test('AC4: 2P が 参加中に 実績を とると 2 人とも 同じ 数 ふえる', async ({ page }) => {
