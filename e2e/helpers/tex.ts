@@ -111,6 +111,8 @@ export async function openTex(page: Page, query = '?nosave=1'): Promise<void> {
     const h = (window as any).__rikkun;
     h.achievements.mute(true);
     h.pause();
+    // あわのうず・マグマの 吹き出しは ブロックの 絵に かさなるので 出さない（面の 絵を しらべる ため）
+    if ((window as any).__uzu) (window as any).__uzu.off = true;
     h.lock.simulate(true);
     h.settings.set('yokaiAutoSpawn', false);
     h.yokai.clear();

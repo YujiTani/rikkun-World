@@ -16,6 +16,7 @@ import { wireDuo } from './game/wire/duo';
 import { wireMine } from './game/wire/mine';
 import { installDrift, wantsDrift } from './game/wire/drift';
 import { installSplash, wantsSplash } from './game/wire/splash';
+import { installUzu } from './game/wire/uzu';
 import { buildMagmaDemo, wantsMagmaDemo } from './debug/magmaDemo';
 
 await loadIconAtlas().catch(() => undefined); // ICON-32: 32×32 の アイコン（失敗しても 16×16 で 動く）
@@ -46,6 +47,8 @@ wireGasha(w19);
 if (wantsDrift(location.search)) installDrift(w19);
 // ?water=v2 の ときだけ: 滝の しぶき（試作）
 if (wantsSplash(location.search)) (window as { __splash?: unknown }).__splash = installSplash(w19);
+// わきどころ・たきつぼの あわのうず（近づくと 出る 目じるし）。テスト・撮影用に window.__uzu
+(window as { __uzu?: unknown }).__uzu = installUzu(w19);
 // MAGMA-SPAWN: ?demo=magma の ときだけ、はじめの 場所の 前に マグマの 見本を 1 回 置く（列が 読みこまれた ステップで）
 if (wantsMagmaDemo(location.search)) {
   let done = false;
