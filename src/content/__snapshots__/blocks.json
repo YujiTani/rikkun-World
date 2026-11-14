@@ -2058,247 +2058,247 @@
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_kurokawara",
       "name": "くろかわら",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_aokawara",
       "name": "あおかわら",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_furukawara",
       "name": "ふるかわら",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_munegawara",
       "name": "むねがわら",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_itabuki",
       "name": "いたぶき",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_kayabuki",
       "name": "かやぶき",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_ishizumi",
       "name": "いしづみ",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_koishizumi",
       "name": "こいしづみ",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_ishidatami_a",
       "name": "いしだたみ A",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_ishidatami_b",
       "name": "いしだたみ B",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_ishidatami_c",
       "name": "いしだたみ C",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_ishidan",
       "name": "いしだん",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_kokeishi",
       "name": "こけいし",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_tsuchi",
       "name": "つち",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_jari",
       "name": "じゃり",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_itabari",
       "name": "いたばり",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_koitabari",
       "name": "こいいたばり",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_yukaita",
       "name": "ゆかいた",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_shikkui",
       "name": "しっくい",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_kurakabe",
       "name": "くらかべ",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_namakokabe",
       "name": "なまこかべ",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_tsuchikabe",
       "name": "つちかべ",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_hashira",
       "name": "はしら",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_shubashira",
       "name": "しゅばしら",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_koushimado",
       "name": "こうしまど",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_akakoushi",
       "name": "あかこうし",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_shoji",
       "name": "しょうじ",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_tatami",
       "name": "たたみ",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_shimahisashi_shu",
       "name": "しまひさし 朱",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_shimahisashi_ki",
       "name": "しまひさし 黄",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_shimahisashi_ai",
       "name": "しまひさし 藍",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_noren_ai",
       "name": "のれん 藍",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_noren_shu",
       "name": "のれん 朱",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_andon",
       "name": "あんどん",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_kanban",
       "name": "かんばん",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_tesuri",
       "name": "てすり",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_take",
       "name": "たけ",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_takegaki",
       "name": "たけがき",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_hachiue",
       "name": "はちうえ",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_ishi_tesuri",
       "name": "いしの てすり",
       "solid": true
     },
     {
-      "breakable": false,
+      "breakable": true,
       "id": "town_taru",
       "name": "たる",
       "solid": true
@@ -2590,47 +2590,47 @@
       "toriya_gate": 5,
       "toriya_nest": 5,
       "touro": null,
-      "town_akakoushi": null,
-      "town_andon": null,
-      "town_aokawara": null,
-      "town_furukawara": null,
-      "town_hachiue": null,
-      "town_hashira": null,
-      "town_ishi_tesuri": null,
-      "town_ishidan": null,
-      "town_ishidatami_a": null,
-      "town_ishidatami_b": null,
-      "town_ishidatami_c": null,
-      "town_ishizumi": null,
-      "town_itabari": null,
-      "town_itabuki": null,
-      "town_jari": null,
-      "town_kanban": null,
-      "town_kayabuki": null,
-      "town_koishizumi": null,
-      "town_koitabari": null,
-      "town_kokeishi": null,
-      "town_koushimado": null,
-      "town_kurakabe": null,
-      "town_kurokawara": null,
-      "town_munegawara": null,
-      "town_namakokabe": null,
-      "town_noren_ai": null,
-      "town_noren_shu": null,
-      "town_shikkui": null,
-      "town_shimahisashi_ai": null,
-      "town_shimahisashi_ki": null,
-      "town_shimahisashi_shu": null,
-      "town_shoji": null,
-      "town_shubashira": null,
-      "town_take": null,
-      "town_takegaki": null,
-      "town_taru": null,
-      "town_tatami": null,
-      "town_tesuri": null,
-      "town_tsuchi": null,
-      "town_tsuchikabe": null,
-      "town_yukaita": null,
+      "town_akakoushi": 0.5,
+      "town_andon": 0.5,
+      "town_aokawara": 0.5,
+      "town_furukawara": 0.5,
+      "town_hachiue": 0.5,
+      "town_hashira": 0.5,
+      "town_ishi_tesuri": 0.5,
+      "town_ishidan": 0.5,
+      "town_ishidatami_a": 0.5,
+      "town_ishidatami_b": 0.5,
+      "town_ishidatami_c": 0.5,
+      "town_ishizumi": 0.5,
+      "town_itabari": 0.5,
+      "town_itabuki": 0.5,
+      "town_jari": 0.5,
+      "town_kanban": 0.5,
+      "town_kayabuki": 0.5,
+      "town_koishizumi": 0.5,
+      "town_koitabari": 0.5,
+      "town_kokeishi": 0.5,
+      "town_koushimado": 0.5,
+      "town_kurakabe": 0.5,
+      "town_kurokawara": 0.5,
+      "town_munegawara": 0.5,
+      "town_namakokabe": 0.5,
+      "town_noren_ai": 0.5,
+      "town_noren_shu": 0.5,
+      "town_shikkui": 0.5,
+      "town_shimahisashi_ai": 0.5,
+      "town_shimahisashi_ki": 0.5,
+      "town_shimahisashi_shu": 0.5,
+      "town_shoji": 0.5,
+      "town_shubashira": 0.5,
+      "town_take": 0.5,
+      "town_takegaki": 0.5,
+      "town_taru": 0.5,
+      "town_tatami": 0.5,
+      "town_tesuri": 0.5,
+      "town_tsuchi": 0.5,
+      "town_tsuchikabe": 0.5,
+      "town_yukaita": 0.5,
       "tsurara": 0.5,
       "wakimizu": 1.5,
       "water": null,

@@ -135,6 +135,19 @@ describe('AC9（1.4）妖怪の 技で 街は かわる（keeps だけ かわら
     expect(stones).toBeGreaterThan(0);
   });
 
+  it('水の 量が 4 より 少ない（たおれこみで 床が こわれて 水が ひいた 用水路）と 石に ならない。4 いじょうなら なる（#381 の 原因）', () => {
+    for (const [lvl, expectStone] of [['water_3', false], ['water_4', true]] as const) {
+      const t = rig();
+      for (let x = IN.x - 4; x <= IN.x + 4; x++) for (let z = IN.z - 4; z <= IN.z + 4; z++) t.world.setBlock(x, GY + 1, z, lvl as BlockId);
+      t.player.position = { x: IN.x + 0.5, y: GY + 12, z: IN.z + 0.5 };
+      t.m.spawn('nurikabe', IN.x + 0.5, GY + 2, IN.z + 0.5, { ai: false });
+      for (let i = 0; i < AI_CONST.stoneTicks + 60; i++) t.m.update(1 / 60);
+      let stones = 0;
+      for (let x = IN.x - 4; x <= IN.x + 4; x++) for (let z = IN.z - 4; z <= IN.z + 4; z++) for (let y = GY + 1; y <= GY + 4; y++) if (t.world.getBlock(x, y, z) === ('stone' as BlockId)) stones++;
+      expect(stones > 0, lvl).toBe(expectStone);
+    }
+  });
+
   it('がしゃどくろの たたきつけ（crushAt）: protect は keeps の マスだけ。街の 中も 外と 同じに こわれる・あきちは こわさない', () => {
     const t = rig();
     const io = (p: (x: number, y: number, z: number) => boolean) => ({
