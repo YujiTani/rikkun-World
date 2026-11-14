@@ -277,3 +277,34 @@ export async function findFlatSpot(page: Page, info: TownInfo, size: number): Pr
   }
   throw new Error('街の 中に 平らな あき地が 見つからない（TOWN-1 1.4 の テスト）');
 }
+
+// ---------------------------------------------------------------- TOWN-1 1B-2（こやの 建築士さんの なおし。TOWN-1.md §6.1 の town.carpenter・scaffolds）
+
+export interface CarpenterState {
+  out: boolean;
+  state: 'home' | 'walk' | 'fix' | 'wait' | 'back';
+  pos: P3;
+  target: number | null;
+  sign: boolean;
+}
+export interface Rect3 {
+  min: P3;
+  max: P3;
+}
+export const townCarpenter = (page: Page): Promise<CarpenterState> => townCall<CarpenterState>(page, 'carpenter');
+export const townScaffolds = (page: Page): Promise<Rect3[]> => townCall<Rect3[]>(page, 'scaffolds');
+
+/** 街の 中で たがいに 12 マス 以上 はなれた 平らな 場所（size × size）を count こ ゲームに 聞いて さがす（ひろば〜街の ふちの 近くを 何か所か 見る）。決め打ちの 座標は 使わない */
+export async function findFlatSpots(page: Page, info: TownInfo, size: number, count: number): Promise<{ x0: number; z0: number }[]> {
+  const cx = Math.floor((info.bounds.min.x + info.bounds.max.x) / 2);
+  const cz = Math.floor((info.bounds.min.z + info.bounds.max.z) / 2);
+  const anchors: XZ[] = [info.plaza, { x: cx - 30, z: cz }, { x: cx + 30, z: cz }, { x: cx, z: cz - 30 }, { x: cx, z: cz + 30 }, { x: cx - 30, z: cz + 30 }, { x: cx + 30, z: cz - 30 }];
+  const found: { x0: number; z0: number }[] = [];
+  for (const a of anchors) {
+    if (found.length >= count) break;
+    const s = await findFlatSpot(page, { ...info, plaza: { ...info.plaza, x: a.x, z: a.z } }, size);
+    if (found.every((f) => Math.hypot(f.x0 - s.x0, f.z0 - s.z0) >= 12)) found.push(s);
+  }
+  if (found.length < count) throw new Error(`街の 中に はなれた 平らな 場所が ${count} か所 見つからない（TOWN-1 1.4 の テスト）`);
+  return found;
+}
