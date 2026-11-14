@@ -440,7 +440,7 @@ test.describe('TOWN-1 1B-2 こやの 建築士さんの なおし（AC55）', ()
     await openTown(page);
     const info = await townInfo(page);
     const gy = info.groundY;
-    const [s] = await findFlatSpots(page, info, 3, 1);
+    const [s, far] = await findFlatSpots(page, info, 3, 2); // far ＝ 1P が 待つ 所（まとまりから 12 マス いじょう。そばに いると 建築士さんが まつ）
     await goTo(page, Math.floor(info.plaza.x), Math.floor(info.plaza.z));
     const ids = { daiku: await daikuId(page), first: ((await architectList(page)).find((q) => q.first) ?? { id: null }).id as number | string | null };
     expect(ids.first, '外の さいしょの 建築士さんが いる').not.toBeNull();
@@ -448,7 +448,8 @@ test.describe('TOWN-1 1B-2 こやの 建築士さんの なおし（AC55）', ()
     const cells: P3[] = [];
     for (let dz = 0; dz < 3; dz++) for (let dx = 0; dx < 3; dx++) cells.push({ x: s!.x0 + dx, y: gy, z: s!.z0 + dz });
     expect(await townDamage(page, cells, 'air')).toBe(cells.length);
-    await goTo(page, Math.floor(info.plaza.x), Math.floor(info.plaza.z));
+    await goTo(page, far!.x0 + 1, far!.z0 + 1);
+    await place1P(page, { x: far!.x0 + 1.5, y: gy + 1, z: far!.z0 + 1.5 }, 0);
     await nextMorning(page, 0);
     const t = await runCarpenter(page, ids);
     const probe = (k: Probe['kind']): Probe | undefined => t.probes.find((p) => p.kind === k);
