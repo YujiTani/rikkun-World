@@ -4,6 +4,8 @@ import { BLOCK_INDEX, BLOCK_TYPES, isOpaqueIndex } from '../world/blocks/blockTy
 import { generateChunk } from '../world/gen/chunk';
 import { LAYER } from '../world/gen/columnLayout';
 import { terrainFor } from '../world/gen/terrain';
+import { GEN_CONFIG } from '../world/gen/config';
+import { startFeaturesOf } from '../world/gen/features';
 import { sectionToArray } from '../world/sections';
 import { chooseTown } from './townPlace';
 import { TownPlan, type TownRecord } from './townPlan';
@@ -167,4 +169,18 @@ describe('AC46 門が 見える', () => {
       deactivateTown();
     }
   }, 120_000);
+});
+
+describe('はじまりの木・岩山を 街が 消さない（voxB-terrain AC14）', () => {
+  it.each([GEN_CONFIG.defaultSeed, 1, 2, 3, 4, 5, ...SEEDS.slice(0, 20)])('シード %i: 街の はんい（ふちの 地ならしを ふくむ）は はじまりの木の 列と 岩山の 円に かからない', (seed) => {
+    const rec = recOf(seed);
+    expect(rec).not.toBeNull();
+    const f = startFeaturesOf(seed);
+    const m = TOWN.keepMargin;
+    const x0 = rec!.x0 - m, z0 = rec!.z0 - m, x1 = rec!.x0 + N - 1 + m, z1 = rec!.z0 + N - 1 + m;
+    expect(f.trees).toHaveLength(3);
+    for (const t of f.trees) expect(t.x >= x0 && t.x <= x1 && t.z >= z0 && t.z <= z1, `木 (${t.x}, ${t.z})`).toBe(false);
+    const r = f.rock;
+    expect(r.cx + r.r >= x0 && r.cx - r.r <= x1 && r.cz + r.r >= z0 && r.cz - r.r <= z1, '岩山').toBe(false);
+  });
 });

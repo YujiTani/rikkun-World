@@ -254,10 +254,11 @@ export class BuildGlue {
   }
 }
 
-/** 街の はんいに かかる 場所は 4 つの すみが ぜんぶ あきちの 中（区画の あいだは 2 マス。外の 大きさは 12 まで なので 2 区画に またがらない）。かからなければ いつもの とおり */
+/** 街の はんいに かかる 場所は 中の マスが ぜんぶ あきちの 中（区画の あいだの 2 マスは あきちでは ない。すみ 4 つだけだと 2 区画に またがる 7×7 などが 通ってしまう）。かからなければ いつもの とおり */
 export function townSiteOk(town: Pick<TownPlan, 'inTown' | 'inLot'>, x: number, z: number, w: number, d: number): boolean {
-  const xs = [x, x + w - 1];
-  const zs = [z, z + d - 1];
-  const touches = xs.some((px) => zs.some((pz) => town.inTown(px, pz)));
-  return !touches || xs.every((px) => zs.every((pz) => town.inLot(px, pz)));
+  let touches = false;
+  for (let dz = 0; dz < d; dz++) for (let dx = 0; dx < w; dx++) if (town.inTown(x + dx, z + dz)) touches = true;
+  if (!touches) return true;
+  for (let dz = 0; dz < d; dz++) for (let dx = 0; dx < w; dx++) if (!town.inLot(x + dx, z + dz)) return false;
+  return true;
 }

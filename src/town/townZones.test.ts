@@ -60,6 +60,18 @@ describe('AC7b あきち', () => {
     const shifted = [[-3, 0], [3, 0], [0, -3], [0, 3]].map(([dx, dz]) => townSiteOk(plan, lot.min.x + dx!, lot.min.z + dz!, 11, 11));
     expect(shifted.filter((ok) => !ok).length).toBeGreaterThanOrEqual(2);
     expect(townSiteOk(plan, info.plaza.x, info.plaza.z, 11, 11)).toBe(false);
+    // 区画の あいだ（2 マス）を またいで 2 区画に かかる 7×7: 4 つの すみは あきちの 中でも ダメ（e2e town1b1 AC7b の「はみ出す 場所」）
+    const [l0, l1] = [info.lots[0]!, info.lots[1]!];
+    const w = 7;
+    expect(TOWN.lots.gap).toBeLessThan(w);
+    const alongZ = l1.min.z !== l0.min.z; // 区画の ならびは 街の 向きで x か z
+    const dir = Math.sign(alongZ ? l1.min.z - l0.min.z : l1.min.x - l0.min.x);
+    const edge = alongZ ? (dir > 0 ? l0.max.z : l0.min.z) : dir > 0 ? l0.max.x : l0.min.x; // l1 に 近い がわの はし
+    const start = dir > 0 ? edge - 1 : edge + 1 - (w - 1); // はしの 2 マスと、あいだ 2 マスと、l1 の 3 マス
+    const ox = alongZ ? l0.min.x + 2 : start;
+    const oz = alongZ ? start : l0.min.z + 2;
+    expect(plan.inLot(ox, oz) && plan.inLot(ox + w - 1, oz + w - 1), 'すみは どちらも あきちの 中').toBe(true);
+    expect(townSiteOk(plan, ox, oz, w, w)).toBe(false);
     expect(townSiteOk(plan, info.bounds.min.x - 40, info.bounds.min.z, 11, 11)).toBe(true);
   });
   it('あきちの 中は 安全地帯', () => {

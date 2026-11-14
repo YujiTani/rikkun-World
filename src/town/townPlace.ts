@@ -1,6 +1,7 @@
 import { CHUNK_SIZE, SEA_Y } from '../contracts';
 import { GEN_CONFIG as GEN } from '../world/gen/config';
 import { flatOf } from '../world/gen/worldInfo';
+import { startFeaturesOf } from '../world/gen/features';
 import { hash01, subSeed } from '../world/gen/random';
 import { terrainFor, type Terrain } from '../world/gen/terrain';
 import { FACING_VEC, TownPlan, type TownRecord, type XZ } from './townPlan';
@@ -145,6 +146,8 @@ export function chooseTown(seed: number, opts: PlaceOpts = {}): TownRecord | nul
     list.push({ x0: flat.x0, z0: flat.z0, x1: flat.x1, z1: flat.z1 });
     const rock = T.rock();
     list.push({ x0: Math.floor(rock.cx - rock.r) - 2, z0: Math.floor(rock.cz - rock.r) - 2, x1: Math.ceil(rock.cx + rock.r) + 2, z1: Math.ceil(rock.cz + rock.r) + 2 });
+    // はじまりの木（最初の 木材の もと。スタートから 5〜12 マス）: 木と こずえ（半径 2）を 街の 地ならしで 消さない
+    for (const t of startFeaturesOf(seed).trees) list.push({ x0: t.x - 2, z0: t.z - 2, x1: t.x + 2, z1: t.z + 2 });
     const ta = GEN.testArea;
     list.push({ x0: ta.x0 - 2, z0: ta.z0 - 2, x1: ta.x1 + 2, z1: ta.z1 + 2 });
     return (keepOut = list);
