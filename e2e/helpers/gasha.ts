@@ -22,7 +22,8 @@ export async function openGasha(page: Page, search = ''): Promise<string[]> {
 
 /** ページを 開きなおして（新しい ゲーム）、時間を 止め、道具を 入れなおす。エラーの 記録は そのまま つづく */
 export async function reopenGasha(page: Page, search = ''): Promise<void> {
-  await page.goto('/' + search);
+  // TOWN-1 1B-1: 街の 安全地帯では ダメージが ない。街と 関係ない ので 街を 作らない 世界で 開く
+  await page.goto('/' + (search === '' ? '?town=off' : /[?&]town=/.test(search) ? search : `${search}&town=off`));
   await page.waitForFunction(() => (window as any).__rikkun?.ready === true);
   await page.evaluate(() => {
     const h = (window as any).__rikkun;

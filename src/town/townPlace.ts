@@ -39,6 +39,8 @@ interface Cand {
 export interface PlaceOpts {
   /** その 列（cx, cz）に 前の セーブの プレイヤーの 物が ある（保存して ある）か。街の はんいと すそに かかる 列が ある 候補は とばす */
   occupied?: (cx: number, cz: number) => boolean;
+  /** 街を 置いては いけない 列（x, z）の 一覧。はじまりの 坑道の 道・盛り土（街の 地ならしは 列を まるごと 書きかえるので、通る 列に かかると 坑道が 切れる。MINE-1C の 通し） */
+  avoid?: readonly XZ[];
   /** しらべた 数を 理由ごとに 数える（テスト・調べもの用） */
   why?: Record<string, number>;
 }
@@ -163,6 +165,7 @@ export function chooseTown(seed: number, opts: PlaceOpts = {}): TownRecord | nul
     if (Math.hypot(dxEdge, dzEdge) < TOWN.edgeFromStartMin) return no('edge');
     if (!angleOk(start, cand, c)) return no('angle');
     if (keep().some((r) => rectsOverlap(c.x - m, c.z - m, c.x + N - 1 + m, c.z + N - 1 + m, r.x0, r.z0, r.x1, r.z1))) return no('keep');
+    if (opts.avoid && opts.avoid.some((a) => a.x >= c.x - m && a.x <= c.x + N - 1 + m && a.z >= c.z - m && a.z <= c.z + N - 1 + m)) return no('shaft');
     if (opts.occupied) {
       for (let cz = Math.floor((c.z - m) / CHUNK_SIZE); cz <= Math.floor((c.z + N + m) / CHUNK_SIZE); cz++) {
         for (let cx = Math.floor((c.x - m) / CHUNK_SIZE); cx <= Math.floor((c.x + N + m) / CHUNK_SIZE); cx++) if (opts.occupied(cx, cz)) return no('occupied');

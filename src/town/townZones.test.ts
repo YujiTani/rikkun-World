@@ -7,6 +7,8 @@ import { townInside, townLocked, townSafe, bootTown } from '../game/wire/town';
 import { townSiteOk } from '../house/build/glue';
 import { emptyStreamRestore } from '../save/streamRestore';
 import { terrainFor } from '../world/gen/terrain';
+import { GEN_CONFIG } from '../world/gen/config';
+import { shaftWorldFor } from '../world/gen/mineShafts';
 import { chooseTown } from './townPlace';
 import { TownPlan, stairMouth } from './townPlan';
 import { CANAL, at } from './townLayout';
@@ -192,4 +194,20 @@ describe('AC39 石段の 口', () => {
     }
     expect(plan.info().canal.stairs.length).toBeLessThanOrEqual(TOWN.canal.stairMax);
   });
+});
+
+describe('はじまりの 坑道を 切らない（MINE-1C の 通し）', () => {
+  it('ふだんの シードで、街の はんいは 坑道の 道・入口の 盛り土の 列に かからない（街の 地ならしは 列を まるごと 書きかえる）', () => {
+    const seed = GEN_CONFIG.defaultSeed;
+    const shafts = shaftWorldFor(seed);
+    const st = shafts.start()!.plan.shaft;
+    const r = emptyStreamRestore();
+    bootTown(seed, r, '?nosave=1', shafts);
+    expect(r.town).toBeTruthy();
+    const info = currentTown()!.info();
+    const cols = [...shafts.path(st.id).map((c) => ({ x: c.x, z: c.z })), { x: st.entrance.x, z: st.entrance.z }];
+    expect(cols.length).toBeGreaterThan(100);
+    const inside = cols.filter((c) => c.x >= info.bounds.min.x && c.x <= info.bounds.max.x && c.z >= info.bounds.min.z && c.z <= info.bounds.max.z);
+    expect(inside).toEqual([]);
+  }, 30_000);
 });

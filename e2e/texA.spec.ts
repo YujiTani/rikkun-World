@@ -5,6 +5,7 @@ import {
   setPose, setPoseSettled, shotPixels, stage, usable, type Face, type Rgb,
 } from './helpers/tex';
 import { wide } from './helpers/fine';
+import { isTownBlockId } from '../src/world/blocks/townBlocks';
 
 /**
  * TEX-A（docs/tickets/TEX-A.md、issue #146）: 受け入れ基準 1・2・4〜13 の E2E。テストが先（実装前は赤）。
@@ -135,7 +136,8 @@ test.describe('TEX-A', () => {
 
   test('AC4: 道具 7 種とこたつ・小屋 2 ブロック（さく・とびら は LIVE-2.1 で 板）（こたつ 2×2 の のこり 3 マス も 1 つ だけ なら）・しっくい（MINE-1B）は平らな箱（形を持たない・面 12 以下・絵が元のまま）', async ({ page }) => {
     await ready(page);
-    const flat: string[] = await page.evaluate(() => (window as any).__rikkun.render.flatBlocks());
+    // TOWN-1 1B-1: 街の ブロック（town_*）は 平らな 箱が 35 こ ふえた。街だけの 物で、絵・形は town1b1 と src/world/blocks/townBlocks.test.ts が 見る ので、ここの 一覧と 面ごとの 絵合わせ（FLAT_BLOCKS）からは はずす
+    const flat: string[] = (await page.evaluate(() => (window as any).__rikkun.render.flatBlocks()) as string[]).filter((id) => !isTownBlockId(id));
     expect([...flat].sort()).toEqual([...FLAT_BLOCKS].sort());
     await setAo(page, false);
     // スプリンクラーの しぶき（水の つぶ）は 上の面の上を とび、出る時が 農業のステップと 場所（y）で 決まる。試験場所を 移したら 点に かぶった（CI で 1 点）ので 止めておく
@@ -550,7 +552,8 @@ test.describe('TEX-A', () => {
   });
 
   test('AC12: 三角形が今より少ない（スタート ≤ 45 万・上空 ≤ 52 万）。描画回数は ＋2 / ＋1。r=28 のどこでも ≤ 120 万', async ({ page }) => {
-    await openTex(page, wide('?nosave=1')); // 三角形の上限は ふだんの輪の大きさで見る（#203）
+    // TOWN-1 1B-1: 前の 数と くらべる ので 街を 作らない 世界（&town=off）で はかる。街の 分は town1b1 の AC29 が 見る
+    await openTex(page, wide('?nosave=1&town=off')); // 三角形の上限は ふだんの輪の大きさで見る（#203）
     expect(await missingHooks(page)).toEqual([]);
     const s = await page.evaluate(() => (window as any).__rikkun.world.sectionStats().microR);
     expect(s).toBe(28);
