@@ -8,6 +8,7 @@ import { townSiteOk } from '../house/build/glue';
 import { emptyStreamRestore } from '../save/streamRestore';
 import { terrainFor } from '../world/gen/terrain';
 import { GEN_CONFIG } from '../world/gen/config';
+import { startFeaturesOf } from '../world/gen/features';
 import { shaftWorldFor } from '../world/gen/mineShafts';
 import { chooseTown } from './townPlace';
 import { TownPlan, stairMouth } from './townPlan';
@@ -221,5 +222,29 @@ describe('はじまりの 坑道を 切らない（MINE-1C の 通し）', () =>
     expect(cols.length).toBeGreaterThan(100);
     const inside = cols.filter((c) => c.x >= info.bounds.min.x && c.x <= info.bounds.max.x && c.z >= info.bounds.min.z && c.z <= info.bounds.max.z);
     expect(inside).toEqual([]);
+  }, 30_000);
+});
+
+describe('はじまりの木を 街の 実際の 置き場所（坑道よけ つき）で 消さない（voxB-terrain AC14）', () => {
+  it.each([GEN_CONFIG.defaultSeed, 1, 2, 3, 4, 5])('シード %i: 街の はんい・すそ・見通しの みちに はじまりの木が かからない', (seed) => {
+    const shafts = shaftWorldFor(seed);
+    const r = emptyStreamRestore();
+    bootTown(seed, r, '?nosave=1', shafts);
+    expect(r.town).toBeTruthy();
+    const plan = currentTown()!;
+    const info = plan.info();
+    const m = TOWN.keepMargin;
+    const f = startFeaturesOf(seed);
+    expect(f.trees).toHaveLength(3);
+    for (const t of f.trees) {
+      for (let dz = -2; dz <= 2; dz++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const x = t.x + dx;
+          const z = t.z + dz;
+          if (Math.abs(dx) <= 1 && Math.abs(dz) <= 1) expect(plan.inCorridor(x, z), `木 (${t.x}, ${t.z}) の みき（と まわり 1 マス）が 見通しの みち`).toBe(false);
+          expect(x >= info.bounds.min.x - m && x <= info.bounds.max.x + m && z >= info.bounds.min.z - m && z <= info.bounds.max.z + m, `木 (${t.x}, ${t.z}) が 街・すそ`).toBe(false);
+        }
+      }
+    }
   }, 30_000);
 });

@@ -42,6 +42,8 @@ export interface PlaceOpts {
   occupied?: (cx: number, cz: number) => boolean;
   /** 街を 置いては いけない 列（x, z）の 一覧。はじまりの 坑道の 道・盛り土（街の 地ならしは 列を まるごと 書きかえるので、通る 列に かかると 坑道が 切れる。MINE-1C の 通し） */
   avoid?: readonly XZ[];
+  /** false ＝ はじまりの木を 見ない（門が 16〜28 に 入る 候補を いつも さきに さがす。テストの くらべ用）。ふつうは 木を さきに まもる */
+  keepTrees?: boolean;
   /** しらべた 数を 理由ごとに 数える（テスト・調べもの用） */
   why?: Record<string, number>;
 }
@@ -121,6 +123,16 @@ function seesGate(T: Terrain, sp: { x: number; z: number; h: number }, cand: Can
   return true;
 }
 
+/** 見通しの みち（門 → スタート。みちの 中の 木は 消される）が はじまりの木の みき（と まわり 1 マス）に かからないか。はじまりの木は 最初の 木材の もと。こずえの 先が 少し 切れるのは かまわない（みきが のこれば 木材に なる） */
+function keepsStartTrees(seed: number, sp: XZ, cand: Cand, groundY: number): boolean {
+  const c = cornerOf(cand);
+  const plan = new TownPlan({ v: TOWN.version, x0: c.x, z0: c.z, facing: cand.facing, groundY }, sp);
+  for (const t of startFeaturesOf(seed).trees) {
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (plan.inCorridor(t.x + dx, t.z + dz)) return false;
+  }
+  return true;
+}
+
 const angleOk = (sp: XZ, cand: Cand, c: XZ): boolean => {
   const cx = c.x + N / 2;
   const cz = c.z + N / 2;
@@ -177,7 +189,10 @@ export function chooseTown(seed: number, opts: PlaceOpts = {}): TownRecord | nul
     pass.push(idx);
   });
   // 水が すくない 順（まず 水なし）→ 平らな 順に ゆるめる。さいしょに 合う 候補
-  for (const phase of [1, 2] as const) {
+  // はじまりの木が 最初の 木材の もと なので、見通しの みちが 木の みきに かからない 候補を（門が 近い・遠いの 両方で）さきに さがす。なければ かかっても よい
+  // （keepTrees: false なら 木を 見ない ＝ 門が 16〜28 に 入る 候補を いつも さきに さがす 昔の じゅん）
+  const rounds: readonly (readonly [boolean, 1 | 2])[] = opts.keepTrees === false ? [[false, 1], [false, 2]] : [[true, 1], [true, 2], [false, 1], [false, 2]];
+  for (const [keepTrees, phase] of rounds) {
     for (const wetMax of TOWN.wetSteps) {
       for (const flatMax of TOWN.flatSteps) {
         for (const idx of pass) {
@@ -191,6 +206,10 @@ export function chooseTown(seed: number, opts: PlaceOpts = {}): TownRecord | nul
           const groundY = Math.max(SEA_Y + 3, fine.median);
           if (!seesGate(T, sp, cand, groundY)) {
             if (opts.why) opts.why.sight = (opts.why.sight ?? 0) + 1;
+            continue;
+          }
+          if (keepTrees && !keepsStartTrees(seed, start, cand, groundY)) {
+            if (opts.why) opts.why.tree = (opts.why.tree ?? 0) + 1;
             continue;
           }
           const c = cornerOf(cand);
