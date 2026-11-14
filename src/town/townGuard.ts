@@ -1,10 +1,11 @@
 import { currentTown } from './townState';
 
 /**
- * TOWN-1 1.3 AC9: 妖怪の 技（ぬりかべの たおれこみ・水で 石・がしゃどくろの たたきつけ）から 守る ブロックか。
- * 街の はんい（あきちの 中も。高さは 問わない）。妖怪・がしゃどくろ・ほる の 3 つが ぜんぶ これを 使う（守りの 判定は ここ 1 か所）。
- * プレイヤーの ほる・置く は あきちが あく ので 別（`townLocked`、src/game/wire/town.ts）。
+ * TOWN-1 1.4 AC9: 妖怪の 技（ぬりかべの たおれこみ・水で 石・がしゃどくろの たたきつけ・ふんかの くぼみ）でも こわれない ブロックか。
+ * ＝ あきちの 区画の 中・用水路の 石段・みぞの はしの 石がき だけ（`TownPlan.keeps`）。それ以外の 街の ブロックは 外と 同じに かわる
+ * （かわった マスは 記録されて 2 日で もどる。src/town/townRepairs.ts）。妖怪・がしゃどくろ・ふんかの 3 つが ぜんぶ これを 使う（守りの 判定は ここ 1 か所）。
+ * プレイヤーの ほる・置く は 別（`townLocked`、src/game/wire/townRepair.ts）。
  */
-export function townGuards(x: number, _y: number, z: number): boolean {
-  return currentTown()?.inTown(x, z) ?? false;
+export function townGuards(x: number, y: number, z: number): boolean {
+  return currentTown()?.keeps(x, y, z) ?? false;
 }
