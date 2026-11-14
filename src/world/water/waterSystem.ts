@@ -1,4 +1,5 @@
 import { AIR, BLOCK_INDEX, BLOCK_TYPES } from '../blocks/blockTypes';
+import { TOWN_BLOCK_IDS } from '../blocks/townBlocks';
 import { LIQUID_KINDS, MAGMA_TUNING } from '../blocks/liquids';
 import { magmaAmount } from '../blocks/magma';
 import { WATER_MAX, waterAmount } from '../blocks/water';
@@ -80,7 +81,7 @@ const KOGETA_INDEX = BLOCK_INDEX.kogeta;
 const KOKU_INDEX = BLOCK_INDEX.kokuyouseki;
 const WAKI_W = BLOCK_INDEX.wakimizu;
 const WAKI_M = BLOCK_INDEX.magma_wakimizu;
-const SKIP = new Set<string>(MAGMA_TUNING.burnSkip);
+const SKIP = new Set<string>([...MAGMA_TUNING.burnSkip, ...TOWN_BLOCK_IDS]); // 街の ブロックは こげない（こわれ方は 妖怪の わざだけ。#381）
 const BURNABLE: readonly boolean[] = BLOCK_TYPES.map((t) => t.solid && t.breakable && !SKIP.has(t.id));
 const cellKey = (x: number, y: number, z: number): number => (x + 32768) * 4294967296 + (y & 1023) * 4194304 + ((z + 2097152) & 4194303);
 const cellOf = (k: number): [number, number, number] => [Math.floor(k / 4294967296) - 32768, Math.floor(k / 4194304) % 1024, (k % 4194304) - 2097152];

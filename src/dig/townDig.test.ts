@@ -174,4 +174,20 @@ describe('AC9 プレイヤーの ほり（1.4）', () => {
       expect(r.reps.repairs().cells.find((c) => c.x === put.x && c.y === put.y && c.z === put.z)!.placed).toEqual({ item: 'dirt', p: who });
     });
   }
+
+  for (const who of [1, 2] as const) {
+    it(`大地の ハンマー（breakExternal）${who}P: 記録も ふちも ない 街の マスは こわれない・記録の マスと ふちは こわれて アイテムに ならない`, () => {
+      const r = rig(who);
+      expect(r.dig.breakExternal(TARGET.x, TARGET.y, TARGET.z), '守られた マス').toBe(false);
+      expect(r.at()).not.toBe('air');
+      r.reps.note(TARGET.x, TARGET.y, TARGET.z);
+      expect(r.dig.breakExternal(TARGET.x, TARGET.y, TARGET.z), '記録の マス').toBe(true);
+      expect(r.at()).toBe('air');
+      expect(r.items()).toBe(0);
+      const edge = { x: TARGET.x + 1, y: TARGET.y, z: TARGET.z }; // 記録の マスと 面で となりあう
+      r.world.setBlock(edge.x, edge.y, edge.z, 'stone' as BlockId);
+      expect(r.dig.breakExternal(edge.x, edge.y, edge.z), 'ふち').toBe(true);
+      expect(r.world.getBlock(edge.x, edge.y, edge.z)).toBe('air');
+    });
+  }
 });

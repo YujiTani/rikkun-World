@@ -499,6 +499,7 @@ export class DigSystemImpl implements DigSystem {
   breakExternal(x: number, y: number, z: number): boolean {
     const id = this.world.getBlock(x, y, z);
     if (id === 'outside') return false;
+    if (this.m4.town?.locked(x, y, z)) return false; // TOWN-1 1.4: 街の 守り（記録の マス・ふちは 通る）。ハンマーも 同じ
     const from = this.drainQueue.length;
     const t: TargetInfo = { block: { x, y, z }, id, face: { x: 0, y: 1, z: 0 }, place: { x, y: y + 1, z }, distance: 0 };
     const end = this.breaker.breakBlock(t, false, false, true);
