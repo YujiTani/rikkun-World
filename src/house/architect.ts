@@ -186,7 +186,7 @@ export class Architect {
 
   /** 1 ステップ。look = 話しかけた 人の 足もと（話している 間 こちらを 向く） */
   update(world: HouseWorld, look?: { x: number; z: number }): void {
-    this.followGround(world);
+    if (this.stayYaw === undefined) this.followGround(world); // こやの 建築士さんは ゆかに 立ちつづける（屋根の 上へ 合わせない）
     if (this.wobble >= 0) {
       this.wobble++;
       if (this.wobble > WOBBLE_STEPS) this.wobble = -1;

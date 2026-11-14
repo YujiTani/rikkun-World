@@ -214,8 +214,8 @@ export class ArchitectManager {
     if (!hut || hut.away() || this.byId.has(HUT_ID) || this.parked) return;
     const col: Column = { x: Math.floor(hut.x), z: Math.floor(hut.z) };
     if (!this.d.world.isLoaded(col.x, col.z) || Math.hypot(hut.x - p.x, hut.z - p.z) > LOAD_RADIUS) return;
-    const s = this.nearStand(col, 0);
-    if (s) this.add(HUT_ID, false, s.col, s.y, hut.yaw);
+    // 足もとは こやの ゆか（hut.y）。地面を 上から しらべる standY は 屋根の 上を 返すので 使わない
+    this.add(HUT_ID, false, col, hut.y, hut.yaw);
   }
 
   /** 話しかけられた: その場で 止まって こちらを 向き、うなずく。いない・もう 話している なら false */

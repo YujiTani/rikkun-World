@@ -116,8 +116,11 @@ export class PathFinder {
     return Math.max(0, this.ring(x, z, goal) - goal.dMax);
   }
 
+  private readonly rev: number[] = [];
+
   private trace(end: number, out: number[]): boolean {
-    const rev: number[] = [];
+    const rev = this.rev;
+    rev.length = 0; // 使いまわす（毎回 new しない）
     for (let c = end; c >= 0 && this.from[c] !== -1; c = this.from[c]!) rev.push(c);
     for (let i = rev.length - 1; i >= 0; i--) {
       const c = rev[i]!;

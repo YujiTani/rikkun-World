@@ -80,4 +80,20 @@ describe('こやの 建築士さん', () => {
     expect(r.sys.architects().some((q) => q.id === HUT_ID)).toBe(true);
     expect(r.sys.talkTo(HUT_ID, 1, true)).toBe(true);
   });
+
+  it('屋根の 下の こやでも、いつも ゆか（足もとの 地面）に 立つ。屋根の 上には 乗らない。上に ブロックを おいても ゆかの まま', () => {
+    const away = { v: true };
+    const r = rig(away);
+    // こやの 屋根（ゆかの 上 2 マス あけて 1 まい）を 先に おいてから 出す（帰った）
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) r.world.set(90 + dx, HUT.y + 2, 66 + dz, 'stone');
+    away.v = false;
+    r.run(1);
+    const a = r.sys.architects().find((q) => q.id === HUT_ID)!;
+    expect(a.y).toBeCloseTo(HUT.y, 5);
+    r.run(600);
+    expect(r.sys.architects().find((q) => q.id === HUT_ID)!.y).toBeCloseTo(HUT.y, 5);
+    r.world.set(90, HUT.y + 5, 66, 'stone'); // 屋根の 上に ブロックを 足した
+    r.run(120);
+    expect(r.sys.architects().find((q) => q.id === HUT_ID)!.y).toBeCloseTo(HUT.y, 5);
+  });
 });
