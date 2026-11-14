@@ -19,6 +19,8 @@ export interface TownCarpenterWire {
   carpenterFx: TownCarpenterFx;
   repairFx: RepairFx;
   repairView: TownRepairFxView;
+  /** こやの 建築士さんの メニュー（うなずき ふくむ）を だれかが 開いて いるか（wireHouse が つなぐ。つなぐ 前は false） */
+  menuOpen: () => boolean;
 }
 
 /** いま 開いて いる 街の だいくさん（作る 前は null）。`town.carpenter()` が 読む */
@@ -51,7 +53,7 @@ export function wireTownCarpenter(deps: WiredFighters, reps: TownRepairs): TownC
       for (let k = 2; k <= COVER_HEIGHT; k++) if (world.isSolid(Math.floor(x), Math.floor(y) + k, Math.floor(z))) return true;
       return false;
     },
-    menuOpen: () => false, // 試作: こやの 建築士さんの メニューは まだ つないで いない
+    menuOpen: () => current?.menuOpen() ?? false,
     isLoaded: (x, z) => world.isLoaded(x, z),
     home,
     seed,
@@ -83,6 +85,6 @@ export function wireTownCarpenter(deps: WiredFighters, reps: TownRepairs): TownC
     carpenterFx.update(carpenter, game.camera);
     repairView.update(repairFx);
   });
-  current = { carpenter, scaffoldFx, carpenterFx, repairFx, repairView };
+  current = { carpenter, scaffoldFx, carpenterFx, repairFx, repairView, menuOpen: () => false };
   return carpenter;
 }

@@ -121,7 +121,8 @@ export class TownCarpenterFx {
     this.signMesh.visible = c.sign() && nearSign;
     this.shown.sign = this.signMesh.visible;
     // 体
-    const visible = this.near(c.x, c.z) && this.sees(c.x, c.y, c.z);
+    // こやに いる 間は 建築士さんの 一覧（house.manager）の 人が 描かれる。るすの 間だけ ここで なおし用の 形を 描く
+    const visible = c.out && this.near(c.x, c.z) && this.sees(c.x, c.y, c.z);
     this.root.visible = visible;
     this.shown.body = visible;
     this.shown.repairForm = c.out;

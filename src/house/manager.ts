@@ -26,6 +26,18 @@ const NUDGE = 2;
 /** 建築で うつる 先が ふさがって いる とき、立てる 所を さがす 半径（列） */
 const WORK_NUDGE = 4;
 
+/** 街の こやの 建築士さんの id（TOWN-1 1B-2。るすの 間は 一覧から はずれる） */
+export const HUT_ID = 'daiku';
+
+/** 街の こや（作業台の 前。足もと・向き yaw 0 ＝ 北）。away ＝ なおしに 出て いる（るす） */
+export interface HutSpot {
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  away(): boolean;
+}
+
 export interface ArchitectInfo {
   id: string;
   /** 足もと */
@@ -47,6 +59,8 @@ export interface ArchitectManagerDeps {
   player: () => Vec3;
   /** 地形だけで 見た「水でない 地面」（テストで 差しかえる。ふだんは `landColumn`） */
   isLand?: (x: number, z: number) => boolean;
+  /** 街の こや（街が ない 世界は null か 省く） */
+  hut?: () => HutSpot | null;
 }
 
 /** 建築で 場所を うつされた 建築士さん（id ごと）。spot ＝ 作業の 場所（戸の 前の 列）、origin ＝ もとの 場所（わかった とき）、phase ＝ 建築中 / 完成して もとへ もどる 待ち */
@@ -65,6 +79,8 @@ export class ArchitectManager {
   /** 区画ごとに 決まった 場所（null = その 区画は 0 人）。決まるまで 無い */
   private readonly regionSpot = new Map<string, Column | null>();
   private readonly isLand: (x: number, z: number) => boolean;
+  /** るすで 一覧から はずして いる こやの 建築士さん（帰ったら また 載せる） */
+  private parked: Architect | null = null;
   private since = REFRESH_EVERY;
   private lastX = Infinity;
   private lastZ = Infinity;
@@ -93,6 +109,24 @@ export class ArchitectManager {
     if (++this.since >= REFRESH_EVERY || Math.hypot(p.x - this.lastX, p.z - this.lastZ) >= REFRESH_MOVE) this.refresh(p);
     for (const a of this.list_) a.update(this.d.world, p);
     this.settleWork(p);
+    this.syncHut();
+  }
+
+  /** こやの 建築士さん: るすの 間は 一覧・当たりから はずし、帰ったら 同じ 人を もどす（毎ステップ 数える だけ） */
+  private syncHut(): void {
+    const hut = this.d.hut?.() ?? null;
+    if (!hut) return;
+    const away = hut.away();
+    const a = this.byId.get(HUT_ID);
+    if (away && a) {
+      this.list_.splice(this.list_.indexOf(a), 1);
+      this.byId.delete(HUT_ID);
+      this.parked = a;
+    } else if (!away && this.parked) {
+      this.list_.push(this.parked);
+      this.byId.set(HUT_ID, this.parked);
+      this.parked = null;
+    }
   }
 
   /** 建築を 始める: 建築士さん id を 作業の 場所 spot（戸の 前の 列）へ うつす。ふさがって いたら 近い 立てる 所。うつった 足もとを 返す（その 建築士さんが 読みこまれて いなければ null。読みこまれた とき うつる） */
@@ -162,7 +196,18 @@ export class ArchitectManager {
     this.lastZ = p.z;
     this.unload(p);
     this.loadFirst(p);
+    this.loadHut(p);
     this.loadRegions(p);
+  }
+
+  /** こやの 建築士さん: 読みこんだ 街の こやの 作業台の 前に 1 人（るすの 間は 出さない） */
+  private loadHut(p: Vec3): void {
+    const hut = this.d.hut?.() ?? null;
+    if (!hut || hut.away() || this.byId.has(HUT_ID) || this.parked) return;
+    const col: Column = { x: Math.floor(hut.x), z: Math.floor(hut.z) };
+    if (!this.d.world.isLoaded(col.x, col.z) || Math.hypot(hut.x - p.x, hut.z - p.z) > LOAD_RADIUS) return;
+    const s = this.nearStand(col, 0);
+    if (s) this.add(HUT_ID, false, s.col, s.y, hut.yaw);
   }
 
   /** 話しかけられた: その場で 止まって こちらを 向き、うなずく。いない・もう 話している なら false */
@@ -204,8 +249,8 @@ export class ArchitectManager {
 
   // ------------------------------------------------------------ 出す・はずす
 
-  private add(id: string, first: boolean, col: Column, y: number): void {
-    const a = new Architect({ id, first, x: col.x + 0.5, y, z: col.z + 0.5, seed: this.d.seed });
+  private add(id: string, first: boolean, col: Column, y: number, stay?: number): void {
+    const a = new Architect({ id, first, x: col.x + 0.5, y, z: col.z + 0.5, seed: this.d.seed, ...(stay !== undefined ? { stay } : {}) });
     this.list_.push(a);
     this.byId.set(id, a);
     // 建築で 場所を うつされて いた 建築士さんが 読みこまれた: 作業の 場所へ（もとの 場所は ここ）
