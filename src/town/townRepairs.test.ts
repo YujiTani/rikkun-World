@@ -19,8 +19,8 @@ const solidDesign = (top: number) => (_x: number, y: number, _z: number): string
 
 interface Player { who: 1 | 2; x: number; y: number; z: number }
 
-function rig(o: { unloadedFrom?: number; fixedKeeps?: (x: number, y: number, z: number) => boolean; solidTop?: number; time?: { day(): number } } = {}) {
-  const plan = o.solidTop === undefined ? design : solidDesign(o.solidTop);
+function rig(o: { unloadedFrom?: number; fixedKeeps?: (x: number, y: number, z: number) => boolean; solidTop?: number; plan?: (x: number, y: number, z: number) => string; time?: { day(): number } } = {}) {
+  const plan = o.plan ?? (o.solidTop === undefined ? design : solidDesign(o.solidTop));
   const real = new ArrayVoxelWorld({ x: 128, y: 32, z: 128 });
   for (let x = 0; x < 128; x++) for (let z = 0; z < 128; z++) for (let y = 1; y <= (o.solidTop ?? GROUND); y++) real.setBlock(x, y, z, plan(x, y, z) as BlockId);
   const unloadedFrom = { v: o.unloadedFrom ?? 1e9 };
@@ -109,6 +109,30 @@ describe('記録（AC9・§2.16 の 1）', () => {
     const big = g.find((x) => x.left === 3)!;
     expect(big.min).toEqual({ x: 20, y: GROUND - 1, z: 40 });
     expect(big.max).toEqual({ x: 23, y: GROUND, z: 43 });
+  });
+});
+
+describe('AC52 水の 量も もどる（#381）', () => {
+  it('設計は 水（量 8）の マスが 床が こわれて 量 3 に・設計は 空気の マスに 水が ながれこむ。d+2 の 朝の あと 設計と ちがう マスは 0', () => {
+    const W = 20;
+    const withWater = (x: number, y: number, z: number): string => (x === W && z === 40 && y === GROUND + 1 ? 'water' : design(x, y, z));
+    const r = rig({ plan: withWater });
+    r.real.setBlock(W, GROUND + 1, 40, 'water' as BlockId);
+    r.break_([{ x: W, y: GROUND, z: 40 }]); // 床が こわれる
+    r.real.setBlock(W, GROUND + 1, 40, 'water_3' as BlockId); // 水が ひく
+    r.real.setBlock(W + 1, GROUND, 40, 'water_3' as BlockId); // 空気の はずの 所へ ながれこむ（床の 高さ。下は 石）
+    r.real.setBlock(W + 1, GROUND + 1, 40, 'water_2' as BlockId);
+    expect(r.t.noteLiquid(W, GROUND + 1, 40)).toBe(true);
+    expect(r.t.noteLiquid(W + 1, GROUND + 1, 40)).toBe(true);
+    expect(r.t.noteLiquid(W + 1, GROUND, 40), '草の 設計の マスに 水').toBe(true);
+    expect(r.t.noteLiquid(W + 5, GROUND + 1, 40), '設計と 同じ（空気）なら 記録しない').toBe(false);
+    expect(r.t.noteLiquid(2, GROUND + 1, 40), 'keeps').toBe(false);
+    r.morning();
+    r.step(600);
+    r.morning();
+    r.step(600);
+    expect(r.t.repairs().cells.length).toBe(0);
+    for (const c of [{ x: W, y: GROUND, z: 40 }, { x: W, y: GROUND + 1, z: 40 }, { x: W + 1, y: GROUND, z: 40 }, { x: W + 1, y: GROUND + 1, z: 40 }]) expect(r.blockOf(c.x, c.y, c.z), key(c)).toBe(withWater(c.x, c.y, c.z));
   });
 });
 

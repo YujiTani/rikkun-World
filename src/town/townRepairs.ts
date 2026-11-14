@@ -108,6 +108,15 @@ export class TownRepairs {
     return true;
   }
 
+  /**
+   * 水が かわった マス（量が へった・ふえた・ながれこんだ）。記録が ある（こわれた 所が ある）あいだ、設計と ちがう なら 記録する。
+   * もどす ときは 設計の 中身に もどる（街の 外には 出さない）
+   */
+  noteLiquid(x: number, y: number, z: number): boolean {
+    if (this.cells.size === 0 || this.d.world.getBlock(x, y, z) === this.d.plan(x, y, z)) return false;
+    return this.note(x, y, z);
+  }
+
   /** テストの 準備: 妖怪の わざと 同じ 口で マスを かえて 記録する。かえた 数 */
   damage(list: readonly { x: number; y: number; z: number }[], to: 'air' | 'stone' = 'air'): number {
     let n = 0;

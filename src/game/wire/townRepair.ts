@@ -3,7 +3,6 @@
 import { buildBlocks } from '../../world/gen/chunk';
 import { overlapsBody } from '../../dig/digCore';
 import type { DigTownPort } from '../../dig/digPorts';
-import { blockIndexOf } from '../../world/blocks/blockTypes';
 import { isLiquidIndex } from '../../world/blocks/liquids';
 import type { BlockId, ItemId } from '../../contracts';
 import { createPlanReader } from '../../town/townPlanBlock';
@@ -111,10 +110,10 @@ export function wireTownRepair(deps: WiredFighters): void {
   });
   bindTownRepairs(reps);
   shared.townRepairs = reps;
-  // 水が 記録の ある 街へ ながれこんだ マス（設計の 中身と ちがう 水）も「かわった マス」に 入れる。かえす とき 設計の 中身に もどる
+  // 水が かわった マス（量が へった・ふえた・ながれこんだ）も、記録が ある あいだは 設計と ちがえば 記録する。朝に 設計の 水に もどる
   const prev = world.onBlockChange;
   world.onBlockChange = (x, y, z, p, n) => {
     prev?.(x, y, z, p, n);
-    if (reps.size() > 0 && isLiquidIndex(n) && !isLiquidIndex(p) && (currentTown()?.inTown(x, z) ?? false) && blockIndexOf(townPlanBlock(x, y, z)) !== n) reps.note(x, y, z);
+    if (isLiquidIndex(n) || isLiquidIndex(p)) reps.noteLiquid(x, y, z);
   };
 }
