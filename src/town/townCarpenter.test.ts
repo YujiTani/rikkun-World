@@ -191,6 +191,29 @@ describe('街の だいくさん', () => {
     expect(r.c.state).toBe('fix');
   });
 
+  it('道が なくて ぽんと うつる ときは ほこりの 合図が 出る。d＋2 の 朝の 仕事も おなじ ぽんで 着いて たたける', () => {
+    const only = { x: 93, z: 50 };
+    const r = rig({ stand: (x, z) => (x < 0 || z < 0 || x > 150 || z > 150 ? null : x >= 85 && x <= 100 && !(x === only.x && z === only.z) ? null : 5) });
+    const d1 = job(94, 50, 2, 2);
+    r.jobs.push(d1);
+    r.run(C.departMax + 5);
+    r.run(C.warpSteps + 100, () => r.c.state === 'fix');
+    expect(r.c.state).toBe('fix');
+    expect(r.warps.length, 'ほこり（onWarp）が 1 回 以上').toBeGreaterThanOrEqual(1);
+    const first = r.warps.length;
+    // d＋1 の 分が おわる → おじぎ → 次の 朝（d＋2）の のこりの 仕事
+    d1.finished = true;
+    r.jobs.length = 0;
+    r.run(MOTION_LEN.bow + 6000, () => r.c.state === 'home');
+    const d2 = job(94, 50, 2, 2);
+    r.jobs.push(d2);
+    r.run(C.departMax + 5);
+    r.run(C.warpSteps + 6000, () => r.c.state === 'fix');
+    expect(r.c.state).toBe('fix');
+    expect(r.c.allows(d2) || r.c.target === d2, 'd＋2 の 仕事を たたく').toBe(true);
+    expect(r.warps.length, 'もう 1 回 ぽんで ほこり').toBeGreaterThan(first);
+  });
+
   it('見て いない（列を 読みこんで いない）ときは すぐ こやに もどる', () => {
     const open = { v: true };
     const r = rig({ loaded: () => open.v });
