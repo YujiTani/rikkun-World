@@ -159,7 +159,9 @@ export function chooseTown(seed: number, opts: PlaceOpts = {}): TownRecord | nul
     const rock = T.rock();
     list.push({ x0: Math.floor(rock.cx - rock.r) - 2, z0: Math.floor(rock.cz - rock.r) - 2, x1: Math.ceil(rock.cx + rock.r) + 2, z1: Math.ceil(rock.cz + rock.r) + 2 });
     // はじまりの木（最初の 木材の もと。スタートから 5〜12 マス）: 木と こずえ（半径 2）を 街の 地ならしで 消さない
-    for (const t of startFeaturesOf(seed).trees) list.push({ x0: t.x - 2, z0: t.z - 2, x1: t.x + 2, z1: t.z + 2 });
+    // 1.3 AC7: みきが すそ（skirt 12 マス。地面を ならす 所）に かからない ように、街から keepMargin ＋ これ ＝ skirt マス はなす（こずえの 半径 2 より 広い とき だけ 広げる）
+    const tr = Math.max(2, TOWN.skirt - TOWN.keepMargin);
+    for (const t of startFeaturesOf(seed).trees) list.push({ x0: t.x - tr, z0: t.z - tr, x1: t.x + tr, z1: t.z + tr });
     const ta = GEN.testArea;
     list.push({ x0: ta.x0 - 2, z0: ta.z0 - 2, x1: ta.x1 + 2, z1: ta.z1 + 2 });
     return (keepOut = list);

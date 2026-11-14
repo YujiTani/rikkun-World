@@ -4,12 +4,15 @@ import { aimBlock, digAimed, houses, makeBlueprint, standAt, tapRight, type Hous
 import { blueprints, firstArchitect } from './helpers/houseEditor';
 import { blockOf, buildingOf, cursorOf, holdItem, itemCount, levelOf, setBuildTicks, setNight, sitesOf, stockMaterials, watchSpawns } from './helpers/houseSite';
 import { TOWN } from '../src/town/townTuning';
+import { AI_CONST } from '../src/yokai/ai/config';
+import { holdItems, runTech, settle } from './helpers/blade';
 import { setFakePad } from './helpers/duoUi';
-import { goTo, inSafe, openTown, place1P, place2P, townCall, townInfo, TOWN_OFF, yawOf, type P3, type TownInfo, type XZ } from './helpers/town';
+import { findEdgeSpot, goTo, inSafe, openTown, place1P, place2P, townCall, townInfo, TOWN_OFF, yawOf, type P3, type TownInfo, type XZ } from './helpers/town';
 
 /**
  * TOWN-1 区切り 1B-1（docs/design/TOWN-1.md §0・§6.1、TOWN-1-place.md の AC8・AC7b・AC41・AC29）の E2E。実装の 前に 書いた 赤の テスト。
- * 区切りの 表（TOWN-1.md §6）: 街に 入れない 1 本（AC8）＋ 用水路から 上がる 1 本（AC41）＋ あきちで 建てる 1 本（AC7b）＋ 性能の 数 1 本（AC29）。
+ * 1.3 版（決定 2026-11-14 妖怪は 街に 入れる）: AC8 は「わかない・入って くる・たたかう」2 本、AC9 の 妖怪の 分を 1 本（ユニットに できない 通し）。2P・矢・がしゃどくろの たたきつけ・数の こまかい 所は ユニット。
+ * 区切りの 表（TOWN-1.md §6）: 街に 入れる 2 本（AC8）＋ 用水路から 上がる 1 本（AC41）＋ あきちで 建てる 1 本（AC7b）＋ 性能の 数 1 本（AC29）。
  * 口（仕様 §6.1）: `town.info()`・`town.inSafe()`・`town.inTown()`・`town.smoke()`。まだ 無い（実装の 前は「…が まだ ない」で 赤）。
  * 数・座標は 決め打ちせず ゲームに 聞く。進めるのは step の 数。時間（ms）では 合否を 決めない（#255）。
  * 約束（あいまいな 所を この テストで こう 読んだ。報告に 書いた）:
@@ -33,44 +36,179 @@ const hp = (page: Page, who: 1 | 2): Promise<number> => page.evaluate((w) => (wi
 test.describe('TOWN-1 1B-1 安全地帯', () => {
   test.describe.configure({ timeout: 240_000 });
 
-  test('AC8: 夜に 安全の はんいの 中で 妖怪が わかない・外から 来た 妖怪は ふちで 止まる・中の 1P・2P の ハートは へらない', async ({ page }) => {
+  test('AC8 (a)(b)(c): 中では わかない・外では わく／外の 妖怪が 歩いて 街に 入る／中の 1P・2P の ハートが へる（1.3）', async ({ page }) => {
     await openTown(page, { duo: true });
     const info = await townInfo(page);
-    const cz = Math.round(info.center.z);
-    const edge = info.safe.min.x; // 西の ふち
+    const spot = await findEdgeSpot(page, info); // ふちから 3 マス 中の 立ち場所と、わかない はんいの 外 4 マスの 場所
+    await place1P(page, spot.player);
+    await place2P(page, { ...spot.player, x: spot.player.x + (spot.out.x === 0 ? 1 : 0), z: spot.player.z + (spot.out.z === 0 ? 1 : 0) });
 
-    // ---- 夜の 湧き: 中に 2 人。夜の 自動の 湧きを 入れて 回す → 湧いた 場所は ぜんぶ 安全の はんいの 外
-    await goTo(page, info.plaza.x, info.plaza.z);
-    await place1P(page, { x: info.plaza.x + 0.5, y: info.groundY + 1, z: info.plaza.z + 0.5 });
-    await place2P(page, { x: info.plaza.x + 2.5, y: info.groundY + 1, z: info.plaza.z + 0.5 });
+    // ---- (a) 夜の 自動の 湧き: 湧いた 場所は ぜんぶ わかない はんいの 外。外では 1 ぴき 以上 わく（しらべが 動いて いる）。3 晩は ユニット・ここは 夜の 真ん中を 回す
     await setNight(page, true);
-    const spawns = await watchSpawns(page, 900);
+    const spawns = await watchSpawns(page, 1500);
     test.info().annotations.push({ type: 'night spawns', description: String(spawns.length) });
-    for (const s of spawns) expect(await inSafe(page, s), `湧いた 場所 ${JSON.stringify(s)} は 安全の はんいの 外`).toBe(false);
+    expect(spawns.length, '外では 1 ぴき 以上 わく').toBeGreaterThanOrEqual(1);
+    for (const s of spawns) expect(await inSafe(page, s), `湧いた 場所 ${JSON.stringify(s)} は わかない はんいの 外`).toBe(false);
     await setNight(page, false);
+    await page.evaluate(() => (window as any).__rikkun.yokai.clear()); // (a) で わいた 妖怪が (b)(c) に まざらない ように
 
-    // ---- 外の 妖怪を ふちの すぐ 外に 置く。中の ふち ぎわに 1P・2P。600 ステップ 回しても 安全の はんいへ 入れない
-    await goTo(page, edge + 6, cz);
-    const gIn = info.groundY + 1;
-    await place1P(page, { x: edge + 5.5, y: gIn, z: cz + 0.5 }, 270);
-    await place2P(page, { x: edge + 5.5, y: gIn, z: cz + 3.5 });
-    const gOut = (await gh(page, Math.floor(edge) - 3, cz)) + 1;
+    // ---- (b) 外 4 マスの 妖怪が 1P・2P へ 歩いて、わかない はんい → 街の はんいへ 入る（ふちで 止まらない）
+    await place1P(page, spot.player);
     const id = await page.evaluate(
-      ({ x, y, z }) => (window as any).__rikkun.yokai.spawn('karakasa', x, y, z, { hp: 9999 }) as number,
-      { x: edge - 2.5, y: gOut, z: cz + 0.5 },
+      ({ x, y, z }) => {
+        const h = (window as any).__rikkun;
+        h.time.set(70000);
+        return h.yokai.spawn('karakasa', x, y, z, { hp: 9999 }) as number;
+      },
+      spot.yokai,
     );
-    await page.evaluate(() => (window as any).__rikkun.time.set(70000));
     const hp0 = [await hp(page, 1), await hp(page, 2)];
-    const seen: P3[] = [];
-    for (let k = 0; k < 30; k++) {
+    let enteredSafe = -1;
+    let enteredTown = -1;
+    let hurt = -1;
+    for (let k = 1; k <= 60; k++) {
       await stepN(page, 20);
       const y = await page.evaluate((id) => (window as any).__rikkun.yokai.list().find((q: any) => q.id === id)?.position as P3 | undefined, id);
       expect(y, '妖怪は まだ いる').toBeTruthy();
-      seen.push(y!);
-      expect(await inSafe(page, y!), `ステップ ${(k + 1) * 20}: 外の 妖怪は 安全の はんいに 入らない ${JSON.stringify(y)}`).toBe(false);
+      if (enteredSafe < 0 && (await inSafe(page, y!))) enteredSafe = k * 20;
+      if (enteredTown < 0 && (await townCall<boolean>(page, 'inTown', y!.x, y!.y, y!.z))) enteredTown = k * 20;
+      // ---- (c) 中に 入った あと、1P か 2P の ハートが へる（街の 中でも 当たる）
+      if (enteredTown > 0 && hurt < 0 && ((await hp(page, 1)) < hp0[0]! || (await hp(page, 2)) < hp0[1]!)) {
+        hurt = k * 20;
+        break;
+      }
     }
-    expect(seen.length).toBe(30);
-    expect([await hp(page, 1), await hp(page, 2)], '中の 1P・2P の ハートは へらない').toEqual(hp0);
+    test.info().annotations.push({ type: 'steps safe/town/hurt', description: `${enteredSafe}/${enteredTown}/${hurt}` });
+    expect(enteredSafe, '600 ステップ 以内に わかない はんいの 中へ 入る').toBeGreaterThan(0);
+    expect(enteredSafe, '600 ステップ 以内に わかない はんいの 中へ 入る').toBeLessThanOrEqual(600);
+    expect(enteredTown, 'そのあと 街の はんいの 中へも 入る（ふちで 止まらない）').toBeGreaterThanOrEqual(enteredSafe);
+    expect(hurt, '街の 中で 1P・2P の ハートが へった').toBeGreaterThan(0);
+  });
+
+  test('AC8 (c)(d): 街の 中でも 外と 同じ 数 ハートが へる・刀が 同じ ダメージで 当たり、たおすと ようかいダマが ふえる', async ({ page }) => {
+    await openTown(page);
+    const info = await townInfo(page);
+    const outX = Math.floor(info.safe.min.x) - 30;
+    const outZ = Math.floor(info.center.z);
+    await goTo(page, outX, outZ);
+    const outY = (await gh(page, outX, outZ)) + 1;
+    const places = {
+      town: { x: info.plaza.x + 0.5, y: info.plaza.y, z: info.plaza.z + 0.5 },
+      outside: { x: outX + 0.5, y: outY, z: outZ + 0.5 },
+    };
+    const lost: Record<string, number> = {};
+    const dealt: Record<string, number> = {};
+    const gained: Record<string, number> = {};
+    for (const [name, pos] of Object.entries(places)) {
+      await goTo(page, Math.floor(pos.x), Math.floor(pos.z));
+      await place1P(page, pos, 90); // 東向き（+x）。妖怪は 東 1.5 マス
+      // (c) 同じ 妖怪・同じ わざ（からかさ・攻撃 1 回）で へる ハートの 数
+      const r = await page.evaluate(
+        ({ pos }) => {
+          const h = (window as any).__rikkun;
+          h.combat.setHp(20);
+          const id = h.yokai.spawn('karakasa', pos.x + 1.5, pos.y, pos.z, { ai: false, hp: 9999 }) as number;
+          const hp0 = h.combat.get().hp as number;
+          const a = h.yokai.attackNow(id) as { hitInSteps: number } | null;
+          h.step((a?.hitInSteps ?? 30) + 40);
+          const lostHp = hp0 - (h.combat.get().hp as number);
+          h.yokai.clear();
+          h.combat.setHp(20);
+          return { lostHp, started: a !== null };
+        },
+        { pos },
+      );
+      expect(r.started, `${name}: 攻撃が 始まる`).toBe(true);
+      lost[name] = r.lostHp;
+      // (d) 刀の 1 回 → ダメージ。つぎに 体力 1 の 妖怪を たおして ようかいダマ
+      await place1P(page, pos, 90);
+      await holdItems(page, [{ item: 'katana' }]);
+      const spawnAhead = (hpv: number): Promise<number> =>
+        page.evaluate(
+          ({ pos, hpv }) => {
+            const h = (window as any).__rikkun;
+            const id = h.yokai.spawn('karakasa', pos.x + 1.5, pos.y, pos.z, { ai: false }) as number;
+            h.yokai.setHp(id, hpv); // spawn の hp オプションは 無い（無視される）。体力 1 は setHp で 決める
+            h.yokai.events();
+            return id;
+          },
+          { pos, hpv },
+        );
+      await spawnAhead(9999);
+      const steps = await runTech(page, 40);
+      await settle(page, 60);
+      dealt[name] = steps.flatMap((t) => t.events).filter((e) => e.type === 'techHit').reduce((sum, e) => sum + (e.damage ?? 0), 0);
+      await page.evaluate(() => (window as any).__rikkun.yokai.clear());
+      const d0 = await page.evaluate(() => (window as any).__rikkun.dama.count(1) as number);
+      await place1P(page, pos, 90);
+      await spawnAhead(1);
+      await runTech(page, 40);
+      await settle(page, 200);
+      gained[name] = (await page.evaluate(() => (window as any).__rikkun.dama.count(1) as number)) - d0;
+    }
+    test.info().annotations.push({ type: 'town vs outside', description: JSON.stringify({ lost, dealt, gained }) });
+    expect(lost.outside, '外では ハートが へる（くらべる 基準）').toBeGreaterThan(0);
+    expect(lost.town, '街の 中でも 外と 同じ 数 ハートが へる').toBe(lost.outside);
+    expect(dealt.outside, '外では 刀が 当たる').toBeGreaterThan(0);
+    expect(dealt.town, '街の 中でも 外と 同じ ダメージ').toBe(dealt.outside);
+    expect(gained.outside, '外で たおすと ようかいダマが ふえる').toBeGreaterThan(0);
+    expect(gained.town, '街の 中で たおしても ようかいダマが ふえる').toBeGreaterThan(0);
+  });
+
+  test('AC9 (妖怪): 街の 中・あきち・門で ぬりかべが たおれこんでも・水で 石に なっても ブロックは 1 こも かわらない。外では こわれる', async ({ page }) => {
+    await openTown(page);
+    const info = await townInfo(page);
+    const lot = info.lots[0]!;
+    const outX = Math.floor(info.safe.min.x) - 30;
+    const outZ = Math.floor(info.center.z);
+    const gx = Math.floor(info.gate.pos.x);
+    const gz = Math.floor(info.gate.pos.z);
+    /** ぬりかべを 地面に 立てて たおれこみを すぐ 起こし、まわり（11×7×11）の ブロックの ちがう マスの 数を 返す */
+    const crushDiff = async (x: number, z: number): Promise<number> => {
+      await goTo(page, x, z);
+      const y = (await gh(page, x, z)) + 1;
+      return page.evaluate(
+        ({ x, y, z }) => {
+          const h = (window as any).__rikkun;
+          h.player.set({ position: { x: x + 4.5, y, z: z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 270, pitch: 0 });
+          h.step(2);
+          const cells: [number, number, number][] = [];
+          for (let dz = -5; dz <= 5; dz++) for (let dy = -3; dy <= 3; dy++) for (let dx = -5; dx <= 5; dx++) cells.push([x + dx, y + dy, z + dz]);
+          const snap = (): string[] => cells.map(([a, b, c]) => h.world.getBlock(a, b, c) as string);
+          const before = snap();
+          const id = h.yokai.spawn('nurikabe', x + 0.5, y, z + 0.5, { ai: false, hp: 9999 }) as number;
+          const a = h.yokai.attackNow(id) as { hitInSteps: number } | null;
+          h.step((a?.hitInSteps ?? 60) + 60);
+          h.yokai.clear();
+          const after = snap();
+          return before.filter((b, i) => b !== after[i]).length;
+        },
+        { x, y, z },
+      );
+    };
+    expect(await crushDiff(outX, outZ), '外では たおれこみで こわれる（くらべる 基準）').toBeGreaterThan(0);
+    const spots = { 広場: { x: Math.floor(info.plaza.x), z: Math.floor(info.plaza.z) }, あきち: { x: Math.floor((lot.min.x + lot.max.x) / 2), z: Math.floor((lot.min.z + lot.max.z) / 2) }, 門: { x: gx, z: gz } };
+    for (const [name, p] of Object.entries(spots)) expect(await crushDiff(p.x, p.z), `${name}: たおれこみで 街の ブロックは かわらない`).toBe(0);
+
+    // 用水路の 水の 中で 石に なる（かたまる 時間は 表 AI_CONST.stoneTicks）。まわりの ブロックは かわらない
+    const w = info.canal.water[Math.floor(info.canal.water.length / 2)]!;
+    await goTo(page, w.x, w.z);
+    const changed = await page.evaluate(
+      ({ w, y, ticks }) => {
+        const h = (window as any).__rikkun;
+        const cells: [number, number, number][] = [];
+        for (let dz = -3; dz <= 3; dz++) for (let dy = -2; dy <= 4; dy++) for (let dx = -3; dx <= 3; dx++) cells.push([w.x + dx, y + dy, w.z + dz]);
+        const snap = (): string[] => cells.map(([a, b, c]) => h.world.getBlock(a, b, c) as string);
+        const before = snap();
+        h.player.set({ position: { x: w.x + 0.5, y: y + 10, z: w.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+        h.yokai.spawn('nurikabe', w.x + 0.5, y, w.z + 0.5, { ai: false, hp: 9999 });
+        h.step(ticks + 120);
+        const after = snap();
+        return before.filter((b, i) => b !== after[i]).length;
+      },
+      { w, y: info.canal.bottomY + 1, ticks: AI_CONST.stoneTicks },
+    );
+    expect(changed, '水で 石に なっても 街の ブロックは かわらない').toBe(0);
   });
 });
 

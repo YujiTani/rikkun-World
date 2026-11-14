@@ -40,6 +40,7 @@ export class YokaiStone {
     forCells(e, body, lo, lo + 2, (x, y, z) => {
       const b = world.getBlock(x, y, z);
       if (b !== 'outside' && (b === 'air' || isWater(b))) {
+        if (this.d.opts.protectAt?.(x, y, z)) return; // TOWN-1 1.3 AC9: 街・やかたの 中には 石を 置かない（たおれて 経験値は 出る）
         if (world.setBlock(x, y, z, 'stone')) changed.push({ x, y, z, from: b, to: 'stone' });
       }
     });

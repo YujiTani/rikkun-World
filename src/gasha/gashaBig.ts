@@ -193,7 +193,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
       onSlam: (x, y, z) => { if (farNow) return;
         shockFx.spawn(shock.add('slam', x, y, z));
         sfx.step();
-        if (blockAt && deps.setBlockAir) crushAt(x, y, z, { getBlock: blockAt, setAir: deps.setBlockAir, onBlocks: deps.onCrushBlocks });
+        if (blockAt && deps.setBlockAir) crushAt(x, y, z, { getBlock: blockAt, setAir: deps.setBlockAir, protect: deps.protectAt, onBlocks: deps.onCrushBlocks });
       },
       onTap: (x, y, z) => { if (farNow) return; shockFx.spawn(shock.add('tap', x, y, z)); sfx.step(); },
       onAttackStart: (name) => { aim.begin(); if (farNow) return; if (name === 'slam2') sfx.lift(); else if (name === 'sweep') sfx.windup(); else if (name === 'beam') sfx.omen(); else if (name === 'eruption') sfx.inhale(); else if (name === 'thunder') sfx.cloud(); },
@@ -204,7 +204,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
       onSlam2: (x, y, z, fx, fz) => { if (farNow) return;
         sfx.slam();
         shockFx.spawn(shock.add('slam2', x, y, z, { fx, fz }));
-        if (blockAt && deps.setBlockAir) crushAt(x, y, z, { getBlock: blockAt, setAir: deps.setBlockAir, onBlocks: deps.onCrushBlocks }, T.slam2);
+        if (blockAt && deps.setBlockAir) crushAt(x, y, z, { getBlock: blockAt, setAir: deps.setBlockAir, protect: deps.protectAt, onBlocks: deps.onCrushBlocks }, T.slam2);
         quake.start();
       },
     }, 293);

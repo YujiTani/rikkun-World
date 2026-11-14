@@ -66,7 +66,7 @@ import type { P2GashaPort } from './gashaPeople';
 import type { WiredLoop } from './save';
 import { createScrollPort } from './scrollPort';
 import { bladeWearPerHit } from '../../content/items/legend4Wear';
-import { townInside, townLocked, townSafe } from './town';
+import { townInside, townLocked } from './town';
 
 const DEG = Math.PI / 180;
 
@@ -251,7 +251,6 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       rng: createRng(seed ^ 0x2b2b),
       // シャイニング中は 受ける ダメージ 1/3・落下ダメージなし（1P と 同じ 部品の 口）。がしゃどくろの 間欠泉も 落ちない
       takenMul: () => legend.p2.combat.takenMul(),
-      inSafeZone: () => townSafe(ctl.state.position),
       noFall: () => townInside(ctl.state.position) || gashaNoFall || legend.p2.combat.noFall() || tenshiNoFall(p2.inventory.held()?.item ?? null) || (hammer2?.noFall() ?? false),
       requestSave: () => shared.requestSave(),
     });

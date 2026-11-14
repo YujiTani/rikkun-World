@@ -81,7 +81,7 @@ describe('AC7b あきち', () => {
   });
 });
 
-describe('AC8 安全地帯のふち', () => {
+describe('AC8 わかない はんい（116×116）のふち（1.3: 入れない・当たらない は やめた。わかない だけ）', () => {
   it('safe は 街 ＋ 8 マス・外は false', () => {
     const { info } = setup();
     expect(townSafe({ x: info.safe.min.x, z: info.safe.min.z })).toBe(true);
@@ -108,8 +108,8 @@ function rig(zone: { safe: boolean; inside: boolean }) {
     inventory: new InventoryImpl(),
     yokai: () => ({ occupies: () => false }) as never,
     spawn: () => ({ x: 1, y: 40, z: 1, yawDeg: 0, pitchDeg: 0 }),
-    inSafeZone: () => zone.safe,
     noFall: () => zone.inside,
+    ...({ inSafeZone: () => zone.safe } as object), // 古い 窓口。1.3 では 使われない（消えても この テストは 型で 落ちない）
   });
   const drop = (h: number) => {
     combat.update();
@@ -143,13 +143,14 @@ describe('AC42 落下・AC8 こうげき', () => {
     }
     expect(fallDamage(5, 3, 1)).toBe(2);
   });
-  it('安全地帯の 中は 妖怪の こうげきで ハートが へらない・外は へる', () => {
-    const inn = rig({ safe: true, inside: false });
-    const hp0 = inn.combat.hp();
-    expect(inn.combat.damage(3, 'karakasa', { x: 0, y: 0, z: 0 })).toBe(false);
-    expect(inn.combat.hp()).toBe(hp0);
-    const out = rig({ safe: false, inside: false });
-    expect(out.combat.damage(3, 'karakasa', { x: 0, y: 0, z: 0 })).toBe(true);
+  it('1.3: 街の 中でも 妖怪の こうげきで ハートが へる（外と 同じ。「安全地帯」の きまりは ない）', () => {
+    // 古い 窓口（inSafeZone）が 残って いても 無視される ＝ 足もとが わかない はんいでも 妖怪の こうげきは 当たる
+    for (const zone of [{ safe: true, inside: false }, { safe: true, inside: true }, { safe: false, inside: false }]) {
+      const c = rig(zone).combat;
+      const hp0 = c.hp();
+      expect(c.damage(3, 'karakasa', { x: 0, y: 0, z: 0 })).toBe(true);
+      expect(hp0 - c.hp(), JSON.stringify(zone)).toBeGreaterThan(0);
+    }
   });
   it('足もとが 街の 中か は 窓口の 関数が 答える', () => {
     const { info } = setup();

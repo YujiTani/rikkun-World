@@ -123,3 +123,80 @@ export const place2P = (page: Page, pos: P3): Promise<void> =>
 
 /** 4 方向の なかま どうしの 向き（yaw 度。0 ＝ 北 −z・90 ＝ 東 +x・180 ＝ 南・270 ＝ 西） */
 export const yawOf = (dx: number, dz: number): number => (Math.abs(dx) >= Math.abs(dz) ? (dx > 0 ? 90 : 270) : dz > 0 ? 180 : 0);
+
+/**
+ * TOWN-1 1.3: 街の ふちに 近い 平らな 立ち場所（中）と、同じ 線の 上で わかない はんい（safe）の 外 4 マスの 場所を ゲームに 聞いて さがす。
+ * 立ち場所: 街の はんいの 4 つの ふちの どれかで、ふちから 3 マス 中。そこまでの 線の 上（ふち 〜 立ち場所）が 地面の 高さ ＝ groundY で 上 2 マスが 空気（かべ・どうろうを さける）。
+ * 返す yokai は 外 4 マス（ふちを 1 つ こえた 所が 1 マス目）の 地面の 上。決め打ちの 座標は 使わない。
+ */
+export interface EdgeSpot {
+  side: 'w' | 'e' | 'n' | 's';
+  player: P3;
+  yokai: P3;
+  /** 外へ 向かう 向き（x か z の どちらか ±1） */
+  out: XZ;
+}
+export async function findEdgeSpot(page: Page, info: TownInfo): Promise<EdgeSpot> {
+  const midX = Math.floor((info.bounds.min.x + info.bounds.max.x) / 2);
+  const midZ = Math.floor((info.bounds.min.z + info.bounds.max.z) / 2);
+  const sides = [
+    { side: 'w' as const, out: { x: -1, z: 0 }, edge: info.bounds.min.x, safeEdge: info.safe.min.x, mid: midZ },
+    { side: 'e' as const, out: { x: 1, z: 0 }, edge: info.bounds.max.x, safeEdge: info.safe.max.x, mid: midZ },
+    { side: 'n' as const, out: { x: 0, z: -1 }, edge: info.bounds.min.z, safeEdge: info.safe.min.z, mid: midX },
+    { side: 's' as const, out: { x: 0, z: 1 }, edge: info.bounds.max.z, safeEdge: info.safe.max.z, mid: midX },
+  ];
+  for (const s of sides) {
+    const alongX = s.out.x === 0; // 北・南の ふちは x に そって ならぶ
+    const cx = alongX ? s.mid : s.edge;
+    const cz = alongX ? s.edge : s.mid;
+    await goTo(page, cx, cz);
+    const found = await page.evaluate(
+      ({ s, alongX, groundY }) => {
+        const h = (window as any).__rikkun;
+        const cell = (along: number, depth: number): { x: number; z: number } => {
+          // depth ＝ ふちから 中へ 何 マス（0 ＝ ふちの マス）
+          const inward = -(s.out.x + s.out.z);
+          const edgeC = s.edge + inward * depth;
+          return alongX ? { x: along, z: edgeC } : { x: edgeC, z: along };
+        };
+        const clear = (c: { x: number; z: number }): boolean =>
+          h.world.groundHeight(c.x, c.z) === groundY && h.world.getBlock(c.x, groundY + 1, c.z) === 'air' && h.world.getBlock(c.x, groundY + 2, c.z) === 'air';
+        for (let off = 0; off <= 36; off += 4) {
+          for (const sign of [1, -1]) {
+            const along = s.mid + sign * off;
+            if ([0, 1, 2, 3].every((d) => clear(cell(along, d)))) {
+              const p = cell(along, 3);
+              const outDepth = Math.abs(s.safeEdge - s.edge) + 4;
+              const o = cell(along, -outDepth); // ふちの マスから safe の ふち（margin マス）と 外 4 マス目
+              // 外が 坂・木・石で 見通しや 道が ふさがれる 所は とばす（妖怪は まっすぐ 歩くので、人に 気づけない・ひっかかる。SIGHT-1 #446）。道の はばは 左右 1 マス
+              let flat = true;
+              for (let k = -1; k <= 1; k++) {
+                for (let d = -outDepth; d <= 3; d++) {
+                  const c = cell(along + k, d);
+                  const g = h.world.groundHeight(c.x, c.z) as number;
+                  if (g > groundY + 1) flat = false;
+                  for (let dy = 1; dy <= 3; dy++) if (h.world.getBlock(c.x, g + dy, c.z) !== 'air') flat = false;
+                }
+              }
+              if (!flat) continue;
+              return { p, o };
+            }
+          }
+        }
+        return null;
+      },
+      { s, alongX, groundY: info.groundY },
+    );
+    if (!found) continue;
+    // 外 4 マス目の 地面（読みこみ済みに する）
+    await goTo(page, found.o.x, found.o.z);
+    const gy = await page.evaluate(([x, z]) => (window as any).__rikkun.world.groundHeight(x, z) as number, [found.o.x, found.o.z] as const);
+    return {
+      side: s.side,
+      player: { x: found.p.x + 0.5, y: info.groundY + 1, z: found.p.z + 0.5 },
+      yokai: { x: found.o.x + 0.5, y: gy + 1, z: found.o.z + 0.5 },
+      out: s.out,
+    };
+  }
+  throw new Error('街の ふちに 平らな 立ち場所が 見つからない（TOWN-1 1.3 の テスト）');
+}

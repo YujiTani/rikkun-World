@@ -15,7 +15,7 @@ export interface SweepEnv {
   actor(): BigActor | null;
   shock: Pick<ShockSet, 'sweepStrike'>;
   shockFx: Pick<ShockFx, 'dustAt'>;
-  deps: Pick<GashaBigDeps, 'groundY' | 'blockAt' | 'setBlockAir' | 'onCrushBlocks'> & TargetSource;
+  deps: Pick<GashaBigDeps, 'groundY' | 'blockAt' | 'setBlockAir' | 'protectAt' | 'onCrushBlocks'> & TargetSource;
 }
 
 /** 毎コマ 呼ぶ 関数を 作る */
@@ -33,7 +33,7 @@ export function createSweepStep(env: SweepEnv): (dt: number) => void {
     if (n.stroke !== sweepStroke) { sweepStroke = n.stroke; hitDone.clear(); sweepDustClock = 0; }
     sweepDustClock -= dt;
     if (sweepDustClock <= 0) { sweepDustClock = K.dustEverySec; shockFx.dustAt(n.x, n.y, n.z, n.vx, n.vz, K.dustCount); }
-    if (K.crushPath && blockAt && deps.setBlockAir) crushAt(n.x, n.y, n.z, { getBlock: blockAt, setAir: deps.setBlockAir, onBlocks: deps.onCrushBlocks }, { crushRadius: K.crushRadius, crushDepth: 0, crushUp: 3 });
+    if (K.crushPath && blockAt && deps.setBlockAir) crushAt(n.x, n.y, n.z, { getBlock: blockAt, setAir: deps.setBlockAir, protect: deps.protectAt, onBlocks: deps.onCrushBlocks }, { crushRadius: K.crushRadius, crushDepth: 0, crushUp: 3 });
     const list = targetsOf(deps);
     for (let i = 0; i < list.length; i++) {
       const t = list[i]!;
