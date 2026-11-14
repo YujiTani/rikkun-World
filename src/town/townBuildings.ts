@@ -3,6 +3,7 @@ import { buildAthletic } from './townAthletic';
 import { buildDaiku } from './townDaiku';
 import { buildDojo } from './townDojo';
 import { buildGate } from './townGate';
+import { buildShops } from './townShops';
 import { buildYatai } from './townYatai';
 import { buildKajiya } from './townKajiya';
 import { at } from './townLayout';
@@ -224,6 +225,7 @@ export function townBuildingCells(): readonly BuildingCell[] {
     buildDojo(b);
     buildAthletic(b);
     buildYatai(b);
+    buildShops(b);
     buildGate(b);
     fountain(b);
     plazaProps(b);

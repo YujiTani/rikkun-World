@@ -40,6 +40,8 @@ interface Static {
   trunk: Uint8Array;
   /** 乱数で ならべた 候補（trunk が 1 の マス） */
   order: { u: number; v: number; k: number }[];
+  /** 用水路までの きょり（チェビシェフ。TOWN.trees.canalNear.max マス いないに なければ 255） */
+  canalDist: Uint8Array;
 }
 
 let cache: { layout: Layout; s: Static } | null = null;
@@ -78,7 +80,21 @@ function staticOf(layout: Layout): Static {
     }
   }
   order.sort((a, b) => hash01(TOWN.trees.seed, a.u, a.v) - hash01(TOWN.trees.seed, b.u, b.v));
-  cache = { layout, s: { free, trunk, order } };
+  // 用水路までの きょり: 1 回 だけ 数える（候補ごとに まわりを 見なおさない）
+  const R = TOWN.trees.canalNear.max;
+  const canalDist = new Uint8Array(N * N).fill(255);
+  for (let v = 0; v < N; v++) {
+    for (let u = 0; u < N; u++) {
+      let best = 255;
+      for (let dv = -R; dv <= R; dv++) {
+        for (let du = -R; du <= R; du++) {
+          if (inLocal(u + du, v + dv) && layout.canal[at(u + du, v + dv)] !== CANAL.none) best = Math.min(best, Math.max(Math.abs(du), Math.abs(dv)));
+        }
+      }
+      canalDist[at(u, v)] = best;
+    }
+  }
+  cache = { layout, s: { free, trunk, order, canalDist } };
   return cache.s;
 }
 
@@ -90,15 +106,7 @@ export function planTownTrees(layout: Layout, frame: TownFrame): TownTree[] {
   const S = staticOf(layout);
   const C = TOWN.trees;
   const nearCanal = (u: number, v: number, min: number, max: number): boolean => {
-    let best = Infinity;
-    for (let dv = -max; dv <= max; dv++) {
-      for (let du = -max; du <= max; du++) {
-        const nu = u + du;
-        const nv = v + dv;
-        if (!inLocal(nu, nv) || layout.canal[at(nu, nv)] === CANAL.none) continue;
-        best = Math.min(best, Math.max(Math.abs(du), Math.abs(dv)));
-      }
-    }
+    const best = S.canalDist[at(u, v)]!;
     return best >= min && best <= max;
   };
   const out: TownTree[] = [];

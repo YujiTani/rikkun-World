@@ -2,6 +2,8 @@ import { CHUNK_SIZE } from '../contracts';
 import { DAIKU_SIGN, DAIKU_STAND } from './townDaiku';
 import { CANAL, SURF, at, buildLayout, type Layout } from './townLayout';
 import { ATHLETIC } from './townAthletic';
+import { townBuildingCells } from './townBuildings';
+import { BUILDING_SITES, STALL_SITES, heightOf, type BuildingKind, type StallSite } from './townSites';
 import { KAJIYA_CHIMNEY } from './townKajiya';
 import { planTownTrees, type TownTree } from './townTrees';
 import { TOWN, type Facing } from './townTuning';
@@ -60,10 +62,12 @@ export interface TownInfo {
     bridges: Box[];
   };
   lights: { kind: 'toro' | 'stair'; pos: P3 }[];
-  /** 1B-2 で 入る（いまは 空） */
-  buildings: never[];
+  /** 建物（1B-2）: よろずや・かじや・だいく・道場と、かざりの 町家 2・おちゃや。min・max ＝ 外の 四角（y は 地面の ブロックの 上の 面と いちばん 上）、door ＝ 戸口の 前 */
+  buildings: { kind: BuildingKind; min: P3; max: P3; door: P3 }[];
+  /** 人（1E で 入る。いまは 空） */
   npcs: never[];
-  stalls: never[];
+  /** やたい（1B-2）: pos ＝ 前に 立つ マス・talk ＝ 話せる やたい */
+  stalls: { kind: StallSite['kind']; pos: P3; talk: boolean }[];
   /** アスレチック（1B-2。TOWN-1.md §6.1）。min・max ＝ かこい、posts ＝ くいの 上の 面、log・tower・bridge・slide ＝ 上の 面、drum ＝ 太鼓の ブロックの マス（y は ブロックの 下の 面） */
   athletic: { min: XZ; max: XZ; posts: P3[]; log: P3; tower: P3; bridge: P3; slide: P3; stones: P3[]; drum: P3 };
   /** 街の 木（1B-2）。pos ＝ みきの 根もとの 上の 面 */
@@ -390,9 +394,20 @@ export class TownPlan {
       lots: L.lots.map((r) => this.box({ u: r.u0, v: r.v0 }, { u: r.u1, v: r.v1 })),
       canal: { bottomY: this.bottomY, water, walk, stairs, bridges: L.bridges.map((r) => this.box({ u: r.u0, v: r.v0 }, { u: r.u1, v: r.v1 })) },
       lights,
-      buildings: [],
+      buildings: BUILDING_SITES.map((b) => {
+        const lo = this.toWorld(b.u0, b.v0);
+        const hi = this.toWorld(b.u1, b.v1);
+        const top = G + (b.terrace ? TOWN.terrace.rise : 0) + 1;
+        const door = this.cell(b.door.u, b.door.v, top);
+        return {
+          kind: b.kind,
+          min: { x: Math.min(lo.x, hi.x), y: top, z: Math.min(lo.z, hi.z) },
+          max: { x: Math.max(lo.x, hi.x), y: top + heightOf(townBuildingCells(), b), z: Math.max(lo.z, hi.z) },
+          door,
+        };
+      }),
       npcs: [],
-      stalls: [],
+      stalls: STALL_SITES.map((s) => ({ kind: s.kind, pos: this.cell(s.u, s.v, G + 1), talk: s.talk })),
       athletic,
       trees: this.trees().map((t) => ({ pos: { x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5 }, sakura: t.sakura, form: t.form, size: t.size })),
     };
