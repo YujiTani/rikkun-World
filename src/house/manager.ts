@@ -91,15 +91,18 @@ export class ArchitectManager {
 
   /** 読みこまれて いる 建築士さん（描く 係・窓口が 読む） */
   all(): readonly Architect[] {
+    this.syncHut();
     return this.list_;
   }
 
   get(id: string): Architect | undefined {
+    this.syncHut();
     return this.byId.get(id);
   }
 
   /** 窓口 `architects()` の 形 */
   list(): ArchitectInfo[] {
+    this.syncHut(); // 帰った その 瞬間から 一覧に のる（建築士さんの 動きの ステップと 同じ フレームで 読まれても ずれない）
     return this.list_.map((a) => ({ id: a.id, x: a.x, y: a.y, z: a.z, first: a.first, busy: a.busy }));
   }
 
@@ -112,7 +115,10 @@ export class ArchitectManager {
     this.syncHut();
   }
 
-  /** こやの 建築士さん: るすの 間は 一覧・当たりから はずし、帰ったら 同じ 人を もどす（毎ステップ 数える だけ） */
+  /**
+   * こやの 建築士さん: るすの 間は 一覧・当たりから はずし、帰った その ステップに 同じ 人を もどす（毎ステップ 数える だけ）。
+   * 帰った とき 一覧に 載って いなければ（見直しの 前に はずれて いた など）その ステップで 出す（帰ったら すぐ 話せる）
+   */
   private syncHut(): void {
     const hut = this.d.hut?.() ?? null;
     if (!hut) return;
@@ -122,10 +128,12 @@ export class ArchitectManager {
       this.list_.splice(this.list_.indexOf(a), 1);
       this.byId.delete(HUT_ID);
       this.parked = a;
-    } else if (!away && this.parked) {
-      this.list_.push(this.parked);
-      this.byId.set(HUT_ID, this.parked);
-      this.parked = null;
+    } else if (!away && !a) {
+      if (this.parked) {
+        this.list_.push(this.parked);
+        this.byId.set(HUT_ID, this.parked);
+        this.parked = null;
+      } else this.loadHut(this.d.player());
     }
   }
 
@@ -229,6 +237,7 @@ export class ArchitectManager {
 
   /** 目から (dir) の 線が、reach マス いないで 当たる いちばん 近い 建築士さん（話しかける 相手）。distance は 目から */
   rayHit(origin: Vec3, dir: Vec3, reach: number): { id: string; distance: number } | null {
+    this.syncHut();
     let bestId = '';
     let bestT = Infinity;
     const { hw, h } = ARCHITECT_HIT;

@@ -60,4 +60,24 @@ describe('こやの 建築士さん', () => {
     expect(r.sys.menu().open).toBe(true);
     expect(r.sys.talkingTo(HUT_ID)).toBe(true);
   });
+
+  it('一覧に のって いない うちに 出かけて 帰った ときも、帰った その ステップに 一覧へ もどる', () => {
+    const away = { v: true };
+    const r = rig(away);
+    r.run(3);
+    expect(r.sys.architects().some((q) => q.id === HUT_ID)).toBe(false);
+    away.v = false;
+    r.run(1);
+    expect(r.sys.architects().some((q) => q.id === HUT_ID)).toBe(true);
+  });
+
+  it('帰った 直後（house の ステップが まだ 回って いなくても）一覧を 読めば もどって いて 話せる', () => {
+    const away = { v: false };
+    const r = rig(away);
+    away.v = true;
+    r.run(1);
+    away.v = false; // この あと update を 呼ばずに 読む
+    expect(r.sys.architects().some((q) => q.id === HUT_ID)).toBe(true);
+    expect(r.sys.talkTo(HUT_ID, 1, true)).toBe(true);
+  });
 });
