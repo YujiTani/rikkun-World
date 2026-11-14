@@ -204,3 +204,15 @@ describe('はじまりの木・岩山を 街が 消さない（voxB-terrain AC14
     expect(r.cx + r.r >= x0 && r.cx - r.r <= x1 && r.cz + r.r >= z0 && r.cz - r.r <= z1, '岩山').toBe(false);
   });
 });
+
+describe('AC7（1.3）はじまりの木の みきは すそ（skirt）に かからない', () => {
+  it('シード 100 こ ぜんぶ: 3 本の みきの 列が 街の はんいの 外 skirt マスの すそ にも 入らない（地ならしで みきが 消えない）', () => {
+    for (const seed of SEEDS) {
+      const rec = recOf(seed)!;
+      const plan = new TownPlan(rec, null);
+      for (const t of startFeaturesOf(seed).trees) {
+        expect(plan.inTown(t.x, t.z) || plan.inSkirt(t.x, t.z), `シード ${seed}: 木 (${t.x}, ${t.z})`).toBe(false);
+      }
+    }
+  });
+});
