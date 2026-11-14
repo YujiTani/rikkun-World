@@ -8,6 +8,8 @@ import type { TownInfo, XZ } from '../../town/townPlan';
 import type { ShaftWorld } from '../../world/gen/mineShafts';
 import { townGuards } from '../../town/townGuard';
 import { townPlanBlock, townRepairsNow } from './townRepair';
+import { TownSmokeFx } from '../../fx/townSmokeFx';
+import type { Game } from '../Game';
 
 /** URL に `?town=off` ＝ 街を 作らない（くらべ用・街と 関係ない テスト用） */
 const townOffIn = (search: string): boolean => new URLSearchParams(search).get('town') === 'off';
@@ -39,14 +41,22 @@ export function bootTown(seed: number, restored: StreamRestore, search: string, 
   }
 }
 
+let smokeFx: TownSmokeFx | null = null;
+
+/** かじやの えんとつの けむり（TOWN-1 1B-2）。世界を 作った あとで 1 回。近くに いる ときだけ 出る（街が なければ 何も しない） */
+export function wireTownSmoke(game: Game): void {
+  const fx = (smokeFx = new TownSmokeFx(game.scene));
+  game.onUpdate((dt) => fx.update(dt, currentTown()?.smokeSpot() ?? null, game.camera.position));
+}
+
 /** `window.__rikkun.town`（TOWN-1 §6.1）。街が ない ときは info が null */
 export function createTownHook() {
   return {
     info: (): TownInfo | null => currentTown()?.info() ?? null,
     inSafe: (x: number, _y: number, z: number): boolean => currentTown()?.inSafe(x, z) ?? false,
     inTown: (x: number, _y: number, z: number): boolean => currentTown()?.inTown(x, z) ?? false,
-    /** 街の けむりの つぶ（1B-2 で 入る。いまは 0） */
-    smoke: (): number => 0,
+    /** 街の けむりの つぶ（見えて いる 数） */
+    smoke: (): number => smokeFx?.shown ?? 0,
     /** 1.4: まだ もどって いない マス（保存と 同じ 中身）と まとまり。記録が なければ 空 */
     repairs: () => townRepairsNow()?.repairs() ?? { cells: [], groups: [] },
     /** 1.4（テストの 準備）: 妖怪の わざと 同じ 口で マスを かえて 記録する */

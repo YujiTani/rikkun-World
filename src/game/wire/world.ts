@@ -39,7 +39,7 @@ import { SAVE_BOOT_TIMEOUT_MS } from '../../start/lastWorld';
 import { decideWeightedStart } from '../../start/weightPref';
 import { decideStrength, strengthToSave } from '../../yokai/strengthPref';
 import { playWeapon } from '../../fx/weaponSounds';
-import { bootTown } from './town';
+import { bootTown, wireTownSmoke } from './town';
 import { createShared } from './shared';
 import { createWaterSystem } from '../../world/water/waterSystem';
 
@@ -180,6 +180,7 @@ export function wireRender(deps: WiredBoot) {
   renderer.attach(game.scene);
   // 地上から 見えない 地下は 描かない（#405）。かくすのは 画面の ためだけ（影の 地図は かくした 分も 描く）
   game.onBeforeRender(() => renderer.applyView(game.camera));
+  wireTownSmoke(game); // TOWN-1 1B-2: かじやの けむり
   const lighting = new Lighting();
   const sceneBefore = new Set(game.scene.children);
   buildScenery(game.scene);

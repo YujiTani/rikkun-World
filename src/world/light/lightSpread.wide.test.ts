@@ -14,7 +14,7 @@ describe('BLOCK-ID16 AC4: 光の 表は 1024 まで ある', () => {
   });
 
   it('登録のない 番号（256 以上・255）は 光を通さない（OPAQ 15）・光らない・TRIV 0', () => {
-    for (const b of [BLOCK_TYPES.length, BLOCK_TYPES.length + 1, 500, 600, MAX_BLOCK_KINDS - 1, UNKNOWN_BLOCK]) {
+    for (const b of [BLOCK_TYPES.length, BLOCK_TYPES.length + 1, BLOCK_TYPES.length + 2, BLOCK_TYPES.length + 100, MAX_BLOCK_KINDS - 1, UNKNOWN_BLOCK]) {
       expect(OPAQ[b], `OPAQ[${b}]`).toBe(15);
       expect(EMIT[b], `EMIT[${b}]`).toBe(0);
       expect(TRIV[b], `TRIV[${b}]`).toBe(0);

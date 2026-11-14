@@ -1,5 +1,7 @@
 import { CHUNK_SIZE } from '../contracts';
 import { CANAL, SURF, at, buildLayout, type Layout } from './townLayout';
+import { KAJIYA_CHIMNEY } from './townKajiya';
+import { planTownTrees, type TownTree } from './townTrees';
 import { TOWN, type Facing } from './townTuning';
 
 /**
@@ -60,7 +62,8 @@ export interface TownInfo {
   buildings: never[];
   npcs: never[];
   stalls: never[];
-  trees: never[];
+  /** 街の 木（1B-2）。pos ＝ みきの 根もとの 上の 面 */
+  trees: { pos: P3; sakura: boolean; form: string; size: string }[];
 }
 
 const N = TOWN.size;
@@ -131,6 +134,7 @@ export class TownPlan {
   readonly lotPostAt: ReadonlySet<number>;
   readonly stairTopAt: ReadonlyMap<number, 'light' | 'banner'>;
   private readonly infoCache: TownInfo;
+  private treeList: readonly TownTree[] | null = null;
   private readonly gateWorld: XZ;
 
   /** spawn ＝ スタート地点の マス（見通しの みちの はじめ）。なければ みちを 作らない */
@@ -254,6 +258,20 @@ export class TownPlan {
     return Math.max(g - d, Math.min(g + d, natural));
   }
 
+  /** かじやの えんとつの 口の 上（けむりの 出る 所。世界の 座標）。口の ブロックの 上の 面 */
+  smokeSpot(): P3 {
+    const C = KAJIYA_CHIMNEY;
+    const a = this.cell((C.u0 + C.u1) / 2, C.v0, 0);
+    const b = this.cell((C.u0 + C.u1) / 2, C.v1, 0);
+    return { x: (a.x + b.x) / 2, y: this.rec.groundY + 1 + C.dyTop + 1.1, z: (a.z + b.z) / 2 };
+  }
+
+  /** 街の 木（同じ 記録なら いつも 同じ。初めて 呼んだ とき 1 回 だけ 作る） */
+  trees(): readonly TownTree[] {
+    if (this.treeList === null) this.treeList = planTownTrees(layout, { groundY: this.rec.groundY, toWorld: (u, v) => this.toWorld(u, v), toLocal: (x, z) => this.toLocal(x, z) });
+    return this.treeList;
+  }
+
   info(): TownInfo {
     return this.infoCache;
   }
@@ -313,7 +331,7 @@ export class TownPlan {
       buildings: [],
       npcs: [],
       stalls: [],
-      trees: [],
+      trees: this.trees().map((t) => ({ pos: { x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5 }, sakura: t.sakura, form: t.form, size: t.size })),
     };
   }
 }
