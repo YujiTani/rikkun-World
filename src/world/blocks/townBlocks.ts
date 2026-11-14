@@ -1,7 +1,7 @@
 /**
  * TOWN-1 1B-1（docs/design/TOWN-1-place.md §4.5b）: 街の 新しい ブロック。id を 書くのは ここ 1 回（絵の 色は townTextures.ts）。
  * 見本 `town/art/v4/CA4-blocks.png` の 40 こ ＋ 見本に ない 石の てすり（`town_ishi_tesuri`）。
- * 1 版では 街 だけに ある: こわせない・アイテムに ならない・クラフトに ない（ほれない の は 街の 守りと `breakable: false`）。
+ * 街 だけに ある: アイテムに ならない・クラフトに ない。1.4: 妖怪の わざで こわれる（`breakable: true`）。プレイヤーが ほれる のは 妖怪が かえた 所と ふち だけ（街の 守り）。
  * 何も import しない 葉。番号は BLOCK_TYPES の いちばん 後ろに この 順で 足す（保存データの 番号を かえない）。
  */
 

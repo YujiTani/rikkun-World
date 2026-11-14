@@ -25,7 +25,11 @@ export class YokaiStone {
   /** ぬりかべ: みず の中でかたまる（足もとが みず のマス）。石になったら true */
   stoneTick(e: Ent): boolean {
     const { world } = this.d;
-    const inWater = isDeepWater(world.getBlock(Math.floor(e.x), Math.floor(e.y + 1e-6), Math.floor(e.z)));
+    // 足もとの マスが 水、か 水の すぐ 上に 立って いる（ふかさ 1 の 用水路では 水の 面に うかぶ。TOWN-1 1.4）
+    const fx = Math.floor(e.x);
+    const fy = Math.floor(e.y + 1e-6);
+    const fz = Math.floor(e.z);
+    const inWater = isDeepWater(world.getBlock(fx, fy, fz)) || isDeepWater(world.getBlock(fx, fy - 1, fz));
     const before = e.stone;
     e.stone = Math.max(0, Math.min(1, e.stone + (inWater ? 1 : -1) / AI_CONST.stoneTicks));
     if (e.stone !== before) {

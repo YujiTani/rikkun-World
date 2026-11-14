@@ -56,6 +56,8 @@ export interface Layout {
   rail: Uint8Array;
   /** 用水路の かべの 石（底の 上まで ぜんぶ 石づみに する 列） */
   wall: Uint8Array;
+  /** 妖怪の わざでも かわらない 列（1.4。石段の 段と、みぞの はしを とじる 石がき。高さは 問わない。あきちは surf で 別に 見る） */
+  keep: Uint8Array;
   bridges: Rect[];
   stairs: Stair[];
   lots: Rect[];
@@ -115,6 +117,7 @@ export function buildLayout(): Layout {
   const notch = new Uint8Array(N * N);
   const rail = new Uint8Array(N * N);
   const wall = new Uint8Array(N * N);
+  const keep = new Uint8Array(N * N);
   const C = TOWN.canal;
   const T = TOWN.terrace;
   const L = TOWN.layout;
@@ -283,6 +286,16 @@ export function buildLayout(): Layout {
       for (let n = 1; n <= C.stairCut; n++) {
         const p = cellOf(s, c.a + k, edgeC + s.side * n);
         notch[at(p.u, p.v)] = n;
+        keep[at(p.u, p.v)] = 1; // 石段の 段は こわれない（出口を なくさない。§2.2 の 14 の ②）
+      }
+    }
+  }
+  // みぞの はし（長さの 向きの 両はし）を とじる 石がき: 水を 街の 外へ 出さない ので こわれない（§2.2 の 14 の ③）
+  for (const s of segs) {
+    for (let c = s.cMin; c <= s.cMax; c++) {
+      for (const a of [s.aMin - 1, s.aMax + 1]) {
+        const p = cellOf(s, a, c);
+        if (inLocal(p.u, p.v) && !canalSet.has(at(p.u, p.v))) keep[at(p.u, p.v)] = 1;
       }
     }
   }
@@ -320,7 +333,7 @@ export function buildLayout(): Layout {
   const toro = toroAll.filter((_, i) => !skip.has(i));
 
   return {
-    surf, canal, bridge, notch, rail, wall, bridges, stairs, lots, terrace, plaza,
+    surf, canal, bridge, notch, rail, wall, keep, bridges, stairs, lots, terrace, plaza,
     fountain: { u: mid, v: mid },
     plazaStand: { u: mid, v: mid + 8 },
     gate: g,

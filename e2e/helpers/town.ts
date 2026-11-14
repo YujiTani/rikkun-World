@@ -200,3 +200,80 @@ export async function findEdgeSpot(page: Page, info: TownInfo): Promise<EdgeSpot
   }
   throw new Error('街の ふちに 平らな 立ち場所が 見つからない（TOWN-1 1.3 の テスト）');
 }
+
+// ---------------------------------------------------------------- TOWN-1 1.4（こわれて 朝に もどる。TOWN-1.md §6.1 の town.repairs・damage・planBlock・keeps）
+
+export interface RepairCell {
+  x: number;
+  y: number;
+  z: number;
+  day: number;
+  byPlayer?: true;
+  placed?: { item: string; p: 1 | 2 };
+}
+export interface RepairGroup {
+  day: number;
+  min: P3;
+  max: P3;
+  left: number;
+  waiting: boolean;
+}
+export interface Repairs {
+  cells: RepairCell[];
+  groups: RepairGroup[];
+}
+export const townRepairs = (page: Page): Promise<Repairs> => townCall<Repairs>(page, 'repairs');
+export const townDamage = (page: Page, cells: P3[], to?: 'air' | 'stone'): Promise<unknown> => townCall(page, 'damage', cells, to);
+export const timeDay = (page: Page): Promise<number> => page.evaluate(() => (window as any).__rikkun.time.get().day as number);
+
+/**
+ * 時刻を 進めて 「朝」（time.day() が 1 ふえる）に する。ふとんで ねても 同じ（仕様 §2.16 の 2）。
+ * 1 日の 終わりの 数ステップ 手前へ set して step で 日を またぐ（日の 長さは ゲームに 聞けない ので 大きな 数で set → 手前の 時刻を 読む）。
+ * 朝の 1 ステップめ（のこりを すぐ もどす）も ふくめて 進めた あと、その 日の 0 ステップめから steps2 だけ 進んだ 所で 返す。
+ */
+export async function nextMorning(page: Page, after = 3): Promise<number> {
+  return page.evaluate((after) => {
+    const h = (window as any).__rikkun;
+    const d0 = h.time.get().day as number;
+    h.time.set(-3); // 1 日の 終わりの 3 ステップ 手前（set は 日の 長さで まるめる。day は かえない）
+    for (let i = 0; i < 20 && (h.time.get().day as number) === d0; i++) h.step(1);
+    h.step(after);
+    return h.time.get().day as number;
+  }, after);
+}
+
+/**
+ * 平らな あき地（size × size。ひろばの 近く）をゲームに 聞いて さがす。ぜんぶ 地面の 高さ ＝ groundY・上 3 マスが 空気・keeps でない。
+ * 返す x0・z0 は 四角の 北西の すみ。中心 ＝ (x0 + (size-1)/2, z0 + (size-1)/2)。決め打ちの 座標は 使わない。
+ */
+export async function findFlatSpot(page: Page, info: TownInfo, size: number): Promise<{ x0: number; z0: number }> {
+  const px = Math.floor(info.plaza.x);
+  const pz = Math.floor(info.plaza.z);
+  for (let r = 0; r <= 40; r += 3) {
+    for (const [sx, sz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]] as const) {
+      const x0 = px + sx * r;
+      const z0 = pz + sz * r;
+      await goTo(page, x0 + Math.floor(size / 2), z0 + Math.floor(size / 2));
+      const ok = await page.evaluate(
+        ({ x0, z0, size, gy }) => {
+          const h = (window as any).__rikkun;
+          for (let dz = -1; dz <= size; dz++)
+            for (let dx = -1; dx <= size; dx++) {
+              const x = x0 + dx;
+              const z = z0 + dz;
+              if (h.world.groundHeight(x, z) !== gy) return false;
+              for (let y = gy - 2; y <= gy + 3; y++) {
+                if (h.town.keeps(x, y, z)) return false;
+                if (y > gy && h.world.getBlock(x, y, z) !== 'air') return false;
+                if (y <= gy && (h.world.getBlock(x, y, z) === 'air' || String(h.world.getBlock(x, y, z)).includes('water'))) return false;
+              }
+            }
+          return true;
+        },
+        { x0, z0, size, gy: info.groundY },
+      );
+      if (ok) return { x0, z0 };
+    }
+  }
+  throw new Error('街の 中に 平らな あき地が 見つからない（TOWN-1 1.4 の テスト）');
+}

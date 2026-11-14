@@ -13,9 +13,9 @@ export interface CrushIO {
   getBlock(x: number, y: number, z: number): string;
   /** 空気に する（できたら true） */
   setAir(x: number, y: number, z: number): boolean;
-  /** こわした マス（ぬりかべの onBlocks と おなじ 形） */
-  /** TOWN-1 1.3 AC9: true の マスは こわさない（街の ブロック。なければ ぜんぶ こわせる） */
+  /** TOWN-1 1.4 AC9: true の マスは こわさない（街の keeps〔あきち・石段・はしの 石がき〕。なければ ぜんぶ こわせる） */
   protect?(x: number, y: number, z: number): boolean;
+  /** こわした マス（ぬりかべの onBlocks と おなじ 形） */
   onBlocks?(cells: { x: number; y: number; z: number; from: string; to: 'air' }[]): void;
 }
 

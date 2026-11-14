@@ -224,6 +224,17 @@ export class TownPlan {
     return p !== null && layout.surf[at(p.u, p.v)] === SURF.lot;
   }
 
+  /**
+   * 妖怪の わざでも かわらない 所か（1.4。§2.2 の 14 の ①〜③）: あきちの 区画の 中（地面から 上も 下も）・
+   * 用水路の 石段の 段・みぞの はしを とじる 石がき。高さは 問わない（y は 使わない）。街の 外は false
+   */
+  keeps(x: number, _y: number, z: number): boolean {
+    const p = this.toLocal(x, z);
+    if (p === null) return false;
+    const k = at(p.u, p.v);
+    return layout.surf[k] === SURF.lot || layout.keep[k] === 1;
+  }
+
   /** 街の はんいの 外側 skirt マスの すそ（なだらかに つなぐ 所）か。街の はんいの 中は false */
   inSkirt(x: number, z: number): boolean {
     const s = TOWN.skirt;

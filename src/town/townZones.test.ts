@@ -3,7 +3,10 @@ import type { BlockId, VoxelWorld } from '../contracts';
 import { InventoryImpl } from '../inventory/Inventory';
 import { PlayerCombatImpl } from '../combat/PlayerCombat';
 import { fallDamage } from '../combat/config';
-import { townInside, townLocked, townSafe, bootTown } from '../game/wire/town';
+import { townInside, townSafe, bootTown } from '../game/wire/town';
+import { townDigLocked } from '../game/wire/townRepair';
+
+const townLocked = (x: number, z: number): boolean => townDigLocked(x, 0, z); // 記録が ない とき ＝ 街の はんいの 中（あきち いがい）は ほれない
 import { townSiteOk } from '../house/build/glue';
 import { emptyStreamRestore } from '../save/streamRestore';
 import { terrainFor } from '../world/gen/terrain';

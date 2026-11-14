@@ -80,6 +80,7 @@ export class BlockBreaker {
     // ふとん 2 マス: どちらを こわしても 相手の マスも 消えて ふとん 1 つ（相手が いない 1 マスだけの ふとんは そのまま）
     const pair = futonPartner(t.id, x, z);
     if (pair && c.world.getBlock(pair.x, y, pair.z) === pair.id) c.world.setBlock(pair.x, y, pair.z, 'air');
+    const townNoDrop = c.m4.town?.dug?.(x, y, z) ?? false; // TOWN-1 1.4: 妖怪が かえた 街の マス・ふち（アイテムに ならない）。こわす 前に よぶ
     const craft = c.m4.craft;
     const wasFurnace = craft?.isFurnace(x, y, z) ?? false;
     const wasTansu = isFurnKind(t.id, K_TANSU);
@@ -93,19 +94,19 @@ export class BlockBreaker {
     const farmDrop = FARM_BREAK_DROP[t.id] ?? (houseDrop || isLookBlock(t.id) ? { item: houseDrop ?? ('log' as ItemId), count: 1 } : null); // 家の ものは いつも 1 こ（しゅるいの アイテムは dropItem で 場所から 引く）
     const fixed = farmDrop ? farmDrop.count : DUG_ALWAYS_ONE.has(dropId) ? 1 : (craft?.fixedDrop(dropId) ?? null);
     const max = Math.max(1, c.config.dropMax[c.config.rarity[dropId]] ?? 1);
-    const n = NO_DROP_BLOCKS.has(dropId) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
+    const n = townNoDrop || NO_DROP_BLOCKS.has(dropId) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
     const got = n - c.inventory.add(dropItem, n);
     if (got > 0) c.m4.onPickup?.(dropItem, got);
     // たんす は入らなければ 落とし物にする（なくさない。M6）
     if (wasTansu && got < n) c.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, dropItem, n - got);
     if (wasFurnace) craft!.furnaceBroken(x, y, z);
     // GOLD-1 §4.7: はらぱんみみず（べつ の 乱数。地下 の ブロック 0.5%・き 0.2%）。地面 に おちる
-    if (c.m4.harapan?.(t.id, y)) c.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, 'harapan_mimizu', 1);
+    if (!townNoDrop && c.m4.harapan?.(t.id, y)) c.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, 'harapan_mimizu', 1);
     // ROPE-1: くさ・はっぱ・はな から ときどき あさ（場所と 時こくの くじ。いつもの 乱数は つかわない）
-    if (HEMP_DROP.blocks.has(t.id) && hash01(HEMP_DROP.seed, x, y, z, c.tick()) < HEMP_DROP.chance) giveStacks(c, [{ item: HEMP, count: HEMP_DROP.count }], x, y, z);
+    if (!townNoDrop && HEMP_DROP.blocks.has(t.id) && hash01(HEMP_DROP.seed, x, y, z, c.tick()) < HEMP_DROP.chance) giveStacks(c, [{ item: HEMP, count: HEMP_DROP.count }], x, y, z);
     // M7: はたけ の 上の作物・くさ の 上の やせいの やさい、くさ から たね
     const farm = c.m4.farm;
-    if (farm) {
+    if (farm && !townNoDrop) {
       giveStacks(c, farm.onBlockBroken(x, y, z, t.id), x, y, z);
       if (t.id === 'grass') {
         const seed = farm.grassSeed(x, z);

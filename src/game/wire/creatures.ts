@@ -24,6 +24,7 @@ import { emptyKitSize } from './coopMenuView';
 import { townSafe } from './town';
 import { townGuards } from '../../town/townGuard';
 import { createDamaService } from './dama';
+import { townNote, wireTownRepair } from './townRepair';
 
 export function wireYokai(deps: WiredFighters) {
   const {
@@ -114,6 +115,7 @@ export function wireYokai(deps: WiredFighters) {
     onDama: (info) => { dama.fromYokai(info); }, // TOWN-1 1A: 当てた 人 ぜんいんに ようかいダマ
     // ぬりかべ: たおれこみでこわす・みず で石になる（くだけるつぶと音。fx はあとで作るので関数で包む）
     onBlocks: (cells, why) => {
+      for (const c of cells) townNote(c.x, c.y, c.z); // TOWN-1 1.4: 街の マスが かわったら 記録（2 日で もどる）
       for (const c of cells) shared.fx.particles.burst({ x: c.x, y: c.y, z: c.z }, why === 'stone' ? c.to : c.from, FX_SETTINGS);
       fxSound.play('break');
     },
@@ -138,6 +140,7 @@ export function wireYokai(deps: WiredFighters) {
     },
   });
   let kodachiHookBuf: CombatEvent[] = [];
+  wireTownRepair(deps); // TOWN-1 1.4: 街の こわれた マスの 記録と 朝の もどし
   return { yokaiM, kodachiFx, kodachi, kodachiHookBuf };
 }
 

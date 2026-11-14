@@ -5,14 +5,22 @@ import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { YokaiManager } from '../yokai/ai/YokaiManager';
 import { AI_CONST } from '../yokai/ai/config';
 import { townGuards } from './townGuard';
-import { activateTown, deactivateTown } from './townState';
+import { activateTown, currentTown, deactivateTown } from './townState';
+import { CANAL, SURF, at } from './townLayout';
+import { TOWN_BLOCK_DEFS } from '../world/blocks/townBlocks';
 
-/** AC9（1.3）: 街の ブロックは 妖怪の 技（ぬりかべの たおれこみ・水で 石・がしゃどくろの たたきつけ）で こわれない。外では 今までどおり */
+/** AC9（1.4）: 街の ブロックも 妖怪の 技（ぬりかべの たおれこみ・水で 石・がしゃどくろの たたきつけ）で 外と 同じに かわる。かわらない のは keeps（あきち・石段・はしの 石がき）だけ */
 afterEach(() => deactivateTown());
 
 const GY = 8; // 地面の ブロックの y
-const IN = { x: 60, z: 60 }; // 街の はんいの 中（x0 20・z0 20 の 100×100）
+const IN = { x: 60, z: 60 }; // 街の はんいの 中（x0 20・z0 20 の 100×100。ひろばの あたり）
 const OUT = { x: 10, z: 60 }; // 街の 外
+
+/** あきち 1 つの まん中（keeps） */
+function lotCentre(): { x: number; z: number } {
+  const b = currentTown()!.info().lots[0]!;
+  return { x: Math.floor((b.min.x + b.max.x) / 2), z: Math.floor((b.min.z + b.max.z) / 2) };
+}
 
 function rig() {
   deactivateTown();
@@ -43,16 +51,40 @@ function diffAround(world: ArrayVoxelWorld, p: { x: number; z: number }, run: ()
   return cells.filter(([x, y, z], i) => world.getBlock(x, y, z) !== before[i]).length;
 }
 
-describe('AC9 妖怪の 技で 街は こわれない', () => {
-  it('townGuards: 街の はんい（あきち 込み）は true・外は false・街なしは false', () => {
+describe('AC9（1.4）妖怪の 技で 街は かわる（keeps だけ かわらない）', () => {
+  it('townGuards ＝ keeps: あきちの 中（上も 下も）・石段の 段・はしの 石がき は true。ふつうの 街の 中・外・街なしは false', () => {
     rig();
-    expect(townGuards(IN.x, GY + 1, IN.z)).toBe(true);
+    const plan = currentTown()!;
+    const lot = lotCentre();
+    for (const y of [GY - 6, GY, GY + 9]) expect(townGuards(lot.x, y, lot.z), `あきち y=${y}`).toBe(true);
+    expect(townGuards(IN.x, GY + 1, IN.z), 'ひろばは まもらない').toBe(false);
     expect(townGuards(OUT.x, GY + 1, OUT.z)).toBe(false);
+    const L = plan.layout;
+    let steps = 0;
+    let closures = 0;
+    for (let v = 0; v < 100; v++) {
+      for (let u = 0; u < 100; u++) {
+        const k = at(u, v);
+        const w = plan.toWorld(u, v);
+        if (L.notch[k]! > 0) {
+          steps++;
+          expect(townGuards(w.x, GY, w.z), `石段 ${u},${v}`).toBe(true);
+        } else if (L.keep[k] === 1) {
+          closures++;
+          expect(L.canal[k], 'はしの 石がきは みぞの 外').toBe(CANAL.none);
+          expect(townGuards(w.x, GY - 3, w.z), `はしの 石がき ${u},${v}`).toBe(true);
+        } else if (L.surf[k] !== SURF.lot) {
+          expect(townGuards(w.x, GY, w.z), `ふつうの マス ${u},${v}`).toBe(false);
+        }
+      }
+    }
+    expect(steps, '石段が ある').toBeGreaterThan(0);
+    expect(closures, 'みぞの はしを とじる 石がきが ある').toBeGreaterThan(0);
     deactivateTown();
-    expect(townGuards(IN.x, GY + 1, IN.z)).toBe(false);
+    expect(townGuards(lot.x, GY + 1, lot.z)).toBe(false);
   });
 
-  it('ぬりかべの たおれこみ: 街の 中は 0 こ・外は こわれる', () => {
+  it('ぬりかべの たおれこみ: 街の 中も 外と 同じ 数 かわる・あきちの 中は 0 こ', () => {
     const t = rig();
     const run = (p: { x: number; z: number }) => () => {
       t.player.position = { x: p.x + 0.5, y: GY + 1, z: p.z - 1.5 };
@@ -60,11 +92,14 @@ describe('AC9 妖怪の 技で 街は こわれない', () => {
       for (let i = 0; i < 240; i++) t.m.update(1 / 60);
       t.m.clear();
     };
-    expect(diffAround(t.world, OUT, run(OUT)), '外では こわれる').toBeGreaterThan(0);
-    expect(diffAround(t.world, IN, run(IN)), '街の 中は かわらない').toBe(0);
+    const outN = diffAround(t.world, OUT, run(OUT));
+    expect(outN, '外では こわれる').toBeGreaterThan(0);
+    expect(diffAround(t.world, IN, run(IN)), '街の 中も 外と 同じ 数').toBe(outN);
+    const lot = lotCentre();
+    expect(diffAround(t.world, lot, run(lot)), 'あきちの 中は かわらない').toBe(0);
   });
 
-  it('ぬりかべが 街の 水で 石に なっても 石を 置かない・たおれて 経験値は 出る。外の 水では 石に なる', () => {
+  it('ぬりかべが 街の 水で 石に なると 石が 置かれる（外と 同じ）・あきちの 水では 置かれない。たおれて 経験値は 出る', () => {
     const t = rig();
     const pond = (p: { x: number; z: number }) => {
       for (let x = p.x - 4; x <= p.x + 4; x++) for (let z = p.z - 4; z <= p.z + 4; z++) for (let y = GY + 1; y <= GY + 4; y++) t.world.setBlock(x, y, z, 'water');
@@ -74,7 +109,8 @@ describe('AC9 妖怪の 技で 街は こわれない', () => {
       for (let x = p.x - 4; x <= p.x + 4; x++) for (let z = p.z - 4; z <= p.z + 4; z++) for (let y = GY + 1; y <= GY + 4; y++) if (t.world.getBlock(x, y, z) === ('stone' as BlockId)) n++;
       return n;
     };
-    for (const [p, expectStone] of [[OUT, true], [IN, false]] as const) {
+    const lot = lotCentre();
+    for (const [p, expectStone] of [[OUT, true], [IN, true], [lot, false]] as const) {
       pond(p);
       const d0 = t.defeats();
       t.player.position = { x: p.x + 0.5, y: GY + 12, z: p.z + 0.5 };
@@ -82,11 +118,37 @@ describe('AC9 妖怪の 技で 街は こわれない', () => {
       for (let i = 0; i < AI_CONST.stoneTicks + 60; i++) t.m.update(1 / 60);
       expect(t.defeats() - d0, '石に なっても ならなくても たおれて 経験値').toBe(1);
       if (expectStone) expect(stones(p)).toBeGreaterThan(0);
-      else expect(stones(p), '街の 水では 石に ならない').toBe(0);
+      else expect(stones(p), 'あきちの 水では 石に ならない').toBe(0);
     }
   });
 
-  it('がしゃどくろの たたきつけ（crushAt）: protect が true の マスは こわさない', () => {
+  it('ふかさ 1 の 用水路でも 水の 面に うかんだ ぬりかべは 石に なる（石が 置かれて 記録の もとに なる）', () => {
+    const t = rig();
+    for (let x = IN.x - 4; x <= IN.x + 4; x++) for (let z = IN.z - 4; z <= IN.z + 4; z++) t.world.setBlock(x, GY + 1, z, 'water'); // 水 1 マス ぶん
+    t.player.position = { x: IN.x + 0.5, y: GY + 12, z: IN.z + 0.5 };
+    const d0 = t.defeats();
+    t.m.spawn('nurikabe', IN.x + 0.5, GY + 2, IN.z + 0.5, { ai: false }); // 水の 面の 上に 立つ
+    for (let i = 0; i < AI_CONST.stoneTicks + 60; i++) t.m.update(1 / 60);
+    expect(t.defeats() - d0).toBe(1);
+    let stones = 0;
+    for (let x = IN.x - 4; x <= IN.x + 4; x++) for (let z = IN.z - 4; z <= IN.z + 4; z++) for (let y = GY + 1; y <= GY + 4; y++) if (t.world.getBlock(x, y, z) === ('stone' as BlockId)) stones++;
+    expect(stones).toBeGreaterThan(0);
+  });
+
+  it('水の 量が 4 より 少ない（たおれこみで 床が こわれて 水が ひいた 用水路）と 石に ならない。4 いじょうなら なる（#381 の 原因）', () => {
+    for (const [lvl, expectStone] of [['water_3', false], ['water_4', true]] as const) {
+      const t = rig();
+      for (let x = IN.x - 4; x <= IN.x + 4; x++) for (let z = IN.z - 4; z <= IN.z + 4; z++) t.world.setBlock(x, GY + 1, z, lvl as BlockId);
+      t.player.position = { x: IN.x + 0.5, y: GY + 12, z: IN.z + 0.5 };
+      t.m.spawn('nurikabe', IN.x + 0.5, GY + 2, IN.z + 0.5, { ai: false });
+      for (let i = 0; i < AI_CONST.stoneTicks + 60; i++) t.m.update(1 / 60);
+      let stones = 0;
+      for (let x = IN.x - 4; x <= IN.x + 4; x++) for (let z = IN.z - 4; z <= IN.z + 4; z++) for (let y = GY + 1; y <= GY + 4; y++) if (t.world.getBlock(x, y, z) === ('stone' as BlockId)) stones++;
+      expect(stones > 0, lvl).toBe(expectStone);
+    }
+  });
+
+  it('がしゃどくろの たたきつけ（crushAt）: protect は keeps の マスだけ。街の 中も 外と 同じに こわれる・あきちは こわさない', () => {
     const t = rig();
     const io = (p: (x: number, y: number, z: number) => boolean) => ({
       getBlock: (x: number, y: number, z: number) => t.world.getBlock(x, y, z) as string,
@@ -94,8 +156,29 @@ describe('AC9 妖怪の 技で 街は こわれない', () => {
       protect: p,
     });
     const slam = (p: { x: number; z: number }) => () => crushAt(p.x + 0.5, GY + 1, p.z + 0.5, io(townGuards), { crushRadius: 4, crushDepth: 2, crushUp: 3 });
-    expect(diffAround(t.world, OUT, slam(OUT)), '外では こわれる').toBeGreaterThan(0);
-    expect(diffAround(t.world, IN, slam(IN)), '街の 中は かわらない').toBe(0);
+    const outN = diffAround(t.world, OUT, slam(OUT));
+    expect(outN, '外では こわれる').toBeGreaterThan(0);
+    expect(diffAround(t.world, IN, slam(IN)), '街の 中も 外と 同じ 数').toBe(outN);
+    const lot = lotCentre();
+    expect(diffAround(t.world, lot, slam(lot)), 'あきちの 中は かわらない').toBe(0);
+  });
+});
+
+describe('AC44（1.4）街の ブロック 40 種', () => {
+  it('ぜんぶ 妖怪の たたきつけ・たおれこみで こわれる（空気に なる）。アイテムは 出ない（落とし物の 口が ない）', () => {
+    const t = rig();
+    for (const d of TOWN_BLOCK_DEFS) {
+      t.world.setBlock(IN.x, GY + 1, IN.z, d.id as BlockId);
+      const io = {
+        getBlock: (x: number, y: number, z: number) => t.world.getBlock(x, y, z) as string,
+        setAir: (x: number, y: number, z: number) => t.world.setBlock(x, y, z, 'air'),
+        protect: townGuards,
+      };
+      const changed = crushAt(IN.x + 0.5, GY + 1, IN.z + 0.5, io, { crushRadius: 1, crushDepth: 0, crushUp: 1 });
+      expect(changed.some((c) => c.x === IN.x && c.y === GY + 1 && c.z === IN.z && c.from === d.id && c.to === 'air'), `${d.id} は こわれる`).toBe(true);
+      expect(t.world.getBlock(IN.x, GY + 1, IN.z)).toBe('air');
+    }
+    expect(TOWN_BLOCK_DEFS.length).toBeGreaterThanOrEqual(40);
   });
 });
 

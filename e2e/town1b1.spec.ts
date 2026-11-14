@@ -155,7 +155,7 @@ test.describe('TOWN-1 1B-1 安全地帯', () => {
     expect(gained.town, '街の 中で たおしても ようかいダマが ふえる').toBeGreaterThan(0);
   });
 
-  test('AC9 (妖怪): 街の 中・あきち・門で ぬりかべが たおれこんでも・水で 石に なっても ブロックは 1 こも かわらない。外では こわれる', async ({ page }) => {
+  test('AC9 (妖怪・1.4): 街の ひろば・門で ぬりかべの たおれこみ・水で 石に なると ブロックが かわり 記録に 入る。あきちの 中は かわらない', async ({ page }) => {
     await openTown(page);
     const info = await townInfo(page);
     const lot = info.lots[0]!;
@@ -163,11 +163,11 @@ test.describe('TOWN-1 1B-1 安全地帯', () => {
     const outZ = Math.floor(info.center.z);
     const gx = Math.floor(info.gate.pos.x);
     const gz = Math.floor(info.gate.pos.z);
-    /** ぬりかべを 地面に 立てて たおれこみを すぐ 起こし、まわり（11×7×11）の ブロックの ちがう マスの 数を 返す */
-    const crushDiff = async (x: number, z: number): Promise<number> => {
+    /** ぬりかべを 地面に 立てて たおれこみを すぐ 起こし、まわり（11×7×11）の かわった マスと、その うち 記録（town.repairs）に 入った 数を 返す */
+    const crushDiff = async (x: number, z: number): Promise<{ changed: number; recorded: number; day: number; dayOk: boolean }> => {
       await goTo(page, x, z);
       const y = (await gh(page, x, z)) + 1;
-      return page.evaluate(
+      const r = await page.evaluate(
         ({ x, y, z }) => {
           const h = (window as any).__rikkun;
           h.player.set({ position: { x: x + 4.5, y, z: z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 270, pitch: 0 });
@@ -181,19 +181,38 @@ test.describe('TOWN-1 1B-1 安全地帯', () => {
           h.step((a?.hitInSteps ?? 60) + 60);
           h.yokai.clear();
           const after = snap();
-          return before.filter((b, i) => b !== after[i]).length;
+          const diff = cells.filter((_, i) => before[i] !== after[i]);
+          const rep = h.town.repairs().cells as { x: number; y: number; z: number; day: number }[];
+          const key = (c: number[] | { x: number; y: number; z: number }): string => (Array.isArray(c) ? c.join(',') : `${c.x},${c.y},${c.z}`);
+          const recs = new Map(rep.map((c) => [key(c), c.day]));
+          const day = h.time.get().day as number;
+          const hit = diff.filter((c) => recs.has(key(c)));
+          return { changed: diff.length, recorded: hit.length, day, dayOk: hit.every((c) => recs.get(key(c)) === day) };
         },
         { x, y, z },
       );
+      return r;
     };
-    expect(await crushDiff(outX, outZ), '外では たおれこみで こわれる（くらべる 基準）').toBeGreaterThan(0);
-    const spots = { 広場: { x: Math.floor(info.plaza.x), z: Math.floor(info.plaza.z) }, あきち: { x: Math.floor((lot.min.x + lot.max.x) / 2), z: Math.floor((lot.min.z + lot.max.z) / 2) }, 門: { x: gx, z: gz } };
-    for (const [name, p] of Object.entries(spots)) expect(await crushDiff(p.x, p.z), `${name}: たおれこみで 街の ブロックは かわらない`).toBe(0);
+    const out = await crushDiff(outX, outZ);
+    expect(out.changed, '外では たおれこみで こわれる（くらべる 基準）').toBeGreaterThan(0);
+    for (const [name, p] of Object.entries({ 広場: { x: Math.floor(info.plaza.x), z: Math.floor(info.plaza.z) }, 門: { x: gx, z: gz } })) {
+      const r = await crushDiff(p.x, p.z);
+      expect(r.changed, `${name}: たおれこみで 街の ブロックも かわる（1.4）`).toBeGreaterThan(0);
+      expect(r.recorded, `${name}: かわった マスは ぜんぶ town.repairs().cells に 入る`).toBe(r.changed);
+      expect(r.dayOk, `${name}: 記録の 日は その 時の time.day()`).toBe(true);
+    }
+    const lotR = await crushDiff(Math.floor((lot.min.x + lot.max.x) / 2), Math.floor((lot.min.z + lot.max.z) / 2));
+    expect(lotR.changed, 'あきちの 中は かわらない（keeps）').toBe(0);
 
-    // 用水路の 水の 中で 石に なる（かたまる 時間は 表 AI_CONST.stoneTicks）。まわりの ブロックは かわらない
+  });
+
+  test('AC9 (妖怪・1.4): 用水路の 水で ぬりかべが 石に なると 石が 置かれて 記録に 入る', async ({ page }) => {
+    await openTown(page);
+    const info = await townInfo(page);
+    // 用水路の 水の 中で 石に なる（かたまる 時間は 表 AI_CONST.stoneTicks）。石が 置かれて 記録に 入る
     const w = info.canal.water[Math.floor(info.canal.water.length / 2)]!;
     await goTo(page, w.x, w.z);
-    const changed = await page.evaluate(
+    const res = await page.evaluate(
       ({ w, y, ticks }) => {
         const h = (window as any).__rikkun;
         const cells: [number, number, number][] = [];
@@ -204,11 +223,14 @@ test.describe('TOWN-1 1B-1 安全地帯', () => {
         h.yokai.spawn('nurikabe', w.x + 0.5, y, w.z + 0.5, { ai: false, hp: 9999 });
         h.step(ticks + 120);
         const after = snap();
-        return before.filter((b, i) => b !== after[i]).length;
+        const diff = cells.filter((_, i) => before[i] !== after[i]);
+        const rep = new Set((h.town.repairs().cells as { x: number; y: number; z: number }[]).map((c) => `${c.x},${c.y},${c.z}`));
+        return { changed: diff.length, recorded: diff.filter((c) => rep.has(c.join(','))).length };
       },
       { w, y: info.canal.bottomY + 1, ticks: AI_CONST.stoneTicks },
     );
-    expect(changed, '水で 石に なっても 街の ブロックは かわらない').toBe(0);
+    expect(res.changed, '水で 石に なると 街の ブロックが かわる（1.4）').toBeGreaterThan(0);
+    expect(res.recorded, '水で かわった マスも ぜんぶ 記録に 入る').toBe(res.changed);
   });
 });
 

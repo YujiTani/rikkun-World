@@ -45,6 +45,8 @@ export interface StreamHostDeps {
   placePlayer: (p: PlacedPoint) => void;
   /** 列を読みこんだコマに 1 回（農業の数えなおし） */
   onColumnsLoaded?: () => void;
+  /** TOWN-1 1.4: 列を 世界に 入れた とき（街の こわれた マスの もどし。光・メッシュの 前） */
+  onColumnLoaded?: (cx: number, cz: number) => void;
   onReady?: (kind: 'boot' | 'wait') => void;
   /** WATER-1: 列を 読みこんだ・手放した ことを 水の 係に 知らせる */
   water?: Pick<WaterSystem, 'onColumnLoaded' | 'onColumnUnloaded'>;
@@ -108,6 +110,7 @@ export class StreamHost {
           pending!.delete(k);
         }
         d.water?.onColumnLoaded(cx, cz, how);
+        d.onColumnLoaded?.(cx, cz);
       },
       required: pending ? () => [...pending.values()].map((p) => ({ cx: p.cx, cz: p.cz })) : undefined,
       onReady: (kind) => this.onReady(kind),

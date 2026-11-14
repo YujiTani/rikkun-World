@@ -39,6 +39,7 @@ import type { ImpactView } from '../../duo/impactRoute';
 import type { ImpactBus } from '../../fx/impact';
 import type { LegendSystem } from '../../legend/LegendSystem';
 import type { DamaService } from '../../dama/dama';
+import type { TownRepairs } from '../../town/townRepairs';
 
 /** パリィの 倍率が まだ 無い とき（wireLoop が 差しかえる まで） */
 const NO_PARRY_SCALES: readonly number[] = [1];
@@ -182,6 +183,8 @@ interface Shared {
   yokaiManager: YokaiManager | null;
   /** TOWN-1 1A: ようかいダマを わたす 係（wireYokai が 作る） */
   dama: DamaService | null;
+  /** TOWN-1 1.4: 街の こわれた マスの 記録と 朝の もどし（wireYokai が 作る。src/game/wire/townRepair.ts） */
+  townRepairs: TownRepairs | null;
   achievementsRef: { feedWorn(n: number): void };
   onDefeatAch: (kind: YokaiKind, who: 1 | 2) => void;
   domeEraseThisStep: boolean;
@@ -284,6 +287,7 @@ export function createShared(): Shared {
     onDropPicked: () => {},
     yokaiManager: null,
     dama: null,
+    townRepairs: null,
     achievementsRef: { feedWorn: () => {} },
     onDefeatAch: () => {},
     domeEraseThisStep: false,
