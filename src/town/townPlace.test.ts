@@ -62,6 +62,7 @@ describe('AC7 置き場所', () => {
       const d = Math.hypot(info.gate.pos.x - (sp.x + 0.5), info.gate.pos.z - (sp.z + 0.5));
       if (d >= TOWN.gateDist.min && d <= TOWN.gateDist.max) nearGate++;
       else {
+        expect(d, `シード ${seed}: 16 マス より 近い 門は 0`).toBeGreaterThan(TOWN.gateDist.max); // 近い 方は 16〜28 に 入らない ＝ 遠い 方（1.3）
         // 門が 28 より 遠いのは、近い 候補の 見通しの みちが はじまりの木の みきを 切る ときだけ（木が さき。木を 見ない 置き方は 16〜28 に 入る）
         const old = new TownPlan(chooseTown(seed, { keepTrees: false })!, { x: sp.x, z: sp.z });
         const dOld = Math.hypot(old.info().gate.pos.x - (sp.x + 0.5), old.info().gate.pos.z - (sp.z + 0.5));
@@ -85,9 +86,10 @@ describe('AC7 置き場所', () => {
       // さいしょの 建築士さん（スタートから 6〜10 マス）と 重ならない
       expect(Math.hypot(ex, ez)).toBeGreaterThan(10);
     }
-    // 100 こ ぜんぶ 門が 16〜28（水・山で 合わない ときだけ 遠くへ 広げる。今の 100 こは ぜんぶ 合う）
+    // 1.3（AC7）: 100 シードで 門が 16〜28 の 世界が 90 こ 以上。28 より 遠い 世界は 表の 数（PO 案 10）以下（木を まもる ために 遠く なる）
     expect(nearGate + farByTree).toBe(SEEDS.length);
-    expect(farByTree).toBeLessThanOrEqual(8); // 木を まもる ために 遠く なる シードは わずか
+    expect(nearGate).toBeGreaterThanOrEqual(90);
+    expect(farByTree).toBeLessThanOrEqual(10);
   });
 
   it('水に かかる わりあいが 表の 上限 以下（うみ・いけに かかる 所は つちで うめる）。ひろばの まん中は 陸', () => {
