@@ -22,6 +22,7 @@ import type { WiredFighters } from './combat';
 import type { WiredHouse } from './house';
 import { emptyKitSize } from './coopMenuView';
 import { townSafe } from './town';
+import { townGuards } from '../../town/townGuard';
 import { createDamaService } from './dama';
 
 export function wireYokai(deps: WiredFighters) {
@@ -72,7 +73,7 @@ export function wireYokai(deps: WiredFighters) {
     // MINE-1F: やかたの 中〔挑戦の 間の ほか も〕にも 出ない
     noSpawnAt: (x, y, z) => deps.shafts.caveKindAt(x, y, z) === 'hotaru' || deps.shafts.yakataAt(x, y, z),
     quietFor: (who) => shared.yakataQuiet(who), // MINE-1F §4.5: 挑戦の 間は その 人の まわりに 自動で 出ない
-    protectAt: (x, y, z) => shared.yakataLocked(x, y, z), // MINE-1F §4.3: ぬりかべの たおれこみで やかたの ブロックを こわさない
+    protectAt: (x, y, z) => shared.yakataLocked(x, y, z) || townGuards(x, y, z), // MINE-1F §4.3 やかた・TOWN-1 1.3 AC9 街: ぬりかべの たおれこみ・石で こわさない
     light: renderer.light,
     // 出る場所は 描く輪の メッシュずみの列だけ（VOX-D）
     // HOUSE-1C §4.6: 建築中の 家の まわり 16 マスには 湧かない（建築中の 家だけを 見る。世界は 読まない）

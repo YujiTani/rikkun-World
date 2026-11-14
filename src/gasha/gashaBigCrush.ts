@@ -14,6 +14,8 @@ export interface CrushIO {
   /** 空気に する（できたら true） */
   setAir(x: number, y: number, z: number): boolean;
   /** こわした マス（ぬりかべの onBlocks と おなじ 形） */
+  /** TOWN-1 1.3 AC9: true の マスは こわさない（街の ブロック。なければ ぜんぶ こわせる） */
+  protect?(x: number, y: number, z: number): boolean;
   onBlocks?(cells: { x: number; y: number; z: number; from: string; to: 'air' }[]): void;
 }
 
@@ -34,12 +36,12 @@ export function crushAt(x: number, y: number, z: number, io: CrushIO, S: { crush
       if (Math.hypot(i + 0.5 - x, k + 0.5 - z) > R) continue;
       for (let j = lo; j <= hi; j++) {
         const b = io.getBlock(i, j, k);
-        if (!crushable(b, j)) continue;
+        if (!crushable(b, j) || io.protect?.(i, j, k)) continue;
         if (io.setAir(i, j, k)) changed.push({ x: i, y: j, z: k, from: b, to: 'air' });
         const pr = crushPartner(b, i, j, k); // ひまわりの 相手の 段
         if (pr) {
           const pb = io.getBlock(pr.x, pr.y, pr.z);
-          if (crushable(pb, pr.y) && io.setAir(pr.x, pr.y, pr.z)) changed.push({ x: pr.x, y: pr.y, z: pr.z, from: pb, to: 'air' });
+          if (crushable(pb, pr.y) && !io.protect?.(pr.x, pr.y, pr.z) && io.setAir(pr.x, pr.y, pr.z)) changed.push({ x: pr.x, y: pr.y, z: pr.z, from: pb, to: 'air' });
         }
       }
     }

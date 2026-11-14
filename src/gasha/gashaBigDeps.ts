@@ -92,6 +92,8 @@ export interface GashaBigDeps {
   reducedMotion?(): boolean;
   /** たたきつけた 手の 下と まわりを こわす 口: ブロックを 空気に する（blockAt と そろって いる ときだけ こわす）と、こわした マス（くだける つぶ・音。ぬりかべの onBlocks と おなじ） */
   setBlockAir?(x: number, y: number, z: number): boolean;
+  /** TOWN-1 1.3 AC9: true の マスは こわさない（街の ブロック）。たたきつけ・おおかぜ・ふんかの どれも。なければ ぜんぶ こわせる */
+  protectAt?(x: number, y: number, z: number): boolean;
   onCrushBlocks?(cells: { x: number; y: number; z: number; from: string; to: 'air' }[]): void;
   /** ガラスの 雲が 割れた（ブロックの 中心の 世界の 座標）。小さな かけらと 音を 出す 口 */
   onGlassBreak?(cells: { x: number; y: number; z: number }[]): void;
