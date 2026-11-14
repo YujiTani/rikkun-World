@@ -127,7 +127,8 @@ test.describe('TOWN-1 1B-1 安全地帯', () => {
         page.evaluate(
           ({ pos, hpv }) => {
             const h = (window as any).__rikkun;
-            const id = h.yokai.spawn('karakasa', pos.x + 1.5, pos.y, pos.z, { ai: false, hp: hpv }) as number;
+            const id = h.yokai.spawn('karakasa', pos.x + 1.5, pos.y, pos.z, { ai: false }) as number;
+            h.yokai.setHp(id, hpv); // spawn の hp オプションは 無い（無視される）。体力 1 は setHp で 決める
             h.yokai.events();
             return id;
           },

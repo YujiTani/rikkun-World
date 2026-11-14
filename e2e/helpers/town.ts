@@ -166,7 +166,19 @@ export async function findEdgeSpot(page: Page, info: TownInfo): Promise<EdgeSpot
             const along = s.mid + sign * off;
             if ([0, 1, 2, 3].every((d) => clear(cell(along, d)))) {
               const p = cell(along, 3);
-              const o = cell(along, -(Math.abs(s.safeEdge - s.edge) + 4)); // ふちの マスから safe の ふち（margin マス）と 外 4 マス目
+              const outDepth = Math.abs(s.safeEdge - s.edge) + 4;
+              const o = cell(along, -outDepth); // ふちの マスから safe の ふち（margin マス）と 外 4 マス目
+              // 外が 坂・木・石で 見通しや 道が ふさがれる 所は とばす（妖怪は まっすぐ 歩くので、人に 気づけない・ひっかかる。SIGHT-1 #446）。道の はばは 左右 1 マス
+              let flat = true;
+              for (let k = -1; k <= 1; k++) {
+                for (let d = -outDepth; d <= 3; d++) {
+                  const c = cell(along + k, d);
+                  const g = h.world.groundHeight(c.x, c.z) as number;
+                  if (g > groundY + 1) flat = false;
+                  for (let dy = 1; dy <= 3; dy++) if (h.world.getBlock(c.x, g + dy, c.z) !== 'air') flat = false;
+                }
+              }
+              if (!flat) continue;
               return { p, o };
             }
           }
