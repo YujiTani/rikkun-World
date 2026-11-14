@@ -1,7 +1,7 @@
 /**
  * TOWN-1 1B-2 試作: 屋台（だんごや・ごはんや・買いとりの やたい）と 街の 門の かざり ブロック。何も import しない 葉。
  * かんばんの 字は 1 ブロックずつ（地の 色・字の 色が 組ごとに ちがう）。両はしの「ふた」は 字の ない ブロック（よこから 見ても 字が かさならない）。
- * 字の 絵は townTextures.ts の GLYPHS。点 ＝ 1/16 ブロック。
+ * 字の 絵は townGlyphs.ts の GLYPHS。点 ＝ 1/16 ブロック。
  */
 export type StallBox = readonly [number, number, number, number, number, number, string, string?];
 

@@ -273,7 +273,7 @@ const ITEMS = {
   sign_da: { name: 'かんばん「だ」', boxes: [[0, 0, 0, 16, 16, 16, 'town_moji_da']] },
   sign_i: { name: 'かんばん「い」', boxes: [[0, 0, 0, 16, 16, 16, 'town_moji_i']] },
   sign_ku: { name: 'かんばん「く」', boxes: [[0, 0, 0, 16, 16, 16, 'town_moji_ku']] },
-  // かんばんの 字（「よろずや」。1 ブロックずつ。字の 絵は townTextures.ts の GLYPHS）
+  // かんばんの 字（「よろずや」。1 ブロックずつ。字の 絵は townGlyphs.ts の GLYPHS）
   sign_yo: { name: 'かんばん「よ」', boxes: [[0, 0, 0, 16, 16, 16, 'town_moji_yo']] },
   sign_ro: { name: 'かんばん「ろ」', boxes: [[0, 0, 0, 16, 16, 16, 'town_moji_ro']] },
   sign_zu: { name: 'かんばん「ず」', boxes: [[0, 0, 0, 16, 16, 16, 'town_moji_zu']] },
