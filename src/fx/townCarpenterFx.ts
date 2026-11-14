@@ -57,7 +57,7 @@ export class TownCarpenterFx {
 
   constructor(
     scene: THREE.Object3D,
-    private readonly home: { x: number; y: number; z: number; yaw: number },
+    private readonly signSpot: { x: number; y: number; z: number; yaw: number },
   ) {
     const a: BuiltModel = architectModel();
     const b: BuiltModel = cachedModel('architect-repair', architectRepairSpec);
@@ -97,8 +97,8 @@ export class TownCarpenterFx {
     }
     this.signMaterial.map = this.signAtlas.texture;
     this.signMesh = new THREE.Mesh(buf.build(), this.signMaterial);
-    this.signMesh.position.set(home.x, home.y, home.z);
-    this.signMesh.rotation.y = -home.yaw;
+    this.signMesh.position.set(signSpot.x, signSpot.y, signSpot.z);
+    this.signMesh.rotation.y = -signSpot.yaw;
     this.signMesh.frustumCulled = false;
     this.signMesh.renderOrder = 2;
     this.signMesh.visible = false;
@@ -117,7 +117,7 @@ export class TownCarpenterFx {
     this.frustum.setFromProjectionMatrix(this.pv);
     this.spots.length = 0;
     // ふだ: るすの 間 だけ
-    const nearSign = this.near(this.home.x, this.home.z);
+    const nearSign = this.near(this.signSpot.x, this.signSpot.z);
     this.signMesh.visible = c.sign() && nearSign;
     this.shown.sign = this.signMesh.visible;
     // 体

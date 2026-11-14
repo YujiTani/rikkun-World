@@ -12,7 +12,7 @@ function job(x: number, z: number, w = 2, d = 2, waitable = false): RepairJob {
   return { queue: [], head: 0, minX: x, maxX: x + w - 1, minZ: z, maxZ: z + d - 1, minY: 5, maxY: 5, waitable, next: 0, finished: false, whole: true };
 }
 
-function rig(o: { stand?: (x: number, z: number) => number | null; loaded?: (x: number, z: number) => boolean } = {}) {
+function rig(o: { stand?: (x: number, z: number) => number | null; loaded?: (x: number, z: number) => boolean; covered?: (x: number, y: number, z: number) => boolean } = {}) {
   const jobs: RepairJob[] = [];
   const waiting = new Set<RepairJob>();
   const menu = { open: false };
@@ -22,6 +22,7 @@ function rig(o: { stand?: (x: number, z: number) => number | null; loaded?: (x: 
     waiting: (j) => waiting.has(j),
     standY: o.stand ?? ((x, z) => (x < 0 || z < 0 || x > 150 || z > 150 ? null : 5)),
     frames: () => [],
+    covered: o.covered ?? (() => false),
     menuOpen: () => menu.open,
     isLoaded: o.loaded ?? (() => true),
     home: HOME,
@@ -82,8 +83,36 @@ describe('街の だいくさん', () => {
     expect(r.c.allows(t === a ? b : a)).toBe(false);
     const d = Math.max(t.minX - r.c.x, 0, r.c.x - t.maxX - 1, t.minZ - r.c.z, 0, r.c.z - t.maxZ - 1);
     expect(d).toBeGreaterThanOrEqual(C.standMin - 1);
-    expect(d).toBeLessThanOrEqual(C.standMax + 1);
+    expect(d).toBeLessThanOrEqual(C.standMax); // こわれた まとまりの すぐ となり（1 マス いない）
     expect(r.c.motion).toBe('tap');
+  });
+
+  it('たたく とき、こわれた マスから 1 マス いないに 立ち、こわれた 所を 向く', () => {
+    const r = rig();
+    const a = job(80, 50, 3, 3);
+    a.queue.push({ x: 81, y: 5, z: 51 } as never);
+    r.jobs.push(a);
+    r.run(3000, () => r.c.state === 'fix');
+    const cx = Math.floor(r.c.x);
+    const cz = Math.floor(r.c.z);
+    expect(Math.max(a.minX - cx, 0, cx - a.maxX, a.minZ - cz, 0, cz - a.maxZ)).toBe(1);
+    r.run(40); // 向きを かえおわる まで
+    const want = Math.atan2(81.5 - r.c.x, -(51.5 - r.c.z));
+    expect(Math.abs(Math.atan2(Math.sin(r.c.yaw - want), Math.cos(r.c.yaw - want)))).toBeLessThan(0.05);
+  });
+
+  it('建物の 中（屋根の 下）が あっても、外がわの 立てる 所が あれば 外に 立つ。外が なければ 中', () => {
+    const inside = (x: number, z: number): boolean => x >= 79 && x <= 82 && z >= 50 && z <= 51;
+    // 四角 x 80〜81 の すぐ となりは x 79 と 82（どちらも 屋根の 下）と、z の 上下（外）
+    const r = rig({ covered: (x, _y, z) => inside(Math.floor(x), Math.floor(z)) });
+    const a = job(80, 50, 2, 2);
+    r.jobs.push(a);
+    r.run(3000, () => r.c.state === 'fix');
+    expect(inside(Math.floor(r.c.x), Math.floor(r.c.z))).toBe(false);
+    const onlyIn = rig({ covered: () => true });
+    onlyIn.jobs.push(job(80, 50, 2, 2));
+    onlyIn.run(3000, () => onlyIn.c.state === 'fix');
+    expect(onlyIn.c.state).toBe('fix');
   });
 
   it('こやから 近い 順に 回る', () => {
@@ -152,8 +181,8 @@ describe('街の だいくさん', () => {
   });
 
   it('道が なくて warpSteps たっても 着かない ときは 行き先の そばへ ぽんと うつる', () => {
-    // 行き先の まわりが ぜんぶ 立てない 輪（四角から 2〜3 の どこか 1 マスだけ 立てる）
-    const only = { x: 91, z: 50 };
+    // 行き先の まわりが ぜんぶ 立てない 輪（四角の すぐ となりの どこか 1 マスだけ 立てる）
+    const only = { x: 93, z: 50 };
     const r = rig({ stand: (x, z) => (x < 0 || z < 0 || x > 150 || z > 150 ? null : x >= 85 && x <= 100 && !(x === only.x && z === only.z) ? null : 5) });
     r.jobs.push(job(94, 50, 2, 2));
     r.run(C.departMax + 5);

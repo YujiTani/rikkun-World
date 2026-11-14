@@ -24,8 +24,10 @@ export interface CarpenterDeps {
   waiting(j: RepairJob): boolean;
   /** 列 (x, z) へ いまの 高さ fromY から 足を おける 足もとの y（立てなければ null。屋根の 下・橋の 上は 高さで 見わける） */
   standY(x: number, z: number, fromY: number): number | null;
-  /** 足場の 四角（まとまりの 四角。わくは ＋1 マス。中は 通らない） */
+  /** 足場の 四角（まとまりの 四角。中は 通らない。わく・柱は 四角の すぐ 外がわの 1 マス） */
   frames(): readonly ScaffoldRect[];
+  /** 足もと (x, y, z) の 上に 屋根・天井が ある（建物の 中）か。立つ 所は 外がわを 先に えらぶ */
+  covered(x: number, y: number, z: number): boolean;
   /** だれかが こやの 建築士さんの メニューを 開いて いるか */
   menuOpen(): boolean;
   /** 列を 読みこんで いるか */
@@ -65,7 +67,7 @@ export class TownCarpenter implements RepairGate {
   private waitKind = false;
   /** 道が 見つからなかった（その場で まって warpSteps で うつる） */
   private noPath = false;
-  private readonly goal: Extract<Goal, { kind: 'rect' }> = { kind: 'rect', minX: 0, maxX: 0, minZ: 0, maxZ: 0, dMin: C.standMin, dMax: C.standMax };
+  private readonly goal: Extract<Goal, { kind: 'rect' }> = { kind: 'rect', minX: 0, maxX: 0, minZ: 0, maxZ: 0, dMin: C.standMin, dMax: C.standMax, reject: (x, y, z) => this.d.covered(x, y, z) };
 
   constructor(private readonly d: CarpenterDeps) {
     this.x = d.home.x;
@@ -266,7 +268,13 @@ export class TownCarpenter implements RepairGate {
     this.pi = 0;
     this.state = 'walk';
     this.waitKind = kind === 'wait';
+    // 外がわの 立てる 地面を 先に さがす。なければ（建物の 中しか ないとき）中でも よい
+    this.goal.reject = (x, y, z) => this.d.covered(x, y, z);
     this.noPath = !this.finder.find(Math.floor(this.x), Math.floor(this.z), this.fy(), this.goal, this.path);
+    if (this.noPath) {
+      delete this.goal.reject;
+      this.noPath = !this.finder.find(Math.floor(this.x), Math.floor(this.z), this.fy(), this.goal, this.path);
+    }
     if (this.noPath) this.path.length = 0;
     if (this.path.length === 0 && (!this.noPath || this.atGoal())) this.arrive();
   }
@@ -286,10 +294,10 @@ export class TownCarpenter implements RepairGate {
   }
 
   private atGoal(): boolean {
-    const dx = Math.max(this.goal.minX - this.x, 0, this.x - this.goal.maxX - 1);
-    const dz = Math.max(this.goal.minZ - this.z, 0, this.z - this.goal.maxZ - 1);
-    const d = Math.max(dx, dz);
-    return d >= C.standMin && d <= C.standMax + 1;
+    const x = Math.floor(this.x);
+    const z = Math.floor(this.z);
+    const d = Math.max(this.goal.minX - x, 0, x - this.goal.maxX, this.goal.minZ - z, 0, z - this.goal.maxZ);
+    return d >= C.standMin && d <= C.standMax;
   }
 
   private goHome(instant: boolean): void {
@@ -347,14 +355,17 @@ export class TownCarpenter implements RepairGate {
     let bz = NaN;
     let by = 0;
     let bd = Infinity;
+    let bCovered = true;
     for (let z = g.minZ - C.standMax; z <= g.maxZ + C.standMax; z++) {
       for (let x = g.minX - C.standMax; x <= g.maxX + C.standMax; x++) {
         const dd = Math.max(g.minX - x, 0, x - g.maxX, g.minZ - z, 0, z - g.maxZ);
         if (dd < C.standMin || dd > C.standMax) continue;
         const y = this.target === null ? null : this.columnY(x, z, this.target);
         if (y === null || this.inFrame(x, z) || y < (g.yMin ?? -Infinity) || y > (g.yMax ?? Infinity)) continue;
+        const cov = this.d.covered(x, y, z);
         const dist = Math.hypot(x + 0.5 - this.x, z + 0.5 - this.z);
-        if (dist < bd) {
+        if ((bCovered && !cov) || (cov === bCovered && dist < bd)) {
+          bCovered = cov;
           bd = dist;
           bx = x;
           bz = z;
@@ -383,8 +394,12 @@ export class TownCarpenter implements RepairGate {
     return Math.hypot((j.minX + j.maxX + 1) / 2 - x, (j.minZ + j.maxZ + 1) / 2 - z);
   }
 
+  /** こわれた 所（まだ もどして いない いちばん 手前の マス。なければ まとまりの まん中）を 向く */
   private faceTarget(j: RepairJob): void {
-    this.turnTo(Math.atan2((j.minX + j.maxX + 1) / 2 - this.x, -((j.minZ + j.maxZ + 1) / 2 - this.z)));
+    const c = j.queue[j.head];
+    const tx = c === undefined ? (j.minX + j.maxX + 1) / 2 : c.x + 0.5;
+    const tz = c === undefined ? (j.minZ + j.maxZ + 1) / 2 : c.z + 0.5;
+    this.turnTo(Math.atan2(tx - this.x, -(tz - this.z)));
   }
 
   private turnTo(a: number): void {
@@ -397,9 +412,9 @@ export class TownCarpenter implements RepairGate {
     this.y = Math.abs(dy) < 0.01 ? gy : this.y + Math.max(-FALL, Math.min(RISE, dy));
   }
 
-  /** 足場の わく（四角 ＋1 マス）の 中か */
+  /** まとまりの 四角の 中か（足場の 柱は その すぐ 外がわ。通れる） */
   private inFrame(x: number, z: number): boolean {
-    for (const s of this.d.frames()) if (x >= s.min.x - 1 && x <= s.max.x + 1 && z >= s.min.z - 1 && z <= s.max.z + 1) return true;
+    for (const s of this.d.frames()) if (x >= s.min.x && x <= s.max.x && z >= s.min.z && z <= s.max.z) return true;
     return false;
   }
 }

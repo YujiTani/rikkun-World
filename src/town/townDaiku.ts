@@ -29,6 +29,14 @@ const D = {
 /** こやの 建築士さんの 立つ 所（作業台の 前。u・v は 見本の 数。作業台は v 5・前は v が 大きい 方）。向きは こやの 前（v が 大きい 方。人を むかえる 向き） */
 export const DAIKU_STAND = { u: 57, v: 6 } as const;
 
+/**
+ * るすの ふだを 立てる 所（こやの 前の 石の しきい。作業台の 前で、柱（v 8）の すぐ 前。まん中の u と v）。
+ * ふだの はばは 3 ブロック（まん中から 左右 1 マス）。柱の u（DAIKU_POSTS）・柱の v と かさならない。
+ */
+export const DAIKU_SIGN = { u: 55, v: 9, halfWidth: 1 } as const;
+/** 前の 柱の マス（u の 一覧と v）。ふだが かさならない ことの たしかめにも 使う */
+export const DAIKU_POSTS = { us: D.posts, v: D.v1 } as const;
+
 export function buildDaiku(b: Builder): void {
   const { u0, u1, v0, v1 } = D;
   const roofT = (v: number): number => D.roofBase - v;

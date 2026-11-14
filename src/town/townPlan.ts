@@ -1,5 +1,5 @@
 import { CHUNK_SIZE } from '../contracts';
-import { DAIKU_STAND } from './townDaiku';
+import { DAIKU_SIGN, DAIKU_STAND } from './townDaiku';
 import { CANAL, SURF, at, buildLayout, type Layout } from './townLayout';
 import { KAJIYA_CHIMNEY } from './townKajiya';
 import { planTownTrees, type TownTree } from './townTrees';
@@ -277,6 +277,14 @@ export class TownPlan {
     const y = this.rec.groundY + (onTerrace ? TOWN.terrace.rise : 0) + 2;
     const a = this.cell(DAIKU_STAND.u, DAIKU_STAND.v, y);
     const b = this.cell(DAIKU_STAND.u, DAIKU_STAND.v + 1, y); // 前（こやの 入り口がわ）を 向く。ふだも 同じ 向きで 外から 読める
+    return { x: a.x, y: a.y, z: a.z, yaw: Math.atan2(b.x - a.x, -(b.z - a.z)) };
+  }
+
+  /** るすの ふだを 立てる 所（足もと）と 向き（こやの 前）。こやの 前の しきいの 上。柱・かべと かさならず、正面の 道から 全部 読める */
+  carpenterSign(): { x: number; y: number; z: number; yaw: number } {
+    const h = this.carpenterHome();
+    const a = this.cell(DAIKU_SIGN.u, DAIKU_SIGN.v, h.y);
+    const b = this.cell(DAIKU_SIGN.u, DAIKU_SIGN.v + 1, h.y);
     return { x: a.x, y: a.y, z: a.z, yaw: Math.atan2(b.x - a.x, -(b.z - a.z)) };
   }
 

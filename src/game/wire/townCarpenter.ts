@@ -33,6 +33,9 @@ export function carpenterGate(get: () => TownCarpenter | null) {
   };
 }
 
+/** 足もとの 上 この 高さ（マス）までに ブロックが あれば 屋根の 下（建物の 中）と みなす（頭の 上 2 マス目から） */
+const COVER_HEIGHT = 8;
+
 /** 世界を 作った あとで 1 回（wireTownRepair の さいご）。街が なければ null（なにも 出さない） */
 export function wireTownCarpenter(deps: WiredFighters, reps: TownRepairs): TownCarpenter | null {
   const { game, world, seed, lighting, renderer, shared } = deps;
@@ -44,6 +47,10 @@ export function wireTownCarpenter(deps: WiredFighters, reps: TownRepairs): TownC
     waiting: (j) => reps.waiting(j),
     standY: (x, z, fy) => walkY(world, x, z, fy),
     frames: () => reps.scaffolds.list(),
+    covered: (x, y, z) => {
+      for (let k = 2; k <= COVER_HEIGHT; k++) if (world.isSolid(Math.floor(x), Math.floor(y) + k, Math.floor(z))) return true;
+      return false;
+    },
     menuOpen: () => false, // 試作: こやの 建築士さんの メニューは まだ つないで いない
     isLoaded: (x, z) => world.isLoaded(x, z),
     home,
@@ -59,7 +66,7 @@ export function wireTownCarpenter(deps: WiredFighters, reps: TownRepairs): TownC
     groundAt: (x, z, aroundY) => groundNear(world, x, z, aroundY),
     home: () => home,
   });
-  const carpenterFx = new TownCarpenterFx(game.scene, home);
+  const carpenterFx = new TownCarpenterFx(game.scene, town.carpenterSign());
   const repairView = new TownRepairFxView(renderer.blockAtlas());
   game.scene.add(repairView.group);
   lighting.register(scaffoldFx.bodyMaterial, 'doll');

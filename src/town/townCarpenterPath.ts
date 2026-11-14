@@ -11,7 +11,7 @@ const DOWN = 2;
 const DIAG = Math.SQRT2;
 
 /** 行き先: 1 マス か、まとまりの 四角から dMin〜dMax マスの 輪（足場の わくは 1 マス） */
-export type Goal = { kind: 'cell'; x: number; z: number } | { kind: 'rect'; minX: number; maxX: number; minZ: number; maxZ: number; dMin: number; dMax: number; /** 立つ 足もとの 高さの はんい（屋根の 上などを さける。なければ 問わない） */ yMin?: number; yMax?: number };
+export type Goal = { kind: 'cell'; x: number; z: number } | { kind: 'rect'; minX: number; maxX: number; minZ: number; maxZ: number; dMin: number; dMax: number; /** 立つ 足もとの 高さの はんい（屋根の 上などを さける。なければ 問わない） */ yMin?: number; yMax?: number; /** true を 返す 足もとは 立つ 所に しない（建物の 中など。なければ 問わない） */ reject?: (x: number, y: number, z: number) => boolean };
 
 const DX = [1, -1, 0, 0, 1, 1, -1, -1];
 const DZ = [0, 0, 1, -1, 1, -1, 1, -1];
@@ -103,6 +103,7 @@ export class PathFinder {
     if (goal.kind === 'cell') return x === goal.x && z === goal.z;
     const d = this.ring(x, z, goal);
     if (d < goal.dMin || d > goal.dMax) return false;
+    if (goal.reject?.(x, y, z) === true) return false;
     return (goal.yMin === undefined || y >= goal.yMin) && (goal.yMax === undefined || y <= goal.yMax);
   }
 
