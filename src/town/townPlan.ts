@@ -210,7 +210,7 @@ export class TownPlan {
     return i >= 0 && j >= 0 && i < N && j < N;
   }
 
-  /** 安全の はんいの 中か（街の まわり safeMargin マス ひろげた 四角。高さは 問わない） */
+  /** わかない はんいの 中か（街の まわり safeMargin マス ひろげた 四角。高さは 問わない。1.3: 妖怪は ここへ 入れる・当たる。わかない だけ） */
   inSafe(x: number, z: number): boolean {
     const m = TOWN.safeMargin;
     const i = Math.floor(x) - this.rec.x0;

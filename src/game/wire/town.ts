@@ -48,7 +48,7 @@ export function createTownHook() {
   };
 }
 
-/** 足もとが 安全の はんいの 中か（妖怪の こうげきを ふせぐ） */
+/** 足もとが わかない はんい（街 ＋ 8 マス）の 中か。1.3: 妖怪を 止めも ふせぎも しない。わく 場所の しらべ・テストの 窓口 だけ */
 export const townSafe = (p: { x: number; z: number }): boolean => currentTown()?.inSafe(p.x, p.z) ?? false;
 /** 足もとが 街の はんいの 中か（落ちても いたくない。AC42） */
 export const townInside = (p: { x: number; z: number }): boolean => currentTown()?.inTown(p.x, p.z) ?? false;

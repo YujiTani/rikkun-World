@@ -66,7 +66,7 @@ import { playSleepJingle } from '../../fx/sleepJingle';
 import type { WiredDrops } from './inventory';
 import { createScrollPort } from './scrollPort';
 import { bladeWearPerHit } from '../../content/items/legend4Wear';
-import { townInside, townLocked, townSafe } from './town';
+import { townInside, townLocked } from './town';
 
 const KOGETA = BLOCK_INDEX.kogeta;
 const SIDES: readonly (readonly [number, number])[] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -295,7 +295,6 @@ export function wireFighters(deps: WiredWeapons) {
     // WEAPON-9: シャイニング中は 受ける ダメージ 1/3・落下ダメージなし
     takenMul: () => legend.takenMul(),
     // ROPE-1 版 3: ロープに つかまって いる 間は 落ちた 高さを ためない（ゆっくり おりて 着地しても・とちゅうで はなしても、はなした 所から 数える）
-    inSafeZone: () => townSafe(controller.state.position),
     noFall: () => townInside(controller.state.position) || legend.noFall() || shared.protoNoFall || controller.onRope() || tenshiNoFall(inventory.held()?.item ?? null) || (hammer?.noFall() ?? false), // 天使の弓: 持って いる 間 着地ダメージ なし
     // 妖怪のねらい（CHAR-1 第 5.2 版 §4.5）: 届く距離は P から。S からの線で当たらないときは やさしい ねらい補助
     reachOrigin: (out) => aimPivot(world, controller.state.position, out),
