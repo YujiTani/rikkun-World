@@ -6,6 +6,7 @@ import { chooseTown } from '../../town/townPlace';
 import { activateTown, currentTown, deactivateTown } from '../../town/townState';
 import type { TownInfo, XZ } from '../../town/townPlan';
 import type { ShaftWorld } from '../../world/gen/mineShafts';
+import { scaffoldFrame } from '../../town/townScaffoldSet';
 import { townGuards } from '../../town/townGuard';
 import { townPlanBlock, townRepairsNow } from './townRepair';
 import { townCarpenterNow } from './townCarpenter';
@@ -84,7 +85,7 @@ export function createTownHook() {
     },
     /** 1.4（1B-2）: いま 出て いる 足場（まとまりの 四角。マスの 座標） */
     scaffolds: (): { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }[] =>
-      (townRepairsNow()?.scaffolds.list() ?? []).map((s) => ({ min: { ...s.min }, max: { ...s.max } })),
+      (townRepairsNow()?.scaffolds.list() ?? []).map((s) => scaffoldFrame(s)),
     /** 1.4: 妖怪の わざでも かわらない 所（あきち・石段・はしの 石がき）か */
     keeps: (x: number, y: number, z: number): boolean => townGuards(x, y, z),
   };

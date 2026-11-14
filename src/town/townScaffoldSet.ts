@@ -9,6 +9,11 @@ export interface ScaffoldRect {
   max: { x: number; y: number; z: number };
 }
 
+/** `town.scaffolds()` に 出す 四角: まとまりの 四角を 横に 1 マス ずつ かこむ（わく・柱は この 線。高さは そのまま） */
+export function scaffoldFrame(r: ScaffoldRect): ScaffoldRect {
+  return { min: { x: r.min.x - 1, y: r.min.y, z: r.min.z - 1 }, max: { x: r.max.x + 1, y: r.max.y, z: r.max.z + 1 } };
+}
+
 /** もどす 仕事の うち 足場が 見る 所（townRepairs の RepairJob の 一部） */
 export interface JobLike {
   finished: boolean;

@@ -116,6 +116,8 @@ export const FACING_VEC: Readonly<Record<Facing, XZ>> = { n: { x: 0, z: -1 }, e:
 const CORRIDOR_HALF = 2.5;
 /** スタートの この 近くは 見通しの みちを 作らない（はじまりの たいまつ・広場を まもる。マス） */
 const CORRIDOR_SKIP_NEAR_START = 4;
+/** 門の 外の 道は スタートの 奥ゆきの この 手前（マス）で おわる（はじまりの木・たいまつの 広場を 巻きこまない） */
+const ROAD_STOP_BEFORE_START = 8;
 
 /**
  * 石段の 口の あかりと のぼりの マス: 上り口（はば 2）の りょうわきに 1 つずつ 置く（歩く みちを ふさがない。AC41）。
@@ -165,7 +167,11 @@ export class TownPlan {
     this.infoCache = this.buildInfo();
   }
 
-  /** 見通しの みちの 中か（街・すその 外。スタートの そばは のぞく） */
+  /**
+   * 見通しの みち・門の 外の 道の 中か（街・すその 外。スタートの そばは のぞく）。ここは 木・岩・竹・丸太・草を 消す。
+   *  - 見通しの みち: 門 → スタートの 線（はば 5）。
+   *  - 門の 外の 道: 門の まん中から 門の 正面へ まっすぐ、スタートの 奥ゆきの 8 マス 手前まで（はば 5）。
+   */
   inCorridor(x: number, z: number): boolean {
     const s = this.spawn;
     if (s === null || this.inTown(x, z)) return false;
@@ -177,7 +183,13 @@ export class TownPlan {
     const dx = this.gateWorld.x - ax;
     const dz = this.gateWorld.z - az;
     const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / (dx * dx + dz * dz || 1)));
-    return Math.hypot(px - (ax + dx * t), pz - (az + dz * t)) <= CORRIDOR_HALF;
+    if (Math.hypot(px - (ax + dx * t), pz - (az + dz * t)) <= CORRIDOR_HALF) return true;
+    // 門の 外の 道: 正面の 向き f ＝ 道の 向き。奥ゆき（f ごしの きょり）は 0〜スタートまで
+    const f = FACING_VEC[this.rec.facing];
+    const depth = (px - this.gateWorld.x) * f.x + (pz - this.gateWorld.z) * f.z;
+    const side = Math.abs((px - this.gateWorld.x) * f.z - (pz - this.gateWorld.z) * f.x);
+    const reach = (ax - this.gateWorld.x) * f.x + (az - this.gateWorld.z) * f.z;
+    return depth >= 0 && depth <= reach - ROAD_STOP_BEFORE_START && side <= CORRIDOR_HALF;
   }
 
   /** 列 (cx, cz) に 街・すそ・見通しの みちが かかるか（かからなければ 書かない） */
@@ -190,10 +202,15 @@ export class TownPlan {
     const sp = this.spawn;
     if (sp === null) return false;
     const h = CORRIDOR_HALF + 1;
-    const minX = Math.min(sp.x, this.gateWorld.x) - h;
-    const maxX = Math.max(sp.x, this.gateWorld.x) + h;
-    const minZ = Math.min(sp.z, this.gateWorld.z) - h;
-    const maxZ = Math.max(sp.z, this.gateWorld.z) + h;
+    // 門の 外の 道は 正面へ スタートの 奥ゆきまで（四角に ふくまれる ように スタートの 向こうの 角も 入れる）
+    const f = FACING_VEC[this.rec.facing];
+    const reach = Math.max(0, (sp.x + 0.5 - this.gateWorld.x) * f.x + (sp.z + 0.5 - this.gateWorld.z) * f.z);
+    const ex = this.gateWorld.x + f.x * reach;
+    const ez = this.gateWorld.z + f.z * reach;
+    const minX = Math.min(sp.x, this.gateWorld.x, ex) - h;
+    const maxX = Math.max(sp.x, this.gateWorld.x, ex) + h;
+    const minZ = Math.min(sp.z, this.gateWorld.z, ez) - h;
+    const maxZ = Math.max(sp.z, this.gateWorld.z, ez) + h;
     return x0 + CHUNK_SIZE > minX && x0 < maxX && z0 + CHUNK_SIZE > minZ && z0 < maxZ;
   }
 
