@@ -204,6 +204,11 @@ test.describe('TOWN-1 1B-1 安全地帯', () => {
     const lotR = await crushDiff(Math.floor((lot.min.x + lot.max.x) / 2), Math.floor((lot.min.z + lot.max.z) / 2));
     expect(lotR.changed, 'あきちの 中は かわらない（keeps）').toBe(0);
 
+  });
+
+  test('AC9 (妖怪・1.4): 用水路の 水で ぬりかべが 石に なると 石が 置かれて 記録に 入る', async ({ page }) => {
+    await openTown(page);
+    const info = await townInfo(page);
     // 用水路の 水の 中で 石に なる（かたまる 時間は 表 AI_CONST.stoneTicks）。石が 置かれて 記録に 入る
     const w = info.canal.water[Math.floor(info.canal.water.length / 2)]!;
     await goTo(page, w.x, w.z);

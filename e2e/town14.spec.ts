@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { aimBlock, tapRight } from './helpers/houseBuilt';
+import { installAimHelpers } from './helpers/aim';
 import { holdItems } from './helpers/blade';
 import { findFlatSpot, goTo, nextMorning, openTown, place1P, timeDay, townCall, townDamage, townInfo, townRepairs, type P3 } from './helpers/town';
 
@@ -27,17 +28,31 @@ test.describe('TOWN-1 1B-1 こわれて 朝に もどる（1.4）', () => {
     // 2 だんに する（下から もどる ことを たしかめる）: 1 マス 目の 上にも 1 つ
     cells.push({ x: spot.x0, y: gy + 1, z: spot.z0 });
     // 1P は まとまりから はなれた 所に 立つ（人が そばに いると まつ）
+    // 立つ 場所を ゲームに 聞く: はなれた 所で、足もとが 水でなく 体の 2 マスが 空気の 地面
+    let far: P3 | null = null;
+    for (const [ox, oz] of [[22, 0], [-22, 0], [0, 22], [0, -22], [22, 22], [-22, -22], [30, 0], [-30, 0], [0, 30], [0, -30]] as const) {
+      const fx = spot.x0 + ox;
+      const fz = spot.z0 + oz;
+      await goTo(page, fx, fz);
+      const g = await page.evaluate(([x, z]) => {
+        const w = (window as any).__rikkun.world;
+        const y = w.groundHeight(x, z) as number;
+        const ids = [w.getBlock(x, y, z), w.getBlock(x, y + 1, z), w.getBlock(x, y + 2, z)] as string[];
+        return !ids[0]!.includes('water') && ids[0] !== 'air' && ids[1] === 'air' && ids[2] === 'air' ? y : null;
+      }, [fx, fz] as const);
+      if (g !== null) {
+        far = { x: fx + 0.5, y: g + 1, z: fz + 0.5 };
+        break;
+      }
+    }
+    expect(far, '立てる 場所が ある').not.toBeNull();
     await goTo(page, spot.x0, spot.z0);
     const before = await page.evaluate((cells) => cells.map((c) => (window as any).__rikkun.world.getBlock(c.x, c.y, c.z) as string), cells);
     const plan = await page.evaluate((cells) => cells.map((c) => (window as any).__rikkun.town.planBlock(c.x, c.y, c.z) as string), cells);
     expect(plan, '街の 設計の 中身は こわす 前と 同じ').toEqual(before);
     const d = await timeDay(page);
     await townDamage(page, cells, 'air');
-    const fx = spot.x0 + 22;
-    const fy = (await page.evaluate(([x, z]) => (window as any).__rikkun.world.groundHeight(x, z) as number, [fx, spot.z0] as const)) + 1;
-    await place1P(page, { x: fx + 0.5, y: fy, z: spot.z0 + 0.5 }); // まとまりの 四角 ＋2 マスの 外
-    const body = await page.evaluate(([x, y, z]) => [(window as any).__rikkun.world.getBlock(x, y, z), (window as any).__rikkun.world.getBlock(x, y + 1, z)], [fx, fy, spot.z0] as const);
-    expect(body, '1P の 体の 2 マスは 空気').toEqual(['air', 'air']);
+    await place1P(page, far!); // まとまりの 四角 ＋2 マスの 外
     const n = cells.length;
     const blocksNow = (): Promise<string[]> => page.evaluate((cells) => cells.map((c) => (window as any).__rikkun.world.getBlock(c.x, c.y, c.z) as string), cells);
     expect((await blocksNow()).every((b) => b === 'air'), 'こわした マスは 空気').toBe(true);
@@ -93,6 +108,7 @@ test.describe('TOWN-1 1B-1 こわれて 朝に もどる（1.4）', () => {
     await openTown(page);
     const info = await townInfo(page);
     const spot = await findFlatSpot(page, info, 5); // 5×5
+    await installAimHelpers(page);
     const gy = info.groundY;
     const cx = spot.x0 + 2;
     const cz = spot.z0 + 2;
