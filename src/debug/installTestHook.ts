@@ -41,6 +41,7 @@ import { computeFarmPlacement } from '../world/gen/farmPlacement';
 import { digSettingsView, settingsViewOf, sharedSettingsView } from './settingsViews';
 import type { WiredMine } from '../game/wire/mine';
 import { createTownHook } from '../game/wire/town';
+import { townDrumNow } from '../game/wire/townDrum';
 import { createDamaHook } from '../game/wire/dama';
 
 export function installGameHook(deps: WiredMine): void {
@@ -348,6 +349,7 @@ export function installGameHook(deps: WiredMine): void {
     duo,
     dama: createDamaHook(shared.dama!),
     town: createTownHook(),
+    athletic: { drum: (p: 1 | 2) => ({ cleared: townDrumNow()?.cleared(p) ?? false }) },
     audio: createAudioHook({
       mixer,
       bgm,

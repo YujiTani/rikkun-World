@@ -11,6 +11,7 @@ import { TownRepairs, type RepairPlayer } from '../../town/townRepairs';
 import { currentTown } from '../../town/townState';
 import type { WiredFighters } from './combat';
 import { carpenterGate, wireTownCarpenter } from './townCarpenter';
+import { townDrumHit, wireTownDrum } from './townDrum';
 import type { TownCarpenter } from '../../town/townCarpenter';
 
 /** いま 開いて いる 世界の 記録（1 つ）。ほる・置く の 口と テストの 窓口が 読む（作る 前は null） */
@@ -43,6 +44,7 @@ export function townDigPort(who: 1 | 2): DigTownPort {
     placeLocked: townPlaceLocked,
     dug: (x, y, z) => current?.dug(x, y, z) ?? false,
     placed: (x, y, z, item) => current?.placed(x, y, z, item, who),
+    drum: (x, y, z, pressed) => townDrumHit(who, x, y, z, pressed),
   };
 }
 
@@ -117,6 +119,7 @@ export function wireTownRepair(deps: WiredFighters): void {
   bindTownRepairs(reps);
   shared.townRepairs = reps;
   carp = wireTownCarpenter(deps, reps);
+  wireTownDrum(deps);
   // 水が かわった マス（量が へった・ふえた・ながれこんだ）も、記録が ある あいだは 設計と ちがえば 記録する。朝に 設計の 水に もどる
   const prev = world.onBlockChange;
   world.onBlockChange = (x, y, z, p, n) => {

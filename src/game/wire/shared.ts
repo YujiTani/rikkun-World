@@ -40,6 +40,7 @@ import type { ImpactBus } from '../../fx/impact';
 import type { LegendSystem } from '../../legend/LegendSystem';
 import type { DamaService } from '../../dama/dama';
 import type { TownRepairs } from '../../town/townRepairs';
+import type { TownDrum } from '../../town/townDrum';
 
 /** パリィの 倍率が まだ 無い とき（wireLoop が 差しかえる まで） */
 const NO_PARRY_SCALES: readonly number[] = [1];
@@ -185,6 +186,8 @@ interface Shared {
   dama: DamaService | null;
   /** TOWN-1 1.4: 街の こわれた マスの 記録と 朝の もどし（wireYokai が 作る。src/game/wire/townRepair.ts） */
   townRepairs: TownRepairs | null;
+  /** TOWN-1 1B-2: アスレチックの ゴールの 太鼓の 記録（街が なければ null） */
+  townDrum: TownDrum | null;
   /** TOWN-1 1.4: 街の だいくさん・足場・ぽんの 1 ステップ（step.ts が 記録の すすめの あとに よぶ。街が なければ null） */
   townCarpenterStep: (() => void) | null;
   achievementsRef: { feedWorn(n: number): void };
@@ -290,6 +293,7 @@ export function createShared(): Shared {
     yokaiManager: null,
     dama: null,
     townRepairs: null,
+    townDrum: null,
     townCarpenterStep: null,
     achievementsRef: { feedWorn: () => {} },
     onDefeatAch: () => {},

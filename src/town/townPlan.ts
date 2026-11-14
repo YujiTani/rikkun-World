@@ -1,6 +1,7 @@
 import { CHUNK_SIZE } from '../contracts';
 import { DAIKU_SIGN, DAIKU_STAND } from './townDaiku';
 import { CANAL, SURF, at, buildLayout, type Layout } from './townLayout';
+import { ATHLETIC } from './townAthletic';
 import { KAJIYA_CHIMNEY } from './townKajiya';
 import { planTownTrees, type TownTree } from './townTrees';
 import { TOWN, type Facing } from './townTuning';
@@ -63,6 +64,8 @@ export interface TownInfo {
   buildings: never[];
   npcs: never[];
   stalls: never[];
+  /** アスレチック（1B-2。TOWN-1.md §6.1）。min・max ＝ かこい、posts ＝ くいの 上の 面、log・tower・bridge・slide ＝ 上の 面、drum ＝ 太鼓の ブロックの マス（y は ブロックの 下の 面） */
+  athletic: { min: XZ; max: XZ; posts: P3[]; log: P3; tower: P3; bridge: P3; slide: P3; stones: P3[]; drum: P3 };
   /** 街の 木（1B-2）。pos ＝ みきの 根もとの 上の 面 */
   trees: { pos: P3; sakura: boolean; form: string; size: string }[];
 }
@@ -288,6 +291,12 @@ export class TownPlan {
     return { x: a.x, y: a.y, z: a.z, yaw: Math.atan2(b.x - a.x, -(b.z - a.z)) };
   }
 
+  /** ゴールの 太鼓の ブロックの マス（x・z は まん中。y は ブロックの 下の 面）。太鼓の ブロックは townAthletic の 表の goalTower.u0・v 81 */
+  drumCell(): P3 {
+    const A = ATHLETIC;
+    return this.cell(A.goalTower.u0, 81, this.rec.groundY + 1 + A.goalTower.h);
+  }
+
   /** 街の 木（同じ 記録なら いつも 同じ。初めて 呼んだ とき 1 回 だけ 作る） */
   trees(): readonly TownTree[] {
     if (this.treeList === null) this.treeList = planTownTrees(layout, { groundY: this.rec.groundY, toWorld: (u, v) => this.toWorld(u, v), toLocal: (x, z) => this.toLocal(x, z) });
@@ -337,6 +346,20 @@ export class TownPlan {
       };
     });
     for (const s of stairs) lights.push({ kind: 'stair', pos: s.light });
+    const A = ATHLETIC;
+    const top = (u: number, v: number, h: number): P3 => this.cell(u, v, G + 1 + h);
+    const fence = this.box({ u: A.fence.u0, v: A.fence.v0 }, { u: A.fence.u1, v: A.fence.v1 });
+    const athletic: TownInfo['athletic'] = {
+      min: fence.min,
+      max: fence.max,
+      posts: A.stakes.map(([u, v, h]) => top(u, v, h)),
+      log: top((A.logs.u0 + A.logs.u1 + 1) >> 1, A.logs.v, A.logs.h),
+      tower: top((A.tower1.u0 + A.tower1.u1) / 2, (A.tower1.v0 + A.tower1.v1) / 2, A.tower1.h),
+      bridge: top(A.bridge.u, (A.bridge.v0 + A.bridge.v1) >> 1, A.bridge.h),
+      slide: top(A.slide[0]![0], A.slide[0]![1], A.slide[0]![2]),
+      stones: A.stones.map(([u, v, h]) => top(u, v, h)),
+      drum: this.drumCell(),
+    };
     return {
       center: c,
       facing: this.rec.facing,
@@ -353,6 +376,7 @@ export class TownPlan {
       buildings: [],
       npcs: [],
       stalls: [],
+      athletic,
       trees: this.trees().map((t) => ({ pos: { x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5 }, sakura: t.sakura, form: t.form, size: t.size })),
     };
   }
