@@ -50,6 +50,7 @@ test.describe('TOWN-1 1B-1 安全地帯', () => {
     expect(spawns.length, '外では 1 ぴき 以上 わく').toBeGreaterThanOrEqual(1);
     for (const s of spawns) expect(await inSafe(page, s), `湧いた 場所 ${JSON.stringify(s)} は わかない はんいの 外`).toBe(false);
     await setNight(page, false);
+    await page.evaluate(() => (window as any).__rikkun.yokai.clear()); // (a) で わいた 妖怪が (b)(c) に まざらない ように
 
     // ---- (b) 外 4 マスの 妖怪が 1P・2P へ 歩いて、わかない はんい → 街の はんいへ 入る（ふちで 止まらない）
     await place1P(page, spot.player);
