@@ -26,6 +26,9 @@ const D = {
   frame: { u0: 66, u1: 70, v0: 3, v1: 6, topDy: 4 },
 } as const;
 
+/** こやの 建築士さんの 立つ 所（作業台の 前。u・v は 見本の 数。作業台は v 5・前は v が 大きい 方）。向きは こやの 前（v が 大きい 方。人を むかえる 向き） */
+export const DAIKU_STAND = { u: 57, v: 6 } as const;
+
 export function buildDaiku(b: Builder): void {
   const { u0, u1, v0, v1 } = D;
   const roofT = (v: number): number => D.roofBase - v;

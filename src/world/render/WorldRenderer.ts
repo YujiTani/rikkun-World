@@ -1,4 +1,4 @@
-import { Group, type MeshBasicMaterial, type PerspectiveCamera, type Scene } from 'three';
+import { Group, type MeshBasicMaterial, type PerspectiveCamera, type Scene, type Texture } from 'three';
 import type { CropStageSource } from '../../contracts';
 import { CaveView, refreshSectionVis } from './caveApply';
 import type { CaveStats } from './caveCull';
@@ -723,6 +723,11 @@ export class WorldRenderer {
   materials(): MeshBasicMaterial[] {
     const m = this.mats;
     return [m.boxMaterial, m.opaqueMaterial, m.waterMaterial, m.lodOpaqueMaterial, m.lodWaterMaterial];
+  }
+
+  /** ブロックの まとめ絵（街の なおしの 「ぽん」の 箱が 同じ 絵を 使う） */
+  blockAtlas(): Texture {
+    return this.mats.atlas;
   }
 
   /** メッシュの数（描画回数の目安。見えているもの） */

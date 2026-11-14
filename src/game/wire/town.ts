@@ -8,6 +8,7 @@ import type { TownInfo, XZ } from '../../town/townPlan';
 import type { ShaftWorld } from '../../world/gen/mineShafts';
 import { townGuards } from '../../town/townGuard';
 import { townPlanBlock, townRepairsNow } from './townRepair';
+import { townCarpenterNow } from './townCarpenter';
 import { TownSmokeFx } from '../../fx/townSmokeFx';
 import type { Game } from '../Game';
 
@@ -63,6 +64,27 @@ export function createTownHook() {
     damage: (cells: { x: number; y: number; z: number }[], to?: 'air' | 'stone'): number => townRepairsNow()?.damage(cells, to) ?? 0,
     /** 1.4: その マスの 設計・生成の 中身（もどった か くらべる） */
     planBlock: (x: number, y: number, z: number): string => townPlanBlock(x, y, z),
+    /**
+     * 1.4（1B-2）: こやの 建築士さん。out ＝ こやを 出て いる（るす）・state ＝ home/walk/fix/wait/back・pos ＝ 足もと・
+     * target ＝ いま 向かって いる まとまりの `repairs().groups` の 番号（なければ null）・sign ＝ るすの ふだが 出て いる
+     */
+    carpenter: () => {
+      const w = townCarpenterNow();
+      const home = currentTown()?.carpenterHome() ?? { x: 0, y: 0, z: 0 };
+      if (w === null) return { out: false, state: 'home' as const, pos: { x: home.x, y: home.y, z: home.z }, target: null, sign: false };
+      const c = w.carpenter;
+      let target: number | null = null;
+      if (c.target !== null) {
+        const t = c.target;
+        const groups = townRepairsNow()?.repairs().groups ?? [];
+        const i = groups.findIndex((g) => g.min.x <= t.maxX && g.max.x >= t.minX && g.min.z <= t.maxZ && g.max.z >= t.minZ);
+        target = i < 0 ? null : i;
+      }
+      return { out: c.out, state: c.state, pos: { x: c.x, y: c.y, z: c.z }, target, sign: c.sign() };
+    },
+    /** 1.4（1B-2）: いま 出て いる 足場（まとまりの 四角。マスの 座標） */
+    scaffolds: (): { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }[] =>
+      (townRepairsNow()?.scaffolds.list() ?? []).map((s) => ({ min: { ...s.min }, max: { ...s.max } })),
     /** 1.4: 妖怪の わざでも かわらない 所（あきち・石段・はしの 石がき）か */
     keeps: (x: number, y: number, z: number): boolean => townGuards(x, y, z),
   };

@@ -1,4 +1,5 @@
 import { CHUNK_SIZE } from '../contracts';
+import { DAIKU_STAND } from './townDaiku';
 import { CANAL, SURF, at, buildLayout, type Layout } from './townLayout';
 import { KAJIYA_CHIMNEY } from './townKajiya';
 import { planTownTrees, type TownTree } from './townTrees';
@@ -264,6 +265,19 @@ export class TownPlan {
     const a = this.cell((C.u0 + C.u1) / 2, C.v0, 0);
     const b = this.cell((C.u0 + C.u1) / 2, C.v1, 0);
     return { x: (a.x + b.x) / 2, y: this.rec.groundY + 1 + C.dyTop + 1.1, z: (a.z + b.z) / 2 };
+  }
+
+  /**
+   * こやの 建築士さんが いつも 立つ 所（作業台の 前。足もとの まん中）と 向き（こやの 前＝入り口の 方。yaw 0 ＝ 北 ＝ −z）と、るすの ふだを 立てる 所（同じ 場所）。
+   * 数は townDaiku.ts の `DAIKU_STAND`（見本の u・v）。
+   */
+  carpenterHome(): { x: number; y: number; z: number; yaw: number } {
+    // 建物の ゆか（dy 0）は 地面（か ひとだんの 台）の 1 マス 上。足もとは その ゆかの 上
+    const onTerrace = layout.surf[at(DAIKU_STAND.u, DAIKU_STAND.v)] === SURF.terrace;
+    const y = this.rec.groundY + (onTerrace ? TOWN.terrace.rise : 0) + 2;
+    const a = this.cell(DAIKU_STAND.u, DAIKU_STAND.v, y);
+    const b = this.cell(DAIKU_STAND.u, DAIKU_STAND.v + 1, y); // 前（こやの 入り口がわ）を 向く。ふだも 同じ 向きで 外から 読める
+    return { x: a.x, y: a.y, z: a.z, yaw: Math.atan2(b.x - a.x, -(b.z - a.z)) };
   }
 
   /** 街の 木（同じ 記録なら いつも 同じ。初めて 呼んだ とき 1 回 だけ 作る） */

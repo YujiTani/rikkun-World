@@ -2,6 +2,8 @@
 import { playArchitect } from '../../fx/architectSounds';
 import { playCraft } from '../../fx/craftSounds';
 import { ArchitectRenderer } from '../../house/ArchitectRenderer';
+import type { BlobSpot } from '../../fx/blobShadow';
+import { townCarpenterNow } from './townCarpenter';
 import { watchBlocks } from '../../house/blockWatch';
 import { houseKeyGuard } from '../../house/keyGuard';
 import { Preview3D } from '../../house/preview/preview';
@@ -22,6 +24,8 @@ const RECIPE_SCATTER = { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 } as
 
 /** 建築士さんの 頭の 上（足もとから）。ふきだしの しっぽが ここに くる */
 const HEAD_TOP = 1.8;
+
+const NO_SPOTS: readonly BlobSpot[] = [];
 
 export function wireHouse(deps: WiredYokai) {
   const { shared, world, seed, island, drops, game, fxSound, hud, controller, inventory, lighting, combat, dig, screen, blobShadow, storage, craft, w2, yokaiM, animals } = deps;
@@ -201,6 +205,7 @@ export function wireHouse(deps: WiredYokai) {
   const architectRenderer = new ArchitectRenderer((x, z) => shared.streamHost?.stream.isDrawn(Math.floor(x) >> 4, Math.floor(z) >> 4) ?? true);
   game.scene.add(architectRenderer.group);
   lighting.register(architectRenderer.bodyMaterial, 'doll');
+  architectRenderer.extraShadows = () => townCarpenterNow()?.carpenterFx.shadowSpots() ?? NO_SPOTS; // 街の だいくさんの 足もとの 影
 
   // 時間が すすんで いる 間だけ（メニューが 開くと ゲームの 窓が 止める）
   // 完成の 帯・紙ふぶきの 合図は 毎ステップ 読む（描画の コマだけで 読むと、step() だけ 進める テストや 重い コマで 次の ステップに 間に あわず 帯が 出ない）

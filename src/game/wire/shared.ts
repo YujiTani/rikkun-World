@@ -185,6 +185,8 @@ interface Shared {
   dama: DamaService | null;
   /** TOWN-1 1.4: 街の こわれた マスの 記録と 朝の もどし（wireYokai が 作る。src/game/wire/townRepair.ts） */
   townRepairs: TownRepairs | null;
+  /** TOWN-1 1.4: 街の だいくさん・足場・ぽんの 1 ステップ（step.ts が 記録の すすめの あとに よぶ。街が なければ null） */
+  townCarpenterStep: (() => void) | null;
   achievementsRef: { feedWorn(n: number): void };
   onDefeatAch: (kind: YokaiKind, who: 1 | 2) => void;
   domeEraseThisStep: boolean;
@@ -288,6 +290,7 @@ export function createShared(): Shared {
     yokaiManager: null,
     dama: null,
     townRepairs: null,
+    townCarpenterStep: null,
     achievementsRef: { feedWorn: () => {} },
     onDefeatAch: () => {},
     domeEraseThisStep: false,
