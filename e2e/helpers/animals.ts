@@ -41,7 +41,8 @@ import { installArena } from './arena';
  *
  * LIVE-2 で足した もの: kit / putEgg / coop / cinfo / face / kid / yawTo / inside / dayLen / night / bags / hintRight（下の 定義の コメントを 見る）
  */
-export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void> {
+// TOWN-1 1B-1: 畜産の テストは 街と 関係ない。街（別の 材質・チャンク）が 見える 範囲に 入ると 描画回数が ゆれる（LIVE-2.1 AC15c が +5）ので 街を 作らない 世界で 始める
+export async function openAnimals(page: Page, query = '?nosave=1&town=off'): Promise<void> {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   // 最初のクリックで音が使えるようになる（unlock）。ないと audio.sfx() の記録が空のまま（SOUND-1 の openGame と同じ）
