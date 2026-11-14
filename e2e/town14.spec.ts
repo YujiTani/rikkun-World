@@ -18,7 +18,7 @@ const key = (c: P3): string => `${c.x},${c.y},${c.z}`;
 test.describe('TOWN-1 1B-1 こわれて 朝に もどる（1.4）', () => {
   test.describe.configure({ timeout: 300_000 });
 
-  test('AC52 通し: ひろばの 5 マスを こわす → その 日は そのまま → 1 晩で 半分（下から）→ 2 晩目で ぜんぶ もとどおり', async ({ page }) => {
+  test('AC52 通し: ひろばの 6 マスを こわす → その 日は そのまま → 1 晩で 半分（下から）→ 2 晩目で ぜんぶ もとどおり', async ({ page }) => {
     await openTown(page);
     const info = await townInfo(page);
     const spot = await findFlatSpot(page, info, 5);
@@ -36,6 +36,8 @@ test.describe('TOWN-1 1B-1 こわれて 朝に もどる（1.4）', () => {
     const fx = spot.x0 + 22;
     const fy = (await page.evaluate(([x, z]) => (window as any).__rikkun.world.groundHeight(x, z) as number, [fx, spot.z0] as const)) + 1;
     await place1P(page, { x: fx + 0.5, y: fy, z: spot.z0 + 0.5 }); // まとまりの 四角 ＋2 マスの 外
+    const body = await page.evaluate(([x, y, z]) => [(window as any).__rikkun.world.getBlock(x, y, z), (window as any).__rikkun.world.getBlock(x, y + 1, z)], [fx, fy, spot.z0] as const);
+    expect(body, '1P の 体の 2 マスは 空気').toEqual(['air', 'air']);
     const n = cells.length;
     const blocksNow = (): Promise<string[]> => page.evaluate((cells) => cells.map((c) => (window as any).__rikkun.world.getBlock(c.x, c.y, c.z) as string), cells);
     expect((await blocksNow()).every((b) => b === 'air'), 'こわした マスは 空気').toBe(true);
@@ -70,7 +72,8 @@ test.describe('TOWN-1 1B-1 こわれて 朝に もどる（1.4）', () => {
     rep = await townRepairs(page);
     expect(rep.cells.length, '1 晩で 半分（切り上げ）が もどる').toBe(n - Math.ceil(n / 2));
     expect(maxPerStep, '1 ステップに もどる マスは 8 以下').toBeLessThanOrEqual(8);
-    expect(Math.min(...gaps, 2), '1 まとまりは 2 ステップに 1 マス 以下').toBeGreaterThanOrEqual(2);
+    expect(gaps.length, '2 こ いじょう 別々の ステップで もどった（間かくを 見られる）').toBeGreaterThan(0);
+    expect(Math.min(...gaps), '1 まとまりは 2 ステップに 1 マス 以下').toBeGreaterThanOrEqual(2);
     const left = new Set(rep.cells.map(key));
     for (const c of cells) {
       if (left.has(key(c))) continue;
