@@ -9,6 +9,7 @@ import { isLiquidIndex } from './liquids';
 import { isFloorDeco } from './mineBoken';
 import { isYakataTorch } from './mineYakata';
 import { SHAPE_BLOCKS, SHAPE_IDS, shapeLabel } from './shapeBlocks';
+import { TOWN_BLOCK_DEFS } from './townBlocks';
 import { MAGMA_IDS, MAGMA_M0, MAGMA_RESERVED_IDS } from './magma';
 import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL_INDEX, WATER_PARTIAL_IDS, WATER_W0 } from './water';
 
@@ -190,6 +191,8 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'maru_mon_ishi', name: 'まるもんの いし', solid: true, breakable: true },
   { id: 'renga_ishi', name: 'いしれんが', solid: true, breakable: true },
   { id: 'koke_renga_ishi', name: 'こけの いしれんが', solid: true, breakable: true },
+  // TOWN-1 1B-1（番号は 後ろに 足す）: 街の ブロック 41 こ（40 ＋ 石の てすり）。固い・こわせない（街の 中 だけ に ある）。すける 物は 箱の 形で 描き 光を 通す
+  ...TOWN_BLOCK_DEFS.map((d): BlockType => ({ id: d.id, name: d.name, solid: true, breakable: false })),
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -234,6 +237,8 @@ const PROP_IDS: ReadonlySet<string> = new Set([
   ...LOOK_BLOCK_IDS,
   // WAFU-2: 形つきブロックは ぜんぶ 箱の 形で 描く（絵は meshChunk の pushProp）。固いが 光を 通す
   ...SHAPE_IDS,
+  // TOWN-1 1B-1: すける 街の ブロック（こうし・てすり・たけがき・はちうえ）は 箱の 形で 描く（すきまは 切りぬき）。固いが 光を 通す
+  ...TOWN_BLOCK_DEFS.filter((d) => d.see).map((d) => d.id),
 ]);
 const PROP = BLOCK_TYPES.map((t) => PROP_IDS.has(t.id));
 export function isPropIndex(index: number): boolean {

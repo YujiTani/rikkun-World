@@ -93,7 +93,8 @@ export const fadeOfAge = (age: number): number => (age < 2.25 ? 1 : age < 4.5 ? 
 /** ゲームを 開く。ひらけた 平らな 地面に 立つ（北向き yaw 0）。刀の 絵は まだ 読まない */
 export async function openBladeWorld(page: Page, opts: { half?: number; query?: string } = {}): Promise<void> {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/' + (opts.query ?? '?nosave=1')); // 2 人の テストは query に '?nosave=1&duo=dev'
+  // TOWN-1 1B-1: 街の 中は 妖怪の 攻撃が 当たらない・落下ダメージが ない・地形が 平ら。刀・ダメージの テストは 街を 作らない 世界で 始める（query を 指定する 人は 自分で &town=off を つける）
+  await page.goto('/' + (opts.query ?? '?nosave=1&town=off')); // 2 人の テストは query に '?nosave=1&duo=dev'
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.waitForFunction(
     (ns) => {

@@ -1,4 +1,5 @@
 // CALM（#194）: ブロックの絵の「ざわざわ」をへらす。受け入れ基準 1〜7（docs/tickets/CALM.md）
+import { isTownBlockId } from './townBlocks';
 import { isRopeTile } from './ropeTextures';
 import { isWaterfallTile } from './waterfallTextures';
 import { describe, expect, it } from 'vitest';
@@ -238,8 +239,8 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
     // ROPE-1: ロープ・ロープだまりの 新しい 絵（画素は ropeTextures.test.ts が 見る）
     const ropeNew = (n: string) => isRopeTile(n) || isWaterfallTile(n); // WATERFALL-1 の 絵も（画素は waterfallTextures.test.ts）
     // HOUSE-2A（#364）: まきものの 絵は 仮の 新しい 絵（アトラスの さいごに 足した。HOUSE-2B で 本番の 絵に する）
-    const makimonoNew = (n: string) => n === 'makimono';
-    expect(TILE_NAMES.filter((n) => !skip.has(n) && !makimonoNew(n) && !kotatsuNew(n) && !gadgetNew(n) && !mineNew(n) && !houseNew(n) && !ropeNew(n)).sort()).toEqual(Object.keys(HASH).sort());
+    const makimonoNew = (n: string) => n === 'makimono'; // TOWN-1 1B-1: 街の ブロックの 絵 41 まいは 新しい 絵（townTextures.ts）。見た目は townBlocks.test.ts
+    expect(TILE_NAMES.filter((n) => !skip.has(n) && !makimonoNew(n) && !kotatsuNew(n) && !gadgetNew(n) && !mineNew(n) && !houseNew(n) && !ropeNew(n) && !isTownBlockId(n)).sort()).toEqual(Object.keys(HASH).sort());
   });
   for (const [name, h] of Object.entries(HASH)) {
     it(name, () => expect(fnv(getTilePixels(name as TileName))).toBe(h));

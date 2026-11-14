@@ -122,6 +122,8 @@ export interface CombatDeps {
   takenMul?: () => number;
   /** WEAPON-9: true の あいだ 落下ダメージを 出さない（シャイニング中・おわって 着地するまで） */
   noFall?: () => boolean;
+  /** TOWN-1 1B-1: 街の 安全の はんいの 中か（妖怪の こうげき・とびどうぐで ハートが へらない）。なければ 外 */
+  inSafeZone?: () => boolean;
   /** WATERFALL-1 版 2: こげた ブロックに ふれて いるか（足もと・体の となり。なければ ふれない） */
   scorched?: () => boolean;
 }
@@ -577,6 +579,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
 
   private hurt(amount: number, by: YokaiKind | null, from: Vec3 | null, ignoreInvincible = false, kind: DamageKind = 'normal'): boolean {
     if (this.isDead || (this.invincible > 0 && !ignoreInvincible) || !(amount > 0)) return false;
+    if (by !== null && this.d.inSafeZone?.() === true) return false; // 安全地帯: 妖怪の 攻撃は 当たらない
     const cfg = this.config;
     // 防具でふせぐ（M4 §2.7）: 妖怪の攻撃だけ。ふせいだ回も むてき・押されるは ふつうどおり
     // 受けるダメージ = max(体力 1〈ハート半分〉, 元 − カット)。カットが 1 以上ならカキン（blocked）

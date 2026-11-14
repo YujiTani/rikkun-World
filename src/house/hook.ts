@@ -174,7 +174,7 @@ export function createHouseHook(sys: HookSystem, seat: { seat(): SeatInfo | null
   };
   return {
     architects: () => sys.architects(),
-    talk: (id) => void sys.talkTo(String(id)),
+    talk: (id) => void sys.talkTo(String(id), 1, true),
     menu: () => sys.menu(),
     press: (id, arg) => sys.press(id, arg),
     legacyKura: () => sys.legacyKura(),

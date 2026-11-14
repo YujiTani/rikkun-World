@@ -1,3 +1,4 @@
+import type { TownRecord } from '../town/townPlan';
 import type { BlockId, ChunkColumn, Inventory, PlayerState, ScreenSettings, SpawnPoint, Vec3 } from '../contracts';
 import { BOKEN_GEN, HEYA_GEN, KODO_GEN, OLDEST_READABLE_GEN, SAVE_GEN } from './gens';
 import { packColumn, SAVE_ID, type PersistBackend, type StoredChunk, type StoredMeta } from './backend';
@@ -599,12 +600,13 @@ export class SaveManager {
   }
 
   /** meta に 書く 古い 列の 一覧・はじまりの 坑道の 場所（MINE-1C §4.8）。開いた とき 決まり、増やさず 減らさない。ない／空の ときは 書かない */
-  private shaftMeta(): { oldCols?: { cols16: number[] }; shaftStart?: { x: number; z: number } | null } {
+  private shaftMeta(): { oldCols?: { cols16: number[] }; shaftStart?: { x: number; z: number } | null; town?: TownRecord | null } {
     const o0 = this.restored.oldCols;
     const o = o0 ? { kodo: o0.kodo, heya: o0.heya, boken: o0.boken, yakata: o0.yakata ?? new Set<number>() } : undefined;
     const st = this.restored.shaftStart;
     return {
       ...(o && (o.kodo.size > 0 || o.heya.size > 0 || o.boken.size > 0 || o.yakata.size > 0) ? { oldCols: { cols16: packOldCols(o) } } : {}),
+      ...(this.restored.town === undefined ? {} : { town: this.restored.town }),
       ...(st === undefined ? {} : { shaftStart: st === null ? null : { x: st.x, z: st.z } }), // null ＝ さがしたが 置けなかった
     };
   }

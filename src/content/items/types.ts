@@ -6,6 +6,7 @@ import { CHALK_MARK_IDS } from '../../world/blocks/chalkMark';
 import { CHEST_BLOCK_IDS } from '../../world/blocks/chestBlock';
 import { KATAME_TSUCHI, SCAFFOLD_IDS } from '../../world/blocks/buildBlocks';
 import { SHAPE_IDS } from '../../world/blocks/shapeBlocks';
+import { TOWN_BLOCK_IDS } from '../../world/blocks/townBlocks';
 import { FURN_VARIANT_IDS, HOUSE_DOOR_PART_IDS } from '../../world/blocks/houseBlocks';
 import { LOOK_BLOCK_IDS } from '../../world/blocks/houseLookBlocks';
 import { WATER_EXTRA_IDS } from '../../world/blocks/water';
@@ -64,6 +65,8 @@ export const BLOCK_ONLY_IDS = [
   'makimono', // HOUSE-2A: まきもの（持てない。ほると レシピの まきもの `recipe_scroll` 1 こ〔その アイテムの dugFrom〕）
   // HOUSE-2B（#364）: 家の しゅるいの ブロック 20 こ（形ごと。ほると 家の 記録の その しゅるいの アイテム 1 こ。`house/recipes/kinds.ts` の kindItem）
   ...LOOK_BLOCK_IDS,
+  // TOWN-1 1B-1: 街の ブロック 41 こ（持てない・置けない・こわせない。街の 中 だけ）
+  ...TOWN_BLOCK_IDS,
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 

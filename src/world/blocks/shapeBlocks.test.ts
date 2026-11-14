@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { TOWN_BLOCK_IDS } from './townBlocks';
 import { BLOCK_INDEX, BLOCK_TYPES, isOpaqueIndex, isPropIndex } from './blockTypes';
 import { OPACITY } from '../light/opacity';
 import { SHAPE_BASES, SHAPE_BLOCKS, SHAPE_IDS, shapeBoxes } from './shapeBlocks';
@@ -14,7 +15,7 @@ describe('形つきブロック（WAFU-2）', () => {
     expect(new Set(SHAPE_IDS).size).toBe(n);
     const first = BLOCK_INDEX[SHAPE_IDS[0]!];
     SHAPE_IDS.forEach((id, k) => expect(BLOCK_INDEX[id]).toBe(first + k));
-    expect(first + n + 4).toBe(BLOCK_TYPES.length); // そのあと 模様つきの 石 4 つ（WAFU-3）
+    expect(first + n + 4 + TOWN_BLOCK_IDS.length).toBe(BLOCK_TYPES.length); // そのあと 模様つきの 石 4 つ（WAFU-3）、さいごに 街の ブロック（TOWN-1 1B-1）
   });
   it('当たりは 固い・光を 通す・となりの 面を かくさない・ほれない・もとの 絵を 使う', () => {
     for (const b of SHAPE_BLOCKS) {

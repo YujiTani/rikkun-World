@@ -21,6 +21,7 @@ import { playKodachi } from '../../fx/weaponSounds';
 import type { WiredFighters } from './combat';
 import type { WiredHouse } from './house';
 import { emptyKitSize } from './coopMenuView';
+import { townSafe } from './town';
 import { createDamaService } from './dama';
 
 export function wireYokai(deps: WiredFighters) {
@@ -75,7 +76,7 @@ export function wireYokai(deps: WiredFighters) {
     light: renderer.light,
     // 出る場所は 描く輪の メッシュずみの列だけ（VOX-D）
     // HOUSE-1C §4.6: 建築中の 家の まわり 16 マスには 湧かない（建築中の 家だけを 見る。世界は 読まない）
-    canSpawnAt: (x, z) => (shared.streamHost?.stream.isDrawn(Math.floor(x) >> 4, Math.floor(z) >> 4) ?? true) && !(shared.house?.build.builder.noSpawn(x, z) ?? false),
+    canSpawnAt: (x, z) => !townSafe({ x, z }) && (shared.streamHost?.stream.isDrawn(Math.floor(x) >> 4, Math.floor(z) >> 4) ?? true) && !(shared.house?.build.builder.noSpawn(x, z) ?? false),
     // 場所の倍率 M の はじまりの場所・海面の高さは、世界の設定から読む（数を書きこまない）
     origin: () => island.spawn(),
     seaY: () => SEA_Y,

@@ -8,6 +8,7 @@ import { swimOf, swimTarget } from './swimTerrain';
 import { AI_CONST, KIND_AI, type YokaiConfig } from './config';
 import { DT, type Ent, type YokaiField } from './entity';
 import { flySurface, groundSupport } from './terrain';
+import { currentTown } from '../../town/townState';
 import { isDeepWater } from '../../world/blocks/water';
 
 interface MoverDeps {
@@ -35,6 +36,9 @@ export class YokaiMover {
   /** (x, z) に動けるなら動く */
   private place(e: Ent, x: number, z: number): boolean {
     const { world, f, config } = this.d;
+    // TOWN-1 1B-1: 安全地帯（街の まわり）へは 外から 入れない（ふちで 止まる。すでに 中に いる 妖怪は うごける）
+    const town = currentTown();
+    if (town !== null && town.inSafe(x, z) && !town.inSafe(e.x, e.z)) return false;
     const ai = e.dims;
     const swim = swimOf(e);
     if (swim) {

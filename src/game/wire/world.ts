@@ -39,6 +39,7 @@ import { SAVE_BOOT_TIMEOUT_MS } from '../../start/lastWorld';
 import { decideWeightedStart } from '../../start/weightPref';
 import { decideStrength, strengthToSave } from '../../yokai/strengthPref';
 import { playWeapon } from '../../fx/weaponSounds';
+import { bootTown } from './town';
 import { createShared } from './shared';
 import { createWaterSystem } from '../../world/water/waterSystem';
 
@@ -138,6 +139,7 @@ export async function wireBoot() {
   shafts = shaftWorldFor(seed, restored.oldCols, restored.shaftStart);
   if (restored.shaftStart === undefined) restored.shaftStart = shafts.startEntrance(); // meta に 書いて 次から 同じ（なければ null ＝ さがした）
   bindFarmShafts(shafts);
+  bootTown(seed, restored, location.search, shafts); // TOWN-1 1B-1: 最初の 列を 作る 前に 街を きめる
   return {
     shafts, shared, hud, game, audioSettings, audioPersist, mixer, bgm, bgmScene, yakataScene, fxSound, titleSound, saveOptions,
     store, startBoot, startPlan, world, water, seed, island, saveId, idb, restored,

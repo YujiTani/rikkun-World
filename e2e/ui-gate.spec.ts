@@ -1548,7 +1548,7 @@ test('CHAR-4 AC13: ぼくとう と かたなの 画面の ちがいは キャ�
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1280, height: 800 });
   // 小さい輪（E2E の既定）だと 1 回目と 2 回目で 地面の 1 ドットが ちがうことがある。地面も同じに 撮るため ふだんの輪で（#203）
-  await boot(page, true, wide('?nosave=1'));
+  await boot(page, true, wide('?nosave=1&town=off')); // TOWN-1 1B-1: 街の 水・あかりが 動いて 2 回の 画面が ずれないよう 街を 作らない 世界で
   await page.addStyleTag({ content: '#hud{display:none !important}' });
   await page.evaluate(() => {
     const h = window.__rikkun! as any;

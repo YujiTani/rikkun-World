@@ -6,6 +6,7 @@ import type { ChalkMarkId } from '../world/blocks/chalkMark';
 import type { ChestBlockId } from '../world/blocks/chestBlock';
 import type { KATAME_TSUCHI, ScaffoldId } from '../world/blocks/buildBlocks';
 import type { ShapeBlockId } from '../world/blocks/shapeBlocks';
+import type { TownBlockId } from '../world/blocks/townBlocks';
 import type { ReservedId, WaterPartialId } from '../world/blocks/water';
 import type { MagmaExtraId } from '../world/blocks/magma';
 import type { LookBlockId } from '../world/blocks/houseLookBlocks';
@@ -173,6 +174,7 @@ export type BlockId =
   | 'renga_ishi' // いしれんが（大きさの そろった 切り石づみ）
   | 'koke_renga_ishi' // こけの いしれんが
   | ShapeBlockId // WAFU-2: 形つきブロック（見た目だけ 細い・うすい）
+  | TownBlockId // TOWN-1 1B-1: 街の 新しい ブロック 41 こ（街 だけ。こわせない・アイテムに ならない。world/blocks/townBlocks.ts）
   | 'koke_ara_ishi'; // こけの あらいし（ひびの いしは MINE-1E の hibi_ishi が すでに ある）
 
 export interface BlockType {
