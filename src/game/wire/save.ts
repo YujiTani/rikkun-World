@@ -104,6 +104,8 @@ export function wireSave(deps: WiredAchievements) {
     },
     // TOWN-1 1A: ようかいダマの 記録（わたした 実績・前の セーブの あずかり）。記録の ない 前の セーブは 実績から あずかりを 計算（実績の あとに 読む）
     dama: { serialize: () => shared.dama?.serialize() ?? null, deserialize: (d) => shared.dama?.deserialize(d, legacyList(achievements)) },
+    // TOWN-1 1.4: 街の まだ もどって いない マスと 日（古い 保存は 記録 なし ＝ 0 こ）
+    townRepairs: { serialize: () => shared.townRepairs?.serialize() ?? null, deserialize: (d) => shared.townRepairs?.deserialize(d) },
     legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
     // HOUSE-1A: 建築士さんの 記録。前の 保存（キーなし）は 最初の 1 人は 決まった 場所に 出る・かえす くらの 物は なし（1E: 前の 保存の `kura` は 次に 話した とき もちものへ もどす）
     house: { serialize: () => house.serialize(), deserialize: (d) => house.load(d) },
@@ -189,6 +191,7 @@ export function wireSave(deps: WiredAchievements) {
     clock: frameClock,
     placePlayer: (p) => controller.set({ position: { x: p.x, y: raiseAboveBlocks(p.x, p.y, p.z), z: p.z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: p.yawDeg, pitchDeg: p.pitchDeg }),
     onColumnsLoaded: () => farm.rescan(),
+    onColumnLoaded: (cx, cz) => shared.townRepairs?.onColumnLoaded(cx, cz), // TOWN-1 1.4: 見ていない 間に もどる 日に なった 列は 読みこんだ とき もう もどす
     onReady: (kind) => {
       if (kind !== 'boot') return;
       // 保存したプレイヤーの位置が ブロックと重なっていたら スタートへ（D6。そろうまで その場で まつ）

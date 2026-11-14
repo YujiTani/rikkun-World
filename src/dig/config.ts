@@ -199,7 +199,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     ...forLook<number>(WOOD_HARDNESS), // HOUSE-2B: 家の しゅるいの ブロックも き と 同じ
     ...forScaffold<null>(null),
     ...forShape<null>(null),
-    ...forTown<null>(null), // TOWN-1: 街の ブロックは ほれない
+    ...forTown(0.5), // TOWN-1 1.4: 妖怪が かえた 所・ふち だけ ほれる（つち と 同じ 固さ。ほか の 街の ブロックは 街の 守り〔townLocked〕で ほれない）。アイテムに ならない
     ...forWaterExtra<null>(null),
     rope: 0.05, // ROPE-1: すぐ とれる（すすきと 同じ）
     rope_coil: 0.05,

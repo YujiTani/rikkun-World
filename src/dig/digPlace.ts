@@ -195,7 +195,8 @@ export class BlockPlacer {
 
   /** HOUSE-1C PR-2: 建築中の 場所の マスか */
   private lockedCell(x: number, y: number, z: number): boolean {
-    return (this.c.m4.build?.locked(x, y, z) ?? false) || (this.c.m4.town?.locked(x, y, z) ?? false);
+    const town = this.c.m4.town;
+    return (this.c.m4.build?.locked(x, y, z) ?? false) || (town === undefined ? false : town.placeLocked !== undefined ? town.placeLocked(x, y, z) : town.locked(x, y, z));
   }
 
   private overlapsBody(x: number, y: number, z: number): boolean {
@@ -291,6 +292,9 @@ export class BlockPlacer {
       if (!c.m4.bodyBlocks?.place({ x, y, z }, block)) return;
     } else if (!c.world.setBlock(x, y, z, block)) return;
     this.writePlacedLook(spot);
+    const town = c.m4.town;
+    const heldItem = c.inventory.held()?.item;
+    if (town?.placed !== undefined && heldItem !== undefined) for (const k of spot.cells ?? [{ x, y, z }]) town.placed(k.x, k.y ?? y, k.z, heldItem); // TOWN-1 1.4: 記録の マスに 置いた 物
     for (let i = 0; i < (spot.use ?? 1); i++) c.inventory.consumeHeld();
     spot.after?.();
     if (isFurnKind(block, K_TANSU)) c.m4.storage?.placed(x, y, z, c.player().yawDeg);

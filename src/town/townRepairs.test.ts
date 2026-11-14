@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BlockId } from '../contracts';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { TOWN } from './townTuning';
+import { TimeOfDayImpl } from '../time/TimeOfDay';
 import { TownRepairs, type TownRepairDeps } from './townRepairs';
 
 /**
@@ -18,7 +19,7 @@ const solidDesign = (top: number) => (_x: number, y: number, _z: number): string
 
 interface Player { who: 1 | 2; x: number; y: number; z: number }
 
-function rig(o: { unloadedFrom?: number; fixedKeeps?: (x: number, y: number, z: number) => boolean; solidTop?: number } = {}) {
+function rig(o: { unloadedFrom?: number; fixedKeeps?: (x: number, y: number, z: number) => boolean; solidTop?: number; time?: { day(): number } } = {}) {
   const plan = o.solidTop === undefined ? design : solidDesign(o.solidTop);
   const real = new ArrayVoxelWorld({ x: 128, y: 32, z: 128 });
   for (let x = 0; x < 128; x++) for (let z = 0; z < 128; z++) for (let y = 1; y <= (o.solidTop ?? GROUND); y++) real.setBlock(x, y, z, plan(x, y, z) as BlockId);
@@ -47,7 +48,7 @@ function rig(o: { unloadedFrom?: number; fixedKeeps?: (x: number, y: number, z: 
     plan,
     keeps: o.fixedKeeps ?? ((x) => x < 4),
     inTown: (x) => x < 100,
-    day: () => state.day,
+    day: () => o.time?.day() ?? state.day,
     players: () => players,
     overlaps: (p, x, y, z) => x < p.x + 0.3 && x + 1 > p.x - 0.3 && y < p.y + 1.8 && y + 1 > p.y && z < p.z + 0.3 && z + 1 > p.z - 0.3,
     movePlayer: (who, x, y, z) => {
@@ -470,5 +471,44 @@ describe('AC54 保存', () => {
       r.t.deserialize(bad);
       expect(r.t.repairs().cells.length).toBe(0);
     }
+  });
+});
+
+describe('ふとんで ねた 朝（AC52(f)・AC56）', () => {
+  it('sleepToMorning で 日が 1 ふえても 時刻を 進めた ときと 同じに 半分 → ぜんぶ もどる。1P が ねても 2P が ねても 同じ（time.day は 1 つ）', () => {
+    for (const sleeper of [1, 2] as const) {
+      const time = new TimeOfDayImpl();
+      time.set(40000); // 夜の まえ（起きる 時刻は 今より 前 ＝ 日が 1 ふえる）
+      const r = rig({ time });
+      r.players[0] = { who: sleeper, ...FAR };
+      const cells = slab(20, 40, 5, 1);
+      r.break_(cells);
+      const d = time.day();
+      time.sleepToMorning();
+      expect(time.day()).toBe(d + 1);
+      r.step(200);
+      expect(r.t.repairs().cells.length, `${sleeper}P が ねた 朝: ちょうど 半分（切り上げ）`).toBe(5 - 3);
+      expect(r.moved.length).toBe(0);
+      time.set(40000);
+      time.sleepToMorning();
+      r.step(200);
+      expect(r.t.repairs().cells.length, 'つぎの 朝に ぜんぶ').toBe(0);
+    }
+  });
+
+  it('ふとんで ねても 人が 四角 ＋2 マスの 中に いれば まつ（つぎの 朝まで）', () => {
+    const time = new TimeOfDayImpl();
+    time.set(40000);
+    const r = rig({ time });
+    r.players[0] = { who: 1, x: 22.5, y: GROUND + 1, z: 40.5 };
+    r.break_(slab(20, 40, 5, 1));
+    time.sleepToMorning();
+    r.step(300);
+    expect(r.t.repairs().cells.length).toBe(5);
+    expect(r.t.repairs().groups[0]!.waiting).toBe(true);
+    time.set(40000);
+    time.sleepToMorning();
+    r.step(1);
+    expect(r.t.repairs().cells.length, 'つぎの 朝の 1 ステップめに d+1 の 分').toBeLessThanOrEqual(2);
   });
 });

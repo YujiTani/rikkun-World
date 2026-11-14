@@ -6,6 +6,8 @@ import { chooseTown } from '../../town/townPlace';
 import { activateTown, currentTown, deactivateTown } from '../../town/townState';
 import type { TownInfo, XZ } from '../../town/townPlan';
 import type { ShaftWorld } from '../../world/gen/mineShafts';
+import { townGuards } from '../../town/townGuard';
+import { townPlanBlock, townRepairsNow } from './townRepair';
 
 /** URL に `?town=off` ＝ 街を 作らない（くらべ用・街と 関係ない テスト用） */
 const townOffIn = (search: string): boolean => new URLSearchParams(search).get('town') === 'off';
@@ -45,6 +47,14 @@ export function createTownHook() {
     inTown: (x: number, _y: number, z: number): boolean => currentTown()?.inTown(x, z) ?? false,
     /** 街の けむりの つぶ（1B-2 で 入る。いまは 0） */
     smoke: (): number => 0,
+    /** 1.4: まだ もどって いない マス（保存と 同じ 中身）と まとまり。記録が なければ 空 */
+    repairs: () => townRepairsNow()?.repairs() ?? { cells: [], groups: [] },
+    /** 1.4（テストの 準備）: 妖怪の わざと 同じ 口で マスを かえて 記録する */
+    damage: (cells: { x: number; y: number; z: number }[], to?: 'air' | 'stone'): number => townRepairsNow()?.damage(cells, to) ?? 0,
+    /** 1.4: その マスの 設計・生成の 中身（もどった か くらべる） */
+    planBlock: (x: number, y: number, z: number): string => townPlanBlock(x, y, z),
+    /** 1.4: 妖怪の わざでも かわらない 所（あきち・石段・はしの 石がき）か */
+    keeps: (x: number, y: number, z: number): boolean => townGuards(x, y, z),
   };
 }
 
@@ -53,8 +63,3 @@ export const townSafe = (p: { x: number; z: number }): boolean => currentTown()?
 /** 足もとが 街の はんいの 中か（落ちても いたくない。AC42） */
 export const townInside = (p: { x: number; z: number }): boolean => currentTown()?.inTown(p.x, p.z) ?? false;
 
-/** そこの ブロックは こわせない・置けない（街の はんいの 中で、あきちの 外。AC9・AC7b） */
-export const townLocked = (x: number, z: number): boolean => {
-  const t = currentTown();
-  return t !== null && t.inTown(x, z) && !t.inLot(x, z);
-};

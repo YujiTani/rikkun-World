@@ -64,14 +64,29 @@ export interface DigScrollPort {
   dug?(): void;
 }
 
+/** TOWN-1 1.4: 街の ブロックの ほる・置く の 口（src/game/wire/townRepair.ts が 作る。1P と 2P で 1 つずつ） */
+export interface DigTownPort {
+  /** ほれない マスか（true の とき ひびが 進まない） */
+  locked(x: number, y: number, z: number): boolean;
+  /** 置けない マスか。なければ locked と 同じ */
+  placeLocked?(x: number, y: number, z: number): boolean;
+  /** ほる（こわす 前に 1 回）。ふちなら 記録に 入る。true ＝ アイテムに ならない（街の ブロック） */
+  dug?(x: number, y: number, z: number): boolean;
+  /** 置いた（置いた あとに 1 回）。記録の マスなら 置いた 物を おぼえる（もどる 朝に かえす） */
+  placed?(x: number, y: number, z: number, item: ItemId): void;
+}
+
 /** M4 の つなぎ目（どれもなくてよい。なければ M2 のとおり） */
 export interface DigM4Deps {
   /** COOP-1 3a: 仲間（もう 1 人）の 足もとの 位置。なければ 仲間は いない。置く とき 仲間の 体と 重なる マスには 置けない */
   partner?: () => Vec3 | null;
   /** HOUSE-1C PR-2: 家を 建てる 場所の 守りと みずもり・どうづき */
   build?: DigBuildPort;
-  /** TOWN-1 1B-1: 街の はんいの ブロック（あきち 以外）は こわせない・置けない。true の マスは ひびが 進まず「かきん」と 音（unbreakable） */
-  town?: { locked(x: number, y: number, z: number): boolean };
+  /**
+   * TOWN-1 1B-1・1.4: 街の はんいの ブロック（あきち 以外）は ほれない・置けない（妖怪が かえた 記録の マスと ふち だけ 1.4 で ほれる・置ける）。
+   * true の マスは ひびが 進まず「かきん」と 音（unbreakable）
+   */
+  town?: DigTownPort;
   /** MINE-1F: やかたの ブロック・ふさいだ かべは まだ・挑戦の 間は こわせない（`hook.yakataLocked` が 合う）。true の マスは ひびが 進まず ログ「いまは ほれない よ」 */
   yakata?: { locked(x: number, y: number, z: number): boolean };
   /** #293 試作: 大きい がしゃどくろの 体の 上に ブロックを 置く・こわす（ワールドの ブロックと 同じ ねらい・置き方。なければ 何も しない） */

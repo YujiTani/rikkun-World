@@ -219,7 +219,7 @@ export interface TestHook {
   /** HOUSE-1A（#338）: 建築士さん・メニュー・エディター（docs/design/HOUSE-1.md §6.1。src/house/hook.ts。1E: くらは ない。前の セーブの 物は legacyKura()） */
   house: HouseHook;
   /** TOWN-1 1B-1: 街の 窓口（街が なければ info は null） */
-  town: { info(): import('../town/townPlan').TownInfo | null; inSafe(x: number, y: number, z: number): boolean; inTown(x: number, y: number, z: number): boolean; smoke(): number };
+  town: { info(): import('../town/townPlan').TownInfo | null; inSafe(x: number, y: number, z: number): boolean; inTown(x: number, y: number, z: number): boolean; smoke(): number; /** 1.4: まだ もどって いない マス（保存と 同じ 中身）と まとまり（TOWN-1.md §6.1） */ repairs(): { cells: import('../town/townRepairs').RepairCell[]; groups: { day: number; min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number }; left: number; waiting: boolean }[] }; /** 1.4（テストの 準備）: 妖怪の わざと 同じ 口で マスを かえて 記録する。かえた 数 */ damage(cells: { x: number; y: number; z: number }[], to?: 'air' | 'stone'): number; /** 1.4: その マスの 設計・生成の 中身（ブロック id） */ planBlock(x: number, y: number, z: number): string; /** 1.4: 妖怪の わざでも かわらない 所（あきち・石段・はしの 石がき）か */ keeps(x: number, y: number, z: number): boolean };
   /** TOWN-1 1A（docs/design/TOWN-1.md §6.1）: ようかいダマ。p ＝ 1 | 2（2P が いなければ count(2) は null） */
   dama: { count(p: 1 | 2): number | null; give(p: 1 | 2, n: number): { added: number; dropped: number }; legacy(): number | null };
   /** #293 リリース: がしゃどくろ（いま すぐ 出す・たおした ことに する・調整表。src/gasha/release.ts）。起動の おわりに 足される */

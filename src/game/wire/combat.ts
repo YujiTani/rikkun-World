@@ -66,7 +66,8 @@ import { playSleepJingle } from '../../fx/sleepJingle';
 import type { WiredDrops } from './inventory';
 import { createScrollPort } from './scrollPort';
 import { bladeWearPerHit } from '../../content/items/legend4Wear';
-import { townInside, townLocked } from './town';
+import { townInside } from './town';
+import { townDigPort } from './townRepair';
 
 const KOGETA = BLOCK_INDEX.kogeta;
 const SIDES: readonly (readonly [number, number])[] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -445,7 +446,7 @@ export function wireFighters(deps: WiredWeapons) {
     createRng(20240601),
     combat,
     {
-      town: { locked: (x, _y, z) => townLocked(x, z) },
+      town: townDigPort(1),
       yakata: { locked: (x, y, z) => shared.yakataLocked(x, y, z) }, // MINE-1F §4.3: やかたの ブロックは かつ まで こわせない
       bodyBlocks: {
         aim: (o, d, reach) => shared.gashaBodyBlocks?.aim(o, d, reach) ?? null,

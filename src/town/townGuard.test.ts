@@ -7,6 +7,7 @@ import { AI_CONST } from '../yokai/ai/config';
 import { townGuards } from './townGuard';
 import { activateTown, currentTown, deactivateTown } from './townState';
 import { CANAL, SURF, at } from './townLayout';
+import { TOWN_BLOCK_DEFS } from '../world/blocks/townBlocks';
 
 /** AC9（1.4）: 街の ブロックも 妖怪の 技（ぬりかべの たおれこみ・水で 石・がしゃどくろの たたきつけ）で 外と 同じに かわる。かわらない のは keeps（あきち・石段・はしの 石がき）だけ */
 afterEach(() => deactivateTown());
@@ -121,6 +122,19 @@ describe('AC9（1.4）妖怪の 技で 街は かわる（keeps だけ かわら
     }
   });
 
+  it('ふかさ 1 の 用水路でも 水の 面に うかんだ ぬりかべは 石に なる（石が 置かれて 記録の もとに なる）', () => {
+    const t = rig();
+    for (let x = IN.x - 4; x <= IN.x + 4; x++) for (let z = IN.z - 4; z <= IN.z + 4; z++) t.world.setBlock(x, GY + 1, z, 'water'); // 水 1 マス ぶん
+    t.player.position = { x: IN.x + 0.5, y: GY + 12, z: IN.z + 0.5 };
+    const d0 = t.defeats();
+    t.m.spawn('nurikabe', IN.x + 0.5, GY + 2, IN.z + 0.5, { ai: false }); // 水の 面の 上に 立つ
+    for (let i = 0; i < AI_CONST.stoneTicks + 60; i++) t.m.update(1 / 60);
+    expect(t.defeats() - d0).toBe(1);
+    let stones = 0;
+    for (let x = IN.x - 4; x <= IN.x + 4; x++) for (let z = IN.z - 4; z <= IN.z + 4; z++) for (let y = GY + 1; y <= GY + 4; y++) if (t.world.getBlock(x, y, z) === ('stone' as BlockId)) stones++;
+    expect(stones).toBeGreaterThan(0);
+  });
+
   it('がしゃどくろの たたきつけ（crushAt）: protect は keeps の マスだけ。街の 中も 外と 同じに こわれる・あきちは こわさない', () => {
     const t = rig();
     const io = (p: (x: number, y: number, z: number) => boolean) => ({
@@ -134,6 +148,24 @@ describe('AC9（1.4）妖怪の 技で 街は かわる（keeps だけ かわら
     expect(diffAround(t.world, IN, slam(IN)), '街の 中も 外と 同じ 数').toBe(outN);
     const lot = lotCentre();
     expect(diffAround(t.world, lot, slam(lot)), 'あきちの 中は かわらない').toBe(0);
+  });
+});
+
+describe('AC44（1.4）街の ブロック 40 種', () => {
+  it('ぜんぶ 妖怪の たたきつけ・たおれこみで こわれる（空気に なる）。アイテムは 出ない（落とし物の 口が ない）', () => {
+    const t = rig();
+    for (const d of TOWN_BLOCK_DEFS) {
+      t.world.setBlock(IN.x, GY + 1, IN.z, d.id as BlockId);
+      const io = {
+        getBlock: (x: number, y: number, z: number) => t.world.getBlock(x, y, z) as string,
+        setAir: (x: number, y: number, z: number) => t.world.setBlock(x, y, z, 'air'),
+        protect: townGuards,
+      };
+      const changed = crushAt(IN.x + 0.5, GY + 1, IN.z + 0.5, io, { crushRadius: 1, crushDepth: 0, crushUp: 1 });
+      expect(changed.some((c) => c.x === IN.x && c.y === GY + 1 && c.z === IN.z && c.from === d.id && c.to === 'air'), `${d.id} は こわれる`).toBe(true);
+      expect(t.world.getBlock(IN.x, GY + 1, IN.z)).toBe('air');
+    }
+    expect(TOWN_BLOCK_DEFS.length).toBeGreaterThanOrEqual(40);
   });
 });
 

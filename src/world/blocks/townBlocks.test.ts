@@ -3,6 +3,7 @@ import { CRAFT_RECIPES } from '../../craft/recipes';
 import { DIG_DEFAULTS } from '../../dig/config';
 import { ITEM_TYPES } from '../../inventory/items';
 import { EMISSION, OPACITY } from '../light/opacity';
+import { canCrushBlock } from './crushable';
 import { BLOCK_INDEX, BLOCK_TYPES, isOpaqueIndex, isPropIndex } from './blockTypes';
 import { TOWN_BLOCK_DEFS, TOWN_BLOCK_IDS, isTownBlockId } from './townBlocks';
 import { BLOCK_TILES, TILE_NAMES, buildAtlasData, ATLAS_COLS, ATLAS_WIDTH, TILE_SIZE } from './textures';
@@ -115,7 +116,7 @@ describe('AC44 街の 新しい ブロック', () => {
     }
   });
 
-  it('街の 中で こわせず アイテムに ならない・クラフトの 表に ない', () => {
+  it('妖怪の わざで こわれる（1.4）・アイテムに ならない・クラフトの 表に ない', () => {
     const items = new Set(ITEM_TYPES.map((t) => t.id as string));
     const ingredients = new Set<string>();
     for (const r of CRAFT_RECIPES) {
@@ -123,8 +124,9 @@ describe('AC44 街の 新しい ブロック', () => {
       for (const k of r.inputs) ingredients.add(k.item as string);
     }
     for (const d of TOWN_BLOCK_DEFS) {
-      expect(BLOCK_TYPES[BLOCK_INDEX[d.id]!]!.breakable, `${d.id} は こわせない`).toBe(false);
-      expect(DIG_DEFAULTS.hardness[d.id], `${d.id} の ほる 固さ`).toBeNull();
+      expect(BLOCK_TYPES[BLOCK_INDEX[d.id]!]!.breakable, `${d.id} は 妖怪の わざで こわれる`).toBe(true);
+      expect(canCrushBlock(d.id), `${d.id} は たおれこみ・たたきつけで こわれる`).toBe(true);
+      expect(DIG_DEFAULTS.hardness[d.id], `${d.id} の ほる 固さ（妖怪が かえた 所・ふちを プレイヤーが ほる とき）`).toBeGreaterThan(0);
       expect(items.has(d.id), `${d.id} は アイテムに ならない`).toBe(false);
       expect(ingredients.has(d.id), `${d.id} は クラフトの 表に ない`).toBe(false);
     }

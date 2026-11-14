@@ -192,7 +192,8 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'renga_ishi', name: 'いしれんが', solid: true, breakable: true },
   { id: 'koke_renga_ishi', name: 'こけの いしれんが', solid: true, breakable: true },
   // TOWN-1 1B-1（番号は 後ろに 足す）: 街の ブロック 41 こ（40 ＋ 石の てすり）。固い・こわせない（街の 中 だけ に ある）。すける 物は 箱の 形で 描き 光を 通す
-  ...TOWN_BLOCK_DEFS.map((d): BlockType => ({ id: d.id, name: d.name, solid: true, breakable: false })),
+  // 1.4: 妖怪の わざ（たおれこみ・たたきつけ）で こわれる。プレイヤーが ほれる のは 妖怪が かえた 所・ふち だけ（街の 守り ＝ src/game/wire/townRepair.ts）
+  ...TOWN_BLOCK_DEFS.map((d): BlockType => ({ id: d.id, name: d.name, solid: true, breakable: true })),
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(

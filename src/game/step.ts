@@ -77,6 +77,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     audioStep();
     applyUiAlpha(craft2Settings);
     time.update();
+    if (worldReady()) shared.townRepairs?.step(); // TOWN-1 1.4: 朝に なったら 街の こわれた マスを もどす（時間が 進んだ あと）
     gadgets.step(dt); // ITEM-FX-1: ふとん（ねる）・たこ・わらじ（ジャンプの高さ）
     // WEAPON-5: パリィの 入力は 妖怪の 更新の 前（このステップの 当たりが F1 になる）
     const parryIn = dig.parryInput(game.tick + 1);
