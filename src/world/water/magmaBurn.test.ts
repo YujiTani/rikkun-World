@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAGMA_TUNING, magmaBoilsAt } from '../blocks/liquids';
+import { TOWN_BLOCK_IDS } from '../blocks/townBlocks';
+import type { BlockId } from '../../contracts';
 import { ArrayVoxelWorld } from '../VoxelWorld';
 import { attach } from './waterTestKit';
 
@@ -76,5 +78,14 @@ describe('ぐつぐつ マグマ（見た目だけ）', () => {
     expect(magmaBoilsAt(3, 5, 9)).toBe(magmaBoilsAt(3, 5, 9));
     expect(n / 10000).toBeGreaterThan(MAGMA_TUNING.boilChance - 0.03);
     expect(n / 10000).toBeLessThan(MAGMA_TUNING.boilChance + 0.03);
+  });
+  it('街の ブロックは こげない（#381。こわせても 記録に 入らない 道を 作らない）', () => {
+    const r = pit();
+    r.world.setBlock(16, 5, 15, TOWN_BLOCK_IDS[0] as BlockId);
+    r.world.setBlock(14, 5, 15, TOWN_BLOCK_IDS[1] as BlockId);
+    r.sys.magma.set(15, 5, 15, 8);
+    r.step(MAGMA_TUNING.burnEvery * 400);
+    expect(r.world.getBlock(16, 5, 15)).toBe(TOWN_BLOCK_IDS[0]);
+    expect(r.world.getBlock(14, 5, 15)).toBe(TOWN_BLOCK_IDS[1]);
   });
 });

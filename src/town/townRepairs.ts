@@ -113,7 +113,9 @@ export class TownRepairs {
    * もどす ときは 設計の 中身に もどる（街の 外には 出さない）
    */
   noteLiquid(x: number, y: number, z: number): boolean {
-    if (this.cells.size === 0 || this.d.world.getBlock(x, y, z) === this.d.plan(x, y, z)) return false;
+    if (this.cells.size === 0 || !this.d.inTown(x, z) || this.d.keeps(x, y, z)) return false; // 設計の 列を 作る 前に 見る（外の 水で むだに 作らない）
+    if (this.cells.has(cellKey(x, y, z))) return true; // もう 記録に ある: 日を 新しくしない（流れが 続いても もどりが おくれない）
+    if (this.d.world.getBlock(x, y, z) === this.d.plan(x, y, z)) return false;
     return this.note(x, y, z);
   }
 

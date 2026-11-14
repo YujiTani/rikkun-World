@@ -136,6 +136,31 @@ describe('AC52 水の 量も もどる（#381）', () => {
   });
 });
 
+describe('noteLiquid の 順・日（#381）', () => {
+  it('街の 外・keeps の 水では 設計（plan）を 呼ばない', () => {
+    let calls = 0;
+    const r = rig({ plan: (x, y, z) => (calls++, design(x, y, z)) });
+    r.break_([{ x: 20, y: GROUND, z: 40 }]);
+    r.real.setBlock(105, GROUND + 1, 40, 'water_3' as BlockId);
+    r.real.setBlock(2, GROUND + 1, 40, 'water_3' as BlockId);
+    calls = 0;
+    expect(r.t.noteLiquid(105, GROUND + 1, 40)).toBe(false);
+    expect(r.t.noteLiquid(2, GROUND + 1, 40)).toBe(false);
+    expect(calls, '設計の 列を 作らない').toBe(0);
+  });
+
+  it('すでに 記録が ある マスの 水の 変化では 日を 新しくしない（流れが 続いても もどりが おくれない）', () => {
+    const r = rig();
+    r.break_([{ x: 25, y: GROUND, z: 40 }]); // 記録が 1 つ ある
+    r.real.setBlock(20, GROUND + 1, 40, 'water_3' as BlockId);
+    expect(r.t.noteLiquid(20, GROUND + 1, 40)).toBe(true);
+    r.morning();
+    r.real.setBlock(20, GROUND + 1, 40, 'water_2' as BlockId);
+    r.t.noteLiquid(20, GROUND + 1, 40);
+    expect(r.t.repairs().cells.find((c) => c.x === 20)).toEqual({ x: 20, y: GROUND + 1, z: 40, day: 5 });
+  });
+});
+
 describe('AC52 2 日で もどる', () => {
   for (const n of [1, 5, 40]) {
     it(`n=${n}: d の うちは そのまま・d+1 の 朝に ちょうど ⌈n/2⌉・下から・2 ステップに 1 マス 以下・d+2 の 朝の あと 0`, () => {
