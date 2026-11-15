@@ -15,7 +15,7 @@ export function shadeMat(): THREE.MeshBasicMaterial {
       .replace(
         '#include <project_vertex>',
         `#include <project_vertex>
-        vec3 wn = normalize(mat3(modelMatrix) * objectNormal);
+        vec3 wn = normalize(mat3(modelMatrix) * normal);
         vShade = wn.y * wn.y * (wn.y > 0.0 ? 1.0 : 0.5) + wn.z * wn.z * 0.8 + wn.x * wn.x * 0.6;`,
       );
     s.fragmentShader = s.fragmentShader
