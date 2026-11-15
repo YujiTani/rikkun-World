@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { shadeMat } from '../animals/models/animalRenderParts';
+import type { BuiltModel } from '../animals/models/voxelMesh';
 import { shopkeeperModel } from './shopkeeperSpec';
 
 /**
  * よろずやさんを 描く 係（TOWN-1 1C）。1 人 ＝ メッシュ 1 つ（描画 1 回）。ねらい中は ふちどり（+1 回）。
+ * TOWN-1 1E: かじやさん・やたいの 3 人も 同じ 係（形と 体の 材料を わたす。材料は 4 人で 1 つを 使い回す。骨なしの メッシュ）。
  * 遠い・画面の 外・地面が まだ 描かれて いない 時は 描かない。毎フレーム 新しい 物を 作らない。
  */
 const DRAW_RADIUS = 96; // これより 遠いと 描かない（ブロック）
@@ -13,7 +15,6 @@ const OUTLINE = 0x7fe0ff; // ねらい中の ふちどり（建築士さんと �
 
 export class ShopkeeperRenderer {
   readonly group = new THREE.Group();
-  readonly bodyMaterial = shadeMat();
   private readonly hullMaterial = new THREE.MeshBasicMaterial({ color: OUTLINE, fog: false, depthWrite: false });
   private readonly mesh: THREE.Mesh;
   private readonly hull: THREE.Mesh;
@@ -22,8 +23,11 @@ export class ShopkeeperRenderer {
   private readonly sphere = new THREE.Sphere();
   private readonly cam = new THREE.Vector3();
 
-  constructor(private readonly drawn: (x: number, z: number) => boolean = () => true) {
-    const m = shopkeeperModel();
+  constructor(
+    private readonly drawn: (x: number, z: number) => boolean = () => true,
+    m: BuiltModel = shopkeeperModel(),
+    readonly bodyMaterial: THREE.MeshBasicMaterial = shadeMat(),
+  ) {
     this.hullMaterial.userData.noDim = true;
     this.mesh = new THREE.Mesh(m.geo, this.bodyMaterial);
     this.mesh.renderOrder = 2;

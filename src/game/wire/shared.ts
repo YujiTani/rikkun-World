@@ -5,6 +5,10 @@ import { NO_SHOP, type ShopHub } from '../../town/shop/shopTalk';
 import type { ShopService } from '../../town/shop/shop';
 import type { ShopBoxPorts } from '../../town/shop/shopBoxes';
 import type { ShopGive, ShopItemId } from '../../town/shop/shopTable';
+import type { VendorServices } from './vendorService';
+import type { VendorTalkHub } from '../../town/vendor/vendorTalk';
+import type { OfudaPorts } from '../../town/vendor/ofuda';
+import type { FoodPorts, FoodVitals } from '../../town/vendor/food';
 import { DigFx } from '../../fx/DigFx';
 import { PlayerCombatImpl } from '../../combat';
 import { StaggerIcons } from '../../fx/parryFx';
@@ -198,6 +202,16 @@ interface Shared {
   shopSave: ShopService | null;
   /** TOWN-1 1C: よろずやが 物を わたした（実績・テロップ。wireShop が 差しかえる） */
   shopGave: (who: 1 | 2, id: ShopItemId, stacks: readonly ShopGive[]) => void;
+  /** TOWN-1 1E: かじやさん・かいとりの やたい・食事・かえりの おふだの 係（やたいの 保存の ため wireYokai が 先に 作る） */
+  vendors: VendorServices | null;
+  /** TOWN-1 1E: かじやさん・やたいの 人に 話す 口（wireVendors が 入れる。作る 前は null） */
+  townVendors: VendorTalkHub | null;
+  /** TOWN-1 1E: おふだの 見た目・音・ふきだし（wireVendors が 入れる） */
+  ofudaFx: Pick<OfudaPorts, 'started' | 'arrived' | 'refused'>;
+  /** TOWN-1 1E: 食事の 音（もぐもぐ・ハートが ふえた。wireVendors が 入れる） */
+  foodFx: Pick<FoodPorts, 'munch' | 'popped'>;
+  /** TOWN-1 1E: 2P の 体力（食事。参加して いなければ null。wireDuoPlay が 入れる） */
+  p2Vitals: () => FoodVitals | null;
   /** TOWN-1 1B-2: アスレチックの ゴールの 太鼓の 記録（街が なければ null） */
   townDrum: TownDrum | null;
   /** TOWN-1 1.4: 街の だいくさん・足場・ぽんの 1 ステップ（step.ts が 記録の すすめの あとに よぶ。街が なければ null） */
@@ -308,6 +322,11 @@ export function createShared(): Shared {
     townDrum: null,
     shop: NO_SHOP,
     shopSave: null,
+    vendors: null,
+    townVendors: null,
+    ofudaFx: {},
+    foodFx: {},
+    p2Vitals: () => null,
     shopBoxFx: {},
     shopGave: () => {},
     townCarpenterStep: null,

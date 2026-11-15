@@ -306,9 +306,9 @@ export class TownPlan {
     return { x: a.x, y: a.y, z: a.z, yaw: Math.atan2(b.x - a.x, -(b.z - a.z)) };
   }
 
-  /** 街の 人の 足もと（建物の ゆか〔dy 0〕の 上 ＝ 地面〔か 台〕の 2 マス 上。carpenterHome と 同じ）と 向き（手前〔v が ふえる ほう〕） */
+  /** 街の 人の 足もと（建物の ゆか〔dy 0〕の 上 ＝ 地面〔か 台〕の 2 マス 上。carpenterHome と 同じ。やたいは ゆかが dy −1 なので 1 マス 上）と 向き（手前〔v が ふえる ほう〕） */
   private npcSpot(n: NpcSite): TownInfo['npcs'][number] {
-    const y = this.rec.groundY + (n.terrace ? TOWN.terrace.rise : 0) + 2;
+    const y = this.rec.groundY + (n.terrace ? TOWN.terrace.rise : 0) + 1 + n.feetDy;
     const a = this.cell(n.u, n.v, y);
     const b = this.cell(n.u, n.v + 1, y);
     return { kind: n.kind, pos: a, yaw: Math.atan2(b.x - a.x, -(b.z - a.z)) };

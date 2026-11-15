@@ -6,6 +6,7 @@ import { itemType } from '../inventory/items';
 import { DAMA, DAMA_HOUR } from './damaTuning';
 import { SHOP_BOXES } from '../town/shop/shopTable';
 import { shopTexts } from '../town/shop/shopText';
+import { vendorTexts } from '../town/vendor/vendorText';
 import { DAMA_TEXT } from './damaText';
 import {
   DamaService,
@@ -274,7 +275,7 @@ describe('AC50: 画面の 文は 「ようかいダマ」と 書く（「ダマ�
   const rubyOff = (s: string): string => s.replace(/［([^｜］]*)｜[^］]*］/g, '$1');
   const lone = (s: string): boolean => /(?<!ようかい)ダマ/.test(rubyOff(s));
   it('文の 表・もちものの 名前・図鑑・説明・「どこで」に ひとりぼっちの「ダマ」が ない。名前は「ようかいダマ」', () => {
-    const texts: string[] = [...Object.values(DAMA_TEXT), ...shopTexts()]; // 1C: よろずやの 画面の 文
+    const texts: string[] = [...Object.values(DAMA_TEXT), ...shopTexts(), ...vendorTexts()]; // 1C: よろずやの 画面の 文・1E: かじや・やたい・食事・おふだ
     texts.push(itemType('yokai_orb' as never)!.name);
     texts.push((itemDef('yokai_orb') as { zukan: string }).zukan);
     const info = ITEM_INFO.yokai_orb!;

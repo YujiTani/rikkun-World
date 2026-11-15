@@ -615,6 +615,7 @@ export class DigSystemImpl implements DigSystem {
     else if (pv.kind === 'furnace' && t) this.m4.craft?.openFurnace(t.block.x, t.block.y, t.block.z);
     else if ((pv.kind === 'doorOpen' || pv.kind === 'doorClose') && t) this.placer.toggleDoor(t);
     else if (pv.kind === 'read' && pv.item) this.m4.scroll?.read(this.chestWho); // HOUSE-2A: レシピの まきもの（item あり。家具の「よむ」は item なし）。押した 最初の ステップだけ
+    else if (pv.kind === 'ofuda') this.m4.ofuda?.use(this.chestWho); // TOWN-1 1E: かえりの おふだ
     else if (isFurnUse(pv.kind) && t) this.m4.furniture?.use(pv.kind, t.block.x, t.block.y, t.block.z);
     else if (GADGET_KINDS.has(pv.kind)) this.m4.gadgets?.[pv.kind as 'sleep' | 'kite']();
     else if (pv.kind === 'armor' && pv.item) this.m4.armor?.tryEquip(pv.item);

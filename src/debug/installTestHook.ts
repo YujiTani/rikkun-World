@@ -39,12 +39,12 @@ import { createHouseHook } from '../house/hook';
 import { lookDirection } from '../dig/raycast';
 import { computeFarmPlacement } from '../world/gen/farmPlacement';
 import { digSettingsView, settingsViewOf, sharedSettingsView } from './settingsViews';
-import type { WiredShop } from '../game/wire/shop';
+import type { WiredVendors } from '../game/wire/vendors';
 import { createTownHook } from '../game/wire/town';
 import { townDrumNow } from '../game/wire/townDrum';
 import { createDamaHook } from '../game/wire/dama';
 
-export function installGameHook(deps: WiredShop): void {
+export function installGameHook(deps: WiredVendors): void {
   const {
     shared, game, overlay, host, startBoot, world, charCtl, controller, setShadow, seed, achievements,
     countryWatch, renderer, island, save, blobShadow, sky, parry, thunderFx, legend, legendBook, waveSys, hammer,
@@ -346,11 +346,15 @@ export function installGameHook(deps: WiredShop): void {
           settings: () => gamepadApi!.reader.getSettings(),
         }
       : null,
-    duo,
+    duo: Object.assign(duo, deps.vendorHook.duo), // TOWN-1 1E: durability・setDurability
     dama: createDamaHook(shared.dama!),
     town: createTownHook(),
     athletic: { drum: (p: 1 | 2) => ({ cleared: townDrumNow()?.cleared(p) ?? false }) },
     shop: deps.shopHook, // TOWN-1 1C: よろずや（e2e/town1c.spec.ts の 頭の 約束）
+    ofuda: deps.vendorHook.ofuda, // TOWN-1 1E（e2e/town1e.spec.ts の 頭の 約束）
+    smith: deps.vendorHook.smith,
+    stall: deps.vendorHook.stall,
+    food: deps.vendorHook.food,
     audio: createAudioHook({
       mixer,
       bgm,

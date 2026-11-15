@@ -1,0 +1,133 @@
+/*
+ * 食事の 画面（TOWN-1-shop §2.13・§3.2〔1E〕）。ふきだし（2 行まで）の 下に ボタン 2 つ 縦（たべる はば 280・高さ 64 ／ ✕ とじる）。
+ * 1 人 ＝ 画面の まん中、2 人 ＝ 開いた 人の 半分（1P 左・2P 右）。字は くっきり（text-shadow なし・transform で まん中に しない）。本文 20px いじょう・数字 24px いじょう。
+ */
+.meal {
+  position: fixed;
+  z-index: 30;
+  box-sizing: border-box;
+  inset: 0;
+  margin: auto; /* まん中（transform を 使わない） */
+  width: 360px;
+  height: max-content;
+  padding: 16px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #2a2018;
+  text-shadow: none;
+  -webkit-font-smoothing: antialiased;
+  background: #f3ecdc;
+  border-radius: 32px;
+  box-shadow: 0 16px 48px rgb(0 0 0 / 45%);
+  font-family: inherit;
+  pointer-events: auto;
+  user-select: none;
+}
+.meal[data-layout='half'] {
+  right: auto;
+  left: calc(25vw - 180px);
+}
+.meal[data-layout='half'][data-owner='2'] {
+  left: calc(75vw - 180px);
+}
+.meal-say {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: #fffdf7;
+  border: 4px solid #e3d6bd;
+  border-radius: 24px;
+  word-break: keep-all;
+  text-align: center;
+}
+.meal-name {
+  font-size: 20px;
+  font-weight: 800;
+  color: #4f3d2b;
+}
+.meal-bubble {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.3;
+  font-weight: 800;
+}
+.meal-bubble.is-warn {
+  color: #8a2410;
+}
+.meal-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.meal-buy {
+  box-sizing: border-box;
+  width: 280px;
+  height: 64px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+  font-size: 26px;
+  font-weight: 800;
+  white-space: nowrap;
+  color: #2a1808;
+  background: linear-gradient(180deg, #ffc23d, #ff951f);
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 4px 0 #c96a12;
+  cursor: pointer;
+}
+.meal-buy[aria-disabled='true'] {
+  color: #6f675b;
+  background: #ddd7cb;
+  box-shadow: 0 4px 0 #bdb6a8;
+  cursor: default;
+}
+.meal-food {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
+.meal-word {
+  flex: 1;
+  text-align: left;
+}
+.meal-price {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 28px;
+}
+.meal-orb {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+.meal-buy[aria-disabled='true'] .meal-food,
+.meal-buy[aria-disabled='true'] .meal-orb {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+.meal-close {
+  box-sizing: border-box;
+  width: 280px;
+  height: 56px;
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 800;
+  color: #2a2018;
+  background: #fffdf7;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 15%);
+  cursor: pointer;
+}

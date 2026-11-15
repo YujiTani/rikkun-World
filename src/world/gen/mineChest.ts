@@ -15,6 +15,7 @@ import { createRng, hash01, hashInts } from './random';
 const EXCLUDED = [
   { item: 'yokai_orb', reason: 'ようかいダマは 妖怪と 実績で もらう 物。宝箱から 出ると たからばこ と ぐるぐる 回る（TOWN-1 §2.3 の 5）' },
   { item: 'omamori_torn', reason: 'しるし ＝ 記念の 品（やぶれた おまもり）' },
+  { item: 'kaeri_ofuda', reason: 'かえりの おふだは よろずやで こうかん する 物。宝箱の くじに 入れると 今までの 宝箱の 当たり方が かわる（TOWN-1-shop §2.10 の 6）' },
   { item: 'kabita_pan', reason: 'じょうだんの 物。宝箱から 出ると がっかり する（キャンプあとの たんす だけ）' },
   ...YAKATA_BLOCK_IDS.map((item) => ({ item, reason: 'やかたを かちぬいた しるし。宝箱から 出ない' })), // MINE-1F: やかたの ブロック 8 こ
   { item: 'sekkeizu', reason: '1 まいずつ 中身〔plan の 番号〕を もつ 物。宝箱から 出ると 読めない せっけいずに なる' },

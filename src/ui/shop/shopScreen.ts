@@ -72,7 +72,7 @@ export class ShopScreen {
 
   /** 1 行の カードの 数（パッドの 上下） */
   cols(): number {
-    return this.p.half() ? 3 : 6;
+    return this.p.half() ? 4 : 6; // shopScreen.css の .shop-grid の れつ
   }
 
   /** 変わって いれば 書きなおす（毎ステップ よんで よい。変わらなければ 何も しない） */

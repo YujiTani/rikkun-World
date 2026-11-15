@@ -25,6 +25,7 @@ import { townSafe } from './town';
 import { townGuards } from '../../town/townGuard';
 import { createDamaService } from './dama';
 import { createShopService } from './shopService';
+import { createVendorServices } from './vendorService';
 import { townNote, wireTownRepair } from './townRepair';
 
 export function wireYokai(deps: WiredFighters) {
@@ -56,6 +57,24 @@ export function wireYokai(deps: WiredFighters) {
     world,
     creatureAt: (x, y, z) => (shared.yokaiManager?.occupies(x, y, z) ?? false) || animalAt(x, y, z),
     boxFx: () => shared.shopBoxFx,
+  });
+  // TOWN-1 1E: かじやさん・かいとりの やたい・食事・かえりの おふだ（やたいの きょうの 数を 保存する ので ここで 作る。画面・話す 口は wireVendors）
+  shared.vendors = createVendorServices({
+    inventory,
+    armor,
+    playerPos: () => controller.state.position,
+    movePlayer: (to) => controller.set({ position: { x: to.x, y: to.y, z: to.z }, velocity: { x: 0, y: 0, z: 0 } }),
+    vitals1: combat,
+    mate: () => shared.duoMate(),
+    armor2: () => shared.p2.armor,
+    vitals2: () => shared.p2Vitals(),
+    alive: (who) => (who === 1 ? !combat.dead() : shared.duoJoined() && !shared.p2Down()),
+    day: () => time.day(),
+    world,
+    creatureAt: (x, y, z) => (shared.yokaiManager?.occupies(x, y, z) ?? false) || animalAt(x, y, z),
+    scatter: (at, stacks) => drops.scatter(at, stacks),
+    ofudaFx: () => shared.ofudaFx,
+    foodFx: () => shared.foodFx,
   });
   const credit: CreditDeps = { level1: level, level2: shared.p2.levels, feedDefeat: (who, kind) => shared.onDefeatAch(kind, who) };
   // COOP-1 4d-1: 妖怪の 攻撃は ねらっている 人の パリィに 聞く。1P の 側は 今の 中身（1P の parry・向き・火花）を そのまま 包む。2P の 側は 参加している あいだ だけ（いなければ 受けない）

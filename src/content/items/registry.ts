@@ -23,6 +23,7 @@ import { GADGETS } from './misc';
 import { NINJA } from './ninja';
 import { SAMURAI } from './samurai';
 import { TOOLS } from './tools';
+import { TOWN_ITEMS } from './town';
 import type { ItemDef, ItemDefId } from './types';
 import { BOWS, SWORDS } from './weapons';
 
@@ -119,6 +120,8 @@ export const YAKATA_DEFS: ItemDefs = YAKATA_ITEMS;
 export const LEGEND_DEFS: ItemDefs = LEGEND;
 /** LEGEND-4: 新しい レジェンダリー武器（黒龍 …）。ITEM_TYPES・武器の 色分けでは LEGEND の すぐ 次 */
 export const LEGEND4_DEFS: ItemDefs = LEGEND4;
+/** TOWN-1 1E: 街の 物（かえりの おふだ）。ITEM_TYPES・色分けでは いちばん うしろ（やかたの ブロックの 次） */
+export const TOWN_DEFS: ItemDefs = TOWN_ITEMS;
 
 /**
  * MINE-1B（#349）: せっかいせき・しっくい・ほたるいし・きんの いし（置ける）・チョーク・いしばい。
@@ -140,6 +143,7 @@ export const ITEM_DEFS: Readonly<Record<ItemDefId, ItemDef>> = {
   ...ROPE_BLOCKS,
   ...WATERFALL_BLOCKS,
   ...YAKATA_ITEMS,
+  ...TOWN_ITEMS,
 };
 
 /** 登録の 中から、ids の 順に 取り出した 登録（並びを 呼び出し側で 決めたい とき。登録に 無い id は 書きまちがいなので 投げる） */

@@ -1,0 +1,113 @@
+/*
+ * かじやさん・かいとりの やたいの 画面（TOWN-1-shop §3.2〔1E〕）。形は よろずやの 画面（shopScreen.css の .shop-*）を そのまま つかい、
+ * ちがう 所（カードの 中・一覧の スクロール）だけ ここに 書く。字は くっきり（text-shadow なし・transform で まん中に しない）。本文 20px いじょう・数字 24px いじょう。
+ */
+.vendor .shop-list {
+  min-height: 0;
+}
+/* カードが 16 まいを こえる とき（かじやで こわれかけ だらけ）は 一覧だけ たてに スクロール */
+.vendor-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+  padding: 4px;
+}
+.vendor .shop-card.vendor-card {
+  height: auto;
+  min-height: 112px;
+  padding: 8px 4px;
+}
+.vendor .vendor-card .shop-card-art {
+  width: 48px;
+  height: 48px;
+}
+.vendor-empty {
+  margin: 24px 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--shop-sub);
+}
+
+/* かじや: たいきゅうの バー（高さ 8） */
+.vendor-bar {
+  display: block;
+  width: 80%;
+  height: 8px;
+  border-radius: 4px;
+  background: #d9cfbd;
+  overflow: hidden;
+}
+.vendor-bar > span {
+  display: block;
+  height: 100%;
+  background: #e8623c;
+}
+.vendor-bar.is-mid > span {
+  background: #f0b429;
+}
+.vendor-bar.is-hi > span {
+  background: #4caf50;
+}
+.vendor-big-bar {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--shop-sub);
+}
+.vendor-big-bar .vendor-bar {
+  width: 90%;
+  height: 16px;
+  border-radius: 8px;
+}
+
+/* やたい: 「10 →」と ようかいダマの 絵＋「1」の 2 行 */
+.vendor-rate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--shop-ink);
+}
+.vendor-rate-get {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 24px;
+}
+.vendor-card.is-off .vendor-rate {
+  color: #7d7366;
+}
+.vendor-info {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.35;
+  color: var(--shop-sub);
+  word-break: keep-all;
+}
+.vendor-info b {
+  font-size: 24px;
+  color: var(--shop-ink);
+}
+
+.shop.vendor[data-layout='half'] .vendor-card {
+  min-height: 96px;
+}
+.shop.vendor[data-layout='half'] .vendor-card .shop-card-art {
+  width: 40px;
+  height: 40px;
+}
+.shop.vendor[data-layout='half'] .vendor-rate {
+  font-size: 20px;
+}
+.shop.vendor[data-layout='half'] .vendor-info {
+  font-size: 20px;
+}

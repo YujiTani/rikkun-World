@@ -37,6 +37,7 @@ import type { WaterHook } from '../world/water/waterSystem';
 import type { GashaHook } from '../gasha/release';
 import type { HouseHook } from '../house/hook';
 import type { DuoHook } from '../duo/types';
+type VendorHook = import('../game/wire/vendors').WiredVendors['vendorHook'];
 
 type CameraHook = ReturnType<typeof createCameraHook>;
 /** `__rikkun.gfx.state()`: GfxState（start/gfxController.ts）に、いまの pixelRatio と 影の しくみの 有無を 足した もの */
@@ -91,7 +92,7 @@ export interface TestHook {
   aim: { point(): { x: number; y: number; z: number }; assist(): number | null };
   input: ReturnType<typeof createInputHook>;
   /** COOP-1（#395。docs/design/COOP-1.md §12.0）: 2 人で あそぶ。join・place は ?duo=dev の ときだけ 効く */
-  duo: DuoHook;
+  duo: DuoHook & VendorHook['duo'];
   gamepad?: {
     injectPad(pad: Gamepad | null): void;
     /** COOP-1: 偽パッドを 何本でも（null は ぬけた）。injectPad(pad) は injectPads([pad]) と 同じ */
@@ -224,6 +225,11 @@ export interface TestHook {
   town: { info(): import('../town/townPlan').TownInfo | null; inSafe(x: number, y: number, z: number): boolean; inTown(x: number, y: number, z: number): boolean; smoke(): number; /** 1.4: まだ もどって いない マス（保存と 同じ 中身）と まとまり（TOWN-1.md §6.1） */ repairs(): { cells: import('../town/townRepairs').RepairCell[]; groups: { day: number; min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number }; left: number; waiting: boolean }[] }; /** 1.4（テストの 準備）: 妖怪の わざと 同じ 口で マスを かえて 記録する。かえた 数 */ damage(cells: { x: number; y: number; z: number }[], to?: 'air' | 'stone'): number; /** 1.4（1B-2）: こやの 建築士さん（TOWN-1.md §6.1） */ carpenter(): { out: boolean; state: 'home' | 'walk' | 'fix' | 'wait' | 'back'; pos: { x: number; y: number; z: number }; target: number | null; sign: boolean }; /** 1.4（1B-2）: いま 出て いる 足場 */ scaffolds(): { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }[]; /** 1.4: その マスの 設計・生成の 中身（ブロック id） */ planBlock(x: number, y: number, z: number): string; /** 1.4: 妖怪の わざでも かわらない 所（あきち・石段・はしの 石がき）か */ keeps(x: number, y: number, z: number): boolean };
   /** TOWN-1 1C: よろずや（open・close・select・buy・state。e2e/town1c.spec.ts の 頭の 約束） */
   shop: import('../game/wire/shop').WiredShop['shopHook'];
+  /** TOWN-1 1E: かえりの おふだ・かじやさん・かいとりの やたい・食事（e2e/town1e.spec.ts の 頭の 約束） */
+  ofuda: VendorHook['ofuda'];
+  smith: VendorHook['smith'];
+  stall: VendorHook['stall'];
+  food: VendorHook['food'];
   /** TOWN-1 1A（docs/design/TOWN-1.md §6.1）: ようかいダマ。p ＝ 1 | 2（2P が いなければ count(2) は null） */
   dama: { count(p: 1 | 2): number | null; give(p: 1 | 2, n: number): { added: number; dropped: number }; legacy(): number | null };
   /** #293 リリース: がしゃどくろ（いま すぐ 出す・たおした ことに する・調整表。src/gasha/release.ts）。起動の おわりに 足される */
@@ -236,7 +242,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'gfx' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house' | 'duo' | 'dama' | 'town' | 'athletic' | 'shop'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'gfx' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house' | 'duo' | 'dama' | 'town' | 'athletic' | 'shop' | 'ofuda' | 'smith' | 'stall' | 'food'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

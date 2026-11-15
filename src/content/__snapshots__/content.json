@@ -10138,6 +10138,23 @@
       "placeBlock": "onibi_taimatsu",
       "rarity": "rare",
       "recipes": []
+    },
+    "kaeri_ofuda": {
+      "ITEM_INFO.kaeri_ofuda": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック。ひかって いる あいだ まってね",
+        "use": "つかうと まち の ひろば へ かえれる"
+      },
+      "category": "tool",
+      "durabilityClass": "consumable",
+      "maxStack": 16,
+      "name": "かえりの おふだ",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
     }
   },
   "yokai": {

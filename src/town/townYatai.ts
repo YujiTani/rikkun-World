@@ -16,6 +16,21 @@ const Y = {
   yatai: { u0: 56, u1: 62, v0: 29, v1: 32 },
 } as const;
 
+/**
+ * TOWN-1 1E: やたいの 人の 立つ マス（店の 中・まん中）。前の カウンターは その 列だけ あけて おく（前の 石だたみから 人の 体まで 何も じゃま しない ので 話しかけられる）。
+ * townSites.ts の NPC_SITES が 読む（数は ここ 1 か所）
+ */
+export const YATAI_NPC = {
+  dango: { u: (Y.dango.u0 + Y.dango.u1) / 2, v: Y.dango.v1 },
+  gohan: { u: (Y.gohan.u0 + Y.gohan.u1) / 2, v: Y.gohan.v0 + 1 },
+  kaitori: { u: (Y.yatai.u0 + Y.yatai.u1) / 2, v: Y.yatai.v1 - 1 },
+} as const;
+
+/** カウンターの その マスを あける（人の 前。dy 0〜1。となりの 上〔dy 1〕にも 物を 置かない） */
+function counterGap(b: Builder, u: number, v: number): void {
+  b.clear(u, v, 0, u, v, 1);
+}
+
 /** かんばん（左から）: 1 ブロックずつの 字を ならべ、両はしに ふたを 置く */
 function sign(b: Builder, set: string, chars: readonly string[], u0: number, v: number, dy: number): void {
   chars.forEach((ch, i) => b.put(u0 + i, v, dy, T(`sign_${set}_${ch}`)));
@@ -36,11 +51,12 @@ function dango(b: Builder): void {
   // 前: のれん（赤）・カウンターと だんご・のぼり
   b.fill(D.u0 + 1, D.v1, 2, D.u1 - 1, D.v1, 2, T('noren_shu'));
   b.fill(D.u0, D.v1 + 1, 0, D.u1, D.v1 + 1, 0, T('yukaita'));
-  for (const u of [D.u0 + 1, D.u1 - 1]) b.put(u, D.v1 + 1, 1, T('dango_gushi'));
-  b.put(D.u0 + 2, D.v1 + 1, 1, T('hako'));
+  // 1E: カウンターの 上の 物は 両はしへ（まん中 3 マスの 上は あけて、ななめ うしろの カメラからも だんごやさんが 見える・話せる）
+  for (const u of [D.u0, D.u1]) b.put(u, D.v1 + 1, 1, T('dango_gushi'));
   b.put(D.u0 + 1, D.v0 + 1, 0, T('taru'));
   b.put(D.u1 - 1, D.v0 + 1, 0, T('hako'));
   b.put(D.u0 + 2, D.v0 + 1, 0, T('dango_gushi'));
+  counterGap(b, YATAI_NPC.dango.u, D.v1 + 1); // 1E: だんごやさんの 前
   sign(b, 'dango', SIGN_DANGO, D.u0 + 1, D.v1 + 1, 3);
   for (const u of [D.u0 - 1, D.u1 + 1]) b.fill(u, D.v1 + 1, 0, u, D.v1 + 1, 1, T('noboru_aka'));
 }
@@ -69,10 +85,11 @@ function gohan(b: Builder): void {
     b.put(u, G.v0 + 1, 1, T('nabe_yuge'));
   }
   b.fill(G.u0 + 1, G.v1, 0, G.u1 - 1, G.v1, 0, T('yukaita'));
+  // 1E: おひつと なべは 両はしへ（まん中 3 マスの 上は あけて、ななめ うしろの カメラからも ごはんやさんが 見える・話せる）
   b.put(G.u0 + 1, G.v1, 1, T('ohitsu'));
-  b.put(G.u0 + 3, G.v1, 1, T('nabe_yuge'));
-  b.put(G.u1 - 1, G.v1, 1, T('ohitsu'));
+  b.put(G.u1 - 1, G.v1, 1, T('nabe_yuge'));
   b.fill(G.u0 + 1, G.v1, 2, G.u1 - 1, G.v1, 2, T('noren_ai'));
+  counterGap(b, YATAI_NPC.gohan.u, G.v1); // 1E: ごはんやさんの 前
   sign(b, 'gohan', SIGN_GOHAN, G.u0 + 2, G.v1 + 1, 2);
 }
 
@@ -89,10 +106,9 @@ function yatai(b: Builder): void {
   for (const u of [A.u0 + 1, mid, A.u1 - 1]) b.put(u, A.v0, 1, T('omen'));
   for (const u of [mid - 1, mid + 1]) b.put(u, A.v0 + 2, 2, T('furin'));
   b.fill(A.u0 + 1, A.v1, 0, A.u1 - 1, A.v1, 0, T('yukaita'));
+  // 1E: かごは 両はしだけ（まん中 3 マスの 上は あけて、ななめ うしろの カメラからも やたいさんが 見える・話せる）
   for (const u of [A.u0 + 1, A.u1 - 1]) b.put(u, A.v1, 1, T('kago_m'));
-  b.put(mid, A.v1, 1, T('hako'));
-  b.put(mid - 1, A.v1, 1, T('kago_m'));
-  b.put(mid + 1, A.v1, 1, T('kago_m'));
+  counterGap(b, YATAI_NPC.kaitori.u, A.v1); // 1E: やたいさんの 前
   sign(b, 'yatai', SIGN_YATAI, mid - 1, A.v1 + 1, 2);
 }
 

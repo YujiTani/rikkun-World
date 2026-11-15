@@ -1,5 +1,5 @@
 // main.ts の 流れ 4: 戦い・道具・レジェンダリー・たんす・作る・農業・掘る。
-import { withShopTalk } from '../../town/shop/shopTalk';
+import { withTownTalk } from './townTalkPort';
 import { createTenshiWire } from './tenshiWire';
 import { tenshiNoFall } from '../../player/tenshiMove';
 import { BLOCK_INDEX } from '../../world/blocks/blockTypes';
@@ -487,13 +487,13 @@ export function wireFighters(deps: WiredWeapons) {
       coopMenu: (id) => shared.openCoopMenu(id),
       // HOUSE-1A: 建築士さん（wireHouse で あとから 作る ので 関数で 包む）
       // TOWN-1 1C: よろずやさんも 同じ 口で 話す（近い ほう）
-      architects: withShopTalk(
+      architects: withTownTalk(
         {
           rayHit: (origin, dir, reach) => shared.house?.manager.rayHit(origin, dir, reach) ?? null,
           talk: (id) => shared.house?.talkTo(id) ?? false,
           hit: (id) => shared.house?.hit(id),
         },
-        () => shared.shop,
+        shared, // TOWN-1 1C・1E: よろずやさん・かじやさん・やたいの 人も 同じ 口
         1,
       ),
       // HOUSE-1C PR-2: 建築中の 場所の 守りと みずもり・どうづき（wireHouse で あとから 作る ので 関数で 包む）
@@ -513,6 +513,7 @@ export function wireFighters(deps: WiredWeapons) {
       houseLook: () => shared.house?.book ?? null,
       placedLooks: () => shared.house?.placedLooks ?? null,
       scroll: createScrollPort(() => shared.house, 1), // HOUSE-2A: レシピの まきもの（もって 右クリックで よむ）
+      ofuda: { use: (who) => shared.vendors?.ofuda.use(who) }, // TOWN-1 1E: かえりの おふだ
     },
   );
   hammer = createHammerSystem({
