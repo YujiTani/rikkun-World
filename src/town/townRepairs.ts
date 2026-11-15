@@ -1,4 +1,5 @@
 import { blockIndexOf, BLOCK_TYPES } from '../world/blocks/blockTypes';
+import { chestBlockInfo } from '../world/blocks/chestBlock';
 import { boundsOf, byBottom, cellKey, columnKey, partition, type Cell, type RepairCell } from './townRepairGroups';
 import { findSpot, type Spot } from './townRepairMove';
 import { deserializeRepairs, serializeRepairs } from './townRepairSave';
@@ -124,7 +125,7 @@ export class TownRepairs {
 
   /** 妖怪の わざで マスが かわった（こわれた・石が 置かれた・水が ながれこんだ）。街の はんいの 外・keeps は 記録しない */
   note(x: number, y: number, z: number): boolean {
-    if (!this.d.inTown(x, z) || this.d.keeps(x, y, z)) return false;
+    if (!this.d.inTown(x, z) || this.d.keeps(x, y, z) || this.isChest(x, y, z)) return false;
     const k = cellKey(x, y, z);
     const c = this.cells.get(k);
     const day = this.d.day();
@@ -153,12 +154,17 @@ export class TownRepairs {
   damage(list: readonly { x: number; y: number; z: number }[], to: 'air' | 'stone' = 'air'): number {
     let n = 0;
     for (const c of list) {
-      if (!this.d.inTown(c.x, c.z) || this.d.keeps(c.x, c.y, c.z)) continue;
+      if (!this.d.inTown(c.x, c.z) || this.d.keeps(c.x, c.y, c.z) || this.isChest(c.x, c.y, c.z)) continue;
       if (!this.d.world.setBlock(c.x, c.y, c.z, to)) continue;
       this.note(c.x, c.y, c.z);
       n++;
     }
     return n;
+  }
+
+  /** 宝箱の マス（よろずやの 前の たからばこ。1.5 §2.7 の 13）: 妖怪の わざでも こわれない ので 記録しない・書きかえない */
+  private isChest(x: number, y: number, z: number): boolean {
+    return chestBlockInfo(this.d.world.getBlock(x, y, z)) !== null;
   }
 
   isRecorded(x: number, y: number, z: number): boolean {

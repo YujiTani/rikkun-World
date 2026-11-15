@@ -7,6 +7,7 @@ import { BUILDING_SITES, NPC_SITES, STALL_SITES, heightOf, type BuildingKind, ty
 import { KAJIYA_CHIMNEY } from './townKajiya';
 import { planTownTrees, type TownTree } from './townTrees';
 import { TOWN, type Facing } from './townTuning';
+import { planShopSpots, type ShopSpot } from './shop/shopSpots';
 
 /**
  * TOWN-1 1B-1: 街の 記録（保存する 数）と、世界の 座標への うつし・`town.info()` の 中身・安全地帯の しらべ。
@@ -145,6 +146,7 @@ export class TownPlan {
   readonly stairTopAt: ReadonlyMap<number, 'light' | 'banner'>;
   private readonly infoCache: TownInfo;
   private treeList: readonly TownTree[] | null = null;
+  private spotList: readonly ShopSpot[] | null = null;
   private readonly gateWorld: XZ;
 
   /** spawn ＝ スタート地点の マス（見通しの みちの はじめ）。なければ みちを 作らない */
@@ -334,6 +336,17 @@ export class TownPlan {
 
   info(): TownInfo {
     return this.infoCache;
+  }
+
+  /** その マスの 足もと（地面か 奥の 列の 台の 上の 空気の y） */
+  feetY(u: number, v: number): number {
+    return this.rec.groundY + (layout.surf[at(u, v)] === SURF.terrace ? TOWN.terrace.rise : 0) + 1;
+  }
+
+  /** よろずやの たからばこの 置き場 4 か所（TOWN-1-shop §4.3b。えらぶ 順。初めて 呼んだ とき 1 回 だけ 作る） */
+  shopSpots(): readonly ShopSpot[] {
+    if (this.spotList === null) this.spotList = planShopSpots({ toWorld: (u, v) => this.toWorld(u, v), feetY: (u, v) => this.feetY(u, v) });
+    return this.spotList;
   }
 
   private cell(u: number, v: number, y: number): P3 {
