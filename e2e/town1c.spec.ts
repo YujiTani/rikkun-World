@@ -1,7 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { findEdgeSpot, openTown, place1P, place2P, townInfo, type P3, type TownInfo } from './helpers/town';
-import { countOf, damaOf, hpOf, shopCall, shopState, shopStand, stepN, talkByClick1P, talkByPad2P, tid, type Who } from './helpers/shop';
-import { setFakePad } from './helpers/duoUi';
+import { blockAt, countOf, damaOf, hpOf, openBoxByClick1P, openBoxByPad2P, openSavedTown, shopBoxes, shopCall, shopSpots, shopState, shopStand, stepN, talkByClick1P, talkByPad2P, tid, type Who } from './helpers/shop';
+import { installFakePads, setFakePad } from './helpers/duoUi';
+import { rollChest } from '../src/world/gen/mineChest';
+import { boxSeed } from '../src/town/shop/shop';
 
 /**
  * TOWN-1 区切り 1C（よろずやの 画面と たからばこ。docs/design/TOWN-1-shop.md §2.6・§2.7・§3.2・§4.2・§4.3、AC13・AC16・AC19・AC20）。実装の 前に 書いた 赤の テスト。
@@ -13,7 +15,8 @@ import { setFakePad } from './helpers/duoUi';
  *   shop.open(p) → boolean      よろずやさんに 話した のと 同じ（きょりは 見ない。画面が 開けば true）
  *   shop.close(p)               ✕ と 同じ
  *   shop.select(p, id | null)   カードを えらんだ のと 同じ
- *   shop.buy(p, id) → 'ok' | 'short' | 'soldOut'   えらんで「こうかん」を 押した のと 同じ（id は 品の id・'kobako'・'obako'。箱は 'ok' の とき state.result に 中身が 入り、画面が あれば 中身の 表示が 出る）
+ *   shop.buy(p, id) → 'ok' | 'short' | 'soldOut' | 'full'   えらんで「こうかん」を 押した のと 同じ（id は 品の id・'kobako'・'obako'。箱は 'ok' の とき 画面が とじて 戸の 前の 置き場に 坑道の 宝箱が 出る。1.5）
+ *   shop.spots() / shop.boxes() / shop.openBox(p, i) → 'ok' | 'opened' | 'none'   TOWN-1.md §6.1 の 1.5 の とおり（あけるのは 1P・2P どちらでも・中身は あけた 人に 入る。たねは 買った 人と その 人の 回数）
  *   shop.state(p) → { open, dama, items: { id, price, canBuy, soldOut }[], selected, result: { box, items: { item, count, rarity }[] } | null,
  *                     bubble: string | null（よろずやさんの ふきだしの 文）, opens: { kobako: number, obako: number }（その 人が その 箱を あけた 回数） }
  *     items は 仕様 §4.2 の 順。いちばん 後ろ 2 つの id が 'kobako'・'obako'。ねだんは ここから 読む（決め打ちしない）
@@ -27,10 +30,11 @@ import { setFakePad } from './helpers/duoUi';
  *   shop-sample        箱を えらんだ とき だけ 出る「こんな ものが でるかも」
  *   shop-buy           「こうかん」ボタン。`aria-disabled`（たりない・ぜんぶ もってる とき "true"。`disabled` 属性は 使わず、押すと ふきだしが 出る）。高さ 56 以上
  *   shop-close         ✕。56×56 以上
- *   shop-result        たからばこの 中身の 表示。`shop-result-card`（中身の 数だけ。`data-item`・`data-rarity`）。`shop-result-close`「とじる」（高さ 56 以上）。「もう 1 かい」は 置かない（`shop-again` は ない）
+ *   （1.5: 画面の 中の 結果 `shop-result` は なくなった。箱は 世界に 出る。あける 口は 坑道の 宝箱と 同じ 右クリック／ZL）
  * 話す: 1P は よろずやさんを ねらって 右クリック（secondary）、2P は ZL（パッド 6）。どちらも `shop.state(p).open` が true に なる。
  */
 
+const WORLD_SEED = 11; // URL の seed（くじの たね。1P・2P・回数で かわる。boxSeed に わたす）
 const OPEN_MAX = 300; // 話してから 画面が 開くまでの 上限 ステップ（回）
 const FREEZE_STEPS = 600; // 1 人で 開いて いる 間 ステップ（AC20。仕様の 数）
 const BTN_MIN = 56; // ボタンの 高さ（px。仕様 §3.2）
@@ -40,6 +44,22 @@ const rect = (page: Page, id: string) =>
     const r = document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect();
     return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom, w: r.width, h: r.height } : null;
   }, id);
+
+const wantItems = (items: { item: string; count: number }[]): Map<string, number> => {
+  const m = new Map<string, number>();
+  for (const s of items) m.set(s.item, (m.get(s.item) ?? 0) + s.count);
+  return m;
+};
+const countsOf = async (page: Page, p: Who, keys: string[]): Promise<Record<string, number>> => {
+  const o: Record<string, number> = {};
+  for (const k of keys) o[k] = await countOf(page, p, k);
+  return o;
+};
+const addCounts = (base: Record<string, number>, add: Map<string, number>): Record<string, number> => {
+  const o = { ...base };
+  for (const [k, n] of add) o[k] = (o[k] ?? 0) + n;
+  return o;
+};
 
 /** よろずやの 画面の ならべ方に よらない 見た目の きまり（AC19 の うち 6 歳向けの 最小）。もんだいの 文の 一覧を 返す */
 async function layoutIssues(page: Page, p: Who, duo: boolean): Promise<string[]> {
@@ -99,7 +119,7 @@ test.describe('TOWN-1 1C よろずやの 画面と たからばこ', () => {
 
   for (const p of [1, 2] as const) {
     test(`AC13・AC16 通し（${p}P）: 話す → たいまつを こうかん → たりない → こばこを あける → とじる`, async ({ page }) => {
-      const { info } = await duoWorld(page);
+      const { info } = await duoWorld(page, `&seed=${WORLD_SEED}`);
       const { npc, stand } = shopStand(info as never);
       const other: Who = p === 1 ? 2 : 1;
       // 開かない ほうの 人は ひろばに 置く
@@ -156,12 +176,12 @@ test.describe('TOWN-1 1C よろずやの 画面と たからばこ', () => {
       const need = obako.price - d1;
       expect(await tid(page, 'shop-bubble').textContent(), 'ふきだしに たりない 数').toMatch(new RegExp(`ようかいダマ.*あと.*${need}.*たりない`));
       expect(await shopCall(page, 'buy', p, 'obako')).toBe('short');
-      expect((await shopState(page, p)).result, 'たりない とき 中身は 出ない').toBeNull();
+      expect((await shopBoxes(page)).length, 'たりない とき 箱は 出ない').toBe(0);
 
-      // こばこ（AC16）: ダマ −ねだん・中身が 出る・もちものに 入る・とじる
+      // こばこ（AC16 1.5）: ダマ −ねだん・画面が とじる・戸の 前に 箱が 出る・あける → 中身が もちものに 入る
       const kobako = (await shopState(page, p)).items.find((i) => i.id === 'kobako')!;
       expect(kobako.canBuy, 'こばこは 買える').toBe(true);
-      const before = (await shopState(page, p)).opens.kobako;
+      const nBefore = (await shopState(page, p)).opens.kobako;
       await tid(page, 'shop-card-kobako').click();
       await stepN(page, 2);
       await expect(tid(page, 'shop-sample'), 'こばこを えらぶと「こんな ものが でるかも」').toBeVisible();
@@ -170,69 +190,117 @@ test.describe('TOWN-1 1C よろずやの 画面と たからばこ', () => {
       await stepN(page, 3);
       st = await shopState(page, p);
       expect(await damaOf(page, p), 'こばこの ねだんだけ へる').toBe(d2 - kobako.price);
-      expect(st.opens.kobako, 'あけた 回数が 1 ふえる').toBe(before + 1);
-      expect(st.result?.box).toBe('kobako');
-      expect(st.result!.items.length, '中身が 1 こ 以上').toBeGreaterThan(0);
-      await expect(tid(page, 'shop-result')).toBeVisible();
-      await expect(page.getByTestId('shop-result-card')).toHaveCount(st.result!.items.length);
-      const got = new Map<string, number>();
-      for (const r of st.result!.items) {
-        expect(r.rarity, '中身は めずらしさ（★）つき').toBeGreaterThanOrEqual(1);
-        got.set(r.item, (got.get(r.item) ?? 0) + r.count);
-      }
-      for (const [item, n] of got) expect(await countOf(page, p, item), `中身 ${item} が もちものに 入る（あきは たっぷり ある）`).toBeGreaterThanOrEqual(n);
-      expect(await page.getByTestId('shop-result-card').evaluateAll((els) => els.every((e) => !!e.getAttribute('data-rarity') && !!e.getAttribute('data-item'))), '中身の カードに めずらしさ').toBe(true);
-      await expect(page.getByTestId('shop-again'), '「もう 1 かい」は 置かない').toHaveCount(0);
-      await test.info().attach(`shop-result-${p}P`, { body: await page.screenshot({ path: `test-shots/town1c-result-${p}P.png` }), contentType: 'image/png' });
-      const rc = await rect(page, 'shop-result-close');
-      expect(rc && rc.h >= BTN_MIN - 0.5, '「とじる」は 高さ 56 以上').toBe(true);
-      await tid(page, 'shop-result-close').click();
-      await stepN(page, 2);
-      expect((await shopState(page, p)).result, '中身の 表示が とじる').toBeNull();
-      expect((await shopState(page, p)).open, 'よろずやの 画面は まだ 開いて いる').toBe(true);
-
-      // ✕ で とじる
-      await tid(page, 'shop-close').click();
-      await stepN(page, 2);
-      expect((await shopState(page, p)).open, '✕ で とじる').toBe(false);
+      expect(st.open, '買うと 画面は すぐ とじる').toBe(false);
       await expect(tid(page, 'shop-screen')).toHaveCount(0);
+      expect(st.opens.kobako, 'こうかん した 回数が 1 ふえる').toBe(nBefore + 1);
+      expect(st.bubble ?? '', 'よろずやさんの ふきだし').toContain('おいたよ');
+      await expect(page.getByTestId('shop-result'), '画面の 中の 結果は ない').toHaveCount(0);
+      const boxes = await shopBoxes(page);
+      expect(boxes.length, '箱が 1 こ 出る').toBe(1);
+      const spots = await shopSpots(page);
+      expect(spots.length, '置き場が ある').toBeGreaterThan(0);
+      const bx = boxes[0]!;
+      expect({ box: bx.box, p: bx.p, n: bx.n, spot: bx.spot, opened: bx.opened }, '買った 人・回数・① の 置き場').toEqual({ box: 'kobako', p, n: nBefore, spot: 0, opened: false });
+      expect(bx.main).toEqual(spots[0]!.main);
+      expect(await blockAt(page, bx.main), '本体の ブロックは 段の 宝箱').toBe(`takarabako_${bx.tier}`);
+      expect(await blockAt(page, bx.cells[1]!), 'のこりの ブロック').toBe(`takarabako_${bx.tier}_r`);
+      const want = rollChest('kodo', boxSeed(WORLD_SEED, p, 'kobako', nBefore));
+      expect(bx.tier, '段は くじの 段').toBe(want.tier);
+      const items = wantItems(want.items);
+      const have0 = await countsOf(page, p, [...items.keys()]);
+      await test.info().attach(`shop-box-${p}P`, { body: await page.screenshot({ path: `test-shots/town1c-box-${p}P.png` }), contentType: 'image/png' });
+
+      // いつもの あけ方（ねらって 右クリック／ZL）。あけた 人に 中身が 入る
+      if (p === 1) await openBoxByClick1P(page, spots[0]!);
+      else await openBoxByPad2P(page, spots[0]!);
+      let opened = false;
+      for (let i = 0; i < 200 && !opened; i++) {
+        await stepN(page, 1);
+        opened = (await shopBoxes(page))[0]?.opened ?? true;
+      }
+      expect(opened, '箱が あく').toBe(true);
+      await stepN(page, 20);
+      expect(await countsOf(page, p, [...items.keys()]), '中身が もちものに ふえる').toEqual(addCounts(have0, items));
+      await stepN(page, 100);
+      expect((await shopBoxes(page)).length, 'あけた 箱は きえる').toBe(0);
+      expect(await blockAt(page, bx.main), 'きえた あとは 空気').toBe('air');
     });
   }
 
-  test('AC16: くじは シードで 決まる（同じ シード・同じ 順で 同じ 中身）・1P と 2P の 回数は 別（2P が あけても 1P の 中身は かわらない）', async ({ page }) => {
-    // order: '2P が 先' = 2P → 1P → 1P / '2P が 後' = 1P → 1P → 2P
-    const run = async (order: 'p2first' | 'p2last'): Promise<{ a: unknown; b: unknown; opens: Record<Who, number> }> => {
-      await openTown(page, { duo: true, extra: '&seed=11' });
-      await page.evaluate(() => {
-        const h = (window as any).__rikkun;
-        h.dama.give(1, 60);
-        h.dama.give(2, 60);
-      });
-      const open = async (p: Who) => {
-        expect(await shopCall(page, 'open', p), `${p}P の 画面が 開く`).toBe(true);
-        expect(await shopCall(page, 'buy', p, 'kobako')).toBe('ok');
-        const r = (await shopState(page, p)).result;
-        expect(r, `${p}P の こばこの 中身が ある`).not.toBeNull();
-        await shopCall(page, 'close', p);
-        return r;
-      };
-      if (order === 'p2first') await open(2);
-      const a = await open(1);
-      const b = await open(1);
-      if (order === 'p2last') await open(2);
-      return { a, b, opens: { 1: (await shopState(page, 1)).opens.kobako, 2: (await shopState(page, 2)).opens.kobako } };
-    };
-    const r1 = await run('p2first');
-    const r2 = await run('p2first'); // もう 1 回 同じ シード・同じ 順
-    expect(r2.a, '同じ シード・同じ 順なら 1P の 1 回目は 同じ 中身').toEqual(r1.a);
-    expect(r2.b, '2 回目も 同じ').toEqual(r1.b);
-    expect(r1.opens[1], '1P は 2 回 あけた').toBe(2);
-    expect(r1.opens[2], '2P は 1 回（回数は 人ごと）').toBe(1);
-    // 2P が 先でも 後でも 1P の 中身は かわらない
-    const r3 = await run('p2last');
-    expect(r3.opens, '回数は 人ごと').toEqual({ 1: 2, 2: 1 });
-    expect(r3.a, '2P が 先に あけても 後に あけても 1P の 1 回目は 同じ').toEqual(r1.a);
-    expect(r3.b, '1P の 2 回目も 同じ').toEqual(r1.b);
+  test('AC16: くじは シードと 買った 人・回数で 決まる（あける 順・あける 人に よらない）。あけた 人に 中身が 入る', async ({ page }) => {
+    await openTown(page, { duo: true, extra: `&seed=${WORLD_SEED}` });
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.dama.give(1, 60);
+      h.dama.give(2, 60);
+    });
+    for (const p of [2, 1, 1] as const) {
+      expect(await shopCall(page, 'open', p), `${p}P の 画面が 開く`).toBe(true);
+      expect(await shopCall(page, 'buy', p, 'kobako')).toBe('ok');
+      expect((await shopState(page, p)).open, '買うと とじる').toBe(false);
+    }
+    const boxes = await shopBoxes(page);
+    expect(boxes.map((b) => [b.p, b.n]), '買った 順に 人ごとの 回数').toEqual([[2, 0], [1, 0], [1, 1]]);
+    expect(boxes.map((b) => b.spot), '置き場は ① ② ③ の 順').toEqual([0, 1, 2]);
+    // あける 順を 逆に・買った 人と ちがう 人が あける（中身は あけた 人に 入る。たねは 買った 人と 回数）
+    for (const b of [...boxes].reverse()) {
+      const opener: Who = b.p === 1 ? 2 : 1;
+      const want = rollChest('kodo', boxSeed(WORLD_SEED, b.p, 'kobako', b.n));
+      expect(b.tier, `箱 ${b.p}P-${b.n} の 段`).toBe(want.tier);
+      const items = wantItems(want.items);
+      const keys = [...items.keys()];
+      const mine0 = await countsOf(page, opener, keys);
+      const buyer0 = await countsOf(page, b.p, keys);
+      const idx = (await shopBoxes(page)).findIndex((x) => x.p === b.p && x.n === b.n);
+      expect(await shopCall(page, 'openBox', opener, idx), `${opener}P が あける`).toBe('ok');
+      await stepN(page, 100);
+      expect(await countsOf(page, opener, keys), `あけた ${opener}P に 中身が 入る（${b.p}P の ${b.n} 番め）`).toEqual(addCounts(mine0, items));
+      expect(await countsOf(page, b.p, keys), '買った 人の もちものは かわらない').toEqual(buyer0);
+    }
+    expect((await shopBoxes(page)).length, 'ぜんぶ あけると 箱は ない').toBe(0);
+    const s1 = await shopState(page, 1);
+    const s2 = await shopState(page, 2);
+    expect([s1.opens.kobako, s2.opens.kobako], '回数は 人ごと').toEqual([2, 1]);
+  });
+
+  test('AC16 保存: あけて いない 箱は セーブして 開きなおしても 同じ 場所・同じ 段で のこり、あけられる（1P・2P 両方）', async ({ page }) => {
+    await openSavedTown(page, `reset=1&seed=${WORLD_SEED}`, { duo: true });
+    await installFakePads(page, 2);
+    expect(await page.evaluate(() => (window as any).__rikkun.duo.join())).toBe(true);
+    await stepN(page, 30);
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.dama.give(1, 30);
+      h.dama.give(2, 30);
+    });
+    for (const p of [1, 2] as const) {
+      expect(await shopCall(page, 'open', p)).toBe(true);
+      expect(await shopCall(page, 'buy', p, 'kobako')).toBe('ok');
+    }
+    const before = await shopBoxes(page);
+    expect(before.length).toBe(2);
+    await page.evaluate(() => (window as any).__rikkun.save.now());
+    await openSavedTown(page, `seed=${WORLD_SEED}`, { duo: true }); // reset なしで 開きなおす
+    await installFakePads(page, 2);
+    expect(await page.evaluate(() => (window as any).__rikkun.duo.join())).toBe(true);
+    await stepN(page, 30);
+    const after = await shopBoxes(page);
+    expect(after, '開きなおしても 箱は 同じ（場所・段・買った 人・回数）').toEqual(before);
+    for (const b of after) {
+      expect(await blockAt(page, b.main), '本体の ブロック').toBe(`takarabako_${b.tier}`);
+      expect(await blockAt(page, b.cells[1]!), 'のこりの ブロック').toBe(`takarabako_${b.tier}_r`);
+    }
+    for (const b of after) {
+      const want = rollChest('kodo', boxSeed(WORLD_SEED, b.p, 'kobako', b.n));
+      const items = wantItems(want.items);
+      const keys = [...items.keys()];
+      const c0 = await countsOf(page, b.p, keys);
+      const idx = (await shopBoxes(page)).findIndex((x) => x.p === b.p && x.n === b.n);
+      expect(await shopCall(page, 'openBox', b.p, idx), `${b.p}P が あける`).toBe('ok');
+      await stepN(page, 100);
+      expect(await countsOf(page, b.p, keys), `開きなおして あけても 同じ 中身（${b.p}P）`).toEqual(addCounts(c0, items));
+    }
+    expect((await shopBoxes(page)).length).toBe(0);
   });
 
   test('AC20 (1 人): 開いて いる 600 ステップ 世界が 止まる（妖怪の 場所も ハートも かわらない）。とじると 動く・街を 出たら 自動で とじる', async ({ page }) => {

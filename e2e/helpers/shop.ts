@@ -17,17 +17,35 @@ export interface ShopItem {
   canBuy: boolean;
   soldOut: boolean;
 }
-export interface ShopResultItem {
-  item: string;
-  count: number;
-  rarity: number;
+export interface Cell3 {
+  x: number;
+  y: number;
+  z: number;
+}
+/** shop.spots()（1.5。TOWN-1.md §6.1） */
+export interface ShopSpot {
+  main: Cell3;
+  cells: Cell3[];
+  front: 'n' | 'e' | 's' | 'w';
+  stand: Cell3;
+}
+/** shop.boxes()（1.5） */
+export interface ShopBox {
+  spot: number;
+  box: 'kobako' | 'obako';
+  p: Who;
+  n: number;
+  tier: 1 | 2 | 3 | 4;
+  main: Cell3;
+  cells: Cell3[];
+  opened: boolean;
+  vanishIn: number | null;
 }
 export interface ShopState {
   open: boolean;
   dama: number;
   items: ShopItem[];
   selected: string | null;
-  result: { box: 'kobako' | 'obako'; items: ShopResultItem[] } | null;
   /** よろずやさんの ふきだしの 文（ない ときは null） */
   bubble: string | null;
   /** その 人が その 箱を あけた 回数（くじの たねの 一部。AC16） */
@@ -115,4 +133,68 @@ export async function talkByPad2P(page: Page, npc: P3, stand: P3, max = 300): Pr
   await stepN(page, 3);
   await setFakePad(page, 1, {});
   for (let i = 0; i < max && !(await shopState(page, 2)).open; i++) await stepN(page, 1);
+}
+
+export const shopBoxes = (page: Page): Promise<ShopBox[]> => shopCall<ShopBox[]>(page, 'boxes');
+export const shopSpots = (page: Page): Promise<ShopSpot[]> => shopCall<ShopSpot[]>(page, 'spots');
+export const blockAt = (page: Page, c: Cell3): Promise<string> => page.evaluate((c) => (window as any).__rikkun.world.getBlock(c.x, c.y, c.z) as string, c);
+
+/** 実装の 前に 開く 準備（openTown と 同じ。nosave を 使わない 版。reset ＝ true の とき 新しい セーブで 始める） */
+export async function openSavedTown(page: Page, query: string, opts: { duo: boolean }): Promise<void> {
+  await page.goto(`/?${query}${opts.duo ? '&duo=dev' : ''}`);
+  await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.pause();
+    h.achievements.mute(true);
+    h.lock.simulate(true);
+    h.input.releaseAll();
+    h.settings.set('yokaiAutoSpawn', false);
+    h.settings.set('yokaiWander', false);
+    h.settings.set('animalAutoSpawn', false);
+    h.yokai.clear();
+    h.animals.clear();
+    h.time.set(20000);
+  });
+}
+
+/** 前に 立って ねらい（ __aim.sOffset ）、右クリックで あける（1P）。立つ 場所は spot.stand */
+export async function openBoxByClick1P(page: Page, spot: ShopSpot): Promise<void> {
+  await installAimHelpers(page);
+  await page.evaluate((spot) => {
+    const h = (window as any).__rikkun;
+    const aim = (window as any).__aim;
+    h.input.releaseAll();
+    h.player.set({ position: { x: spot.stand.x + 0.5, y: spot.stand.y, z: spot.stand.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+    h.step(2);
+    const p = h.player.get().position;
+    const t = { x: spot.main.x + 0.5, y: spot.main.y + 0.5, z: spot.main.z + 0.5 };
+    let yaw = 0;
+    let pitch = 0;
+    for (let i = 0; i < 8; i++) {
+      const o = aim.sOffset(yaw, pitch);
+      const dx = t.x - (p.x + o.dx);
+      const dy = t.y - (p.y + o.dy);
+      const dz = t.z - (p.z + o.dz);
+      yaw = (Math.atan2(dx, -dz) * 180) / Math.PI;
+      pitch = (Math.atan2(dy, Math.hypot(dx, dz)) * 180) / Math.PI;
+    }
+    h.player.set({ yaw, pitch });
+    h.step(1);
+    h.lock.simulate(true);
+  }, spot);
+  await tapRight(page);
+}
+
+/** 2P を 前に 置いて ねらい、ZL で あける */
+export async function openBoxByPad2P(page: Page, spot: ShopSpot): Promise<void> {
+  await page.evaluate((spot) => {
+    const h = (window as any).__rikkun;
+    h.duo.place(2, { x: spot.stand.x + 0.5, y: spot.stand.y, z: spot.stand.z + 0.5 });
+    h.duo.aimAt(2, spot.main);
+    h.step(2);
+  }, spot);
+  await setFakePad(page, 1, { buttons: [6] });
+  await stepN(page, 3);
+  await setFakePad(page, 1, {});
 }
