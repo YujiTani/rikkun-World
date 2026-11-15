@@ -643,7 +643,8 @@
       "kongo_axe",
       "mizumori",
       "dotsuki",
-      "chalk"
+      "chalk",
+      "kaeri_ofuda"
     ],
     "weapon": [
       "bokuto",
@@ -1128,7 +1129,8 @@
     "otera_ishigaki",
     "otera_ishidatami",
     "otera_dan",
-    "onibi_taimatsu"
+    "onibi_taimatsu",
+    "kaeri_ofuda"
   ],
   "RARITY_ORDER": [
     "common",

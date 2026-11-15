@@ -184,6 +184,10 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
       case 'read':
         out.right = { icon: right.item ?? 'shelf', word: 'よむ' };
         break;
+      // TOWN-1 1E: かえりの おふだ（持って いる 物の 絵）
+      case 'ofuda':
+        out.right = { icon: right.item!, word: 'つかう' };
+        break;
       // HOUSE-1C PR-2: みずもり（きじゅんを きめる）・どうづき（じがため）。持っている 物の 絵
       case 'level':
         out.right = { icon: right.item!, word: 'はかる' };

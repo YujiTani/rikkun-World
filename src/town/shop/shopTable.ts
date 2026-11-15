@@ -4,7 +4,7 @@ import type { ItemId } from '../../contracts';
  * よろずやの ねだん表（TOWN-1-shop.md §4.2・§4.3。数は ここ 1 か所。テスト・画面・窓口は ここを 読む。#304・#311）。
  * ならびは 仕様の 表の 順（＝ 画面の カードの 順）。いちばん 後ろの 2 つは たからばこ（`SHOP_BOXES`）。
  * 品の 名前は アイテムの 登録表から 読む（写さない）。1 つの アイテムで ない 組の 品（たねの セット・かみ＋ふで）だけ 名前を 書く。
- * 〔1E〕かえりの おふだ（`kaeri_ofuda`・ねだん 3）は 1E で アイテムが できたら 「すいしょう」の あとに 1 行 足す。
+ * 〔1E〕かえりの おふだ（`kaeri_ofuda`・ねだん 3）は 「すいしょう」の あと。
  */
 
 /** 品の しゅるい: set ＝ 書いた 物を そのまま わたす・scroll ＝ 家の レシピの まきもの（ぜんぶ おぼえたら 売り切れ） */
@@ -50,6 +50,8 @@ export const SHOP_GOODS = [
   { id: 'kin', kind: 'set', price: 12, unit: 'こ', give: [{ item: 'kin', count: 2 }] },
   /** ざいりょうの すいしょう 2 こ（かざりの ブロック `suisho` では ない。ようかいダマ 15） */
   { id: 'crystal', kind: 'set', price: 15, unit: 'こ', give: [{ item: 'crystal', count: 2 }] },
+  /** かえりの おふだ 1 まい（TOWN-1 1E。ようかいダマ 3【PO 案】） */
+  { id: 'kaeri_ofuda', kind: 'set', price: 3, unit: 'まい', give: [{ item: 'kaeri_ofuda', count: 1 }] },
   /** 家の レシピの まきもの 1 まい（まだ おぼえて いない レシピ。読んだ とき くじ。ようかいダマ 20） */
   { id: 'recipe_scroll', kind: 'scroll', price: 20, unit: 'まい', give: [{ item: 'recipe_scroll', count: 1 }] },
   /** とくべつな かぐ: 1 版は はにわ 1 こ（ようかいダマ 30） */

@@ -137,6 +137,15 @@ export type MineItemId = (typeof MINE_ITEM_IDS)[number];
 export const MINE_ITEM = Object.fromEntries(MINE_ITEM_IDS.map((id) => [id, id])) as { readonly [K in MineItemId]: K };
 
 /**
+ * 街の 物（TOWN-1 1E #381。docs/design/TOWN-1-shop.md §2.10・§4.7）: かえりの おふだ〔`kaeri_ofuda`。よろずやで 買う。手に もって 右クリックで 街の ひろばへ〕。
+ * ITEM_TYPES・色分けでは いちばん うしろ（やかたの ブロックの 次）
+ */
+const TOWN_ITEM_IDS = ['kaeri_ofuda'] as const;
+export type TownItemId = (typeof TOWN_ITEM_IDS)[number];
+/** 名前で 読む（`TOWN_ITEM.kaeri_ofuda`）。id は 上の 表の 1 回だけ */
+export const TOWN_ITEM = Object.fromEntries(TOWN_ITEM_IDS.map((id) => [id, id])) as { readonly [K in TownItemId]: K };
+
+/**
  * 家の 新しい 家具（HOUSE-1B #339。案 A「ごつごつの くりの 木」。2.4 で ながい テーブル・まるい テーブル・まるいす〔stool〕を 足した。
  * 置いて ブロックに なるのは HOUSE-1C、はたらきは HOUSE-1D）。ITEM_TYPES では MINE-1B の 次
  */

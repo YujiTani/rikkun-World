@@ -149,6 +149,8 @@ export interface DigM4Deps {
   furniture?: { use(kind: FurnUse, x: number, y: number, z: number): void };
   /** HOUSE-2A: レシピの まきもの（右クリックで よむ・ほって 手に 入れた）。なければ 何も しない */
   scroll?: DigScrollPort;
+  /** TOWN-1 1E: かえりの おふだを つかう（手に もって 右クリック。押した 最初の ステップに 1 回。who ＝ `chestWho`）。なければ 何も しない */
+  ofuda?: { use(who: 1 | 2): void };
   /** HOUSE-2B: ほった 場所の 家の しゅるいを 引く 家の 記録（ほると その しゅるいの アイテム）。なければ 今までの ほった アイテム */
   houseLook?: () => LookAt | null;
   /** HOUSE-2C: 手で 置いた 家の 物の 案の 記録（世界に 1 つ。置く とき 書き、ほる とき 先に 見る）。なければ 書かない・見ない */

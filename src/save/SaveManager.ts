@@ -123,6 +123,8 @@ export interface SaveDeps {
   townDrum?: SaveExtra;
   /** TOWN-1 1C: よろずやの 箱と まきものの 回数（`{ v: 1, opens: [1P, 2P] }`。くじの たね。ない 保存は 2 人とも 0 回） */
   shop?: SaveExtra;
+  /** TOWN-1 1E: かいとりの やたいで きょう もらった ようかいダマの 数と その 日（`{ v: 1, p: [1P, 2P] }`。ない 保存は 2 人とも 0） */
+  townStall?: SaveExtra;
   /** HOUSE-1A: 建築士さんの 記録（`{ v: 2, first, toolsGiven, … }`。1E: `kura` は 前の セーブの まだ かえして いない 物が ある ときだけ）。前の 保存に ない ときは 初期の まま */
   house?: SaveExtra;
   /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
@@ -381,6 +383,11 @@ export class SaveManager {
       this.d.shop?.deserialize(null);
     }
     try {
+      this.d.townStall?.deserialize(data.townStall ?? null);
+    } catch {
+      this.d.townStall?.deserialize(null);
+    }
+    try {
       this.d.gasha?.deserialize(data.gasha ?? null);
     } catch {
       this.d.gasha?.deserialize(null);
@@ -610,6 +617,7 @@ export class SaveManager {
       townRepairs: this.d.townRepairs?.serialize() ?? null,
       townDrum: this.d.townDrum?.serialize() ?? null,
       shop: this.d.shop?.serialize() ?? null,
+      townStall: this.d.townStall?.serialize() ?? null,
       house: this.d.house?.serialize() ?? null,
       farm,
       ...p2Part,

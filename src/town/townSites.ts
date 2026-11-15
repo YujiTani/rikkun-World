@@ -1,5 +1,6 @@
 import type { BuildingCell } from './townBuilder';
 import { SHOP_SITES } from './townShops';
+import { YATAI_NPC } from './townYatai';
 
 /**
  * TOWN-1 1B-2: 建物・やたいの 置き場所の 表（ローカル座標。`town.info().buildings`・`stalls` が 読む）。
@@ -29,7 +30,7 @@ export const BUILDING_SITES: readonly BuildingSite[] = [
   { kind: 'ochaya', u0: SHOP_SITES.ochaya.u0, v0: SHOP_SITES.ochaya.v0, u1: SHOP_SITES.ochaya.u1, v1: SHOP_SITES.ochaya.v1 + 1, door: { u: SHOP_SITES.ochaya.door.u, v: SHOP_SITES.ochaya.door.v + 1 }, terrace: false },
 ];
 
-/** 街の 人の しゅるい（TOWN-1.md §6.1 の `town.info().npcs`）。1C は よろずやさん（shop）だけ。ほかは 1D・1E で 足す */
+/** 街の 人の しゅるい（TOWN-1.md §6.1 の `town.info().npcs`）。1C は よろずやさん（shop）、1E は かじやさん（smith）・やたいの 3 人（stall・dango・gohan）。ほかは 1D で 足す */
 export type NpcKind = 'shop' | 'architect' | 'monoshiri' | 'smith' | 'stall' | 'dango' | 'gohan';
 
 export interface NpcSite {
@@ -39,13 +40,23 @@ export interface NpcSite {
   v: number;
   /** 奥の 列（1 だん 高い 所）の 建物の 中か。向きは いつも 手前（v が ふえる ほう） */
   terrace: boolean;
+  /** 足もとの 段（建物の 表の dy。建物の ゆか〔dy 0〕の 上 ＝ 1、やたいの ゆか〔dy −1〕の 上 ＝ 0） */
+  feetDy: number;
 }
 
 /**
  * TOWN-1 1C: 街の 人の 立つ 所（よろずやさん ＝ よろずやの 店の 中・のれんの まっすぐ おく 2 マス。戸口〔door v 11〕から 見て まっすぐ 前。
  * 前の しきい〔v 9〕に 立てば 2 マス 先で、あいだに 何も ない）。足もと ＝ 店の ゆかの 上
  */
-export const NPC_SITES: readonly NpcSite[] = [{ kind: 'shop', u: 9, v: 7, terrace: true }];
+export const NPC_SITES: readonly NpcSite[] = [
+  { kind: 'shop', u: 9, v: 7, terrace: true, feetDy: 1 },
+  // TOWN-1 1E: かじやさん ＝ 炉の 火の 口（u 37〜39・v 6）の 前・かなとこ 2 つ（u 36・40）の あいだ。戸口〔door u 38・v 11〕を 向き、前の 石段〔v 9〕に 立てば 2 マス 先
+  { kind: 'smith', u: 38, v: 7, terrace: true, feetDy: 1 },
+  // やたいの 3 人 ＝ 店の 中・カウンターの あいた 所〔townYatai.ts の `YATAI_NPC`〕の うしろ。前の 石だたみ〔STALL_SITES の 立つ マス〕から 2 マス 先
+  { kind: 'dango', u: YATAI_NPC.dango.u, v: YATAI_NPC.dango.v, terrace: false, feetDy: 0 },
+  { kind: 'gohan', u: YATAI_NPC.gohan.u, v: YATAI_NPC.gohan.v, terrace: false, feetDy: 0 },
+  { kind: 'stall', u: YATAI_NPC.kaitori.u, v: YATAI_NPC.kaitori.v, terrace: false, feetDy: 0 },
+];
 
 /**
  * TOWN-1-shop §4.3b（1.5）: よろずやの たからばこの 置き場（よろずやの 戸口 D から 数える。えらぶ 順 ①〜④）。

@@ -2,7 +2,7 @@
  * アイテム・持ち物・耐久・よろいの型。`src/contracts.ts` から分けた（中身は移しただけ）。
  */
 
-import type { ArmorItemId, BowId, FarmBucketId, FarmToolId, GadgetId, GoldId, HouseFurnitureId, HouseLookItemId, HousePlanId, HouseToolId, IngotId, KongoId, Legend4Id, LegendId, LiveItemId, MaterialId, MineItemId, NinjaId, OrbId, SamuraiId, SeedItemId, SwordId, ToolItemId, VegItemId } from '../content/items/ids';
+import type { ArmorItemId, BowId, FarmBucketId, FarmToolId, GadgetId, GoldId, HouseFurnitureId, HouseLookItemId, HousePlanId, HouseToolId, IngotId, KongoId, Legend4Id, LegendId, LiveItemId, MaterialId, MineItemId, NinjaId, OrbId, SamuraiId, SeedItemId, SwordId, ToolItemId, TownItemId, VegItemId } from '../content/items/ids';
 import type { BlockId } from './world';
 
 // ================================================================ M2（掘る・置く・持ち物）
@@ -51,7 +51,9 @@ export type ItemOnlyId =
   // MINE-1B（#349）: チョーク・いしばい の id は content/items/ids.ts の 1 か所
   | MineItemId
   // HOUSE-2B（#364）: 家の しゅるいの アイテム 42 こ
-  | HouseLookItemId;
+  | HouseLookItemId
+  // TOWN-1 1E（#381）: かえりの おふだ の id は content/items/ids.ts の 1 か所
+  | TownItemId;
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;

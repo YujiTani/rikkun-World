@@ -1,5 +1,5 @@
 import { GADGET_ID } from '../content/items/gadgetTuning';
-import { MINE_ITEM } from '../content/items/ids';
+import { MINE_ITEM, TOWN_ITEM } from '../content/items/ids';
 import { isFutonId } from '../world/blocks/futon';
 import { furnUseOf } from '../world/blocks/furnUse';
 import { doorInfo } from '../world/blocks/houseBlocks';
@@ -120,6 +120,7 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   if (c.held === GADGET_ID.kite) return { kind: 'kite', item: c.held };
   // HOUSE-2A（3.3 版）: レシピの まきもの（持って 右クリック。ねらいが なくても・かたい ブロックを ねらって いても。右クリックの はたらきが ある ブロックは 上で 先）
   if (c.held === MINE_ITEM.recipe_scroll) return { kind: 'read', item: c.held };
+  if (c.held === TOWN_ITEM.kaeri_ofuda) return { kind: 'ofuda', item: c.held }; // TOWN-1 1E: かえりの おふだ
   // HOUSE-1C PR-2: みずもり・どうづき（置けない 道具。ブロックを ねらって いる とき）
   const tool = t ? c.siteTool?.() : null;
   if (tool) return { kind: tool, item: c.held };

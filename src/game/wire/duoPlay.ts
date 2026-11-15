@@ -1,7 +1,7 @@
 // main.ts の 流れ 9 の つづき: 2P の あそび（COOP-1 作業 3a。docs/design/COOP-1.md §2.5・§2.6・§9.5）。
 // 2P の ほる・おく・こうげき・ハート・たおれて もどる・けいけんち。歩く・カメラ・えらびは wire/duo.ts。
 // 2P が 参加する たびに 一式を 作り、やめる たびに 片づける（倒れたまま やめても 次は 元気）。
-import { withShopTalk } from '../../town/shop/shopTalk';
+import { withTownTalk } from './townTalkPort';
 import { createTenshiWire, type TenshiWire } from './tenshiWire';
 import { applyTenshiMotion, tenshiNoFall } from '../../player/tenshiMove';
 import type * as THREE from 'three';
@@ -191,6 +191,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
   shared.p2LevelUp = () => live?.life.fill();
   shared.p2Hp = () => live?.life.hp ?? 0;
   shared.p2Down = () => live?.life.down ?? false;
+  shared.p2Vitals = () => live?.combat ?? null; // TOWN-1 1E: やたいの 食事
   shared.p2Gasha = () => live?.gasha ?? null;
   // COOP-1 4d-2: その人の わざ（1P は 今の legend。2P が いなければ who 2 は null）
   shared.legendFor = (who) => pickLegend(who, live !== null, deps.legend, live?.legend.p2.legend ?? null);
@@ -335,13 +336,14 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         houseLook: () => shared.house?.book ?? null,
         placedLooks: () => shared.house?.placedLooks ?? null,
         scroll: createScrollPort(() => shared.house, 2), // HOUSE-2A: 2P の まきもの（2P の もちものから へらして おぼえる。記録は 世界に 1 つ）
-        architects: withShopTalk(
+        ofuda: { use: (who) => shared.vendors?.ofuda.use(who) }, // TOWN-1 1E: 2P の かえりの おふだ
+        architects: withTownTalk(
           {
             rayHit: (origin, dir, reach) => shared.house?.manager.rayHit(origin, dir, reach) ?? null,
             talk: (id) => shared.house?.talkTo(id, 2) ?? false,
             hit: (id) => shared.house?.hit(id, 2),
           },
-          () => shared.shop, // TOWN-1 1C: よろずやさんにも ZL で 話す
+          shared, // TOWN-1 1C・1E: よろずやさん・かじやさん・やたいの 人にも ZL で 話す
           2,
         ),
         ...farm.m4, // COOP-1 5a: 畑・じょうろ・バケツ・なでる・食べる（2P の もちもの・ハートで）
