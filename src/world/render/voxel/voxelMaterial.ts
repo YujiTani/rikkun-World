@@ -1,4 +1,4 @@
-import { Data3DTexture, MeshBasicMaterial, NearestFilter, RedIntegerFormat, UnsignedByteType, Vector2, Vector3, Vector4, type Texture, type WebGLRenderer } from 'three';
+import { Data3DTexture, DataTexture, FloatType, MeshBasicMaterial, NearestFilter, RGBAFormat, RedIntegerFormat, UnsignedByteType, Vector2, Vector4, type Texture, type WebGLRenderer } from 'three';
 import { TILE_NAMES, ATLAS_COLS } from '../../blocks/textures';
 import { BLOCK_INDEX } from '../../blocks/blockTypes';
 import { skyDarkness } from '../../light/skyDarkness';
@@ -32,6 +32,30 @@ import { seamAxisGlsl } from './seamGrow';
 const SHADE_GLSL = `float[6](${FACE_SHADE_BY_INDEX.map((v) => v.toFixed(2)).join(', ')})`;
 const AO_GLSL = AO_LEVELS.map((v) => v.toFixed(2));
 const N_TILES = TILE_NAMES.length;
+/**
+ * ブロック → [上, 下, 横] の タイルの 番号 と タイルの 平均色 の 表は テクスチャ（uTileTab）で わたす（#381）。
+ * uniform の 配列に すると ブロック・絵が ふえる たびに 頂点の uniform が ふえ、M4 の Mac の 上限（1024 本）を こえて
+ * シェーダーが 作れず 近くの 地面が 消えた（swiftshader は 4096 本 まで 通るので クラウドでは 気づけない。uniformBudget.test.ts）。
+ * 1 マス 目から KINDS こ ＝ ブロックの [上, 下, 横, 0]、そのあと N_TILES こ ＝ タイルの 平均色 [r, g, b, 0]（線形）。
+ */
+export const TILE_TAB_W = 64; // テクスチャの 横の マス数〔マス〕
+
+/** タイルの 表の テクスチャ（RGBA32F。texelFetch で 読む） */
+export function createTileTabTexture(): DataTexture {
+  const n = KINDS + N_TILES;
+  const h = Math.ceil(n / TILE_TAB_W);
+  const data = new Float32Array(TILE_TAB_W * h * 4);
+  const of = tileTable();
+  for (let k = 0; k < KINDS; k++) data.set([of[k * 3]!, of[k * 3 + 1]!, of[k * 3 + 2]!, 0], k * 4);
+  const avg = tileAverageTable();
+  for (let i = 0; i < N_TILES; i++) data.set([avg[i * 3]!, avg[i * 3 + 1]!, avg[i * 3 + 2]!, 0], (KINDS + i) * 4);
+  const t = new DataTexture(data, TILE_TAB_W, h, RGBAFormat, FloatType);
+  t.minFilter = NearestFilter;
+  t.magFilter = NearestFilter;
+  t.generateMipmaps = false;
+  t.needsUpdate = true;
+  return t;
+}
 const DIRT_TILE = TILE_NAMES.indexOf('dirt');
 /** 描画バッファの大きさ（画素）。面を画面で 1 画素広げるときに使う。材料で共有し、描く直前に更新する */
 export const seamViewport = { value: new Vector2(1280, 720) };
@@ -48,8 +72,7 @@ attribute vec2 aLight;
 uniform vec2 uViewport;
 uniform float uDarken;
 uniform float uNight;
-uniform vec3 uTileOf[${KINDS}];
-uniform vec3 uTileAvg[${N_TILES}];
+uniform highp sampler2D uTileTab;
 varying float vShade;
 varying vec3 vLit;
 varying vec3 vWorld;
@@ -62,6 +85,7 @@ const float SHADE[6] = ${SHADE_GLSL};
 const vec3 NRM[6] = vec3[6](
   vec3(0.0, 1.0, 0.0), vec3(0.0, -1.0, 0.0), vec3(1.0, 0.0, 0.0),
   vec3(-1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), vec3(0.0, 0.0, -1.0));
+vec4 tileTab(int i) { return texelFetch(uTileTab, ivec2(i % ${TILE_TAB_W}, i / ${TILE_TAB_W}), 0); }
 ${LIGHT_GLSL_FUNCS}
 ${seamAxisGlsl()}`;
 
@@ -80,11 +104,11 @@ const VERT_BODY = `
     tangent.y == 0.0 ? 0.0 : tangent.y * seamAxis(vec3(0.0, tangent.y, 0.0), seamNdc),
     tangent.z == 0.0 ? 0.0 : tangent.z * seamAxis(vec3(0.0, 0.0, tangent.z), seamNdc));
   int kind = int(aData.x + 0.5) + ((wbits >> 3) << 8); // 種類は 10 ビット: 下 8 ビットは aData.x、上 2 ビットは aData.w のビット 3〜4
-  float tile = uTileOf[kind][f == 0 ? 0 : (f == 1 ? 1 : 2)];
+  float tile = tileTab(kind)[f == 0 ? 0 : (f == 1 ? 1 : 2)];
   vShade = SHADE[f];
   vInfo = vec4(tile, aData.y, float(f), float(kind));
   vGrain = floor(aData.z / 8.0 + 0.001);
-  vAvg = tile < -0.5 ? vec3(1.0) : uTileAvg[int(tile + 0.5)];
+  vAvg = tile < -0.5 ? vec3(1.0) : tileTab(${KINDS} + int(tile + 0.5)).rgb;
   vWorld = (modelMatrix * vec4(position, 1.0)).xyz;
   vLocal = position;
   float skyIn = aLight.x;
@@ -225,24 +249,16 @@ export function createVoxelShared(atlas: Texture): VoxelShared {
   return { atlas, dummyAo: createOccupancyTexture(new Uint8Array(OCC_W * OCC_NZ * OCC_NY)) };
 }
 
-let TILE_OF: Vector3[] | null = null;
-let TILE_AVG: Vector3[] | null = null;
+let TILE_TAB: DataTexture | null = null;
 let GRAIN: Vector4[] | null = null;
-function tables(): { of: Vector3[]; avg: Vector3[]; grain: Vector4[] } {
+function tables(): { tab: DataTexture; grain: Vector4[] } {
   if (!GRAIN) {
     // 通しの つぶ n の 色は 表の n + 2 番〔頂点の 印: 0 ふつう・1 地の 石・2 以上 つぶ〕。色は 線形、a = 光る 強さ
     GRAIN = Array.from({ length: MAX_GRAINS + 2 }, () => new Vector4(0, 0, 0, 0));
     grainList().forEach((g, n) => GRAIN![n + 2]!.set(srgbToLinear(g.r), srgbToLinear(g.g), srgbToLinear(g.b), g.glow));
   }
-  if (!TILE_OF || !TILE_AVG) {
-    const t = tileTable();
-    TILE_OF = [];
-    for (let k = 0; k < KINDS; k++) TILE_OF.push(new Vector3(t[k * 3], t[k * 3 + 1], t[k * 3 + 2]));
-    const a = tileAverageTable();
-    TILE_AVG = [];
-    for (let i = 0; i < N_TILES; i++) TILE_AVG.push(new Vector3(a[i * 3], a[i * 3 + 1], a[i * 3 + 2]));
-  }
-  return { of: TILE_OF, avg: TILE_AVG, grain: GRAIN };
+  if (!TILE_TAB) TILE_TAB = createTileTabTexture();
+  return { tab: TILE_TAB, grain: GRAIN };
 }
 
 /**
@@ -263,8 +279,7 @@ export function createVoxelMaterial(shared: VoxelShared, ao: Data3DTexture | nul
     shader.uniforms.uYakataN = yakataUniforms.count;
     shader.uniforms.uYakataSway = yakataUniforms.sway;
     shader.uniforms.uAtlas = { value: shared.atlas };
-    shader.uniforms.uTileOf = { value: t.of };
-    shader.uniforms.uTileAvg = { value: t.avg };
+    shader.uniforms.uTileTab = { value: t.tab };
     shader.uniforms.uGrain = { value: t.grain };
     shader.uniforms.uGlowTime = glowUniforms.time;
     shader.uniforms.uGlowAmp = glowUniforms.amp;
