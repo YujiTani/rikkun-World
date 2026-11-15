@@ -2,6 +2,8 @@
 import { playArchitect } from '../../fx/architectSounds';
 import { playCraft } from '../../fx/craftSounds';
 import { ArchitectRenderer } from '../../house/ArchitectRenderer';
+import type { BlobSpot } from '../../fx/blobShadow';
+import { HUT_ID } from '../../house/manager';
 import { watchBlocks } from '../../house/blockWatch';
 import { houseKeyGuard } from '../../house/keyGuard';
 import { Preview3D } from '../../house/preview/preview';
@@ -13,6 +15,8 @@ import { HouseUi } from '../../ui/houseUi';
 import { HouseDoneUi } from '../../ui/houseSite/celebrate';
 import type { WiredYokai } from './creatures';
 import { wireHouseSite } from './houseSite';
+import { townCarpenterNow } from './townCarpenter';
+import { currentTown } from '../../town/townState';
 import { createHouseGate, type Who } from './modalOwner';
 import { insetPane, projectToPane, projectUnclipped } from '../../ui/houseBubble';
 
@@ -22,6 +26,8 @@ const RECIPE_SCATTER = { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 } as
 
 /** 建築士さんの 頭の 上（足もとから）。ふきだしの しっぽが ここに くる */
 const HEAD_TOP = 1.8;
+
+const NO_SPOTS: readonly BlobSpot[] = [];
 
 export function wireHouse(deps: WiredYokai) {
   const { shared, world, seed, island, drops, game, fxSound, hud, controller, inventory, lighting, combat, dig, screen, blobShadow, storage, craft, w2, yokaiM, animals } = deps;
@@ -42,6 +48,14 @@ export function wireHouse(deps: WiredYokai) {
       return { x: s.x, z: s.z, yawDeg: s.yawDeg };
     },
     player: () => controller.state.position,
+    // TOWN-1 1B-2: こやの 建築士さん（街の だいくさん）。るすの 間は 一覧から はずれ、話しても 開かない
+    hut: () => {
+      const w = townCarpenterNow();
+      if (!w) return null;
+      const h = currentTown()?.carpenterHome();
+      if (!h) return null;
+      return { x: h.x, y: h.y, z: h.z, yaw: h.yaw, away: () => w.carpenter.out };
+    },
     bag: inventory,
     // COOP-1 5d: 2P が 話した ときは 2P の 足もと・もちもの・たんすで 動く（話した 人の 物。docs/design/COOP-1.md 1.16 §3.7 (e)）
     playerOf: (who) => (who === 1 ? controller.state.position : (shared.duoMate()?.position ?? null)),
@@ -92,6 +106,9 @@ export function wireHouse(deps: WiredYokai) {
     },
   });
   shared.house = house;
+  // こやの 建築士さんに 話して いる 間は 朝でも 出かけない（街の だいくさん。TOWN-1 1.4）
+  const hutWire = townCarpenterNow();
+  if (hutWire) hutWire.menuOpen = () => house.talkingTo(HUT_ID);
   siteView.attach(house);
   // 建築中の 場所の 中（床の 上）は 歩いて 入れない。足場の ブロックと あわせて 外へ とめる（建築中でなければ すぐ false）
   const solidBase = world.isSolidForPlayer.bind(world);
@@ -201,6 +218,7 @@ export function wireHouse(deps: WiredYokai) {
   const architectRenderer = new ArchitectRenderer((x, z) => shared.streamHost?.stream.isDrawn(Math.floor(x) >> 4, Math.floor(z) >> 4) ?? true);
   game.scene.add(architectRenderer.group);
   lighting.register(architectRenderer.bodyMaterial, 'doll');
+  architectRenderer.extraShadows = () => townCarpenterNow()?.carpenterFx.shadowSpots() ?? NO_SPOTS; // 街の だいくさんの 足もとの 影
 
   // 時間が すすんで いる 間だけ（メニューが 開くと ゲームの 窓が 止める）
   // 完成の 帯・紙ふぶきの 合図は 毎ステップ 読む（描画の コマだけで 読むと、step() だけ 進める テストや 重い コマで 次の ステップに 間に あわず 帯が 出ない）

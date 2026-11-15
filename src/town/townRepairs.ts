@@ -2,6 +2,7 @@ import { blockIndexOf, BLOCK_TYPES } from '../world/blocks/blockTypes';
 import { boundsOf, byBottom, cellKey, columnKey, partition, type Cell, type RepairCell } from './townRepairGroups';
 import { findSpot, type Spot } from './townRepairMove';
 import { deserializeRepairs, serializeRepairs } from './townRepairSave';
+import { ScaffoldSet } from './townScaffoldSet';
 import { TOWN } from './townTuning';
 
 export type { RepairCell } from './townRepairGroups';
@@ -53,10 +54,18 @@ export interface TownRepairDeps {
   giveBack(item: string, who: 1 | 2): void;
   /** 立てる 所が 見つからない ときの 移す 先（ふんすいの 前） */
   fallback(): Spot;
+  /** 街の だいくさん（1B-2）。つなが なければ（1B-1）まとまりを いっせいに もどす */
+  gate?: RepairGate;
+}
+
+/** 建築士さんの 口: 着いて いる まとまり だけ もどす・見て いない（列を 読みこんで いない）まとまりは すぐ もどす */
+export interface RepairGate {
+  allows(job: RepairJob): boolean;
+  rush(job: RepairJob): boolean;
 }
 
 /** 朝に きまった もどす 係 1 つ（まとまり 1 つ ぶん） */
-interface Active {
+export interface RepairJob {
   /** 下から 順（y が 小さい 順）の もどす マス。もどした・ほった・また かえた 物は あとで とばす */
   queue: Cell[];
   head: number;
@@ -65,17 +74,28 @@ interface Active {
   maxX: number;
   minZ: number;
   maxZ: number;
+  /** まとまりの 高さの はんい（マスの y） */
+  minY: number;
+  maxY: number;
   /** true ＝ 人が そばに いる 間 まつ（d+1 の 朝の 分）。false ＝ またない（d+2 の 朝 から） */
   waitable: boolean;
   /** つぎに もどして よい ステップ */
   next: number;
+  /** ぜんぶ もどしおわった（足場が きえる 合図） */
+  finished: boolean;
+  /** まとまりの マスぜんぶ（半分 だけの 日は false） */
+  whole: boolean;
 }
 
 const GAP = TOWN.repair.groupGapSteps;
 
 export class TownRepairs {
   private readonly cells = new Map<number, Cell>();
-  private active: Active[] = [];
+  private active: RepairJob[] = [];
+  /** 足場の 一覧（朝に 作りなおす。見せる 係と `town.scaffolds()` が 読む） */
+  readonly scaffolds = new ScaffoldSet();
+  /** ブロックが もどった（見せる 係へ。すぐ もどす ときは 出さない） */
+  onRestore: ((x: number, y: number, z: number, id: string) => void) | null = null;
   /** 前の ステップの 日。null ＝ まだ 見て いない（ロードの あと 1 ステップめ） */
   private lastDay: number | null = null;
   private t = 0;
@@ -88,6 +108,16 @@ export class TownRepairs {
 
   size(): number {
     return this.cells.size;
+  }
+
+  /** いま もどす 係（建築士さんが 回る 相手。使いまわす 配列） */
+  jobs(): readonly RepairJob[] {
+    return this.active;
+  }
+
+  /** 人が そばで まって いる まとまりか（建築士さんは とばす） */
+  waiting(g: RepairJob): boolean {
+    return g.waitable && this.near(g);
   }
 
   // ---------------------------------------------------------------- 記録
@@ -186,6 +216,7 @@ export class TownRepairs {
   /** 固定ステップごとに 1 回（時間が 進んだ あと） */
   step(): void {
     this.t++;
+    this.scaffolds.step(this.t);
     const day = this.d.day();
     if (this.lastDay === null) {
       this.lastDay = day;
@@ -204,8 +235,14 @@ export class TownRepairs {
   /** ロード・起動の あと 1 ステップめ: もう 2 日 たって いる マスは すぐ ぜんぶ もどす（またない） */
   private afterLoad(day: number): void {
     const late: Cell[] = [];
-    for (const c of this.cells.values()) if (day - c.day >= 2) late.push(c);
+    const left: Cell[] = [];
+    for (const c of this.cells.values()) {
+      if (day - c.day >= 2) late.push(c);
+      else if (day - c.day === 1) left.push(c);
+    }
     this.restoreNow(late);
+    // 1 日 たった マスの まとまりには 足場を 出す（もどす のは つぎの 朝）
+    this.scaffolds.reset(partition(left, { n: 0 }).map((g) => ({ rect: boundsOf(g), job: null })));
   }
 
   /** 朝: 前の 朝の のこりを すぐ もどし、2 日 たった マスと 1 日 たった マスの 半分を 「もどす」と きめる */
@@ -220,21 +257,36 @@ export class TownRepairs {
       else if (day - c.day === 1) fresh.push(c);
     }
     this.restoreNow(stale);
-    this.active = this.active.filter((g) => this.skipDone(g));
+    this.active = this.active.filter((g) => this.alive(g));
     const work = { n: 0 };
-    for (const g of partition(old, work)) this.schedule(g, g.length, false);
-    for (const g of partition(fresh, work)) this.schedule(g, Math.ceil(g.length / 2), true);
+    const sc: { rect: ReturnType<typeof boundsOf>; job: RepairJob | null }[] = [];
+    for (const g of partition(old, work)) sc.push({ rect: boundsOf(g), job: this.schedule(g, g.length, false) });
+    for (const g of partition(fresh, work)) {
+      const n = Math.ceil(g.length / 2);
+      const job = this.schedule(g, n, true);
+      sc.push({ rect: boundsOf(g), job: n === g.length ? job : null });
+    }
+    this.scaffolds.reset(sc);
     this.stats.morningWork += work.n;
   }
 
   /** まとまり g の 下から n こを 「もどす」に する */
-  private schedule(g: Cell[], n: number, waitable: boolean): void {
+  private schedule(g: Cell[], n: number, waitable: boolean): RepairJob {
     const b = boundsOf(g);
     const sorted = g.slice().sort(byBottom);
     const queue = sorted.slice(0, n);
     for (const c of queue) c.due = true;
     this.stats.morningWork += queue.length;
-    this.active.push({ queue, head: 0, minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z, waitable, next: this.t });
+    const job: RepairJob = { queue, head: 0, minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z, minY: b.min.y, maxY: b.max.y, waitable, next: this.t, finished: false, whole: n === g.length };
+    this.active.push(job);
+    return job;
+  }
+
+  /** まだ 仕事が あれば true。なければ finished に する */
+  private alive(g: RepairJob): boolean {
+    if (this.skipDone(g)) return true;
+    g.finished = true;
+    return false;
   }
 
   /** この ステップの もどし（1 まとまり 2 ステップに 1 マス・世界 8 マス まで） */
@@ -246,8 +298,16 @@ export class TownRepairs {
     for (let i = 0; i < gs.length; i++) {
       const g = gs[i]!;
       this.stats.stepWork++;
-      if (!this.skipDone(g)) continue; // おわった まとまりは はずす
+      if (!this.alive(g)) continue; // おわった まとまりは はずす
       gs[out++] = g;
+      const gate = this.d.gate;
+      if (gate !== undefined) {
+        if (gate.rush(g)) {
+          this.drain(g); // 見て いない まとまりは すぐ もどす（だまって）
+          continue;
+        }
+        if (!gate.allows(g)) continue; // 建築士さんが まだ 着いて いない（足場だけ で まつ）
+      }
       if (budget <= 0 || g.next > this.t) continue;
       if (g.waitable) {
         this.stats.stepWork += this.d.players().length;
@@ -255,16 +315,24 @@ export class TownRepairs {
       }
       const c = this.takeNext(g);
       if (c === null) continue;
-      this.restore(c, !g.waitable);
+      this.restore(c, !g.waitable, true);
       g.next = this.t + GAP;
       budget--;
       this.stats.stepWork++;
+      this.alive(g); // いま もどした マスが さいごなら すぐ finished
     }
     gs.length = out;
   }
 
+  /** まとまりの のこりを ぜんぶ すぐ もどす（上限なし・音も ぽんも なし）。読みこんで いない マスは 列が できるまで まつ */
+  private drain(g: RepairJob): void {
+    const list: Cell[] = [];
+    for (let i = g.head; i < g.queue.length; i++) if (this.pending(g.queue[i]!)) list.push(g.queue[i]!);
+    this.restoreNow(list);
+  }
+
   /** 先頭の もう 要らない マス（もどした・ほった・また かえた）を とばす。まだ 仕事が あれば true */
-  private skipDone(g: Active): boolean {
+  private skipDone(g: RepairJob): boolean {
     while (g.head < g.queue.length && !this.pending(g.queue[g.head]!)) g.head++;
     return g.head < g.queue.length;
   }
@@ -274,7 +342,7 @@ export class TownRepairs {
   }
 
   /** 先頭から 数マス の 中で いま もどして よい マス（読みこんで いる・重なる 妖怪・動物が いない）。なければ null */
-  private takeNext(g: Active): Cell | null {
+  private takeNext(g: RepairJob): Cell | null {
     let looked = 0;
     for (let i = g.head; i < g.queue.length && looked < TOWN.repair.scanAhead; i++) {
       const c = g.queue[i]!;
@@ -292,7 +360,7 @@ export class TownRepairs {
   }
 
   /** まとまりの 四角 ＋ 2 マスの 中に 人が いるか */
-  private near(g: Active): boolean {
+  private near(g: RepairJob): boolean {
     const m = TOWN.repair.waitMargin;
     for (const p of this.d.players()) {
       if (p.x >= g.minX - m && p.x < g.maxX + 1 + m && p.z >= g.minZ - m && p.z < g.maxZ + 1 + m) return true;
@@ -310,7 +378,7 @@ export class TownRepairs {
         this.waitingCols.add(columnKey(c.x >> 4, c.z >> 4));
         continue;
       }
-      this.restore(c, true);
+      this.restore(c, true, false);
     }
   }
 
@@ -325,7 +393,7 @@ export class TownRepairs {
   // ---------------------------------------------------------------- 1 マスを もどす
 
   /** c を 設計の 中身に もどす。重なる 体は 先に 移す（force: 人も 妖怪も 動物も 移す。そうでなければ 人は いない はず） */
-  private restore(c: Cell, force: boolean): void {
+  private restore(c: Cell, force: boolean, show: boolean): void {
     const id = this.d.plan(c.x, c.y, c.z);
     const solid = BLOCK_TYPES[blockIndexOf(id)]?.solid ?? false;
     if (solid) {
@@ -337,6 +405,7 @@ export class TownRepairs {
       if (force && this.d.occupied(c.x, c.y, c.z)) this.d.evict(c.x, c.y, c.z, this.spotFor(c.x + 0.5, c.y, c.z + 0.5));
     }
     this.d.world.setBlock(c.x, c.y, c.z, id);
+    if (show) this.onRestore?.(c.x, c.y, c.z, id);
     this.cells.delete(cellKey(c.x, c.y, c.z));
     if (c.placed !== null) this.d.giveBack(c.placed.item, c.placed.p);
   }
@@ -378,6 +447,7 @@ export class TownRepairs {
   deserialize(data: unknown): void {
     this.cells.clear();
     this.active = [];
+    this.scaffolds.reset([]);
     this.waitingCols.clear();
     this.lastDay = null;
     for (const c of deserializeRepairs(data)) this.cells.set(cellKey(c.x, c.y, c.z), c);

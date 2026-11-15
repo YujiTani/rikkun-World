@@ -1,8 +1,12 @@
 import { CHUNK_SIZE, SEA_Y, WORLD_HEIGHT, type BlockArray } from '../contracts';
 import { BLOCK_INDEX } from '../world/blocks/blockTypes';
+import { TREE_MAX_EXTENT } from '../world/gen/treeV2';
+import { writeShapedTrees } from '../world/gen/treeShapes';
 import { LAYER } from '../world/gen/columnLayout';
+import { townBuildingColumns } from './townBuildings';
 import { CANAL, SURF, at } from './townLayout';
 import type { TownPlan } from './townPlan';
+import type { TownTree } from './townTrees';
 import { TOWN } from './townTuning';
 
 /**
@@ -23,6 +27,8 @@ const ANDON = BLOCK_INDEX.town_andon;
 const SHUBASHIRA = BLOCK_INDEX.town_shubashira;
 const TESURI = BLOCK_INDEX.town_ishi_tesuri;
 const START_TORCH = BLOCK_INDEX.start_torch;
+const SAKURA = BLOCK_INDEX.town_sakura;
+const LEAF_OF = { leaves: BLOCK_INDEX.leaves, momiji_leaves: BLOCK_INDEX.momiji_leaves, matsu_leaves: BLOCK_INDEX.matsu_leaves } as const;
 
 /** 街の 地面の 下の どこまで 書き直すか（地面から マス。それより 下は 元の まま） */
 const REWRITE_DEPTH = 10;
@@ -36,6 +42,38 @@ const LOT_POST = [BLOCK_INDEX.town_hashira, BLOCK_INDEX.town_hashira] as const;
 const STAIR_LIGHT = [ISHIZUMI, ISHIZUMI, ANDON] as const;
 /** 石段の 口の のぼりの 高さ（赤い はしら） */
 const BANNER_H = 3;
+
+/** 建物・ふんすいの ブロックを 世界の 番号に した 表（街ごと 1 回）。向きの 印（@u+ など）は 街の 向きで 4 向き・2 向きから えらぶ */
+const buildingCache = new WeakMap<TownPlan, ReadonlyMap<number, readonly { dy: number; b: number }[]>>();
+function compassOf(plan: TownPlan, u: number, v: number, du: number, dv: number): 'n' | 'e' | 's' | 'w' {
+  const a = plan.toWorld(u, v);
+  const w = plan.toWorld(u + du, v + dv);
+  return w.x > a.x ? 'e' : w.x < a.x ? 'w' : w.z > a.z ? 's' : 'n';
+}
+function resolveBuildingId(plan: TownPlan, u: number, v: number, id: string): number {
+  const m = /^(.*)@([uv])([+-])?$/.exec(id);
+  if (m === null) return BLOCK_INDEX[id as keyof typeof BLOCK_INDEX]!;
+  const axisU = m[2] === 'u';
+  if (m[3] === undefined) {
+    const d = compassOf(plan, u, v, axisU ? 1 : 0, axisU ? 0 : 1);
+    return BLOCK_INDEX[`${m[1]}_${d === 'e' || d === 'w' ? 'x' : 'z'}` as keyof typeof BLOCK_INDEX]!;
+  }
+  const sign = m[3] === '+' ? 1 : -1;
+  return BLOCK_INDEX[`${m[1]}_${compassOf(plan, u, v, axisU ? sign : 0, axisU ? 0 : sign)}` as keyof typeof BLOCK_INDEX]!;
+}
+function buildingsFor(plan: TownPlan): ReadonlyMap<number, readonly { dy: number; b: number }[]> {
+  let m = buildingCache.get(plan);
+  if (!m) {
+    const out = new Map<number, { dy: number; b: number }[]>();
+    for (const [k, list] of townBuildingColumns()) {
+      const u = k % TOWN.size;
+      const v = Math.floor(k / TOWN.size);
+      out.set(k, list.map((c) => ({ dy: c.dy, b: resolveBuildingId(plan, u, v, c.id) })));
+    }
+    buildingCache.set(plan, (m = out));
+  }
+  return m;
+}
 
 const hash2 = (a: number, b: number): number => (Math.imul(a, 73856093) ^ Math.imul(b, 19349663)) >>> 0;
 
@@ -64,6 +102,9 @@ function writeCell(out: BlockArray, lx: number, lz: number, wx: number, wz: numb
     clearAbove(out, lx, lz, floorY + 1);
     if (canal === CANAL.water) put(out, lx, lz, floorY + 1, WATER);
     if (L.bridge[k]) put(out, lx, lz, G, ISHIDAN);
+    // たいこ橋など: 橋の 上に もり上げる ブロックと、橋の わきの 用水路の 上の らんかん（1B-2。表は townGate.ts）
+    const bl = buildingsFor(plan).get(k);
+    if (bl) for (const c of bl) put(out, lx, lz, G + 1 + c.dy, c.b);
     return;
   }
   const surf = L.surf[k]!;
@@ -90,6 +131,9 @@ function writeCell(out: BlockArray, lx: number, lz: number, wx: number, wz: numb
   const st = plan.stairTopAt.get(k);
   if (st === 'light') STAIR_LIGHT.forEach((b, i) => put(out, lx, lz, topY + 1 + i, b));
   else if (st === 'banner') for (let i = 0; i < BANNER_H; i++) put(out, lx, lz, topY + 1 + i, SHUBASHIRA);
+  // 建物・ふんすい（1B-2。置き方の 表は townBuildings.ts）
+  const bl = buildingsFor(plan).get(k);
+  if (bl) for (const c of bl) put(out, lx, lz, topY + 1 + c.dy, c.b);
 }
 
 /** 街の すそ（はんいの 外 skirt マス）: 地面を なだらかに つなぐ */
@@ -134,4 +178,8 @@ export function writeTown(out: BlockArray, cx: number, cz: number, plan: TownPla
       }
     }
   }
+  // 街の 木（1B-2）。この 列に かかる 木だけ。はっぱは 空気の 所 だけ（置き場所の 時に 建物・道に かからない ことを 確かめて ある）
+  const m = TREE_MAX_EXTENT;
+  const near = plan.trees().filter((t) => t.x >= x0 - m && t.x < x0 + CHUNK_SIZE + m && t.z >= z0 - m && t.z < z0 + CHUNK_SIZE + m);
+  if (near.length > 0) writeShapedTrees(out, near, x0, z0, (t) => ((t as TownTree).sakura ? SAKURA : LEAF_OF[t.leaves]));
 }

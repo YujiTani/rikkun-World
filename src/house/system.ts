@@ -8,7 +8,7 @@ import { SHEET, createSheetPort, type SheetBag } from './editor/sheet';
 import { Materials, type CraftCount, type TansuStock } from './materials';
 import type { HouseWorld } from './ground';
 import type { BlockWatcher } from './blockWatch';
-import { ArchitectManager, type ArchitectInfo } from './manager';
+import { ArchitectManager, type ArchitectInfo, type HutSpot } from './manager';
 import { HouseBook, type HouseView } from './book';
 import { PlacedLooks, resolveLook } from './placedLooks';
 import { bagVia, type Who } from './whoPort';
@@ -70,6 +70,8 @@ export interface HouseSystemDeps {
   onClose: () => void;
   /** やられた・ほかの 画面が 開いた など、話しを つづけられない とき true（who ＝ 話して いる 人） */
   interrupted?: (who: Who) => boolean;
+  /** 街の こや（こやの 建築士さん。TOWN-1 1B-2。街が なければ 省く） */
+  hut?: () => HutSpot | null;
   /** 地形だけで 見た「水でない 地面」（テストで 差しかえる） */
   isLand?: (x: number, z: number) => boolean;
   /** 戸を 外から 通って 中に 入った: 名前の 帯を 上の 帯の 列に 入れる（text ＝ 家の 名前。HOUSE-1 §3.3） */
@@ -155,6 +157,7 @@ export class HouseSystem {
       record: this.state.record,
       player: () => this.nowPos(),
       isLand: d.isLand,
+      ...(d.hut ? { hut: d.hut } : {}),
     });
     // もちもの・たんすを 数える 係・場所は「いま 話して いる 人」の 物（話して いなければ 1P）
     const bagNow = bagVia(() => this.bagOf(this.talker() ?? 1));
@@ -275,6 +278,11 @@ export class HouseSystem {
     this.manager.beginTalk(id, from);
     this.emit();
     return true;
+  }
+
+  /** id の 建築士さんに 話して いる（うなずき・メニュー）。こやの 人が 出かけない ための しらべ */
+  talkingTo(id: string): boolean {
+    return this.talk.current() === id;
   }
 
   /** 話して いる 人（話して いなければ null）。中の「プレイヤーの 場所」・もちもの・材料は この 人の 物 */
