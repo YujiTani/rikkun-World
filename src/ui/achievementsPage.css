@@ -109,7 +109,10 @@
 
 /* #260: すぐ次の段 */
 .ach-row--next {
-  opacity: 0.7;
+  color: var(--rk-text-sub); /* 行ぜんたいに opacity をかけると 字が にじむので 字の 色で うすく */
+}
+.ach-row--next .ach-row__name {
+  color: var(--rk-text-sub);
 }
 .ach-row__bar {
   width: 160px;

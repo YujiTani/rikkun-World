@@ -190,7 +190,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const showBig = (on: boolean) => {
     if (!bigEl) {
       bigEl = document.createElement('div');
-      bigEl.style.cssText = 'position:fixed;left:0;right:0;top:40%;text-align:center;z-index:50;pointer-events:none;font:bold 56px/1.4 IPAGothic,sans-serif;color:#fff;text-shadow:0 0 10px #a040ff,0 0 4px #000,2px 2px 0 #000';
+      bigEl.style.cssText = 'position:fixed;left:0;right:0;top:40%;text-align:center;z-index:50;pointer-events:none;font:bold 56px/1.4 IPAGothic,sans-serif;color:#fff;text-shadow:0 0 10px #a040ff,-2px 0 0 #000,2px 0 0 #000,0 -2px 0 #000,0 2px 0 #000';
       bigEl.innerHTML = `${ruby('大', 'おお')}きな${ruby('姿', 'すがた')}にもどる`;
       document.body.appendChild(bigEl);
     }

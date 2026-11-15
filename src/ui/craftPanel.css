@@ -3,7 +3,7 @@
  * 左: 絵だけのマスの一覧。右: 決まった場所の せつめい パネル（320px 分）。
  */
 .craft-panel {
-  text-shadow: var(--rk-text-outline);
+  text-shadow: none;
   --cp-detail-w: calc(var(--rk-slot-inv) * 320 / 56);
   box-sizing: border-box;
   display: flex;
@@ -179,7 +179,7 @@
   font-size: var(--rk-fs-rt);
   font-weight: 800;
   color: var(--rk-ok);
-  text-shadow: 0 0 2px var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
 }
 .cp-tile:not([data-made='true']) .cp-made,
 .cp-tile:not([data-later='true']) .cp-later,
@@ -202,7 +202,7 @@
   top: 0;
   font-size: var(--rk-fs-small);
   color: var(--rk-text);
-  text-shadow: 0 0 2px var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
 }
 .cp-queue {
   right: var(--rk-sp-1);
@@ -306,7 +306,7 @@
   font-size: var(--rk-fs-small);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 2px var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
 }
 
 /* ---- せつめい パネル ---- */
@@ -336,7 +336,7 @@
 .cp-name {
   font-weight: 800;
   color: var(--rk-rarity, var(--rk-text));
-  text-shadow: 0 0 var(--rk-sp-1) var(--rk-bg-900);
+  text-shadow: none;
 }
 .cp-stars {
   white-space: nowrap; /* 星の列は ★ と ★ の間で折り返さない */
@@ -419,7 +419,7 @@
   padding: 0;
 }
 .cp-pager .rk-btn.is-disabled {
-  opacity: 0.35;
+  color: var(--rk-text-sub); /* 字は 色で うすく（opacity は にじむ） */
   cursor: default;
 }
 .cp-arrow {
@@ -706,6 +706,6 @@
   font-size: var(--rk-fs-small);
   font-weight: 800;
   color: var(--rk-text);
-  text-shadow: 0 0 2px var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
   pointer-events: none;
 }

@@ -165,8 +165,7 @@
   bottom: 8px;
   max-width: 260px;
   font-size: 12px;
-  color: var(--rk-text-300, #cfd8dc);
-  opacity: 0.7;
+  color: var(--rk-text-sub, #aeb8d0); /* 字に opacity をかけない */
 }
 .po-adult summary {
   cursor: pointer;

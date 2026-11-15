@@ -111,9 +111,9 @@ export class HpBar {
     this.shaker = el('div', 'display:flex;flex-direction:column', this.root);
     // 上の 段: 名前（左）・どくろ（まん中）・数（右）
     const head = el('div', `position:relative;display:flex;align-items:flex-end;justify-content:space-between;height:${Math.round(skullH * 0.74)}px;padding:0 ${half}px ${p}px`, this.shaker);
-    const name = el('span', `font:900 ${H.barNameSizePx + 2}px/1.3 system-ui,sans-serif;letter-spacing:.14em;color:#fff;text-shadow:${stroke('#0a0d14', 2)},0 ${p}px 0 #0a0d14;white-space:nowrap`, head);
+    const name = el('span', `font:900 ${H.barNameSizePx + 2}px/1.3 system-ui,sans-serif;letter-spacing:.14em;color:#fff;text-shadow:${stroke('#0a0d14', 2)};white-space:nowrap`, head);
     name.textContent = 'がしゃどくろ';
-    this.count = el('div', `font:900 ${Math.round(H.barNameSizePx * 1.35)}px/1.3 system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#fff;text-shadow:${stroke('#0a0d14', 2)},0 ${p}px 0 #0a0d14;letter-spacing:.04em;white-space:nowrap`, head);
+    this.count = el('div', `font:900 ${Math.round(H.barNameSizePx * 1.35)}px/1.3 system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#fff;text-shadow:${stroke('#0a0d14', 2)};letter-spacing:.04em;white-space:nowrap`, head);
     // 枠つきの バー（左右は ひし形。外がわに 暗い ふちどり）
     const edge = el('div', `position:relative;z-index:1;filter:drop-shadow(${p}px 0 0 #0a0d14) drop-shadow(-${p}px 0 0 #0a0d14) drop-shadow(0 ${p}px 0 #0a0d14) drop-shadow(0 -${p}px 0 #0a0d14)`, this.shaker);
     const dia = (d: number): string => `polygon(0 50%,${d}px 0,calc(100% - ${d}px) 0,100% 50%,calc(100% - ${d}px) 100%,${d}px 100%)`;

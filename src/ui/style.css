@@ -21,7 +21,7 @@ body {
   inset: 0;
   pointer-events: none;
   color: #fff;
-  text-shadow: 0 2px 0 #000;
+  text-shadow: var(--rk-text-outline);
 }
 
 rt {

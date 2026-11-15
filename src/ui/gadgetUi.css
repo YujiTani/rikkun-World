@@ -13,9 +13,11 @@
 /* 「よる に ねようね」 */
 #sleep-notice {
   position: fixed;
-  left: 50%;
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin-inline: auto; /* 中央。translate(-50%) だと 字が 小数ピクセルで にじむ */
   top: 30%;
-  transform: translateX(-50%);
   padding: var(--rk-sp-2) var(--rk-sp-5);
   font-size: var(--rk-fs-title);
   font-weight: 800;

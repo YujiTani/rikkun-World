@@ -58,7 +58,7 @@
 
 /* ---- パネル ---- */
 .rk-panel {
-  text-shadow: var(--rk-text-outline);
+  text-shadow: none;
   display: flex;
   flex-direction: column;
   gap: var(--rk-sp-4);
