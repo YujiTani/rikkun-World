@@ -85,7 +85,7 @@ export class ShopScreen {
 
   /** 1 行の カードの 数（パッドの 上下） */
   cols(): number {
-    return this.p.half() ? 4 : 6;
+    return this.p.half() ? 3 : 6;
   }
 
   /** 変わって いれば 書きなおす（毎ステップ よんで よい。変わらなければ 何も しない） */
@@ -133,21 +133,24 @@ export class ShopScreen {
   private html(v: ShopView, rows: ShopRow[]): string {
     const goods = rows.filter((r) => !isShopBox(r.id));
     const boxes = rows.filter((r) => isShopBox(r.id));
+    const sel = v.selected === null ? null : (rows.find((r) => r.id === v.selected) ?? null);
+    // たりない・もう ぜんぶ もってる（あいさつ いがい）は 右の「こうかん する」の すぐ 上に 大きく（オーナー 11-15）。えらんで いない ときだけ 上の 帯
+    const warn = v.bubble !== null && v.bubble !== SHOP_TEXT.greet ? v.bubble : null;
+    const headBubble = v.bubble !== null && (warn === null || sel === null);
     const head =
       `<div class="shop-head"><div class="shop-titles"><h2 class="shop-title">${SHOP_TEXT.title}</h2>` +
-      (v.bubble ? `<p class="shop-bubble" data-testid="shop-bubble">${withRuby(v.bubble)}</p>` : '') +
+      (headBubble ? `<p class="shop-bubble${warn ? ' is-warn' : ''}" data-testid="shop-bubble">${withRuby(v.bubble!)}</p>` : '') +
       `</div><div class="shop-dama" data-testid="shop-dama"><span class="shop-dama-label">${SHOP_TEXT.have}</span>` +
       `<span class="shop-dama-num">${orb('shop-orb shop-orb--big')}<b>${this.p.dama()}</b></span></div>` +
       `<button type="button" class="shop-close" data-testid="shop-close" aria-label="${SHOP_TEXT.close}">✕</button></div>`;
     const list =
       `<div class="shop-list"><h3 class="shop-group">${SHOP_TEXT.goods}</h3><div class="shop-grid">${goods.map((r) => this.card(r, r.id === v.selected)).join('')}</div>` +
       `<h3 class="shop-group">${SHOP_TEXT.boxes} ★</h3><div class="shop-boxes">${boxes.map((r) => this.card(r, r.id === v.selected)).join('')}</div></div>`;
-    const sel = v.selected === null ? null : (rows.find((r) => r.id === v.selected) ?? null);
-    const detail = `<div class="shop-side">${sel ? this.detail(sel) : `<p class="shop-pick">${SHOP_TEXT.pick}</p>`}</div>`;
+    const detail = `<div class="shop-side">${sel ? this.detail(sel, warn) : `<p class="shop-pick">${SHOP_TEXT.pick}</p>`}</div>`;
     return head + `<div class="shop-body">${list}${detail}</div>` + (v.result ? this.result(v.result) : '');
   }
 
-  private detail(r: ShopRow): string {
+  private detail(r: ShopRow, warn: string | null): string {
     const ic = iconsOf(r.id);
     let info = '';
     if (isShopBox(r.id)) {
@@ -160,7 +163,11 @@ export class ShopScreen {
       if (g.give.length > 1) info = `<p class="shop-amount">${SHOP_TEXT.kinds(g.give.length)}</p><div class="shop-kinds">${g.give.map((s) => img(itemIconUrl(s.item), 'shop-kind')).join('')}</div>`;
       else info = `<p class="shop-amount">${g.give[0]!.count} ${'unit' in g ? g.unit : ''}</p>`;
     }
-    const note = r.soldOut ? `<p class="shop-note">${SHOP_TEXT.soldOut}</p>` : `<p class="shop-pay">${orb('shop-orb')}${escapeHtml(SHOP_TEXT.pay(r.price))}</p>`;
+    const note = warn
+      ? `<p class="shop-warn" data-testid="shop-bubble" role="status">${orb('shop-orb shop-warn-orb')}<span>${withRuby(warn)}</span></p>`
+      : r.soldOut
+        ? `<p class="shop-note">${SHOP_TEXT.soldOut}</p>`
+        : `<p class="shop-pay">${orb('shop-orb')}${escapeHtml(SHOP_TEXT.pay(r.price))}</p>`;
     return (
       `<div class="shop-detail" data-testid="shop-detail"><div class="shop-big">${img(ic.main, 'shop-big-icon')}${ic.sub ? img(ic.sub, 'shop-big-sub') : ''}</div>` +
       `<p class="shop-name">${withRuby(nameOf(r.id))}</p>${info}<div class="shop-fill"></div>${note}` +
