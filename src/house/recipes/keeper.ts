@@ -125,6 +125,11 @@ export class RecipeKeeper {
     return this.out;
   }
 
+  /** ぜんぶ おぼえた（よろずやの まきものが 売り切れ。TOWN-1-shop §2.6 の 5） */
+  allLearned(): boolean {
+    return this.log.complete;
+  }
+
   /** 窓口 recipes()。nextPick ＝ 今 使ったら おぼえる 物（ぜんぶ おぼえて いれば null） */
   view(): { learned: string[]; fresh: string[]; all: string[]; nextPick: string | null } {
     return { learned: [...this.log.learnedIds()], fresh: this.log.freshRecipes(), all: [...RECIPE_IDS], nextPick: pickRecipe({ seed: this.d.seed, learned: this.log.learnedIds() }) };

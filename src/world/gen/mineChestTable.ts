@@ -24,12 +24,14 @@ const KODO_TIERS = [
 ] as const;
 /** レジェンダリーの くじ（わくごと。0.001%） */
 const LEGENDARY = 0.00001;
+/** TOWN-1 1C: おおばこの レジェンダリーの くじ（わくごと。0.026 ＝ くじの わく 4 つで 1 − 0.974⁴ ≒ 1 回 あけて 10%〔決定〕。TOWN-1-shop §4.3） */
+const OBAKO_LEGENDARY = 0.026;
 
 /** 段の わりあい（段 1〜4。合計 1）から 表を 作る */
-const withChances = (placeChance: number, chances: readonly [number, number, number, number]): ChestTable => ({
+const withChances = (placeChance: number, chances: readonly [number, number, number, number], legendary = LEGENDARY): ChestTable => ({
   placeChance,
   tiers: KODO_TIERS.map((t, i) => ({ ...t, chance: chances[i]! })),
-  legendary: LEGENDARY,
+  legendary,
   lots: [],
 });
 
@@ -42,6 +44,8 @@ const CHEST_TABLES = {
   kodo_kakushi: withChances(1, [0.4, 0.35, 0.2, 0.05]),
   /** MINE-1F: ようかいの やかたの 宝箱〔かならず 段 4。7 ひき たおすと もらえる〕 */
   yakata: withChances(1, [0, 0, 0, 1]),
+  /** TOWN-1 1C: よろずやの おおばこ〔かならず 段 4（ミラクル ★6 の かくてい 1 ＋ くじ 4）・★7 わくごと 0.026。世界には 置かない〕 */
+  obako: withChances(0, [0, 0, 0, 1], OBAKO_LEGENDARY),
 } as const satisfies Record<string, ChestTable>;
 
 

@@ -1528,7 +1528,7 @@
       "ITEM_INFO.yokai_orb": {
         "buttons": [],
         "how": "",
-        "use": "あとで よろずやが できるよ"
+        "use": "よろずや で こうかん できるよ"
       },
       "category": "material",
       "durabilityClass": "consumable",

@@ -3,7 +3,9 @@ import type { MedalTier } from '../contracts';
 import { ITEM_INFO } from '../craft/info';
 import { itemDef } from '../content/items/registry';
 import { itemType } from '../inventory/items';
-import { DAMA, DAMA_HOUR, OBAKO_PRICE_REF } from './damaTuning';
+import { DAMA, DAMA_HOUR } from './damaTuning';
+import { SHOP_BOXES } from '../town/shop/shopTable';
+import { shopTexts } from '../town/shop/shopText';
 import { DAMA_TEXT } from './damaText';
 import {
   DamaService,
@@ -254,7 +256,7 @@ describe('AC28: 保存（1A の 分: わたした 記録・あずかり）', () 
 // ---------------------------------------------------------------- AC31: たまる 速さ
 describe('AC31: 1 時間の 見つもり（表から 計算）', () => {
   it('食事・おふだを 引いても おおばこ 1 回（ねだん）以上', () => {
-    expect(hourEstimate().left).toBeGreaterThanOrEqual(OBAKO_PRICE_REF);
+    expect(hourEstimate().left).toBeGreaterThanOrEqual(SHOP_BOXES.obako.price);
   });
   it('入る 合計は 表の 数から（妖怪 ひき数 × へいきん ＋ 二つ名 ＋ 実績 ＋ めあて）', () => {
     const avg = (DAMA.normal.min + DAMA.normal.max) / 2;
@@ -263,7 +265,7 @@ describe('AC31: 1 時間の 見つもり（表から 計算）', () => {
     expect(e.left).toBe(e.income - DAMA_HOUR.spend.food - DAMA_HOUR.spend.ofuda);
   });
   it('がしゃどくろは おおばこの ねだん × 3 以上', () => {
-    expect(DAMA.gashadokuro).toBeGreaterThanOrEqual(OBAKO_PRICE_REF * 3);
+    expect(DAMA.gashadokuro).toBeGreaterThanOrEqual(SHOP_BOXES.obako.price * 3);
   });
 });
 
@@ -272,7 +274,7 @@ describe('AC50: 画面の 文は 「ようかいダマ」と 書く（「ダマ�
   const rubyOff = (s: string): string => s.replace(/［([^｜］]*)｜[^］]*］/g, '$1');
   const lone = (s: string): boolean => /(?<!ようかい)ダマ/.test(rubyOff(s));
   it('文の 表・もちものの 名前・図鑑・説明・「どこで」に ひとりぼっちの「ダマ」が ない。名前は「ようかいダマ」', () => {
-    const texts: string[] = [...Object.values(DAMA_TEXT)];
+    const texts: string[] = [...Object.values(DAMA_TEXT), ...shopTexts()]; // 1C: よろずやの 画面の 文
     texts.push(itemType('yokai_orb' as never)!.name);
     texts.push((itemDef('yokai_orb') as { zukan: string }).zukan);
     const info = ITEM_INFO.yokai_orb!;
