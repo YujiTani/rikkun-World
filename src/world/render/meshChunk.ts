@@ -311,13 +311,7 @@ for (const b of SHAPE_BLOCKS) {
 }
 /** 街の すける ブロック（TOWN-1 1B-1）: 1 ブロックの 箱に 絵を はる（すきまは 切りぬき）。石の てすりは ひくい 箱 */
 for (const d of TOWN_BLOCK_DEFS) {
-  if (d.see) {
-    // 1B-2: かざりは 箱の 組み合わせ（絵は 色・水の 小さな 絵）。ほかは 1 つの 箱
-    const boxes = 'boxes' in d ? d.boxes : undefined;
-    PROP_SHAPES[d.id] = boxes
-      ? boxes.map((b) => ({ min: [b[0], b[1], b[2]] as const, max: [b[3], b[4], b[5]] as const, tile: b[6] as TileName, top: (b[7] ?? b[6]) as TileName }))
-      : [{ min: [0, 0, 0], max: [16, d.id === 'town_ishi_tesuri' ? TESURI_HEIGHT : 16, 16], tile: d.id, top: d.id }];
-  }
+  if (d.see) PROP_SHAPES[d.id] = [{ min: [0, 0, 0], max: [16, d.id === 'town_ishi_tesuri' ? TESURI_HEIGHT : 16, 16], tile: d.id, top: d.id }];
 }
 const PROP_FACE_SHADE = [1, 0.7, 0.88, 0.88, 0.94, 0.94];
 

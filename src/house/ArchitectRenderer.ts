@@ -58,8 +58,6 @@ export class ArchitectRenderer {
   private readonly pool: Entry[] = [];
   private gen = 0;
   private readonly spots: BlobSpot[] = [];
-  /** ほかの 人（街の だいくさん）の 足もとの 影（毎フレーム。プレイヤーの 影の 描画に まぜる） */
-  extraShadows: () => readonly BlobSpot[] = () => [];
   private stat: ArchitectRenderStats = { shown: 0, draws: 0, triangles: 0 };
   private readonly frustum = new THREE.Frustum();
   private readonly pv = new THREE.Matrix4();
@@ -102,7 +100,6 @@ export class ArchitectRenderer {
       tris += this.model.tris + (aimed ? this.model.hullTris : 0);
       this.spots.push({ x: a.x, y: a.y, z: a.z, size: SHADOW_W });
     }
-    for (const s of this.extraShadows()) this.spots.push(s);
     // 一覧から はずれた（遠くへ はなれた・列が きえた）建築士さんを かたづける
     if (this.entries.size > list.length) for (const e of [...this.entries.values()]) if (e.gen !== gen) this.release(e);
     this.stat = { shown, draws, triangles: tris };

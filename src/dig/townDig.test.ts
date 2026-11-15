@@ -27,7 +27,7 @@ afterEach(() => {
   bindTownRepairs(null);
 });
 
-function rig(who: 1 | 2 = 1, port: ReturnType<typeof townDigPort> = townDigPort(who)) {
+function rig(who: 1 | 2 = 1) {
   deactivateTown();
   activateTown(1, REC, null);
   const blocks = new Map<string, BlockId>();
@@ -70,7 +70,7 @@ function rig(who: 1 | 2 = 1, port: ReturnType<typeof townDigPort> = townDigPort(
     swingWhiff: () => undefined,
   };
   const craft = { isFurnace: () => false, openFurnace: () => undefined, furnaceBroken: () => undefined, fixedDrop: (id: BlockId) => CRAFT.fixedDrop[id] ?? null };
-  const dig = new DigSystemImpl(world as never, () => player, actions, lock, inv, () => 1.62, createDigConfig(), createRng(1), null, { tools, craft: craft as never, town: port } as never);
+  const dig = new DigSystemImpl(world as never, () => player, actions, lock, inv, () => 1.62, createDigConfig(), createRng(1), null, { tools, craft: craft as never, town: townDigPort(who) } as never);
   const step = (n = 1) => {
     for (let i = 0; i < n; i++) {
       dig.update();
@@ -100,19 +100,6 @@ function rig(who: 1 | 2 = 1, port: ReturnType<typeof townDigPort> = townDigPort(
   };
   return { reps, dig, world, blocks, key, step, at, items, dig600, inv, actions };
 }
-
-describe('AC47 ゴールの 太鼓（1B-2）', () => {
-  it('太鼓の マスは ほらずに たたく（押した 最初の 1 ステップだけ pressed）。ひびも 入らない', () => {
-    const calls: boolean[] = [];
-    const port = { ...townDigPort(1), drum: (x: number, y: number, z: number, pressed: boolean) => (x === TARGET.x && y === TARGET.y && z === TARGET.z ? (calls.push(pressed), true) : false) };
-    const r = rig(1, port);
-    const out = r.dig600();
-    expect(out.cracked).toBe(false);
-    expect(out.broken).toBe(false);
-    expect(calls.filter((c) => c)).toHaveLength(1);
-    expect(calls.length).toBeGreaterThan(1);
-  });
-});
 
 describe('AC9 プレイヤーの ほり（1.4）', () => {
   it('記録にも ふちにも ない 街の ブロックは 600 ステップ ほっても ひびなし・0 こ・ほれない（置けない）', () => {

@@ -6,12 +6,8 @@ import { chooseTown } from '../../town/townPlace';
 import { activateTown, currentTown, deactivateTown } from '../../town/townState';
 import type { TownInfo, XZ } from '../../town/townPlan';
 import type { ShaftWorld } from '../../world/gen/mineShafts';
-import { scaffoldFrame } from '../../town/townScaffoldSet';
 import { townGuards } from '../../town/townGuard';
 import { townPlanBlock, townRepairsNow } from './townRepair';
-import { townCarpenterNow } from './townCarpenter';
-import { TownSmokeFx } from '../../fx/townSmokeFx';
-import type { Game } from '../Game';
 
 /** URL に `?town=off` ＝ 街を 作らない（くらべ用・街と 関係ない テスト用） */
 const townOffIn = (search: string): boolean => new URLSearchParams(search).get('town') === 'off';
@@ -43,49 +39,20 @@ export function bootTown(seed: number, restored: StreamRestore, search: string, 
   }
 }
 
-let smokeFx: TownSmokeFx | null = null;
-
-/** かじやの えんとつの けむり（TOWN-1 1B-2）。世界を 作った あとで 1 回。近くに いる ときだけ 出る（街が なければ 何も しない） */
-export function wireTownSmoke(game: Game): void {
-  const fx = (smokeFx = new TownSmokeFx(game.scene));
-  game.onUpdate((dt) => fx.update(dt, currentTown()?.smokeSpot() ?? null, game.camera.position));
-}
-
 /** `window.__rikkun.town`（TOWN-1 §6.1）。街が ない ときは info が null */
 export function createTownHook() {
   return {
     info: (): TownInfo | null => currentTown()?.info() ?? null,
     inSafe: (x: number, _y: number, z: number): boolean => currentTown()?.inSafe(x, z) ?? false,
     inTown: (x: number, _y: number, z: number): boolean => currentTown()?.inTown(x, z) ?? false,
-    /** 街の けむりの つぶ（見えて いる 数） */
-    smoke: (): number => smokeFx?.shown ?? 0,
+    /** 街の けむりの つぶ（1B-2 で 入る。いまは 0） */
+    smoke: (): number => 0,
     /** 1.4: まだ もどって いない マス（保存と 同じ 中身）と まとまり。記録が なければ 空 */
     repairs: () => townRepairsNow()?.repairs() ?? { cells: [], groups: [] },
     /** 1.4（テストの 準備）: 妖怪の わざと 同じ 口で マスを かえて 記録する */
     damage: (cells: { x: number; y: number; z: number }[], to?: 'air' | 'stone'): number => townRepairsNow()?.damage(cells, to) ?? 0,
     /** 1.4: その マスの 設計・生成の 中身（もどった か くらべる） */
     planBlock: (x: number, y: number, z: number): string => townPlanBlock(x, y, z),
-    /**
-     * 1.4（1B-2）: こやの 建築士さん。out ＝ こやを 出て いる（るす）・state ＝ home/walk/fix/wait/back・pos ＝ 足もと・
-     * target ＝ いま 向かって いる まとまりの `repairs().groups` の 番号（なければ null）・sign ＝ るすの ふだが 出て いる
-     */
-    carpenter: () => {
-      const w = townCarpenterNow();
-      const home = currentTown()?.carpenterHome() ?? { x: 0, y: 0, z: 0 };
-      if (w === null) return { out: false, state: 'home' as const, pos: { x: home.x, y: home.y, z: home.z }, target: null, sign: false };
-      const c = w.carpenter;
-      let target: number | null = null;
-      if (c.target !== null) {
-        const t = c.target;
-        const groups = townRepairsNow()?.repairs().groups ?? [];
-        const i = groups.findIndex((g) => g.min.x <= t.maxX && g.max.x >= t.minX && g.min.z <= t.maxZ && g.max.z >= t.minZ);
-        target = i < 0 ? null : i;
-      }
-      return { out: c.out, state: c.state, pos: { x: c.x, y: c.y, z: c.z }, target, sign: c.sign() };
-    },
-    /** 1.4（1B-2）: いま 出て いる 足場（まとまりの 四角。マスの 座標） */
-    scaffolds: (): { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }[] =>
-      (townRepairsNow()?.scaffolds.list() ?? []).map((s) => scaffoldFrame(s)),
     /** 1.4: 妖怪の わざでも かわらない 所（あきち・石段・はしの 石がき）か */
     keeps: (x: number, y: number, z: number): boolean => townGuards(x, y, z),
   };

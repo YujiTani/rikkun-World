@@ -2,16 +2,14 @@
  * TOWN-1 1B-1（docs/design/TOWN-1-place.md §4.5b）: 街の 新しい ブロック。id を 書くのは ここ 1 回（絵の 色は townTextures.ts）。
  * 見本 `town/art/v4/CA4-blocks.png` の 40 こ ＋ 見本に ない 石の てすり（`town_ishi_tesuri`）。
  * 街 だけに ある: アイテムに ならない・クラフトに ない。1.4: 妖怪の わざで こわれる（`breakable: true`）。プレイヤーが ほれる のは 妖怪が かえた 所と ふち だけ（街の 守り）。
- * かざり ブロック（建物・ふんすい。1B-2）は townDeco.ts。番号は BLOCK_TYPES の いちばん 後ろに この 順で 足す（保存データの 番号を かえない）。
+ * 何も import しない 葉。番号は BLOCK_TYPES の いちばん 後ろに この 順で 足す（保存データの 番号を かえない）。
  */
-
-import { DECO_COLORS, DECO_EXTRA_TILES, TOWN_DECO_DEFS, colorTile, type DecoBox, type DecoColor } from './townDeco';
 
 /** 光り方: 'light' ＝ まわりを 照らす あかり・'deco' ＝ 光って 見える だけ（明るさ 0 の かざり光）・null ＝ 光らない */
 type TownGlow = 'light' | 'deco' | null;
 
 /** 絵の かき方（townTextures.ts が 読む）。base ＝ 地の 色、acc ＝ 足す 色（2〜3 色）、pat ＝ 模様 */
-export type TownPattern = 'mottle' | 'brick' | 'paving' | 'plank' | 'plankH' | 'scale' | 'lattice' | 'stripe' | 'weave' | 'plate' | 'glowbox' | 'bars' | 'pot' | 'pole' | 'barrel' | 'solid' | 'glyph' | 'fire' | 'banner' | 'taruki';
+export type TownPattern = 'mottle' | 'brick' | 'paving' | 'plank' | 'plankH' | 'scale' | 'lattice' | 'stripe' | 'weave' | 'plate' | 'glowbox' | 'bars' | 'pot' | 'pole' | 'barrel';
 
 export interface TownBlockDef {
   /** ブロックの id（`town_` ＋ 名前） */
@@ -23,12 +21,10 @@ export interface TownBlockDef {
   glow: TownGlow;
   /** 絵 */
   art: { pat: TownPattern; base: string; acc: readonly string[] };
-  /** 箱の 組み合わせで 描く 物（1B-2 の かざり。点 ＝ 1/16 ブロック）。なければ すける 物は 1 つの 箱 */
-  boxes?: readonly DecoBox[];
 }
 
 /** 40 こ（見本の 番号 1〜40 の じゅん）＋ 石の てすり。色は 見本の 絵に 合わせた 近い 色（あとで アートが 直す） */
-const BASE_DEFS = [
+export const TOWN_BLOCK_DEFS = [
   { id: 'town_kurokawara', name: 'くろかわら', see: false, glow: null, art: { pat: 'scale', base: '#3C4152', acc: ['#2C303E', '#4A5064'] } },
   { id: 'town_aokawara', name: 'あおかわら', see: false, glow: null, art: { pat: 'scale', base: '#44566E', acc: ['#34445A', '#566A86'] } },
   { id: 'town_furukawara', name: 'ふるかわら', see: false, glow: null, art: { pat: 'scale', base: '#6A6A76', acc: ['#585864', '#7E7E8A'] } },
@@ -68,35 +64,12 @@ const BASE_DEFS = [
   { id: 'town_take', name: 'たけ', see: false, glow: null, art: { pat: 'pole', base: '#5DAA45', acc: ['#2E6B2A', '#7EC45E'] } },
   { id: 'town_takegaki', name: 'たけがき', see: true, glow: null, art: { pat: 'bars', base: '#5DAA45', acc: ['#2E6B2A'] } },
   { id: 'town_hachiue', name: 'はちうえ', see: true, glow: null, art: { pat: 'pot', base: '#B8603A', acc: ['#4CA332', '#7EC45E'] } },
-  // 色分け（かじや ＝ 赤れんがの えんとつ・だいく ＝ 明るい 白木の かべと 柱）
-  { id: 'town_akarenga', name: 'あかれんが', see: false, glow: null, art: { pat: 'brick', base: '#B04430', acc: ['#8A3020', '#CC6248'] } },
-  { id: 'town_shiraki', name: 'しらき', see: false, glow: null, art: { pat: 'plank', base: '#EAD6A8', acc: ['#D4BC8A', '#F6E8C4'] } },
-  { id: 'town_shirakibashira', name: 'しらきの はしら', see: false, glow: null, art: { pat: 'plank', base: '#DCC48E', acc: ['#C2A56E', '#EBD7A6'] } },
   // 見本に ない 物（5 版の 絵の 用水路の てすり）。いちばん 後ろの ブロックは ふつうの 箱（たる）に する ため たるの 前に 置く。ひくい 箱で 描く（当たりは 1 ブロック）
   { id: 'town_ishi_tesuri', name: 'いしの てすり', see: true, glow: null, art: { pat: 'brick', base: '#A8A8AC', acc: ['#86868C', '#C2C2C6'] } },
   { id: 'town_taru', name: 'たる', see: false, glow: null, art: { pat: 'barrel', base: '#8A5C3A', acc: ['#2A2E3A', '#A3724B'] } },
 ] as const satisfies readonly TownBlockDef[];
 
-/** 白い 石（ふんすい。見本 plaza.py の shiroishi）。いちばん 後ろの ブロックは ふつうの 箱に する ため かざりの 後ろに 置く */
-const SHIROISHI_DEF = { id: 'town_shiroishi', name: 'しろいし', see: false, glow: null, art: { pat: 'brick', base: '#EEECE6', acc: ['#CFCDC5', '#FAF8F2'] } } as const satisfies TownBlockDef;
-
-/** さくらの はっぱ（街の 木 用。1B-2。ふつうの はっぱと 同じ 木の 形に 花の 色を のせる）。いちばん 後ろの 1 つ 手前 */
-const SAKURA_DEF = { id: 'town_sakura', name: 'さくらの はっぱ', see: false, glow: null, art: { pat: 'mottle', base: '#F2B4C8', acc: ['#E68FAE', '#F9D2DF', '#FFE6EE'] } } as const satisfies TownBlockDef;
-
-type TownDef = (typeof BASE_DEFS)[number] | (typeof TOWN_DECO_DEFS)[number] | typeof SAKURA_DEF | typeof SHIROISHI_DEF;
-/** 41 こ ＋ かざり ＋ 白い 石（いちばん 後ろ） */
-export const TOWN_BLOCK_DEFS: readonly TownDef[] = [...BASE_DEFS, ...TOWN_DECO_DEFS, SAKURA_DEF, SHIROISHI_DEF];
-
-export type TownBlockId = TownDef['id'];
-
-/** かざりの 箱が はる 色・水・かんばんの 小さな 絵（ブロックでは ない。アトラスに 入る） */
-export const TOWN_EXTRA_TILE_DEFS: readonly { id: string; art: TownBlockDef['art'] }[] = [
-  ...(Object.keys(DECO_COLORS) as DecoColor[]).map((k) => ({ id: colorTile(k), art: { pat: 'solid' as const, base: DECO_COLORS[k], acc: [] } })),
-  ...DECO_EXTRA_TILES.map((t) => ({ id: t.id, art: { pat: t.pat, base: t.base, acc: t.acc } })),
-];
-export type TownExtraTileName = `town_c_${DecoColor}` | (typeof DECO_EXTRA_TILES)[number]['id'];
-const EXTRA_SET: ReadonlySet<string> = new Set(TOWN_EXTRA_TILE_DEFS.map((t) => t.id));
-export const isTownExtraTile = (id: string): id is TownExtraTileName => EXTRA_SET.has(id);
+export type TownBlockId = (typeof TOWN_BLOCK_DEFS)[number]['id'];
 
 /** ぜんぶの id（BLOCK_TYPES の 並びは この じゅん） */
 export const TOWN_BLOCK_IDS: readonly TownBlockId[] = TOWN_BLOCK_DEFS.map((d) => d.id);
@@ -106,6 +79,6 @@ const ID_SET: ReadonlySet<string> = new Set(TOWN_BLOCK_IDS);
 export const isTownBlockId = (id: string): id is TownBlockId => ID_SET.has(id);
 
 /** 絵の 名前（アトラスの タイル名）。ブロックの id と 同じ 文字 */
-export const TOWN_TILE_NAMES: readonly (TownBlockId | TownExtraTileName)[] = [...TOWN_BLOCK_IDS, ...TOWN_EXTRA_TILE_DEFS.map((t) => t.id as TownExtraTileName)];
+export const TOWN_TILE_NAMES: readonly TownBlockId[] = TOWN_BLOCK_IDS;
 /** 石の てすり（箱の 高さ。点 = 1/16 ブロック。8 ＝ はんぶん） */
 export const TESURI_HEIGHT = 8;

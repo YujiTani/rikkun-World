@@ -55,8 +55,6 @@ export interface ArchitectInit {
   y: number;
   z: number;
   seed: number;
-  /** 歩かない（こやの 建築士さん。TOWN-1 1B-2）。向きだけ この 向き（ラジアン）に もどる */
-  stay?: number;
 }
 
 const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
@@ -88,8 +86,6 @@ export class Architect {
   cheer = -1;
 
   private readonly rng: Rng;
-  /** 歩かない ときの 向き（なければ ぶらぶら する） */
-  private readonly stayYaw: number | undefined;
   /** 足もとの しらべの おぼえ書き（立って いる 間・歩く 間・行き先を えらぶ 時も 世界を 読まない。`groundChanged` で かわった ことを 知らされる） */
   private foot: Footing;
   private wait: number;
@@ -106,8 +102,6 @@ export class Architect {
   constructor(o: ArchitectInit) {
     this.id = o.id;
     this.first = o.first;
-    this.stayYaw = o.stay;
-    if (o.stay !== undefined) this.yaw = o.stay;
     this.homeX = o.x;
     this.homeZ = o.z;
     this.x = o.x;
@@ -186,7 +180,7 @@ export class Architect {
 
   /** 1 ステップ。look = 話しかけた 人の 足もと（話している 間 こちらを 向く） */
   update(world: HouseWorld, look?: { x: number; z: number }): void {
-    if (this.stayYaw === undefined) this.followGround(world); // こやの 建築士さんは ゆかに 立ちつづける（屋根の 上へ 合わせない）
+    this.followGround(world);
     if (this.wobble >= 0) {
       this.wobble++;
       if (this.wobble > WOBBLE_STEPS) this.wobble = -1;
@@ -235,10 +229,6 @@ export class Architect {
   }
 
   private updateIdle(world: HouseWorld): void {
-    if (this.stayYaw !== undefined) {
-      this.turnTo(this.stayYaw);
-      return;
-    }
     if (--this.wait > 0) return;
     if (this.pickTarget(world)) this.state = 'walk';
     else this.wait = WAIT_MIN + Math.floor(this.rng() * WAIT_SPAN);

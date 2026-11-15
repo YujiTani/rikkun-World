@@ -106,7 +106,6 @@ export function wireSave(deps: WiredAchievements) {
     dama: { serialize: () => shared.dama?.serialize() ?? null, deserialize: (d) => shared.dama?.deserialize(d, legacyList(achievements)) },
     // TOWN-1 1.4: 街の まだ もどって いない マスと 日（古い 保存は 記録 なし ＝ 0 こ）
     townRepairs: { serialize: () => shared.townRepairs?.serialize() ?? null, deserialize: (d) => shared.townRepairs?.deserialize(d) },
-    townDrum: { serialize: () => shared.townDrum?.serialize() ?? null, deserialize: (d) => shared.townDrum?.deserialize(d) },
     legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
     // HOUSE-1A: 建築士さんの 記録。前の 保存（キーなし）は 最初の 1 人は 決まった 場所に 出る・かえす くらの 物は なし（1E: 前の 保存の `kura` は 次に 話した とき もちものへ もどす）
     house: { serialize: () => house.serialize(), deserialize: (d) => house.load(d) },

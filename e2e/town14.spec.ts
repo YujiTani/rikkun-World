@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { aimBlock, tapRight } from './helpers/houseBuilt';
 import { installAimHelpers } from './helpers/aim';
 import { holdItems } from './helpers/blade';
-import { findFlatSpot, goTo, nextMorning, openTown, place1P, timeDay, townCall, townCarpenter, townDamage, townInfo, townRepairs, type P3 } from './helpers/town';
+import { findFlatSpot, goTo, nextMorning, openTown, place1P, timeDay, townCall, townDamage, townInfo, townRepairs, type P3 } from './helpers/town';
 
 /**
  * TOWN-1 区切り 1B-1 の 1.4（TOWN-1-place.md §2.16・§4.5d の AC52・AC53(b1)。実装の 前に 書いた 赤の テスト）。
@@ -72,8 +72,7 @@ test.describe('TOWN-1 1B-1 こわれて 朝に もどる（1.4）', () => {
     let steps = 0;
     const gaps: number[] = []; // もどった ステップの 間かく
     let last = -1;
-    // 1B-2: もどすのは こやから 歩いて 着いた 建築士さんだけ（§2.16 の 9）。歩く ぶんも 待つ ので 上限を 6,000 ステップに（理由: 行き先ごとの 上限 3,000 ステップ（§4.5d）× 2）
-    for (; steps < 6000; steps++) {
+    for (; steps < 600; steps++) {
       await stepN(page, 1);
       const left = (await townRepairs(page)).cells.length;
       if (left < prev) {
@@ -85,9 +84,6 @@ test.describe('TOWN-1 1B-1 こわれて 朝に もどる（1.4）', () => {
       if (left <= n - Math.ceil(n / 2)) break;
     }
     await stepN(page, 120); // これ いじょう もどらない ことの 確かめ
-    // 建築士さんが こやに 帰る まで 待つ（1B-2。帰る 前に 2 回目の 朝を むかえない ため）
-    for (let i = 0; i < 6000 && (await townCarpenter(page)).out; i++) await stepN(page, 1);
-    expect((await townCarpenter(page)).out, '建築士さんが こやに 帰った（out が false）').toBe(false);
     rep = await townRepairs(page);
     expect(rep.cells.length, '1 晩で 半分（切り上げ）が もどる').toBe(n - Math.ceil(n / 2));
     expect(maxPerStep, '1 ステップに もどる マスは 8 以下').toBeLessThanOrEqual(8);
@@ -103,8 +99,7 @@ test.describe('TOWN-1 1B-1 こわれて 朝に もどる（1.4）', () => {
 
     // (c) つぎの 朝（d＋2）: のこりが ぜんぶ もどる
     expect(await nextMorning(page, 1), 'もう 1 晩').toBe(d + 2);
-    // 1B-2: のこりを 歩いて なおす ぶん 長めに（6,000 ステップ ＝ 行き先ごとの 上限 3,000 ステップ（§4.5d）× 2）
-    for (let i = 0; i < 6000 && (await townRepairs(page)).cells.length > 0; i += 10) await stepN(page, 10);
+    await stepN(page, 600);
     expect((await townRepairs(page)).cells.length, '2 晩目で 記録が 0').toBe(0);
     expect(await blocksNow(), '街の ブロックは こわす 前と 同じ').toEqual(before);
   });

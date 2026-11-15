@@ -389,11 +389,6 @@ export class DigSystemImpl implements DigSystem {
         this.decay();
         return;
       }
-      // TOWN-1 1B-2: ゴールの 太鼓は たたく（ほらない・ひびも 入らない）
-      if (this.m4.town?.drum?.(t.block.x, t.block.y, t.block.z, this.justPressed())) {
-        this.decay();
-        return;
-      }
       // TOWN-1 1B-1: 街の ブロック（あきち 以外）は こわれない。ひびが 入らず「かきん」
       if (this.m4.town?.locked(t.block.x, t.block.y, t.block.z)) {
         this.blockedReason = 'unbreakable';

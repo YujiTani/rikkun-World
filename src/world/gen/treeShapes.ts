@@ -230,14 +230,6 @@ function shapeTree(t: ShapedTree, log: LogFn | null, leaf: LeafFn | null): void 
   }
 }
 
-/** 木 1 本の ブロックの 場所（世界の 座標）。街の 木が 建物・道に かからないか しらべる 用（ブロックは 書かない） */
-export function shapedTreeCells(t: ShapedTree): { x: number; y: number; z: number; leaf: boolean }[] {
-  const cells: { x: number; y: number; z: number; leaf: boolean }[] = [];
-  shapeTree(t, (dx, y, dz) => cells.push({ x: t.x + dx, y, z: t.z + dz, leaf: false }), null);
-  shapeTree(t, null, (dx, y, dz) => cells.push({ x: t.x + dx, y, z: t.z + dz, leaf: true }));
-  return cells;
-}
-
 /** 形のある 木を 列 out（左上 x0, z0）に 書く。みきを 先に、はっぱは 空気の所だけ */
 export function writeShapedTrees(out: BlockArray, trees: readonly ShapedTree[], x0: number, z0: number, leafId: (t: ShapedTree) => number): void {
   const LOG = BLOCK_INDEX.log;
