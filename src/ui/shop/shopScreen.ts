@@ -4,9 +4,9 @@ import { boxSample, type ShopRow } from '../../town/shop/shop';
 import type { ShopView } from '../../town/shop/shopSession';
 import { SHOP_BOXES, isShopBox, shopGood, type ShopItemId } from '../../town/shop/shopTable';
 import { SHOP_TEXT } from '../../town/shop/shopText';
-import { drawPixels, itemIconUrl } from '../itemIcon';
+import { itemIconUrl } from '../itemIcon';
+import { chestIconUrl } from './chestIcon';
 import { escapeHtml, withRuby } from '../text';
-import { getTilePixels } from '../../world/blocks/textures';
 import './shopScreen.css';
 
 /**
@@ -24,26 +24,13 @@ export interface ShopScreenPorts {
   dama(): number;
   /** 2 人 あそびの 半分か */
   half(): boolean;
-  /** 動きを へらす（中身の ぽんを 止める） */
-  reduced(): boolean;
   select(id: ShopItemId): void;
   buy(): void;
   close(): void;
-  closeResult(): void;
 }
 
-const boxIcons = new Map<string, string>();
-/** たからばこの 絵（坑道の 宝箱の 絵: こばこ ＝ 木・おおばこ ＝ ミラクル） */
-function boxIconUrl(box: 'kobako' | 'obako'): string {
-  let u = boxIcons.get(box);
-  if (!u) {
-    const c = document.createElement('canvas');
-    drawPixels(c, getTilePixels(box === 'kobako' ? 'chest_1' : 'chest_4'));
-    u = c.toDataURL();
-    boxIcons.set(box, u);
-  }
-  return u;
-}
+/** たからばこの 絵（坑道の 宝箱を ななめから 見た 絵: こばこ ＝ 木〔段 1〕・おおばこ ＝ ミラクル〔段 4〕） */
+const boxIconUrl = (box: 'kobako' | 'obako'): string => chestIconUrl(box === 'kobako' ? 1 : 4);
 
 const img = (src: string, cls: string): string => `<img class="${cls}" src="${src}" alt="" draggable="false">`;
 const orb = (cls: string): string => img(itemIconUrl('yokai_orb' as ItemId), cls);
@@ -115,7 +102,6 @@ export class ShopScreen {
     if (id.startsWith('shop-card-')) this.p.select(id.slice('shop-card-'.length) as ShopItemId);
     else if (id === 'shop-buy') this.p.buy();
     else if (id === 'shop-close') this.p.close();
-    else if (id === 'shop-result-close') this.p.closeResult();
     else return;
     this.sync();
   }
@@ -147,7 +133,7 @@ export class ShopScreen {
       `<div class="shop-list"><h3 class="shop-group">${SHOP_TEXT.goods}</h3><div class="shop-grid">${goods.map((r) => this.card(r, r.id === v.selected)).join('')}</div>` +
       `<h3 class="shop-group">${SHOP_TEXT.boxes} ★</h3><div class="shop-boxes">${boxes.map((r) => this.card(r, r.id === v.selected)).join('')}</div></div>`;
     const detail = `<div class="shop-side">${sel ? this.detail(sel, warn) : `<p class="shop-pick">${SHOP_TEXT.pick}</p>`}</div>`;
-    return head + `<div class="shop-body">${list}${detail}</div>` + (v.result ? this.result(v.result) : '');
+    return head + `<div class="shop-body">${list}${detail}</div>`;
   }
 
   private detail(r: ShopRow, warn: string | null): string {
@@ -172,21 +158,6 @@ export class ShopScreen {
       `<div class="shop-detail" data-testid="shop-detail"><div class="shop-big">${img(ic.main, 'shop-big-icon')}${ic.sub ? img(ic.sub, 'shop-big-sub') : ''}</div>` +
       `<p class="shop-name">${withRuby(nameOf(r.id))}</p>${info}<div class="shop-fill"></div>${note}` +
       `<button type="button" class="shop-buy" data-testid="shop-buy" aria-disabled="${r.canBuy ? 'false' : 'true'}">${SHOP_TEXT.buy}</button></div>`
-    );
-  }
-
-  private result(res: NonNullable<ShopView['result']>): string {
-    const calm = this.p.reduced();
-    const cards = res.items
-      .map(
-        (it, i) =>
-          `<div class="shop-rcard" data-testid="shop-result-card" data-item="${it.item}" data-rarity="${it.rarity}" style="--rk-rarity: var(--rk-rarity-${it.rarity - 1}); --i: ${i}">` +
-          `${img(itemIconUrl(it.item), 'shop-rcard-icon')}<span class="shop-rcard-star">★${it.rarity}</span>${it.count > 1 ? `<span class="shop-rcard-n">×${it.count}</span>` : ''}</div>`,
-      )
-      .join('');
-    return (
-      `<div class="shop-result${calm ? ' is-calm' : ''}${res.box === 'obako' ? ' is-big' : ''}" data-testid="shop-result"><div class="shop-result-box">${img(boxIconUrl(res.box), 'shop-result-lid')}</div>` +
-      `<div class="shop-result-cards">${cards}</div><button type="button" class="shop-result-close" data-testid="shop-result-close">${SHOP_TEXT.close}</button></div>`
     );
   }
 

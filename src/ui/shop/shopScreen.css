@@ -331,6 +331,8 @@
 .shop-pay,
 .shop-note {
   margin: 0;
+  word-break: keep-all; /* 空白で だけ 折る */
+  text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -465,124 +467,54 @@
   font-size: 22px;
 }
 
-/* ---- たからばこの 中身 ---- */
-.shop-result {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
+/* ---- 画面を とじた あとの よろずやさんの ふきだし（1.5。§2.7 の 6） ---- */
+.shop-say {
+  position: fixed;
+  z-index: 29;
+  top: 18%;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: max-content;
+  max-width: calc(100vw - 64px);
+  padding: 12px 24px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 24px;
-  padding: 24px;
-  background: rgb(40 28 16 / 88%);
-  border-radius: inherit;
-}
-.shop-result-box {
-  width: 96px;
-  height: 96px;
-  animation: shop-lid 0.5s ease-out both;
-}
-.shop-result.is-big .shop-result-box {
-  width: 128px;
-  height: 128px;
-  border-radius: 50%;
-  box-shadow: 0 0 32px 12px rgb(255 122 61 / 55%);
-}
-.shop-result-lid {
-  width: 100%;
-  height: 100%;
-  image-rendering: pixelated;
-}
-.shop-result-cards {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  max-width: 100%;
-}
-.shop-rcard {
-  position: relative;
-  box-sizing: border-box;
-  width: 112px;
-  height: 112px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 4px;
-  background: var(--shop-card);
-  border: 6px solid var(--rk-rarity);
-  border-radius: 16px;
-  animation: shop-pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1) both;
-  animation-delay: calc(0.5s + var(--i) * 0.25s);
+  color: #2a2018;
+  text-shadow: none; /* #hud の 黒い 影を うけつがない */
+  -webkit-font-smoothing: antialiased;
+  background: #fffdf7;
+  border: 4px solid #e3d6bd;
+  border-radius: 24px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 30%);
+  pointer-events: none;
+  word-break: keep-all;
 }
-.shop-rcard-icon {
-  width: 56px;
-  height: 56px;
-  image-rendering: pixelated;
-}
-.shop-rcard-star {
-  font-size: 16px;
-  font-weight: 800;
-}
-.shop-rcard-n {
+.shop-say::after {
+  content: '';
   position: absolute;
-  right: 6px;
-  top: 4px;
-  font-size: 16px;
+  bottom: -14px;
+  left: calc(50% - 12px);
+  border: 12px solid transparent;
+  border-bottom: 0;
+  border-top-color: #e3d6bd;
+}
+.shop-say[data-layout='half'] {
+  right: 50vw; /* 1P の 半分の まん中（transform を 使わない: 字が にじまない） */
+  max-width: calc(50vw - 48px);
+}
+.shop-say[data-layout='half'][data-owner='2'] {
+  left: 50vw;
+  right: 0;
+}
+.shop-say-name {
+  font-size: 18px;
   font-weight: 800;
+  color: #4f3d2b;
 }
-.shop-result-close {
-  min-width: 200px;
-  min-height: 56px;
-  padding: 0 24px;
-  font-family: inherit;
-  font-size: 24px;
+.shop-say-text {
+  font-size: 26px;
   font-weight: 800;
-  color: #3b2410;
-  background: linear-gradient(180deg, #ffc23d, #ff951f);
-  border: 0;
-  border-radius: 16px;
-  cursor: pointer;
-}
-.shop[data-layout='half'] .shop-result-cards {
-  max-width: 360px;
-  gap: 8px;
-}
-.shop[data-layout='half'] .shop-rcard {
-  width: 104px;
-  height: 104px;
-}
-.shop-result.is-calm .shop-result-box,
-.shop-result.is-calm .shop-rcard {
-  animation: none;
-}
-@keyframes shop-lid {
-  0% {
-    transform: scale(0.6) translateY(16px);
-  }
-  60% {
-    transform: scale(1.15) translateY(-8px);
-  }
-  100% {
-    transform: none;
-  }
-}
-@keyframes shop-pop {
-  0% {
-    opacity: 0;
-    transform: scale(0.4);
-  }
-  100% {
-    opacity: 1;
-    transform: none;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .shop-result-box,
-  .shop-rcard {
-    animation: none;
-  }
 }
