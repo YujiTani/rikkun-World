@@ -3,6 +3,7 @@
 
 import { NO_SHOP, type ShopHub } from '../../town/shop/shopTalk';
 import type { ShopService } from '../../town/shop/shop';
+import type { ShopBoxPorts } from '../../town/shop/shopBoxes';
 import type { ShopGive, ShopItemId } from '../../town/shop/shopTable';
 import { DigFx } from '../../fx/DigFx';
 import { PlayerCombatImpl } from '../../combat';
@@ -192,6 +193,8 @@ interface Shared {
   /** TOWN-1 1C: よろずや（wireShop が 差しかえる。作る 前は 何も しない）。話す 口・開いて いる 人・1 人で 世界を 止める・パッド */
   shop: ShopHub;
   /** TOWN-1 1C: よろずやの こうかんの 係（保存の ため wireYokai が 先に 作る） */
+  /** よろずやの 前の たからばこが 出た・きえた ときの 見た目と 音（wireShop が 入れる） */
+  shopBoxFx: Pick<ShopBoxPorts, 'popped' | 'vanished'>;
   shopSave: ShopService | null;
   /** TOWN-1 1C: よろずやが 物を わたした（実績・テロップ。wireShop が 差しかえる） */
   shopGave: (who: 1 | 2, id: ShopItemId, stacks: readonly ShopGive[]) => void;
@@ -305,6 +308,7 @@ export function createShared(): Shared {
     townDrum: null,
     shop: NO_SHOP,
     shopSave: null,
+    shopBoxFx: {},
     shopGave: () => {},
     townCarpenterStep: null,
     achievementsRef: { feedWorn: () => {} },

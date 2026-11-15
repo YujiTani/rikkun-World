@@ -41,6 +41,9 @@ export function wireYokai(deps: WiredFighters) {
     scatter: (at, stacks) => { drops.scatter(at, stacks); },
   });
   shared.dama = dama;
+  /** 動物の 体が マスに かかるか（たからばこを 置く とき だけ 見る。体の はば 0.8・高さ 1 の 目安。マス） */
+  const animalAt = (x: number, y: number, z: number): boolean =>
+    deps.animals.list().some((a) => a.x > x - 0.4 && a.x < x + 1.4 && a.z > z - 0.4 && a.z < z + 1.4 && a.y < y + 1 && a.y + 1 > y);
   // TOWN-1 1C: よろずやの こうかんの 係（保存を 読む 前に 作る。画面・話す 口は wireShop）
   shared.shopSave = createShopService({
     seed,
@@ -50,6 +53,9 @@ export function wireYokai(deps: WiredFighters) {
     scatter: (at, stacks, opts) => drops.scatter(at, stacks, opts),
     recipesAllLearned: () => shared.house?.recipes.allLearned() ?? false,
     gave: (who, id, stacks) => shared.shopGave(who, id, stacks),
+    world,
+    creatureAt: (x, y, z) => (shared.yokaiManager?.occupies(x, y, z) ?? false) || animalAt(x, y, z),
+    boxFx: () => shared.shopBoxFx,
   });
   const credit: CreditDeps = { level1: level, level2: shared.p2.levels, feedDefeat: (who, kind) => shared.onDefeatAch(kind, who) };
   // COOP-1 4d-1: 妖怪の 攻撃は ねらっている 人の パリィに 聞く。1P の 側は 今の 中身（1P の parry・向き・火花）を そのまま 包む。2P の 側は 参加している あいだ だけ（いなければ 受けない）

@@ -96,6 +96,7 @@ export function wireMine(deps: WiredDuo) {
     bokenGen: BOKEN_GEN,
     oldCols: restored.oldCols,
     tansuHas: (x, y, z) => storage.has(x, y, z), // MINE-1E: 記録が ある たんすは キャンプの 予告を 出さない
+    extraChest: (x, y, z) => shared.shopSave?.boxChest(x, y, z) ?? null, // TOWN-1 1C（1.5）: よろずやの 前の たからばこ〔たねは 買った 人と 回数〕
     chest: {
       add: (item, count) => {
         const rest = router.add(item, count);
