@@ -87,7 +87,7 @@ export function shopStand(info: TownInfo & { npcs: { kind: string; pos: P3 }[]; 
 }
 
 /** 1P を stand に 置いて よろずやさんの からだの まん中を ねらい（__aim.sOffset の くりかえし）、右クリックで 話す。画面が 開くまで 上限 max ステップ */
-export async function talkByClick1P(page: Page, npc: P3, stand: P3, max = 300): Promise<void> {
+export async function talkByClick1P(page: Page, npc: P3, stand: P3, max = 300, isOpen: () => Promise<boolean> = async () => (await shopState(page, 1)).open): Promise<void> {
   await installAimHelpers(page);
   await page.evaluate(
     ({ npc, stand }) => {
@@ -115,11 +115,11 @@ export async function talkByClick1P(page: Page, npc: P3, stand: P3, max = 300): 
     { npc, stand },
   );
   await tapRight(page);
-  for (let i = 0; i < max && !(await shopState(page, 1)).open; i++) await stepN(page, 1);
+  for (let i = 0; i < max && !(await isOpen()); i++) await stepN(page, 1);
 }
 
 /** 2P を stand に 置いて 建築士さんと 同じ 口（duo.aimAt）で ねらい、ZL（ボタン 6）で 話す */
-export async function talkByPad2P(page: Page, npc: P3, stand: P3, max = 300): Promise<void> {
+export async function talkByPad2P(page: Page, npc: P3, stand: P3, max = 300, isOpen: () => Promise<boolean> = async () => (await shopState(page, 2)).open): Promise<void> {
   await page.evaluate(
     ({ npc, stand }) => {
       const h = (window as any).__rikkun;
@@ -132,7 +132,7 @@ export async function talkByPad2P(page: Page, npc: P3, stand: P3, max = 300): Pr
   await setFakePad(page, 1, { buttons: [6] });
   await stepN(page, 3);
   await setFakePad(page, 1, {});
-  for (let i = 0; i < max && !(await shopState(page, 2)).open; i++) await stepN(page, 1);
+  for (let i = 0; i < max && !(await isOpen()); i++) await stepN(page, 1);
 }
 
 export const shopBoxes = (page: Page): Promise<ShopBox[]> => shopCall<ShopBox[]>(page, 'boxes');
