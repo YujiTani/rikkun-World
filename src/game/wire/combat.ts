@@ -1,4 +1,5 @@
 // main.ts の 流れ 4: 戦い・道具・レジェンダリー・たんす・作る・農業・掘る。
+import { withShopTalk } from '../../town/shop/shopTalk';
 import { createTenshiWire } from './tenshiWire';
 import { tenshiNoFall } from '../../player/tenshiMove';
 import { BLOCK_INDEX } from '../../world/blocks/blockTypes';
@@ -284,6 +285,7 @@ export function wireFighters(deps: WiredWeapons) {
     config: combatCfg,
     tool: tools,
     armor,
+    holdStill: () => shared.shop.openBy(1), // TOWN-1 1C: よろずやを 開いて いる 間は 押されない（その場に 止まる）
     onPickup: (item, count) => craft.notifyPickup(item, count),
     world,
     player: {
@@ -484,11 +486,16 @@ export function wireFighters(deps: WiredWeapons) {
       meatHeal: () => live.meatHeal,
       coopMenu: (id) => shared.openCoopMenu(id),
       // HOUSE-1A: 建築士さん（wireHouse で あとから 作る ので 関数で 包む）
-      architects: {
-        rayHit: (origin, dir, reach) => shared.house?.manager.rayHit(origin, dir, reach) ?? null,
-        talk: (id) => shared.house?.talkTo(id) ?? false,
-        hit: (id) => shared.house?.hit(id),
-      },
+      // TOWN-1 1C: よろずやさんも 同じ 口で 話す（近い ほう）
+      architects: withShopTalk(
+        {
+          rayHit: (origin, dir, reach) => shared.house?.manager.rayHit(origin, dir, reach) ?? null,
+          talk: (id) => shared.house?.talkTo(id) ?? false,
+          hit: (id) => shared.house?.hit(id),
+        },
+        () => shared.shop,
+        1,
+      ),
       // HOUSE-1C PR-2: 建築中の 場所の 守りと みずもり・どうづき（wireHouse で あとから 作る ので 関数で 包む）
       build: buildPort,
       live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks, coopCountMax: live.coopCountMax, coopMax: live.coopMax, kitEggMax: live.kitEggMax }),

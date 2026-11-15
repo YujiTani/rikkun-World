@@ -222,6 +222,8 @@ export interface TestHook {
   /** TOWN-1 1B-2（AC47）: ゴールの 太鼓。その 人が はじめて たたいたか */
   athletic: { drum(p: 1 | 2): { cleared: boolean } };
   town: { info(): import('../town/townPlan').TownInfo | null; inSafe(x: number, y: number, z: number): boolean; inTown(x: number, y: number, z: number): boolean; smoke(): number; /** 1.4: まだ もどって いない マス（保存と 同じ 中身）と まとまり（TOWN-1.md §6.1） */ repairs(): { cells: import('../town/townRepairs').RepairCell[]; groups: { day: number; min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number }; left: number; waiting: boolean }[] }; /** 1.4（テストの 準備）: 妖怪の わざと 同じ 口で マスを かえて 記録する。かえた 数 */ damage(cells: { x: number; y: number; z: number }[], to?: 'air' | 'stone'): number; /** 1.4（1B-2）: こやの 建築士さん（TOWN-1.md §6.1） */ carpenter(): { out: boolean; state: 'home' | 'walk' | 'fix' | 'wait' | 'back'; pos: { x: number; y: number; z: number }; target: number | null; sign: boolean }; /** 1.4（1B-2）: いま 出て いる 足場 */ scaffolds(): { min: { x: number; y: number; z: number }; max: { x: number; y: number; z: number } }[]; /** 1.4: その マスの 設計・生成の 中身（ブロック id） */ planBlock(x: number, y: number, z: number): string; /** 1.4: 妖怪の わざでも かわらない 所（あきち・石段・はしの 石がき）か */ keeps(x: number, y: number, z: number): boolean };
+  /** TOWN-1 1C: よろずや（open・close・select・buy・state。e2e/town1c.spec.ts の 頭の 約束） */
+  shop: import('../game/wire/shop').WiredShop['shopHook'];
   /** TOWN-1 1A（docs/design/TOWN-1.md §6.1）: ようかいダマ。p ＝ 1 | 2（2P が いなければ count(2) は null） */
   dama: { count(p: 1 | 2): number | null; give(p: 1 | 2, n: number): { added: number; dropped: number }; legacy(): number | null };
   /** #293 リリース: がしゃどくろ（いま すぐ 出す・たおした ことに する・調整表。src/gasha/release.ts）。起動の おわりに 足される */
@@ -234,7 +236,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'gfx' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house' | 'duo' | 'dama' | 'town' | 'athletic'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'gfx' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house' | 'duo' | 'dama' | 'town' | 'athletic' | 'shop'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

@@ -71,6 +71,8 @@ export function wireInput(deps: WiredRender) {
     houseFrozen: () => shared.houseFrozen(),
     houseTick: () => shared.houseModal.tick(),
     houseRender: () => shared.houseModal.render(),
+    shopFrozen: () => shared.shop.frozen(),
+    shopTick: () => shared.shop.tick(),
     duoModalTick: () => shared.duoModalTick(),
   }));
   // 本の 入力: 動かせるのは 開いた 人の パッドだけ（1P の キー・パッド → p1、2P の パッド → p2。COOP-1 5d）
@@ -95,9 +97,9 @@ export function wireInput(deps: WiredRender) {
     menuOpen: () => {
       const settingsOn = settingsGate.open();
       try {
-        return settingsOn || lock.overlayVisible() || shared.screen.inventoryOpen() || book.active() || shared.houseFrozen();
+        return settingsOn || lock.overlayVisible() || shared.screen.inventoryOpen() || book.active() || shared.houseFrozen() || shared.shop.openBy(1);
       } catch {
-        return settingsOn || lock.overlayVisible() || book.active() || shared.houseFrozen();
+        return settingsOn || lock.overlayVisible() || book.active() || shared.houseFrozen() || shared.shop.openBy(1);
       }
     },
     hanging: () => shared.controller?.tetherBody.hanging === true,
@@ -141,7 +143,7 @@ export function wireInput(deps: WiredRender) {
     lock,
     getScreen: () => (shared as { screen?: { inventoryOpen(): boolean; closeToGuide(): void } }).screen ?? null,
     bookOpen: () => book.active(),
-    houseOpen: () => shared.houseFrozen(),
+    houseOpen: () => shared.houseFrozen() || shared.shop.openBy(1), // TOWN-1 1C: よろずやの Esc は よろずやを とじる（一時停止の メニューは 出さない）
     coopOpen: () => shared.coopMenuIsOpen(),
     settings: settingsUi,
     dialogs,

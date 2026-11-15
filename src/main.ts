@@ -14,6 +14,7 @@ import { installGameHook } from './debug/installTestHook';
 import { wireGasha } from './game/wire/gasha';
 import { wireDuo } from './game/wire/duo';
 import { wireMine } from './game/wire/mine';
+import { wireShop } from './game/wire/shop';
 import { installDrift, wantsDrift } from './game/wire/drift';
 import { installSplash, wantsSplash } from './game/wire/splash';
 import { installUzu } from './game/wire/uzu';
@@ -40,7 +41,8 @@ const { game } = w16;
 game.onUpdate(createStep(w16));
 const w17 = Object.assign(w16, wireLoop(w16));
 const w18 = Object.assign(w17, wireDuo(w17)); // 2 人で あそぶ（COOP-1。2 本目の ＋ で 2P が 参加する。?duo=dev は E2E 用）
-const w19 = Object.assign(w18, wireMine(w18)); // 坑道の 宝箱（MINE-1C）
+const w19a = Object.assign(w18, wireMine(w18)); // 坑道の 宝箱（MINE-1C）
+const w19 = Object.assign(w19a, wireShop(w19a)); // よろずや と たからばこ（TOWN-1 1C）
 installGameHook(w19);
 wireGasha(w19);
 // ゆきやまの 雪・もみじやまの 紅葉の 舞い（既定で 出す。?drift=0 で 出さない）

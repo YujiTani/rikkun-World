@@ -24,6 +24,7 @@ import { emptyKitSize } from './coopMenuView';
 import { townSafe } from './town';
 import { townGuards } from '../../town/townGuard';
 import { createDamaService } from './dama';
+import { createShopService } from './shopService';
 import { townNote, wireTownRepair } from './townRepair';
 
 export function wireYokai(deps: WiredFighters) {
@@ -40,6 +41,16 @@ export function wireYokai(deps: WiredFighters) {
     scatter: (at, stacks) => { drops.scatter(at, stacks); },
   });
   shared.dama = dama;
+  // TOWN-1 1C: よろずやの こうかんの 係（保存を 読む 前に 作る。画面・話す 口は wireShop）
+  shared.shopSave = createShopService({
+    seed,
+    inventory,
+    playerPos: () => controller.state.position,
+    mate: () => shared.duoMate(),
+    scatter: (at, stacks, opts) => drops.scatter(at, stacks, opts),
+    recipesAllLearned: () => shared.house?.recipes.allLearned() ?? false,
+    gave: (who, id, stacks) => shared.shopGave(who, id, stacks),
+  });
   const credit: CreditDeps = { level1: level, level2: shared.p2.levels, feedDefeat: (who, kind) => shared.onDefeatAch(kind, who) };
   // COOP-1 4d-1: 妖怪の 攻撃は ねらっている 人の パリィに 聞く。1P の 側は 今の 中身（1P の parry・向き・火花）を そのまま 包む。2P の 側は 参加している あいだ だけ（いなければ 受けない）
   const side1 = {

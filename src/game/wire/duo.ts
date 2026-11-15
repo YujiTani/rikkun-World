@@ -298,7 +298,7 @@ export function wireDuo(deps: WiredLoop) {
     // 倒れている あいだは 2P の 入力を ぜんぶ はなす（歩く・ほる・おく・こうげき）
     // もちもの画面は 世界を 止めない: 1P が 画面を 開いていても 2P は 遊べる（lock.playInputEnabled は 1P の 画面で false になる）
     // とりごやの メニューが 開いている 間も 止める（開いている 人は 歩けない・ほれない。COOP-1 5c）
-    playInputEnabled: () => lock.realtimeAllowed() && !panelOpen() && !play.coopMenuOpen() && !play.down(),
+    playInputEnabled: () => lock.realtimeAllowed() && !panelOpen() && !play.coopMenuOpen() && !shared.shop.openBy(2) && !play.down(), // TOWN-1 1C: よろずやを 開いた 2P は その場に 止まる
   };
 
   // COOP-1 5e: ふとんで ねている 間は 2P も 歩けない・押せない（待ち中は 止めない）
@@ -387,7 +387,7 @@ export function wireDuo(deps: WiredLoop) {
     join();
   };
   // 2P の パッドを メニューの わりあてに する 画面: もちもの画面・2P が 開いた 本／建築士さん（5d の modal）・2P の とりごやの メニュー（5c）
-  gamepadApi.duo.menuOpen2 = () => modal.menuOpen2() || (session.joined && play.coopMenuOpen());
+  gamepadApi.duo.menuOpen2 = () => modal.menuOpen2() || (session.joined && (play.coopMenuOpen() || shared.shop.openBy(2))); // TOWN-1 1C: 2P の よろずやも
   gamepadApi.duo.joined = () => session.joined; // 参加している あいだ だけ ボタンを 実時間の 毎コマ 読む（AC101）
   // たんす・かまどの 中身に かける 操作は ぜんぶ ここへ あずけ、1 ステップに 1 回 1P → 2P の 順に やる（同じ ステップは 1P が 先。COOP-1 4c）。
   // 1 人の ときは あずけず すぐ 実行（今の まま）。1P の マウスは ステップの あいだに 来る ので すぐ 実行で よい
@@ -455,7 +455,8 @@ export function wireDuo(deps: WiredLoop) {
         }
       }
       // COOP-1 5c: 2P の とりごやの メニュー（十字・A・B）。もちもの画面が 開いて いる あいだは そちらが 受ける
-      if (!inv2.isOpen()) for (const a of INV_PAD_ACTIONS) if (p2Actions.wasPressed(a)) play.coopPad(a);
+      // TOWN-1 1C: 2P が よろずやを 開いて いる 間は そちらが 受ける
+      if (!inv2.isOpen()) for (const a of INV_PAD_ACTIONS) if (p2Actions.wasPressed(a)) (shared.shop.openBy(2) ? shared.shop.pad(2, a) : play.coopPad(a));
       const dropEvents = drop2?.drainEvents();
       if (dropEvents && dropEvents.length > 0) deps.achievements.feedStorage(dropEvents); // 実績は 2 人で 共有
       order.flush(); // 預かった パネルの 操作を 1P → 2P の 順に（FurnaceWorld・たんすの update の 前。1 ステップに 1 回）

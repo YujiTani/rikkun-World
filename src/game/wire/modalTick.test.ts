@@ -16,6 +16,8 @@ function make(over: Partial<ModalParts> = {}) {
     houseFrozen: () => false,
     houseTick: () => calls.push('house'),
     houseRender: () => calls.push('houseRender'),
+    shopFrozen: () => false,
+    shopTick: () => calls.push('shop'),
     duoModalTick: () => calls.push('duo'),
     ...over,
   };
@@ -43,10 +45,17 @@ describe('createGameModal（COOP-1 4a。世界を 止めるのは 本・建築�
     expect(calls).toEqual(['house', 'duo']);
   });
 
+  it('TOWN-1 1C: 1 人で よろずやを 開いて いる あいだ: active。tick は よろずやの 1 コマと 2P の 側の 1 コマ', () => {
+    const { modal, calls } = make({ shopFrozen: () => true });
+    expect(modal.active()).toBe(true);
+    modal.tick(false);
+    expect(calls).toEqual(['shop', 'duo']);
+  });
+
   it('もちもの画面まわり・パッドを 読む 道は modal に ない（古い 部品を 残さない）', () => {
     // 古い 部品（duoFrozen）を 渡しても 世界は 止まらない。型でも 落とす: ModalParts に これらは ない
     // @ts-expect-error duoFrozen は 4a で なくなった
-    const bad: ModalParts = { bookActive: () => false, bookTick() {}, bookRender() {}, houseFrozen: () => false, houseTick() {}, houseRender() {}, duoFrozen: () => true, duoModalTick() {} };
+    const bad: ModalParts = { bookActive: () => false, bookTick() {}, bookRender() {}, houseFrozen: () => false, houseTick() {}, houseRender() {}, shopFrozen: () => false, shopTick() {}, duoFrozen: () => true, duoModalTick() {} };
     expect(createGameModal(bad).active()).toBe(false);
   });
 });
