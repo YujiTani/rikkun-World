@@ -39,12 +39,12 @@ import { createHouseHook } from '../house/hook';
 import { lookDirection } from '../dig/raycast';
 import { computeFarmPlacement } from '../world/gen/farmPlacement';
 import { digSettingsView, settingsViewOf, sharedSettingsView } from './settingsViews';
-import type { WiredMine } from '../game/wire/mine';
+import type { WiredShop } from '../game/wire/shop';
 import { createTownHook } from '../game/wire/town';
 import { townDrumNow } from '../game/wire/townDrum';
 import { createDamaHook } from '../game/wire/dama';
 
-export function installGameHook(deps: WiredMine): void {
+export function installGameHook(deps: WiredShop): void {
   const {
     shared, game, overlay, host, startBoot, world, charCtl, controller, setShadow, seed, achievements,
     countryWatch, renderer, island, save, blobShadow, sky, parry, thunderFx, legend, legendBook, waveSys, hammer,
@@ -350,6 +350,7 @@ export function installGameHook(deps: WiredMine): void {
     dama: createDamaHook(shared.dama!),
     town: createTownHook(),
     athletic: { drum: (p: 1 | 2) => ({ cleared: townDrumNow()?.cleared(p) ?? false }) },
+    shop: deps.shopHook, // TOWN-1 1C: よろずや（e2e/town1c.spec.ts の 頭の 約束）
     audio: createAudioHook({
       mixer,
       bgm,

@@ -29,6 +29,46 @@ export const BUILDING_SITES: readonly BuildingSite[] = [
   { kind: 'ochaya', u0: SHOP_SITES.ochaya.u0, v0: SHOP_SITES.ochaya.v0, u1: SHOP_SITES.ochaya.u1, v1: SHOP_SITES.ochaya.v1 + 1, door: { u: SHOP_SITES.ochaya.door.u, v: SHOP_SITES.ochaya.door.v + 1 }, terrace: false },
 ];
 
+/** 街の 人の しゅるい（TOWN-1.md §6.1 の `town.info().npcs`）。1C は よろずやさん（shop）だけ。ほかは 1D・1E で 足す */
+export type NpcKind = 'shop' | 'architect' | 'monoshiri' | 'smith' | 'stall' | 'dango' | 'gohan';
+
+export interface NpcSite {
+  kind: NpcKind;
+  /** 立つ マス（ローカル） */
+  u: number;
+  v: number;
+  /** 奥の 列（1 だん 高い 所）の 建物の 中か。向きは いつも 手前（v が ふえる ほう） */
+  terrace: boolean;
+}
+
+/**
+ * TOWN-1 1C: 街の 人の 立つ 所（よろずやさん ＝ よろずやの 店の 中・のれんの まっすぐ おく 2 マス。戸口〔door v 11〕から 見て まっすぐ 前。
+ * 前の しきい〔v 9〕に 立てば 2 マス 先で、あいだに 何も ない）。足もと ＝ 店の ゆかの 上
+ */
+export const NPC_SITES: readonly NpcSite[] = [{ kind: 'shop', u: 9, v: 7, terrace: true }];
+
+/**
+ * TOWN-1-shop §4.3b（1.5）: よろずやの たからばこの 置き場（よろずやの 戸口 D から 数える。えらぶ 順 ①〜④）。
+ * du ＝ 2 マスの 西がわの マスの ずれ（マス。D.u から）。2 マスの 行は D.v＋row、前に 立つ マスは D.v＋stand。
+ * ①と ③・②と ④ の 間は 1 マス あけ（坑道の 宝箱の きまり）、戸口の 前 D.u−2〜D.u＋2 は 道として あけて おく。
+ */
+export const SHOP_BOX_SPOTS = {
+  /** 2 マスの 行（戸口から 手前へ。マス） */
+  row: 2,
+  /** 前に 立つ マス（戸口から 手前へ。マス） */
+  stand: 3,
+  /** ① 西 1・② 東 1・③ 西 2・④ 東 2 の 西がわの マス（D.u から。マス） */
+  du: [-4, 3, -7, 6],
+} as const;
+
+/** よろずやの たからばこの 置き場の 2 マスか 前に 立つ マス（ローカル）。設計で 空気に して おく（店先の 品を 置かない。§4.3b） */
+export function shopBoxKeepClear(u: number, v: number): boolean {
+  const yoro = BUILDING_SITES.find((b) => b.kind === 'yorozuya')!;
+  const row = yoro.door.v + SHOP_BOX_SPOTS.row;
+  if (v !== row && v !== yoro.door.v + SHOP_BOX_SPOTS.stand) return false;
+  return SHOP_BOX_SPOTS.du.some((du) => u === yoro.door.u + du || u === yoro.door.u + du + 1);
+}
+
 export interface StallSite {
   kind: 'kaitori' | 'dango' | 'gohan' | 'deco';
   /** 前に 立つ マス */

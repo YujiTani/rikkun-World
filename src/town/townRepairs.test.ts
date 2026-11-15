@@ -561,3 +561,26 @@ describe('ふとんで ねた 朝（AC52(f)・AC56）', () => {
     expect(r.t.repairs().cells.length, 'つぎの 朝の 1 ステップめに d+1 の 分').toBeLessThanOrEqual(2);
   });
 });
+
+describe('TOWN-1-shop 1.5 AC59: よろずやの 前の たからばこ（坑道の 宝箱の ブロック）は 街の なおしに 入らない', () => {
+  it('箱の 2 マスを damage（空気・石）しても かわらず 記録に ない。妖怪の わざの 記録（note）も しない', () => {
+    const r = rig();
+    const a = { x: 20, y: GROUND + 1, z: 20 };
+    const b = { x: 21, y: GROUND + 1, z: 20 };
+    r.real.setBlock(a.x, a.y, a.z, 'takarabako_2' as BlockId);
+    r.real.setBlock(b.x, b.y, b.z, 'takarabako_2_r' as BlockId);
+    r.break_([a, b], 'air');
+    r.break_([a, b], 'stone');
+    expect(r.blockOf(a.x, a.y, a.z)).toBe('takarabako_2');
+    expect(r.blockOf(b.x, b.y, b.z)).toBe('takarabako_2_r');
+    expect(r.t.isRecorded(a.x, a.y, a.z) || r.t.isRecorded(b.x, b.y, b.z)).toBe(false);
+    expect(r.t.note(a.x, a.y, a.z)).toBe(false);
+    // 箱の 下の 地面は ふつうに 記録され、朝に もどる（箱は のこる）
+    r.break_([{ x: a.x, y: GROUND, z: a.z }]);
+    expect(r.t.isRecorded(a.x, GROUND, a.z)).toBe(true);
+    r.morning(2);
+    r.step(600);
+    expect(r.blockOf(a.x, GROUND, a.z)).toBe('grass');
+    expect(r.blockOf(a.x, a.y, a.z)).toBe('takarabako_2');
+  });
+});

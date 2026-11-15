@@ -7,6 +7,7 @@ import { buildShops } from './townShops';
 import { buildYatai } from './townYatai';
 import { buildKajiya } from './townKajiya';
 import { at } from './townLayout';
+import { shopBoxKeepClear } from './townSites';
 import { TOWN } from './townTuning';
 
 /**
@@ -150,6 +151,7 @@ function yorozuya(b: Builder): void {
       for (let u = y.u0; u <= y.u1; u++) {
         if (hash3(u, v, 9) % y.every !== 0) continue;
         if (b.cells.has((0 * 128 + v) * 128 + u)) continue;
+        if (shopBoxKeepClear(u, v)) continue; // たからばこの 置き場（1.5）
         b.put(u, v, 0, T(YARD_ITEMS[hash3(u, v, 11) % YARD_ITEMS.length]!));
       }
     }

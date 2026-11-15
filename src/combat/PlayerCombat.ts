@@ -120,6 +120,8 @@ export interface CombatDeps {
   assist?: (eye: Vec3, dir: Vec3, reach: number) => number | null;
   /** WEAPON-9: 受ける ダメージの 倍率（シャイニング中 1/3。防具の あとに かけて 切り上げ）。なければ 1 */
   takenMul?: () => number;
+  /** TOWN-1 1C（1.3）: true の あいだ こうげきで 押されない・はねない（よろずやの 画面を 開いて いる 人は その場に 止まる。ダメージは 外と 同じ） */
+  holdStill?: () => boolean;
   /** WEAPON-9: true の あいだ 落下ダメージを 出さない（シャイニング中・おわって 着地するまで） */
   noFall?: () => boolean;
   /** WATERFALL-1 版 2: こげた ブロックに ふれて いるか（足もと・体の となり。なければ ふれない） */
@@ -599,7 +601,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       if (blocked) ev.blocked = true;
       this.emit(ev);
     }
-    if (from) {
+    if (from && !(this.d.holdStill?.() ?? false)) {
       const st = this.d.player.get();
       let dx = st.position.x - from.x;
       let dz = st.position.z - from.z;

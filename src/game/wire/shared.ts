@@ -1,6 +1,10 @@
 // main.ts の 流れ（src/game/wire/*.ts）が 段を こえて 読み書きする 状態。
 // 前の 段の 中から あとで 作る 物を 呼ぶ 所（forward）と、段を またいで 書きかえる 変数（let）だけを ここに 置く。
 
+import { NO_SHOP, type ShopHub } from '../../town/shop/shopTalk';
+import type { ShopService } from '../../town/shop/shop';
+import type { ShopBoxPorts } from '../../town/shop/shopBoxes';
+import type { ShopGive, ShopItemId } from '../../town/shop/shopTable';
 import { DigFx } from '../../fx/DigFx';
 import { PlayerCombatImpl } from '../../combat';
 import { StaggerIcons } from '../../fx/parryFx';
@@ -186,6 +190,14 @@ interface Shared {
   dama: DamaService | null;
   /** TOWN-1 1.4: 街の こわれた マスの 記録と 朝の もどし（wireYokai が 作る。src/game/wire/townRepair.ts） */
   townRepairs: TownRepairs | null;
+  /** TOWN-1 1C: よろずや（wireShop が 差しかえる。作る 前は 何も しない）。話す 口・開いて いる 人・1 人で 世界を 止める・パッド */
+  shop: ShopHub;
+  /** TOWN-1 1C: よろずやの こうかんの 係（保存の ため wireYokai が 先に 作る） */
+  /** よろずやの 前の たからばこが 出た・きえた ときの 見た目と 音（wireShop が 入れる） */
+  shopBoxFx: Pick<ShopBoxPorts, 'popped' | 'vanished'>;
+  shopSave: ShopService | null;
+  /** TOWN-1 1C: よろずやが 物を わたした（実績・テロップ。wireShop が 差しかえる） */
+  shopGave: (who: 1 | 2, id: ShopItemId, stacks: readonly ShopGive[]) => void;
   /** TOWN-1 1B-2: アスレチックの ゴールの 太鼓の 記録（街が なければ null） */
   townDrum: TownDrum | null;
   /** TOWN-1 1.4: 街の だいくさん・足場・ぽんの 1 ステップ（step.ts が 記録の すすめの あとに よぶ。街が なければ null） */
@@ -294,6 +306,10 @@ export function createShared(): Shared {
     dama: null,
     townRepairs: null,
     townDrum: null,
+    shop: NO_SHOP,
+    shopSave: null,
+    shopBoxFx: {},
+    shopGave: () => {},
     townCarpenterStep: null,
     achievementsRef: { feedWorn: () => {} },
     onDefeatAch: () => {},

@@ -3,10 +3,11 @@ import { DAIKU_SIGN, DAIKU_STAND } from './townDaiku';
 import { CANAL, SURF, at, buildLayout, type Layout } from './townLayout';
 import { ATHLETIC } from './townAthletic';
 import { townBuildingCells } from './townBuildings';
-import { BUILDING_SITES, STALL_SITES, heightOf, type BuildingKind, type StallSite } from './townSites';
+import { BUILDING_SITES, NPC_SITES, STALL_SITES, heightOf, type BuildingKind, type NpcKind, type NpcSite, type StallSite } from './townSites';
 import { KAJIYA_CHIMNEY } from './townKajiya';
 import { planTownTrees, type TownTree } from './townTrees';
 import { TOWN, type Facing } from './townTuning';
+import { planShopSpots, type ShopSpot } from './shop/shopSpots';
 
 /**
  * TOWN-1 1B-1: 街の 記録（保存する 数）と、世界の 座標への うつし・`town.info()` の 中身・安全地帯の しらべ。
@@ -64,8 +65,8 @@ export interface TownInfo {
   lights: { kind: 'toro' | 'stair'; pos: P3 }[];
   /** 建物（1B-2）: よろずや・かじや・だいく・道場と、かざりの 町家 2・おちゃや。min・max ＝ 外の 四角（y は 地面の ブロックの 上の 面と いちばん 上）、door ＝ 戸口の 前 */
   buildings: { kind: BuildingKind; min: P3; max: P3; door: P3 }[];
-  /** 人（1E で 入る。いまは 空） */
-  npcs: never[];
+  /** 人（1C: よろずやさん。ほかの 人は 1D・1E で 入る）。pos ＝ 足もと（マスの まん中）、yaw ＝ 向き（ラジアン。0 ＝ 北〔−z〕、建築士さんと 同じ） */
+  npcs: { kind: NpcKind; pos: P3; yaw: number }[];
   /** やたい（1B-2）: pos ＝ 前に 立つ マス・talk ＝ 話せる やたい */
   stalls: { kind: StallSite['kind']; pos: P3; talk: boolean }[];
   /** アスレチック（1B-2。TOWN-1.md §6.1）。min・max ＝ かこい、posts ＝ くいの 上の 面、log・tower・bridge・slide ＝ 上の 面、drum ＝ 太鼓の ブロックの マス（y は ブロックの 下の 面） */
@@ -145,6 +146,7 @@ export class TownPlan {
   readonly stairTopAt: ReadonlyMap<number, 'light' | 'banner'>;
   private readonly infoCache: TownInfo;
   private treeList: readonly TownTree[] | null = null;
+  private spotList: readonly ShopSpot[] | null = null;
   private readonly gateWorld: XZ;
 
   /** spawn ＝ スタート地点の マス（見通しの みちの はじめ）。なければ みちを 作らない */
@@ -304,6 +306,14 @@ export class TownPlan {
     return { x: a.x, y: a.y, z: a.z, yaw: Math.atan2(b.x - a.x, -(b.z - a.z)) };
   }
 
+  /** 街の 人の 足もと（建物の ゆか〔dy 0〕の 上 ＝ 地面〔か 台〕の 2 マス 上。carpenterHome と 同じ）と 向き（手前〔v が ふえる ほう〕） */
+  private npcSpot(n: NpcSite): TownInfo['npcs'][number] {
+    const y = this.rec.groundY + (n.terrace ? TOWN.terrace.rise : 0) + 2;
+    const a = this.cell(n.u, n.v, y);
+    const b = this.cell(n.u, n.v + 1, y);
+    return { kind: n.kind, pos: a, yaw: Math.atan2(b.x - a.x, -(b.z - a.z)) };
+  }
+
   /** るすの ふだを 立てる 所（足もと）と 向き（こやの 前）。こやの 前の しきいの 上。柱・かべと かさならず、正面の 道から 全部 読める */
   carpenterSign(): { x: number; y: number; z: number; yaw: number } {
     const h = this.carpenterHome();
@@ -326,6 +336,17 @@ export class TownPlan {
 
   info(): TownInfo {
     return this.infoCache;
+  }
+
+  /** その マスの 足もと（地面か 奥の 列の 台の 上の 空気の y） */
+  feetY(u: number, v: number): number {
+    return this.rec.groundY + (layout.surf[at(u, v)] === SURF.terrace ? TOWN.terrace.rise : 0) + 1;
+  }
+
+  /** よろずやの たからばこの 置き場 4 か所（TOWN-1-shop §4.3b。えらぶ 順。初めて 呼んだ とき 1 回 だけ 作る） */
+  shopSpots(): readonly ShopSpot[] {
+    if (this.spotList === null) this.spotList = planShopSpots({ toWorld: (u, v) => this.toWorld(u, v), feetY: (u, v) => this.feetY(u, v) });
+    return this.spotList;
   }
 
   private cell(u: number, v: number, y: number): P3 {
@@ -406,7 +427,7 @@ export class TownPlan {
           door,
         };
       }),
-      npcs: [],
+      npcs: NPC_SITES.map((n) => this.npcSpot(n)),
       stalls: STALL_SITES.map((s) => ({ kind: s.kind, pos: this.cell(s.u, s.v, G + 1), talk: s.talk })),
       athletic,
       trees: this.trees().map((t) => ({ pos: { x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5 }, sakura: t.sakura, form: t.form, size: t.size })),

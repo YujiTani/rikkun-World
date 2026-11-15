@@ -1,6 +1,7 @@
 // main.ts の 流れ 9 の つづき: 2P の あそび（COOP-1 作業 3a。docs/design/COOP-1.md §2.5・§2.6・§9.5）。
 // 2P の ほる・おく・こうげき・ハート・たおれて もどる・けいけんち。歩く・カメラ・えらびは wire/duo.ts。
 // 2P が 参加する たびに 一式を 作り、やめる たびに 片づける（倒れたまま やめても 次は 元気）。
+import { withShopTalk } from '../../town/shop/shopTalk';
 import { createTenshiWire, type TenshiWire } from './tenshiWire';
 import { applyTenshiMotion, tenshiNoFall } from '../../player/tenshiMove';
 import type * as THREE from 'three';
@@ -244,6 +245,7 @@ export function wireDuoPlay(c: DuoPlayCtx) {
       player: { get: () => ctl.state, set: (v) => ctl.set(v) },
       inventory: p2.inventory,
       armor: p2.armor, // 2P の そうび（ふせぐ・こわれる・羽織・袋。1P と 同じ 部品）
+      holdStill: () => shared.shop.openBy(2), // TOWN-1 1C: よろずやを 開いて いる 間は 押されない（その場に 止まる）
       yokai: yokai2,
       spawn: () => ({ ...c.joinSpot(), yawDeg: controller.state.yawDeg, pitchDeg: 0 }),
       drops,
@@ -333,11 +335,15 @@ export function wireDuoPlay(c: DuoPlayCtx) {
         houseLook: () => shared.house?.book ?? null,
         placedLooks: () => shared.house?.placedLooks ?? null,
         scroll: createScrollPort(() => shared.house, 2), // HOUSE-2A: 2P の まきもの（2P の もちものから へらして おぼえる。記録は 世界に 1 つ）
-        architects: {
-          rayHit: (origin, dir, reach) => shared.house?.manager.rayHit(origin, dir, reach) ?? null,
-          talk: (id) => shared.house?.talkTo(id, 2) ?? false,
-          hit: (id) => shared.house?.hit(id, 2),
-        },
+        architects: withShopTalk(
+          {
+            rayHit: (origin, dir, reach) => shared.house?.manager.rayHit(origin, dir, reach) ?? null,
+            talk: (id) => shared.house?.talkTo(id, 2) ?? false,
+            hit: (id) => shared.house?.hit(id, 2),
+          },
+          () => shared.shop, // TOWN-1 1C: よろずやさんにも ZL で 話す
+          2,
+        ),
         ...farm.m4, // COOP-1 5a: 畑・じょうろ・バケツ・なでる・食べる（2P の もちもの・ハートで）
         ...ani.m4, // COOP-1 5c: にわとり（包み〈who: 2〉）・設定・とりごやの メニュー（2P の 半分）
         // かまどを こわした 中身は こわした 人（2P）の もちものへ（4c）。開く 口は onOpenFurnace に つなぐので ここは 空

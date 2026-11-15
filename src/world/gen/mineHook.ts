@@ -3,7 +3,7 @@ import { createYokaiConfig } from '../../yokai/ai/config';
 import { isUnderground } from '../../yokai/ai/terrain';
 import { BLOCK_INDEX, BLOCK_TYPES, blockIdFromIndex } from '../blocks/blockTypes';
 import { buildBlocks } from './chunk';
-import { createShaftHook, type ChestPorts, type ShaftHook } from './mineHookShaft';
+import { createShaftHook, type ChestPorts, type ShaftHook, type ShaftHookOptions } from './mineHookShaft';
 import { createYakataHook } from './mineHookYakata';
 import type { YakataPorts } from './mineYakataPorts';
 import type { OldCols } from './mineShaftOps';
@@ -162,6 +162,8 @@ export function createMineHook(o: {
   tansuHas?: (x: number, y: number, z: number) => boolean;
   /** MINE-1F: やかたの 挑戦の 出入り口（つなぎ込みが わたす。なければ 挑戦は はじまらない） */
   yakata?: YakataPorts;
+  /** TOWN-1 1C（1.5）: よろずやの 前の たからばこ（場所で 決まる たねを 使わない 宝箱。createShaftHook の extraChest） */
+  extraChest?: ShaftHookOptions['extraChest'];
 }): MineHook {
   const { seed } = o;
   const T = terrainFor(seed);
