@@ -162,7 +162,7 @@
   z-index: 45;
   /* #hud の 外に 出ても 字の 見え方が 変わらない ように、#hud が 渡していた 色と ふちを 持たせる */
   color: #fff;
-  text-shadow: 0 2px 0 #000;
+  text-shadow: var(--rk-text-outline);
 }
 .cel-layer--band[hidden],
 .cel-band[hidden] {

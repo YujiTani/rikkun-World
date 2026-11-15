@@ -1,9 +1,11 @@
 /* せかいが あたらしく なったよ（古い セーブを はじめて 開いた とき 1 回）。ホームの おしらせと 同じ 見た目 */
 #world-renewed-notice {
   position: fixed;
-  left: 50%;
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin-inline: auto; /* 中央。translate(-50%) だと 字が 小数ピクセルで にじむ */
   top: 22%;
-  transform: translateX(-50%);
   padding: var(--rk-sp-2) var(--rk-sp-5);
   font-size: var(--rk-fs-title);
   font-weight: 800;

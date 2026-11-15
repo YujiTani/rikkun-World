@@ -36,7 +36,7 @@
   line-height: 1.2;
   font-weight: 800;
   text-align: center;
-  text-shadow: var(--rk-text-outline);
+  text-shadow: none;
 }
 .coop-close {
   width: 56px;

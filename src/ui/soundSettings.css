@@ -24,7 +24,7 @@
   display: none;
 }
 .ss-row {
-  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  text-shadow: none;
   display: flex;
   align-items: center;
   gap: var(--rk-sp-3, 12px);
@@ -67,7 +67,7 @@
   border-radius: var(--rk-r-pill, 999px);
   background: var(--rk-bg-900, #10141f); /* すけない色 */
   color: var(--rk-text, #fff);
-  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  text-shadow: none;
   font: inherit;
   font-size: var(--rk-fs-body, 17px);
   font-weight: 800;
@@ -86,7 +86,7 @@
 .ss-mute.ss-muted {
   background: var(--rk-bg-700, #252f47);
   color: var(--rk-text, #fff);
-  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  text-shadow: none;
 }
 .ss-icon {
   font-size: 32px;

@@ -4,7 +4,7 @@
   align-items: center;
   gap: var(--rk-sp-3, 12px);
   color: var(--rk-text, #fff);
-  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  text-shadow: none;
   font-size: var(--rk-fs-body, 17px);
   font-weight: 800;
 }
@@ -22,7 +22,7 @@
   border-radius: var(--rk-r-pill, 999px);
   background: var(--rk-bg-900, #10141f); /* すけない色 */
   color: var(--rk-text, #fff);
-  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  text-shadow: none;
   font: inherit;
   cursor: pointer;
 }

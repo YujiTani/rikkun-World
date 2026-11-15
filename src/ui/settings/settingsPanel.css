@@ -24,7 +24,7 @@
   margin: 16px auto;
   background: var(--rk-bg-900, #10141f);
   color: var(--rk-text, #fff);
-  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  text-shadow: none;
   border: var(--rk-bw, 2px) solid var(--rk-accent, #ffc83d);
   border-radius: var(--rk-r-l, 24px);
   padding: var(--rk-sp-4, 16px);
@@ -129,7 +129,7 @@
   font: inherit;
   font-size: 16px;
   font-weight: 800;
-  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  text-shadow: none;
   cursor: pointer;
 }
 .set-bind.is-wait {
@@ -253,7 +253,7 @@
   color: var(--rk-text, #fff);
   border: 2px solid var(--rk-accent, #ffc83d);
   border-radius: 24px;
-  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  text-shadow: none;
 }
 .choice-q,
 .choice-note {
@@ -291,7 +291,7 @@
   font-size: 32px;
   font-weight: 800;
   color: var(--rk-accent, #ffc83d);
-  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  text-shadow: none;
 }
 .po-extra {
   order: 5;
