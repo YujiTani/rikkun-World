@@ -6,7 +6,8 @@ import { atlasTexture } from './animalAtlas';
 /** 点の 最大数（Points 1 つ） */
 export const POINT_CAP = 480;
 
-/** 面の 明るさ（動いた あとの 向き: 上 1.0・南北 0.8・東西 0.6・下 0.5）を かける 材料 */
+/** 面の 明るさ（動いた あとの 向き: 上 1.0・南北 0.8・東西 0.6・下 0.5）を かける 材料。
+ *  骨つき（SkinnedMesh）は 骨で まわした objectNormal、骨の ない Mesh（よろずやさん）は objectNormal が 無いので normal を 使う */
 export function shadeMat(): THREE.MeshBasicMaterial {
   const m = new THREE.MeshBasicMaterial({ vertexColors: true });
   m.onBeforeCompile = (s) => {
@@ -15,7 +16,11 @@ export function shadeMat(): THREE.MeshBasicMaterial {
       .replace(
         '#include <project_vertex>',
         `#include <project_vertex>
+        #ifdef USE_SKINNING
+        vec3 wn = normalize(mat3(modelMatrix) * objectNormal);
+        #else
         vec3 wn = normalize(mat3(modelMatrix) * normal);
+        #endif
         vShade = wn.y * wn.y * (wn.y > 0.0 ? 1.0 : 0.5) + wn.z * wn.z * 0.8 + wn.x * wn.x * 0.6;`,
       );
     s.fragmentShader = s.fragmentShader

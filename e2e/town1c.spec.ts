@@ -317,7 +317,9 @@ test.describe('TOWN-1 1C よろずやの 画面と たからばこ', () => {
       const c1 = await page.evaluate((w) => (window as any).__rikkun.duo.pos(w) as P3, opener);
       expect(Math.hypot(c1.x - c0.x, c1.z - c0.z), '開いた 人は その場に 止まる').toBeLessThan(1.5);
       await test.info().attach(`shop-hit-${opener}P`, { body: await page.screenshot({ path: `test-shots/town1c-hit-${opener}P.png` }), contentType: 'image/png' });
-      // やられたら とじる
+      // やられたら とじる（当たった あとは 無敵時間 hurtInvincibleTicks 90 ステップ。妖怪を 消して 切れるまで 進めてから hurt）
+      await page.evaluate(() => (window as any).__rikkun.yokai.clear());
+      await stepN(page, 120);
       await page.evaluate((w) => (window as any).__rikkun.duo.hurt(w, 999), opener);
       await stepN(page, 10);
       expect((await shopState(page, opener)).open, 'やられたら 画面が とじる').toBe(false);

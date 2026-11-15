@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { tapRight } from './houseBuilt';
+import { installAimHelpers } from './aim';
 import { setFakePad } from './duoUi';
 import type { P3, TownInfo } from './town';
 
@@ -69,6 +70,7 @@ export function shopStand(info: TownInfo & { npcs: { kind: string; pos: P3 }[]; 
 
 /** 1P を stand に 置いて よろずやさんの からだの まん中を ねらい（__aim.sOffset の くりかえし）、右クリックで 話す。画面が 開くまで 上限 max ステップ */
 export async function talkByClick1P(page: Page, npc: P3, stand: P3, max = 300): Promise<void> {
+  await installAimHelpers(page);
   await page.evaluate(
     ({ npc, stand }) => {
       const h = (window as any).__rikkun;
