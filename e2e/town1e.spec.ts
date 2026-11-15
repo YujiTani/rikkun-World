@@ -75,8 +75,8 @@ test.describe('TOWN-1 1E おふだ・かじやさん・やたい・食事', () =
       expect(await shopCall(page, 'buy', p, 'kaeri_ofuda')).toBe('ok');
       expect(await damaOf(page, p), 'ようかいダマが ねだん ぶん へる').toBe(d0 - 2 * row!.price);
       await shopCall(page, 'close', p);
-      // 手に もつ（ホットバー 0 番）
-      await page.evaluate(([p]) => (window as any).__rikkun.duo.give(p, 'kaeri_ofuda', 1, 0), [p] as const);
+      // 手に もつ（ホットバー 6 番。ようかいダマは 0・1 番に 入る）
+      await page.evaluate(([p]) => (window as any).__rikkun.duo.give(p, 'kaeri_ofuda', 1, 6), [p] as const);
       const o0 = await countOf(page, p, 'kaeri_ofuda');
       expect(o0, 'おふだを 2 まい 以上 もっている').toBeGreaterThanOrEqual(2);
 
@@ -121,15 +121,15 @@ test.describe('TOWN-1 1E おふだ・かじやさん・やたい・食事', () =
       expect(near(await duoPos(page, p), here), '街の 中では うごかない').toBeLessThan(0.5);
 
       // ---- かじやさん（AC34）。かたなが 2 本 へって いる（1 へった・半分）。ねだんは ★ だけで 決まる ----
-      await giveWornKatana(page, p, 1, (m) => m - 1);
-      await giveWornKatana(page, p, 2, (m) => Math.floor(m / 2));
+      await giveWornKatana(page, p, 7, (m) => m - 1);
+      await giveWornKatana(page, p, 8, (m) => Math.floor(m / 2));
       await talkVendor(page, p, 'smith', info, 'smith', OPEN_MAX);
       await expect(tid(page, 'smith-screen')).toBeVisible();
       expect(await tid(page, 'smith-screen').getAttribute('data-owner')).toBe(String(p));
       expect((await smithState(page, other)).open, '話して いない 人の 画面は 開かない').toBe(false);
       const sm = await smithState(page, p);
-      const w1 = sm.items.find((i) => i.slot === 1);
-      const w2 = sm.items.find((i) => i.slot === 2);
+      const w1 = sm.items.find((i) => i.slot === 7);
+      const w2 = sm.items.find((i) => i.slot === 8);
       expect(w1 && w2, 'へった かたな 2 本が カードに 出る').toBeTruthy();
       expect(w1!.price, '1 へった かたなと 半分の かたなで ねだんが 同じ').toBe(w2!.price);
       expect(w1!.price).toBeGreaterThan(0);
@@ -137,17 +137,17 @@ test.describe('TOWN-1 1E おふだ・かじやさん・やたい・食事', () =
       await test.info().attach(`smith-${p}P`, { body: await page.screenshot({ path: `test-shots/town1e-smith-${p}P.png` }), contentType: 'image/png' });
       const dS = await damaOf(page, p);
       const oD = await damaOf(page, other);
-      await tid(page, 'smith-card-1').click();
+      await tid(page, 'smith-card-7').click();
       await stepN(page, 2);
       await expect(tid(page, 'smith-detail')).toBeVisible();
       expect(await tid(page, 'smith-buy').getAttribute('aria-disabled')).not.toBe('true');
       await tid(page, 'smith-buy').click();
       await stepN(page, 5);
       expect(await damaOf(page, p), 'ようかいダマが ねだん だけ へる').toBe(dS - w1!.price);
-      expect((await duoDurability(page, p, 1))!.left, 'たいきゅうが まんたん').toBe((await duoDurability(page, p, 1))!.max);
+      expect((await duoDurability(page, p, 7))!.left, 'たいきゅうが まんたん').toBe((await duoDurability(page, p, 7))!.max);
       const sm2 = await smithState(page, p);
-      expect(sm2.items.some((i) => i.slot === 1), 'なおした 物は カードから きえる').toBe(false);
-      expect(sm2.items.some((i) => i.slot === 2), 'ほかの へった 物は のこる').toBe(true);
+      expect(sm2.items.some((i) => i.slot === 7), 'なおした 物は カードから きえる').toBe(false);
+      expect(sm2.items.some((i) => i.slot === 8), 'ほかの へった 物は のこる').toBe(true);
       expect(await damaOf(page, other), 'もう 1 人の ようかいダマは かわらない').toBe(oD);
       await tid(page, 'smith-close').click();
       await stepN(page, 2);
@@ -185,7 +185,7 @@ test.describe('TOWN-1 1E おふだ・かじやさん・やたい・食事', () =
 
       // ---- だんごの やたい（AC48 の 通し）: 体力が へって いる → たべる → ようかいダマが へり 体力が ふえる ----
       await page.evaluate(([p]) => (window as any).__rikkun.duo.hurt(p, 10), [p] as const);
-      await stepN(page, 2);
+      await stepN(page, 40); // ひるみ（約 23 ステップ）の 間は 入力を うけない
       const hpBefore = await hpOf(page, p);
       const otherHp = await hpOf(page, other);
       await talkVendor(page, p, 'dango', info, 'meal', OPEN_MAX);
@@ -207,7 +207,7 @@ test.describe('TOWN-1 1E おふだ・かじやさん・やたい・食事', () =
   }
 
   test('AC37・AC20 (1 人): かじや・やたい・食事の 画面を 開いて いる 間は 世界が 止まる（妖怪の 場所も ハートも かわらない）', async ({ page }) => {
-    await openTown(page, { extra: `&seed=${WORLD_SEED}` });
+    await openTown(page, { extra: `&seed=${WORLD_SEED}&duo=dev` }); // duo.give・setDurability は ?duo=dev の ときだけ（1 人の まま）
     const info = await townInfo(page);
     const spot = await findEdgeSpot(page, info);
     await place1P(page, spot.player);
@@ -216,7 +216,7 @@ test.describe('TOWN-1 1E おふだ・かじやさん・やたい・食事', () =
       h.dama.give(1, 20);
       h.duo.give(1, 'tomato', 10, 3);
     });
-    await giveWornKatana(page, 1, 1, (m) => m - 1);
+    await giveWornKatana(page, 1, 7, (m) => m - 1);
     const yPos = { x: spot.player.x + spot.out.x * 2, y: spot.player.y, z: spot.player.z + spot.out.z * 2 };
     const id = await page.evaluate((pos) => {
       const h = (window as any).__rikkun;
@@ -257,7 +257,7 @@ test.describe('TOWN-1 1E おふだ・かじやさん・やたい・食事', () =
         h.dama.give(p, 20);
         h.duo.give(p, 'tomato', 10, 3);
       }, [opener] as const);
-      await giveWornKatana(page, opener, 1, (m) => m - 1);
+      await giveWornKatana(page, opener, 7, (m) => m - 1);
       const vw = await page.evaluate(() => innerWidth);
       const opens: [Screen, string, unknown[]][] = [
         ['smith', 'smith', [opener]],
