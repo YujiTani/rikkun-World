@@ -73,6 +73,8 @@ async function layoutIssues(page: Page, p: Who, duo: boolean): Promise<string[]>
   // 上の 帯の ようかいダマの 数が 画面の 中
   const dm = await rect(page, 'shop-dama');
   if (!dm || dm.left < scr.left - 1 || dm.right > scr.right + 1) issues.push('shop-dama が 画面の 外か ない');
+  const dmOver = await page.evaluate(() => { const e = document.querySelector('[data-testid="shop-dama"]'); return e ? e.scrollWidth - e.clientWidth : 0; });
+  if (dmOver > 1) issues.push(`shop-dama の 字が はみだす（${dmOver}px）`);
   // ボタン: ✕ と こうかん（えらぶと 出る）
   const cl = await rect(page, 'shop-close');
   if (!cl || cl.w < BTN_MIN - 0.5 || cl.h < BTN_MIN - 0.5) issues.push(`shop-close が 56×56 未満か ない ${JSON.stringify(cl)}`);
@@ -116,7 +118,7 @@ test.describe('TOWN-1 1C よろずやの 画面と たからばこ', () => {
       await expect(tid(page, 'shop-screen')).toBeVisible();
       expect(await tid(page, 'shop-screen').getAttribute('data-owner')).toBe(String(p));
       expect(await tid(page, 'shop-dama').textContent(), '上の 帯に ようかいダマの 数').toContain(String(st.dama));
-      expect(st.items.length, '売り物が ある').toBeGreaterThan(2);
+      expect(st.items.length, '売り物が ある（§4.2 は 15 行。おふだ〔1E〕が まだ なければ 14）').toBeGreaterThanOrEqual(14);
       expect(st.items.slice(-2).map((i) => i.id), 'カードの いちばん 後ろ 2 つは こばこ・おおばこ').toEqual(['kobako', 'obako']);
       expect(st.items.map((i) => i.id), '売り物に ようかいダマは ない（AC15 の 見える 側）').not.toContain('yokai_orb');
       await test.info().attach(`shop-open-${p}P`, { body: await page.screenshot({ path: `test-shots/town1c-open-${p}P.png` }), contentType: 'image/png' });
@@ -164,7 +166,6 @@ test.describe('TOWN-1 1C よろずやの 画面と たからばこ', () => {
       await stepN(page, 2);
       await expect(tid(page, 'shop-sample'), 'こばこを えらぶと「こんな ものが でるかも」').toBeVisible();
       const d2 = await damaOf(page, p);
-      const inv0 = new Map<string, number>();
       await tid(page, 'shop-buy').click();
       await stepN(page, 3);
       st = await shopState(page, p);
@@ -174,10 +175,12 @@ test.describe('TOWN-1 1C よろずやの 画面と たからばこ', () => {
       expect(st.result!.items.length, '中身が 1 こ 以上').toBeGreaterThan(0);
       await expect(tid(page, 'shop-result')).toBeVisible();
       await expect(page.getByTestId('shop-result-card')).toHaveCount(st.result!.items.length);
+      const got = new Map<string, number>();
       for (const r of st.result!.items) {
         expect(r.rarity, '中身は めずらしさ（★）つき').toBeGreaterThanOrEqual(1);
-        inv0.set(r.item, (inv0.get(r.item) ?? 0) + r.count);
+        got.set(r.item, (got.get(r.item) ?? 0) + r.count);
       }
+      for (const [item, n] of got) expect(await countOf(page, p, item), `中身 ${item} が もちものに 入る（あきは たっぷり ある）`).toBeGreaterThanOrEqual(n);
       expect(await page.getByTestId('shop-result-card').evaluateAll((els) => els.every((e) => !!e.getAttribute('data-rarity') && !!e.getAttribute('data-item'))), '中身の カードに めずらしさ').toBe(true);
       await expect(page.getByTestId('shop-again'), '「もう 1 かい」は 置かない').toHaveCount(0);
       await test.info().attach(`shop-result-${p}P`, { body: await page.screenshot({ path: `test-shots/town1c-result-${p}P.png` }), contentType: 'image/png' });
@@ -196,8 +199,9 @@ test.describe('TOWN-1 1C よろずやの 画面と たからばこ', () => {
     });
   }
 
-  test('AC16: くじは シードで 決まる（同じ シード・同じ 順で 同じ 中身）・あけるたびに かわる・1P と 2P の 回数は 別', async ({ page }) => {
-    const run = async (firstWho: Who): Promise<{ a: unknown; b: unknown; opens: Record<Who, { kobako: number }> }> => {
+  test('AC16: くじは シードで 決まる（同じ シード・同じ 順で 同じ 中身）・1P と 2P の 回数は 別（2P が あけても 1P の 中身は かわらない）', async ({ page }) => {
+    // order: '2P が 先' = 2P → 1P → 1P / '2P が 後' = 1P → 1P → 2P
+    const run = async (order: 'p2first' | 'p2last'): Promise<{ a: unknown; b: unknown; opens: Record<Who, number> }> => {
       await openTown(page, { duo: true, extra: '&seed=11' });
       await page.evaluate(() => {
         const h = (window as any).__rikkun;
@@ -208,25 +212,27 @@ test.describe('TOWN-1 1C よろずやの 画面と たからばこ', () => {
         expect(await shopCall(page, 'open', p), `${p}P の 画面が 開く`).toBe(true);
         expect(await shopCall(page, 'buy', p, 'kobako')).toBe('ok');
         const r = (await shopState(page, p)).result;
+        expect(r, `${p}P の こばこの 中身が ある`).not.toBeNull();
         await shopCall(page, 'close', p);
         return r;
       };
-      const other: Who = firstWho === 1 ? 2 : 1;
-      await open(other); // 先に ほかの 人が あける（1P の つぎの 中身は かわらない はず）
+      if (order === 'p2first') await open(2);
       const a = await open(1);
       const b = await open(1);
-      return { a, b, opens: { 1: { kobako: (await shopState(page, 1)).opens.kobako }, 2: { kobako: (await shopState(page, 2)).opens.kobako } } };
+      if (order === 'p2last') await open(2);
+      return { a, b, opens: { 1: (await shopState(page, 1)).opens.kobako, 2: (await shopState(page, 2)).opens.kobako } };
     };
-    const r1 = await run(2); // 2P が 先に あける
-    const r2 = await run(2); // もう 1 回 同じ シード・同じ 順
+    const r1 = await run('p2first');
+    const r2 = await run('p2first'); // もう 1 回 同じ シード・同じ 順
     expect(r2.a, '同じ シード・同じ 順なら 1P の 1 回目は 同じ 中身').toEqual(r1.a);
     expect(r2.b, '2 回目も 同じ').toEqual(r1.b);
-    expect(r1.opens[1].kobako, '1P は 2 回 あけた').toBe(2);
-    expect(r1.opens[2].kobako, '2P は 1 回（回数は 人ごと）').toBe(1);
-    // 2P が 先に あけても 1P の 中身は かわらない（1P が 先でも 同じ）
-    const r3 = await run(1);
-    expect(r3.opens[1].kobako, '1P が 先でも 1P の 回数は 2').toBe(2);
-    expect(r3.a, '2P が あけても あけなくても 1P の 1 回目の 中身は 同じ（回数は 人ごと）').toEqual(r1.a);
+    expect(r1.opens[1], '1P は 2 回 あけた').toBe(2);
+    expect(r1.opens[2], '2P は 1 回（回数は 人ごと）').toBe(1);
+    // 2P が 先でも 後でも 1P の 中身は かわらない
+    const r3 = await run('p2last');
+    expect(r3.opens, '回数は 人ごと').toEqual({ 1: 2, 2: 1 });
+    expect(r3.a, '2P が 先に あけても 後に あけても 1P の 1 回目は 同じ').toEqual(r1.a);
+    expect(r3.b, '1P の 2 回目も 同じ').toEqual(r1.b);
   });
 
   test('AC20 (1 人): 開いて いる 600 ステップ 世界が 止まる（妖怪の 場所も ハートも かわらない）。とじると 動く・街を 出たら 自動で とじる', async ({ page }) => {
