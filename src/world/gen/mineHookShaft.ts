@@ -62,6 +62,11 @@ export interface ShaftHookOptions {
   chest?: ChestPorts;
   /** 1E: その マスの たんすの 記録が すでに あるか〔キャンプの たんすの 予告を 消す〕 */
   tansuHas?: (x: number, y: number, z: number) => boolean;
+  /**
+   * TOWN-1 1C（1.5）: 場所で 決まる たねを 使わない 宝箱（よろずやの 前の たからばこ）。本体の マスで 表の 名前と くじを 返す（ちがえば null）。
+   * あけ方・ふた・光・音・ログは 坑道の 宝箱と 同じ。レシピの わくは ない
+   */
+  extraChest?: (x: number, y: number, z: number) => { table: string; roll: ChestRoll } | null;
 }
 
 const SUPER = RARITY_ORDER.indexOf('superRare');
@@ -107,7 +112,7 @@ export function createShaftHook(o: ShaftHookOptions) {
     const mainXZ = info.rest ? other : { x: bx, z: bz };
     const restXZ = info.rest ? { x: bx, z: bz } : other;
     const main = { x: mainXZ.x, y: by, z: mainXZ.z };
-    const table = plannedChest(main.x, main.y, main.z)?.table ?? 'kodo';
+    const table = o.extraChest?.(main.x, main.y, main.z)?.table ?? plannedChest(main.x, main.y, main.z)?.table ?? 'kodo';
     return { table, tier: info.tier, opened: info.open, main, cells: [main, { x: restXZ.x, y: by, z: restXZ.z }], front };
   }
 
@@ -127,7 +132,7 @@ export function createShaftHook(o: ShaftHookOptions) {
   }
 
   function previewOf(table: string, tier: Tier, main: Pt): ChestRoll {
-    return rollChest(table, chestSeed(seed, main.x, main.y, main.z), tier);
+    return o.extraChest?.(main.x, main.y, main.z)?.roll ?? rollChest(table, chestSeed(seed, main.x, main.y, main.z), tier);
   }
 
   function chestPreview(x: number, y: number, z: number): ChestRoll | null {

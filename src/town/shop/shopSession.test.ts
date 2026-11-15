@@ -1,23 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import type { ItemId } from '../../contracts';
 import { InventoryImpl } from '../../inventory/Inventory';
 import { ShopService } from './shop';
 import { ShopSessions, shopFreezesWorld, type ShopSfx } from './shopSession';
 import { SHOP_TEXT } from './shopText';
-import { SHOP_BOXES, SHOP_ORDER } from './shopTable';
+import { SHOP_BOXES, SHOP_ORDER, SHOP_TUNING } from './shopTable';
+import { ORB, SPOTS, rig as boxRig } from './shopTestKit';
 
 /**
  * TOWN-1 1C: よろずやの 画面の 状態（人ごと）。AC14 の 見える 側（ふきだし）・AC20（1.3: 1 人は 止める／2 人は 止めない・やられたら とじる・街を 出たら とじる）。
+ * 1.5: たからばこを こうかん すると 画面が とじて ふきだし「おみせの まえに おいたよ！」が のこる。置けない ときは 開いた まま。
  */
-const ORB = 'yokai_orb' as ItemId;
 
 function rig() {
-  const inv = { 1: new InventoryImpl(), 2: new InventoryImpl() };
-  const shop = new ShopService({ inventory: (w) => inv[w], dropAtFeet: () => {}, recipesLeft: () => true }, 7);
+  const b = boxRig();
   const sfx: ShopSfx[] = [];
   const events: string[] = [];
-  const s = new ShopSessions({ shop, play: (e) => sfx.push(e), onOpen: (w) => events.push(`open${w}`), onClose: (w) => events.push(`close${w}`), onResultClose: (w) => events.push(`result${w}`) });
-  return { inv, shop, s, sfx, events };
+  const s = new ShopSessions({ shop: b.shop, play: (e) => sfx.push(e), onOpen: (w) => events.push(`open${w}`), onClose: (w) => events.push(`close${w}`) });
+  return { inv: b.inv, shop: b.shop, s, sfx, events, b };
 }
 
 describe('開く・えらぶ・こうかん・とじる', () => {
@@ -32,7 +31,7 @@ describe('開く・えらぶ・こうかん・とじる', () => {
     expect(r.s.view(1).selected).toBe('torch');
     r.s.close(1);
     expect(r.events).toEqual(['open1', 'close1']);
-    expect(r.s.view(1)).toMatchObject({ open: false, selected: null, result: null });
+    expect(r.s.view(1)).toMatchObject({ open: false, selected: null, bubble: null });
   });
   it('2 人 同時に 開ける（別々の 画面）', () => {
     const r = rig();
@@ -50,23 +49,45 @@ describe('開く・えらぶ・こうかん・とじる', () => {
     expect(r.s.view(1).bubble).toBe(SHOP_TEXT.short(SHOP_BOXES.obako.price - 4));
     expect(r.s.view(1).bubble).toMatch(/ようかいダマ.*あと.*たりない/);
     expect(r.inv[1].count(ORB)).toBe(4);
-    expect(r.s.view(1).result).toBeNull();
+    expect(r.shop.boxes!.list()).toEqual([]);
     expect(r.sfx.at(-1)).toEqual({ k: 'short' });
   });
-  it('こばこ: 中身が result に 入る。とじる で result だけ きえて 画面は 開いた まま', () => {
+  it('こばこ（1.5）: 画面が とじ、ふきだし「おいたよ」が とじた あとも 読める・画面に 出す のは saySteps の 間', () => {
     const r = rig();
     r.inv[1].add(ORB, 40);
     r.s.open(1);
     r.s.select(1, 'kobako');
     expect(r.s.press(1)).toBe('ok');
-    const res = r.s.view(1).result;
-    expect(res?.box).toBe('kobako');
-    expect(res!.items.length).toBeGreaterThan(0);
-    expect(r.sfx.some((e) => e.k === 'box')).toBe(true);
-    r.s.closeResult(1);
-    expect(r.s.view(1).result).toBeNull();
-    expect(r.s.view(1).open).toBe(true);
-    expect(r.events).toEqual(['open1', 'result1']);
+    expect(r.s.view(1).open).toBe(false);
+    expect(r.events).toEqual(['open1', 'close1']);
+    expect(r.s.view(1).bubble).toBe(SHOP_TEXT.placed);
+    expect(r.shop.boxes!.list().length).toBe(1);
+    expect(r.s.saying(1)).toBe(SHOP_TEXT.placed);
+    expect(r.s.saying(2)).toBeNull();
+    for (let i = 0; i < SHOP_TUNING.saySteps; i++) r.s.tickSay();
+    expect(r.s.saying(1)).toBeNull();
+    expect(r.s.view(1).bubble, '窓口では まだ 読める').toBe(SHOP_TEXT.placed);
+    r.s.open(1);
+    expect(r.s.view(1).bubble, 'また 開くと あいさつ').toBe(SHOP_TEXT.greet);
+  });
+  it('置き場が いっぱい → full・画面は 開いた まま・いっぱいの 文。人で 置けない ときは べつの 文', () => {
+    const r = rig();
+    r.inv[1].add(ORB, 200);
+    for (let i = 0; i < SPOTS.length; i++) {
+      r.s.open(1);
+      expect(r.s.buy(1, 'kobako')).toBe('ok');
+    }
+    r.s.open(1);
+    expect(r.s.buy(1, 'kobako')).toBe('full');
+    expect(r.s.view(1)).toMatchObject({ open: true, bubble: SHOP_TEXT.full });
+    expect(r.sfx.at(-1)).toEqual({ k: 'short' });
+    const q = rig();
+    q.inv[1].add(ORB, 50);
+    for (const s of SPOTS) q.b.bodies.add(q.b.key(s.main.x, s.main.y, s.main.z));
+    q.s.open(1);
+    expect(q.s.buy(1, 'kobako')).toBe('full');
+    expect(q.s.view(1).bubble).toBe(SHOP_TEXT.blocked);
+    expect(SHOP_TEXT.blocked).not.toBe(SHOP_TEXT.full);
   });
   it('えらんで いない ときの こうかんは 何も しない', () => {
     const r = rig();
@@ -109,14 +130,14 @@ describe('パッドで うごかす（十字・A・B）', () => {
     r.s.pad(2, 'back', 4);
     expect(r.s.view(2).open).toBe(false);
   });
-  it('中身の 表示の 間は A・B で 中身だけ とじる', () => {
+  it('A で 箱を こうかん すると 画面は とじる（1.5）', () => {
     const r = rig();
     r.inv[1].add(ORB, 50);
     r.s.open(1);
-    r.s.buy(1, 'kobako');
-    r.s.pad(1, 'back', 4);
-    expect(r.s.view(1).result).toBeNull();
-    expect(r.s.view(1).open).toBe(true);
+    r.s.select(1, 'kobako');
+    r.s.pad(1, 'confirm', 3);
+    expect(r.s.view(1).open).toBe(false);
+    expect(r.shop.boxes!.list().length).toBe(1);
   });
 });
 
@@ -137,15 +158,13 @@ describe('AC20（1.3）: 止める きまり・やられたら とじる・街�
       expect(r.events).toEqual([`open${who}`, `close${who}`]);
     }
   });
-  it('街の はんいを 出たら 自動で とじる（あける とちゅうでも 中身は もう 入って いる）', () => {
+  it('街の はんいを 出たら 自動で とじる', () => {
     const r = rig();
     r.inv[1].add(ORB, 50);
     r.s.open(1);
-    r.s.buy(1, 'kobako');
-    const got = r.shop.opens(1).kobako;
+    r.s.buy(1, 'torch');
     r.s.step(1, { alive: true, inTown: false });
     expect(r.s.view(1).open).toBe(false);
-    expect(r.shop.opens(1).kobako).toBe(got);
   });
   it('街の 外で 開いた とき（テストの 窓口）は 中に 入って 出る までは とじない', () => {
     const r = rig();
