@@ -1,5 +1,11 @@
 import { CHUNK_SIZE } from '../contracts';
+import { DAIKU_SIGN, DAIKU_STAND } from './townDaiku';
 import { CANAL, SURF, at, buildLayout, type Layout } from './townLayout';
+import { ATHLETIC } from './townAthletic';
+import { townBuildingCells } from './townBuildings';
+import { BUILDING_SITES, STALL_SITES, heightOf, type BuildingKind, type StallSite } from './townSites';
+import { KAJIYA_CHIMNEY } from './townKajiya';
+import { planTownTrees, type TownTree } from './townTrees';
 import { TOWN, type Facing } from './townTuning';
 
 /**
@@ -56,11 +62,16 @@ export interface TownInfo {
     bridges: Box[];
   };
   lights: { kind: 'toro' | 'stair'; pos: P3 }[];
-  /** 1B-2 で 入る（いまは 空） */
-  buildings: never[];
+  /** 建物（1B-2）: よろずや・かじや・だいく・道場と、かざりの 町家 2・おちゃや。min・max ＝ 外の 四角（y は 地面の ブロックの 上の 面と いちばん 上）、door ＝ 戸口の 前 */
+  buildings: { kind: BuildingKind; min: P3; max: P3; door: P3 }[];
+  /** 人（1E で 入る。いまは 空） */
   npcs: never[];
-  stalls: never[];
-  trees: never[];
+  /** やたい（1B-2）: pos ＝ 前に 立つ マス・talk ＝ 話せる やたい */
+  stalls: { kind: StallSite['kind']; pos: P3; talk: boolean }[];
+  /** アスレチック（1B-2。TOWN-1.md §6.1）。min・max ＝ かこい、posts ＝ くいの 上の 面、log・tower・bridge・slide ＝ 上の 面、drum ＝ 太鼓の ブロックの マス（y は ブロックの 下の 面） */
+  athletic: { min: XZ; max: XZ; posts: P3[]; log: P3; tower: P3; bridge: P3; slide: P3; stones: P3[]; drum: P3 };
+  /** 街の 木（1B-2）。pos ＝ みきの 根もとの 上の 面 */
+  trees: { pos: P3; sakura: boolean; form: string; size: string }[];
 }
 
 const N = TOWN.size;
@@ -109,6 +120,8 @@ export const FACING_VEC: Readonly<Record<Facing, XZ>> = { n: { x: 0, z: -1 }, e:
 const CORRIDOR_HALF = 2.5;
 /** スタートの この 近くは 見通しの みちを 作らない（はじまりの たいまつ・広場を まもる。マス） */
 const CORRIDOR_SKIP_NEAR_START = 4;
+/** 門の 外の 道は スタートの 奥ゆきの この 手前（マス）で おわる（はじまりの木・たいまつの 広場を 巻きこまない） */
+const ROAD_STOP_BEFORE_START = 8;
 
 /**
  * 石段の 口の あかりと のぼりの マス: 上り口（はば 2）の りょうわきに 1 つずつ 置く（歩く みちを ふさがない。AC41）。
@@ -131,6 +144,7 @@ export class TownPlan {
   readonly lotPostAt: ReadonlySet<number>;
   readonly stairTopAt: ReadonlyMap<number, 'light' | 'banner'>;
   private readonly infoCache: TownInfo;
+  private treeList: readonly TownTree[] | null = null;
   private readonly gateWorld: XZ;
 
   /** spawn ＝ スタート地点の マス（見通しの みちの はじめ）。なければ みちを 作らない */
@@ -157,7 +171,11 @@ export class TownPlan {
     this.infoCache = this.buildInfo();
   }
 
-  /** 見通しの みちの 中か（街・すその 外。スタートの そばは のぞく） */
+  /**
+   * 見通しの みち・門の 外の 道の 中か（街・すその 外。スタートの そばは のぞく）。ここは 木・岩・竹・丸太・草を 消す。
+   *  - 見通しの みち: 門 → スタートの 線（はば 5）。
+   *  - 門の 外の 道: 門の まん中から 門の 正面へ まっすぐ、スタートの 奥ゆきの 8 マス 手前まで（はば 5）。
+   */
   inCorridor(x: number, z: number): boolean {
     const s = this.spawn;
     if (s === null || this.inTown(x, z)) return false;
@@ -169,7 +187,13 @@ export class TownPlan {
     const dx = this.gateWorld.x - ax;
     const dz = this.gateWorld.z - az;
     const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / (dx * dx + dz * dz || 1)));
-    return Math.hypot(px - (ax + dx * t), pz - (az + dz * t)) <= CORRIDOR_HALF;
+    if (Math.hypot(px - (ax + dx * t), pz - (az + dz * t)) <= CORRIDOR_HALF) return true;
+    // 門の 外の 道: 正面の 向き f ＝ 道の 向き。奥ゆき（f ごしの きょり）は 0〜スタートまで
+    const f = FACING_VEC[this.rec.facing];
+    const depth = (px - this.gateWorld.x) * f.x + (pz - this.gateWorld.z) * f.z;
+    const side = Math.abs((px - this.gateWorld.x) * f.z - (pz - this.gateWorld.z) * f.x);
+    const reach = (ax - this.gateWorld.x) * f.x + (az - this.gateWorld.z) * f.z;
+    return depth >= 0 && depth <= reach - ROAD_STOP_BEFORE_START && side <= CORRIDOR_HALF;
   }
 
   /** 列 (cx, cz) に 街・すそ・見通しの みちが かかるか（かからなければ 書かない） */
@@ -182,10 +206,15 @@ export class TownPlan {
     const sp = this.spawn;
     if (sp === null) return false;
     const h = CORRIDOR_HALF + 1;
-    const minX = Math.min(sp.x, this.gateWorld.x) - h;
-    const maxX = Math.max(sp.x, this.gateWorld.x) + h;
-    const minZ = Math.min(sp.z, this.gateWorld.z) - h;
-    const maxZ = Math.max(sp.z, this.gateWorld.z) + h;
+    // 門の 外の 道は 正面へ スタートの 奥ゆきまで（四角に ふくまれる ように スタートの 向こうの 角も 入れる）
+    const f = FACING_VEC[this.rec.facing];
+    const reach = Math.max(0, (sp.x + 0.5 - this.gateWorld.x) * f.x + (sp.z + 0.5 - this.gateWorld.z) * f.z);
+    const ex = this.gateWorld.x + f.x * reach;
+    const ez = this.gateWorld.z + f.z * reach;
+    const minX = Math.min(sp.x, this.gateWorld.x, ex) - h;
+    const maxX = Math.max(sp.x, this.gateWorld.x, ex) + h;
+    const minZ = Math.min(sp.z, this.gateWorld.z, ez) - h;
+    const maxZ = Math.max(sp.z, this.gateWorld.z, ez) + h;
     return x0 + CHUNK_SIZE > minX && x0 < maxX && z0 + CHUNK_SIZE > minZ && z0 < maxZ;
   }
 
@@ -254,6 +283,47 @@ export class TownPlan {
     return Math.max(g - d, Math.min(g + d, natural));
   }
 
+  /** かじやの えんとつの 口の 上（けむりの 出る 所。世界の 座標）。口の ブロックの 上の 面 */
+  smokeSpot(): P3 {
+    const C = KAJIYA_CHIMNEY;
+    const a = this.cell((C.u0 + C.u1) / 2, C.v0, 0);
+    const b = this.cell((C.u0 + C.u1) / 2, C.v1, 0);
+    return { x: (a.x + b.x) / 2, y: this.rec.groundY + 1 + C.dyTop + 1.1, z: (a.z + b.z) / 2 };
+  }
+
+  /**
+   * こやの 建築士さんが いつも 立つ 所（作業台の 前。足もとの まん中）と 向き（こやの 前＝入り口の 方。yaw 0 ＝ 北 ＝ −z）と、るすの ふだを 立てる 所（同じ 場所）。
+   * 数は townDaiku.ts の `DAIKU_STAND`（見本の u・v）。
+   */
+  carpenterHome(): { x: number; y: number; z: number; yaw: number } {
+    // 建物の ゆか（dy 0）は 地面（か ひとだんの 台）の 1 マス 上。足もとは その ゆかの 上
+    const onTerrace = layout.surf[at(DAIKU_STAND.u, DAIKU_STAND.v)] === SURF.terrace;
+    const y = this.rec.groundY + (onTerrace ? TOWN.terrace.rise : 0) + 2;
+    const a = this.cell(DAIKU_STAND.u, DAIKU_STAND.v, y);
+    const b = this.cell(DAIKU_STAND.u, DAIKU_STAND.v + 1, y); // 前（こやの 入り口がわ）を 向く。ふだも 同じ 向きで 外から 読める
+    return { x: a.x, y: a.y, z: a.z, yaw: Math.atan2(b.x - a.x, -(b.z - a.z)) };
+  }
+
+  /** るすの ふだを 立てる 所（足もと）と 向き（こやの 前）。こやの 前の しきいの 上。柱・かべと かさならず、正面の 道から 全部 読める */
+  carpenterSign(): { x: number; y: number; z: number; yaw: number } {
+    const h = this.carpenterHome();
+    const a = this.cell(DAIKU_SIGN.u, DAIKU_SIGN.v, h.y);
+    const b = this.cell(DAIKU_SIGN.u, DAIKU_SIGN.v + 1, h.y);
+    return { x: a.x, y: a.y, z: a.z, yaw: Math.atan2(b.x - a.x, -(b.z - a.z)) };
+  }
+
+  /** ゴールの 太鼓の ブロックの マス（x・z は まん中。y は ブロックの 下の 面）。太鼓の ブロックは townAthletic の 表の goalTower.u0・v 81 */
+  drumCell(): P3 {
+    const A = ATHLETIC;
+    return this.cell(A.goalTower.u0, 81, this.rec.groundY + 1 + A.goalTower.h);
+  }
+
+  /** 街の 木（同じ 記録なら いつも 同じ。初めて 呼んだ とき 1 回 だけ 作る） */
+  trees(): readonly TownTree[] {
+    if (this.treeList === null) this.treeList = planTownTrees(layout, { groundY: this.rec.groundY, toWorld: (u, v) => this.toWorld(u, v), toLocal: (x, z) => this.toLocal(x, z) });
+    return this.treeList;
+  }
+
   info(): TownInfo {
     return this.infoCache;
   }
@@ -297,6 +367,20 @@ export class TownPlan {
       };
     });
     for (const s of stairs) lights.push({ kind: 'stair', pos: s.light });
+    const A = ATHLETIC;
+    const top = (u: number, v: number, h: number): P3 => this.cell(u, v, G + 1 + h);
+    const fence = this.box({ u: A.fence.u0, v: A.fence.v0 }, { u: A.fence.u1, v: A.fence.v1 });
+    const athletic: TownInfo['athletic'] = {
+      min: fence.min,
+      max: fence.max,
+      posts: A.stakes.map(([u, v, h]) => top(u, v, h)),
+      log: top((A.logs.u0 + A.logs.u1 + 1) >> 1, A.logs.v, A.logs.h),
+      tower: top((A.tower1.u0 + A.tower1.u1) / 2, (A.tower1.v0 + A.tower1.v1) / 2, A.tower1.h),
+      bridge: top(A.bridge.u, (A.bridge.v0 + A.bridge.v1) >> 1, A.bridge.h),
+      slide: top(A.slide[0]![0], A.slide[0]![1], A.slide[0]![2]),
+      stones: A.stones.map(([u, v, h]) => top(u, v, h)),
+      drum: this.drumCell(),
+    };
     return {
       center: c,
       facing: this.rec.facing,
@@ -310,10 +394,22 @@ export class TownPlan {
       lots: L.lots.map((r) => this.box({ u: r.u0, v: r.v0 }, { u: r.u1, v: r.v1 })),
       canal: { bottomY: this.bottomY, water, walk, stairs, bridges: L.bridges.map((r) => this.box({ u: r.u0, v: r.v0 }, { u: r.u1, v: r.v1 })) },
       lights,
-      buildings: [],
+      buildings: BUILDING_SITES.map((b) => {
+        const lo = this.toWorld(b.u0, b.v0);
+        const hi = this.toWorld(b.u1, b.v1);
+        const top = G + (b.terrace ? TOWN.terrace.rise : 0) + 1;
+        const door = this.cell(b.door.u, b.door.v, top);
+        return {
+          kind: b.kind,
+          min: { x: Math.min(lo.x, hi.x), y: top, z: Math.min(lo.z, hi.z) },
+          max: { x: Math.max(lo.x, hi.x), y: top + heightOf(townBuildingCells(), b), z: Math.max(lo.z, hi.z) },
+          door,
+        };
+      }),
       npcs: [],
-      stalls: [],
-      trees: [],
+      stalls: STALL_SITES.map((s) => ({ kind: s.kind, pos: this.cell(s.u, s.v, G + 1), talk: s.talk })),
+      athletic,
+      trees: this.trees().map((t) => ({ pos: { x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5 }, sakura: t.sakura, form: t.form, size: t.size })),
     };
   }
 }

@@ -16,7 +16,7 @@ import type { HouseMenuState } from './talk';
 /**
  * 窓口 `window.__rikkun.house`（HOUSE-1A・1B。仕様 docs/design/HOUSE-1.md §6.1。テスト用）。
  *   architects()    読みこまれて いる 建築士さん { id, x, y, z, first, busy }（x・y・z は 足もと）
- *   talk(id)        右クリックで 話すのと 同じ
+ *   talk(id, p?)    右クリックで 話すのと 同じ（p ＝ 1P・2P。はじめは 1P）
  *   menu()          { open, page: 'top' | 'editor' | 'need' | null, bubble, buttons: { id, enabled }[] }
  *   press(id, arg?) メニュー・エディターの ボタンを 押す（close は どの ページでも 全部 とじる）
  *   legacyKura()    前の セーブ〔1D まで〕の くらの 物の うち まだ かえして いない 分 { アイテムid: 数 }（なければ null。1E: くらは ない）
@@ -99,7 +99,7 @@ interface EditorInfo {
 
 export interface HouseHook {
   architects(): ArchitectInfo[];
-  talk(id: string | number): void;
+  talk(id: string | number, p?: 1 | 2): void;
   menu(): HouseMenuState;
   press(id: string, arg?: unknown): void;
   legacyKura(): Record<string, number> | null;
@@ -174,7 +174,7 @@ export function createHouseHook(sys: HookSystem, seat: { seat(): SeatInfo | null
   };
   return {
     architects: () => sys.architects(),
-    talk: (id) => void sys.talkTo(String(id), 1, true),
+    talk: (id, p) => void sys.talkTo(String(id), p ?? 1, true),
     menu: () => sys.menu(),
     press: (id, arg) => sys.press(id, arg),
     legacyKura: () => sys.legacyKura(),

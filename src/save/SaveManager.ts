@@ -119,6 +119,8 @@ export interface SaveDeps {
   dama?: SaveExtra;
   /** TOWN-1 1.4: 街の まだ もどって いない マスの 記録（`{ v: 1, cells, byPlayer, placed }`。ない 保存は 記録 なし ＝ 0 こ） */
   townRepairs?: SaveExtra;
+  /** TOWN-1 1B-2: アスレチックの 太鼓（`{ v: 1, cleared: [1P, 2P] }`。ない 保存は 2 人とも まだ） */
+  townDrum?: SaveExtra;
   /** HOUSE-1A: 建築士さんの 記録（`{ v: 2, first, toolsGiven, … }`。1E: `kura` は 前の セーブの まだ かえして いない 物が ある ときだけ）。前の 保存に ない ときは 初期の まま */
   house?: SaveExtra;
   /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
@@ -367,6 +369,11 @@ export class SaveManager {
       this.d.townRepairs?.deserialize(null);
     }
     try {
+      this.d.townDrum?.deserialize(data.townDrum ?? null);
+    } catch {
+      this.d.townDrum?.deserialize(null);
+    }
+    try {
       this.d.gasha?.deserialize(data.gasha ?? null);
     } catch {
       this.d.gasha?.deserialize(null);
@@ -594,6 +601,7 @@ export class SaveManager {
       gasha: this.d.gasha?.serialize() ?? null,
       dama: this.d.dama?.serialize() ?? null,
       townRepairs: this.d.townRepairs?.serialize() ?? null,
+      townDrum: this.d.townDrum?.serialize() ?? null,
       house: this.d.house?.serialize() ?? null,
       farm,
       ...p2Part,

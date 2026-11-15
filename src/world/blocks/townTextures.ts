@@ -1,4 +1,5 @@
-import { TOWN_BLOCK_DEFS, type TownBlockId, type TownPattern } from './townBlocks';
+import { TOWN_BLOCK_DEFS, TOWN_EXTRA_TILE_DEFS, type TownBlockId, type TownExtraTileName, type TownPattern } from './townBlocks';
+import { GLYPHS } from './townGlyphs';
 
 /**
  * TOWN-1 1B-1: 街の ブロックの 絵（16×16。見本 CA4-blocks.png に 合わせた 近い 色。あとで アートが 直す）。
@@ -37,6 +38,13 @@ function rows(t: TownTile, y0: number, y1: number, c: Px): void {
 }
 function cols(t: TownTile, x0: number, x1: number, c: Px): void {
   for (let x = x0; x < x1; x++) for (let y = 0; y < SIZE; y++) t[idx(x, y)] = c;
+}
+
+/** 色を 明るく・暗く（amount は -255〜255） */
+function shade(c: string, amount: number): string {
+  const n = parseInt(c.slice(1), 16);
+  const f = (v: number): string => Math.max(0, Math.min(255, v + amount)).toString(16).padStart(2, '0');
+  return `#${f((n >> 16) & 255)}${f((n >> 8) & 255)}${f(n & 255)}`;
 }
 
 /** パターンごとの かき方。acc[0] ＝ 目地・線の 色、acc[1] ＝ 明るい 色、acc[2] ＝ そのほか */
@@ -168,6 +176,66 @@ const PAINT: Record<TownPattern, (base: string, acc: readonly string[], seed: nu
     rows(t, 11, 13, hex(a[0] ?? b));
     return t;
   },
+  // 1 色（かざりの 箱の 絵）: 地の 色 ＋ ふち（暗い）＋ 左上の ハイライト ＋ 右下の 影 ＋ 小さな むら（もよう・ふち・影の 3 色）
+  solid: (b, a, s) => {
+    void a;
+    const t = mottle(b, [shade(b, 10), shade(b, -10)], s, 8);
+    const edge = hex(shade(b, -55));
+    const light = hex(shade(b, 30));
+    const dark = hex(shade(b, -28));
+    for (let i = 0; i < SIZE; i++) {
+      t[idx(i, 1)] = light;
+      t[idx(1, i)] = light;
+      t[idx(i, SIZE - 2)] = dark;
+      t[idx(SIZE - 2, i)] = dark;
+    }
+    for (let i = 0; i < SIZE; i++) {
+      t[idx(i, 0)] = edge;
+      t[idx(i, SIZE - 1)] = edge;
+      t[idx(0, i)] = edge;
+      t[idx(SIZE - 1, i)] = edge;
+    }
+    return t;
+  },
+  // 炉の 火: オレンジの 地に 黄色い ほのお と 赤い かげ
+  fire: (b, a, s) => {
+    const t = mottle(b, [a[0] ?? b, a[1] ?? b, a[2] ?? b, a[0] ?? b], s, 70);
+    return t;
+  },
+  // のぼり: 地の 色（オレンジ）＋ 黒い かなとこの しるし ＋ 下の 白い 三角
+  banner: (b, a, s) => {
+    const t = mottle(b, [shade(b, 12), shade(b, -10)], s, 10);
+    const ink = hex(a[0] ?? '#2A2A30');
+    for (let y = 3; y < 6; y++) for (let x = 3; x < 13; x++) t[idx(x, y)] = ink;
+    for (let y = 6; y < 9; y++) for (let x = 6; x < 10; x++) t[idx(x, y)] = ink;
+    for (let y = 9; y < 11; y++) for (let x = 4; x < 12; x++) t[idx(x, y)] = ink;
+    for (let y = 12; y < 16; y++) for (let x = y - 12; x < 16 - (y - 12); x++) t[idx(x, y)] = hex(a[1] ?? '#F4F2EE');
+    cols(t, 0, 1, hex(shade(b, -45)));
+    cols(t, SIZE - 1, SIZE, hex(shade(b, -45)));
+    return t;
+  },
+  // たるき: 地の 色に 白い 木口（2 点 × 4 点）が 4 点ごとに ならぶ。上下の 面は 同じ 絵で 細い すじに 見える
+  taruki: (b, a, s) => {
+    const t = mottle(b, [shade(b, 10), shade(b, -8)], s, 12);
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) if (x % 4 < 2 && y % 8 >= 2 && y % 8 < 6) t[idx(x, y)] = hex(a[0] ?? b);
+    return t;
+  },
+  // かんばんの 字: 地の 色に 金の わく ＋ 字（acc[0] ＝ 字の 色、acc[1] ＝ 字の 名前。空 ＝ 字なし）
+  glyph: (b, a, s) => {
+    const t = mottle(b, [b], s, 0);
+    const gold = hex(a[0] ?? b);
+    const edge = hex(a[2] ?? a[0] ?? b);
+    rows(t, 0, 1, edge);
+    rows(t, SIZE - 1, SIZE, edge);
+    if (a[1] !== undefined) {
+      cols(t, 0, 1, edge);
+      cols(t, SIZE - 1, SIZE, edge);
+    }
+    (GLYPHS[a[1] ?? ''] ?? []).forEach((row, y) => {
+      for (let x = 0; x < row.length; x++) if (row[x] === '#' && x + 1 < SIZE - 1 && y + 1 < SIZE - 1) t[idx(x + 1, y + 1)] = gold;
+    });
+    return t;
+  },
   // はちうえ: 下半分は 赤茶の はち、上は とうめい ＋ 緑の 葉
   pot: (b, a, s) => {
     const t: TownTile = new Array<Px>(SIZE * SIZE).fill(hex(b, 0));
@@ -180,10 +248,10 @@ const PAINT: Record<TownPattern, (base: string, acc: readonly string[], seed: nu
 };
 
 /** 絵の 表（id → 色・模様）。townBlocks.ts の `art` を そのまま 読む */
-const ART: ReadonlyMap<string, (typeof TOWN_BLOCK_DEFS)[number]['art']> = new Map(TOWN_BLOCK_DEFS.map((d) => [d.id, d.art]));
+const ART: ReadonlyMap<string, { pat: TownPattern; base: string; acc: readonly string[] }> = new Map([...TOWN_BLOCK_DEFS.map((d) => [d.id, d.art] as const), ...TOWN_EXTRA_TILE_DEFS.map((d) => [d.id, d.art] as const)]);
 
 /** 街の ブロックの 絵 1 まい（y = 0 が 絵の 上）。id ごとに いつも 同じ 絵 */
-export function paintTownTile(id: TownBlockId): TownTile {
+export function paintTownTile(id: TownBlockId | TownExtraTileName): TownTile {
   const art = ART.get(id)!;
   let seed = 7;
   for (let i = 0; i < id.length; i++) seed = (Math.imul(seed, 31) + id.charCodeAt(i)) >>> 0;

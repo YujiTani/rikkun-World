@@ -43,7 +43,9 @@ describe('街の 地面', () => {
       const plan = activateTown(seed, rec, { x: sp.x, z: sp.z });
       const at = reader(seed);
       const top = (x: number, z: number): number => {
-        for (let y = WORLD_HEIGHT - 1; y > 0; y--) {
+        // 街の 中では 歩く 高さだけ 見る（門の はり・屋根・かんばんなど 頭の 上の ブロックは のぞく。たいこ橋の いちばん 高い 所 ＝ 地面 ＋ 3）
+        const inTown = plan.toLocal(x, z) !== null;
+        for (let y = inTown ? Math.min(WORLD_HEIGHT - 1, rec.groundY + 3) : WORLD_HEIGHT - 1; y > 0; y--) {
           const b = at(x, y, z);
           if (BLOCK_TYPES[b]!.solid && b !== BLOCK_INDEX.town_ishi_tesuri) return y;
         }

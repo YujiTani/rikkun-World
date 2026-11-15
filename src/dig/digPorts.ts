@@ -74,6 +74,8 @@ export interface DigTownPort {
   dug?(x: number, y: number, z: number): boolean;
   /** 置いた（置いた あとに 1 回）。記録の マスなら 置いた 物を おぼえる（もどる 朝に かえす） */
   placed?(x: number, y: number, z: number, item: ItemId): void;
+  /** TOWN-1 1B-2: ゴールの 太鼓の ブロックを 左クリックで たたいた（pressed ＝ 押した 最初の ステップ）。太鼓なら true（ほらない・たたいた 音と 記録は 口の 先） */
+  drum?(x: number, y: number, z: number, pressed: boolean): boolean;
 }
 
 /** M4 の つなぎ目（どれもなくてよい。なければ M2 のとおり） */
