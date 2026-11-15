@@ -6,6 +6,7 @@ import type { ShopBoxPorts } from '../../town/shop/shopBoxes';
 import type { ShopGive, ShopItemId } from '../../town/shop/shopTable';
 import { currentTown } from '../../town/townState';
 import { townRepairsNow } from './townRepair';
+import { townCarpenterNow } from './townCarpenter';
 
 /** 入らない 物を 足もとに 落とす 高さ（足もとから 上へ。マス）と 飛ばし方（宝箱と 同じ。game/wire/mine.ts） */
 const DROP_RISE = 0.5;
@@ -52,7 +53,10 @@ export function createShopService(d: ShopServiceDeps): ShopService {
         bodyAt: (x, y, z) => {
           if (overlapsBody(d.playerPos(), x, y, z)) return true;
           const m = d.mate();
-          return (m !== null && overlapsBody(m.position, x, y, z)) || d.creatureAt(x, y, z);
+          if (m !== null && overlapsBody(m.position, x, y, z)) return true;
+          const c = townCarpenterNow()?.carpenter; // 街の だいくさん（§4.3b「街の 人」）。こやに いる 間は 遠い ので 当たらない
+          if (c && c.out && overlapsBody(c, x, y, z)) return true;
+          return d.creatureAt(x, y, z);
         },
         popped: (s, r) => d.boxFx().popped?.(s, r),
         vanished: (s, r) => d.boxFx().vanished?.(s, r),
