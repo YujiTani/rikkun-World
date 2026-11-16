@@ -77,9 +77,7 @@
   font-size: var(--rk-fs-small);
   line-height: var(--rk-lh);
   color: var(--rk-text);
-}
-.dama-inv .dama-num {
-  text-shadow: none;
+  text-shadow: var(--rk-text-outline);
 }
 @media (prefers-reduced-motion: reduce) {
   .dama-plus {
