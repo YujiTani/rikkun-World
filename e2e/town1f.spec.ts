@@ -76,7 +76,7 @@ test.describe('TOWN-1 1F ようかいダマの さいふ', () => {
       T.faceTo(id, 1.5);
       for (let n = 0; n < 6 && T.one(id); n++) T.punch();
     });
-    await stepN(page, 120);
+    await stepN(page, 10); // 倒した 直後（「＋」が 消える 前）に 読む
     const ach = await achDama(page);
     const gain = (await dama(page, 1))! - before;
     expect(gain - ach, '妖怪の 分は 1〜3（実績の 分を ひく）').toBeGreaterThanOrEqual(DAMA.normal.min);
@@ -111,11 +111,14 @@ test.describe('TOWN-1 1F ようかいダマの さいふ', () => {
     const inv0 = await invJson(page);
     await page.evaluate(() => (window as any).__rikkun.inventory.add('yokai_orb', 5));
     await page.evaluate(() => (window as any).__rikkun.dama.give(1, 45));
-    expect(await dama(page, 1), 'add（5）＋ give（45）').toBe(50);
+    const ach = await achDama(page); // 実績（やられた など）の ダマが 入る ことが ある
+    const base = 50 + ach;
+    expect(await dama(page, 1), 'add（5）＋ give（45）').toBe(base);
     expect(await invJson(page), 'マスには 入らない').toBe(inv0);
     await page.evaluate(() => (window as any).__rikkun.combat.damage(20));
     await stepN(page, 200);
-    expect(await dama(page, 1), 'やられても へらない').toBe(50);
+    const ach2 = await achDama(page); // やられて はじめて とれる 実績（death.all.1）の 分
+    expect(await dama(page, 1), 'やられても へらない（実績の 分は ふえる）').toBe(base + ach2);
     const bags = await page.evaluate(() => (window as any).__rikkun.combat.bags() as { slots: { item: string }[] }[]);
     expect(bags.length, 'おとしもの ぶくろは ある（ほかの 物）').toBeGreaterThan(0);
     expect(bags.some((b) => b.slots.some((s) => s.item === 'yokai_orb')), 'ぶくろに ようかいダマは 入らない').toBe(false);
@@ -176,6 +179,12 @@ test.describe('TOWN-1 1F 2 人あそび', () => {
     await page.evaluate(() => (window as any).T.base());
     await installFakePads(page, 2);
     expect(await page.evaluate(() => (window as any).__rikkun.duo.join())).toBe(true);
+    await stepN(page, 30);
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const p = h.duo.pos(1);
+      h.duo.place(2, { x: p.x + 8, y: p.y, z: p.z });
+    });
     await stepN(page, 30);
     const apart = await page.evaluate(() => {
       const h = (window as any).__rikkun;
