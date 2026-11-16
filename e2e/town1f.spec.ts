@@ -171,4 +171,29 @@ test.describe('TOWN-1 1F 2 人あそび', () => {
     expect(chip, '2 人の ときは 数 だけ（字「ようかいダマ」は はぶく）').toEqual({ text: '5', count: 5 });
     expect(await page.evaluate(() => (window as any).__rikkun.dama.invChip(2)), '2P は 開いて いない').toBeNull();
   });
+  test('AC65: 2P の 足もとの yokai_orb は 2P が ＋4（1P は かわらない。もちものに 入らない）', async ({ page }) => {
+    await openBal(page, '?nosave=1&duo=dev');
+    await page.evaluate(() => (window as any).T.base());
+    await installFakePads(page, 2);
+    expect(await page.evaluate(() => (window as any).__rikkun.duo.join())).toBe(true);
+    await stepN(page, 30);
+    const apart = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const a = h.duo.pos(1);
+      const b = h.duo.pos(2);
+      return Math.hypot(a.x - b.x, a.z - b.z);
+    });
+    expect(apart, '1P と 2P が 重なって いると どちらが ひろうか 決まらない').toBeGreaterThan(3);
+    const inv2 = await page.evaluate(() => JSON.stringify((window as any).__rikkun.duo.inv(2)));
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const p = h.duo.pos(2);
+      h.drops.place({ x: p.x, y: p.y, z: p.z }, [{ item: 'yokai_orb', count: 4 }]);
+    });
+    await stepN(page, 120);
+    expect(await dama(page, 2)).toBe(4);
+    expect(await dama(page, 1), '1P は かわらない').toBe(0);
+    expect(await groundOrbs(page)).toBe(0);
+    expect(await page.evaluate(() => JSON.stringify((window as any).__rikkun.duo.inv(2)))).toBe(inv2);
+  });
 });
