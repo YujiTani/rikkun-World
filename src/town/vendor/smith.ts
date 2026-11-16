@@ -1,4 +1,5 @@
 import type { ArmorSlot, Durability, Inventory, ItemId } from '../../contracts';
+import type { WalletPort } from '../../dama/walletPort';
 import { ITEM_DEFS } from '../../content/items/registry';
 import { ARMOR_SLOTS } from '../../craft/config';
 import { rarityTier } from '../../drops/rarityTable';
@@ -11,7 +12,6 @@ import { SMITH_PRICE } from './vendorTable';
  */
 
 type Who = 1 | 2;
-const ORB: ItemId = 'yokai_orb';
 
 /** カードの 場所: もちものの マス（0 はじまり）か 着て いる そうびの 部位（'armor:head' など） */
 export type SmithSlot = number | `armor:${ArmorSlot}`;
@@ -31,8 +31,10 @@ export interface SmithItem {
 export type SmithFixResult = 'ok' | 'short' | 'full';
 
 export interface SmithPorts {
+  /** その 人の さいふ（ようかいダマ。1.6〔1F〕） */
+  wallet: WalletPort;
   /** その 人の もちもの（2P が いなければ null）。setDurability は 準備用と 同じ 口（left を max に する） */
-  inventory(who: Who): (Pick<Inventory, 'size' | 'slots' | 'durability' | 'count' | 'remove'> & { setDurability?(slot: number, left: number): void }) | null;
+  inventory(who: Who): (Pick<Inventory, 'size' | 'slots' | 'durability'> & { setDurability?(slot: number, left: number): void }) | null;
   /** その 人の そうび（2P が いなければ null） */
   armor(who: Who): { equipped(slot: ArmorSlot): ItemId | null; durability(slot: ArmorSlot): Durability | null; setDurability?(slot: ArmorSlot, left: number): void } | null;
 }
@@ -51,7 +53,7 @@ export class SmithService {
 
   /** もって いる ようかいダマ */
   dama(who: Who): number {
-    return this.ports.inventory(who)?.count(ORB) ?? 0;
+    return this.ports.inventory(who) ? this.ports.wallet.count(who) : 0;
   }
 
   /** たいきゅうが へって いる 物（もちものの マスの 順 → そうびの 部位の 順） */
@@ -59,7 +61,7 @@ export class SmithService {
     const out: SmithItem[] = [];
     const inv = this.ports.inventory(who);
     if (!inv) return out;
-    const d = inv.count(ORB);
+    const d = this.ports.wallet.count(who);
     const slots = inv.slots();
     for (let i = 0; i < slots.length; i++) {
       const s = slots[i];
@@ -93,8 +95,7 @@ export class SmithService {
     const it = this.itemAt(who, slot);
     const inv = this.ports.inventory(who);
     if (!it || !inv) return 'full';
-    if (inv.count(ORB) < it.price) return 'short';
-    inv.remove(ORB, it.price);
+    if (!this.ports.wallet.spend(who, it.price)) return 'short';
     const a = armorOf(slot);
     if (a === null) inv.setDurability?.(slot as number, it.max);
     else this.ports.armor(who)?.setDurability?.(a, it.max);

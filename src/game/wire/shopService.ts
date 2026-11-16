@@ -1,6 +1,7 @@
 // TOWN-1 1C: よろずやの こうかんの 係を 作る（保存を 読む 前に 作る ので 妖怪の つなぎ〔creatures.ts〕で 呼ぶ。画面・話す 口は shop.ts）。
 import type { BlockId, Inventory, ItemStack, Vec3, VoxelWorld } from '../../contracts';
 import { overlapsBody } from '../../dig/digCore';
+import type { WalletPort } from '../../dama/walletPort';
 import { ShopService } from '../../town/shop/shop';
 import type { ShopBoxPorts } from '../../town/shop/shopBoxes';
 import type { ShopGive, ShopItemId } from '../../town/shop/shopTable';
@@ -15,6 +16,8 @@ const DROP_SCATTER = { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 } as c
 export interface ShopServiceDeps {
   seed: number;
   inventory: Inventory;
+  /** さいふ（ようかいダマ。1.6〔1F〕） */
+  wallet: WalletPort;
   playerPos: () => Vec3;
   /** 2P（参加して いなければ null） */
   mate: () => { position: Vec3; inventory: Inventory } | null;
@@ -35,6 +38,7 @@ export function createShopService(d: ShopServiceDeps): ShopService {
   return new ShopService(
     {
       inventory: (who) => (who === 1 ? d.inventory : (d.mate()?.inventory ?? null)),
+      wallet: d.wallet,
       dropAtFeet: (who, stacks) => {
         const at = who === 1 ? d.playerPos() : d.mate()?.position;
         if (at) d.scatter({ x: at.x, y: at.y + DROP_RISE, z: at.z }, stacks, DROP_SCATTER);

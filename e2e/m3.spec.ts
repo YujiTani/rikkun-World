@@ -1088,7 +1088,7 @@ test.describe('M3 見た目・文字', () => {
       const names: string[] = [];
       h.inventory.select(1);
       h.step(2);
-      for (const item of ['yokai_orb', 'paper', 'string', 'cloth', 'oil', 'clay', 'crystal', 'iron_ore', 'coal_ore', 'log']) {
+      for (const item of ['paper', 'string', 'cloth', 'oil', 'clay', 'crystal', 'iron_ore', 'coal_ore', 'log']) {
         h.inventory.clear();
         h.inventory.add(item, 1);
         h.inventory.select(0);
@@ -1106,8 +1106,7 @@ test.describe('M3 見た目・文字', () => {
       expect(findUnrubiedKanji(v.replace(/[a-z_]+=/g, '')), k).toEqual([]);
     }
     expect(texts.death).toContain('やられちゃった');
-    // TOWN-1 1A: 名前は カタカナの「ようかいダマ」に そろえる（TOWN-1 §2.3 の 1）
-    expect(texts.names).toContain('ようかいダマ');
+    // TOWN-1 1F（1.6）: ようかいダマは もちものに 入らない ので ここでは 見ない。名前「ようかいダマ」は ユニット（materials.test.ts・dama.test.ts AC50）が 見る
     expect(texts.names).not.toContain('ようかいだま');
   });
 });

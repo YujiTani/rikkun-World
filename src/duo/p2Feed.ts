@@ -2,6 +2,7 @@
 // 実績は 2 人で 共有（同じ AchievementSystem に 1 回ずつ）。2P の ログは 出さない（§13）。
 // `game/wire/duoPlay.ts` は ここを 呼ぶ 行だけ。1P の step.ts・ui.ts も 同じ 関数を 使う（式の コピーを 作らない）。
 import type { AchievementSystem } from '../achievements/AchievementSystem';
+import { WALLET_ITEM } from '../dama/walletPort';
 import { CROP_KINDS, SEED_ITEM } from '../contracts';
 import type { BladeEvent, BowEvent, CombatEvent, DigEvent, ItemId, Vec3, WearEvent } from '../contracts';
 
@@ -82,5 +83,9 @@ export function createDropPicked(d: {
 
 /** who 1 は p1・who 2 は p2 に 1 回ずつ */
 export function routeDropPicked(d: { p1: DropPicked; p2: DropPicked }): (item: ItemId, count: number, fromYokai: boolean, who: 1 | 2) => void {
-  return (item, count, fromYokai, who) => (who === 1 ? d.p1 : d.p2)(item, count, fromYokai);
+  // 1.6〔1F〕: ようかいダマは さいふへ 入る。ひろった ログ（左の ログ）には 出さない（すみの「＋」と 2 重に しない。§3.4）
+  return (item, count, fromYokai, who) => {
+    if (item === WALLET_ITEM) return;
+    (who === 1 ? d.p1 : d.p2)(item, count, fromYokai);
+  };
 }

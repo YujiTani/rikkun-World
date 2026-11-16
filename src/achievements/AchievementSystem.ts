@@ -293,8 +293,8 @@ export class AchievementSystem implements AchievementShowSource {
           this.lastHurtAt = this.now;
         } else if (e.type === 'death') {
           this.bump('death', 1);
-        } else if (e.type === 'pickup') {
-          this.bump('bagBack', 1);
+        } else if (e.type === 'pickup' && e.wallet !== true) {
+          this.bump('bagBack', 1); // ようかいダマを さいふへ ひろう（wallet）のは 数えない（1.6〔1F〕）
         }
       }
     });

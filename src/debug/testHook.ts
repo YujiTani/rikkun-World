@@ -231,7 +231,9 @@ export interface TestHook {
   stall: VendorHook['stall'];
   food: VendorHook['food'];
   /** TOWN-1 1A（docs/design/TOWN-1.md §6.1）: ようかいダマ。p ＝ 1 | 2（2P が いなければ count(2) は null） */
-  dama: { count(p: 1 | 2): number | null; give(p: 1 | 2, n: number): { added: number; dropped: number }; legacy(): number | null };
+  dama: ReturnType<typeof import('../game/wire/dama').createDamaHook>;
+  /** TOWN-1 1F（e2e/town1f.spec.ts の 頭の 約束）: 地面の 落とし物（ぜんぶ）を 見る・足もとに 置く（DropField.scatter と 同じ） */
+  drops: { list(): { item: string; count: number; x: number; y: number; z: number }[]; place(at: { x: number; y: number; z: number }, stacks: { item: string; count: number }[]): void };
   /** #293 リリース: がしゃどくろ（いま すぐ 出す・たおした ことに する・調整表。src/gasha/release.ts）。起動の おわりに 足される */
   gasha?: GashaHook;
 }
@@ -242,7 +244,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'gfx' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house' | 'duo' | 'dama' | 'town' | 'athletic' | 'shop' | 'ofuda' | 'smith' | 'stall' | 'food'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'gfx' | 'work' | 'water' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'gamepad' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house' | 'duo' | 'dama' | 'drops' | 'town' | 'athletic' | 'shop' | 'ofuda' | 'smith' | 'stall' | 'food'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

@@ -23,7 +23,7 @@ import type { WiredHouse } from './house';
 import { emptyKitSize } from './coopMenuView';
 import { townSafe } from './town';
 import { townGuards } from '../../town/townGuard';
-import { createDamaService } from './dama';
+import { createDamaService, screenOpenOf, walletOf } from './dama';
 import { createShopService } from './shopService';
 import { createVendorServices } from './vendorService';
 import { townNote, wireTownRepair } from './townRepair';
@@ -36,12 +36,13 @@ export function wireYokai(deps: WiredFighters) {
   // TOWN-1 1A: ようかいダマ（妖怪を たおすと 当てた 人 ぜんいんへ。実績・がしゃどくろは ほかの つなぎ）
   const dama = createDamaService({
     seed,
-    inventory,
-    playerPos: () => controller.state.position,
-    mate: () => shared.duoMate(),
-    scatter: (at, stacks) => { drops.scatter(at, stacks); },
+    joined2: () => shared.duoMate() !== null,
+    screenOpen: screenOpenOf(shared, deps.lock),
   });
   shared.dama = dama;
+  // 1.6〔1F〕: ようかいダマは もちものに 入れない。どの 道で 入ろうと しても（add・setSlot・カーソル・地面を ひろう）その 人の さいふへ
+  inventory.orbSink = (n) => { dama.give(1, n); };
+  shared.p2.inventory.orbSink = (n) => { dama.give(2, n); };
   /** 動物の 体が マスに かかるか（たからばこを 置く とき だけ 見る。体の はば 0.8・高さ 1 の 目安。マス） */
   const animalAt = (x: number, y: number, z: number): boolean =>
     deps.animals.list().some((a) => a.x > x - 0.4 && a.x < x + 1.4 && a.z > z - 0.4 && a.z < z + 1.4 && a.y < y + 1 && a.y + 1 > y);
@@ -49,6 +50,7 @@ export function wireYokai(deps: WiredFighters) {
   shared.shopSave = createShopService({
     seed,
     inventory,
+    wallet: walletOf(dama),
     playerPos: () => controller.state.position,
     mate: () => shared.duoMate(),
     scatter: (at, stacks, opts) => drops.scatter(at, stacks, opts),
@@ -61,6 +63,7 @@ export function wireYokai(deps: WiredFighters) {
   // TOWN-1 1E: かじやさん・かいとりの やたい・食事・かえりの おふだ（やたいの きょうの 数を 保存する ので ここで 作る。画面・話す 口は wireVendors）
   shared.vendors = createVendorServices({
     inventory,
+    wallet: walletOf(dama),
     armor,
     playerPos: () => controller.state.position,
     movePlayer: (to) => controller.set({ position: { x: to.x, y: to.y, z: to.z }, velocity: { x: 0, y: 0, z: 0 } }),
@@ -72,7 +75,6 @@ export function wireYokai(deps: WiredFighters) {
     day: () => time.day(),
     world,
     creatureAt: (x, y, z) => (shared.yokaiManager?.occupies(x, y, z) ?? false) || animalAt(x, y, z),
-    scatter: (at, stacks) => drops.scatter(at, stacks),
     ofudaFx: () => shared.ofudaFx,
     foodFx: () => shared.foodFx,
   });

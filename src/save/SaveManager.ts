@@ -1,3 +1,5 @@
+import { takeLegacyOrbs } from '../dama/legacyOrbs';
+import type { LegacyOrbs } from '../dama/dama';
 import type { TownRecord } from '../town/townPlan';
 import type { BlockId, ChunkColumn, Inventory, PlayerState, ScreenSettings, SpawnPoint, Vec3 } from '../contracts';
 import { BOKEN_GEN, HEYA_GEN, KODO_GEN, OLDEST_READABLE_GEN, SAVE_GEN } from './gens';
@@ -116,7 +118,7 @@ export interface SaveDeps {
   /** #293: がしゃどくろを たおした 回数（{ v: 2, kills }。ボス本体は 保存しない。前の 版の 宝箱の 一覧は 読みこんでも むし）。前の 保存に ない ときは null */
   gasha?: SaveExtra;
   /** TOWN-1 1A: ようかいダマの 記録（`{ v: 1, given, legacy }`。ない 保存は 前の セーブ あつかい で あずかりを 計算する） */
-  dama?: SaveExtra;
+  dama?: SaveExtra & { absorb?(orbs: LegacyOrbs): void };
   /** TOWN-1 1.4: 街の まだ もどって いない マスの 記録（`{ v: 1, cells, byPlayer, placed }`。ない 保存は 記録 なし ＝ 0 こ） */
   townRepairs?: SaveExtra;
   /** TOWN-1 1B-2: アスレチックの 太鼓（`{ v: 1, cleared: [1P, 2P] }`。ない 保存は 2 人とも まだ） */
@@ -297,7 +299,9 @@ export class SaveManager {
     }
   }
 
-  private restoreAll(data: StoredMeta): void {
+  private restoreAll(stored: StoredMeta): void {
+    // TOWN-1 1.6〔1F〕§4.6: 古い セーブの もちもの・たんす・地面に ある ようかいダマは 取りのぞいて さいふへ（もとの 保存は かえない）
+    const { data, orbs } = takeLegacyOrbs(stored);
     try {
       this.d.inventory.deserialize(data.inventory);
     } catch {
@@ -367,6 +371,7 @@ export class SaveManager {
     } catch {
       this.d.dama?.deserialize(null);
     }
+    this.d.dama?.absorb?.(orbs); // さいふの 記録が ない セーブは ここで 1 回 だけ うつる。ある セーブでも のこりが あれば 回収
     try {
       this.d.townRepairs?.deserialize(data.townRepairs ?? null);
     } catch {

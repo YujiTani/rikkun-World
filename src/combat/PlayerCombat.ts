@@ -498,7 +498,8 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
 
     // 2P(tickDrops=false)は 落とし物を 進めない（1P 側の 1 回だけ）
     if (this.d.tickDrops !== false) {
-      for (const id of this.drops.update(!this.isDead)) this.emit({ type: 'pickup', tick: this.tickCount, bagId: id });
+      const picked = this.drops.update(!this.isDead);
+      for (const id of picked) this.emit({ type: 'pickup', tick: this.tickCount, bagId: id, ...(this.drops.walletPicked.includes(id) ? { wallet: true as const } : {}) });
     }
     this.tickCount++;
   }

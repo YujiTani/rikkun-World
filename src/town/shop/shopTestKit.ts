@@ -7,6 +7,7 @@ import { createShaftHook } from '../../world/gen/mineHookShaft';
 import { ShopService, boxSeed, type ShopPorts } from './shop';
 import { SHOP_BOXES, type ShopBoxId, type ShopGive } from './shopTable';
 import { planShopSpots } from './shopSpots';
+import { fakeWallet } from '../../dama/walletTestKit';
 
 /** よろずやの ユニットテストの 道具（テスト だけが 使う。本番は 読まない） */
 
@@ -19,6 +20,7 @@ export const SPOTS = planShopSpots({ toWorld: (u, v) => ({ x: u + 20, z: v + 20 
 
 export function rig(opts: { learnedAll?: boolean } = {}) {
   const inv = { 1: new InventoryImpl(), 2: new InventoryImpl() };
+  const wallet = fakeWallet(); // 1.6〔1F〕: ようかいダマは さいふ（もちものの yokai_orb では ない）
   const dropped: { who: 1 | 2; stacks: ShopGive[] }[] = [];
   let joined2 = true;
   const key = (x: number, y: number, z: number): string => `${x},${y},${z}`;
@@ -29,6 +31,7 @@ export function rig(opts: { learnedAll?: boolean } = {}) {
   for (let x = 0; x < 64; x++) for (let z = 0; z < 64; z++) world.setBlock(x, GROUND, z, 'grass' as BlockId);
   const ports: ShopPorts = {
     inventory: (who) => (who === 2 && !joined2 ? null : inv[who]),
+    wallet,
     dropAtFeet: (who, stacks) => dropped.push({ who, stacks: stacks.map((s) => ({ ...s })) }),
     recipesLeft: () => !opts.learnedAll,
     boxes: {
@@ -64,6 +67,7 @@ export function rig(opts: { learnedAll?: boolean } = {}) {
   return {
     shop,
     inv,
+    wallet,
     world,
     dropped,
     chestDrops,
@@ -76,7 +80,7 @@ export function rig(opts: { learnedAll?: boolean } = {}) {
       for (let i = 0; i < n; i++) shop.boxes!.step();
     },
     blockAt: (c: { x: number; y: number; z: number }): string => world.getBlock(c.x, c.y, c.z),
-    give: (who: 1 | 2, n: number) => inv[who].add(ORB, n),
+    give: (who: 1 | 2, n: number) => wallet.add(who, n),
     leave2: () => {
       joined2 = false;
     },

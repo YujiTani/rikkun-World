@@ -1,14 +1,13 @@
-import type { Inventory, MedalTier, YokaiKind, YokaiTitle } from '../contracts';
+import type { MedalTier, YokaiKind, YokaiTitle } from '../contracts';
 import { hashInts } from '../world/gen/random';
 import { DAMA, DAMA_HOUR } from './damaTuning';
 
 /**
- * ようかいダマ（`yokai_orb`）を わたす 係（TOWN-1 区切り 1A。§2.3・§2.4・§4.1・§4.6・§5）。
- * 数は damaTuning.ts の 表 1 か所。もちものは 人ごと（1P・2P）。入らない 分は その 人の 足もとへ。
+ * ようかいダマを わたす 係（TOWN-1 区切り 1A。§2.3・§2.4・§4.1・§4.6・§5）と、さいふ（1.6〔1F〕§2.3b・§3.4・§4.6・§4.12）。
+ * 数は damaTuning.ts の 表 1 か所。ようかいダマは もちものの マスに 入れず、人ごと（1P・2P）の「さいふ」の 数で 数える。
  * 1P と 2P は 同じ 道（who だけが ちがう）。乱数は シード付き（妖怪ごとに 決まる）。
  */
 
-const ORB = 'yokai_orb' as const;
 type Who = 1 | 2;
 
 // ---------------------------------------------------------------- 数（表から 計算。入れものに 触らない 関数）
@@ -54,13 +53,13 @@ export function hourEstimate(): { income: number; left: number } {
   return { income, left: income - DAMA_HOUR.spend.food - DAMA_HOUR.spend.ofuda };
 }
 
-// ---------------------------------------------------------------- わたす 係
+// ---------------------------------------------------------------- さいふの 係
 export interface DamaPorts {
-  /** その 人の もちもの。2P が 参加して いなければ null（わたさない） */
-  inventory(who: Who): Pick<Inventory, 'add' | 'count'> | null;
-  /** 入らなかった 分を その 人の 足もとに 落とす（ふつうに ひろえる） */
-  dropAtFeet(who: Who, count: number): void;
-  /** もらった とき（絵・音の 口。くり返し なので 小さく）。なくても よい */
+  /** その 人が 参加して いるか（1P は いつも true。2P は 参加中だけ） */
+  joined(who: Who): boolean;
+  /** その 人が 画面（もちもの・お店・本 など）を 開いて いるか（すみの 札を かくす。なければ いつも false） */
+  screenOpen?(who: Who): boolean;
+  /** さいふが ふえた とき（絵・音の 口。くり返し なので 小さく）。なくても よい */
   onGot?(who: Who, count: number): void;
 }
 
@@ -73,18 +72,58 @@ export interface YokaiDamaInfo {
   hit2: boolean;
 }
 
-/** 保存の 形（世界ごと。もちものの 中の 数は もちものの 保存に ある） */
+/** すみの 札の 中身（`dama.hud(p)`。TOWN-1 §6.1） */
+export interface DamaHud {
+  /** 札が 出て いる（画面を 開いて かくれて いる 時は false） */
+  shown: boolean;
+  total: number;
+  /** 3 けたごとに「,」（例 "1,234"） */
+  text: string;
+  /** 下の「＋」の 数。出て いない 時 null */
+  plus: number | null;
+  plusText: string | null;
+  /** 「＋」の のこり ステップ。出て いない 時 0 */
+  left: number;
+}
+
+/** 前の セーブの もちもの・たんす・地面に のこって いた ようかいダマの 数（うつしかえ。§4.6） */
+export interface LegacyOrbs {
+  p1: number;
+  p2: number;
+  /** たんす・かまど・地面・おとしもの ぶくろ（持ち主の 記録が ない ので 1P の さいふへ） */
+  world: number;
+}
+
+/** 保存の 形（世界ごと。さいふの 数は wallet） */
 export interface DamaSave {
   v: 1;
   /** ようかいダマを わたした 実績（実績ごと） */
   given: string[];
   /** 前の セーブの あずかり（わたしたら null） */
   legacy: number | null;
+  /** さいふの 記録（1.6〔1F〕。ない セーブは 古い セーブ） */
+  wallet: { n1: number; n2: number; moved: boolean };
 }
+
+/** 3 けたごとに「,」（TOWN-1 §3.4） */
+export function commas(n: number): string {
+  return String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+const cnt = (x: unknown): number => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? Math.min(Math.floor(x), DAMA.wallet.max) : 0);
 
 export class DamaService {
   private givenSet = new Set<string>();
   private legacy_: number | null = null;
+  /** さいふの 数（[1P, 2P]。2P が 参加して いない 間も のこる） */
+  private readonly wallet_: [number, number] = [0, 0];
+  /** うつしかえ ずみ（新しい 世界は はじめから true。古い セーブを 開くと false） */
+  private moved = true;
+  /** 「＋」（[1P, 2P]。のこりが 0 なら 出て いない） */
+  private readonly plus_: [{ n: number; left: number }, { n: number; left: number }] = [
+    { n: 0, left: 0 },
+    { n: 0, left: 0 },
+  ];
 
   constructor(
     private readonly ports: DamaPorts,
@@ -93,23 +132,86 @@ export class DamaService {
 
   /** その 人が 参加して いるか（2P は 参加中だけ） */
   joined(who: Who): boolean {
-    return this.ports.inventory(who) !== null;
+    return who === 1 || this.ports.joined(who);
   }
 
-  /** その 人の もちものの ようかいダマ（2P が いなければ 0） */
+  /** さいふの 上限（人ごと。§4.12） */
+  max(): number {
+    return DAMA.wallet.max;
+  }
+
+  /** その 人の さいふの 数（2P が 参加して いなくても のこって いる） */
   count(who: Who): number {
-    return this.ports.inventory(who)?.count(ORB) ?? 0;
+    return this.wallet_[who - 1]!;
   }
 
-  /** その 人に n こ わたす。入らない 分は 足もとへ。わたせた（入った）数と 落とした 数を 返す */
-  give(who: Who, n: number): { added: number; dropped: number } {
-    const inv = this.ports.inventory(who);
+  /** その 人の さいふに n こ たす。上限で とまる（こえた 分は すてる）。2P が いなければ 何も しない */
+  give(who: Who, n: number): { added: number; over: number } {
     const want = Math.max(0, Math.floor(n));
-    if (!inv || want <= 0) return { added: 0, dropped: 0 };
-    const left = inv.add(ORB, want);
-    if (left > 0) this.ports.dropAtFeet(who, left);
-    this.ports.onGot?.(who, want);
-    return { added: want - left, dropped: left };
+    if (!this.joined(who) || want <= 0) return { added: 0, over: 0 };
+    const added = Math.min(want, this.max() - this.count(who));
+    if (added > 0) {
+      this.wallet_[who - 1]! += added;
+      const p = this.plus_[who - 1]!;
+      p.n = Math.min(this.max(), (p.left > 0 ? p.n : 0) + added);
+      p.left = DAMA.wallet.plusSteps;
+      this.ports.onGot?.(who, added);
+    }
+    return { added, over: want - added };
+  }
+
+  /** その 人の さいふから n こ へらす。たりなければ 何も かえず false（「＋」は 出さない） */
+  spend(who: Who, n: number): boolean {
+    const k = Math.max(0, Math.floor(n));
+    if (!this.joined(who) || this.count(who) < k) return false;
+    this.wallet_[who - 1]! -= k;
+    return true;
+  }
+
+  /** 1 ステップ すすめる（「＋」の のこりを へらす。画面を 開いて いる 間も すすむ） */
+  step(): void {
+    for (const p of this.plus_) {
+      if (p.left <= 0) continue;
+      p.left--;
+      if (p.left <= 0) p.n = 0;
+    }
+  }
+
+  /** すみの 札の 中身（2P が いなければ null） */
+  hud(who: Who): DamaHud | null {
+    if (!this.joined(who)) return null;
+    const total = this.count(who);
+    const p = this.plus_[who - 1]!;
+    const on = p.left > 0;
+    return {
+      shown: !(this.ports.screenOpen?.(who) ?? false),
+      total,
+      text: commas(total),
+      plus: on ? p.n : null,
+      plusText: on ? `+${commas(p.n)}` : null,
+      left: on ? p.left : 0,
+    };
+  }
+
+  /** うつしかえ ずみ か（古い セーブを 開いた 直後は false。absorb で true） */
+  migrated(): boolean {
+    return this.moved;
+  }
+
+  /** まだ うつして いない（開いた とき 1 回 だけ。さいふの 記録が ない セーブ） */
+  needsAbsorb(): boolean {
+    return !this.moved;
+  }
+
+  /**
+   * 古い セーブの うつしかえ・もちものに のこった ようかいダマの 回収（§4.6）。上限で とまる。「＋」は 出さず 音も 鳴らさない。
+   * 呼ぶ 側が もちもの・たんす・地面から 消す。あずかり（legacy）と 実績の 記録は かえない。
+   */
+  absorb(o: LegacyOrbs): void {
+    const max = this.max();
+    this.wallet_[0] = Math.min(max, this.wallet_[0] + cnt(o.p1) + cnt(o.world));
+    this.wallet_[1] = Math.min(max, this.wallet_[1] + cnt(o.p2));
+    this.moved = true;
   }
 
   private giveTo(hit1: boolean, hit2: boolean, n: number): void {
@@ -137,7 +239,7 @@ export class DamaService {
     if (silent || this.givenSet.has(def.id)) return DAMA.quiet;
     this.givenSet.add(def.id);
     const n = damaForMedal(def.medal);
-    this.giveTo(true, this.ports.inventory(2) !== null, n);
+    this.giveTo(true, this.joined(2), n);
     return n;
   }
 
@@ -155,21 +257,35 @@ export class DamaService {
   }
 
   serialize(): DamaSave {
-    return { v: 1, given: [...this.givenSet], legacy: this.legacy_ };
+    return { v: 1, given: [...this.givenSet], legacy: this.legacy_, wallet: { n1: this.wallet_[0], n2: this.wallet_[1], moved: this.moved } };
   }
 
   /**
    * 保存から もどす。記録の ない（または こわれた）セーブは 古い セーブ あつかい:
    * とって ある 実績の 合計を あずかりに し、その 実績は「わたした」ことに する（あとから 二重に もらわない）。
+   * さいふの 記録の ない セーブは さいふ 0・うつしかえ まだ（absorb で 1 回 だけ）。こわれた 数は 0。
    */
   deserialize(data: unknown, achievements: readonly LegacyAch[]): void {
-    const d = data as { v?: unknown; given?: unknown; legacy?: unknown } | null | undefined;
+    this.wallet_[0] = 0;
+    this.wallet_[1] = 0;
+    this.moved = false;
+    for (const p of this.plus_) {
+      p.n = 0;
+      p.left = 0;
+    }
+    const d = data as { v?: unknown; given?: unknown; legacy?: unknown; wallet?: unknown } | null | undefined;
     const ok =
       d !== null && typeof d === 'object' && d.v === 1 && Array.isArray(d.given) && d.given.every((x) => typeof x === 'string') &&
       (d.legacy === null || d.legacy === undefined || (typeof d.legacy === 'number' && Number.isFinite(d.legacy) && d.legacy >= 0));
     if (ok) {
       this.givenSet = new Set(d.given as string[]);
       this.setLegacy((d.legacy as number | null | undefined) ?? null);
+      const w = d.wallet as { n1?: unknown; n2?: unknown; moved?: unknown } | null | undefined;
+      if (w !== null && typeof w === 'object') {
+        this.wallet_[0] = cnt(w.n1);
+        this.wallet_[1] = cnt(w.n2);
+        this.moved = w.moved === true;
+      }
       return;
     }
     this.givenSet = new Set(achievements.filter((a) => a.unlocked).map((a) => a.id));

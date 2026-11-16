@@ -1,3 +1,4 @@
+import { WALLET_ITEM } from '../dama/walletPort';
 import { W2_SETTING_DEFAULTS } from '../contracts';
 import { addStack, copyStack, maxDurability, readPlan, readPower, readWater, readWear } from '../tools/durability';
 import type { Inventory, ItemStack, Rarity, Vec3, VoxelWorld } from '../contracts';
@@ -158,6 +159,8 @@ export class DropField {
   private readonly life: number;
   private readonly radius: number;
   private items: Entity[] = [];
+  /** 直前の update で ひろわれた 物の うち、ようかいダマ（さいふへ 入る 物。1.6〔1F〕）の id */
+  readonly walletPicked: number[] = [];
   private nextId = 1;
   private nextBatch = 1;
 
@@ -316,6 +319,7 @@ export class DropField {
   /** 1 ステップ進める。canPickup = false のあいだは拾わない。拾った（一部でも）アイテムの id を返す */
   update(canPickup: boolean): number[] {
     const picked: number[] = [];
+    this.walletPicked.length = 0;
     if (this.items.length === 0) return picked;
     const p = this.d.player();
     const radius = this.d.live?.pickupRadius ?? this.radius;
@@ -350,6 +354,7 @@ export class DropField {
         const left = addStack(this.d.inventory, b.item);
         if (left !== b.item.count) {
           this.d.onPickup?.(b.item.item, b.item.count - left, b.yokai, 1);
+          if (b.item.item === WALLET_ITEM) this.walletPicked.push(b.id);
           b.item = { ...b.item, count: left };
           picked.push(b.id);
           changed = true;
@@ -362,6 +367,7 @@ export class DropField {
         const left = addStack(partner.inventory, b.item);
         if (left !== b.item.count) {
           this.d.onPickup?.(b.item.item, b.item.count - left, b.yokai, 2);
+          if (b.item.item === WALLET_ITEM) this.walletPicked.push(b.id);
           b.item = { ...b.item, count: left };
           picked.push(b.id);
           changed = true;

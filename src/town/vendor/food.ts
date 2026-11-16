@@ -1,4 +1,4 @@
-import type { Inventory, ItemId } from '../../contracts';
+import type { WalletPort } from '../../dama/walletPort';
 import { FOOD_TABLE, FOOD_TUNING, type FoodKind } from './vendorTable';
 
 /**
@@ -9,7 +9,6 @@ import { FOOD_TABLE, FOOD_TUNING, type FoodKind } from './vendorTable';
  */
 
 type Who = 1 | 2;
-const ORB: ItemId = 'yokai_orb';
 
 export type FoodEatResult = 'ok' | 'short' | 'full';
 
@@ -22,8 +21,10 @@ export interface FoodVitals {
 }
 
 export interface FoodPorts {
-  /** その 人の もちもの（2P が いなければ null） */
-  inventory(who: Who): Pick<Inventory, 'count' | 'remove'> | null;
+  /** その 人の さいふ（ようかいダマ。1.6〔1F〕） */
+  wallet: WalletPort;
+  /** その 人が 参加して いるか（2P が いなければ null） */
+  inventory(who: Who): object | null; // 参加して いる かだけ 見る（ダマは さいふ）
   /** その 人の 体力（2P が いなければ null） */
   vitals(who: Who): FoodVitals | null;
   /** ハートが 1 こ ふえた（音・見た目。なくても よい） */
@@ -49,7 +50,7 @@ export class FoodService {
 
   /** もって いる ようかいダマ */
   dama(who: Who): number {
-    return this.ports.inventory(who)?.count(ORB) ?? 0;
+    return this.ports.inventory(who) ? this.ports.wallet.count(who) : 0;
   }
 
   /** いま 食べて いる（もぐもぐ か ハートが ふえて いる 間） */
@@ -80,8 +81,7 @@ export class FoodService {
     if (!inv || !v) return 'short';
     if (this.munching(who) || this.full(who)) return 'full';
     const row = FOOD_TABLE[kind];
-    if (inv.count(ORB) < row.price) return 'short';
-    inv.remove(ORB, row.price);
+    if (!this.ports.wallet.spend(who, row.price)) return 'short';
     const room = v.maxHp() - v.hp();
     const heal = row.heal === 'full' ? room : Math.min(row.heal, room);
     this.eating[who - 1] = { kind, munch: FOOD_TUNING.munchSteps, left: heal, pop: 0 };

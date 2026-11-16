@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { fakeWallet } from '../../dama/walletTestKit';
 import { InventoryImpl } from '../../inventory/Inventory';
 import { ShopService } from './shop';
 import { ShopSessions, shopFreezesWorld, type ShopSfx } from './shopSession';
 import { SHOP_TEXT } from './shopText';
 import { SHOP_BOXES, SHOP_ORDER, SHOP_TUNING } from './shopTable';
-import { ORB, SPOTS, rig as boxRig } from './shopTestKit';
+import { SPOTS, rig as boxRig } from './shopTestKit';
 
 /**
  * TOWN-1 1C: よろずやの 画面の 状態（人ごと）。AC14 の 見える 側（ふきだし）・AC20（1.3: 1 人は 止める／2 人は 止めない・やられたら とじる・街を 出たら とじる）。
@@ -16,7 +17,7 @@ function rig() {
   const sfx: ShopSfx[] = [];
   const events: string[] = [];
   const s = new ShopSessions({ shop: b.shop, play: (e) => sfx.push(e), onOpen: (w) => events.push(`open${w}`), onClose: (w) => events.push(`close${w}`) });
-  return { inv: b.inv, shop: b.shop, s, sfx, events, b };
+  return { inv: b.inv, wallet: b.wallet, shop: b.shop, s, sfx, events, b };
 }
 
 describe('開く・えらぶ・こうかん・とじる', () => {
@@ -43,18 +44,18 @@ describe('開く・えらぶ・こうかん・とじる', () => {
   });
   it('たりない: ふきだし「ようかいダマが あと □ こ たりないよ」・何も へらない', () => {
     const r = rig();
-    r.inv[1].add(ORB, 4);
+    r.wallet.add(1, 4);
     r.s.open(1);
     expect(r.s.buy(1, 'obako')).toBe('short');
     expect(r.s.view(1).bubble).toBe(SHOP_TEXT.short(SHOP_BOXES.obako.price - 4));
     expect(r.s.view(1).bubble).toMatch(/ようかいダマ.*あと.*たりない/);
-    expect(r.inv[1].count(ORB)).toBe(4);
+    expect(r.wallet.count(1)).toBe(4);
     expect(r.shop.boxes!.list()).toEqual([]);
     expect(r.sfx.at(-1)).toEqual({ k: 'short' });
   });
   it('こばこ（1.5）: 画面が とじ、ふきだし「おいたよ」が とじた あとも 読める・画面に 出す のは saySteps の 間', () => {
     const r = rig();
-    r.inv[1].add(ORB, 40);
+    r.wallet.add(1, 40);
     r.s.open(1);
     r.s.select(1, 'kobako');
     expect(r.s.press(1)).toBe('ok');
@@ -72,7 +73,7 @@ describe('開く・えらぶ・こうかん・とじる', () => {
   });
   it('置き場が いっぱい → full・画面は 開いた まま・いっぱいの 文。人で 置けない ときは べつの 文', () => {
     const r = rig();
-    r.inv[1].add(ORB, 200);
+    r.wallet.add(1, 200);
     for (let i = 0; i < SPOTS.length; i++) {
       r.s.open(1);
       expect(r.s.buy(1, 'kobako')).toBe('ok');
@@ -82,7 +83,7 @@ describe('開く・えらぶ・こうかん・とじる', () => {
     expect(r.s.view(1)).toMatchObject({ open: true, bubble: SHOP_TEXT.full });
     expect(r.sfx.at(-1)).toEqual({ k: 'short' });
     const q = rig();
-    q.inv[1].add(ORB, 50);
+    q.wallet.add(1, 50);
     for (const s of SPOTS) q.b.bodies.add(q.b.key(s.main.x, s.main.y, s.main.z));
     q.s.open(1);
     expect(q.s.buy(1, 'kobako')).toBe('full');
@@ -91,27 +92,28 @@ describe('開く・えらぶ・こうかん・とじる', () => {
   });
   it('えらんで いない ときの こうかんは 何も しない', () => {
     const r = rig();
-    r.inv[1].add(ORB, 40);
+    r.wallet.add(1, 40);
     r.s.open(1);
     expect(r.s.press(1)).toBeNull();
-    expect(r.inv[1].count(ORB)).toBe(40);
+    expect(r.wallet.count(1)).toBe(40);
   });
   it('売り切れの まきもの: ふきだし「もう ぜんぶ もってるよ」・ダマ へらない', () => {
     const inv = new InventoryImpl();
-    inv.add(ORB, 50);
-    const shop = new ShopService({ inventory: () => inv, dropAtFeet: () => {}, recipesLeft: () => false }, 7);
+    const wallet = fakeWallet();
+    wallet.add(1, 50);
+    const shop = new ShopService({ inventory: () => inv, wallet, dropAtFeet: () => {}, recipesLeft: () => false }, 7);
     const s = new ShopSessions({ shop });
     s.open(1);
     expect(s.buy(1, 'recipe_scroll')).toBe('soldOut');
     expect(s.view(1).bubble).toBe(SHOP_TEXT.soldOut);
-    expect(inv.count(ORB)).toBe(50);
+    expect(wallet.count(1)).toBe(50);
   });
 });
 
 describe('パッドで うごかす（十字・A・B）', () => {
   it('はじめの 十字で いちばん 前、右で つぎ、下で cols 先。A で こうかん、B で とじる', () => {
     const r = rig();
-    r.inv[2].add(ORB, 50);
+    r.wallet.add(2, 50);
     r.s.open(2);
     r.s.pad(2, 'right', 4);
     expect(r.s.view(2).selected).toBe(SHOP_ORDER[0]);
@@ -126,13 +128,13 @@ describe('パッドで うごかす（十字・A・B）', () => {
     r.s.pad(2, 'up', 4);
     expect(r.s.view(2).selected).toBe(SHOP_ORDER[0]);
     r.s.pad(2, 'confirm', 4);
-    expect(r.inv[2].count(ORB)).toBeLessThan(50);
+    expect(r.wallet.count(2)).toBeLessThan(50);
     r.s.pad(2, 'back', 4);
     expect(r.s.view(2).open).toBe(false);
   });
   it('A で 箱を こうかん すると 画面は とじる（1.5）', () => {
     const r = rig();
-    r.inv[1].add(ORB, 50);
+    r.wallet.add(1, 50);
     r.s.open(1);
     r.s.select(1, 'kobako');
     r.s.pad(1, 'confirm', 3);
@@ -160,7 +162,7 @@ describe('AC20（1.3）: 止める きまり・やられたら とじる・街�
   });
   it('街の はんいを 出たら 自動で とじる', () => {
     const r = rig();
-    r.inv[1].add(ORB, 50);
+    r.wallet.add(1, 50);
     r.s.open(1);
     r.s.buy(1, 'torch');
     r.s.step(1, { alive: true, inTown: false });

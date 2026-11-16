@@ -100,7 +100,7 @@ describe('AC16（1.5）: こばこ（宝箱と 同じ くじ・たねは 世界�
     const a = r.shop.buy(1, 'kobako');
     expect(a.status).toBe('ok');
     expect(r.shop.dama(1)).toBe(100 - SHOP_BOXES.kobako.price);
-    expect(r.inv[1].slots().filter((x) => x !== null && x.item !== ORB).length, 'こうかん した 時は ダマ だけ').toBe(0);
+    expect(r.inv[1].slots().filter((x) => x !== null).length, 'こうかん した 時は もちものは 1 マスも かわらない（ダマは さいふ。1.6〔1F〕）').toBe(0);
     const w0 = want('kobako', 1, 0);
     expect(a.placed).toMatchObject({ spot: 0, box: 'kobako', p: 1, n: 0, tier: w0.tier, opened: false });
     const m = SPOTS[0]!.cells;
@@ -196,10 +196,10 @@ describe('AC18（1.5）: もちものが いっぱいに 近い とき', () => {
     const r = rig();
     const inv = r.inv[1];
     const size = inv.slots().length;
-    // ダマ 1 マス ＋ ほかを うめて あき 2
-    inv.add(ORB, 100);
+    // ダマは さいふ（1.6〔1F〕）。もちものは ほかで うめて あき 2
+    r.give(1, 100);
     for (let i = 0; i < size; i++) if (!inv.slots()[i]) inv.setSlot(i, { item: 'dirt' as ItemId, count: 1 });
-    // あき 2: うしろの 2 マスを あける（ダマの マス は のこす）
+    // あき 2: うしろの 2 マスを あける
     let freed = 0;
     for (let i = size - 1; i >= 0 && freed < 2; i--) {
       if (inv.slots()[i]?.item === 'dirt') {
@@ -273,5 +273,41 @@ describe('「こんな ものが でるかも」（§2.7 の 5）', () => {
   it('こばこは ★1〜★6（★7 は とても すくない ので 見せない）、おおばこは ★2〜★7（★6 かくてい・★7 あり）', () => {
     expect(boxSample('kobako')).toEqual([1, 2, 3, 4, 5, 6]);
     expect(boxSample('obako')).toEqual([2, 3, 4, 5, 6, 7]);
+  });
+});
+
+describe('AC63・AC64（1.6〔1F〕）: お店は さいふを 読む・へらす', () => {
+  it('さいふの 数が そのまま shop.dama・こうかんで さいふが ねだん だけ へる・もちものの yokai_orb は 0 の まま', () => {
+    const r = rig();
+    r.give(1, 10);
+    const torch = SHOP_GOODS.find((g) => g.id === 'torch')!;
+    expect(r.shop.dama(1)).toBe(r.wallet.count(1));
+    expect(r.shop.buy(1, 'torch').status).toBe('ok');
+    expect(r.wallet.count(1)).toBe(10 - torch.price);
+    expect(r.inv[1].count(ORB), 'もちものに ようかいダマは 入らない').toBe(0);
+  });
+  it('2P が かっても 1P の さいふは かわらない（ぎゃくも）', () => {
+    const r = rig();
+    r.give(1, 30);
+    r.give(2, 30);
+    r.shop.buy(2, 'torch');
+    expect(r.wallet.count(1)).toBe(30);
+    expect(r.wallet.count(2)).toBeLessThan(30);
+  });
+  it('たりない（さいふ 1 で ねだん 2）→ short・何も かわらない', () => {
+    const r = rig();
+    r.give(1, 1);
+    const torch = SHOP_GOODS.find((g) => g.id === 'torch')!;
+    expect(torch.price).toBeGreaterThan(1);
+    expect(r.shop.buy(1, 'torch').status).toBe('short');
+    expect(r.wallet.count(1)).toBe(1);
+  });
+  it('さいふが 上限でも こうかん できる（上限 − ねだん）', () => {
+    const r = rig();
+    r.give(1, 5_000_000); // 上限で とまる
+    const full = r.wallet.count(1);
+    const torch = SHOP_GOODS.find((g) => g.id === 'torch')!;
+    expect(r.shop.buy(1, 'torch').status).toBe('ok');
+    expect(r.wallet.count(1)).toBe(full - torch.price);
   });
 });
