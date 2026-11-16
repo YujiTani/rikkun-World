@@ -27,7 +27,7 @@ const achDama = (page: Page): Promise<number> =>
   page.evaluate((medal) => {
     const h = (window as any).__rikkun;
     const ids = h.achievements.events().filter((e: any) => e.type === 'unlock' && !e.silent).map((e: any) => e.id as string);
-    return h.achievements.list().filter((a: any) => ids.includes(a.id)).reduce((s: number, a: any) => s + (medal[a.medal] as number), 0);
+    return h.achievements.list().filter((a: any) => ids.includes(a.id)).reduce((s: number, a: any) => s + ((medal as Record<string, number>)[a.medal] as number), 0);
   }, DAMA.medal);
 
 /** 地面の 落とし物の うち ようかいダマの 数（口 drops.list。まだ 無ければ 分かりやすく 落とす） */
