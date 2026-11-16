@@ -1,20 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import type { ItemId } from '../../contracts';
+import { fakeWallet } from '../../dama/walletTestKit';
 import { InventoryImpl } from '../../inventory/Inventory';
 import { SHOP_GOODS } from '../shop/shopTable';
 import { KaitoriService } from './kaitori';
 import { KAITORI_ROWS, KAITORI_TUNING } from './vendorTable';
 
 /** TOWN-1 1E AC35・AC36・AC28（やたいの きょうの 数）: かいとりの やたい */
-const ORB = 'yokai_orb' as ItemId;
 
 function rig() {
   const inv = { 1: new InventoryImpl(), 2: new InventoryImpl() };
   let day = 0;
   let joined = true;
-  const svc = new KaitoriService({ inventory: (w) => (w === 2 && !joined ? null : inv[w]), day: () => day });
+  const wallet = fakeWallet(); // 1.6〔1F〕: さいふ（かいとりの ようかいダマは さいふへ。足もとに 落とさない）
+  const svc = new KaitoriService({ inventory: (w) => (w === 2 && !joined ? null : inv[w]), wallet, day: () => day });
   return {
     inv,
+    wallet,
     svc,
     setDay: (d: number) => {
       day = d;
@@ -25,17 +27,29 @@ function rig() {
   };
 }
 
+describe('AC3（1.6）: かいとりの ダマは さいふへ（もちものが いっぱいでも 落とさない）', () => {
+  it('もちものが ほかの 物で ぜんぶ うまって いても トマト 10 → ok・さいふ ＋1・もちものの yokai_orb は 0', () => {
+    const r = rig();
+    const inv = r.inv[1];
+    for (let i = 0; i < inv.slots().length; i++) inv.setSlot(i, { item: 'dirt' as ItemId, count: 1 });
+    inv.setSlot(0, { item: 'tomato' as ItemId, count: 10 });
+    expect(r.svc.give(1, 'tomato')).toBe('ok');
+    expect(r.wallet.count(1)).toBe(1);
+    expect(inv.count('yokai_orb' as ItemId)).toBe(0);
+  });
+});
+
 describe('AC35 かいとりの やたい', () => {
   it('トマト 10 → ok・トマト −10・ダマ +1。トマト 9 → short', () => {
     const r = rig();
     r.inv[1].add('tomato', 10);
     expect(r.svc.give(1, 'tomato')).toBe('ok');
     expect(r.inv[1].count('tomato')).toBe(0);
-    expect(r.inv[1].count(ORB)).toBe(1);
+    expect(r.wallet.count(1)).toBe(1);
     r.inv[1].add('tomato', 9);
     expect(r.svc.give(1, 'tomato')).toBe('short');
     expect(r.inv[1].count('tomato')).toBe(9);
-    expect(r.inv[1].count(ORB)).toBe(1);
+    expect(r.wallet.count(1)).toBe(1);
   });
 
   it('§4.9 の 各行（表を 読む）: need こ わたして ようかいダマ 1。need−1 は short', () => {
@@ -46,7 +60,7 @@ describe('AC35 かいとりの やたい', () => {
       r.inv[1].add(row.item, 1);
       expect(r.svc.give(1, row.item), row.item).toBe('ok');
       expect(r.inv[1].count(row.item)).toBe(0);
-      expect(r.inv[1].count(ORB)).toBe(1);
+      expect(r.wallet.count(1)).toBe(1);
     }
   });
 
@@ -88,8 +102,8 @@ describe('AC35 かいとりの やたい', () => {
     expect(r.svc.state(2).today).toBe(0);
     r.svc.give(2, 'crystal');
     expect(r.svc.state(2).today).toBe(1);
-    expect(r.inv[1].count(ORB)).toBe(2);
-    expect(r.inv[2].count(ORB)).toBe(1);
+    expect(r.wallet.count(1)).toBe(2);
+    expect(r.wallet.count(2)).toBe(1);
   });
 
   it('保存: きょうの 数と その 日が 2 人とも のこる。古い セーブは 0', () => {
