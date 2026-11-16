@@ -15,7 +15,7 @@ export interface WalletPort {
 }
 
 /** テスト用の 上限。本番の 値は `DamaService.max()`（§4.12）。ここは 小さな 係の テストに だけ 使う 見本 */
-export const KIT_WALLET_MAX = 999_999;
+const KIT_WALLET_MAX = 999_999;
 
 export function fakeWallet(): WalletPort & { set(who: Who, n: number): void } {
   const n: Record<Who, number> = { 1: 0, 2: 0 };

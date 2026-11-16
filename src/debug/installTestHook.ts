@@ -42,7 +42,7 @@ import { digSettingsView, settingsViewOf, sharedSettingsView } from './settingsV
 import type { WiredVendors } from '../game/wire/vendors';
 import { createTownHook } from '../game/wire/town';
 import { townDrumNow } from '../game/wire/townDrum';
-import { createDamaHook } from '../game/wire/dama';
+import { createDamaHook, invOpenOf } from '../game/wire/dama';
 
 export function installGameHook(deps: WiredVendors): void {
   const {
@@ -347,7 +347,11 @@ export function installGameHook(deps: WiredVendors): void {
         }
       : null,
     duo: Object.assign(duo, deps.vendorHook.duo), // TOWN-1 1E: durability・setDurability
-    dama: createDamaHook(shared.dama!),
+    dama: createDamaHook(shared.dama!, invOpenOf(shared)),
+    drops: {
+      list: () => drops.list().flatMap((v) => v.slots.map((s) => ({ item: s.item as string, count: s.count, x: v.position.x, y: v.position.y, z: v.position.z }))),
+      place: (at, stacks) => void drops.scatter(at, stacks.map((s) => ({ item: s.item as never, count: s.count }))),
+    },
     town: createTownHook(),
     athletic: { drum: (p: 1 | 2) => ({ cleared: townDrumNow()?.cleared(p) ?? false }) },
     shop: deps.shopHook, // TOWN-1 1C: よろずや（e2e/town1c.spec.ts の 頭の 約束）

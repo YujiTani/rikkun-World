@@ -11,6 +11,7 @@ import { wireHud, wireWeaponFx, wireAchievements } from './game/wire/ui';
 import { wireSave, wireFrame, wireLoop } from './game/wire/save';
 import { createStep } from './game/step';
 import { installGameHook } from './debug/installTestHook';
+import { wireDamaWallet } from './game/wire/damaWallet';
 import { wireGasha } from './game/wire/gasha';
 import { wireDuo } from './game/wire/duo';
 import { wireMine } from './game/wire/mine';
@@ -46,6 +47,7 @@ const w19a = Object.assign(w18, wireMine(w18)); // 坑道の 宝箱（MINE-1C）
 const w19b = Object.assign(w19a, wireShop(w19a)); // よろずや と たからばこ（TOWN-1 1C）
 const w19 = Object.assign(w19b, wireVendors(w19b)); // かじやさん・やたい・かえりの おふだ（TOWN-1 1E）
 installGameHook(w19);
+wireDamaWallet(w19); // ようかいダマの さいふ（TOWN-1 1F）: すみの 札・もちもの画面の 数
 wireGasha(w19);
 // ゆきやまの 雪・もみじやまの 紅葉の 舞い（既定で 出す。?drift=0 で 出さない）
 if (wantsDrift(location.search)) installDrift(w19);

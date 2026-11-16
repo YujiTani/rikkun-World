@@ -103,7 +103,7 @@ export function wireSave(deps: WiredAchievements) {
       },
     },
     // TOWN-1 1A: ようかいダマの 記録（わたした 実績・前の セーブの あずかり）。記録の ない 前の セーブは 実績から あずかりを 計算（実績の あとに 読む）
-    dama: { serialize: () => shared.dama?.serialize() ?? null, deserialize: (d) => shared.dama?.deserialize(d, legacyList(achievements)) },
+    dama: { serialize: () => shared.dama?.serialize() ?? null, deserialize: (d) => shared.dama?.deserialize(d, legacyList(achievements)), absorb: (o) => shared.dama?.absorb(o) },
     // TOWN-1 1.4: 街の まだ もどって いない マスと 日（古い 保存は 記録 なし ＝ 0 こ）
     townRepairs: { serialize: () => shared.townRepairs?.serialize() ?? null, deserialize: (d) => shared.townRepairs?.deserialize(d) },
     townDrum: { serialize: () => shared.townDrum?.serialize() ?? null, deserialize: (d) => shared.townDrum?.deserialize(d) },

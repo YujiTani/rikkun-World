@@ -1,6 +1,7 @@
 // TOWN-1 1E: かじやさん・かいとりの やたい・食事・かえりの おふだの 係を 作る（やたいの きょうの 数を 保存する ので 保存を 読む 前。
 // 妖怪の つなぎ〔creatures.ts〕で 呼ぶ。画面・話す 口・見た目は vendors.ts）。
-import type { ArmorSlot, Durability, Inventory, ItemId, ItemStack, Vec3, VoxelWorld } from '../../contracts';
+import type { ArmorSlot, Durability, Inventory, ItemId, Vec3, VoxelWorld } from '../../contracts';
+import type { WalletPort } from '../../dama/walletPort';
 import { overlapsBody } from '../../dig/digCore';
 import { FoodService, type FoodPorts, type FoodVitals } from '../../town/vendor/food';
 import { KaitoriService } from '../../town/vendor/kaitori';
@@ -9,14 +10,13 @@ import { SmithService } from '../../town/vendor/smith';
 import { currentTown } from '../../town/townState';
 import { isWater } from '../../world/blocks/water';
 
-/** 入らない ようかいダマを 足もとに 落とす 高さ（足もとから 上へ。マス。よろずやと 同じ） */
-const DROP_RISE = 0.5;
-
 type Who = 1 | 2;
 type DuraInventory = Inventory & { setDurability?(slot: number, left: number): void };
 type DuraArmor = { equipped(slot: ArmorSlot): ItemId | null; durability(slot: ArmorSlot): Durability | null; setDurability?(slot: ArmorSlot, left: number): void };
 
 export interface VendorServiceDeps {
+  /** さいふ（ようかいダマ。1.6〔1F〕） */
+  wallet: WalletPort;
   inventory: DuraInventory;
   armor: DuraArmor;
   playerPos: () => Vec3;
@@ -32,7 +32,6 @@ export interface VendorServiceDeps {
   world: Pick<VoxelWorld, 'getBlock' | 'isSolid'>;
   /** 妖怪・動物の 体が その マスに かかるか */
   creatureAt: (x: number, y: number, z: number) => boolean;
-  scatter: (at: Vec3, stacks: readonly ItemStack[]) => void;
   /** おふだの 見た目・音・ふきだし（画面の つなぎが あとで 入れる） */
   ofudaFx: () => Pick<OfudaPorts, 'started' | 'arrived' | 'refused'>;
   /** 食事の 音（画面の つなぎが あとで 入れる） */
@@ -49,16 +48,13 @@ export interface VendorServices {
 export function createVendorServices(d: VendorServiceDeps): VendorServices {
   const inv = (who: Who): DuraInventory | null => (who === 1 ? d.inventory : ((d.mate()?.inventory as DuraInventory | undefined) ?? null));
   const pos = (who: Who): Vec3 | null => (who === 1 ? d.playerPos() : (d.mate()?.position ?? null));
-  const smith = new SmithService({ inventory: inv, armor: (who) => (who === 1 ? d.armor : d.mate() ? d.armor2() : null) });
+  const smith = new SmithService({ wallet: d.wallet, inventory: inv, armor: (who) => (who === 1 ? d.armor : d.mate() ? d.armor2() : null) });
   const kaitori = new KaitoriService({
     inventory: inv,
+    wallet: d.wallet,
     day: d.day,
-    dropAtFeet: (who, item, count) => {
-      const at = pos(who);
-      if (at) d.scatter({ x: at.x, y: at.y + DROP_RISE, z: at.z }, [{ item, count }]);
-    },
   });
-  const food = new FoodService({ inventory: inv, vitals: (who) => (who === 1 ? d.vitals1 : d.mate() ? d.vitals2() : null),
+  const food = new FoodService({ inventory: inv, wallet: d.wallet, vitals: (who) => (who === 1 ? d.vitals1 : d.mate() ? d.vitals2() : null),
     munch: (who, kind) => d.foodFx().munch?.(who, kind),
     popped: (who) => d.foodFx().popped?.(who),
   });

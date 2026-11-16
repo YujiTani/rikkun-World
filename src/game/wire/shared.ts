@@ -63,7 +63,7 @@ export const NO_PLATES: { id: number; text: string; x: number; y: number; z: num
 // ゆみの出来事は main が 1 回だけ drain して、weaponFx にも配る
 export const NO_DIG: DigEvent[] = [];
 
-interface Shared {
+export interface Shared {
   /** COOP-1: 2P の もちものと レベル（参加している あいだだけ 中身が ある。やめたら 空） */
   p2: P2State;
   /**

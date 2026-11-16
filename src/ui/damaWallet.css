@@ -1,0 +1,92 @@
+/* ようかいダマの 数（TOWN-1 §3.4。すみの 札・もちもの画面の 帯）。下地は 時計と 同じ HUD の 下地 */
+.dama-corner {
+  position: fixed;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rk-sp-1);
+  padding: var(--rk-sp-2) var(--rk-sp-3);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-m);
+  pointer-events: none;
+}
+.dama-corner[hidden] {
+  display: none;
+}
+.dama-row {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+}
+.dama-art {
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
+  image-rendering: pixelated;
+  flex: none;
+}
+.dama-num,
+.dama-plus {
+  font-size: var(--rk-fs-body);
+  line-height: var(--rk-lh);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--rk-text);
+  text-shadow: var(--rk-text-outline);
+}
+.dama-plus {
+  font-weight: 800;
+  animation: dama-plus-in 300ms var(--rk-ease) 1;
+}
+.dama-plus[hidden] {
+  display: none;
+}
+/* さいごの 30 ステップ（DAMA.wallet.fadeSteps）で うすく きえる */
+.dama-plus[data-fade] {
+  opacity: 0.4;
+  transition: opacity 400ms var(--rk-ease);
+}
+@keyframes dama-plus-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* もちもの画面の 上の 帯（✕ の すぐ 左）。ボタンでは ない */
+.dama-inv {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+  padding: var(--rk-sp-1) var(--rk-sp-3);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-pill);
+  margin-left: auto;
+  flex: none;
+  pointer-events: none;
+}
+.dama-body {
+  display: flex;
+  align-items: baseline;
+  gap: var(--rk-sp-2);
+}
+.dama-label {
+  font-size: var(--rk-fs-small);
+  line-height: var(--rk-lh);
+  color: var(--rk-text);
+}
+.dama-inv .dama-num {
+  text-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dama-plus {
+    animation: none;
+  }
+  .dama-plus[data-fade] {
+    opacity: 1;
+    transition: none;
+  }
+}

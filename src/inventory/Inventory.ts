@@ -2,6 +2,7 @@ import type { Durability, Inventory, ItemId, ItemStack, ItemType, W2Settings, We
 import { W2_SETTING_DEFAULTS } from '../contracts';
 import { maxOwnedOf } from '../content/items/registry';
 import { copyStack, isLow, maxDurability, readPlan, readPower, readWater, readWear } from '../tools/durability';
+import { WALLET_ITEM } from '../dama/walletPort';
 import { HOTBAR_SIZE, INVENTORY_SIZE, ITEM_TYPES, itemType } from './items';
 
 type Slot = ItemStack | null;
@@ -49,6 +50,11 @@ export class InventoryImpl implements Inventory {
   private listeners: Array<() => void> = [];
   /** WEAPON-7: `add` で もちものに 入った（入った 数 > 0）。「手に 入れた」の 記録に つなぐ */
   onAdded: ((item: ItemId, n: number) => void) | null = null;
+  /**
+   * TOWN-1 1.6〔1F〕: ようかいダマ（`yokai_orb`）の 入口。つなげて あれば、どの 道（add・setSlot・setCursor・地面を ひろう）で
+   * 入ろうと しても マスには 入れず、その 人の さいふの 数に かえる（入った 分は すべて 受けとる ＝ あふれ 0）
+   */
+  orbSink: ((n: number) => void) | null = null;
 
   slots(): ReadonlyArray<ItemStack | null> {
     return this.arr;
@@ -127,6 +133,10 @@ export class InventoryImpl implements Inventory {
   }
   setSlot(index: number, stack: ItemStack | null): void {
     if (!Number.isInteger(index) || index < 0 || index >= this.size) throw new Error(`マス番号がおかしい: ${index}`);
+    if (stack && stack.item === WALLET_ITEM && this.orbSink && stack.count > 0) {
+      this.orbSink(Math.floor(stack.count));
+      stack = null;
+    }
     if (!stack || !(stack.count > 0)) {
       this.arr[index] = null;
     } else {
@@ -148,6 +158,10 @@ export class InventoryImpl implements Inventory {
   add(item: ItemId, count: number, opts?: { power?: number; plan?: number }): number {
     const n = Math.floor(count);
     if (!(n > 0)) return 0; // 0 以下は なにもしない（「入った数 = n − 返り値」が マイナスにならないように）
+    if (item === WALLET_ITEM && this.orbSink) {
+      this.orbSink(n); // さいふへ（1.6〔1F〕）。マスには 入れない
+      return 0;
+    }
     // ITEM-FX-1: 持ち物 全体で 持てる 数が きまって いる 物（おまもり = 1）は、いっぱいなら 1 つも 入れない
     const cap = maxOwnedOf(item);
     if (cap !== null) {
@@ -268,6 +282,10 @@ export class InventoryImpl implements Inventory {
   }
   /** カーソルのものを直接かえる（そうびのマスとのやりとり用。M4） */
   setCursor(stack: ItemStack | null): void {
+    if (stack && stack.item === WALLET_ITEM && this.orbSink && stack.count > 0) {
+      this.orbSink(Math.floor(stack.count));
+      stack = null;
+    }
     this.cur = stack && stack.count > 0 ? copyStack(stack) : null;
     this.lifted = -1;
     this.notify();

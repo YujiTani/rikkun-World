@@ -1,4 +1,5 @@
 import type { Inventory, ItemId } from '../../contracts';
+import type { WalletPort } from '../../dama/walletPort';
 import { ITEM_DEFS } from '../../content/items/registry';
 import { RARITY_ORDER, rarityTier } from '../../drops/rarityTable';
 import { chestTableOf } from '../../world/gen/mineChestTable';
@@ -16,7 +17,6 @@ import { SHOP_BOXES, SHOP_GOODS, SHOP_ORDER, SHOP_TUNING, isShopBox, shopGood, t
  */
 
 type Who = 1 | 2;
-const ORB: ItemId = 'yokai_orb';
 
 /** こうかんの 答え（full ＝ 箱を 置く 所が ない。TOWN-1.md §6.1） */
 export type ShopBuyResult = 'ok' | 'short' | 'soldOut' | 'full';
@@ -48,6 +48,8 @@ export interface ShopRow {
 export interface ShopPorts {
   /** その 人の もちもの（2P が 参加して いなければ null） */
   inventory(who: Who): Pick<Inventory, 'add' | 'count' | 'remove'> | null;
+  /** その 人の さいふ（ようかいダマ。1.6〔1F〕。もちものの yokai_orb は 読まない） */
+  wallet: WalletPort;
   /** 入らなかった 物を その 人の 足もとに 落とす（ふつうに ひろえる） */
   dropAtFeet(who: Who, stacks: readonly ShopGive[]): void;
   /** まだ おぼえて いない 家の レシピが ある（レシピの 記録は 世界に 1 つ。なければ まきものは 売り切れ） */
@@ -111,7 +113,7 @@ export class ShopService {
 
   /** もって いる ようかいダマ（2P が いなければ 0） */
   dama(who: Who): number {
-    return this.ports.inventory(who)?.count(ORB) ?? 0;
+    return this.ports.inventory(who) ? this.ports.wallet.count(who) : 0;
   }
 
   /** 売り切れ（まきもので まだの レシピが ない） */
@@ -147,18 +149,18 @@ export class ShopService {
     if (!inv || !SHOP_ORDER.includes(id)) return no('short');
     if (this.soldOut(id)) return no('soldOut');
     const price = priceOf(id);
-    if (inv.count(ORB) < price) return no('short');
+    if (this.ports.wallet.count(who) < price) return no('short');
     const o = this.opens_[who - 1]!;
     if (isShopBox(id)) {
       const spot = this.boxes?.pick() ?? 'blocked';
       if (typeof spot !== 'number') return no('full', spot); // ようかいダマ・回数は かわらない
-      inv.remove(ORB, price);
+      this.ports.wallet.spend(who, price);
       const n = o[id];
       o[id]++;
       this.boxes!.place(spot, id, who, n, boxRoll(id, boxSeed(this.seed, who, id, n)).tier);
       return { status: 'ok', why: null, placed: this.boxes!.list().at(-1)! };
     }
-    inv.remove(ORB, price);
+    this.ports.wallet.spend(who, price);
     const g = shopGood(id)!;
     if (g.kind === 'scroll') o.scroll++;
     this.give(who, id, g.give);

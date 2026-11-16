@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { ArmorSlot, ItemId } from '../../contracts';
 import { ITEM_DEFS } from '../../content/items/registry';
 import { rarityTier } from '../../drops/rarityTable';
-import { InventoryImpl } from '../../inventory/Inventory';
 import { fakeWallet } from '../../dama/walletTestKit';
+import { InventoryImpl } from '../../inventory/Inventory';
 import { ArmorSystemImpl } from '../../craft/ArmorSystem';
 import { createCraftConfig } from '../../craft/config';
 import { SmithService } from './smith';
@@ -102,7 +102,7 @@ describe('AC34 かじやさん', () => {
 
   it('2P が いない ときは 何も ない', () => {
     const inv = new InventoryImpl();
-    const smith = new SmithService({ inventory: (w) => (w === 1 ? inv : null), armor: () => null });
+    const smith = new SmithService({ inventory: (w) => (w === 1 ? inv : null), wallet: fakeWallet(), armor: () => null });
     expect(smith.items(2)).toEqual([]);
     expect(smith.fix(2, 0)).toBe('full');
   });

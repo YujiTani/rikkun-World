@@ -1,4 +1,5 @@
 import type { Inventory, ItemId } from '../../contracts';
+import type { WalletPort } from '../../dama/walletPort';
 import { KAITORI_ROWS, KAITORI_TUNING } from './vendorTable';
 
 /**
@@ -8,7 +9,6 @@ import { KAITORI_ROWS, KAITORI_TUNING } from './vendorTable';
  */
 
 type Who = 1 | 2;
-const ORB: ItemId = 'yokai_orb';
 
 export type KaitoriGiveResult = 'ok' | 'short' | 'cap';
 
@@ -31,10 +31,10 @@ export interface KaitoriState {
 export interface KaitoriPorts {
   /** その 人の もちもの（2P が いなければ null） */
   inventory(who: Who): Pick<Inventory, 'add' | 'count' | 'remove'> | null;
+  /** その 人の さいふ（かいとりの ようかいダマは ここへ。いっぱいでも 足もとに 落とさない。1.6〔1F〕） */
+  wallet: WalletPort;
   /** いまの ゲームの 日（`time.day()`） */
   day(): number;
-  /** 入らなかった ようかいダマを その 人の 足もとに 落とす（TOWN-1.md §5。なくても よい） */
-  dropAtFeet?(who: Who, item: ItemId, count: number): void;
 }
 
 const VERSION = 1;
@@ -103,8 +103,7 @@ export class KaitoriService {
     if (inv.count(item) < need) return 'short';
     inv.remove(item, need);
     this.got[who - 1]!.today++;
-    const left = inv.add(ORB, 1);
-    if (left > 0) this.ports.dropAtFeet?.(who, ORB, left); // いっぱい ＝ 足もと（TOWN-1.md §5）
+    this.ports.wallet.add(who, 1);
     return 'ok';
   }
 

@@ -104,7 +104,7 @@ export type CombatEvent =
   | { type: 'regen'; tick: number; hp: number }
   | { type: 'death'; tick: number; dropped: number[]; /** ITEM-FX-1: おまもりが まもった（なにも おとさない） */ protectedBy?: 'omamori' }
   | { type: 'respawn'; tick: number }
-  | { type: 'pickup'; tick: number; bagId: number };
+  | { type: 'pickup'; tick: number; bagId: number; /** 1.6〔1F〕: ようかいダマ（さいふへ）を ひろった（「ぶくろを とりもどした」には 数えない。音は 同じ） */ wallet?: true };
 
 /** プレイヤーの体力と戦い。担当 C が `src/combat/` で実装する */
 export interface PlayerCombat {
